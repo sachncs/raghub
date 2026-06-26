@@ -31,13 +31,13 @@ class AppSettings:
     log_level: str = "INFO"
     worker_backend: str = "threadpool"
     profile_path: Path | None = None
+    require_zvec: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
 
     def ensure_dirs(self) -> None:
         """Create required directories."""
 
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.zvec_dir.mkdir(parents=True, exist_ok=True)
         self.registry_path.parent.mkdir(parents=True, exist_ok=True)
         self.sessions_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -77,6 +77,7 @@ def load_settings(profile: str | None = None) -> AppSettings:
         "retrieval_mode": os.getenv("RAG_RETRIEVAL_MODE", payload.get("retrieval_mode", "sync")),
         "log_level": os.getenv("RAG_LOG_LEVEL", payload.get("log_level", "INFO")),
         "worker_backend": os.getenv("RAG_WORKER_BACKEND", payload.get("worker_backend", "threadpool")),
+        "require_zvec": os.getenv("RAG_REQUIRE_ZVEC", "").lower() in ("1", "true", "yes") or payload.get("require_zvec", False),
     }
     settings = AppSettings(
         **env_payload,

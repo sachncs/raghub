@@ -80,6 +80,8 @@ class DocumentVersion(BaseModel):
     visibility: Visibility = Visibility.ORGANIZATION
     status: DocumentLifecycleStatus = DocumentLifecycleStatus.NEW
     filename: str = ""
+    file_type: str = ""
+    mime_type: str = ""
     chunk_count: int = 0
     chunk_ids: list[str] = Field(default_factory=list)
     error: str | None = None
@@ -91,7 +93,8 @@ class ChunkRecord(BaseModel):
     chunk_id: str = Field(default_factory=lambda: str(uuid4()))
     document_id: str
     version: int
-    page: int
+    page: int = 0
+    source_location: str = ""
     section: str = ""
     company: str
     owner: str

@@ -2,7 +2,7 @@
 
 from .chunker import ChunkingPlan, build_chunk_records, chunk_words, extract_pdf_pages, normalize_text
 from .lifecycle import DocumentLifecycleManager
-from .validation import validate_pdf_upload
+from .validation import validate_upload, detect_mime_type
 from .versioning import new_version
 
 __all__ = [
@@ -10,8 +10,9 @@ __all__ = [
     "DocumentLifecycleManager",
     "build_chunk_records",
     "chunk_words",
+    "detect_mime_type",
     "extract_pdf_pages",
     "new_version",
     "normalize_text",
-    "validate_pdf_upload",
+    "validate_upload",
 ]

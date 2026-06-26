@@ -18,19 +18,19 @@ class JsonSessionStore:
     def __init__(self, path: Path, timeout_seconds: int) -> None:
         self.path = path
         self.timeout = timedelta(seconds=timeout_seconds)
-        self._lock = RLock()
-        self._sessions: dict[str, SessionRecord] = {}
-        self._load()
+        self.lock = RLock()
+        self.sessions: dict[str, SessionRecord] = {}
+        self.load()
 
-    def _load(self) -> None:
+    def load(self) -> None:
         payload = load_json(self.path, default={"sessions": {}})
         for token, raw in payload.get("sessions", {}).items():
-            self._sessions[token] = SessionRecord.model_validate(raw)
+            self.sessions[token] = SessionRecord.model_validate(raw)
 
-    def _save(self) -> None:
+    def save(self) -> None:
         atomic_write_json(
             self.path,
-            {"sessions": {token: session.model_dump(mode="json") for token, session in self._sessions.items()}},
+            {"sessions": {token: session.model_dump(mode="json") for token, session in self.sessions.items()}},
         )
 
     def create(self, user_id: str) -> SessionRecord:
@@ -45,44 +45,44 @@ class JsonSessionStore:
             expires_at=now + self.timeout,
             last_seen_at=now,
         )
-        with self._lock:
-            self._sessions[session.token] = session
-            self._save()
+        with self.lock:
+            self.sessions[session.token] = session
+            self.save()
         return session
 
     def resolve(self, token: str) -> SessionRecord | None:
         """Resolve a token to a live session."""
 
-        with self._lock:
-            session = self._sessions.get(token)
+        with self.lock:
+            session = self.sessions.get(token)
             if session is None:
                 return None
             now = datetime.now(timezone.utc)
             if now > session.expires_at:
-                self._sessions.pop(token, None)
-                self._save()
+                self.sessions.pop(token, None)
+                self.save()
                 return None
             session.last_seen_at = now
             session.expires_at = now + self.timeout
-            self._save()
+            self.save()
             return session
 
     def invalidate(self, token: str) -> None:
         """Invalidate a token."""
 
-        with self._lock:
-            self._sessions.pop(token, None)
-            self._save()
+        with self.lock:
+            self.sessions.pop(token, None)
+            self.save()
 
     def append_turn(self, token: str, turn: ConversationTurn) -> None:
         """Append a turn to session memory."""
 
-        with self._lock:
+        with self.lock:
             session = self.resolve(token)
             if session is None:
                 raise AuthenticationError("Invalid session")
             session.history.append(turn)
-            self._save()
+            self.save()
 
     def load_turns(self, token: str) -> list[ConversationTurn]:
         """Load all conversation turns for a session."""
@@ -93,9 +93,9 @@ class JsonSessionStore:
     def clear_turns(self, token: str) -> None:
         """Clear a session conversation history."""
 
-        with self._lock:
+        with self.lock:
             session = self.resolve(token)
             if session is None:
                 raise AuthenticationError("Invalid session")
             session.history.clear()
-            self._save()
+            self.save()
