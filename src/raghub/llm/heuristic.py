@@ -21,6 +21,8 @@ class HeuristicLLMProvider(BaseLLMProvider):
         conversation: Sequence[ConversationTurn],
         context: Sequence[str],
         question: str,
+        image_paths: list[str] | None = None,
+        session_history: list[dict] | None = None,
     ) -> str:
         if not context:
             return "No accessible source chunks were found for this question."
