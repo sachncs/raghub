@@ -42,7 +42,7 @@ def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):
         "Tag: py3-none-any\n",
         encoding="utf-8",
     )
-    (dist / "top_level.txt").write_text("dynamic_rag\napp\n", encoding="utf-8")
+    (dist / "top_level.txt").write_text("raghub\napp\n", encoding="utf-8")
     (dist / "RECORD").write_text("", encoding="utf-8")
     return DIST_INFO
 
@@ -89,7 +89,7 @@ def _build_editable_wheel(wheel_directory: str) -> str:
             ).encode("utf-8"),
             records,
         )
-        _write_file(zf, f"{dist_info}/top_level.txt", b"dynamic_rag\napp\n", records)
+        _write_file(zf, f"{dist_info}/top_level.txt", b"raghub\napp\n", records)
         records.append((f"{dist_info}/RECORD", "", ""))
         record_lines = []
         for path, digest, size in records:

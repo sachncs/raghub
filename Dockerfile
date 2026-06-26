@@ -11,5 +11,5 @@ RUN pip install --no-cache-dir -e ".[api,ui]"
 
 EXPOSE 8000 8501
 
-CMD ["python", "-m", "dynamic_rag.cli", "health"]
+CMD ["python", "-m", "raghub.cli", "health"]
 

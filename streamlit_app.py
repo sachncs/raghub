@@ -8,7 +8,7 @@ except Exception as exc:  # pragma: no cover - UI only
         "Install dependencies and run `streamlit run streamlit_app.py`."
     ) from exc
 
-from dynamic_rag.core.container import build_application
+from raghub.core.container import build_application
 
 
 app_service = build_application()
