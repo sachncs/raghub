@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from raghub.core.container import build_application
+from raghub.api.admin import router as admin_router
 from raghub.api.dependencies import get_application
+from raghub.api.rate_limiter import RateLimiterMiddleware
 from raghub.exceptions import AuthenticationError, AuthorizationError, DocumentError, StorageError
+from raghub.ingestion.background import BackgroundIngestionService
 from raghub.models.api import AuthLoginRequest, AuthLoginResponse, DocumentUploadResponse, QueryRequest, QueryResponse
 from raghub.services.application import DynamicRagApplication
 
@@ -19,30 +22,34 @@ def create_app(application: DynamicRagApplication | None = None) -> FastAPI:
 
     app = FastAPI(title="Dynamic RAG Platform", version="1.0.0")
     app.state.application = application or build_application()
+    app.state.background_ingestion = BackgroundIngestionService(max_workers=2)
+
+    app.add_middleware(RateLimiterMiddleware, rate=10.0, burst=20)
+    app.include_router(admin_router)
 
     @app.exception_handler(AuthenticationError)
-    def _authentication_error(
+    def authentication_error_handler(
         _: Any,
         exc: AuthenticationError,
     ) -> JSONResponse:
         return JSONResponse(status_code=401, content={"detail": str(exc)})
 
     @app.exception_handler(AuthorizationError)
-    def _authorization_error(
+    def authorization_error_handler(
         _: Any,
         exc: AuthorizationError,
     ) -> JSONResponse:
         return JSONResponse(status_code=403, content={"detail": str(exc)})
 
     @app.exception_handler(DocumentError)
-    def _document_error(
+    def document_error_handler(
         _: Any,
         exc: DocumentError,
     ) -> JSONResponse:
         return JSONResponse(status_code=400, content={"detail": str(exc)})
 
     @app.exception_handler(StorageError)
-    def _storage_error(
+    def storage_error_handler(
         _: Any,
         exc: StorageError,
     ) -> JSONResponse:
@@ -159,6 +166,28 @@ def create_app(application: DynamicRagApplication | None = None) -> FastAPI:
 
         response = app_service.query(token=payload.session_token, question=payload.question)
         return response
+
+    @app.post("/ingest/async")
+    async def ingest_async(
+        file: UploadFile = File(...),
+        company: str | None = Form(default=None),
+        authorization: str | None = Header(default=None),
+        app_service: DynamicRagApplication = Depends(get_application),
+        request: Request = Depends(lambda r: r),
+    ) -> dict[str, str]:
+        """Queue a document for background ingestion."""
+
+        token = _require_bearer(authorization)
+        content = await file.read()
+        background = request.app.state.background_ingestion
+        job_id = background.submit(
+            app_service.upload_document,
+            token=token,
+            filename=file.filename or "upload.pdf",
+            content=content,
+            company=company,
+        )
+        return {"job_id": job_id}
 
     return app
 
