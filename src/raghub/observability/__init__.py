@@ -1,7 +1,7 @@
 """Logging, metrics, and tracing helpers."""
 
 from .logging import StructuredLogger, build_logger
-from .metrics import NullMetrics
-from .tracing import span
+from .metrics import NullMetrics, PrometheusMetrics
+from .tracing import OpenTelemetryTracer
 
-__all__ = ["NullMetrics", "StructuredLogger", "build_logger", "span"]
+__all__ = ["NullMetrics", "OpenTelemetryTracer", "PrometheusMetrics", "StructuredLogger", "build_logger"]
