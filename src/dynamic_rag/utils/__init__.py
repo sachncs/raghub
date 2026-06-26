@@ -1,0 +1,28 @@
+"""Utility helpers."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+import json
+import os
+from typing import Any
+
+
+def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    """Atomically write JSON to disk."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile("w", delete=False, dir=path.parent, encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True, default=str)
+        temp_name = handle.name
+    os.replace(temp_name, path)
+
+
+def load_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Load JSON, returning a default if the file does not exist."""
+
+    if not path.exists():
+        return {} if default is None else default
+    return json.loads(path.read_text(encoding="utf-8"))
+

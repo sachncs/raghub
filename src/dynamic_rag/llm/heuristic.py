@@ -1,0 +1,29 @@
+"""Deterministic fallback LLM used for offline development and tests."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+
+from dynamic_rag.llm.base import BaseLLMProvider
+from dynamic_rag.models import ConversationTurn
+
+
+class HeuristicLLMProvider(BaseLLMProvider):
+    """Composes an answer from retrieved context."""
+
+    def __init__(self, model_name: str = "heuristic-llm") -> None:
+        self.model_name = model_name
+
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        conversation: Sequence[ConversationTurn],
+        context: Sequence[str],
+        question: str,
+    ) -> str:
+        if not context:
+            return "No accessible source chunks were found for this question."
+        prefix = " ".join(fragment.strip() for fragment in context[:3] if fragment.strip())
+        return prefix[:1000]
+

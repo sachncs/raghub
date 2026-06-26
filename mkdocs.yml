@@ -1,0 +1,10 @@
+site_name: Dynamic RAG Framework
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - API: api.md
+  - Deployment: deployment.md
+  - Future: future.md
+theme:
+  name: readthedocs
+

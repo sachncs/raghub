@@ -1,0 +1,12 @@
+{
+  "alice@email.com": {
+    "companies": ["A"]
+  },
+  "bob@email.com": {
+    "companies": ["B", "C"]
+  },
+  "charlie@email.com": {
+    "companies": ["D", "E"]
+  }
+}
+

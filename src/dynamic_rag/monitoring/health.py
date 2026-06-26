@@ -1,0 +1,24 @@
+"""Health check service."""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+class HealthService:
+    """Aggregates component health."""
+
+    def __init__(self, components: dict[str, Any]) -> None:
+        self.components = components
+
+    def check(self) -> dict[str, Any]:
+        statuses = {}
+        healthy = True
+        for name, component in self.components.items():
+            try:
+                statuses[name] = component.health() if hasattr(component, "health") else {"status": "ok"}
+            except Exception as exc:  # pragma: no cover - defensive path
+                statuses[name] = {"status": "error", "error": str(exc)}
+                healthy = False
+        return {"status": "ok" if healthy else "degraded", "components": statuses}
+

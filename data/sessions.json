@@ -1,0 +1,376 @@
+{
+  "sessions": {
+    "167f4aa3-9564-41a4-aabd-f2956b8c7426": {
+      "created_at": "2026-06-26T07:26:39.375002Z",
+      "expires_at": "2026-06-26T08:26:39.381223Z",
+      "history": [
+        {
+          "answer": "Tesla delivered record vehicle margins and revenue for Q4.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What were the Tesla margins?",
+          "timestamp": "2026-06-26T07:26:39.381221Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:26:39.381223Z",
+      "session_id": "c15cc34e-fa83-4125-b761-f177eb3062ea",
+      "token": "167f4aa3-9564-41a4-aabd-f2956b8c7426",
+      "user_id": "9347271f-269b-42d2-a45e-824529778236"
+    },
+    "16a390eb-b586-4be3-8430-db7329453ef5": {
+      "created_at": "2026-06-26T07:26:39.358189Z",
+      "expires_at": "2026-06-26T08:26:39.358189Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:26:39.358189Z",
+      "session_id": "deaea7e1-d83b-4e1e-8d7e-d10c388dd5a4",
+      "token": "16a390eb-b586-4be3-8430-db7329453ef5",
+      "user_id": "186234e0-c565-4fe1-beda-d0edd1fb1bde"
+    },
+    "291751fc-7365-4553-95cd-80ed03df6326": {
+      "created_at": "2026-06-26T07:12:01.608244Z",
+      "expires_at": "2026-06-26T08:12:01.611476Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:12:01.611476Z",
+      "session_id": "099c2567-a303-42e9-8771-cfdc9e21a737",
+      "token": "291751fc-7365-4553-95cd-80ed03df6326",
+      "user_id": "02627e7c-8594-4589-b855-33e1922a9b68"
+    },
+    "37382eb9-6a36-48af-82ad-9873fc4441bb": {
+      "created_at": "2026-06-26T07:17:52.599253Z",
+      "expires_at": "2026-06-26T08:17:52.599253Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:17:52.599253Z",
+      "session_id": "c648e34c-fc73-45b9-80e1-b40e64b15f51",
+      "token": "37382eb9-6a36-48af-82ad-9873fc4441bb",
+      "user_id": "f65d63fb-2fb0-4f9c-a2ae-59460e68b48b"
+    },
+    "49e017c5-0a4c-4eb8-b87b-80c9b6f092f6": {
+      "created_at": "2026-06-26T07:12:01.606805Z",
+      "expires_at": "2026-06-26T08:12:01.606805Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:12:01.606805Z",
+      "session_id": "0a3cf57a-afe2-47ce-b6cc-e172314effbf",
+      "token": "49e017c5-0a4c-4eb8-b87b-80c9b6f092f6",
+      "user_id": "df175488-ccec-4a14-85ba-675da90abeac"
+    },
+    "635409a2-2422-4011-934b-cce773d09e04": {
+      "created_at": "2026-06-26T07:20:43.764842Z",
+      "expires_at": "2026-06-26T08:20:43.768375Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:20:43.768375Z",
+      "session_id": "46d472cb-58c7-4749-85ba-e540e5a9a95a",
+      "token": "635409a2-2422-4011-934b-cce773d09e04",
+      "user_id": "d06f1f7c-a58e-4226-992c-2ee215767b4e"
+    },
+    "65e18fec-ac9a-45fd-937f-958eb9f1bdee": {
+      "created_at": "2026-06-26T07:26:39.360079Z",
+      "expires_at": "2026-06-26T08:26:39.368573Z",
+      "history": [
+        {
+          "answer": "Apple revenue increased in Q4 2025 and services grew strongly.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What happened to Apple revenue?",
+          "timestamp": "2026-06-26T07:26:39.366454Z"
+        },
+        {
+          "answer": "No access to that document.",
+          "metadata": {
+            "denied": true
+          },
+          "question": "What did Microsoft say?",
+          "timestamp": "2026-06-26T07:26:39.367767Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:26:39.368573Z",
+      "session_id": "8936617d-d92c-48df-9d76-e51e5bb97dad",
+      "token": "65e18fec-ac9a-45fd-937f-958eb9f1bdee",
+      "user_id": "471cfa30-9982-49b9-872d-b82e9bbd30d6"
+    },
+    "67145e54-e4a4-407a-ab72-a88ff5661c12": {
+      "created_at": "2026-06-26T07:26:59.530974Z",
+      "expires_at": "2026-06-26T08:26:59.530974Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:26:59.530974Z",
+      "session_id": "c140a0f5-4f14-48a7-821d-b4efb42614d6",
+      "token": "67145e54-e4a4-407a-ab72-a88ff5661c12",
+      "user_id": "580d0b95-429b-4d22-b9ae-28383ceb252c"
+    },
+    "6e849201-34cf-43ed-b0d8-3559e6c02897": {
+      "created_at": "2026-06-26T07:11:53.815034Z",
+      "expires_at": "2026-06-26T08:11:53.815034Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:11:53.815034Z",
+      "session_id": "0584a5c4-697f-4fc8-b805-a96a532b3e5f",
+      "token": "6e849201-34cf-43ed-b0d8-3559e6c02897",
+      "user_id": "ebaa6e11-86cb-4886-a106-b5927696e893"
+    },
+    "74beae7c-c406-4aae-b960-08f80603c5e8": {
+      "created_at": "2026-06-26T07:26:59.549207Z",
+      "expires_at": "2026-06-26T08:26:59.555989Z",
+      "history": [
+        {
+          "answer": "Tesla delivered record vehicle margins and revenue for Q4.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What were the Tesla margins?",
+          "timestamp": "2026-06-26T07:26:59.555986Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:26:59.555989Z",
+      "session_id": "6bd075f2-f0e4-4299-b0b4-a691060e3edb",
+      "token": "74beae7c-c406-4aae-b960-08f80603c5e8",
+      "user_id": "a2675865-e955-47fa-8cc3-011f65f9e40e"
+    },
+    "785967f2-5dee-42c5-90e3-2527dfe4fe2b": {
+      "created_at": "2026-06-26T07:20:43.764284Z",
+      "expires_at": "2026-06-26T08:20:43.772273Z",
+      "history": [
+        {
+          "answer": "Apple revenue increased in Q4 2025 and services grew strongly.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What happened to Apple revenue?",
+          "timestamp": "2026-06-26T07:20:43.770434Z"
+        },
+        {
+          "answer": "No access to that document.",
+          "metadata": {
+            "denied": true
+          },
+          "question": "What did Microsoft say?",
+          "timestamp": "2026-06-26T07:20:43.771600Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:20:43.772273Z",
+      "session_id": "4ac67071-92ae-4053-936d-0573c1d75cbf",
+      "token": "785967f2-5dee-42c5-90e3-2527dfe4fe2b",
+      "user_id": "9a4aafb2-3cde-4614-859f-3c2d14fd0e6b"
+    },
+    "7e92cbb2-9063-4de5-904a-06324422ac72": {
+      "created_at": "2026-06-26T07:26:39.360617Z",
+      "expires_at": "2026-06-26T08:26:39.364082Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:26:39.364082Z",
+      "session_id": "b6f1424a-e16c-4fa2-8b0a-ddb2f7529f19",
+      "token": "7e92cbb2-9063-4de5-904a-06324422ac72",
+      "user_id": "5aef18cf-0d1e-40e5-9762-949c369527e4"
+    },
+    "801de03a-8d46-4dd2-b6ed-4776106b0ab2": {
+      "created_at": "2026-06-26T07:26:59.533446Z",
+      "expires_at": "2026-06-26T08:26:59.537430Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:26:59.537430Z",
+      "session_id": "7bbf1700-1434-415a-b53e-bbc4005e6c18",
+      "token": "801de03a-8d46-4dd2-b6ed-4776106b0ab2",
+      "user_id": "689aa326-add9-4d55-9d20-59a512f84ebe"
+    },
+    "9980b5b9-2d3e-4f04-a27f-40554d076fa4": {
+      "created_at": "2026-06-26T07:20:43.762526Z",
+      "expires_at": "2026-06-26T08:20:43.762526Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:20:43.762526Z",
+      "session_id": "5abfe4c4-3c87-4f33-b66e-e8f574941112",
+      "token": "9980b5b9-2d3e-4f04-a27f-40554d076fa4",
+      "user_id": "fb7fe125-d105-47b0-b8b5-1c853614d27d"
+    },
+    "a042ffce-8cc3-46b5-bde1-3bbaae6c6014": {
+      "created_at": "2026-06-26T07:17:52.602445Z",
+      "expires_at": "2026-06-26T08:17:52.605681Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:17:52.605681Z",
+      "session_id": "618e9bfb-b4fe-4607-9f6c-eb80e7587b6b",
+      "token": "a042ffce-8cc3-46b5-bde1-3bbaae6c6014",
+      "user_id": "985b2d8f-804b-4de8-a4af-4e2ceab6cc22"
+    },
+    "a5e1ccce-2478-4c03-8fdb-81cdaf89f534": {
+      "created_at": "2026-06-26T07:17:52.601966Z",
+      "expires_at": "2026-06-26T08:17:52.609116Z",
+      "history": [
+        {
+          "answer": "Apple revenue increased in Q4 2025 and services grew strongly.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What happened to Apple revenue?",
+          "timestamp": "2026-06-26T07:17:52.607513Z"
+        },
+        {
+          "answer": "No access to that document.",
+          "metadata": {
+            "denied": true
+          },
+          "question": "What did Microsoft say?",
+          "timestamp": "2026-06-26T07:17:52.608571Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:17:52.609116Z",
+      "session_id": "7d9d95ce-6d10-4ef9-b421-3b7408be041c",
+      "token": "a5e1ccce-2478-4c03-8fdb-81cdaf89f534",
+      "user_id": "79c9f7ef-5e0e-4509-8942-3920d805cc11"
+    },
+    "c548e8dc-9f3a-4a60-88c8-0ec10f3af726": {
+      "created_at": "2026-06-26T07:12:01.607925Z",
+      "expires_at": "2026-06-26T08:12:01.614591Z",
+      "history": [
+        {
+          "answer": "Apple revenue increased in Q4 2025 and services grew strongly.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What happened to Apple revenue?",
+          "timestamp": "2026-06-26T07:12:01.613236Z"
+        },
+        {
+          "answer": "No access to that document.",
+          "metadata": {
+            "denied": true
+          },
+          "question": "What did Microsoft say?",
+          "timestamp": "2026-06-26T07:12:01.613994Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:12:01.614591Z",
+      "session_id": "5f870c69-5962-4a17-a6eb-55aea91a6049",
+      "token": "c548e8dc-9f3a-4a60-88c8-0ec10f3af726",
+      "user_id": "2c282085-efe5-4fb7-bf0e-a84a81f8ecdc"
+    },
+    "c96d0df8-26d6-47ac-b47d-1c3c294ac9dc": {
+      "created_at": "2026-06-26T07:17:52.615778Z",
+      "expires_at": "2026-06-26T08:17:52.621570Z",
+      "history": [
+        {
+          "answer": "Tesla delivered record vehicle margins and revenue for Q4.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What were the Tesla margins?",
+          "timestamp": "2026-06-26T07:17:52.621568Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:17:52.621570Z",
+      "session_id": "6241162f-5ba6-4c7a-9b85-411b1b55a47a",
+      "token": "c96d0df8-26d6-47ac-b47d-1c3c294ac9dc",
+      "user_id": "621dbf09-0794-41c3-b9c1-6c985196dca4"
+    },
+    "c9e2c7ec-bdd9-4399-8e82-6f85c61ce70c": {
+      "created_at": "2026-06-26T07:12:01.621235Z",
+      "expires_at": "2026-06-26T08:12:01.627797Z",
+      "history": [
+        {
+          "answer": "Tesla delivered record vehicle margins and revenue for Q4.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What were the Tesla margins?",
+          "timestamp": "2026-06-26T07:12:01.627795Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:12:01.627797Z",
+      "session_id": "1993e08c-3b24-4ce5-8355-66b6b4223fad",
+      "token": "c9e2c7ec-bdd9-4399-8e82-6f85c61ce70c",
+      "user_id": "f277761a-8aa2-4159-94b3-a4522a7d268c"
+    },
+    "caa12f70-5ac4-4856-9acd-b45234b11d10": {
+      "created_at": "2026-06-26T07:11:53.815940Z",
+      "expires_at": "2026-06-26T08:11:53.821250Z",
+      "history": [
+        {
+          "answer": "Apple revenue increased in Q4 2025 and services grew strongly.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What happened to Apple revenue?",
+          "timestamp": "2026-06-26T07:11:53.820327Z"
+        },
+        {
+          "answer": "No access to that document.",
+          "metadata": {
+            "denied": true
+          },
+          "question": "What did Microsoft say?",
+          "timestamp": "2026-06-26T07:11:53.820842Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:11:53.821250Z",
+      "session_id": "5650c1b0-2e63-46ea-8ab8-b0f902072f11",
+      "token": "caa12f70-5ac4-4856-9acd-b45234b11d10",
+      "user_id": "6d3dc03e-8364-403d-89ab-18570579ee70"
+    },
+    "d78a7a40-8f4b-404a-8410-b0be2d397f48": {
+      "created_at": "2026-06-26T07:20:43.778850Z",
+      "expires_at": "2026-06-26T08:20:43.784881Z",
+      "history": [
+        {
+          "answer": "Tesla delivered record vehicle margins and revenue for Q4.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What were the Tesla margins?",
+          "timestamp": "2026-06-26T07:20:43.784879Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:20:43.784881Z",
+      "session_id": "7f6940a7-cfc6-490b-b24b-a54dc13a0790",
+      "token": "d78a7a40-8f4b-404a-8410-b0be2d397f48",
+      "user_id": "131df524-45b4-416d-800b-023a67c1876c"
+    },
+    "dc091e3e-57df-442d-ad46-753c67649406": {
+      "created_at": "2026-06-26T07:11:53.843056Z",
+      "expires_at": "2026-06-26T08:11:53.847548Z",
+      "history": [
+        {
+          "answer": "Tesla delivered record vehicle margins and revenue for Q4.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What were the Tesla margins?",
+          "timestamp": "2026-06-26T07:11:53.847547Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:11:53.847548Z",
+      "session_id": "a5d5ec2b-8890-4780-95f6-248b829e8704",
+      "token": "dc091e3e-57df-442d-ad46-753c67649406",
+      "user_id": "03955882-9399-47b4-8900-f8c1e71a26e5"
+    },
+    "ef16180b-b87f-4ea2-92f4-b0997a78f4ac": {
+      "created_at": "2026-06-26T07:11:53.816523Z",
+      "expires_at": "2026-06-26T08:11:53.818951Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T07:11:53.818951Z",
+      "session_id": "b46319d9-ca71-4fdf-8103-ddaf13f9362b",
+      "token": "ef16180b-b87f-4ea2-92f4-b0997a78f4ac",
+      "user_id": "803bff9c-7e58-4fc2-8b46-13dc160d7a8d"
+    },
+    "f6c5b0aa-fef2-40f0-8513-82ebefd0368e": {
+      "created_at": "2026-06-26T07:26:59.532813Z",
+      "expires_at": "2026-06-26T08:26:59.542371Z",
+      "history": [
+        {
+          "answer": "Apple revenue increased in Q4 2025 and services grew strongly.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What happened to Apple revenue?",
+          "timestamp": "2026-06-26T07:26:59.540001Z"
+        },
+        {
+          "answer": "No access to that document.",
+          "metadata": {
+            "denied": true
+          },
+          "question": "What did Microsoft say?",
+          "timestamp": "2026-06-26T07:26:59.541487Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T07:26:59.542371Z",
+      "session_id": "c8140ae1-9f71-4d2b-9d7c-cf6bbad72139",
+      "token": "f6c5b0aa-fef2-40f0-8513-82ebefd0368e",
+      "user_id": "6133ae80-43df-4ce0-86d4-112fb833445f"
+    }
+  }
+}

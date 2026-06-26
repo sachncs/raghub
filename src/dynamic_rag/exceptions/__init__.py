@@ -1,0 +1,44 @@
+"""Custom exception hierarchy for the Dynamic RAG framework."""
+
+from __future__ import annotations
+
+
+class DynamicRagError(Exception):
+    """Base class for all package errors."""
+
+
+class AuthenticationError(DynamicRagError):
+    """Raised when authentication fails."""
+
+
+class AuthorizationError(DynamicRagError):
+    """Raised when a caller lacks permission for an action."""
+
+
+class EmbeddingError(DynamicRagError):
+    """Raised when text embedding fails."""
+
+
+class RetrievalError(DynamicRagError):
+    """Raised when retrieval fails."""
+
+
+class DocumentError(DynamicRagError):
+    """Raised when document validation or lifecycle management fails."""
+
+
+class IndexingError(DynamicRagError):
+    """Raised when indexing or persistence fails."""
+
+
+class PromptError(DynamicRagError):
+    """Raised when prompt construction fails."""
+
+
+class LLMError(DynamicRagError):
+    """Raised when LLM generation fails."""
+
+
+class StorageError(DynamicRagError):
+    """Raised when durable storage fails."""
+
