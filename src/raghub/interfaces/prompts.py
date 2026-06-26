@@ -1,0 +1,24 @@
+"""Prompt construction contract."""
+
+from __future__ import annotations
+
+from typing import Protocol, Sequence
+
+from raghub.models import ConversationTurn, ChunkRecord
+
+
+class PromptBuilder(Protocol):
+    """Builds structured prompts without manual concatenation."""
+
+    def build_system_prompt(self) -> str:
+        """Return the system prompt."""
+
+    def build_messages(
+        self,
+        *,
+        conversation: Sequence[ConversationTurn],
+        retrieved_chunks: Sequence[ChunkRecord],
+        question: str,
+    ) -> list[dict[str, str]]:
+        """Return structured prompt messages."""
+

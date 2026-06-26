@@ -4,7 +4,7 @@
 
 ```bash
 pip install -e ".[api,ui,dev]"
-uvicorn dynamic_rag.api.app:app --reload
+uvicorn raghub.api.app:app --reload
 streamlit run streamlit_app.py
 ```
 

@@ -6,9 +6,9 @@ from fastapi.testclient import TestClient
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
-from dynamic_rag.api.app import create_app
-from dynamic_rag.core.rbac import allowed_company_filter
-from dynamic_rag.core.container import build_application
+from raghub.api.app import create_app
+from raghub.core.rbac import allowed_company_filter
+from raghub.core.container import build_application
 
 
 def make_pdf(text: str) -> bytes:

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dynamic_rag.core.document_state import DocumentStateMachine
-from dynamic_rag.embeddings.hashing import HashingEmbeddingProvider
-from dynamic_rag.models import DocumentLifecycleStatus
-from dynamic_rag.core.rbac import allowed_company_filter
-from dynamic_rag.models import UserPrincipal
-from dynamic_rag.vectorstore.memory import InMemoryVectorStore
+from raghub.core.document_state import DocumentStateMachine
+from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.models import DocumentLifecycleStatus
+from raghub.core.rbac import allowed_company_filter
+from raghub.models import UserPrincipal
+from raghub.vectorstore.memory import InMemoryVectorStore
 
 
 def test_state_machine_allows_valid_transition() -> None:
@@ -18,7 +18,7 @@ def test_embedding_and_vectorstore_filter() -> None:
     embedder = HashingEmbeddingProvider()
     vector = embedder.embed_text("apple revenue")
     store = InMemoryVectorStore()
-    from dynamic_rag.models import ChunkRecord, Classification
+    from raghub.models import ChunkRecord, Classification
 
     chunk = ChunkRecord(
         document_id="doc-1",

@@ -11,7 +11,7 @@ Dynamic RAG is a modular Python framework for multi-user retrieval augmented gen
 ## Package Layout
 
 ```text
-dynamic_rag/
+raghub/
   api/
   auth/
   conversation/
