@@ -1,0 +1,2 @@
+sentence-transformers>=3
+tiktoken>=0.5
