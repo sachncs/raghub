@@ -11,16 +11,22 @@ from raghub.vectorstore.base import BaseVectorStore
 from raghub.vectorstore.memory import InMemoryVectorStore
 
 
-class _RealZvecBackend(BaseVectorStore):
+class RealZvecBackend(BaseVectorStore):
     """Adapter around the Alibaba Zvec Python API."""
 
     def __init__(self, zvec_module: Any, path: str, embedding_dim: int) -> None:
         self.zvec = zvec_module
         self.path = path
         self.embedding_dim = embedding_dim
-        self.collection = self._open_collection()
+        self.collection = self.open_collection()
 
-    def _open_collection(self) -> Any:
+    def open_collection(self) -> Any:
+        import os
+
+        lock_path = os.path.join(self.path, "LOCK")
+        if os.path.exists(lock_path):
+            return self.zvec.open(path=self.path)
+
         schema = self.zvec.CollectionSchema(
             name="documents",
             fields=[
@@ -97,7 +103,7 @@ class _RealZvecBackend(BaseVectorStore):
             topk=top_k,
             filter=metadata_filter,
         )
-        return self._normalize_search_result(result)
+        return self.normalize_search_result(result)
 
     def hybrid_search(
         self,
@@ -115,7 +121,7 @@ class _RealZvecBackend(BaseVectorStore):
     def health(self) -> dict[str, Any]:
         return {"status": "ok", "backend": "zvec", "stats": getattr(self.collection, "stats", {})}
 
-    def _normalize_search_result(self, result: Any) -> list[dict[str, Any]]:
+    def normalize_search_result(self, result: Any) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []
         if result is None:
             return normalized
@@ -150,42 +156,47 @@ class _RealZvecBackend(BaseVectorStore):
 class ZvecVectorStore(BaseVectorStore):
     """Zvec adapter with in-memory fallback when the dependency is unavailable."""
 
-    def __init__(self, path: str, embedding_dim: int) -> None:
+    def __init__(self, path: str, embedding_dim: int, require_zvec: bool = False) -> None:
         self.path = path
         self.embedding_dim = embedding_dim
-        self._backend: BaseVectorStore
-        self._zvec = None
-        self._backend = self._create_backend()
+        self.require_zvec = require_zvec
+        self.backend: BaseVectorStore
+        self.zvec_module = None
+        self.backend = self.create_backend()
 
-    def _create_backend(self) -> BaseVectorStore:
+    def create_backend(self) -> BaseVectorStore:
         try:
             import zvec  # type: ignore
 
-            self._zvec = zvec
-            return _RealZvecBackend(zvec, self.path, self.embedding_dim)
-        except Exception:
+            self.zvec_module = zvec
+            return RealZvecBackend(zvec, self.path, self.embedding_dim)
+        except ImportError as exc:
+            if self.require_zvec:
+                raise RuntimeError(
+                    "ZVec is required in production mode but could not be imported"
+                ) from exc
             return InMemoryVectorStore()
 
     def create_collection(self) -> None:
-        self._backend.create_collection()
+        self.backend.create_collection()
 
     def insert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> None:
-        self._backend.insert(chunks, vectors)
+        self.backend.insert(chunks, vectors)
 
     def upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> None:
-        self._backend.upsert(chunks, vectors)
+        self.backend.upsert(chunks, vectors)
 
     def delete(self, chunk_ids: Sequence[str]) -> None:
-        self._backend.delete(chunk_ids)
+        self.backend.delete(chunk_ids)
 
     def delete_document(self, document_id: str) -> None:
-        self._backend.delete_document(document_id)
+        self.backend.delete_document(document_id)
 
     def delete_version(self, document_id: str, version: int) -> None:
-        self._backend.delete_version(document_id, version)
+        self.backend.delete_version(document_id, version)
 
     def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str) -> list[dict[str, Any]]:
-        return self._backend.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
+        return self.backend.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     def hybrid_search(
         self,
@@ -195,10 +206,10 @@ class ZvecVectorStore(BaseVectorStore):
         top_k: int,
         metadata_filter: str,
     ) -> list[dict[str, Any]]:
-        return self._backend.hybrid_search(query=query, vector=vector, top_k=top_k, metadata_filter=metadata_filter)
+        return self.backend.hybrid_search(query=query, vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     def optimize(self) -> None:
-        self._backend.optimize()
+        self.backend.optimize()
 
     def health(self) -> dict[str, Any]:
-        return {"status": "ok", "backend": "zvec" if self._zvec is not None else "memory"}
+        return {"status": "ok", "backend": "zvec" if self.zvec_module is not None else "memory"}

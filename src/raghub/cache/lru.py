@@ -15,17 +15,17 @@ class LRUCache(Generic[K, V]):
 
     def __init__(self, max_size: int = 128) -> None:
         self.max_size = max_size
-        self._items: OrderedDict[K, V] = OrderedDict()
+        self.items: OrderedDict[K, V] = OrderedDict()
 
     def get(self, key: K) -> V | None:
-        value = self._items.get(key)
+        value = self.items.get(key)
         if value is not None:
-            self._items.move_to_end(key)
+            self.items.move_to_end(key)
         return value
 
     def set(self, key: K, value: V) -> None:
-        self._items[key] = value
-        self._items.move_to_end(key)
-        while len(self._items) > self.max_size:
-            self._items.popitem(last=False)
+        self.items[key] = value
+        self.items.move_to_end(key)
+        while len(self.items) > self.max_size:
+            self.items.popitem(last=False)
 
