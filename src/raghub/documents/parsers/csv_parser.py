@@ -1,0 +1,14 @@
+from __future__ import annotations
+
+from .base import FileParser, ParsedSection
+
+
+class CsvParser(FileParser):
+    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
+        text = file_bytes.decode("utf-8", errors="replace")
+        return [ParsedSection(
+            section_index=0,
+            source_location="full file",
+            text=text,
+            metadata={},
+        )]
