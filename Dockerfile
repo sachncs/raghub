@@ -3,7 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY pyproject.toml README.md ./
-COPY src ./src
+COPY raghub ./raghub
 COPY config ./config
 COPY streamlit_app.py ./
 

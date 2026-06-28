@@ -57,12 +57,11 @@ def build_editable(wheel_directory, config_settings=None, metadata_directory=Non
 
 def _build_editable_wheel(wheel_directory: str) -> str:
     root = Path(__file__).resolve().parent
-    src_path = root / "src"
     wheel_name = f"{NAME.replace('-', '_')}-{VERSION}-py3-none-any.whl"
     wheel_path = Path(wheel_directory) / wheel_name
     dist_info = f"{NAME.replace('-', '_')}-{VERSION}.dist-info"
     pth_name = f"{NAME.replace('-', '_')}.pth"
-    pth_contents = str(root) + os.linesep + str(src_path) + os.linesep
+    pth_contents = str(root) + os.linesep
 
     records: list[tuple[str, str, str]] = []
     with ZipFile(wheel_path, "w", compression=ZIP_DEFLATED) as zf:

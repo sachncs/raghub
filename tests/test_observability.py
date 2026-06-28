@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 
 from raghub.observability.logging import build_logger, StructuredLogger
 from raghub.observability.metrics import NullMetrics, PrometheusMetrics

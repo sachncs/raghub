@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 
-import pytest
 
 from raghub.documents.parsers import ParserRegistry
-from raghub.documents.parsers.base import ParsedSection
 from raghub.documents.parsers.pdf_parser import PdfParser
 from raghub.documents.parsers.html_parser import HtmlParser
 from raghub.documents.parsers.image_parser import ImageParser

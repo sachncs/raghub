@@ -1,5 +1,14 @@
 {
   "sessions": {
+    "02ca9fa8-af5f-4b7c-b786-638e15946464": {
+      "created_at": "2026-06-26T10:36:22.873655Z",
+      "expires_at": "2026-06-26T11:36:22.873655Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T10:36:22.873655Z",
+      "session_id": "b6cc83c6-b382-42f1-becc-2a1f60855c36",
+      "token": "02ca9fa8-af5f-4b7c-b786-638e15946464",
+      "user_id": "ee331f55-2a79-4b1a-bce5-acd72f383e65"
+    },
     "167f4aa3-9564-41a4-aabd-f2956b8c7426": {
       "created_at": "2026-06-26T07:26:39.375002Z",
       "expires_at": "2026-06-26T08:26:39.381223Z",
@@ -27,6 +36,24 @@
       "token": "16a390eb-b586-4be3-8430-db7329453ef5",
       "user_id": "186234e0-c565-4fe1-beda-d0edd1fb1bde"
     },
+    "17dcd415-8dce-484a-9803-585e3ace7c4b": {
+      "created_at": "2026-06-26T10:36:40.486949Z",
+      "expires_at": "2026-06-26T11:36:40.486949Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T10:36:40.486949Z",
+      "session_id": "bcaedad8-afb9-455b-b30f-b7e95f8e9185",
+      "token": "17dcd415-8dce-484a-9803-585e3ace7c4b",
+      "user_id": "5bbe50b7-d163-475c-8c87-56b227d7d83e"
+    },
+    "1ca9c384-cda8-4ddf-94fb-150fc5bf8c20": {
+      "created_at": "2026-06-26T10:26:40.339387Z",
+      "expires_at": "2026-06-26T11:26:40.344569Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T10:26:40.344569Z",
+      "session_id": "9d162240-9e85-465b-95cb-2d88bcc649bf",
+      "token": "1ca9c384-cda8-4ddf-94fb-150fc5bf8c20",
+      "user_id": "21c901e4-ce52-4753-b5fd-9e9f46ff632e"
+    },
     "291751fc-7365-4553-95cd-80ed03df6326": {
       "created_at": "2026-06-26T07:12:01.608244Z",
       "expires_at": "2026-06-26T08:12:01.611476Z",
@@ -35,6 +62,32 @@
       "session_id": "099c2567-a303-42e9-8771-cfdc9e21a737",
       "token": "291751fc-7365-4553-95cd-80ed03df6326",
       "user_id": "02627e7c-8594-4589-b855-33e1922a9b68"
+    },
+    "2fadfe16-747c-4415-823e-c61107671c44": {
+      "created_at": "2026-06-26T10:26:40.338425Z",
+      "expires_at": "2026-06-26T11:26:40.352718Z",
+      "history": [
+        {
+          "answer": "Apple revenue increased in Q4 2025 and services grew strongly.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What happened to Apple revenue?",
+          "timestamp": "2026-06-26T10:26:40.348958Z"
+        },
+        {
+          "answer": "No access to that document.",
+          "metadata": {
+            "denied": true
+          },
+          "question": "What did Microsoft say?",
+          "timestamp": "2026-06-26T10:26:40.351288Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T10:26:40.352718Z",
+      "session_id": "441bea01-f193-4b33-bf57-837e2d2ed912",
+      "token": "2fadfe16-747c-4415-823e-c61107671c44",
+      "user_id": "f158db5f-68d8-420d-a0e2-37f898054411"
     },
     "37382eb9-6a36-48af-82ad-9873fc4441bb": {
       "created_at": "2026-06-26T07:17:52.599253Z",
@@ -45,6 +98,15 @@
       "token": "37382eb9-6a36-48af-82ad-9873fc4441bb",
       "user_id": "f65d63fb-2fb0-4f9c-a2ae-59460e68b48b"
     },
+    "40cb6b02-b830-4243-9279-5dafc9af2233": {
+      "created_at": "2026-06-26T10:26:40.335591Z",
+      "expires_at": "2026-06-26T11:26:40.335591Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T10:26:40.335591Z",
+      "session_id": "ac9427a8-99eb-4d52-b198-c1e80f3683af",
+      "token": "40cb6b02-b830-4243-9279-5dafc9af2233",
+      "user_id": "3f275825-3282-40fa-a509-43cc110eedb4"
+    },
     "49e017c5-0a4c-4eb8-b87b-80c9b6f092f6": {
       "created_at": "2026-06-26T07:12:01.606805Z",
       "expires_at": "2026-06-26T08:12:01.606805Z",
@@ -53,6 +115,24 @@
       "session_id": "0a3cf57a-afe2-47ce-b6cc-e172314effbf",
       "token": "49e017c5-0a4c-4eb8-b87b-80c9b6f092f6",
       "user_id": "df175488-ccec-4a14-85ba-675da90abeac"
+    },
+    "54410023-cecf-487b-8090-3ce19a916661": {
+      "created_at": "2026-06-26T10:36:40.490850Z",
+      "expires_at": "2026-06-26T11:36:40.496350Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T10:36:40.496350Z",
+      "session_id": "39b75724-1de8-42b1-86af-eb081d7e5e57",
+      "token": "54410023-cecf-487b-8090-3ce19a916661",
+      "user_id": "9c59650c-eb74-4788-ba5d-70c6b098b9fa"
+    },
+    "5aa92977-1ec2-4b8d-9c14-5db8b70bdee3": {
+      "created_at": "2026-06-26T10:36:22.913774Z",
+      "expires_at": "2026-06-26T11:36:22.913774Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T10:36:22.913774Z",
+      "session_id": "193cbf97-a123-48a8-a2ca-e2ef4d71d0f7",
+      "token": "5aa92977-1ec2-4b8d-9c14-5db8b70bdee3",
+      "user_id": "32f4eea5-f9f7-4dc9-a69e-7a4fa3adfcfa"
     },
     "635409a2-2422-4011-934b-cce773d09e04": {
       "created_at": "2026-06-26T07:20:43.764842Z",
@@ -169,6 +249,50 @@
       "token": "801de03a-8d46-4dd2-b6ed-4776106b0ab2",
       "user_id": "689aa326-add9-4d55-9d20-59a512f84ebe"
     },
+    "918c2105-3690-4fd3-88be-06161dca8e27": {
+      "created_at": "2026-06-26T10:36:40.489331Z",
+      "expires_at": "2026-06-26T11:36:40.505999Z",
+      "history": [
+        {
+          "answer": "Apple revenue increased in Q4 2025 and services grew strongly.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What happened to Apple revenue?",
+          "timestamp": "2026-06-26T10:36:40.501494Z"
+        },
+        {
+          "answer": "No access to that document.",
+          "metadata": {
+            "denied": true
+          },
+          "question": "What did Microsoft say?",
+          "timestamp": "2026-06-26T10:36:40.504258Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T10:36:40.505999Z",
+      "session_id": "cc977ef9-c8e7-481a-b5a9-d49eeb4bea4d",
+      "token": "918c2105-3690-4fd3-88be-06161dca8e27",
+      "user_id": "ee5028ac-3e67-4212-9a9b-f2d7a899104c"
+    },
+    "94955cc5-e464-4c77-8f2b-bea0f365156b": {
+      "created_at": "2026-06-26T10:26:40.366392Z",
+      "expires_at": "2026-06-26T11:26:40.375263Z",
+      "history": [
+        {
+          "answer": "Tesla delivered record vehicle margins and revenue for Q4.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What were the Tesla margins?",
+          "timestamp": "2026-06-26T10:26:40.375260Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T10:26:40.375263Z",
+      "session_id": "a4b8a572-b094-4cdf-a38d-00ad0ebac99c",
+      "token": "94955cc5-e464-4c77-8f2b-bea0f365156b",
+      "user_id": "ada60dbf-2102-4bc0-ada9-d6131c6fa54e"
+    },
     "9980b5b9-2d3e-4f04-a27f-40554d076fa4": {
       "created_at": "2026-06-26T07:20:43.762526Z",
       "expires_at": "2026-06-26T08:20:43.762526Z",
@@ -178,6 +302,15 @@
       "token": "9980b5b9-2d3e-4f04-a27f-40554d076fa4",
       "user_id": "fb7fe125-d105-47b0-b8b5-1c853614d27d"
     },
+    "9f99a3a7-2a56-4486-9ffe-c7882366698a": {
+      "created_at": "2026-06-26T10:36:22.942098Z",
+      "expires_at": "2026-06-26T11:36:22.942098Z",
+      "history": [],
+      "last_seen_at": "2026-06-26T10:36:22.942098Z",
+      "session_id": "b371bf0a-f02c-44d8-ba87-ad1c82148a5a",
+      "token": "9f99a3a7-2a56-4486-9ffe-c7882366698a",
+      "user_id": "239578f3-3037-4ab6-9054-c8d068bb7e4d"
+    },
     "a042ffce-8cc3-46b5-bde1-3bbaae6c6014": {
       "created_at": "2026-06-26T07:17:52.602445Z",
       "expires_at": "2026-06-26T08:17:52.605681Z",
@@ -186,6 +319,24 @@
       "session_id": "618e9bfb-b4fe-4607-9f6c-eb80e7587b6b",
       "token": "a042ffce-8cc3-46b5-bde1-3bbaae6c6014",
       "user_id": "985b2d8f-804b-4de8-a4af-4e2ceab6cc22"
+    },
+    "a2d8c374-1246-41dc-9f31-55ee9930efbd": {
+      "created_at": "2026-06-26T10:36:40.517879Z",
+      "expires_at": "2026-06-26T11:36:40.526656Z",
+      "history": [
+        {
+          "answer": "Tesla delivered record vehicle margins and revenue for Q4.",
+          "metadata": {
+            "top_k": 5
+          },
+          "question": "What were the Tesla margins?",
+          "timestamp": "2026-06-26T10:36:40.526654Z"
+        }
+      ],
+      "last_seen_at": "2026-06-26T10:36:40.526656Z",
+      "session_id": "1e7ca104-015d-4f5a-a310-a4700970a444",
+      "token": "a2d8c374-1246-41dc-9f31-55ee9930efbd",
+      "user_id": "bb27dea4-ab73-4483-a928-7724c298c896"
     },
     "a5e1ccce-2478-4c03-8fdb-81cdaf89f534": {
       "created_at": "2026-06-26T07:17:52.601966Z",

@@ -1,0 +1,75 @@
+from __future__ import annotations
+
+from time import perf_counter
+from typing import TYPE_CHECKING, Any
+
+from raghub.core.rbac import can_access_company
+from raghub.documents.validation import detect_mime_type
+from raghub.exceptions import AuthorizationError, DocumentError
+from raghub.models import DocumentRecord
+from raghub.services import ServiceMixin
+
+if TYPE_CHECKING:
+    from raghub.services.application import DynamicRagContainer
+
+
+class DocumentService(ServiceMixin):
+    def __init__(self, container: DynamicRagContainer) -> None:
+        self.container = container
+
+    async def upload_document(
+        self,
+        *,
+        token: str,
+        filename: str,
+        content: bytes,
+        company: str | None = None,
+    ) -> DocumentRecord:
+        started = perf_counter()
+        auth: Any = self.container.auth
+        user, _ = await auth.resolve_user(token)
+        target_company = company or filename.split("_", 1)[0]
+        if not can_access_company(user, target_company):
+            raise AuthorizationError("User cannot upload documents for this company")
+
+        detect_mime_type(filename, content)
+
+        result = await self.container.ingestion.ingest(
+            file_name=filename,
+            file_bytes=content,
+            owner=user,
+            organization=target_company,
+        )
+
+        self.emit_metric("document_ingest_latency_ms", started)
+        self.log("document_ingested", document_id=result.document.document_id, company=target_company)
+        return result.document
+
+    async def list_documents(self, token: str) -> list[DocumentRecord]:
+        auth: Any = self.container.auth
+        user, _ = await auth.resolve_user(token)
+        if user.is_admin:
+            return await self.container.uow.document_repo.list_all()
+        results: list[DocumentRecord] = []
+        for org in user.allowed_companies:
+            docs = await self.container.uow.document_repo.list_by_organization(org)
+            results.extend(docs)
+        return results
+
+    async def document_status(self, token: str, document_id: str) -> DocumentRecord:
+        auth: Any = self.container.auth
+        user, _ = await auth.resolve_user(token)
+        document = await self.container.uow.document_repo.get(document_id)
+        if document is None:
+            raise DocumentError("Unknown document")
+        if not can_access_company(user, document.organization):
+            raise AuthorizationError("Forbidden")
+        return document
+
+    async def delete_document(self, token: str, document_id: str) -> None:
+        auth: Any = self.container.auth
+        user, _ = await auth.resolve_user(token)
+        if not user.is_admin:
+            raise AuthorizationError("Admin only")
+        self.container.vector_store.delete_document(document_id)
+        await self.container.uow.document_repo.delete(document_id)

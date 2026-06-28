@@ -1,0 +1,220 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from raghub.auth import (
+    JwtAuthenticator,
+    JwtSessionManager,
+    RBACAuthorizationService,
+    SqliteUserStore,
+)
+from raghub.config.settings import AppSettings
+from raghub.conversation.manager import ConversationManager
+from raghub.documents.chunker import ChunkingPlan
+from raghub.documents.lifecycle import DocumentLifecycleManager
+from raghub.documents.parsers import ParserRegistry
+from raghub.embeddings import BaseEmbeddingProvider, build_embedding_provider
+from raghub.ingestion.service import DocumentIngestionService
+from raghub.llm import BaseLLMProvider, build_llm_provider
+from raghub.observability.logging import build_logger
+from raghub.observability.metrics import PrometheusMetrics
+from raghub.prompts.builder import PromptBuilder
+from raghub.retrieval.pipeline import RetrievalPipeline
+from raghub.retrieval.reranker import IdentityReranker
+from raghub.storage.image_store import FilesystemImageStore
+from raghub.storage.sqlite_session_store import SqliteSessionStore
+from raghub.models import (
+    AuthLoginResponse,
+    ConversationTurn,
+    DocumentRecord,
+    QueryResponse,
+    UserPrincipal,
+)
+from raghub.repositories import UnitOfWork
+from raghub.vectorstore.base import BaseVectorStore
+from raghub.vectorstore.zvec import ZvecVectorStore
+
+
+@dataclass
+class DynamicRagContainer:
+    settings: AppSettings
+    logger: object
+    metrics: object
+    authenticator: JwtAuthenticator
+    authorization: RBACAuthorizationService
+    sessions: JwtSessionManager
+    registry: SqliteUserStore
+    conversation: ConversationManager
+    embeddings: BaseEmbeddingProvider
+    llm: BaseLLMProvider
+    vector_store: BaseVectorStore
+    prompt_builder: PromptBuilder
+    ingestion: DocumentIngestionService
+    retrieval: RetrievalPipeline
+    image_store: FilesystemImageStore
+    user_store: SqliteUserStore
+    parser_registry: ParserRegistry
+    store: SqliteSessionStore
+    uow: UnitOfWork
+    auth: object = None
+    documents: object = None
+    query: object = None
+    health: object = None
+
+
+from raghub.services.auth_service import AuthService  # noqa: E402
+from raghub.services.document_service import DocumentService  # noqa: E402
+from raghub.services.health_service import HealthService  # noqa: E402
+from raghub.services.query_service import QueryService  # noqa: E402
+
+
+class DynamicRagApplication:
+    def __init__(self, container: DynamicRagContainer) -> None:
+        self.container = container
+        self.auth_svc = AuthService(container)
+        self.documents_svc = DocumentService(container)
+        self.query_svc = QueryService(container)
+        self.health_svc = HealthService(container)
+        container.auth = self.auth_svc
+        container.documents = self.documents_svc
+        container.query = self.query_svc
+        container.health = self.health_svc
+
+    async def login(self, email: str, password: str) -> AuthLoginResponse:
+        return await self.auth_svc.login(email, password)
+
+    async def logout(self, token: str) -> None:
+        await self.auth_svc.logout(token)
+
+    async def resolve_user(self, token: str) -> tuple[UserPrincipal, list[ConversationTurn]]:
+        return await self.auth_svc.resolve_user(token)
+
+    async def upload_document(
+        self,
+        *,
+        token: str,
+        filename: str,
+        content: bytes,
+        company: str | None = None,
+    ) -> DocumentRecord:
+        return await self.documents_svc.upload_document(token=token, filename=filename, content=content, company=company)
+
+    async def list_documents(self, token: str) -> list[DocumentRecord]:
+        return await self.documents_svc.list_documents(token)
+
+    async def document_status(self, token: str, document_id: str) -> DocumentRecord:
+        return await self.documents_svc.document_status(token, document_id)
+
+    async def delete_document(self, token: str, document_id: str) -> None:
+        await self.documents_svc.delete_document(token, document_id)
+
+    async def clear_history(self, token: str) -> None:
+        await self.container.conversation.clear(token)
+
+    async def history(self, token: str) -> list[ConversationTurn]:
+        return await self.container.conversation.load(token)
+
+    def health(self) -> dict[str, object]:
+        return self.health_svc.health()
+
+    async def query(self, *, token: str, question: str) -> QueryResponse:
+        return await self.query_svc.query(token=token, question=question)
+
+    def log(self, message: str, **payload: object) -> None:
+        self.health_svc.log(message, **payload)
+
+    def emit_metric(self, name: str, started_at: float) -> None:
+        self.health_svc.emit_metric(name, started_at)
+
+
+async def build_container(settings: AppSettings) -> DynamicRagContainer:
+    logger = build_logger(settings.log_level)
+    metrics = PrometheusMetrics()
+
+    user_store = SqliteUserStore(settings.data_dir / "users.db")
+    await user_store.initialize()
+
+    jwt_secret = settings.jwt_secret
+    if not jwt_secret:
+        raise RuntimeError("JWT_SECRET must be configured")
+    nvidia_api_key = settings.nvidia_api_key or settings.extra.get("nvidia_api_key")
+
+    authenticator = JwtAuthenticator(
+        secret_key=jwt_secret,
+        user_store=user_store,
+    )
+    authorization = RBACAuthorizationService(user_store)
+
+    vector_store: BaseVectorStore = ZvecVectorStore(
+        str(settings.zvec_dir),
+        embedding_dim=settings.embedding_dim,
+        require_zvec=settings.require_zvec,
+    )
+
+    db_path = str(settings.registry_path).replace(".json", ".db")
+    uow = UnitOfWork(
+        db_path=db_path,
+        vector_store=vector_store,
+        session_timeout=settings.session_timeout_seconds,
+    )
+    await uow.initialize()
+
+    raw_session_store = SqliteSessionStore(
+        settings.data_dir / "sessions.db",
+        settings.session_timeout_seconds,
+    )
+    await raw_session_store.initialize()
+    sessions = JwtSessionManager(
+        session_store=raw_session_store,
+        authenticator=authenticator,
+    )
+
+    embeddings: BaseEmbeddingProvider = build_embedding_provider(
+        settings.embedding_model,
+        settings.embedding_dim,
+        nvidia_api_key,
+    )
+    llm: BaseLLMProvider = build_llm_provider(
+        settings.llm_model,
+        nvidia_api_key,
+    )
+
+    prompt_builder = PromptBuilder()
+    conversation = ConversationManager(uow)
+    lifecycle = DocumentLifecycleManager()
+    ingestion = DocumentIngestionService(
+        uow=uow,
+        embedding_provider=embeddings,
+        lifecycle_manager=lifecycle,
+        plan=ChunkingPlan(settings.chunk_size_words, settings.chunk_overlap_words),
+        max_upload_bytes=settings.max_upload_bytes,
+    )
+    retrieval = RetrievalPipeline(
+        embedding_provider=embeddings,
+        vector_store=vector_store,
+        reranker=IdentityReranker(),
+    )
+    image_store = FilesystemImageStore(settings.data_dir / "images")
+    parser_registry = ParserRegistry()
+
+    return DynamicRagContainer(
+        settings=settings,
+        logger=logger,
+        metrics=metrics,
+        authenticator=authenticator,
+        authorization=authorization,
+        sessions=sessions,
+        registry=user_store,
+        conversation=conversation,
+        embeddings=embeddings,
+        llm=llm,
+        vector_store=vector_store,
+        prompt_builder=prompt_builder,
+        ingestion=ingestion,
+        retrieval=retrieval,
+        image_store=image_store,
+        user_store=user_store,
+        parser_registry=parser_registry,
+        store=raw_session_store,
+        uow=uow,
+    )

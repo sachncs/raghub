@@ -1,0 +1,82 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from .base import FileParser, ParsedSection
+from .csv_parser import CsvParser
+from .html_parser import HtmlParser
+from .image_parser import ImageParser
+from .office_parser import OfficeParser
+from .pdf_parser import PdfParser
+from .txt_parser import TxtParser
+
+
+class ParserRegistry:
+    def __init__(self) -> None:
+        self.parsers: dict[str, FileParser] = {}
+        self.register_defaults()
+
+    def register_defaults(self) -> None:
+        pdf = PdfParser()
+        html = HtmlParser()
+        image = ImageParser()
+        office = OfficeParser()
+        csv = CsvParser()
+        txt = TxtParser()
+
+        self.register("application/pdf", pdf)
+        self.register("text/html", html)
+        self.register("text/plain", txt)
+        self.register("text/csv", csv)
+        self.register("image/png", image)
+        self.register("image/jpeg", image)
+        self.register("image/jpg", image)
+        self.register("image/gif", image)
+        self.register("image/webp", image)
+        self.register("image/tiff", image)
+        self.register("application/vnd.openxmlformats-officedocument.wordprocessingml.document", office)
+        self.register("application/msword", office)
+        self.register("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", office)
+        self.register("application/vnd.ms-excel", office)
+        self.register("application/vnd.openxmlformats-officedocument.presentationml.presentation", office)
+        self.register("application/vnd.ms-powerpoint", office)
+
+        self.register(".pdf", pdf)
+        self.register(".html", html)
+        self.register(".htm", html)
+        self.register(".txt", txt)
+        self.register(".csv", csv)
+        self.register(".png", image)
+        self.register(".jpg", image)
+        self.register(".jpeg", image)
+        self.register(".gif", image)
+        self.register(".webp", image)
+        self.register(".tiff", image)
+        self.register(".tif", image)
+        self.register(".docx", office)
+        self.register(".doc", office)
+        self.register(".xlsx", office)
+        self.register(".xls", office)
+        self.register(".pptx", office)
+        self.register(".ppt", office)
+
+    def register(self, key: str, parser: FileParser) -> None:
+        self.parsers[key] = parser
+
+    def get_parser(self, mime_type: str, file_name: str) -> FileParser | None:
+        parser = self.parsers.get(mime_type)
+        if parser is not None:
+            return parser
+        ext = Path(file_name).suffix.lower() if "." in file_name else ""
+        return self.parsers.get(ext)
+
+    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
+        parser = self.get_parser(mime_type, file_name)
+        if parser is None:
+            return [ParsedSection(
+                section_index=0,
+                source_location="unknown",
+                text=file_bytes.decode("utf-8", errors="replace"),
+                metadata={},
+            )]
+        return parser.parse(file_bytes, file_name, mime_type)

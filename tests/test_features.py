@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from time import sleep
 
-import pytest
 
 from raghub.models import ConversationTurn
 
@@ -56,7 +55,7 @@ class TestSlidingWindowManager:
         manager = SlidingWindowManager(max_tokens=100)
         manager.enc = None
         text = "hello " * 50
-        count = manager._count_tokens(text)
+        count = manager.count_tokens(text)
         assert count == 50
 
 
@@ -94,14 +93,8 @@ class TestBackgroundIngestionService:
 
 class TestFacetedSearchEngine:
     def test_search_filters(self):
-        from raghub.retrieval.search import SearchFilters, FacetedSearchEngine
-        from raghub.vectorstore.memory import InMemoryVectorStore
-        from raghub.embeddings.hashing import HashingEmbeddingProvider
+        from raghub.retrieval.search import SearchFilters
         from raghub.models import Classification
-        store = InMemoryVectorStore()
-        store.create_collection()
-        provider = HashingEmbeddingProvider(dimension=4)
-        engine = FacetedSearchEngine(store, provider)
         filters = SearchFilters(
             companies=["acme"],
             classifications=[Classification.INTERNAL],
@@ -112,7 +105,7 @@ class TestFacetedSearchEngine:
 
 class TestRateLimiterMiddleware:
     def test_middleware_imports(self):
-        from raghub.api.rate_limiter import RateLimiterMiddleware, TokenBucket
+        from raghub.api.rate_limiter import RateLimiterMiddleware
         assert RateLimiterMiddleware is not None
 
 

@@ -1,0 +1,60 @@
+> from __future__ import annotations
+  
+> from pathlib import Path
+  
+> import aiosqlite
+  
+> from raghub.domain import SessionRepository
+> from raghub.models import SessionRecord
+> from raghub.storage.database import DatabaseManager
+> from raghub.storage.sqlite_session_store import SqliteSessionStore
+  
+  
+> class SqliteSessionRepository(SessionRepository):
+>     def __init__(self, db_path: str | Path, timeout_seconds: int = 3600,
+>                  db_manager: DatabaseManager | None = None) -> None:
+>         self.inner = SqliteSessionStore(db_path, timeout_seconds, db_manager=db_manager)
+>         self.db_manager = db_manager
+  
+>     async def initialize(self) -> None:
+>         await self.inner.initialize()
+  
+>     async def create(self, record: SessionRecord) -> None:
+!         conn = await self.conn()
+!         await conn.execute(
+!             """
+!             INSERT INTO sessions (session_id, user_id, token, created_at, expires_at, last_seen_at, history)
+!             VALUES (?, ?, ?, ?, ?, ?, ?)
+!             """,
+!             (
+!                 record.session_id,
+!                 record.user_id,
+!                 record.token,
+!                 record.created_at.isoformat(),
+!                 record.expires_at.isoformat(),
+!                 record.last_seen_at.isoformat(),
+!                 "[]",
+!             ),
+!         )
+!         if self.db_manager is None:
+!             await conn.commit()
+!             await conn.close()
+  
+>     async def save(self, record: SessionRecord) -> None:
+!         await self.inner.update_session(record)
+  
+>     async def get(self, session_id: str) -> SessionRecord | None:
+!         return await self.inner.get_session(session_id)
+  
+>     async def get_by_token(self, token: str) -> SessionRecord | None:
+!         return await self.inner.get_by_token(token)
+  
+>     async def delete(self, session_id: str) -> None:
+!         await self.inner.delete_session(session_id)
+  
+>     async def conn(self) -> aiosqlite.Connection:
+!         if self.db_manager is not None:
+!             return self.db_manager.connection
+!         conn = await aiosqlite.connect(self.inner.db_path)
+!         conn.row_factory = aiosqlite.Row
+!         return conn
