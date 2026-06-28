@@ -1,3 +1,10 @@
+"""Observability tests covering the structured logger, Prometheus
+metrics, and the OpenTelemetry tracer.
+
+These tests verify the public surface only; they don't try to
+introspect log output or scrape the Prometheus exposition format.
+"""
+
 from __future__ import annotations
 
 

@@ -1,3 +1,11 @@
+"""Platform-level integration tests.
+
+Boots the FastAPI app against an in-memory container and drives it
+through the full request lifecycle: login → upload → query →
+history. These tests run the same code paths a real client would,
+minus the network.
+"""
+
 from __future__ import annotations
 
 import asyncio

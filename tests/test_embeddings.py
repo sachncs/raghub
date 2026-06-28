@@ -1,3 +1,10 @@
+"""Embedding-provider unit tests.
+
+Verifies output shape, dimensionality, and the
+:func:`raghub.embeddings.build_embedding_provider` factory's
+substring-based dispatch.
+"""
+
 from __future__ import annotations
 
 from raghub.embeddings.hashing import HashingEmbeddingProvider

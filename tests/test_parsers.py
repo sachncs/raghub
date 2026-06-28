@@ -1,5 +1,11 @@
-from __future__ import annotations
+"""Tests for the document parsers.
 
+Exercises each :class:`FileParser` subclass (PDF, HTML, image,
+Office, CSV, plain text) plus the MIME/extension-based dispatch in
+:class:`ParserRegistry`.
+"""
+
+from __future__ import annotations
 
 
 from raghub.documents.parsers import ParserRegistry

@@ -1,3 +1,10 @@
+"""Smoke tests that exercise several independent components together.
+
+Each test wires up the smallest possible stack (a hashing embedder,
+an in-memory vector store, a state machine, and the RBAC filter)
+and verifies that the building blocks compose correctly.
+"""
+
 from __future__ import annotations
 
 from raghub.core.document_state import DocumentStateMachine
