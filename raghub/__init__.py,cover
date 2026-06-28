@@ -1,0 +1,14 @@
+> """Retrieval-augmented generation framework.
+  
+> This package exposes the reusable application builder and container types.
+> It intentionally avoids importing optional web dependencies.
+> """
+  
+> from raghub.core.container import build_application
+> from raghub.services.application import DynamicRagApplication, DynamicRagContainer
+  
+> __all__ = [
+>     "DynamicRagApplication",
+>     "DynamicRagContainer",
+>     "build_application",
+> ]

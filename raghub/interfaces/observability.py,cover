@@ -1,0 +1,29 @@
+> """Observability contracts."""
+  
+! from __future__ import annotations
+  
+! from typing import Any, Protocol
+  
+  
+! class Logger(Protocol):
+!     """Structured logger contract."""
+  
+!     def info(self, message: str, **kwargs: Any) -> None:
+!         """Log info."""
+  
+!     def warning(self, message: str, **kwargs: Any) -> None:
+!         """Log warning."""
+  
+!     def error(self, message: str, **kwargs: Any) -> None:
+!         """Log error."""
+  
+  
+! class Metrics(Protocol):
+!     """Metrics recorder contract."""
+  
+!     def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
+!         """Record a latency metric."""
+  
+!     def increment(self, name: str, value: int = 1, **labels: Any) -> None:
+!         """Increment a counter."""
+  

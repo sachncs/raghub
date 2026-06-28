@@ -1,0 +1,75 @@
+> from __future__ import annotations
+  
+> from typing import Any
+  
+> from prometheus_client import Counter, Histogram, REGISTRY
+> from prometheus_client.openmetrics.exposition import generate_latest
+  
+  
+> class NullMetrics:
+>     def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
+>         return None
+  
+>     def increment(self, name: str, value: int = 1, **labels: Any) -> None:
+>         return None
+  
+  
+> class PrometheusMetrics:
+>     def __init__(self, app: Any | None = None) -> None:
+>         def metric_name(name: str, suffix: str = "") -> str:
+>             return f"{name}{suffix}"
+  
+>         def safe_histogram(name: str, desc: str, buckets: list[float]) -> Histogram:
+>             existing: Any = REGISTRY._names_to_collectors.get(metric_name(name))
+>             if existing is not None:
+>                 return existing
+>             return Histogram(name, desc, buckets=buckets, registry=REGISTRY)
+  
+>         def safe_counter(name: str, desc: str, labels: list[str] | None = None) -> Counter:
+>             existing: Any = REGISTRY._names_to_collectors.get(name)
+>             if existing is not None:
+>                 return existing
+>             return Counter(name, desc, labels or [], registry=REGISTRY)
+  
+>         self.query_duration: Histogram = safe_histogram(
+>             "raghub_query_duration_ms",
+>             "Query execution duration in milliseconds",
+>             [10, 50, 100, 250, 500, 1000, 2500, 5000],
+>         )
+>         self.ingestion_duration: Histogram = safe_histogram(
+>             "raghub_ingestion_duration_ms",
+>             "Ingestion duration in milliseconds",
+>             [50, 100, 250, 500, 1000, 2500, 5000, 10000],
+>         )
+>         self.auth_duration: Histogram = safe_histogram(
+>             "raghub_auth_duration_ms",
+>             "Authentication duration in milliseconds",
+>             [5, 10, 25, 50, 100, 250, 500],
+>         )
+>         self.auth_total: Counter = safe_counter("raghub_auth_total", "Total authentication attempts", ["success"])
+>         self.error_total: Counter = safe_counter("raghub_error_total", "Total errors", ["error_type"])
+>         if app is not None:
+!             self.register_app(app)
+  
+>     def record_query(self, duration_ms: float, top_k: int) -> None:
+>         self.query_duration.observe(duration_ms)
+  
+>     def record_ingestion(self, duration_ms: float, chunk_count: int) -> None:
+>         self.ingestion_duration.observe(duration_ms)
+  
+>     def record_auth(self, duration_ms: float, success: bool) -> None:
+>         self.auth_duration.observe(duration_ms)
+>         self.auth_total.labels(success=str(success)).inc()
+  
+>     def record_error(self, error_type: str) -> None:
+>         self.error_total.labels(error_type=error_type).inc()
+  
+>     def register_app(self, app: Any) -> None:
+!         from fastapi import FastAPI
+!         from fastapi.responses import Response
+  
+!         if isinstance(app, FastAPI):
+  
+!             @app.get("/metrics")
+!             async def metrics() -> Response:
+!                 return Response(content=generate_latest(REGISTRY), media_type="text/plain")

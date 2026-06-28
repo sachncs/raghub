@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 
 import pytest
 
-from raghub.models import DocumentVersion, SessionRecord, ConversationTurn, Classification, Visibility, DocumentLifecycleStatus
+from raghub.models import DocumentVersion, ConversationTurn, DocumentLifecycleStatus
 from raghub.storage.image_store import FilesystemImageStore
 
 
@@ -19,20 +18,20 @@ def tmp_db():
         os.unlink(db_path)
 
 
-class TestSqliteDocumentRegistry:
+class TestSqliteDocumentRepository:
     @pytest.mark.asyncio
     async def test_save_and_get(self, tmp_db):
-        from raghub.storage.sqlite_registry import SqliteDocumentRegistry
-        registry = SqliteDocumentRegistry(tmp_db)
-        await registry.initialize()
+        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        repo = SqliteDocumentRepository(tmp_db)
+        await repo.initialize()
         doc = DocumentVersion(
             document_id="doc1",
             checksum="abc123",
             owner="alice",
             organization="acme",
         )
-        await registry.save(doc)
-        loaded = await registry.get("doc1")
+        await repo.save(doc)
+        loaded = await repo.get("doc1")
         assert loaded is not None
         assert loaded.document_id == "doc1"
         assert loaded.checksum == "abc123"
@@ -40,47 +39,47 @@ class TestSqliteDocumentRegistry:
 
     @pytest.mark.asyncio
     async def test_get_by_checksum(self, tmp_db):
-        from raghub.storage.sqlite_registry import SqliteDocumentRegistry
-        registry = SqliteDocumentRegistry(tmp_db)
-        await registry.initialize()
+        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        repo = SqliteDocumentRepository(tmp_db)
+        await repo.initialize()
         doc = DocumentVersion(checksum="xyz789", owner="bob", organization="beta")
-        await registry.save(doc)
-        loaded = await registry.get_by_checksum("xyz789")
+        await repo.save(doc)
+        loaded = await repo.get_by_checksum("xyz789")
         assert loaded is not None
         assert loaded.owner == "bob"
 
     @pytest.mark.asyncio
     async def test_delete(self, tmp_db):
-        from raghub.storage.sqlite_registry import SqliteDocumentRegistry
-        registry = SqliteDocumentRegistry(tmp_db)
-        await registry.initialize()
+        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        repo = SqliteDocumentRepository(tmp_db)
+        await repo.initialize()
         doc = DocumentVersion(checksum="del123", owner="alice", organization="acme")
-        await registry.save(doc)
-        await registry.delete(doc.document_id)
-        loaded = await registry.get(doc.document_id)
+        await repo.save(doc)
+        await repo.delete(doc.document_id)
+        loaded = await repo.get(doc.document_id)
         assert loaded is None
 
     @pytest.mark.asyncio
     async def test_update_status(self, tmp_db):
-        from raghub.storage.sqlite_registry import SqliteDocumentRegistry
-        registry = SqliteDocumentRegistry(tmp_db)
-        await registry.initialize()
+        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        repo = SqliteDocumentRepository(tmp_db)
+        await repo.initialize()
         doc = DocumentVersion(checksum="upd123", owner="alice", organization="acme")
-        await registry.save(doc)
-        await registry.update_status(doc.document_id, DocumentLifecycleStatus.READY)
-        loaded = await registry.get(doc.document_id)
+        await repo.save(doc)
+        await repo.update_status(doc.document_id, DocumentLifecycleStatus.READY)
+        loaded = await repo.get(doc.document_id)
         assert loaded is not None
         assert loaded.status == DocumentLifecycleStatus.READY
 
     @pytest.mark.asyncio
-    async def test_list_by_company(self, tmp_db):
-        from raghub.storage.sqlite_registry import SqliteDocumentRegistry
-        registry = SqliteDocumentRegistry(tmp_db)
-        await registry.initialize()
+    async def test_list_by_organization(self, tmp_db):
+        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        repo = SqliteDocumentRepository(tmp_db)
+        await repo.initialize()
         for i in range(3):
             doc = DocumentVersion(checksum=f"c{i}", owner=f"user{i}", organization="org1")
-            await registry.save(doc)
-        docs = await registry.list_by_company("org1")
+            await repo.save(doc)
+        docs = await repo.list_by_organization("org1")
         assert len(docs) == 3
 
 

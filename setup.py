@@ -18,8 +18,7 @@ setup(
     description="Production-grade Dynamic RAG framework",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    package_dir={"": "src"},
-    packages=find_packages("src") + find_packages("."),
+    packages=find_packages(exclude=["docs", "tests", "config", "data"]),
     include_package_data=True,
     install_requires=[
         "pydantic>=2.8",

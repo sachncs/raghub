@@ -24,8 +24,24 @@
       "8cf4bfb1-8553-4a41-b02c-acf14027f52c",
       1
     ],
+    "287fcd870b856dee23f431f4232f00d8c4aced5196c7cccbfadefb3accd18f34": [
+      "d9b7c1cf-d6bc-4e6c-822a-59703877cce2",
+      1
+    ],
+    "2d5bd7471bb01b059f0a5c3dba8ca2f867615c9a85bd06f411c3ee51a84b6170": [
+      "a4979e08-5658-4869-9bc9-de9fb99bbed1",
+      1
+    ],
+    "356e6e655912e3e0a55f58b302c6386ff37080f46fbd0f2b42338f49db6450c6": [
+      "4fa94071-e48c-420a-a477-b6aa6031b069",
+      1
+    ],
     "4549b9d24d3f1619e07d05f8df5a155d0537d13835a47979da2ba25beb36201b": [
       "7bf6e1b1-7e77-4422-a61f-976167db0197",
+      1
+    ],
+    "491a39cb6728867e7a5ea7b11bb7bb9537a1f3ace648e5bd0f3599d3f725d702": [
+      "40ceb5e3-8649-41fa-8dfd-a7e2c78b1367",
       1
     ],
     "4b98c884122445544bb8c6229b92cca3cb5e49a24b35353ffd7b5e453f11e581": [
@@ -36,12 +52,20 @@
       "804941dc-85a8-46cd-aa17-15262d4b964b",
       1
     ],
+    "750b646d5bff74a263a349ee546198074eec4425e758671afdaea4d05070cdab": [
+      "0bd4fcc9-4edb-40fb-bc04-f549cb022c6c",
+      1
+    ],
     "7e0e5564ff52a9cddc79f322e5d87da22b2dc3c23b5f886b39851b0a78213d3a": [
       "9cd6989f-e216-4382-82d0-6f7d714c809f",
       1
     ],
     "81ccb065f0932eec0d577644163989434b960d3f7aae10ba8a68bf572ba62252": [
       "b9bbdab4-f213-472b-94da-cf9d5a67207d",
+      1
+    ],
+    "92f898dc6ae0b6affb3569905de44390af5dcd4a58c0672ae11c61aaa6c9f2f7": [
+      "19ac676c-a928-48d3-a100-101c6dfd30dd",
       1
     ],
     "9480b5c5c9fd0c0cd85f9a937f2068975541d7905bcec2491a3d28f4fbaa9b2a": [
@@ -86,6 +110,30 @@
     ]
   },
   "documents": {
+    "0bd4fcc9-4edb-40fb-bc04-f549cb022c6c": [
+      {
+        "checksum": "750b646d5bff74a263a349ee546198074eec4425e758671afdaea4d05070cdab",
+        "chunk_count": 1,
+        "chunk_ids": [
+          "c487e83c-bae2-4881-9edd-0c2afb0dab38"
+        ],
+        "classification": "internal",
+        "created_at": "2026-06-26T10:36:40.493386Z",
+        "department": "",
+        "document_id": "0bd4fcc9-4edb-40fb-bc04-f549cb022c6c",
+        "error": null,
+        "file_type": "pdf",
+        "filename": "Apple_Q4_2025.pdf",
+        "mime_type": "application/pdf",
+        "organization": "Apple",
+        "owner": "alice@email.com",
+        "status": "READY",
+        "tags": [],
+        "updated_at": "2026-06-26T10:36:40.493376Z",
+        "version": 1,
+        "visibility": "organization"
+      }
+    ],
     "118f59f2-5cef-4dff-9c37-b8658cabe1cb": [
       {
         "checksum": "dbb272e4746f24dee5a08e3697d4dc802278ed7275f85ed18c741e57877cac7e",
@@ -98,12 +146,38 @@
         "department": "",
         "document_id": "118f59f2-5cef-4dff-9c37-b8658cabe1cb",
         "error": null,
+        "file_type": "",
         "filename": "Microsoft_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Microsoft",
         "owner": "bob@email.com",
         "status": "READY",
         "tags": [],
         "updated_at": "2026-06-26T07:12:01.611746Z",
+        "version": 1,
+        "visibility": "organization"
+      }
+    ],
+    "19ac676c-a928-48d3-a100-101c6dfd30dd": [
+      {
+        "checksum": "92f898dc6ae0b6affb3569905de44390af5dcd4a58c0672ae11c61aaa6c9f2f7",
+        "chunk_count": 1,
+        "chunk_ids": [
+          "0a153872-f253-4377-baa2-a86f2800b8c5"
+        ],
+        "classification": "internal",
+        "created_at": "2026-06-26T10:26:40.370582Z",
+        "department": "",
+        "document_id": "19ac676c-a928-48d3-a100-101c6dfd30dd",
+        "error": null,
+        "file_type": "pdf",
+        "filename": "Tesla_Q4.pdf",
+        "mime_type": "application/pdf",
+        "organization": "Tesla",
+        "owner": "charlie@email.com",
+        "status": "READY",
+        "tags": [],
+        "updated_at": "2026-06-26T10:26:40.370568Z",
         "version": 1,
         "visibility": "organization"
       }
@@ -120,7 +194,9 @@
         "department": "",
         "document_id": "1b84f0f4-29bc-4675-8410-d2fa38d52865",
         "error": null,
+        "file_type": "",
         "filename": "Tesla_Q4.pdf",
+        "mime_type": "",
         "organization": "Tesla",
         "owner": "charlie@email.com",
         "status": "READY",
@@ -142,12 +218,62 @@
         "department": "",
         "document_id": "1d119441-4ff7-4e10-aa86-21069b67d8d0",
         "error": null,
+        "file_type": "",
         "filename": "Microsoft_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Microsoft",
         "owner": "bob@email.com",
         "status": "READY",
         "tags": [],
         "updated_at": "2026-06-26T10:20:51.440269Z",
+        "version": 1,
+        "visibility": "organization"
+      }
+    ],
+    "40ceb5e3-8649-41fa-8dfd-a7e2c78b1367": [
+      {
+        "checksum": "491a39cb6728867e7a5ea7b11bb7bb9537a1f3ace648e5bd0f3599d3f725d702",
+        "chunk_count": 1,
+        "chunk_ids": [
+          "b5dbdb68-6ae8-4c39-80f4-9c89a164571e"
+        ],
+        "classification": "internal",
+        "created_at": "2026-06-26T10:36:40.521884Z",
+        "department": "",
+        "document_id": "40ceb5e3-8649-41fa-8dfd-a7e2c78b1367",
+        "error": null,
+        "file_type": "pdf",
+        "filename": "Tesla_Q4.pdf",
+        "mime_type": "application/pdf",
+        "organization": "Tesla",
+        "owner": "charlie@email.com",
+        "status": "READY",
+        "tags": [],
+        "updated_at": "2026-06-26T10:36:40.521869Z",
+        "version": 1,
+        "visibility": "organization"
+      }
+    ],
+    "4fa94071-e48c-420a-a477-b6aa6031b069": [
+      {
+        "checksum": "356e6e655912e3e0a55f58b302c6386ff37080f46fbd0f2b42338f49db6450c6",
+        "chunk_count": 1,
+        "chunk_ids": [
+          "dc5a8774-e85c-464a-b7e6-0264f2cf9184"
+        ],
+        "classification": "internal",
+        "created_at": "2026-06-26T10:36:40.497298Z",
+        "department": "",
+        "document_id": "4fa94071-e48c-420a-a477-b6aa6031b069",
+        "error": null,
+        "file_type": "pdf",
+        "filename": "Microsoft_Q4_2025.pdf",
+        "mime_type": "application/pdf",
+        "organization": "Microsoft",
+        "owner": "bob@email.com",
+        "status": "READY",
+        "tags": [],
+        "updated_at": "2026-06-26T10:36:40.497287Z",
         "version": 1,
         "visibility": "organization"
       }
@@ -164,7 +290,9 @@
         "department": "",
         "document_id": "58fb7e07-d696-4df1-bca6-d9ec6508f88d",
         "error": null,
+        "file_type": "",
         "filename": "Tesla_Q4.pdf",
+        "mime_type": "",
         "organization": "Tesla",
         "owner": "charlie@email.com",
         "status": "READY",
@@ -186,7 +314,9 @@
         "department": "",
         "document_id": "5cc5417d-fe2f-48d5-8a68-83c39445f930",
         "error": null,
+        "file_type": "",
         "filename": "Apple_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Apple",
         "owner": "alice@email.com",
         "status": "READY",
@@ -208,7 +338,9 @@
         "department": "",
         "document_id": "64ae9c82-81e7-4b08-a0ae-66c8649c7fb8",
         "error": null,
+        "file_type": "",
         "filename": "Microsoft_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Microsoft",
         "owner": "bob@email.com",
         "status": "READY",
@@ -230,7 +362,9 @@
         "department": "",
         "document_id": "6b68641f-00e9-4489-9772-1e1e0e7bc060",
         "error": null,
+        "file_type": "",
         "filename": "Tesla_Q4.pdf",
+        "mime_type": "",
         "organization": "Tesla",
         "owner": "charlie@email.com",
         "status": "READY",
@@ -252,7 +386,9 @@
         "department": "",
         "document_id": "72b8cd5d-4480-415a-a4c6-37d41028b4c5",
         "error": null,
+        "file_type": "",
         "filename": "Tesla_Q4.pdf",
+        "mime_type": "",
         "organization": "Tesla",
         "owner": "charlie@email.com",
         "status": "READY",
@@ -274,7 +410,9 @@
         "department": "",
         "document_id": "7bf6e1b1-7e77-4422-a61f-976167db0197",
         "error": null,
+        "file_type": "",
         "filename": "Tesla_Q4.pdf",
+        "mime_type": "",
         "organization": "Tesla",
         "owner": "charlie@email.com",
         "status": "READY",
@@ -296,7 +434,9 @@
         "department": "",
         "document_id": "804941dc-85a8-46cd-aa17-15262d4b964b",
         "error": null,
+        "file_type": "",
         "filename": "Apple_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Apple",
         "owner": "alice@email.com",
         "status": "READY",
@@ -318,7 +458,9 @@
         "department": "",
         "document_id": "8cf4bfb1-8553-4a41-b02c-acf14027f52c",
         "error": null,
+        "file_type": "",
         "filename": "Apple_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Apple",
         "owner": "alice@email.com",
         "status": "READY",
@@ -340,7 +482,9 @@
         "department": "",
         "document_id": "8e4206a2-b07c-4809-be68-7d4906cb2c90",
         "error": null,
+        "file_type": "",
         "filename": "Apple_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Apple",
         "owner": "alice@email.com",
         "status": "READY",
@@ -362,7 +506,9 @@
         "department": "",
         "document_id": "9cd6989f-e216-4382-82d0-6f7d714c809f",
         "error": null,
+        "file_type": "",
         "filename": "Tesla_Q4.pdf",
+        "mime_type": "",
         "organization": "Tesla",
         "owner": "charlie@email.com",
         "status": "READY",
@@ -384,12 +530,38 @@
         "department": "",
         "document_id": "a0a5b7df-c460-48cd-bde7-cc4e7c403ce6",
         "error": null,
+        "file_type": "",
         "filename": "Apple_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Apple",
         "owner": "alice@email.com",
         "status": "READY",
         "tags": [],
         "updated_at": "2026-06-26T07:17:52.604273Z",
+        "version": 1,
+        "visibility": "organization"
+      }
+    ],
+    "a4979e08-5658-4869-9bc9-de9fb99bbed1": [
+      {
+        "checksum": "2d5bd7471bb01b059f0a5c3dba8ca2f867615c9a85bd06f411c3ee51a84b6170",
+        "chunk_count": 1,
+        "chunk_ids": [
+          "de855afc-5d61-4a35-a5c0-6fd7eb8c3876"
+        ],
+        "classification": "internal",
+        "created_at": "2026-06-26T10:26:40.341902Z",
+        "department": "",
+        "document_id": "a4979e08-5658-4869-9bc9-de9fb99bbed1",
+        "error": null,
+        "file_type": "pdf",
+        "filename": "Apple_Q4_2025.pdf",
+        "mime_type": "application/pdf",
+        "organization": "Apple",
+        "owner": "alice@email.com",
+        "status": "READY",
+        "tags": [],
+        "updated_at": "2026-06-26T10:26:40.341888Z",
         "version": 1,
         "visibility": "organization"
       }
@@ -406,7 +578,9 @@
         "department": "",
         "document_id": "a891df0b-956d-4769-b997-236ebead73fe",
         "error": null,
+        "file_type": "",
         "filename": "Apple_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Apple",
         "owner": "alice@email.com",
         "status": "READY",
@@ -428,7 +602,9 @@
         "department": "",
         "document_id": "b4ce2c40-849d-4d18-b8a1-0b066fb37e42",
         "error": null,
+        "file_type": "",
         "filename": "Microsoft_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Microsoft",
         "owner": "bob@email.com",
         "status": "READY",
@@ -450,7 +626,9 @@
         "department": "",
         "document_id": "b9bbdab4-f213-472b-94da-cf9d5a67207d",
         "error": null,
+        "file_type": "",
         "filename": "Tesla_Q4.pdf",
+        "mime_type": "",
         "organization": "Tesla",
         "owner": "charlie@email.com",
         "status": "READY",
@@ -472,12 +650,38 @@
         "department": "",
         "document_id": "be450a83-731f-4d3b-a064-cb8bcf610ae4",
         "error": null,
+        "file_type": "",
         "filename": "Microsoft_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Microsoft",
         "owner": "bob@email.com",
         "status": "READY",
         "tags": [],
         "updated_at": "2026-06-26T07:11:53.819127Z",
+        "version": 1,
+        "visibility": "organization"
+      }
+    ],
+    "d9b7c1cf-d6bc-4e6c-822a-59703877cce2": [
+      {
+        "checksum": "287fcd870b856dee23f431f4232f00d8c4aced5196c7cccbfadefb3accd18f34",
+        "chunk_count": 1,
+        "chunk_ids": [
+          "2d3336eb-955b-4d13-8731-6a3a6024660c"
+        ],
+        "classification": "internal",
+        "created_at": "2026-06-26T10:26:40.345680Z",
+        "department": "",
+        "document_id": "d9b7c1cf-d6bc-4e6c-822a-59703877cce2",
+        "error": null,
+        "file_type": "pdf",
+        "filename": "Microsoft_Q4_2025.pdf",
+        "mime_type": "application/pdf",
+        "organization": "Microsoft",
+        "owner": "bob@email.com",
+        "status": "READY",
+        "tags": [],
+        "updated_at": "2026-06-26T10:26:40.345669Z",
         "version": 1,
         "visibility": "organization"
       }
@@ -494,7 +698,9 @@
         "department": "",
         "document_id": "eab278d4-c0eb-453c-ada5-ce9e79bf9cb3",
         "error": null,
+        "file_type": "",
         "filename": "Microsoft_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Microsoft",
         "owner": "bob@email.com",
         "status": "READY",
@@ -516,7 +722,9 @@
         "department": "",
         "document_id": "ee620af2-19cb-4e35-9be8-8ff70aea99e2",
         "error": null,
+        "file_type": "",
         "filename": "Microsoft_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Microsoft",
         "owner": "bob@email.com",
         "status": "READY",
@@ -538,7 +746,9 @@
         "department": "",
         "document_id": "f68504f5-fafa-4314-9ea8-faeab0659205",
         "error": null,
+        "file_type": "",
         "filename": "Apple_Q4_2025.pdf",
+        "mime_type": "",
         "organization": "Apple",
         "owner": "alice@email.com",
         "status": "READY",

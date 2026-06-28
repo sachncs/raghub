@@ -1,0 +1,97 @@
+"""LLM via ChatNVIDIA, implementing BaseLLMProvider interface."""
+
+from __future__ import annotations
+
+import base64
+import mimetypes
+from collections.abc import Sequence
+from typing import Any, cast
+
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_nvidia_ai_endpoints import ChatNVIDIA
+
+from raghub.llm.base import BaseLLMProvider
+from raghub.models import ConversationTurn
+from raghub.utils.retry import retry as _retry
+
+
+class NvidiaLLMProvider(BaseLLMProvider):
+    """LLM via ChatNVIDIA, implementing BaseLLMProvider interface."""
+
+    def __init__(
+        self,
+        model: str = "nvidia/nemotron-4-340b-instruct",
+        api_key: str | None = None,
+        timeout: int = 120,
+    ) -> None:
+        self.model_name = model
+        self.client = ChatNVIDIA(model=model, timeout=timeout, api_key=api_key)
+
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        conversation: Sequence[ConversationTurn],
+        context: Sequence[str],
+        question: str,
+        image_paths: list[str] | None = None,
+        session_history: list[dict] | None = None,
+    ) -> str:
+        messages = self.build_messages(
+            system_prompt=system_prompt,
+            conversation=conversation,
+            context=context,
+            question=question,
+            image_paths=image_paths,
+            session_history=session_history,
+        )
+        return _retry(lambda: cast(str, self.client.invoke(messages).content))
+
+    def build_messages(
+        self,
+        *,
+        system_prompt: str,
+        conversation: Sequence[ConversationTurn],
+        context: Sequence[str],
+        question: str,
+        image_paths: list[str] | None = None,
+        session_history: list[dict] | None = None,
+    ) -> list[BaseMessage]:
+        messages: list[BaseMessage] = [
+            SystemMessage(content=system_prompt),
+        ]
+
+        if session_history:
+            for turn in session_history:
+                role = turn.get("role", "user")
+                content = turn.get("content", "")
+                if role == "user":
+                    messages.append(HumanMessage(content=content))
+                elif role == "assistant":
+                    messages.append(AIMessage(content=content))
+                else:
+                    messages.append(SystemMessage(content=content))
+
+        if context:
+            formatted_context = "\n\n---\n\n".join(context)
+            messages.append(SystemMessage(content=f"Context:\n{formatted_context}"))
+
+        if image_paths:
+            human_content: list[str | dict[str, Any]] = [{"type": "text", "text": question}]
+            for path in image_paths:
+                with open(path, "rb") as f:
+                    encoded = base64.b64encode(f.read()).decode("utf-8")
+                mime_type, _ = mimetypes.guess_type(path)
+                if mime_type is None:
+                    mime_type = "image/png"
+                human_content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime_type};base64,{encoded}"},
+                    }
+                )
+            messages.append(HumanMessage(content=human_content))
+        else:
+            messages.append(HumanMessage(content=question))
+
+        return messages

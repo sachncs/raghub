@@ -44,9 +44,12 @@ echo "[2/6] Checking Python ..."
 PYTHON=""
 for cmd in python3 python; do
     if command -v "$cmd" &>/dev/null; then
-        VER=$("$cmd" --version 2>&1 | grep -oP '\d+\.\d+')
-        MAJOR="${VER%.*}"
-        MINOR="${VER#*.}"
+        VER=$("$cmd" --version 2>&1)
+        MAJOR=$(echo "$VER" | sed -n 's/.* \([0-9]*\)\.[0-9]*\.[0-9]*.*/\1/p; s/.* \([0-9]*\)\.[0-9]*.*/\1/p')
+        MINOR=$(echo "$VER" | sed -n 's/.* [0-9]*\.\([0-9]*\)\..*/\1/p; s/.* [0-9]*\.\([0-9]*\).*/\1/p')
+        if [ -z "$MAJOR" ]; then
+            continue
+        fi
         if [ "$MAJOR" -ge 3 ] && [ "$MINOR" -ge 10 ]; then
             PYTHON="$cmd"
             break
@@ -78,6 +81,12 @@ echo "[4/6] Installing pip packages (this may take a minute) ..."
 pip install --quiet --upgrade pip 2>/dev/null
 if [ -f requirements/all.txt ]; then
     pip install --quiet -r requirements/all.txt
+else
+    if [ -d requirements ]; then
+        for req_file in requirements/*.txt; do
+            [ -f "$req_file" ] && pip install --quiet -r "$req_file"
+        done
+    fi
 fi
 echo "  pip packages: OK"
 

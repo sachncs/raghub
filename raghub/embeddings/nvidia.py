@@ -1,0 +1,32 @@
+"""NV-Embed-QA embedding provider via langchain-nvidia-ai-endpoints."""
+
+from __future__ import annotations
+
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+
+from raghub.embeddings.base import BaseEmbeddingProvider
+from raghub.utils.retry import retry
+
+
+class NvidiaEmbeddingProvider(BaseEmbeddingProvider):
+    """NV-Embed-QA embedding provider via langchain-nvidia-ai-endpoints."""
+
+    def __init__(
+        self,
+        model: str = "nvidia/nv-embed-qa",
+        dimension: int = 384,
+        api_key: str | None = None,
+    ) -> None:
+        self.model_name = model
+        self._dimension = dimension
+        self.client = NVIDIAEmbeddings(model=model, dims=dimension, api_key=api_key or None)
+
+    def embed_text(self, text: str) -> list[float]:
+        return retry(lambda: self.client.embed_query(text))  # type: ignore[return-value]
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        return retry(lambda: self.client.embed_documents(texts))  # type: ignore[return-value]
+
+    @property
+    def dimension(self) -> int:
+        return self._dimension

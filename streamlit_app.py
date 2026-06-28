@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+
 try:
     import streamlit as st
-except Exception as exc:  # pragma: no cover - UI only
+except Exception as exc:
     raise SystemExit(
         "streamlit is not installed in this environment. "
         "Install dependencies and run `streamlit run streamlit_app.py`."
@@ -11,7 +13,11 @@ except Exception as exc:  # pragma: no cover - UI only
 from raghub.core.container import build_application
 
 
-app_service = build_application()
+async def _init_app():
+    return await build_application()
+
+
+app_service = asyncio.run(_init_app())
 
 st.set_page_config(page_title="Dynamic Multi-User RAG Platform", layout="wide")
 st.title("Dynamic Multi-User RAG Platform")
@@ -26,10 +32,11 @@ if "email" not in st.session_state:
 
 with st.sidebar:
     st.subheader("Login")
-    email = st.text_input("Dummy email", placeholder="alice@email.com")
+    email = st.text_input("Email", placeholder="alice@email.com")
+    password = st.text_input("Password", type="password", placeholder="••••••••")
     if st.button("Login"):
         try:
-            login = app_service.login(email)
+            login = asyncio.run(app_service.login(email, password))
             st.session_state.session_token = login.session_token
             st.session_state.email = login.user_email
             st.session_state.allowed_companies = login.allowed_companies
@@ -46,12 +53,12 @@ with st.sidebar:
     company = st.text_input("Company", placeholder="Apple")
     if st.button("Index document") and upload and st.session_state.session_token:
         try:
-            document = app_service.upload_document(
+            document = asyncio.run(app_service.upload_document(
                 token=st.session_state.session_token,
                 filename=upload.name,
                 content=upload.read(),
                 company=company or None,
-            )
+            ))
             st.success(f"Queued {document.filename} as {document.document_id}")
         except Exception as exc:
             st.error(str(exc))
@@ -60,7 +67,7 @@ st.subheader("Chat")
 question = st.text_input("Ask a question")
 if st.button("Ask") and question and st.session_state.session_token:
     try:
-        result = app_service.query(token=st.session_state.session_token, question=question)
+        result = asyncio.run(app_service.query(token=st.session_state.session_token, question=question))
         st.markdown(f"**Answer**: {result.answer}")
         if result.citations:
             st.markdown("**Citations**")
@@ -69,7 +76,7 @@ if st.button("Ask") and question and st.session_state.session_token:
                     f"- {citation['document_id']} p.{citation['page']} "
                     f"(chunk {citation['chunk_id']})"
                 )
-        history = app_service.history(st.session_state.session_token)
+        history = asyncio.run(app_service.history(st.session_state.session_token))
         with st.expander("Conversation history"):
             for turn in history:
                 st.write(f"Q: {turn.question}")
