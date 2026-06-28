@@ -1,3 +1,8 @@
+"""End-to-end feature tests covering rate limiting, RBAC, sliding-window
+trimming, and other cross-cutting concerns that don't fit cleanly into
+a single-module test file.
+"""
+
 from __future__ import annotations
 
 from time import sleep

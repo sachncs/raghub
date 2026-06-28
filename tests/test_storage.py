@@ -1,3 +1,8 @@
+"""Storage-layer tests for document, chunk, and session persistence.
+
+Covers both the SQLite repositories and the image store.
+"""
+
 from __future__ import annotations
 
 import os

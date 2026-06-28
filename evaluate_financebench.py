@@ -1,9 +1,17 @@
 """FinanceBench evaluation script.
 
-Downloads the open-source FinanceBench dataset, ingests PDFs,
-and evaluates the RAG system against gold answers.
+Downloads the open-source FinanceBench dataset, ingests the
+associated PDFs, and evaluates the RAG system against gold answers.
 
-Usage:  python evaluate_financebench.py
+Usage:
+
+    python evaluate_financebench.py
+
+Environment variables:
+
+* ``FINANCEBENCH_SAMPLE`` — limit the number of questions to evaluate
+  (default: 10). Set higher to run a fuller evaluation; expect
+  proportionally longer runtime and higher download volume.
 """
 
 from __future__ import annotations
@@ -24,6 +32,10 @@ SAMPLE_SIZE = int(os.environ.get("FINANCEBENCH_SAMPLE", "10"))
 
 
 def download_data() -> None:
+    """Download the FinanceBench questions and document metadata.
+
+    Idempotent: existing files are skipped.
+    """
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     PDF_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -50,6 +62,13 @@ def download_data() -> None:
 
 
 def load_data() -> tuple[list[dict], dict[str, dict]]:
+    """Load the FinanceBench questions and metadata.
+
+    Returns:
+        A 2-tuple ``(questions, meta)`` where ``questions`` is the
+        list of question dicts and ``meta`` maps ``doc_name`` to its
+        metadata record.
+    """
     with open(QUESTIONS_FILE) as f:
         questions = [json.loads(line) for line in f if line.strip()]
     meta: dict[str, dict] = {}
@@ -65,7 +84,21 @@ FINANCEBENCH_RAW = "https://raw.githubusercontent.com/patronus-ai/financebench/m
 
 
 async def ingest_pdfs(app, token: str, questions: list[dict], meta: dict[str, dict]) -> int:
-    """Download and ingest PDFs referenced by the sample questions."""
+    """Download and ingest PDFs referenced by the sample questions.
+
+    Args:
+        app: The application service.
+        token: Admin session token with permission to ingest on
+            behalf of any tenant.
+        questions: The sampled questions (used to discover the set of
+            referenced ``doc_name``s).
+        meta: Document metadata (unused by the current ingestion
+            logic; kept for future per-document fields like
+            ``company_name``).
+
+    Returns:
+        The number of PDFs successfully ingested.
+    """
     from urllib.request import urlretrieve
 
     doc_names: set[str] = set()
@@ -93,6 +126,9 @@ async def ingest_pdfs(app, token: str, questions: list[dict], meta: dict[str, di
                 continue
         with open(pdf_path, "rb") as f:
             content = f.read()
+        # Heuristic: the company tag is the first underscore-separated
+        # token of the doc_name. FinanceBench's filenames are
+        # ``<COMPANY>_<doc_name>.pdf`` by convention.
         company = doc_name.split("_")[0]
         try:
             await app.upload_document(
@@ -108,7 +144,17 @@ async def ingest_pdfs(app, token: str, questions: list[dict], meta: dict[str, di
 
 
 async def evaluate(app, token: str, questions: list[dict]) -> list[dict]:
-    """Run questions through the RAG pipeline and collect results."""
+    """Run questions through the RAG pipeline and collect results.
+
+    Args:
+        app: The application service.
+        token: Admin session token.
+        questions: The list of FinanceBench questions to evaluate.
+
+    Returns:
+        A list of per-question result dicts (also written to
+        :data:`RESULTS_FILE` every 10 questions and at the end).
+    """
     results: list[dict] = []
     total = len(questions)
     for i, q in enumerate(questions, 1):
@@ -122,27 +168,31 @@ async def evaluate(app, token: str, questions: list[dict]) -> list[dict]:
                 token=token,
                 question=question_text,
             )
-            results.append({
-                "financebench_id": qid,
-                "company": company,
-                "question": question_text,
-                "gold_answer": gold_answer,
-                "system_answer": response.answer,
-                "citation_count": len(response.citations),
-                "has_citations": len(response.citations) > 0,
-                "error": None,
-            })
+            results.append(
+                {
+                    "financebench_id": qid,
+                    "company": company,
+                    "question": question_text,
+                    "gold_answer": gold_answer,
+                    "system_answer": response.answer,
+                    "citation_count": len(response.citations),
+                    "has_citations": len(response.citations) > 0,
+                    "error": None,
+                }
+            )
         except Exception as e:
-            results.append({
-                "financebench_id": qid,
-                "company": company,
-                "question": question_text,
-                "gold_answer": gold_answer,
-                "system_answer": None,
-                "citation_count": 0,
-                "has_citations": False,
-                "error": str(e),
-            })
+            results.append(
+                {
+                    "financebench_id": qid,
+                    "company": company,
+                    "question": question_text,
+                    "gold_answer": gold_answer,
+                    "system_answer": None,
+                    "citation_count": 0,
+                    "has_citations": False,
+                    "error": str(e),
+                }
+            )
         if (i % 10) == 0:
             _save_results(results)
     _save_results(results)
@@ -150,11 +200,21 @@ async def evaluate(app, token: str, questions: list[dict]) -> list[dict]:
 
 
 def _save_results(results: list[dict]) -> None:
+    """Persist ``results`` to :data:`RESULTS_FILE` for later analysis.
+
+    Args:
+        results: The list of per-question result dicts.
+    """
     with open(RESULTS_FILE, "w") as f:
         json.dump(results, f, indent=2, default=str)
 
 
 def report(results: list[dict]) -> None:
+    """Print a textual evaluation summary.
+
+    Args:
+        results: The list of per-question result dicts.
+    """
     total = len(results)
     errors = [r for r in results if r["error"]]
     with_citations = [r for r in results if r["has_citations"]]
@@ -184,6 +244,7 @@ def report(results: list[dict]) -> None:
 
 
 async def main() -> None:
+    """Entry point: download → ingest → evaluate → report."""
     print("=" * 70)
     print("FINANCEBENCH EVALUATION")
     print("=" * 70)
@@ -201,6 +262,7 @@ async def main() -> None:
     # 3. Build RAG application
     print("\n[3/4] Building RAG application...")
     from raghub.core.container import build_application
+
     app = await build_application()
 
     print("Creating admin user for evaluation...")
@@ -208,7 +270,10 @@ async def main() -> None:
     existing = await app.container.user_store.get_by_email(admin_email)
     if existing is None:
         await app.container.user_store.create_user(
-            email=admin_email, password="eval", companies=[], is_admin=True,
+            email=admin_email,
+            password="eval",
+            companies=[],
+            is_admin=True,
         )
 
     login_resp = await app.login(admin_email, "eval")

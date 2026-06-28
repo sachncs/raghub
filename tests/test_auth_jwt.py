@@ -1,3 +1,11 @@
+"""JWT auth integration tests.
+
+Exercises :class:`raghub.auth.service.JwtAuthenticator` against a
+temporary SQLite-backed user store. Covers token minting, token
+verification, expired tokens, role-gated helpers, and a few common
+negative paths (unknown user, bad password, unknown token).
+"""
+
 from __future__ import annotations
 
 import os

@@ -1,3 +1,11 @@
+"""``setup.py`` — metadata-only package configuration.
+
+Defines the project name, version, runtime dependencies, and
+optional extras (``api``, ``ui``, ``zvec``, ``dev``). The actual
+build step is performed by the offline PEP 517 backend in
+:mod:`build_backend`.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,6 +17,11 @@ BASE_DIR = Path(__file__).parent
 
 
 def read_readme() -> str:
+    """Return the contents of the project README.
+
+    Returns:
+        The README file as a string.
+    """
     return (BASE_DIR / "README.md").read_text(encoding="utf-8")
 
 

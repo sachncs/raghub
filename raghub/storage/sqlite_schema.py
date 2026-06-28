@@ -1,3 +1,17 @@
+"""SQLite schema DDL used by the unit-of-work and store initialisers.
+
+This module exposes a single :data:`SQLITE_SCHEMA` constant containing
+the ``CREATE TABLE IF NOT EXISTS`` statements for the application's
+three primary tables (``documents``, ``chunks``, ``sessions``,
+``users``). It is consumed by :class:`UnitOfWork` to bootstrap an empty
+database on first run.
+
+The schema is intentionally minimal: there are no indexes beyond the
+primary keys declared inline. Production deployments with high read
+volume should add indexes on the hot columns (e.g. ``chunks.document_id``,
+``documents.organization``) in a follow-up migration.
+"""
+
 from __future__ import annotations
 
 SQLITE_SCHEMA = """

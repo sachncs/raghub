@@ -1,3 +1,10 @@
+"""Retrieval pipeline tests.
+
+Exercises :class:`raghub.retrieval.pipeline.RetrievalPipeline` plus
+the in-memory vector store, faceted search engine, and identity
+reranker.
+"""
+
 from __future__ import annotations
 
 from raghub.embeddings.hashing import HashingEmbeddingProvider

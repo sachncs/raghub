@@ -1,3 +1,10 @@
+"""Prompt-builder and token-counter tests.
+
+Covers :class:`raghub.prompts.builder.PromptBuilder`'s token-budget
+allocator and the tiktoken-based :class:`TokenCounter` (plus its
+whitespace fallback when tiktoken is unavailable).
+"""
+
 from __future__ import annotations
 
 from raghub.prompts.builder import PromptBuilder, PromptConfig, TokenCounter, TemplatePromptBuilder

@@ -1,3 +1,14 @@
+-- RAG SQLite schema.
+--
+-- Three tables cover the persisted state of the demo application:
+--
+-- * ``documents`` — one row per uploaded file. ``company`` is the
+--   tenant tag and drives the RBAC filter.
+-- * ``chunks`` — one row per text chunk extracted from a document.
+--   ``page`` records the originating page/section index.
+-- * ``conversations`` — append-only log of ``(user, session)`` turns
+--   with ``role`` (``user``/``assistant``) and ``timestamp``.
+
 CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
     company TEXT NOT NULL,

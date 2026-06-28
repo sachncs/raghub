@@ -1,3 +1,24 @@
+"""Streamlit demo UI for the Dynamic Multi-User RAG Platform.
+
+Run with:
+
+    streamlit run streamlit_app.py
+
+The app:
+
+1. Builds the application container via
+   :func:`raghub.core.container.build_application`.
+2. Provides a sidebar for login + PDF upload.
+3. Provides a main panel for asking questions and viewing the
+   answer, citations, and conversation history.
+
+Note:
+    The app uses :func:`asyncio.run` for each user action, which is
+    safe for the demo because Streamlit's hot-reload re-runs the
+    whole script. Production deployments would lift the service out
+    of module-level state into a proper long-lived process.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -14,6 +35,11 @@ from raghub.core.container import build_application
 
 
 async def _init_app():
+    """Build the application container.
+
+    Returns:
+        The application service object.
+    """
     return await build_application()
 
 
@@ -53,12 +79,14 @@ with st.sidebar:
     company = st.text_input("Company", placeholder="Apple")
     if st.button("Index document") and upload and st.session_state.session_token:
         try:
-            document = asyncio.run(app_service.upload_document(
-                token=st.session_state.session_token,
-                filename=upload.name,
-                content=upload.read(),
-                company=company or None,
-            ))
+            document = asyncio.run(
+                app_service.upload_document(
+                    token=st.session_state.session_token,
+                    filename=upload.name,
+                    content=upload.read(),
+                    company=company or None,
+                )
+            )
             st.success(f"Queued {document.filename} as {document.document_id}")
         except Exception as exc:
             st.error(str(exc))
@@ -67,7 +95,9 @@ st.subheader("Chat")
 question = st.text_input("Ask a question")
 if st.button("Ask") and question and st.session_state.session_token:
     try:
-        result = asyncio.run(app_service.query(token=st.session_state.session_token, question=question))
+        result = asyncio.run(
+            app_service.query(token=st.session_state.session_token, question=question)
+        )
         st.markdown(f"**Answer**: {result.answer}")
         if result.citations:
             st.markdown("**Citations**")

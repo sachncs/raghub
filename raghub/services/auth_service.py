@@ -1,6 +1,12 @@
+"""Authentication service used by the API and CLI.
+
+Wraps the JWT authenticator and session store behind the higher-level
+login/logout/resolve_user operations the application facade calls.
+"""
+
 from __future__ import annotations
 
-from time import perf_counter
+import time
 from typing import TYPE_CHECKING
 
 from raghub.exceptions import AuthenticationError
@@ -12,11 +18,45 @@ if TYPE_CHECKING:
 
 
 class AuthService(ServiceMixin):
+    """Login, logout, and principal-resolution operations.
+
+    Attributes:
+        container: The application container.
+    """
+
     def __init__(self, container: DynamicRagContainer) -> None:
+        """Store the container reference.
+
+        Args:
+            container: The application container.
+        """
         self.container = container
 
     async def login(self, email: str, password: str) -> AuthLoginResponse:
-        started = perf_counter()
+        """Verify credentials and create a session.
+
+        Steps:
+
+        1. Verify the password via the JWT authenticator (this also
+           returns a signed bearer token, which we discard).
+        2. Reload the user from the store to capture email/companies for
+           the response (this duplicates the work ``authenticate`` did).
+        3. Create a new session in the session store.
+        4. Emit a latency metric and a log event.
+
+        Args:
+            email: User email.
+            password: Plaintext password.
+
+        Returns:
+            An :class:`AuthLoginResponse` carrying the session token,
+            user email, and allowed companies.
+
+        Raises:
+            AuthenticationError: If the email/password combination is
+                invalid.
+        """
+        started = time.perf_counter()
         await self.container.authenticator.authenticate(email, password)
         user = await self.container.user_store.get_by_email(email)
         if user is None:
@@ -31,11 +71,34 @@ class AuthService(ServiceMixin):
         )
 
     async def logout(self, token: str) -> None:
+        """Invalidate the session associated with ``token``.
+
+        Looks up the session by token and, if found, deletes it. A
+        missing session is a no-op so callers can call ``logout``
+        defensively.
+
+        Args:
+            token: The bearer token presented by the client.
+        """
         session = await self.container.store.get_by_token(token)
         if session is not None:
             await self.container.store.delete_session(session.session_id)
 
     async def resolve_user(self, token: str) -> tuple[UserPrincipal, list[ConversationTurn]]:
+        """Resolve a bearer token to (principal, conversation history).
+
+        Args:
+            token: The bearer token.
+
+        Returns:
+            A tuple of :class:`UserPrincipal` and the session's
+            conversation history. The history is read directly from the
+            session record; the conversation manager is **not** involved.
+
+        Raises:
+            AuthenticationError: If the token does not correspond to a
+                live session, or the underlying user has been deleted.
+        """
         session = await self.container.store.get_by_token(token)
         if session is None:
             raise AuthenticationError("Invalid or expired session")

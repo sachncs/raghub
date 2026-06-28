@@ -1,4 +1,10 @@
-"""Tests for LLM provider message building."""
+"""Tests for LLM message building.
+
+Exercises :meth:`NvidiaLLMProvider.build_messages` against the
+standard set of inputs (system prompt, retrieved context,
+session history, images). The provider is instantiated with a
+placeholder API key; no actual inference occurs in these tests.
+"""
 
 from __future__ import annotations
 
