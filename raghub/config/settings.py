@@ -82,9 +82,39 @@ class AppSettings:
 
     def ensure_dirs(self) -> None:
         """Create the directories referenced by the settings object."""
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.registry_path.parent.mkdir(parents=True, exist_ok=True)
-        self.sessions_path.parent.mkdir(parents=True, exist_ok=True)
+        Path(self.data_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.registry_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(self.sessions_path).parent.mkdir(parents=True, exist_ok=True)
+        # Coerce path-like fields to ``Path`` so YAML/TOML strings
+        # round-trip cleanly.
+        self.data_dir = Path(self.data_dir)
+        self.registry_path = Path(self.registry_path)
+        self.sessions_path = Path(self.sessions_path)
+        self.zvec_dir = Path(self.zvec_dir)
+        if self.profile_path is not None:
+            self.profile_path = Path(self.profile_path)
+
+    def override(self, **changes: Any) -> "AppSettings":
+        """Return a new :class:`AppSettings` with the given fields changed.
+
+        Args:
+            **changes: Field name → new value pairs. Unknown keys
+                are kept on the ``extra`` mapping.
+
+        Returns:
+            A new dataclass instance; the receiver is not mutated.
+        """
+        from dataclasses import asdict, replace
+
+        merged: dict[str, Any] = asdict(self)
+        extra = dict(merged.get("extra", {}))
+        for key, value in changes.items():
+            if key in self.__dataclass_fields__:
+                merged[key] = value
+            else:
+                extra[key] = value
+        merged["extra"] = extra
+        return replace(self, **merged)
 
 
 def merge_mapping(target: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
@@ -100,6 +130,31 @@ def merge_mapping(target: dict[str, Any], source: dict[str, Any]) -> dict[str, A
     merged = dict(target)
     merged.update(source)
     return merged
+
+
+def read_toml_file(path: Path) -> dict[str, Any]:
+    """Load a TOML file using :mod:`tomllib` (3.11+) or :mod:`tomli`.
+
+    Args:
+        path: Path to the TOML file.
+
+    Returns:
+        The parsed dict, or ``{}`` if the file is empty. Missing
+        optional dependencies are non-fatal: the caller logs a
+        warning and falls back to YAML.
+    """
+    try:
+        try:
+            import tomllib  # type: ignore[attr-defined]
+        except ImportError:  # pragma: no cover - Python < 3.11
+            import tomli as tomllib  # type: ignore[no-redef]
+        return tomllib.loads(path.read_text(encoding="utf-8")) or {}
+    except ImportError:
+        # Neither tomllib nor tomli is available; return empty so
+        # the YAML profile is used.
+        return {}
+    except Exception:
+        return {}
 
 
 def load_settings(profile: str | None = None) -> AppSettings:
@@ -122,9 +177,15 @@ def load_settings(profile: str | None = None) -> AppSettings:
     base_dir = Path.cwd() / "config"
     selected_profile = profile or os.getenv("RAG_PROFILE", "development")
     profile_path = base_dir / f"{selected_profile}.yaml"
+    toml_path = base_dir / f"{selected_profile}.toml"
     payload: dict[str, Any] = {}
     if profile_path.exists():
         payload = yaml.safe_load(profile_path.read_text(encoding="utf-8")) or {}
+    if toml_path.exists():
+        toml_payload = read_toml_file(toml_path)
+        if toml_payload:
+            # TOML takes precedence over YAML when both are present.
+            payload = {**payload, **toml_payload}
 
     env_payload: dict[str, Any] = {
         "environment": os.getenv("RAG_ENV", selected_profile),
@@ -186,6 +247,13 @@ def load_settings(profile: str | None = None) -> AppSettings:
         if not settings.jwt_secret:
             raise RuntimeError(
                 "JWT_SECRET environment variable is required in production mode"
+            )
+        # ``JWT_SECRET`` must be at least 32 bytes for SHA-256
+        # signing; PyJWT emits an InsecureKeyLengthWarning otherwise.
+        if len(settings.jwt_secret.encode("utf-8")) < 32:
+            raise RuntimeError(
+                "JWT_SECRET must be at least 32 bytes long in production mode "
+                "(PyJWT rejects shorter keys for HS256)."
             )
         if settings.allow_passwordless_login:
             raise RuntimeError(

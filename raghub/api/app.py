@@ -22,9 +22,10 @@ without going through the FastAPI CLI).
 from __future__ import annotations
 
 import os
-from typing import Any
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -43,6 +44,25 @@ from raghub.models.api import (
 from raghub.services.application import DynamicRagApplication
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """FastAPI lifespan: graceful shutdown of collaborators."""
+    try:
+        yield
+    finally:
+        application: DynamicRagApplication = app.state.application
+        try:
+            await application.shutdown()
+        except Exception:
+            pass
+        background = getattr(app.state, "background_ingestion", None)
+        if background is not None and hasattr(background, "shutdown"):
+            try:
+                background.shutdown()
+            except Exception:
+                pass
+
+
 def create_app(application: DynamicRagApplication) -> FastAPI:
     """Build a :class:`FastAPI` instance wired to ``application``.
 
@@ -53,7 +73,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         A fully-configured FastAPI app ready to be served by
         ``uvicorn`` or any ASGI server.
     """
-    app = FastAPI(title="Dynamic RAG Platform", version="1.0.0")
+    app = FastAPI(title="Dynamic RAG Platform", version="1.0.0", lifespan=_lifespan)
     app.state.application = application
     # Shared background ingestion pool (2 workers by default); the
     # ``/ingest/async`` endpoint submits jobs to it.
@@ -148,11 +168,11 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         history = await app_service.history(token)
         return {"history": [turn.model_dump(mode="json") for turn in history]}
 
-    @app.delete("/session/history", status_code=204)
+    @app.delete("/session/history", status_code=204, response_class=Response)
     async def clear_history(
         authorization: str | None = Header(default=None),
         app_service: DynamicRagApplication = Depends(get_application),
-    ) -> None:
+    ) -> Response:
         """Empty the conversation history for the current session.
 
         Args:
@@ -160,6 +180,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         """
         token = require_bearer(authorization)
         await app_service.clear_history(token)
+        return Response(status_code=204)
 
     @app.post("/documents/upload", status_code=202, response_model=DocumentUploadResponse)
     async def upload_document(
@@ -233,12 +254,12 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         document = await app_service.document_status(token, document_id)
         return document.model_dump(mode="json")
 
-    @app.delete("/documents/{document_id}", status_code=204)
+    @app.delete("/documents/{document_id}", status_code=204, response_class=Response)
     async def delete_document(
         document_id: str,
         authorization: str | None = Header(default=None),
         app_service: DynamicRagApplication = Depends(get_application),
-    ) -> None:
+    ) -> Response:
         """Delete a document and all of its chunks. Admin-only.
 
         Args:
@@ -247,6 +268,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         """
         token = require_bearer(authorization)
         await app_service.delete_document(token, document_id)
+        return Response(status_code=204)
 
     @app.post("/query", response_model=QueryResponse)
     async def query(
@@ -270,11 +292,11 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
 
     @app.post("/ingest/async")
     async def ingest_async(
+        request: Request,
         file: UploadFile = File(...),
         company: str | None = Form(default=None),
         authorization: str | None = Header(default=None),
         app_service: DynamicRagApplication = Depends(get_application),
-        request: Request = Depends(lambda r: r),
     ) -> dict[str, str]:
         """Queue a document for asynchronous ingestion.
 

@@ -2,67 +2,102 @@
 
 ## Prerequisites
 
-- Python 3.11+
-- `NVIDIA_API_KEY` environment variable (for LLM and embeddings)
+- Python 3.12+
+- (Optional) API keys for LiteLLM, Langfuse, Marker, Chonkie,
+  Qdrant, and Instructor. The framework works offline without any
+  of them by falling back to in-process defaults.
 
 ## Installation
 
 ```bash
 git clone <repo>
 cd raghub
-./setup.sh                # creates .venv, installs all dependencies
-source .venv/bin/activate
+pip install -e ".[api,ui,dev]"
 ```
 
 ## Quick Start
 
-Start the API server:
+The smallest working RAG app is fewer than 10 lines:
+
+```python
+from raghub import RAG
+
+rag = RAG()
+rag.ingest(b"Revenue grew 12% YoY in Q3 2024.")
+print(rag.query("revenue").answer)
+```
+
+Or via the CLI:
+
+```bash
+# Ingest a file
+python -m raghub.cli ingest ./path/to/doc.txt
+
+# Ask a question
+python -m raghub.cli query "What was the revenue growth?"
+
+# Health
+python -m raghub.cli health
+```
+
+Or with a YAML / TOML config file:
+
+```bash
+python -m raghub.cli ingest --config raghub.yaml ./documents
+python -m raghub.cli query --config raghub.yaml "What is the revenue guidance?"
+```
+
+## Configuration
+
+Configuration precedence (highest first):
+
+1. Constructor arguments
+2. Environment variables (``RAG_*``, ``JWT_SECRET``, ``NVIDIA_API_KEY``, …)
+3. TOML config (``config/<profile>.toml``)
+4. YAML config (``config/<profile>.yaml``)
+5. Built-in defaults
+
+See `docs/reference/configuration.md` for the full list of keys.
+
+## API Usage
+
+The package ships a FastAPI surface under `raghub.api`:
 
 ```bash
 uvicorn raghub.api.app:app --reload
 ```
 
-In another terminal, use the CLI:
+Use any HTTP client to call `/auth/login`, `/documents/upload`,
+`/query`, etc. See `docs/reference/api.md` for the full schema.
 
-```bash
-# Login (creates a session token)
-python -m raghub login admin@example.com secret
+## Streaming
 
-# Health check
-python -m raghub health
+```python
+async for chunk in rag.astream("What was the revenue?"):
+    print(chunk, end="", flush=True)
 ```
 
-To create a user, use the `evaluate_financebench.py` script as a reference — user creation is done programmatically via `user_store.create_user()`.
+## Structured Output
 
-## API Usage
+```python
+from pydantic import BaseModel
 
-```bash
-# Login and get a token
-curl -X POST http://localhost:8000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "admin@example.com", "password": "secret"}'
+class Answer(BaseModel):
+    revenue: float
+    growth_pct: float
 
-# Upload a document
-curl -X POST http://localhost:8000/documents/upload \
-  -H "Authorization: Bearer <token>" \
-  -F "file=@report.pdf" \
-  -F "company=Acme"
-
-# Query
-curl -X POST http://localhost:8000/query \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What is the revenue?"}'
+result = rag.query("Q3 revenue and growth?", response_model=Answer)
 ```
 
-## Streamlit UI
+## Observability
+
+Set the Langfuse credentials and the facade emits traces,
+spans, latency, and token-usage automatically:
 
 ```bash
-streamlit run streamlit_app.py
+export LANGFUSE_PUBLIC_KEY=...
+export LANGFUSE_SECRET_KEY=...
 ```
 
-## Run Tests
-
-```bash
-python -m pytest tests/ -v
-```
+The default telemetry provider scrubs secrets from every log
+message before forwarding to Langfuse.

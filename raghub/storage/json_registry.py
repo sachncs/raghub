@@ -121,7 +121,7 @@ class JsonDocumentRegistry:
         except Exception as exc:  # pragma: no cover - persistence error path
             raise StorageError(str(exc)) from exc
 
-    def save_version(self, document: DocumentVersion) -> DocumentVersion:
+    def savehandle_version(self, document: DocumentVersion) -> DocumentVersion:
         """Persist a new or updated :class:`DocumentVersion`.
 
         Algorithm:
@@ -177,7 +177,7 @@ class JsonDocumentRegistry:
             versions = self.documents.get(document_id, [])
             return versions[-1] if versions else None
 
-    def get_version(self, document_id: str, version: int) -> DocumentVersion | None:
+    def gethandle_version(self, document_id: str, version: int) -> DocumentVersion | None:
         """Return a specific historical version.
 
         Args:
@@ -208,7 +208,7 @@ class JsonDocumentRegistry:
             locator = self.checksum_index.get(checksum)
             if locator is None:
                 return None
-            return self.get_version(locator[0], locator[1])
+            return self.gethandle_version(locator[0], locator[1])
 
     def list_accessible(self, companies: list[str]) -> list[DocumentVersion]:
         """Return the latest version of every non-archived document in ``companies``.

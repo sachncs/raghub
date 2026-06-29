@@ -26,6 +26,7 @@ rather than on the first request.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 
 from raghub.auth import (
@@ -324,6 +325,27 @@ class DynamicRagApplication:
                 at the start of the measured operation.
         """
         self.health_svc.emit_metric(name, started_at)
+
+    async def shutdown(self) -> None:
+        """Release all resources held by the application.
+
+        Closes the database manager, the in-memory vector store, and
+        any background ingestion service that the application owns.
+        Safe to call multiple times.
+        """
+        for attr in ("uow", "store", "vector_store", "image_store", "ingestion"):
+            collaborator = getattr(self.container, attr, None)
+            if collaborator is None:
+                continue
+            close = getattr(collaborator, "close", None) or getattr(collaborator, "shutdown", None)
+            if close is None:
+                continue
+            try:
+                result = close()
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception:
+                continue
 
 
 async def build_container(settings: AppSettings) -> DynamicRagContainer:

@@ -1,20 +1,22 @@
-"""Logging, metrics, and tracing helpers.
+"""Observability helpers: no-op, redacting, and structural implementations.
 
-This package wraps third-party observability primitives
-(:mod:`structlog`, :mod:`prometheus_client`, :mod:`opentelemetry`)
-behind thin adapters so the rest of the codebase doesn't import them
-directly. Tests can swap in NullMetrics without affecting other
-components.
+The module ships three reusable adapters:
+
+* :class:`NoOpTelemetry` — silent default; satisfies the
+  :class:`raghub.interfaces.observability.TelemetryProvider` contract
+  without performing any I/O.
+* :class:`RedactingTelemetry` — wraps another telemetry provider and
+  scrubs kwargs whose keys look like secrets before forwarding.
+* :class:`StructlogTelemetryProvider` — adapts the legacy structlog +
+  Prometheus + OTel stack to the new contract.
 """
 
-from .logging import StructuredLogger, build_logger
-from .metrics import NullMetrics, PrometheusMetrics
-from .tracing import OpenTelemetryTracer
+from raghub.observability.noop import NoOpTelemetry
+from raghub.observability.redact import RedactingTelemetry
+from raghub.observability.structlog_provider import StructlogTelemetryProvider
 
 __all__ = [
-    "NullMetrics",
-    "OpenTelemetryTracer",
-    "PrometheusMetrics",
-    "StructuredLogger",
-    "build_logger",
+    "NoOpTelemetry",
+    "RedactingTelemetry",
+    "StructlogTelemetryProvider",
 ]

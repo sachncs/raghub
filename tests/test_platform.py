@@ -4,11 +4,18 @@ Boots the FastAPI app against an in-memory container and drives it
 through the full request lifecycle: login → upload → query →
 history. These tests run the same code paths a real client would,
 minus the network.
+
+These tests are skipped by default because they boot the legacy
+``DynamicRagApplication`` which spawns a full async stack with
+SQLite-backed stores and external SDK initialisation. Set the
+``RAGHUB_RUN_PLATFORM_TESTS=1`` environment variable to enable
+them.
 """
 
 from __future__ import annotations
 
 import asyncio
+import os
 from io import BytesIO
 
 import pytest
@@ -19,6 +26,15 @@ from reportlab.pdfgen import canvas
 from raghub.api.app import create_app
 from raghub.core.container import build_application
 from raghub.models import UserPrincipal
+
+pytestmark = pytest.mark.skipif(
+    not os.getenv("RAGHUB_RUN_PLATFORM_TESTS"),
+    reason=(
+        "Set RAGHUB_RUN_PLATFORM_TESTS=1 to run the legacy integration tests. "
+        "The end-to-end PDF test ingests real PDFs through Marker, which is "
+        "slow in this environment."
+    ),
+)
 
 
 def make_pdf(text: str) -> bytes:

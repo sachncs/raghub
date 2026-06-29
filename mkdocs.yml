@@ -1,10 +1,18 @@
-site_name: Dynamic RAG Framework
+site_name: RAGHub
 nav:
   - Home: index.md
-  - Architecture: architecture.md
-  - API: api.md
-  - Deployment: deployment.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Decisions: architecture/decisions.md
+  - Guide:
+      - Getting started: guide/getting-started.md
+      - Development: guide/development.md
+      - Deployment: guide/deployment.md
+  - Reference:
+      - API: reference/api.md
+      - Configuration: reference/configuration.md
+  - Operations:
+      - Monitoring: operations/monitoring.md
   - Future: future.md
 theme:
   name: readthedocs
-

@@ -17,7 +17,7 @@ from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 
 class OpenTelemetryTracer:
@@ -43,9 +43,11 @@ class OpenTelemetryTracer:
             ``OTLPSpanExporter`` (or another network exporter)
             before invoking :meth:`instrument_app`.
         """
+        from raghub.observability.tracing_exporters import SafeConsoleSpanExporter
+
         resource = Resource.create({"service.name": service_name})
         provider = TracerProvider(resource=resource)
-        processor = BatchSpanProcessor(ConsoleSpanExporter())
+        processor = BatchSpanProcessor(SafeConsoleSpanExporter())
         provider.add_span_processor(processor)
         trace.set_tracer_provider(provider)
         self.provider = provider

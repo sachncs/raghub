@@ -37,6 +37,20 @@ from raghub.models import ChunkRecord
 from raghub.vectorstore.base import BaseVectorStore
 
 
+def matches_metadata_dict(record: "MemoryVectorRecord", filters: dict[str, Any]) -> bool:
+    """Return whether ``record`` matches every key/value in ``filters``."""
+    for key, expected in filters.items():
+        if not hasattr(record.chunk, key):
+            return False
+        actual = getattr(record.chunk, key)
+        if isinstance(expected, list):
+            if actual not in expected:
+                return False
+        elif actual != expected:
+            return False
+    return True
+
+
 @dataclass
 class MemoryVectorRecord:
     """A single chunk + its precomputed embedding vector.
@@ -114,7 +128,7 @@ class InMemoryVectorStore(BaseVectorStore):
             for chunk_id in chunk_ids:
                 self.records.pop(chunk_id, None)
 
-    def delete_version(self, document_id: str, version: int) -> None:
+    def deletehandle_version(self, document_id: str, version: int) -> None:
         """Remove chunks whose ``document_id`` and ``version`` match.
 
         Args:
@@ -186,23 +200,32 @@ class InMemoryVectorStore(BaseVectorStore):
             return 0.0
         return float(np.dot(lhs, rhs) / denom)
 
-    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str) -> list[dict[str, Any]]:
+    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: Any = "") -> list[dict[str, Any]]:
         """Cosine-similarity search with metadata pre-filtering.
 
         Args:
             vector: Query embedding.
             top_k: Maximum number of hits to return.
-            metadata_filter: A filter expression; see :meth:`matches_filter`.
+            metadata_filter: Either a filter expression string
+                (legacy; see :meth:`matches_filter`) or a ``dict``
+                keyed by :class:`ChunkRecord` field name. ``dict``
+                matches are equality checks.
 
         Returns:
             A list of hit dicts with keys ``chunk_id``, ``score``,
             ``chunk`` sorted by descending score and trimmed to ``top_k``.
         """
-        # Snapshot the filtered records under the lock so the search loop
-        # does not race with mutations. Releasing the lock before scoring
-        # means concurrent inserts do not block search latency.
+        if isinstance(metadata_filter, dict):
+            dict_filter = metadata_filter
+        else:
+            dict_filter = None
         with self.lock:
-            records = [record for record in self.records.values() if self.matches_filter(record, metadata_filter)]
+            records = [
+                record
+                for record in self.records.values()
+                if (dict_filter is None or matches_metadata_dict(record, dict_filter))
+                and (dict_filter is not None or self.matches_filter(record, metadata_filter or ""))
+            ]
         hits = [
             {
                 "chunk_id": record.chunk.chunk_id,

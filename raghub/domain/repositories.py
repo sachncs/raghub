@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-
+from typing import TYPE_CHECKING
 
 from raghub.models import ChunkRecord, DocumentRecord, SessionRecord
-from raghub.storage.database import DatabaseManager
+
+if TYPE_CHECKING:
+    from raghub.storage.database import DatabaseManager
 
 
 class DocumentRepository(ABC):
@@ -103,7 +105,7 @@ class UnitOfWork:
     def __init__(self, document_repo: DocumentRepository,
                  chunk_repo: ChunkRepository,
                  session_repo: SessionRepository,
-                 db_manager: DatabaseManager | None = None) -> None:
+                 db_manager: "DatabaseManager | None" = None) -> None:
         self.document_repo = document_repo
         self.chunk_repo = chunk_repo
         self.session_repo = session_repo

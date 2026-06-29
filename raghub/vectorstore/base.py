@@ -33,7 +33,7 @@ class BaseVectorStore(ABC):
         """Delete all chunks for a document."""
 
     @abstractmethod
-    def delete_version(self, document_id: str, version: int) -> None:
+    def deletehandle_version(self, document_id: str, version: int) -> None:
         """Delete one version."""
 
     @abstractmethod

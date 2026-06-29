@@ -7,11 +7,47 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - run: pip install -e ".[api,dev]"
-      - run: pytest -q
-
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install dependencies
+        run: pip install -e ".[api,ui,dev]"
+      - name: Lint (ruff)
+        run: ruff check raghub/ tests/ examples/ bench/
+      - name: Type-check (mypy)
+        run: mypy raghub/
+      - name: Docstring coverage (interrogate)
+        run: |
+          interrogate -v \
+            raghub/api/rag.py raghub/api/defaults.py raghub/api/response.py \
+            raghub/evaluation/ raghub/knowledge/ \
+            raghub/conversation/ raghub/cli/ \
+            -f 80
+      - name: Unit tests with coverage gate
+        run: |
+          pytest -q --ignore=tests/test_financebench.py \
+            --cov=raghub --cov-report=term-missing \
+            --cov-fail-under=72
+      - name: Integration tests (optional)
+        env:
+          RAGHUB_RUN_PLATFORM_TESTS: "1"
+        run: |
+          pytest -q tests/test_platform.py || true
+      - name: Build docs
+        run: |
+          pip install mkdocs
+          mkdocs build --strict
+      - name: Security scan (Bandit)
+        run: |
+          pip install bandit
+          bandit -r raghub/ -q -ll -i
+      - name: Dependency audit
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements/all.txt || true

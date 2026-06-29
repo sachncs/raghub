@@ -80,7 +80,7 @@ class SlidingWindowManager:
             # it just over-estimates token counts by ~1.3x on average.
             pass
 
-    def count_tokens(self, text: str) -> int:
+    def counttokenize(self, text: str) -> int:
         """Count tokens in a single string.
 
         Args:
@@ -129,7 +129,7 @@ class SlidingWindowManager:
             # and chat-template overhead that surround each Q/A pair. The
             # exact number depends on the model; 10 is an empirical average
             # for the cl100k/o200k families.
-            turn_tokens = self.count_tokens(turn.question) + self.count_tokens(turn.answer) + 10
+            turn_tokens = self.counttokenize(turn.question) + self.counttokenize(turn.answer) + 10
             if total + turn_tokens > self.max_tokens:
                 # Adding this turn would exceed the budget: stop and return
                 # what we have. Older turns are discarded silently.
