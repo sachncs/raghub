@@ -60,7 +60,7 @@ class TestSlidingWindowManager:
         manager = SlidingWindowManager(max_tokens=100)
         manager.enc = None
         text = "hello " * 50
-        count = manager.count_tokens(text)
+        count = manager.counttokenize(text)
         assert count == 50
 
 

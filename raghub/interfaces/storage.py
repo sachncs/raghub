@@ -15,7 +15,7 @@ from raghub.models import ConversationTurn, DocumentVersion, SessionRecord
 class DocumentRegistry(Protocol):
     """Tracks versioned document state."""
 
-    def save_version(self, document: DocumentVersion) -> DocumentVersion:
+    def savehandle_version(self, document: DocumentVersion) -> DocumentVersion:
         """Persist a new version.
 
         Args:

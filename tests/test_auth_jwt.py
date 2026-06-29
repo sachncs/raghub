@@ -34,7 +34,7 @@ class TestJwtAuthenticator:
         user_store = SqliteUserStore(tmp_db)
         await user_store.initialize()
         await user_store.create_user("alice@test.com", "secret123", companies=["acme"])
-        auth = JwtAuthenticator("test-secret-key-change-me", user_store)
+        auth = JwtAuthenticator("test-secret-must-be-32-bytes-or-longer-for-sha256", user_store)
         token = await auth.authenticate("alice@test.com", "secret123")
         assert isinstance(token, str)
         assert len(token) > 20
@@ -49,7 +49,7 @@ class TestJwtAuthenticator:
         user_store = SqliteUserStore(tmp_db)
         await user_store.initialize()
         await user_store.create_user("bob@test.com", "secret")
-        auth = JwtAuthenticator("test-secret-key", user_store)
+        auth = JwtAuthenticator("test-secret-must-be-32-bytes-or-longer-for-sha256", user_store)
         with pytest.raises(AuthenticationError):
             await auth.authenticate("bob@test.com", "wrong")
 
@@ -59,7 +59,7 @@ class TestJwtAuthenticator:
         from raghub.auth.service import JwtAuthenticator
         user_store = SqliteUserStore(tmp_db)
         await user_store.initialize()
-        auth = JwtAuthenticator("test-secret-key", user_store)
+        auth = JwtAuthenticator("test-secret-must-be-32-bytes-or-longer-for-sha256", user_store)
         with pytest.raises(AuthenticationError):
             await auth.validate_token("invalid-token")
 
@@ -101,7 +101,7 @@ class TestJwtSessionManager:
         await user_store.create_user("alice@test.com", "secret", companies=["acme"])
         session_store = SqliteSessionStore(tmp_db)
         await session_store.initialize()
-        auth = JwtAuthenticator("test-secret-key", user_store)
+        auth = JwtAuthenticator("test-secret-must-be-32-bytes-or-longer-for-sha256", user_store)
         manager = JwtSessionManager(session_store, auth)
         login = await manager.login("alice@test.com", "secret")
         assert login.session_token is not None

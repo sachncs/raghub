@@ -1,42 +1,45 @@
-# Design Decisions
+# Architecture Decision Records
 
-## Architecture
+| Number | Date       | Title                                                    | Status     |
+|--------|------------|----------------------------------------------------------|------------|
+| ADR-0001 | 2024-Q4    | LLM and embedding provider is LiteLLM                    | Accepted   |
+| ADR-0002 | 2024-Q4    | Vector store package is `raghub.vectorstore` (singular)  | Accepted   |
+| ADR-0003 | 2024-Q4    | OKF is the canonical persisted knowledge representation  | Accepted   |
+| ADR-0004 | 2024-Q4    | Public API is `raghub.RAG`; legacy services preserved    | Accepted   |
+| ADR-0005 | 2024-Q4    | Telemetry scrubbing is the default                        | Accepted   |
+| ADR-0006 | 2024-Q4    | No raw dicts cross the public boundary                    | Accepted   |
+| ADR-0007 | 2024-Q4    | Langfuse v3+ uses `get_client()` and spans               | Accepted   |
+| ADR-0008 | 2024-Q4    | Instructor v1+ uses `from_provider("litellm/<model>")`    | Accepted   |
+| ADR-0009 | 2024-Q4    | Configuration precedence: env > TOML > YAML > defaults   | Accepted   |
+| ADR-0010 | 2024-Q4    | Incremental indexing by SHA-256 content hash             | Accepted   |
 
-| Decision | Choice |
-|----------|--------|
-| Vector store | ZVec (production), InMemoryVectorStore (dev/test) |
-| Embeddings | NVIDIA NV-Embed-QA, SentenceTransformers (all-MiniLM-L6-v2) |
-| LLM | NVIDIA Llama 3.3 Nemotron Super 49B |
-| Auth | JWT (PyJWT) + bcrypt password hashing |
-| Persistence | SQLite via aiosqlite with DatabaseManager |
-| Domain pattern | Active Record (build, update, remove) |
-| Package structure | Flattened (no src/) |
+## ADR-0001: LLM and embedding provider is LiteLLM
 
-## Key Decisions
+**Context:** the previous default was `langchain-nvidia-ai-endpoints`,
+which is a thin wrapper around NVIDIA's hosted models and locks the
+project into a single provider.
 
-### Fully Async Stack
-All I/O (database, HTTP, embeddings, LLM) uses `asyncio`. No `to_sync()` wrappers. Database operations use `aiosqlite`.
+**Decision:** the canonical LLM and embedding providers are
+`raghub.llm.litellm.LiteLLMProvider` and
+`raghub.embeddings.litellm.LiteLLMEmbeddingProvider`. Both work
+with any LiteLLM-supported model (OpenAI, NVIDIA, Anthropic,
+Bedrock, Cohere, Voyage, …).
 
-### Shared DatabaseManager
-All SQLite repositories (`SqliteDocumentRepository`, `SqliteChunkRepository`, `SqliteSessionRepository`) accept an optional `db_manager`. When provided, they share a single connection; otherwise they create one per call. `DatabaseManager` enables WAL mode and foreign keys on connect.
+**Consequences:** the framework supports multiple providers
+out of the box; the dependency on `langchain-nvidia-ai-endpoints`
+was removed.
 
-### No Passwordless Login
-The passwordless login path was removed. `AuthLoginRequest` requires `password: str`. Production config has `allow_passwordless_login: false`.
+## ADR-0007: Langfuse v3+ uses `get_client()` and spans
 
-### No Underscore-Prefixed Names
-All "private" methods and attributes were renamed to not use underscore prefixes (e.g., `_conn` → `conn`, `_run_job` → `run_job`). The codebase enforces this convention.
+**Context:** the previous `LangfuseTelemetryProvider` used the
+langfuse v2 SDK (`Langfuse(...)` and `langfuse.score(...)` for
+every event) and produced no proper spans.
 
-### ServiceMixin
-`ServiceMixin` in `services/__init__.py` provides shared `log()` and `emit_metric()` for all four service classes, eliminating duplicate implementations.
+**Decision:** the provider uses langfuse v3+ (`get_client()` and
+`start_as_current_observation(as_type="span"|"generation", ...)`).
+The provider degrades to `NoOpTelemetry` when langfuse is not
+installed or no credentials are present in the environment.
 
-### Retry with Exponential Backoff
-NVIDIA API calls use inline retry wrappers (`_retry` in `llm/nvidia.py`, `_retry_embed` in `embeddings/nvidia.py`) with exponential backoff rather than external dependencies like tenacity.
-
-### Factory Routing
-`build_embedding_provider` routes to NVIDIA only when the model name contains `"nvidia"`. `build_llm_provider` applies the same convention.
-
-### FinanceBench PDFs
-Evaluation downloads PDFs from GitHub raw URLs (`pdfs/` directory), not SEC EDGAR.
-
-### Admin Company Access
-`allowed_company_filter()` returns `""` (match-all) for `is_admin=True` users, bypassing company-level filtering.
+**Consequences:** traces are first-class observations; the RAG
+facade emits per-stage spans, latency, and token usage. The
+dependency on langfuse v2 API patterns was removed.

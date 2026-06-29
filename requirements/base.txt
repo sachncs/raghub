@@ -6,7 +6,7 @@ zvec>=0.5
 numpy
 pyyaml
 httpx
-langchain-nvidia-ai-endpoints>=1.4
+litellm>=1.40
 bcrypt>=5
 pyjwt>=2
 aiosqlite>=0.22

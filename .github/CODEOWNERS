@@ -1,0 +1,24 @@
+# Default code owners for the RAGHub project.
+# Order is bottom-up: the last match wins.
+
+# Core maintainers own the entire repository by default.
+* @quantiphi/maintainers
+
+# The RAG facade and CLI are the public entry points — stricter
+# review applies.
+/raghub/api/ @quantiphi/raghub-core
+/raghub/cli/ @quantiphi/raghub-core
+/raghub/knowledge/ @quantiphi/raghub-core
+
+# Pipelines, ingestion, and embeddings — broader review.
+/raghub/pipelines/ @quantiphi/raghub-core
+/raghub/ingestion/ @quantiphi/raghub-core
+/raghub/embeddings/ @quantiphi/raghub-core
+
+# Infrastructure and tooling.
+/.github/ @quantiphi/maintainers
+/setup.py @quantiphi/maintainers
+/pyproject.toml @quantiphi/maintainers
+/Dockerfile @quantiphi/maintainers
+/mkdocs.yml @quantiphi/maintainers
+/docs/ @quantiphi/maintainers

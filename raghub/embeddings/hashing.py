@@ -22,7 +22,7 @@ Trade-offs:
   Two unrelated tokens hash to unrelated buckets, so semantically similar
   texts do not necessarily yield similar vectors. For real workloads use
   :class:`raghub.embeddings.sentence_transformer.SentenceTransformerEmbeddingProvider`
-  or :class:`raghub.embeddings.nvidia.NvidiaEmbeddingProvider`.
+  or :class:`raghub.embeddings.litellm.LiteLLMEmbeddingProvider`.
 """
 
 from __future__ import annotations

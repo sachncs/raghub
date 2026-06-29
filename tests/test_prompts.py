@@ -7,7 +7,7 @@ whitespace fallback when tiktoken is unavailable).
 
 from __future__ import annotations
 
-from raghub.prompts.builder import PromptBuilder, PromptConfig, TokenCounter, TemplatePromptBuilder
+from raghub.prompts.builder import PromptBuilder, PromptConfig, TokenCounter
 from raghub.models import ConversationTurn
 
 
@@ -85,29 +85,10 @@ class TestPromptBuilder:
         assert len(result["context"]) < 10
 
 
-class TestTemplatePromptBuilder:
-    def test_build_messages(self):
-        from raghub.models import ConversationTurn
-        from raghub.documents.chunker import ChunkRecord
-        from raghub.models import Classification
-        builder = TemplatePromptBuilder()
-        turn = ConversationTurn(question="Hi", answer="Hello")
-        chunk = ChunkRecord(
-            chunk_id="c1",
-            document_id="d1",
-            version=1,
-            page=1,
-            company="acme",
-            owner="alice",
-            classification=Classification.INTERNAL,
-            hash="abc",
-            text="Some context",
-        )
-        result = builder.build_messages(
-            conversation=[turn],
-            retrieved_chunks=[chunk],
-            question="What?",
-        )
-        assert len(result) >= 2
-        assert result[-1]["role"] == "user"
-        assert result[-1]["content"] == "What?"
+class TestSystemPromptTemplate:
+    def test_template_exported(self):
+        from raghub.prompts import SYSTEM_PROMPT_TEMPLATE
+
+        assert isinstance(SYSTEM_PROMPT_TEMPLATE, str)
+        assert "retrieval-augmented" in SYSTEM_PROMPT_TEMPLATE
+        assert "documents" in SYSTEM_PROMPT_TEMPLATE
