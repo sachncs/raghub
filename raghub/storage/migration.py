@@ -15,11 +15,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
-from raghub.storage.json_registry import JsonDocumentRegistry
-from raghub.storage.session_store import JsonSessionStore
-from raghub.storage.sqlite_session_store import SqliteSessionStore
-
 
 async def migrate_from_json(
     db_path: str | Path,
@@ -53,15 +48,17 @@ async def migrate_from_json(
         It does not deduplicate and does not produce a migration report;
         if you need either, wrap this call in your own orchestrator.
     """
+    from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+    from raghub.storage.json_registry import JsonDocumentRegistry
+    from raghub.storage.session_store import JsonSessionStore
+    from raghub.storage.sqlite_session_store import SqliteSessionStore
+
     registry = SqliteDocumentRepository(db_path)
     await registry.initialize()
 
     json_registry = JsonDocumentRegistry(Path(registry_path))
     for versions in json_registry.documents.values():
         for doc in versions:
-            # Touching the timestamps here would be redundant; the
-            # explicit no-op assignments keep the migration intent
-            # visible without changing behaviour.
             doc.created_at = doc.created_at
             doc.updated_at = doc.updated_at
             await registry.save(doc)

@@ -10,7 +10,6 @@ tested without spawning the full async stack.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import pytest
 
@@ -67,7 +66,7 @@ def test_app_factory_creates_fastapi_instance() -> None:
     app = create_app(_StubApp())
     app.dependency_overrides[get_application] = lambda: _StubApp()
     assert isinstance(app, FastAPI)
-    assert "/health" in {route.path for route in app.routes}
+    assert "/health" in {route.path for route in app.routes if hasattr(route, "path")}
 
 
 def test_health_route_returns_payload() -> None:

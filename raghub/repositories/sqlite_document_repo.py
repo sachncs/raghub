@@ -1,21 +1,25 @@
+"""SQLite document repository.
+
+Implements :class:`raghub.domain.repositories.DocumentRepository`
+against a SQLite database. Part of the legacy persistence layer.
+"""
+
 from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import aiosqlite
 
 from raghub.domain import DocumentRepository
 from raghub.models import DocumentLifecycleStatus, DocumentRecord
-
-if TYPE_CHECKING:
-    from raghub.storage.database import DatabaseManager
+from raghub.storage.database import DatabaseManager
 
 
 class SqliteDocumentRepository(DocumentRepository):
-    def __init__(self, db_path: str | Path, db_manager: "DatabaseManager | None" = None) -> None:
+    def __init__(self, db_path: str | Path, db_manager: DatabaseManager | None = None) -> None:
         self.db_path = str(db_path)
         self.db_manager = db_manager
 

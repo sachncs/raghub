@@ -69,7 +69,7 @@ class OfficeParser(FileParser):
             # ``openpyxl`` is the standard read-only XLSX driver; the
             # ``data_only=True`` flag resolves formula cells to their
             # cached values instead of returning the formula strings.
-            from openpyxl import load_workbook  # type: ignore[import-untyped]
+            from openpyxl import load_workbook
 
             wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
             for i, ws_name in enumerate(wb.sheetnames, start=1):

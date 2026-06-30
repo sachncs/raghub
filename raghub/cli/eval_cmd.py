@@ -13,7 +13,7 @@ import argparse
 import asyncio
 import statistics
 
-from raghub.cli._common import print_json
+from raghub.cli.common import print_json
 from raghub.evaluation.financebench import FinanceBenchEvaluator
 
 
@@ -50,12 +50,12 @@ def run_subcommand(args: argparse.Namespace) -> int:
     async def _async() -> int:
         evaluator = FinanceBenchEvaluator()
 
-        async def _factory(_example):
+        async def _factory(_example: object) -> str:
             return ""
 
         examples = []
         if args.examples:
-            rows = await asyncio.to_thread(evaluator._ensure_examples)
+            rows = await asyncio.to_thread(evaluator.ensure_examples)
             examples = rows[: args.examples]
         results = await evaluator.evaluate(examples, response_factory=_factory)
         summary = {

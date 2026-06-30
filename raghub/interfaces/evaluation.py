@@ -6,7 +6,7 @@ Benchmark-agnostic scoring layer. Concrete implementations include
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence
+from typing import Any, Protocol, Sequence
 
 from raghub.models import EvaluationResult
 
@@ -20,7 +20,7 @@ class Evaluator(Protocol):
         self,
         examples: Sequence[dict],
         *,
-        response_factory,
+        response_factory: Any,
     ) -> list[EvaluationResult]:
         """Score every example.
 

@@ -36,15 +36,15 @@ def __getattr__(name: str) -> Any:
     """
     if name in {"DynamicRagApplication", "DynamicRagContainer", "build_container"}:
         from raghub.services.application import (
-            DynamicRagApplication as _app,
-            DynamicRagContainer as _ctr,
-            build_container as _bc,
+            DynamicRagApplication as app_import,
+            DynamicRagContainer as ctr_import,
+            build_container as bc_import,
         )
 
         return {
-            "DynamicRagApplication": _app,
-            "DynamicRagContainer": _ctr,
-            "build_container": _bc,
+            "DynamicRagApplication": app_import,
+            "DynamicRagContainer": ctr_import,
+            "build_container": bc_import,
         }[name]
     raise AttributeError(f"module 'raghub.core.container' has no attribute {name!r}")
 
@@ -66,11 +66,11 @@ async def build_application(profile: str | None = None) -> Any:
     """
     from raghub.services.application import (
         DynamicRagApplication,
-        build_container as _build_container,
+        build_container as build_container_import,
     )
 
     settings = load_settings(profile)
-    container = await _build_container(settings)
+    container = await build_container_import(settings)
     return DynamicRagApplication(container)
 
 

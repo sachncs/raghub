@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from raghub.api.rag import RAG
-from raghub.cli._common import print_json
+from raghub.cli.common import print_json
 
 
 def add_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -18,6 +18,14 @@ def add_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def handle_health(_: argparse.Namespace) -> int:
+    """Run a liveness probe and print the health status as JSON.
+
+    Args:
+        _: Unused argparse namespace (required by the handler protocol).
+
+    Returns:
+        ``0`` on success.
+    """
     rag = RAG()
     print_json(rag.health())
     return 0

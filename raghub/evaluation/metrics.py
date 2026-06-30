@@ -22,12 +22,12 @@ from __future__ import annotations
 import re
 from typing import Iterable, Sequence
 
-_TOKEN_RE = re.compile(r"\w+")
+TOKEN_RE = re.compile(r"\w+")
 
 
 def tokenize(text: str) -> set[str]:
     """Lower-case word tokens for set-based overlap metrics."""
-    return set(t.lower() for t in _TOKEN_RE.findall(text or ""))
+    return set(t.lower() for t in TOKEN_RE.findall(text or ""))
 
 
 def recall_at_k(

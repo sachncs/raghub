@@ -21,20 +21,20 @@ if TYPE_CHECKING:
 def __getattr__(name: str) -> Any:
     """Lazily import :class:`RAG` and the legacy builders."""
     if name == "RAG":
-        from raghub.api.rag import RAG as _RAG
+        from raghub.api.rag import RAG as rag_import
 
-        return _RAG
+        return rag_import
     if name == "build_application":
-        from raghub.core.container import build_application as _ba
+        from raghub.core.container import build_application as ba_import
 
-        return _ba
+        return ba_import
     if name in {"DynamicRagApplication", "DynamicRagContainer"}:
         from raghub.services.application import (
-            DynamicRagApplication as _app,
-            DynamicRagContainer as _ctr,
+            DynamicRagApplication as app_import,
+            DynamicRagContainer as ctr_import,
         )
 
-        return _app if name == "DynamicRagApplication" else _ctr
+        return app_import if name == "DynamicRagApplication" else ctr_import
     raise AttributeError(f"module 'raghub' has no attribute {name!r}")
 
 

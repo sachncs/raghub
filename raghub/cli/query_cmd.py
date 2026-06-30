@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from raghub.api.rag import RAG
-from raghub.cli._common import print_json
+from raghub.cli.common import print_json
 
 
 def add_parser(subparsers: argparse._SubParsersAction) -> None:

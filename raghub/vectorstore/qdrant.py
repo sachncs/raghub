@@ -14,16 +14,19 @@ from raghub.exceptions import ConfigurationError, VectorStoreError
 from raghub.interfaces.vectorstore import VectorStore
 from raghub.models import ChunkRecord
 
+QdrantClient: Any
+qmodels: Any
+
 try:
-    from qdrant_client import QdrantClient  # type: ignore
-    from qdrant_client.http import models as _qmodels  # type: ignore
-    _QDRANT_AVAILABLE = True
-    _ImportError: Exception | None = None
+    from qdrant_client import QdrantClient
+    from qdrant_client.http import models as qmodels
+    QDRANT_AVAILABLE = True
+    OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
     QdrantClient = None
-    _qmodels = None
-    _QDRANT_AVAILABLE = False
-    _ImportError = exc
+    qmodels = None
+    QDRANT_AVAILABLE = False
+    OptionalImportError = exc
 
 
 class QdrantVectorStore(VectorStore):
@@ -50,13 +53,13 @@ class QdrantVectorStore(VectorStore):
         Raises:
             ConfigurationError: When ``qdrant-client`` is not installed.
         """
-        if not _QDRANT_AVAILABLE:
+        if not QDRANT_AVAILABLE:
             raise ConfigurationError(
                 "qdrant-client is not installed; run `pip install qdrant-client`."
             )
-        self._collection = collection
-        self._embedding_dim = embedding_dim
-        self._client = QdrantClient(url=url, api_key=api_key, prefer_grpc=prefer_grpc)
+        self.collection = collection
+        self.embedding_dim = embedding_dim
+        self.client = QdrantClient(url=url, api_key=api_key, prefer_grpc=prefer_grpc)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -65,29 +68,55 @@ class QdrantVectorStore(VectorStore):
     def create_collection(self) -> None:
         """Create the Qdrant collection if it does not already exist."""
         try:
-            self._client.get_collection(self._collection)
+            self.client.get_collection(self.collection)
         except Exception:
-            self._client.recreate_collection(
-                collection_name=self._collection,
-                vectors_config=_qmodels.VectorParams(
-                    size=self._embedding_dim,
-                    distance=_qmodels.Distance.COSINE,
+            self.client.recreate_collection(
+                collection_name=self.collection,
+                vectors_config=qmodels.VectorParams(
+                    size=self.embedding_dim,
+                    distance=qmodels.Distance.COSINE,
                 ),
             )
 
     def optimize(self) -> None:
         """Qdrant has no separate optimisation step; flush in-memory state."""
         try:
-            self._client.update_collection_aliases(  # cheap call to verify liveness
+            self.client.update_collection_aliases(  # cheap call to verify liveness
                 change_aliases_operations=[]
             )
         except Exception:
             pass
 
+    def delete_version(self, document_id: str, version: int) -> None:
+        """Delete a specific version of a document.
+
+        Args:
+            document_id: The document id.
+            version: The version number.
+        """
+        try:
+            self.client.delete(
+                collection_name=self.collection,
+                points_selector=qmodels.FilterSelector(
+                    filter=qmodels.Filter(
+                        must=[
+                            qmodels.FieldCondition(
+                                key="document_id", match=qmodels.MatchValue(value=document_id)
+                            ),
+                            qmodels.FieldCondition(
+                                key="version", match=qmodels.MatchValue(value=version)
+                            ),
+                        ]
+                    )
+                ),
+            )
+        except Exception as exc:
+            raise VectorStoreError(f"Qdrant delete_version failed: {exc}") from exc
+
     def health(self) -> dict[str, Any]:
         """Return Qdrant cluster health."""
         try:
-            info = self._client.get_collections()
+            info = self.client.get_collections()
             return {"status": "ok", "collections": [c.name for c in info.collections]}
         except Exception as exc:
             return {"status": "degraded", "error": str(exc)}
@@ -102,22 +131,19 @@ class QdrantVectorStore(VectorStore):
 
     def insert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> None:
         """Insert ``chunks`` with their vectors (fails on existing ids)."""
-        self._upsert(chunks, vectors)
+        self.upsert(chunks, vectors)
 
     def upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> None:
         """Upsert ``chunks`` with their vectors."""
-        self._upsert(chunks, vectors)
-
-    def _upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> None:
         if len(chunks) != len(vectors):
             raise VectorStoreError("chunks and vectors length mismatch")
         if not chunks:
             return
         try:
-            self._client.upsert(
-                collection_name=self._collection,
+            self.client.upsert(
+                collection_name=self.collection,
                 points=[
-                    _qmodels.PointStruct(
+                    qmodels.PointStruct(
                         id=self.qdrant_point_id(chunk.chunk_id),
                         vector=list(vector),
                         payload={
@@ -142,12 +168,11 @@ class QdrantVectorStore(VectorStore):
             raise VectorStoreError(f"Qdrant upsert failed: {exc}") from exc
 
     def delete(self, chunk_ids: Sequence[str]) -> None:
-        """Delete by chunk id (alias for ``delete_chunks_by_id``)."""
-        self.delete_chunks_by_id(chunk_ids)
+        """Delete by chunk id."""
         try:
-            self._client.delete(
-                collection_name=self._collection,
-                points_selector=_qmodels.PointIdsList(
+            self.client.delete(
+                collection_name=self.collection,
+                points_selector=qmodels.PointIdsList(
                     points=[self.qdrant_point_id(cid) for cid in chunk_ids]
                 ),
             )
@@ -157,13 +182,13 @@ class QdrantVectorStore(VectorStore):
     def delete_document(self, document_id: str) -> None:
         """Delete every chunk for ``document_id``."""
         try:
-            self._client.delete(
-                collection_name=self._collection,
-                points_selector=_qmodels.FilterSelector(
-                    filter=_qmodels.Filter(
+            self.client.delete(
+                collection_name=self.collection,
+                points_selector=qmodels.FilterSelector(
+                    filter=qmodels.Filter(
                         must=[
-                            _qmodels.FieldCondition(
-                                key="document_id", match=_qmodels.MatchValue(value=document_id)
+                            qmodels.FieldCondition(
+                                key="document_id", match=qmodels.MatchValue(value=document_id)
                             )
                         ]
                     )
@@ -181,55 +206,16 @@ class QdrantVectorStore(VectorStore):
         *,
         vector: list[float],
         top_k: int,
-        metadata_filter: str = "",
+        metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
         """Run vector search.
 
         ``metadata_filter`` is interpreted as a Qdrant filter JSON
         string; the legacy in-memory backends used a SQL fragment.
         """
-        return self._search(vector=vector, top_k=top_k, query_filter=None, query=None)
-
-    def hybrid_search(
-        self,
-        *,
-        query: str,
-        vector: list[float],
-        top_k: int,
-        metadata_filter: str = "",
-    ) -> list[dict[str, Any]]:
-        """Run hybrid (vector + keyword) search against the collection.
-
-        Implementation note: Qdrant's native hybrid mode requires a
-        collection with a configured sparse vector. The default
-        :class:`QdrantVectorStore` is created with dense vectors only,
-        so this method falls back to a dense-only ``search`` for now.
-        To enable true hybrid search, create the collection with a
-        named sparse vector and extend :class:`QdrantVectorStore` to
-        issue a ``query_points`` call with both dense and sparse
-        inputs.
-        """
-        return self._search(
-            vector=vector, top_k=top_k, query_filter=None, query=query
-        )
-
-    def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
-        """Return empty list; Qdrant keyword channel requires a sparse vector config
-        which is out of scope for the default install.
-        """
-        return []
-
-    def _search(
-        self,
-        *,
-        vector: list[float],
-        top_k: int,
-        query_filter: Any | None,
-        query: str | None,
-    ) -> list[dict[str, Any]]:
         try:
-            response = self._client.search(
-                collection_name=self._collection,
+            response = self.client.search(
+                collection_name=self.collection,
                 query_vector=vector,
                 limit=top_k,
                 with_payload=True,
@@ -260,6 +246,33 @@ class QdrantVectorStore(VectorStore):
                 }
             )
         return results
+
+    def hybrid_search(
+        self,
+        *,
+        query: str,
+        vector: list[float],
+        top_k: int,
+        metadata_filter: str | dict = "",
+    ) -> list[dict[str, Any]]:
+        """Run hybrid (vector + keyword) search against the collection.
+
+        Implementation note: Qdrant's native hybrid mode requires a
+        collection with a configured sparse vector. The default
+        :class:`QdrantVectorStore` is created with dense vectors only,
+        so this method falls back to a dense-only ``search`` for now.
+        To enable true hybrid search, create the collection with a
+        named sparse vector and extend :class:`QdrantVectorStore` to
+        issue a ``query_points`` call with both dense and sparse
+        inputs.
+        """
+        return self.search(vector=vector, top_k=top_k)
+
+    def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
+        """Return empty list; Qdrant keyword channel requires a sparse vector config
+        which is out of scope for the default install.
+        """
+        return []
 
 
 __all__ = ["QdrantVectorStore"]

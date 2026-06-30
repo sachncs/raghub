@@ -10,6 +10,17 @@ from raghub.models import ChunkRecord, Classification
 
 @dataclass
 class SearchFilters:
+    """Filter criteria for faceted search.
+
+    Attributes:
+        companies: Allowed company tags.
+        departments: Allowed department tags.
+        classifications: Allowed document classifications.
+        owners: Allowed owner emails.
+        date_from: Lower bound for document date (inclusive).
+        date_to: Upper bound for document date (inclusive).
+        file_types: Allowed file extensions (e.g. ``["pdf"]``).
+    """
     companies: list[str] = field(default_factory=list)
     departments: list[str] = field(default_factory=list)
     classifications: list[Classification] = field(default_factory=list)
@@ -20,6 +31,14 @@ class SearchFilters:
 
 
 def build_filter_string(filters: SearchFilters | None) -> str:
+    """Serialize ``SearchFilters`` to a SQL-style metadata filter string.
+
+    Args:
+        filters: The filter criteria, or ``None`` for no filtering.
+
+    Returns:
+        A filter string suitable for :meth:`VectorStore.search`.
+    """
     if filters is None:
         return ""
     clauses: list[str] = []
@@ -39,6 +58,12 @@ class FacetedSearchEngine:
     """Advanced search with faceted filtering for chunks."""
 
     def __init__(self, vector_store: Any, embedding_provider: Any) -> None:
+        """Initialise the search engine.
+
+        Args:
+            vector_store: A :class:`VectorStore`-conforming instance.
+            embedding_provider: An :class:`EmbeddingProvider`-conforming instance.
+        """
         self.vector_store = vector_store
         self.embedding_provider = embedding_provider
 
@@ -65,6 +90,15 @@ class FacetedSearchEngine:
         return results
 
     def matches_filters(self, chunk: ChunkRecord, filters: SearchFilters) -> bool:
+        """Check whether a chunk satisfies all active filter criteria.
+
+        Args:
+            chunk: The chunk to test.
+            filters: The active filter set.
+
+        Returns:
+            ``True`` when the chunk matches every criterion.
+        """
         if filters.companies and chunk.company not in filters.companies:
             return False
         if filters.departments and chunk.department not in filters.departments:

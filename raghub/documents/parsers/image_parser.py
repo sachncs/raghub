@@ -44,9 +44,10 @@ class ImageParser(FileParser):
             # only here keeps the parser importable when OCR is not
             # needed, and the ``try/except`` below tolerates missing
             # system binaries.
-            import pytesseract  # type: ignore[import-untyped]
+            import importlib
 
-            text = pytesseract.image_to_string(image)
+            pytesseract_module = importlib.import_module("pytesseract")
+            text = pytesseract_module.image_to_string(image)
         except Exception:
             # Silent fallback: the metadata alone is still useful
             # for retrieval, so a missing OCR stack is not a failure.

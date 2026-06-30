@@ -22,32 +22,32 @@ class InMemoryKnowledgeRepository(KnowledgeRepository):
 
     def __init__(self) -> None:
         """Initialise the empty in-memory store."""
-        self._bundles: dict[str, KnowledgeBundle] = {}
-        self._by_source: dict[str, list[str]] = {}
+        self.bundles: dict[str, KnowledgeBundle] = {}
+        self.by_source: dict[str, list[str]] = {}
 
     def save(self, bundle: KnowledgeBundle) -> KnowledgeBundle:
         """Persist ``bundle`` in memory."""
-        self._bundles[bundle.bundle_id] = bundle
-        self._by_source.setdefault(bundle.source_uri, []).insert(0, bundle.bundle_id)
+        self.bundles[bundle.bundle_id] = bundle
+        self.by_source.setdefault(bundle.source_uri, []).insert(0, bundle.bundle_id)
         return bundle
 
     def get(self, bundle_id: str) -> KnowledgeBundle | None:
         """Return the bundle with id ``bundle_id`` or ``None``."""
-        return self._bundles.get(bundle_id)
+        return self.bundles.get(bundle_id)
 
     def list_by_source(self, source_uri: str) -> list[KnowledgeBundle]:
         """Return every bundle for ``source_uri`` (newest first)."""
         return [
-            self._bundles[bid]
-            for bid in self._by_source.get(source_uri, [])
-            if bid in self._bundles
+            self.bundles[bid]
+            for bid in self.by_source.get(source_uri, [])
+            if bid in self.bundles
         ]
 
     def delete(self, bundle_id: str) -> None:
         """Remove the bundle; missing ids are ignored."""
-        bundle = self._bundles.pop(bundle_id, None)
+        bundle = self.bundles.pop(bundle_id, None)
         if bundle is not None:
-            ids = self._by_source.get(bundle.source_uri, [])
+            ids = self.by_source.get(bundle.source_uri, [])
             if bundle_id in ids:
                 ids.remove(bundle_id)
 

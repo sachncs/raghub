@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-
 from raghub.auth import (
     JwtAuthenticator,
     JwtSessionManager,
@@ -136,12 +135,6 @@ class DynamicRagContainer:
     health: object = None
 
 
-from raghub.services.auth_service import AuthService  # noqa: E402
-from raghub.services.document_service import DocumentService  # noqa: E402
-from raghub.services.health_service import HealthService  # noqa: E402
-from raghub.services.query_service import QueryService  # noqa: E402
-
-
 class DynamicRagApplication:
     """High-level facade exposing every public action.
 
@@ -158,6 +151,11 @@ class DynamicRagApplication:
         Args:
             container: The fully-wired application container.
         """
+        from raghub.services.auth_service import AuthService
+        from raghub.services.document_service import DocumentService
+        from raghub.services.health_service import HealthService
+        from raghub.services.query_service import QueryService
+
         self.container = container
         self.auth_svc = AuthService(container)
         self.documents_svc = DocumentService(container)
@@ -452,51 +450,51 @@ async def build_container(settings: AppSettings) -> DynamicRagContainer:
     # the box without an external auth bootstrap step. Users with
     # ``is_admin: true`` see every company; non-admin users are
     # scoped to the listed companies. Passwords are bcrypt-hashed.
-    import json as _json
-    import os as _os
+    import json as json_import
+    import os as os_import
 
-    _users_env = _os.getenv("RAGHUB_USERS", "").strip()
-    if _users_env:
+    users_env = os_import.getenv("RAGHUB_USERS", "").strip()
+    if users_env:
         try:
-            _seed_users = _json.loads(_users_env)
-        except _json.JSONDecodeError as exc:
+            seed_users = json_import.loads(users_env)
+        except json_import.JSONDecodeError as exc:
             raise RuntimeError(
                 f"RAGHUB_USERS is not valid JSON: {exc}"
             ) from exc
-        if isinstance(_seed_users, dict):
-            for _email, _cfg in _seed_users.items():
-                if not isinstance(_cfg, dict):
+        if isinstance(seed_users, dict):
+            for email, cfg in seed_users.items():
+                if not isinstance(cfg, dict):
                     continue
-                _existing = await user_store.get_by_email(_email)
-                if _existing is not None:
+                existing = await user_store.get_by_email(email)
+                if existing is not None:
                     continue
                 await user_store.create_user(
-                    email=_email,
-                    password=str(_cfg.get("password", "password")),
-                    companies=list(_cfg.get("companies", []) or []),
-                    is_admin=bool(_cfg.get("is_admin", False)),
+                    email=email,
+                    password=str(cfg.get("password", "password")),
+                    companies=list(cfg.get("companies", []) or []),
+                    is_admin=bool(cfg.get("is_admin", False)),
                 )
     else:
         # Default seed: the demo users documented in the README.
         # The default password is ``"password"``; operators are
         # expected to rotate it (or override via ``RAGHUB_USERS``)
         # before any production exposure.
-        _default_seed = [
+        default_seed = [
             ("alice@acme.com", "password", ["Apple"], False),
             ("bob@acme.com", "password", ["Microsoft"], False),
             ("charlie@acme.com", "password", ["Amazon", "Tesla"], False),
             ("diana@acme.com", "password", ["Google"], False),
             ("admin@acme.com", "password", [], True),
         ]
-        for _email, _pwd, _companies, _is_admin in _default_seed:
-            _existing = await user_store.get_by_email(_email)
-            if _existing is not None:
+        for email, pwd, companies, is_admin in default_seed:
+            existing = await user_store.get_by_email(email)
+            if existing is not None:
                 continue
             await user_store.create_user(
-                email=_email,
-                password=_pwd,
-                companies=_companies,
-                is_admin=_is_admin,
+                email=email,
+                password=pwd,
+                companies=companies,
+                is_admin=is_admin,
             )
 
     return DynamicRagContainer(

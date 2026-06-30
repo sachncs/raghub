@@ -1,12 +1,20 @@
+"""Legacy repository protocols for domain persistence.
+
+Defines the abstract interfaces (:class:`DocumentRepository`,
+:class:`ChunkRepository`, :class:`SessionRepository`,
+:class:`UnitOfWork`) that the ``raghub.repositories`` package
+implements against SQLite. New call sites should prefer the
+higher-level :class:`raghub.knowledge.repository.KnowledgeRepository`
+interface.
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+
 
 from raghub.models import ChunkRecord, DocumentRecord, SessionRecord
-
-if TYPE_CHECKING:
-    from raghub.storage.database import DatabaseManager
+from raghub.storage.database import DatabaseManager
 
 
 class DocumentRepository(ABC):
@@ -105,7 +113,7 @@ class UnitOfWork:
     def __init__(self, document_repo: DocumentRepository,
                  chunk_repo: ChunkRepository,
                  session_repo: SessionRepository,
-                 db_manager: "DatabaseManager | None" = None) -> None:
+                 db_manager: DatabaseManager | None = None) -> None:
         self.document_repo = document_repo
         self.chunk_repo = chunk_repo
         self.session_repo = session_repo

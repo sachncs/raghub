@@ -45,7 +45,7 @@ from raghub.services.application import DynamicRagApplication
 
 
 @asynccontextmanager
-async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifespan: graceful shutdown of collaborators."""
     try:
         yield
@@ -73,7 +73,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         A fully-configured FastAPI app ready to be served by
         ``uvicorn`` or any ASGI server.
     """
-    app = FastAPI(title="Dynamic RAG Platform", version="1.0.0", lifespan=_lifespan)
+    app = FastAPI(title="Dynamic RAG Platform", version="1.0.0", lifespan=lifespan)
     app.state.application = application
     # Shared background ingestion pool (2 workers by default); the
     # ``/ingest/async`` endpoint submits jobs to it.
@@ -347,7 +347,7 @@ def require_bearer(authorization: str | None) -> str:
 # Module-level singleton used by :func:`get_app`. Avoid importing
 # build_application at module load time so this module stays cheap to
 # import in unit tests that don't need the full app.
-_app_instance: FastAPI | None = None
+app_instance: FastAPI | None = None
 
 
 def get_app() -> FastAPI:
@@ -365,8 +365,8 @@ def get_app() -> FastAPI:
 
     from raghub.core.container import build_application
 
-    global _app_instance
-    if _app_instance is None:
+    global app_instance
+    if app_instance is None:
         application = asyncio.run(build_application())
-        _app_instance = create_app(application)
-    return _app_instance
+        app_instance = create_app(application)
+    return app_instance

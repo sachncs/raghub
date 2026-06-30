@@ -1,15 +1,45 @@
 # Plugin Development
 
 A **plugin** is a self-describing unit that registers one or more
-RAGHub components (converters, chunkers, embedders, vector stores,
-retrievers, rerankers, generators, telemetry providers, evaluators)
-on a :class:`raghub.plugins.registry.PluginRegistry`.
-
-Plugins are the supported way to swap implementations. The
-:class:`raghub.RAG` facade accepts a `registry=` argument, and the
+RAGHub components on a
+:class:`raghub.plugins.registry.PluginRegistry`. Plugins are the
+supported way to swap implementations. The
+:class:`raghub.RAG` facade accepts a `registry=` argument; the
 default registry can be replaced wholesale or extended.
 
-## Authoring a Plugin
+## What a plugin may register
+
+| Helper | Type slot |
+|---|---|
+| `register_converter(name, converter)` | `DocumentConverter` |
+| `register_chunker(name, chunker)` | `Chunker` |
+| `register_embedder(name, embedder)` | `EmbeddingProvider` |
+| `register_vector_store(name, store)` | `VectorStore` |
+| `register_knowledge_repo(name, repo)` | `KnowledgeRepository` |
+| `register_generator(name, generator)` | `Generator` |
+| `register_structured(name, provider)` | `StructuredOutputProvider` |
+| `register_telemetry(name, logger, metrics)` | `Logger`, `Metrics` (paired) |
+| `register_evaluator(name, evaluator)` | `Evaluator` |
+| `register_factory(name, factory)` | Generic callable |
+
+Each type slot has a matching `get_*` resolver:
+
+```python
+registry = PluginRegistry()
+registry.get_converter("marker")
+registry.get_embedder("litellm")
+registry.get_telemetry("langfuse")  # returns (Logger, Metrics)
+```
+
+## Authoring a plugin
+
+A plugin is any object that exposes:
+
+- `name: str` — a stable identifier.
+- `version: str` — semantic version.
+- `register(registry: PluginRegistry) -> None` — called once
+  during registration; the plugin should use `registry.register_*`
+  helpers.
 
 ```python
 from raghub.plugins.registry import PluginRegistry
@@ -33,7 +63,26 @@ def my_plugin_factory():
     return MyPlugin()
 ```
 
-## Registration via Entry Points
+You can swap any collaborator the same way — for example a custom
+Markdown chunker:
+
+```python
+from raghub.interfaces.chunker import Chunker
+from raghub.plugins.registry import PluginRegistry
+
+
+class MyMarkdownChunker(Chunker):
+    name = "my-markdown-chunker"
+
+    def split(self, text: str) -> list[str]:
+        return [chunk for chunk in text.split("\n\n") if chunk.strip()]
+
+
+registry = PluginRegistry()
+registry.register_chunker("markdown", MyMarkdownChunker())
+```
+
+## Registration via entry points
 
 Add the plugin to your package's `pyproject.toml`:
 
@@ -42,10 +91,18 @@ Add the plugin to your package's `pyproject.toml`:
 my_plugin = "my_package.module:my_plugin_factory"
 ```
 
-`PluginRegistry.discover_entrypoints()` will instantiate the factory
-and call `register(registry)` automatically.
+`PluginRegistry.discover_entrypoints()` then instantiates the
+factory and calls `register(registry)` automatically:
 
-## Runtime Registration
+```python
+loaded = PluginRegistry().discover_entrypoints(group="raghub.plugins")
+print(f"loaded {loaded} plugins")
+```
+
+The RAGHub project itself ships with an empty entry-point group
+by default; see `pyproject.toml`.
+
+## Runtime registration
 
 ```python
 from raghub import RAG
@@ -57,41 +114,45 @@ registry.register_structured("my-provider", MyStructuredProvider())
 rag = RAG(registry=registry)
 ```
 
-## Discovering Plugins in Code
+Pre-registering on a registry does not, by itself, replace the
+collaborator on an existing facade instance — pass the replacement
+to the constructor (e.g. `RAG(structured=registry.get_structured(...))`)
+or reconstruct.
 
-```python
-registry = PluginRegistry()
-loaded = registry.discover_entrypoints(group="raghub.plugins")
-print(f"loaded {loaded} plugins")
-```
+## Wiring every spec component
 
-## Plugin Interface
+The full set of extension points mapped to the spec libraries:
 
-A plugin is any object that exposes:
+| Spec component | Interface | Default implementation |
+|---|---|---|
+| Document conversion | `DocumentConverter` | `MarkerConverter` (Marker) → `PlainTextConverter` fallback |
+| Chunking | `Chunker` | `ChonkieChunker` (Chonkie) → `WordWindowChunker` fallback |
+| Embeddings | `EmbeddingProvider` | `LiteLLMEmbeddingProvider` → `HashingEmbeddingProvider` fallback |
+| LLM | `LLMProvider` | `LiteLLMProvider` → `HeuristicLLMProvider` fallback |
+| Vector store | `VectorStore` | `QdrantVectorStore` (when `QDRANT_URL` set) → `InMemoryVectorStore` fallback |
+| Generator | `Generator` | `DefaultGenerator` wrapping the LLM |
+| Reranker | `Reranker` | `IdentityReranker` |
+| Structured output | `StructuredOutputProvider` | `InstructorStructuredOutputProvider`; `None` when unavailable |
+| Telemetry | `TelemetryProvider` | `LangfuseTelemetryProvider` → `NoOpTelemetry` fallback (wrapped in `RedactingTelemetry`) |
+| Conversation store | `ConversationStore` | `InMemoryConversationStore` |
+| Knowledge repo | `KnowledgeRepository` | `InMemoryKnowledgeRepository` |
+| Source manifest | `SourceManifest` | `./data/manifest.json` |
+| Background ingestion | `BackgroundIngestionService` | `ResumableBackgroundIngestionService` (lazy) |
 
-- `name: str` — a stable identifier.
-- `version: str` — semantic version.
-- `register(registry: PluginRegistry) -> None` — called once during
-  registration; the plugin should use `registry.register_*` helpers.
+Every slot has an interface module under `raghub.interfaces/`. To
+replace a collaborator, write a class implementing the interface
+and pass it to the constructor.
 
-## What a Plugin May Register
-
-- `register_converter(name, converter)` — document converter
-- `register_chunker(name, chunker)` — chunker
-- `register_embedder(name, embedder)` — embedding provider
-- `register_vector_store(name, store)` — vector store
-- `register_knowledge_repo(name, repo)` — knowledge repository
-- `register_generator(name, generator)` — answer generator
-- `register_structured(name, provider)` — structured-output provider
-- `register_telemetry(name, logger, metrics)` — telemetry pair
-- `register_evaluator(name, evaluator)` — benchmark evaluator
-- `register_factory(name, factory)` — generic factory
-
-## Testing a Plugin
+## Testing a plugin
 
 ```python
 def test_my_plugin():
     registry = PluginRegistry()
     MyPlugin().register(registry)
     assert "my-provider" in registry.structured
+    assert registry.get_structured("my-provider").name == "my-provider"
 ```
+
+The plugin system never modifies the default registry — tests are
+free to instantiate fresh registries and register the plugin
+without interfering with other tests.

@@ -1,70 +1,170 @@
 # Monitoring & Observability
 
-The RAG facade emits telemetry automatically. The default
-telemetry provider is Langfuse (when `LANGFUSE_PUBLIC_KEY` and
-`LANGFUSE_SECRET_KEY` are set in the environment); otherwise
-`NoOpTelemetry` is used and every method is a no-op.
+The `RAG` facade emits telemetry automatically through its
+default provider chain:
 
-## What the Facade Emits
+```
+RAG
+  └─► RedactingTelemetry      # scrubs secrets
+        └─► LangfuseTelemetryProvider      # when langfuse is configured
+              or NoOpTelemetry             # otherwise
+```
 
-For every call to `RAG.ingest` and `RAG.aquery` the facade emits:
+`RAG.telemetry` always exposes the protocol defined by
+`raghub.interfaces.observability.TelemetryProvider`. The default
+constructor wraps the underlying provider in
+`RedactingTelemetry` so secret-looking kwargs are scrubbed before
+forwarding to the sink.
 
-| Span                          | Attributes recorded                          |
-|-------------------------------|---------------------------------------------|
-| `ingest`                      | source_uri, bundle_id, checksum              |
-| `ingest.convert`              | (none)                                       |
-| `ingest.chunk`                | (none)                                       |
-| `ingest.embed`                | count                                        |
-| `ingest.upsert`               | count                                        |
-| `query`                       | question (truncated to 128 chars), top_k     |
-| `query.embed_query`           | (none)                                       |
-| `query.search`                | top_k                                        |
-| `query.rerank`                | (none)                                       |
-| `query.generate`              | (none)                                       |
-| `query.structured`            | (none)                                       |
-| `query.stream`                | question (truncated), top_k                  |
+## What the facade emits
 
-In addition, every span records its duration (in milliseconds) via
-the `record_latency` hook. When the LLM provider exposes token
-usage the facade records prompt / completion counts via
-`record_tokens`.
+`IngestPipeline.run` and `QueryPipeline.run` / `.stream` open
+nested telemetry spans. Each span records its duration in
+milliseconds. When the LLM provider exposes token usage the
+pipeline forwards it through `telemetry.record_tokens`.
 
-## Secret Redaction
+### Ingest
 
-The default telemetry wrapper is `RedactingTelemetry`. It scrubs
-kwargs whose keys match `password`, `secret`, `api_key`, `token`,
-`jwt`, or `authorization` (case-insensitive) before forwarding to
-the underlying provider. Nested dicts are scrubbed recursively.
+| Span | Attributes recorded |
+|---|---|
+| `ingest` | `source_uri`, `bundle_id`, `checksum` |
+| `ingest.convert` | — |
+| `ingest.chunk` | — |
+| `ingest.embed` | `count` (number of texts) |
+| `ingest.upsert` | `count` (number of chunks) |
 
-## Prometheus Metrics
+### Query (and Stream)
 
-The legacy `PrometheusMetrics` is still wired into the FastAPI app
-via `register_app()` (see `raghub.observability.metrics`). It
-records:
+| Span | Attributes recorded |
+|---|---|
+| `query` (or `query.stream`) | `question` (truncated to 128 chars), `top_k`, `user_id`, `session_id` |
+| `query.embed_query` | — |
+| `query.search` | `top_k` |
+| `query.rerank` | — |
+| `query.generate` | token-usage forwarded on completion |
+| `query.structured` | — (only when `response_model=` is used) |
+| `query.tokens` | `prompt_tokens`, `completion_tokens` (stream only) |
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `raghub_query_duration_ms` | Histogram | Query execution duration |
-| `raghub_ingestion_duration_ms` | Histogram | Ingestion duration |
-| `raghub_auth_duration_ms` | Histogram | Authentication duration |
-| `raghub_auth_total` | Counter | Authentication attempts (label: `success`) |
-| `raghub_error_total` | Counter | Error count (label: `error_type`) |
+## Token usage
 
-## OpenTelemetry
+`LiteLLMProvider.generate` and `LiteLLMProvider.astream`
+populate `self.last_usage` (prompt / completion / model).
+`DefaultGenerator.record_tokens()` exposes that counter;
+`QueryPipeline.run` and `QueryPipeline.stream` call it and pipe
+the values to `telemetry.record_tokens("query.generate" / "query.stream", ...)`.
 
-`OpenTelemetryTracer` lives at `raghub.observability.tracing`. The
-`StructlogTelemetryProvider` adapter combines the structlog logger,
-the Prometheus metrics sink, and an OTel tracer into a single
-`TelemetryProvider`-conforming object that the facade can use as
-its `telemetry=` argument.
+In `pipeline.run`:
+```python
+self.telemetry.record_tokens(
+    "query.generate",
+    prompt_tokens=...,
+    completion_tokens=...,
+    model=...,
+)
+```
 
-## Structured Logging
+In `pipeline.stream`, the same call uses `query.stream`. The
+generator's `last_usage` is read once after the stream completes
+so `record_tokens` doesn't run on every chunk.
 
-`structlog` is configured by `build_logger()` in
-`raghub.observability.logging`. Key log events: ingest start/stop,
-query start/stop, error events.
+## Secret redaction
 
-## Health Check
+`RedactingTelemetry` (in `raghub.observability.redact`) walks the
+kwarg dict recursively and replaces any value whose key matches
+the regex
+`re.compile(r"(password|secret|api_key|token|jwt|authorization)", re.I)`
+with the literal string `"***REDACTED***"` before forwarding to
+the underlying provider. Nested dicts are scrubbed depth-first.
 
-`GET /health` returns service status. The RAG facade exposes
-`RAG.health()` which returns a dict summarising every collaborator.
+To opt out, pass your own `telemetry=` to the `RAG` constructor
+and skip the redaction wrapper.
+
+## Switching telemetry providers
+
+Construct the facade with a custom telemetry provider:
+
+```python
+from raghub import RAG
+from raghub.observability.noop import NoOpTelemetry
+
+rag = RAG(telemetry=NoOpTelemetry())
+```
+
+…or with the redaction wrapper around any backend:
+
+```python
+from raghub.observability.redact import RedactingTelemetry
+from raghub.telemetry.langfuse import LangfuseTelemetryProvider
+
+rag = RAG(telemetry=RedactingTelemetry(LangfuseTelemetryProvider()))
+```
+
+## Legacy surface observability
+
+The legacy FastAPI surface (`raghub.api.app:app`) continues to
+expose:
+
+- `raghub_query_duration_ms` (Histogram) — query execution duration
+- `raghub_ingestion_duration_ms` (Histogram) — ingestion duration
+- `raghub_auth_duration_ms` (Histogram) — authentication duration
+- `raghub_auth_total` (Counter, label `success`) — login attempts
+- `raghub_error_total` (Counter, label `error_type`) — error count
+
+These are wired through
+`raghub.observability.metrics.PrometheusMetrics` +
+`raghub.observability.tracing.OpenTelemetryTracer` +
+`raghub.observability.structlog_provider.StructlogTelemetryProvider`.
+
+The legacy surface is the only place Prometheus + OTel are
+mounted; the new `RAG` facade does not register a Prometheus
+collector or an OTel exporter itself.
+
+## Structured logging
+
+`build_logger()` in `raghub.observability.logging` configures
+`structlog`. The recommended key log events are `ingest.start`,
+`ingest.stop`, `query.start`, `query.stop`, and `error`-classed
+events emitted from the pipelines.
+
+The log level is controlled by `RAG_LOG_LEVEL` (default `INFO`).
+
+## Health check
+
+The CLI exposes the facade's health summary:
+
+```bash
+raghub health
+```
+
+…equivalent to:
+
+```python
+import json
+from raghub import RAG
+
+print(json.dumps(RAG().health(), indent=2))
+```
+
+```json
+{
+  "status": "ok",
+  "vector_store": "InMemoryVectorStore",
+  "embedder":     "HashingEmbeddingProvider",
+  "llm":          "HeuristicLLMProvider",
+  "chunker":      "WordWindowChunker",
+  "converter":    "PlainTextConverter",
+  "telemetry":    "RedactingTelemetry",
+  "structured":   "NoneType",
+  "reranker":     "IdentityReranker"
+}
+```
+
+`GET /health` (FastAPI surface) is the liveness probe and
+returns whatever `DynamicRagApplication.health()` reports.
+
+## See also
+
+- [`plugins.md`](../plugins.md) — register a custom telemetry
+  pair via `PluginRegistry.register_telemetry(name, logger, metrics)`.
+- [`../architecture/decisions.md`](../architecture/decisions.md#adr-0005-telemetry-scrubbing-is-the-default)
+  — ADR-0005 (default scrubbing) and ADR-0007 (Langfuse v3+ spans).

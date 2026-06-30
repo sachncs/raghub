@@ -6,17 +6,21 @@ Uses ``litellm.embedding`` to compute vectors across many providers
 
 from __future__ import annotations
 
+from typing import Any
+
 from raghub.embeddings.base import BaseEmbeddingProvider
 from raghub.exceptions import ConfigurationError
 
+litellm: Any
+
 try:
-    import litellm  # type: ignore
-    _LITELLM_AVAILABLE = True
-    _ImportError: Exception | None = None
+    import litellm
+    LITELLM_AVAILABLE = True
+    OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
     litellm = None
-    _LITELLM_AVAILABLE = False
-    _ImportError = exc
+    LITELLM_AVAILABLE = False
+    OptionalImportError = exc
 
 
 class LiteLLMEmbeddingProvider(BaseEmbeddingProvider):
@@ -41,13 +45,13 @@ class LiteLLMEmbeddingProvider(BaseEmbeddingProvider):
         Raises:
             ConfigurationError: When ``litellm`` is not installed.
         """
-        if not _LITELLM_AVAILABLE:
+        if not LITELLM_AVAILABLE:
             raise ConfigurationError(
                 "litellm is not installed; run `pip install litellm`."
             )
         self.model_name = model
-        self._api_key = api_key
-        self._api_base = api_base
+        self.api_key = api_key
+        self.api_base = api_base
 
     def embed_text(self, text: str) -> list[float]:
         """Embed a single string.
@@ -71,11 +75,11 @@ class LiteLLMEmbeddingProvider(BaseEmbeddingProvider):
         """
         if not texts:
             return []
-        kwargs = {"model": self.model_name, "input": texts}
-        if self._api_key:
-            kwargs["api_key"] = self._api_key
-        if self._api_base:
-            kwargs["api_base"] = self._api_base
+        kwargs: dict[str, Any] = {"model": self.model_name, "input": texts}
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
+        if self.api_base:
+            kwargs["api_base"] = self.api_base
         response = litellm.embedding(**kwargs)
         data = response.get("data", []) if isinstance(response, dict) else response.data
         return [list(item["embedding"]) if isinstance(item, dict) else list(item.embedding) for item in data]

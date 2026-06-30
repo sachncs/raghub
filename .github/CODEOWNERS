@@ -2,23 +2,23 @@
 # Order is bottom-up: the last match wins.
 
 # Core maintainers own the entire repository by default.
-* @quantiphi/maintainers
+* @sachn-cs/maintainers
 
 # The RAG facade and CLI are the public entry points — stricter
 # review applies.
-/raghub/api/ @quantiphi/raghub-core
-/raghub/cli/ @quantiphi/raghub-core
-/raghub/knowledge/ @quantiphi/raghub-core
+/raghub/api/ @sachn-cs/raghub-core
+/raghub/cli/ @sachn-cs/raghub-core
+/raghub/knowledge/ @sachn-cs/raghub-core
 
 # Pipelines, ingestion, and embeddings — broader review.
-/raghub/pipelines/ @quantiphi/raghub-core
-/raghub/ingestion/ @quantiphi/raghub-core
-/raghub/embeddings/ @quantiphi/raghub-core
+/raghub/pipelines/ @sachn-cs/raghub-core
+/raghub/ingestion/ @sachn-cs/raghub-core
+/raghub/embeddings/ @sachn-cs/raghub-core
 
 # Infrastructure and tooling.
-/.github/ @quantiphi/maintainers
-/setup.py @quantiphi/maintainers
-/pyproject.toml @quantiphi/maintainers
-/Dockerfile @quantiphi/maintainers
-/mkdocs.yml @quantiphi/maintainers
-/docs/ @quantiphi/maintainers
+/.github/ @sachn-cs/maintainers
+/setup.py @sachn-cs/maintainers
+/pyproject.toml @sachn-cs/maintainers
+/Dockerfile @sachn-cs/maintainers
+/mkdocs.yml @sachn-cs/maintainers
+/docs/ @sachn-cs/maintainers

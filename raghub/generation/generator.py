@@ -12,17 +12,17 @@ so observability pipelines can attribute cost.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 
 from raghub.llm.base import BaseLLMProvider
 from raghub.models import (
     Citation,
     ConversationTurn,
+    RetrievalHit,
 )
-from raghub.interfaces.generator import Generator
 
 
-class DefaultGenerator(Generator):
+class DefaultGenerator:
     """Generator combining retrieval, prompt building, and an LLM provider.
 
     This class is the simplest way to obtain a
@@ -47,16 +47,16 @@ class DefaultGenerator(Generator):
             llm: The LLM provider.
             system_prompt: The system message.
         """
-        self._llm = llm
-        self._system_prompt = system_prompt
-        self._last_usage: dict[str, int] | None = None
+        self.llm = llm
+        self.system_prompt = system_prompt
+        self.last_usage: dict[str, int | str] | None = None
 
     async def generate(
         self,
         *,
         question: str,
-        context,
-        conversation=(),
+        context: Sequence[RetrievalHit],
+        conversation: Sequence[ConversationTurn] = (),
     ) -> tuple[str, list[Citation]]:
         """Generate an answer and citations from retrieved context.
 
@@ -70,8 +70,8 @@ class DefaultGenerator(Generator):
         """
         context_texts = [hit.chunk.text for hit in context]
         turns = [ConversationTurn(question=t.question, answer=t.answer) for t in conversation]
-        answer = self._llm.generate(
-            system_prompt=self._system_prompt,
+        answer = self.llm.generate(
+            system_prompt=self.system_prompt,
             conversation=turns,
             context=context_texts,
             question=question,
@@ -91,25 +91,25 @@ class DefaultGenerator(Generator):
                 )
             )
         # Capture token usage if the LLM provider exposes it.
-        usage = getattr(self._llm, "last_usage", None) or getattr(self._llm, "token_usage", None)
+        usage = getattr(self.llm, "last_usage", None) or getattr(self.llm, "token_usage", None)
         if isinstance(usage, dict):
-            self._last_usage = {
+            self.last_usage = {
                 "prompt": int(usage.get("prompt_tokens", usage.get("input", 0)) or 0),
                 "completion": int(usage.get("completion_tokens", usage.get("output", 0)) or 0),
-                "model": str(usage.get("model", getattr(self._llm, "model_name", "")) or ""),
+                "model": str(usage.get("model", getattr(self.llm, "model_name", "")) or ""),
             }
         return answer, citations
 
-    def record_tokens(self) -> dict[str, int] | None:
+    def record_tokens(self) -> dict[str, int | str] | None:
         """Return the most recent token-usage record (if any)."""
-        return self._last_usage
+        return self.last_usage
 
     async def astream(
         self,
         *,
         question: str,
-        context,
-        conversation=(),
+        context: Sequence[RetrievalHit],
+        conversation: Sequence[ConversationTurn] = (),
     ) -> AsyncIterator[str]:
         """Stream the answer via the LLM provider's ``astream`` method.
 
@@ -120,7 +120,7 @@ class DefaultGenerator(Generator):
         generator. Token usage is captured on completion so the
         RAG facade can record it to telemetry.
         """
-        astream = getattr(self._llm, "astream", None)
+        astream = getattr(self.llm, "astream", None)
         if callable(astream):
             context_texts = [hit.chunk.text for hit in context]
             turns = [
@@ -128,7 +128,7 @@ class DefaultGenerator(Generator):
                 for t in conversation
             ]
             async for piece in astream(
-                system_prompt=self._system_prompt,
+                system_prompt=self.system_prompt,
                 conversation=turns,
                 context=context_texts,
                 question=question,
@@ -152,11 +152,11 @@ class DefaultGenerator(Generator):
         keys (LiteLLM v1+, Instructor) and the shorter ``prompt``/
         ``completion`` keys (the RAG facade's own convention).
         """
-        usage = getattr(self._llm, "last_usage", None) or getattr(
-            self._llm, "token_usage", None
+        usage = getattr(self.llm, "last_usage", None) or getattr(
+            self.llm, "token_usage", None
         )
         if isinstance(usage, dict):
-            self._last_usage = {
+            self.last_usage = {
                 "prompt": int(
                     usage.get("prompt_tokens", usage.get("prompt", usage.get("input", 0)))
                     or 0
@@ -169,7 +169,7 @@ class DefaultGenerator(Generator):
                     or 0
                 ),
                 "model": str(
-                    usage.get("model", getattr(self._llm, "model_name", "")) or ""
+                    usage.get("model", getattr(self.llm, "model_name", "")) or ""
                 ),
             }
 

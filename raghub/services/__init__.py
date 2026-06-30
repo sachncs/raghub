@@ -17,6 +17,9 @@ from __future__ import annotations  # isort: skip
 import time
 from typing import Any
 
+from .application import DynamicRagApplication, DynamicRagContainer, build_container
+from .workers import InMemoryTaskQueue, SynchronousWorker, ThreadPoolWorker
+
 
 class ServiceMixin:
     """Provides structured logging and metric helpers to service classes.
@@ -70,9 +73,6 @@ class ServiceMixin:
             # match the histogram buckets configured in metrics.
             recorder(name, (time.perf_counter() - started_at) * 1000.0)
 
-
-from .application import DynamicRagApplication, DynamicRagContainer, build_container  # noqa: E402
-from .workers import InMemoryTaskQueue, SynchronousWorker, ThreadPoolWorker  # noqa: E402
 
 __all__ = [
     "DynamicRagApplication",

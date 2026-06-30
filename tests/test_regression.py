@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 from pathlib import Path
 
 import pytest
 
 from raghub import RAG
-from raghub.api.rag import RAG as RAGClass
 from raghub.config.settings import AppSettings
 from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.interfaces.observability import TelemetryProvider
@@ -22,7 +20,6 @@ from raghub.embeddings.hashing import HashingEmbeddingProvider
 from raghub.vectorstore.memory import InMemoryVectorStore
 from raghub.llm.heuristic import HeuristicLLMProvider
 from raghub.generation.generator import DefaultGenerator
-from raghub.observability.structlog_provider import StructlogTelemetryProvider
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +239,10 @@ def test_incremental_short_circuits_unchanged() -> None:
         embedder_calls.append(len(texts))
         return real_embed(texts)
 
-    rag.embedder.embed_texts = spy  # type: ignore[assignment]
+    from typing import cast
+    from collections.abc import Callable
+
+    rag.embedder.embed_texts = cast(Callable[..., object], spy)
     text = b"unchanged content. The quick brown fox jumps over the lazy dog. " * 4
     rag.ingest(text, source_uri="mem://x")
     rag.ingest(text, source_uri="mem://x")

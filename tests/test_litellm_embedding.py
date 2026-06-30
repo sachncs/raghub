@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
-import sys
 import types
 
 import pytest
@@ -17,13 +15,13 @@ def test_litellm_embedder_requires_litellm() -> None:
     try:
         litellm_mod.litellm = None
         # Force the availability check to fail.
-        litellm_mod._LITELLM_AVAILABLE = False
+        litellm_mod.LITELLM_AVAILABLE = False
         with pytest.raises(Exception):
             LiteLLMEmbeddingProvider = litellm_mod.LiteLLMEmbeddingProvider
             LiteLLMEmbeddingProvider(model="text-embedding-3-small")
     finally:
         litellm_mod.litellm = saved
-        litellm_mod._LITELLM_AVAILABLE = True
+        litellm_mod.LITELLM_AVAILABLE = True
 
 
 def test_litellm_embedder_uses_litellm_when_available() -> None:
@@ -46,10 +44,10 @@ def test_litellm_embedder_uses_litellm_when_available() -> None:
         return _FakeResponse()
 
     saved = litellm_mod.litellm
-    saved_acompletion = getattr(litellm_mod.litellm, "acompletion", None)
     try:
+        litellm_mod.litellm = types.ModuleType("litellm")
         litellm_mod.litellm.embedding = _fake_embedding
-        litellm_mod._LITELLM_AVAILABLE = True
+        litellm_mod.LITELLM_AVAILABLE = True
         provider = litellm_mod.LiteLLMEmbeddingProvider(model="text-embedding-3-small")
         out = provider.embed_texts(["hello"])
         assert out == [[0.1, 0.2, 0.3]]
@@ -67,8 +65,9 @@ def test_litellm_embedder_handles_dict_response() -> None:
 
     saved = litellm_mod.litellm
     try:
+        litellm_mod.litellm = types.ModuleType("litellm")
         litellm_mod.litellm.embedding = _fake_embedding
-        litellm_mod._LITELLM_AVAILABLE = True
+        litellm_mod.LITELLM_AVAILABLE = True
         provider = litellm_mod.LiteLLMEmbeddingProvider(model="m")
         assert provider.embed_texts(["a"]) == [[0.5]]
     finally:
@@ -87,8 +86,9 @@ def test_litellm_embedder_passes_api_base() -> None:
 
     saved = litellm_mod.litellm
     try:
+        litellm_mod.litellm = types.ModuleType("litellm")
         litellm_mod.litellm.embedding = _fake_embedding
-        litellm_mod._LITELLM_AVAILABLE = True
+        litellm_mod.LITELLM_AVAILABLE = True
         provider = litellm_mod.LiteLLMEmbeddingProvider(
             model="m", api_key="k", api_base="https://api.example.com"
         )

@@ -34,13 +34,15 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import sys
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
-from typing import Any, Sequence, TypeVar
+from typing import Any, Sequence, TypeVar, cast
 
 from pydantic import BaseModel
 
 from raghub.api.async_runner import maybe_await
+from raghub.interfaces.generator import Generator
 from raghub.api.defaults import (
     default_chunker,
     default_converter,
@@ -174,7 +176,7 @@ class RAG:
             self.settings.chunk_size_words, self.settings.chunk_overlap_words
         )
         self.reranker = reranker or IdentityReranker()
-        self.generator = generator or DefaultGenerator(llm=self.llm)
+        self.generator = cast(Generator, generator or DefaultGenerator(llm=self.llm))
         self.structured = (
             structured if structured is not None else default_structured()
         )
@@ -228,10 +230,10 @@ class RAG:
 
         p = Path(path)
         if p.suffix.lower() == ".toml":
-            try:
+            if sys.version_info >= (3, 11):
                 import tomllib
-            except ImportError:  # pragma: no cover - Python < 3.11
-                import tomli as tomllib  # type: ignore[no-redef]
+            else:
+                import tomli as tomllib
             payload = tomllib.loads(p.read_text(encoding="utf-8")) or {}
         else:
             import yaml
@@ -486,7 +488,7 @@ class RAG:
         )
 
     @staticmethod
-    def _scoped_session_id(user: Any, session_id: str | None) -> str | None:
+    def scoped_session_id(user: Any, session_id: str | None) -> str | None:
         """Combine ``user`` and ``session_id`` into a single opaque key.
 
         The conversation store is keyed by this combined value so two
@@ -525,7 +527,7 @@ class RAG:
         response_model: type | None = None,
     ) -> Response:
         """Async version of :meth:`query`."""
-        scoped = self._scoped_session_id(user, session_id)
+        scoped = self.scoped_session_id(user, session_id)
         context = PipelineContext(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
@@ -553,7 +555,7 @@ class RAG:
         metadata_filter: dict[str, Any] | None = None,
     ) -> AsyncIterator[str]:
         """Stream the answer token-by-token via the LLM's ``astream``."""
-        scoped = self._scoped_session_id(user, session_id)
+        scoped = self.scoped_session_id(user, session_id)
         context = PipelineContext(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
@@ -753,7 +755,7 @@ class RAG:
             The list of :class:`ConversationTurn` records, oldest
             first.
         """
-        scoped = self._scoped_session_id(user, session_id) or session_id
+        scoped = self.scoped_session_id(user, session_id) or session_id
         return self.conversation_store.load(scoped, limit=limit)
 
     def clear_conversation(
@@ -770,7 +772,7 @@ class RAG:
                 ``user_id`` / ``email`` scopes the delete. When
                 omitted, the raw ``session_id`` is used.
         """
-        scoped = self._scoped_session_id(user, session_id) or session_id
+        scoped = self.scoped_session_id(user, session_id) or session_id
         self.conversation_store.clear(scoped)
 
 

@@ -58,7 +58,7 @@ class VectorStore(Protocol):
             version: The version number.
         """
 
-    def search(self, *, vector: list[float], top_k: int, metadata_filter: str) -> list[dict[str, Any]]:
+    def search(self, *, vector: list[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
         """Run filtered vector search.
 
         Args:
@@ -66,7 +66,7 @@ class VectorStore(Protocol):
             top_k: Maximum number of results.
             metadata_filter: Backend-specific metadata filter
                 expression (e.g. a SQL fragment for the in-memory
-                backend).
+                backend, or a dict for the RBAC layer).
 
         Returns:
             A list of hit dicts in backend-native shape.
@@ -78,7 +78,7 @@ class VectorStore(Protocol):
         query: str,
         vector: list[float],
         top_k: int,
-        metadata_filter: str,
+        metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
         """Run hybrid (vector + keyword) search.
 

@@ -27,10 +27,10 @@ class PersistentJobStore:
         Args:
             db_path: Path to the SQLite database file.
         """
-        self._db_path = Path(db_path)
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self._db_path))
-        self._conn.execute(
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.conn = sqlite3.connect(str(self.db_path))
+        self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS ingestion_jobs (
                 job_id TEXT PRIMARY KEY,
@@ -40,7 +40,7 @@ class PersistentJobStore:
             )
             """
         )
-        self._conn.commit()
+        self.conn.commit()
 
     def upsert(self, job_id: str, status: str, result: Any = None) -> None:
         """Insert or update a job record.
@@ -53,7 +53,7 @@ class PersistentJobStore:
         import time
 
         encoded = json.dumps(result) if result is not None and not isinstance(result, str) else result
-        self._conn.execute(
+        self.conn.execute(
             """
             INSERT INTO ingestion_jobs (job_id, status, result, created_at)
             VALUES (?, ?, ?, ?)
@@ -61,7 +61,7 @@ class PersistentJobStore:
             """,
             (job_id, status, encoded, time.time()),
         )
-        self._conn.commit()
+        self.conn.commit()
 
     def get(self, job_id: str) -> dict[str, Any] | None:
         """Return the job record or ``None`` if unknown.
@@ -72,7 +72,7 @@ class PersistentJobStore:
         Returns:
             A dict with ``job_id``, ``status``, ``result`` keys, or ``None``.
         """
-        row = self._conn.execute(
+        row = self.conn.execute(
             "SELECT job_id, status, result FROM ingestion_jobs WHERE job_id = ?",
             (job_id,),
         ).fetchone()
@@ -86,7 +86,7 @@ class PersistentJobStore:
         Yields:
             Dicts with ``job_id``, ``status``, ``result`` keys.
         """
-        for row in self._conn.execute(
+        for row in self.conn.execute(
             "SELECT job_id, status, result FROM ingestion_jobs"
         ).fetchall():
             yield {"job_id": row[0], "status": row[1], "result": row[2]}
@@ -94,7 +94,7 @@ class PersistentJobStore:
     def close(self) -> None:
         """Close the underlying SQLite connection."""
         try:
-            self._conn.close()
+            self.conn.close()
         except Exception:
             pass
 

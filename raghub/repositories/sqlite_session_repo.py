@@ -1,3 +1,9 @@
+"""SQLite session repository.
+
+Implements :class:`raghub.domain.repositories.SessionRepository`
+against a SQLite database. Part of the legacy persistence layer.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

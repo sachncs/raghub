@@ -68,15 +68,36 @@ class PrometheusMetrics:
         """
 
         def safe_histogram(name: str, desc: str, buckets: list[float]) -> Histogram:
-            # ``REGISTRY._names_to_collectors`` is the canonical
-            # private lookup used by Prometheus client itself; we use
-            # it to short-circuit re-registration in reload scenarios.
+            """Register or retrieve a Prometheus histogram to avoid duplicating metrics.
+
+            ``REGISTRY._names_to_collectors`` is the canonical
+            private lookup used by Prometheus client itself; we use
+            it to short-circuit re-registration in reload scenarios.
+
+            Args:
+                name: The metric name.
+                desc: The metric description.
+                buckets: Histogram bucket boundaries.
+
+            Returns:
+                A registered :class:`Histogram` instance.
+            """
             existing: Any = REGISTRY._names_to_collectors.get(name)
             if existing is not None:
                 return existing
             return Histogram(name, desc, buckets=buckets, registry=REGISTRY)
 
         def safe_counter(name: str, desc: str, labels: list[str] | None = None) -> Counter:
+            """Register or retrieve a Prometheus counter to avoid duplicating metrics.
+
+            Args:
+                name: The metric name.
+                desc: The metric description.
+                labels: Optional list of label names.
+
+            Returns:
+                A registered :class:`Counter` instance.
+            """
             existing: Any = REGISTRY._names_to_collectors.get(name)
             if existing is not None:
                 return existing
@@ -140,6 +161,26 @@ class PrometheusMetrics:
         """
         self.auth_duration.observe(duration_ms)
         self.auth_total.labels(success=str(success)).inc()
+
+    def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
+        """Record a latency using the query duration histogram.
+
+        Args:
+            name: Metric name.
+            value_ms: Latency in milliseconds.
+            **labels: Optional label set.
+        """
+        self.query_duration.observe(value_ms)
+
+    def increment(self, name: str, value: int = 1, **labels: Any) -> None:
+        """Increment a counter using the error counter.
+
+        Args:
+            name: Counter name.
+            value: Increment amount.
+            **labels: Optional label set.
+        """
+        self.error_total.labels(error_type=name).inc(value)
 
     def record_error(self, error_type: str) -> None:
         """Increment the error counter for ``error_type``.

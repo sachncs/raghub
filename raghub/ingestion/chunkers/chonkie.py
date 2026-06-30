@@ -28,22 +28,23 @@ from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.interfaces.chunker import Chunker
 from raghub.models import Chunk
 
-try:
-    import chonkie  # type: ignore
+chonkie: Any
 
-    _CHONKIE_AVAILABLE = True
-    _CHONKIE_MODULE = chonkie
-    _ImportError: Exception | None = None
+try:
+    chonkie = __import__("chonkie")
+    CHONKIE_AVAILABLE = True
+    CHONKIE_MODULE = chonkie
+    OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
     chonkie = None
-    _CHONKIE_MODULE = None
-    _CHONKIE_AVAILABLE = False
-    _ImportError = exc
+    CHONKIE_MODULE = None
+    CHONKIE_AVAILABLE = False
+    OptionalImportError = exc
 
 
 def build_chonkie_inner(*, chunk_size: int, chunk_overlap: int, tokenizer: str) -> Any:
     """Build the best available Chonkie chunker for the configuration."""
-    if not _CHONKIE_AVAILABLE or _CHONKIE_MODULE is None:
+    if not CHONKIE_AVAILABLE or CHONKIE_MODULE is None:
         raise ConfigurationError(
             "chonkie is not installed; install it via `pip install chonkie` "
             "or use WordWindowChunker."
@@ -51,7 +52,7 @@ def build_chonkie_inner(*, chunk_size: int, chunk_overlap: int, tokenizer: str) 
 
     candidate_names = ("TokenChunker", "SentenceChunker", "RecursiveChunker", "Chunker")
     for name in candidate_names:
-        cls = getattr(_CHONKIE_MODULE, name, None)
+        cls = getattr(CHONKIE_MODULE, name, None)
         if cls is None:
             continue
         try:
@@ -100,14 +101,14 @@ class ChonkieChunker(Chunker):
             chunk_overlap: Token overlap.
             tokenizer: Tokenizer name (``"character"``, ``"gpt2"``, …).
         """
-        if not _CHONKIE_AVAILABLE:
+        if not CHONKIE_AVAILABLE:
             raise ConfigurationError(
                 "chonkie is not installed; install it via `pip install chonkie` "
                 "or use WordWindowChunker."
             )
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
-        self._inner = build_chonkie_inner(
+        self.inner = build_chonkie_inner(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             tokenizer=tokenizer,
@@ -116,18 +117,18 @@ class ChonkieChunker(Chunker):
     def chonkie_text_chunks(self, text: str) -> list[Any]:
         """Invoke the underlying Chonkie chunker; tolerate API drift."""
         try:
-            return self._inner(text)
+            return self.inner(text)
         except TypeError:
             # Older Chonkie takes a string directly via ``.chunk()`` or
             # ``.split_text()``.
-            chunk = getattr(self._inner, "chunk", None) or getattr(
-                self._inner, "split_text", None
+            chunk = getattr(self.inner, "chunk", None) or getattr(
+                self.inner, "split_text", None
             )
             if chunk is not None:
                 return chunk(text)
             raise
 
-    def chunk(self, bundle) -> list[Chunk]:
+    def chunk(self, bundle: Any) -> list[Chunk]:
         """Chunk a bundle via Chonkie.
 
         Args:
@@ -143,9 +144,9 @@ class ChonkieChunker(Chunker):
                     continue
                 pieces = self.chonkie_text_chunks(block.content)
                 for piece in pieces:
-                    text = getattr(piece, "text", None) or (
+                    text: str = getattr(piece, "text", None) or (
                         piece.get("text") if isinstance(piece, dict) else str(piece)
-                    )
+                    ) or ""
                     chunk_id = (
                         getattr(piece, "id", None)
                         or (piece.get("id") if isinstance(piece, dict) else None)
@@ -196,9 +197,9 @@ class ChonkieChunker(Chunker):
         pieces = self.chonkie_text_chunks(text)
         chunks: list[Chunk] = []
         for i, piece in enumerate(pieces):
-            text_value = getattr(piece, "text", None) or (
+            text_value: str = getattr(piece, "text", None) or (
                 piece.get("text") if isinstance(piece, dict) else str(piece)
-            )
+            ) or ""
             chunk_id = (
                 getattr(piece, "id", None)
                 or (piece.get("id") if isinstance(piece, dict) else None)
@@ -218,7 +219,7 @@ class ChonkieChunker(Chunker):
         return chunks
 
 
-def build_chonkie_chunker(name: str = "auto", **kwargs) -> Chunker:
+def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
     """Pick a chunker by name.
 
     Args:
@@ -233,7 +234,7 @@ def build_chonkie_chunker(name: str = "auto", **kwargs) -> Chunker:
             explicitly requested but unavailable.
     """
     if name in ("chonkie", "auto"):
-        if _CHONKIE_AVAILABLE:
+        if CHONKIE_AVAILABLE:
             return ChonkieChunker(**kwargs)
         if name == "chonkie":
             raise ConfigurationError("chonkie is not installed")

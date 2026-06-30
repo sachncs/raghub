@@ -7,9 +7,11 @@ contract.
 
 from __future__ import annotations
 
-from raghub.documents.chunker import chunk_words as _legacy_chunk_words
-from raghub.documents.chunker import ChunkingPlan as _LegacyPlan
-from raghub.documents.chunker import normalize_text as _normalize_text
+from typing import Any
+
+from raghub.documents.chunker import chunk_words as legacy_chunk_words
+from raghub.documents.chunker import ChunkingPlan as LegacyPlan
+from raghub.documents.chunker import normalize_text as normalize_text
 from raghub.interfaces.chunker import Chunker
 from raghub.models import Chunk
 from raghub.models.canonical import deterministic_id
@@ -39,9 +41,9 @@ class WordWindowChunker(Chunker):
             raise ValueError("chunk_overlap must satisfy 0 <= overlap < chunk_size")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
-        self._plan = _LegacyPlan(chunk_size_words=chunk_size, overlap_words=chunk_overlap)
+        self.plan = LegacyPlan(chunk_size_words=chunk_size, overlap_words=chunk_overlap)
 
-    def chunk(self, bundle) -> list[Chunk]:
+    def chunk(self, bundle: Any) -> list[Chunk]:
         """Chunk ``bundle`` into overlapping windows.
 
         Args:
@@ -127,7 +129,7 @@ class WordWindowChunker(Chunker):
 
     def word_window_chunks(self, text: str) -> list[str]:
         """Split ``text`` into overlapping windows."""
-        return _legacy_chunk_words(_normalize_text(text), self._plan)
+        return legacy_chunk_words(normalize_text(text), self.plan)
 
 
 __all__ = ["WordWindowChunker"]

@@ -24,14 +24,16 @@ from raghub.models import RetrievalHit
 
 T = TypeVar("T", bound=BaseModel)
 
+instructor: Any
+
 try:
-    import instructor  # type: ignore
-    _INSTRUCTOR_AVAILABLE = True
-    _ImportError: Exception | None = None
+    import instructor
+    INSTRUCTOR_AVAILABLE = True
+    OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
     instructor = None
-    _INSTRUCTOR_AVAILABLE = False
-    _ImportError = exc
+    INSTRUCTOR_AVAILABLE = False
+    OptionalImportError = exc
 
 
 class InstructorStructuredOutputProvider(StructuredOutputProvider):
@@ -60,33 +62,33 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
         Raises:
             ConfigurationError: When ``instructor`` is not installed.
         """
-        if not _INSTRUCTOR_AVAILABLE:
+        if not INSTRUCTOR_AVAILABLE:
             raise ConfigurationError(
                 "instructor is not installed; run `pip install instructor`."
             )
-        self._model = model
-        self._api_key = api_key
-        self._async_client = async_client
-        self._client: Any = None
-        self._client_async: Any = None
+        self.model = model
+        self.api_key = api_key
+        self.async_client = async_client
+        self.client: Any = None
+        self.client_async: Any = None
 
     def sync_instructor_client(self) -> Any:
         """Lazy sync client."""
-        if self._client is None:
-            self._client = instructor.from_provider(
-                f"litellm/{self._model}",
+        if self.client is None:
+            self.client = instructor.from_provider(
+                f"litellm/{self.model}",
                 async_client=False,
             )
-        return self._client
+        return self.client
 
     def async_instructor_client(self) -> Any:
         """Lazy async client."""
-        if self._client_async is None:
-            self._client_async = instructor.from_provider(
-                f"litellm/{self._model}",
+        if self.client_async is None:
+            self.client_async = instructor.from_provider(
+                f"litellm/{self.model}",
                 async_client=True,
             )
-        return self._client_async
+        return self.client_async
 
     async def generate(
         self,
@@ -118,7 +120,7 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
                 "content": f"Context:\n{context_text}\n\nQuestion: {question}",
             },
         ]
-        if self._async_client:
+        if self.async_client:
             client = self.async_instructor_client()
             return await client.create(
                 messages=messages,
@@ -138,9 +140,14 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
         context: Sequence[RetrievalHit],
     ) -> AsyncIterator[T]:
         """Stream a typed response (yields once when the model is final)."""
-        yield await self.generate(
+        result = await self.generate(
             response_model=response_model, question=question, context=context
         )
+
+        async def _generate() -> AsyncIterator[T]:
+            yield result
+
+        return _generate()
 
 
 __all__ = ["InstructorStructuredOutputProvider"]

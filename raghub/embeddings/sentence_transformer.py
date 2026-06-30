@@ -7,16 +7,20 @@ made beyond the one-time model download performed by ``SentenceTransformer``.
 
 from __future__ import annotations
 
+from typing import Any
+
 from raghub.embeddings.base import BaseEmbeddingProvider
+
+SentenceTransformer: Any
 
 try:
     from sentence_transformers import SentenceTransformer
-    _ST_AVAILABLE = True
-    _ImportError: Exception | None = None
+    ST_AVAILABLE = True
+    OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
     SentenceTransformer = None
-    _ST_AVAILABLE = False
-    _ImportError = exc
+    ST_AVAILABLE = False
+    OptionalImportError = exc
 
 
 class SentenceTransformerEmbeddingProvider(BaseEmbeddingProvider):
@@ -29,7 +33,7 @@ class SentenceTransformerEmbeddingProvider(BaseEmbeddingProvider):
             model_name: HuggingFace model id. The default
                 ``all-MiniLM-L6-v2`` produces 384-dim embeddings.
         """
-        if not _ST_AVAILABLE:
+        if not ST_AVAILABLE:
             from raghub.exceptions import ConfigurationError
 
             raise ConfigurationError(

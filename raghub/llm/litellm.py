@@ -23,14 +23,16 @@ from raghub.exceptions import ConfigurationError, LLMError
 from raghub.llm.base import BaseLLMProvider
 from raghub.models import ConversationTurn
 
+litellm: Any
+
 try:
-    import litellm  # type: ignore
-    _LITELLM_AVAILABLE = True
-    _ImportError: Exception | None = None
+    import litellm
+    LITELLM_AVAILABLE = True
+    OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
     litellm = None
-    _LITELLM_AVAILABLE = False
-    _ImportError = exc
+    LITELLM_AVAILABLE = False
+    OptionalImportError = exc
 
 
 class LiteLLMProvider(BaseLLMProvider):
@@ -61,22 +63,22 @@ class LiteLLMProvider(BaseLLMProvider):
         Raises:
             ConfigurationError: When ``litellm`` is not installed.
         """
-        if not _LITELLM_AVAILABLE:
+        if not LITELLM_AVAILABLE:
             raise ConfigurationError(
                 "litellm is not installed; run `pip install litellm`."
             )
         self.model_name = model
-        self._api_key = api_key
-        self._api_base = api_base
-        self._temperature = temperature
+        self.api_key = api_key
+        self.api_base = api_base
+        self.temperature = temperature
         # Most recent token-usage record, populated by :meth:`generate`
         # and :meth:`astream`. Read by :class:`DefaultGenerator` to
         # forward to telemetry.
         self.last_usage: dict[str, Any] | None = None
 
-    def _require_litellm(self) -> None:
+    def require_litellm(self) -> None:
         """Raise a clear error if LiteLLM is not installed."""
-        if not _LITELLM_AVAILABLE:
+        if not LITELLM_AVAILABLE:
             raise ConfigurationError(
                 "litellm is not installed; run `pip install litellm`."
             )
@@ -176,14 +178,14 @@ class LiteLLMProvider(BaseLLMProvider):
             image_paths=image_paths,
             session_history=session_history,
         )
-        self._require_litellm()
+        self.require_litellm()
         try:
             response = litellm.completion(
                 model=self.model_name,
                 messages=messages,
-                temperature=self._temperature,
-                api_key=self._api_key,
-                api_base=self._api_base,
+                temperature=self.temperature,
+                api_key=self.api_key,
+                api_base=self.api_base,
             )
         except Exception as exc:
             raise LLMError(f"LiteLLM completion failed: {exc}") from exc
@@ -245,16 +247,16 @@ class LiteLLMProvider(BaseLLMProvider):
             image_paths=image_paths,
             session_history=session_history,
         )
-        self._require_litellm()
+        self.require_litellm()
         try:
             response = await litellm.acompletion(
                 model=self.model_name,
                 messages=messages,
-                temperature=self._temperature,
+                temperature=self.temperature,
                 stream=True,
                 stream_options={"include_usage": True},
-                api_key=self._api_key,
-                api_base=self._api_base,
+                api_key=self.api_key,
+                api_base=self.api_base,
             )
         except Exception as exc:
             raise LLMError(f"LiteLLM streaming failed: {exc}") from exc

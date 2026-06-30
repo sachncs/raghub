@@ -14,11 +14,12 @@ when either invariant is violated.
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 
 @dataclass(slots=True)
@@ -70,10 +71,10 @@ class AppSettings:
     max_upload_bytes: int = 20 * 1024 * 1024
     embedding_model: str = "hashing-bge"
     llm_model: str = "heuristic-llm"
-    retrieval_mode: str = "sync"
     log_level: str = "INFO"
-    worker_backend: str = "threadpool"
     profile_path: Path | None = None
+    retrieval_mode: str = "sync"
+    worker_backend: str = "threadpool"
     require_zvec: bool = False
     jwt_secret: str = ""
     nvidia_api_key: str = ""
@@ -117,21 +118,6 @@ class AppSettings:
         return replace(self, **merged)
 
 
-def merge_mapping(target: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
-    """Return ``target`` updated with all keys from ``source``.
-
-    Args:
-        target: Base mapping.
-        source: Mapping whose keys override ``target``.
-
-    Returns:
-        A new dict; neither input is mutated.
-    """
-    merged = dict(target)
-    merged.update(source)
-    return merged
-
-
 def read_toml_file(path: Path) -> dict[str, Any]:
     """Load a TOML file using :mod:`tomllib` (3.11+) or :mod:`tomli`.
 
@@ -143,11 +129,11 @@ def read_toml_file(path: Path) -> dict[str, Any]:
         optional dependencies are non-fatal: the caller logs a
         warning and falls back to YAML.
     """
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:
+        import tomli as tomllib
     try:
-        try:
-            import tomllib  # type: ignore[attr-defined]
-        except ImportError:  # pragma: no cover - Python < 3.11
-            import tomli as tomllib  # type: ignore[no-redef]
         return tomllib.loads(path.read_text(encoding="utf-8")) or {}
     except ImportError:
         # Neither tomllib nor tomli is available; return empty so

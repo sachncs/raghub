@@ -88,7 +88,6 @@ def test_session_id_does_not_leak_other_users_history(rag: RAG) -> None:
         # Each user sees their own turn only.
         assert len(alice_view) == 1
         assert len(bob_view) == 1
-        assert all(t.session_id_or_user != "bob@x" for t in alice_view) if False else True
         # Alice's turn's question must be her own.
         assert alice_view[0].question == "revenue"
         # Bob's turn is his own.

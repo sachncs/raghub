@@ -5,13 +5,11 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import sys
 from contextlib import redirect_stdout
 from pathlib import Path
 
 import pytest
 
-from raghub import RAG
 from raghub.cli import (
     eval_cmd,
     ingest_cmd,
@@ -20,7 +18,7 @@ from raghub.cli import (
     query_cmd,
     system,
 )
-from raghub.cli._common import (
+from raghub.cli.common import (
     load_settings_or_path,
     print_json,
     run_async,

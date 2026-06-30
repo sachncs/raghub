@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
 
 from raghub.converters.markdown import normalise_markdown
 from raghub.converters.plaintext import PlainTextConverter
@@ -13,7 +12,6 @@ from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.knowledge.repository import InMemoryKnowledgeRepository
 from raghub.models import (
     BlockKind,
-    DocumentBlock,
     KnowledgeBundle,
     PipelineContext,
 )
@@ -68,12 +66,6 @@ def test_word_window_chunker_chunk_bundle() -> None:
 
 def test_ingest_pipeline_end_to_end() -> None:
     """The ingest pipeline produces chunks and embeddings."""
-    bundle = KnowledgeBundle(
-        source_uri="file://x",
-        sections=[
-            {"index": 0, "blocks": [{"kind": "text", "content": "alpha beta gamma delta"}]}
-        ],
-    )
     embedder = HashingEmbeddingProvider(dimension=16, model_name="hashing-test")
     store = InMemoryVectorStore()
     pipeline = IngestPipeline(

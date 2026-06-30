@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any, AsyncIterator, Sequence
 
-import pytest
 
 from raghub.generation.generator import DefaultGenerator
 from raghub.llm.base import BaseLLMProvider
@@ -109,7 +108,11 @@ def test_litellm_provider_passes_stream_options() -> None:
         captured.update(kwargs)
         return _FakeStream()
 
-    real = litellm_mod.litellm.acompletion
+    import types
+
+    saved = litellm_mod.litellm
+    litellm_mod.litellm = types.ModuleType("litellm")
+    litellm_mod.LITELLM_AVAILABLE = True
     litellm_mod.litellm.acompletion = _fake_acompletion
     try:
         provider = litellm_mod.LiteLLMProvider(model="gpt-4o-mini", api_key="x")
@@ -123,7 +126,7 @@ def test_litellm_provider_passes_stream_options() -> None:
 
         asyncio.run(_drive())
     finally:
-        litellm_mod.litellm.acompletion = real
+        litellm_mod.litellm = saved
 
     assert captured.get("stream_options") == {"include_usage": True}
     assert captured.get("stream") is True

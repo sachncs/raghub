@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Any, Sequence
 
 from raghub.exceptions import EvaluationError
 from raghub.interfaces.evaluation import Evaluator
@@ -31,7 +31,7 @@ def score_string(predicted: str, expected: str) -> float:
 async def run_evaluator(
     evaluator: Evaluator,
     examples: Sequence[dict],
-    response_factory,
+    response_factory: Any,
 ) -> list[EvaluationResult]:
     """Run ``evaluator`` on ``examples`` with a shared error envelope.
 
