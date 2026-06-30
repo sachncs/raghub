@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/models/__init__.py
-# hypothesis_version: 6.148.6
-
-['AuthLoginRequest', 'AuthLoginResponse', 'BlockKind', 'CanonicalQuery', 'CanonicalResponse', 'Chunk', 'ChunkRecord', 'Citation', 'Classification', 'ConversationTurn', 'Document', 'DocumentBlock', 'DocumentRecord', 'DocumentSection', 'DocumentVersion', 'Embedding', 'EvaluationResult', 'KnowledgeBundle', 'PipelineContext', 'PipelineResult', 'QueryRequest', 'QueryResponse', 'RetrievalHit', 'SearchRequest', 'SearchResponse', 'SearchResult', 'SessionRecord', 'UserPrincipal', 'Visibility', 'deterministic_id']

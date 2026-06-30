@@ -133,6 +133,20 @@ class FinanceBenchEvaluator(Evaluator):
             self._examples = load_jsonl_file(cached)
         return self._examples
 
+    def _ensure_examples(self) -> list[dict]:
+        """Backwards-compatible alias for :meth:`ensure_loaded_examples`.
+
+        Some legacy call sites (including the ``raghub eval`` CLI)
+        previously called the private ``_ensure_examples`` name. The
+        method is now part of the public contract under
+        :meth:`ensure_loaded_examples`; this alias keeps older call
+        sites working without changes.
+
+        Returns:
+            The list of FinanceBench example dicts.
+        """
+        return self.ensure_loaded_examples()
+
     async def evaluate(
         self,
         examples: Sequence[dict] | None = None,

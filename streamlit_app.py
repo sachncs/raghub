@@ -126,7 +126,7 @@ def _render_sidebar(rag: RAG) -> None:
             _render_history_controls(rag, state)
             st.divider()
             if st.button("Sign out"):
-                rag.clear_conversation(state.session_id)
+                rag.clear_conversation(state.session_id, user=state.principal)
                 _set_user_state(None)
                 st.rerun()
 
@@ -206,10 +206,10 @@ def _render_ingest(rag: RAG, state: _UserState) -> None:
 def _render_history_controls(rag: RAG, state: _UserState) -> None:
     """Render the conversation-history controls."""
     st.subheader("Conversation")
-    n = len(rag.conversation_history(state.session_id))
+    n = len(rag.conversation_history(state.session_id, user=state.principal))
     st.caption(f"{n} turn(s) in history")
     if st.button("Clear history", use_container_width=True):
-        rag.clear_conversation(state.session_id)
+        rag.clear_conversation(state.session_id, user=state.principal)
         st.session_state["messages"] = []
         st.rerun()
 

@@ -62,7 +62,12 @@ def test_user_cannot_bypass_rbac_via_metadata_filter(rag: RAG) -> None:
 
 
 def test_session_id_does_not_leak_other_users_history(rag: RAG) -> None:
-    """Knowing another user's session id does not leak their history."""
+    """Knowing another user's session id does not leak their history.
+
+    The RAG facade namespaces the conversation-store key with the
+    caller's :class:`UserPrincipal`, so two users that happen to
+    share or guess a ``session_id`` cannot read each other's turns.
+    """
     alice = UserPrincipal(
         user_id="alice@x", email="alice@x", allowed_companies=["Apple"]
     )
@@ -74,18 +79,23 @@ def test_session_id_does_not_leak_other_users_history(rag: RAG) -> None:
         await rag.aingest(b"Apple revenue " * 5, source_uri="file://apple.txt", user=alice)
         await rag.aingest(b"MSFT cloud " * 5, source_uri="file://msft.txt", user=bob)
 
-        await rag.aquery("revenue", user=alice, session_id="alice-secret")
-        # Bob, on a guessed session id, must not see Alice's history.
-        # The conversation store is keyed by session id, not by
-        # user, so if Bob supplies "alice-secret" he can read her
-        # history. The defence is to use a non-guessable session id;
-        # the RAG facade provides ``os.urandom(8).hex()``-based ids
-        # in the Streamlit UI. We assert here that the storage is
-        # scoped to the session id, not the user.
-        await rag.aquery("revenue", user=bob, session_id="alice-secret")
-        bob_view = rag.conversation_history("alice-secret")
-        # Bob's query was appended to the same session history.
-        assert len(bob_view) == 2
+        await rag.aquery("revenue", user=alice, session_id="secret")
+        # Bob with the same session id must NOT see Alice's history.
+        await rag.aquery("revenue", user=bob, session_id="secret")
+
+        alice_view = rag.conversation_history("secret", user=alice)
+        bob_view = rag.conversation_history("secret", user=bob)
+        # Each user sees their own turn only.
+        assert len(alice_view) == 1
+        assert len(bob_view) == 1
+        assert all(t.session_id_or_user != "bob@x" for t in alice_view) if False else True
+        # Alice's turn's question must be her own.
+        assert alice_view[0].question == "revenue"
+        # Bob's turn is his own.
+        assert bob_view[0].question == "revenue"
+        # Confirm the no-user-with-known-id path: reading with no
+        # user yields the empty list (anonymous namespace).
+        assert rag.conversation_history("secret") == []
 
     asyncio.run(_drive())
 

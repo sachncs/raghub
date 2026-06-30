@@ -18,6 +18,16 @@ async (``aingest``, ``aquery``, ``astream``), and streaming
 (``astream``) entry points. All public methods return or accept
 typed Pydantic models from :mod:`raghub.models`; raw dictionaries
 are never exchanged across the public boundary.
+
+Multi-user isolation
+--------------------
+
+Conversation history is keyed by both ``session_id`` **and** the
+caller's ``UserPrincipal``. The facade namespaces keys internally
+so that two callers who happen to share or guess a ``session_id``
+cannot read each other's history. :meth:`conversation_history`
+and :meth:`clear_conversation` both accept a ``user`` argument;
+the public surface mirrors the rest of the RBAC contract.
 """
 
 from __future__ import annotations
@@ -475,6 +485,35 @@ class RAG:
             )
         )
 
+    @staticmethod
+    def _scoped_session_id(user: Any, session_id: str | None) -> str | None:
+        """Combine ``user`` and ``session_id`` into a single opaque key.
+
+        The conversation store is keyed by this combined value so two
+        callers who happen to share or guess a ``session_id`` cannot
+        read each other's history. When ``user`` is ``None`` the
+        method returns the raw ``session_id`` (back-compat behaviour
+        for tests that exercise the in-process store anonymously).
+
+        Args:
+            user: The :class:`UserPrincipal` (or any duck-typed
+                object with ``user_id`` / ``email`` attributes).
+            session_id: The caller-supplied session id.
+
+        Returns:
+            The namespaced key, or ``None`` when no session id is set.
+        """
+        if session_id is None:
+            return None
+        if user is None:
+            return session_id
+        uid = (
+            getattr(user, "user_id", None)
+            or getattr(user, "email", None)
+            or "anonymous"
+        )
+        return f"{uid}::{session_id}"
+
     async def aquery(
         self,
         question: str,
@@ -486,9 +525,10 @@ class RAG:
         response_model: type | None = None,
     ) -> Response:
         """Async version of :meth:`query`."""
+        scoped = self._scoped_session_id(user, session_id)
         context = PipelineContext(
             pipeline_name="query",
-            metadata={"session_id": session_id} if session_id else {},
+            metadata={"session_id": scoped} if scoped else {},
         )
         result = await self.query_pipeline.run(
             context,
@@ -497,7 +537,7 @@ class RAG:
             metadata_filter=metadata_filter or {},
             response_model=response_model,
             user=user,
-            session_id=session_id,
+            session_id=scoped,
         )
         if not result.success:
             raise RagHubError(result.error or "query failed")
@@ -513,9 +553,10 @@ class RAG:
         metadata_filter: dict[str, Any] | None = None,
     ) -> AsyncIterator[str]:
         """Stream the answer token-by-token via the LLM's ``astream``."""
+        scoped = self._scoped_session_id(user, session_id)
         context = PipelineContext(
             pipeline_name="query",
-            metadata={"session_id": session_id} if session_id else {},
+            metadata={"session_id": scoped} if scoped else {},
         )
         async for piece in self.query_pipeline.stream(
             context,
@@ -523,7 +564,7 @@ class RAG:
             top_k=top_k,
             metadata_filter=metadata_filter or {},
             user=user,
-            session_id=session_id,
+            session_id=scoped,
         ):
             yield piece
 
@@ -691,14 +732,46 @@ class RAG:
     # ------------------------------------------------------------------
 
     def conversation_history(
-        self, session_id: str, limit: int = 50
+        self,
+        session_id: str,
+        *,
+        user: Any | None = None,
+        limit: int = 50,
     ) -> list:
-        """Return the most recent conversation turns for a session."""
-        return self.conversation_store.load(session_id, limit=limit)
+        """Return the most recent conversation turns for a session.
 
-    def clear_conversation(self, session_id: str) -> None:
-        """Clear a session's conversation history."""
-        self.conversation_store.clear(session_id)
+        Args:
+            session_id: The caller-supplied session id.
+            user: Optional :class:`UserPrincipal` whose
+                ``user_id`` / ``email`` scopes the lookup. When
+                omitted, the lookup uses the raw ``session_id`` and
+                will only return history created with ``user=None``
+                — preventing accidental cross-user reads.
+            limit: Maximum number of turns to return.
+
+        Returns:
+            The list of :class:`ConversationTurn` records, oldest
+            first.
+        """
+        scoped = self._scoped_session_id(user, session_id) or session_id
+        return self.conversation_store.load(scoped, limit=limit)
+
+    def clear_conversation(
+        self,
+        session_id: str,
+        *,
+        user: Any | None = None,
+    ) -> None:
+        """Clear a session's conversation history.
+
+        Args:
+            session_id: The caller-supplied session id.
+            user: Optional :class:`UserPrincipal` whose
+                ``user_id`` / ``email`` scopes the delete. When
+                omitted, the raw ``session_id`` is used.
+        """
+        scoped = self._scoped_session_id(user, session_id) or session_id
+        self.conversation_store.clear(scoped)
 
 
 __all__ = ["RAG"]

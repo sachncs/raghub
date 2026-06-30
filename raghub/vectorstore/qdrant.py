@@ -96,7 +96,7 @@ class QdrantVectorStore(VectorStore):
     # CRUD
     # ------------------------------------------------------------------
 
-    def qdrantqdrant_point_id(self, chunk_id: str) -> str:
+    def qdrant_point_id(self, chunk_id: str) -> str:
         """Return a stable UUID derived from ``chunk_id``."""
         return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"raghub:{chunk_id}"))
 
@@ -118,7 +118,7 @@ class QdrantVectorStore(VectorStore):
                 collection_name=self._collection,
                 points=[
                     _qmodels.PointStruct(
-                        id=self.qdrantqdrant_point_id(chunk.chunk_id),
+                        id=self.qdrant_point_id(chunk.chunk_id),
                         vector=list(vector),
                         payload={
                             "chunk_id": chunk.chunk_id,
@@ -148,7 +148,7 @@ class QdrantVectorStore(VectorStore):
             self._client.delete(
                 collection_name=self._collection,
                 points_selector=_qmodels.PointIdsList(
-                    points=[self.qdrantqdrant_point_id(cid) for cid in chunk_ids]
+                    points=[self.qdrant_point_id(cid) for cid in chunk_ids]
                 ),
             )
         except Exception as exc:

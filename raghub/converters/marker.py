@@ -138,9 +138,20 @@ class MarkerConverter(DocumentConverter):
                 "MarkerConverter.convert received empty bytes; nothing to convert."
             )
         if not looks_like_pdf(file_bytes):
-            raise ConfigurationError(
-                "MarkerConverter.convert received non-PDF bytes; use PlainTextConverter "
-                "for plain text or pass mime_type='application/pdf' for a different format."
+            # The Marker converter is PDF-only. When a caller hands us
+            # plain text / Markdown / HTML we transparently delegate to
+            # :class:`PlainTextConverter` so the default RAG facade
+            # can ingest any supported input without a configuration
+            # step. The caller can still opt out by passing a custom
+            # converter.
+            from raghub.converters.plaintext import PlainTextConverter
+
+            return PlainTextConverter().convert(
+                source_uri=source_uri,
+                file_bytes=file_bytes,
+                mime_type=mime_type or "text/plain",
+                language=language,
+                metadata=metadata or {},
             )
 
         tmp_path: str | None = None

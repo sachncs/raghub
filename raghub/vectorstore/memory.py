@@ -128,7 +128,7 @@ class InMemoryVectorStore(BaseVectorStore):
             for chunk_id in chunk_ids:
                 self.records.pop(chunk_id, None)
 
-    def deletehandle_version(self, document_id: str, version: int) -> None:
+    def delete_version(self, document_id: str, version: int) -> None:
         """Remove chunks whose ``document_id`` and ``version`` match.
 
         Args:

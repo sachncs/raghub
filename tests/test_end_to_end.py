@@ -88,7 +88,7 @@ def test_e2e_conversational_followup(rag: RAG) -> None:
         r1 = await rag.aquery("revenue", user=alice, session_id="s1")
         r2 = await rag.aquery("and growth?", user=alice, session_id="s1")
         assert r1.answer and r2.answer
-        history = rag.conversation_history("s1")
+        history = rag.conversation_history("s1", user=alice)
         assert len(history) == 2
         assert history[0].question == "revenue"
         assert history[1].question == "and growth?"
