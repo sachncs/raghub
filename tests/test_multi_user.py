@@ -141,8 +141,8 @@ def test_conversation_history_isolated_per_session() -> None:
 
     asyncio.run(_drive())
 
-    alice_hist = rag.conversation_history("alice-s")
-    bob_hist = rag.conversation_history("bob-s")
+    alice_hist = rag.conversation_history("alice-s", user=alice)
+    bob_hist = rag.conversation_history("bob-s", user=bob)
     assert alice_hist and bob_hist
     # Alice's history should not contain Bob's session id nor any
     # content that came from the Microsoft chunks.
@@ -162,7 +162,7 @@ def test_conversation_history_supports_followup() -> None:
         await rag.aquery("and growth?", user=alice, session_id="s1")
 
     asyncio.run(_drive())
-    history = rag.conversation_history("s1")
+    history = rag.conversation_history("s1", user=alice)
     assert len(history) >= 2
     assert history[0].question == "revenue"
     assert history[1].question == "and growth?"
@@ -212,7 +212,7 @@ def test_session_history_uses_canonical_session_id() -> None:
     asyncio.run(
         rag.aquery("first", user=alice, session_id="x")
     )
-    history = rag.conversation_history("x")
+    history = rag.conversation_history("x", user=alice)
     assert len(history) == 1
     assert history[0].question == "first"
 
@@ -223,6 +223,6 @@ def test_clear_conversation_resets_session() -> None:
     _seed_chunks(rag, "Apple", "alice@x", "apple")
     alice = _make_user("alice@x", "Apple")
     asyncio.run(rag.aquery("first", user=alice, session_id="x"))
-    assert rag.conversation_history("x")
-    rag.clear_conversation("x")
-    assert rag.conversation_history("x") == []
+    assert rag.conversation_history("x", user=alice)
+    rag.clear_conversation("x", user=alice)
+    assert rag.conversation_history("x", user=alice) == []

@@ -98,7 +98,7 @@ class RealZvecBackend(BaseVectorStore):
         safe_id = self.sanitize_id(document_id)
         self.collection.delete_by_filter(filter=f"document_id = '{safe_id}'")
 
-    def deletehandle_version(self, document_id: str, version: int) -> None:
+    def delete_version(self, document_id: str, version: int) -> None:
         safe_id = self.sanitize_id(document_id)
         self.collection.delete_by_filter(filter=f"document_id = '{safe_id}' AND version = {version}")
 
@@ -200,8 +200,8 @@ class ZvecVectorStore(BaseVectorStore):
     def delete_document(self, document_id: str) -> None:
         self.backend.delete_document(document_id)
 
-    def deletehandle_version(self, document_id: str, version: int) -> None:
-        self.backend.deletehandle_version(document_id, version)
+    def delete_version(self, document_id: str, version: int) -> None:
+        self.backend.delete_version(document_id, version)
 
     def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str) -> list[dict[str, Any]]:
         return self.backend.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)

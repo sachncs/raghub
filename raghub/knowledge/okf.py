@@ -90,12 +90,14 @@ def to_okf(bundle: KnowledgeBundle) -> dict[str, Any]:
     }
 
 
-def from_okf(payload: dict[str, Any]) -> KnowledgeBundle:
-    """Parse an OKF dict back into a :class:`KnowledgeBundle`.
+def from_okf(payload: dict[str, Any] | str) -> KnowledgeBundle:
+    """Parse an OKF payload back into a :class:`KnowledgeBundle`.
 
     Args:
-        payload: A dict produced by :func:`to_okf` or a compatible
-            OKF emitter.
+        payload: A dict produced by :func:`to_okf` or a JSON string
+            produced by :func:`dumps`. The string form is convenient
+            for round-trip testing and for callers that read OKF
+            from disk.
 
     Returns:
         The reconstructed :class:`KnowledgeBundle`.
@@ -103,6 +105,11 @@ def from_okf(payload: dict[str, Any]) -> KnowledgeBundle:
     Raises:
         KnowledgeError: When the payload is structurally invalid.
     """
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise KnowledgeError(f"Invalid OKF JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise KnowledgeError("OKF payload must be a dict")
 

@@ -141,7 +141,7 @@ class ChonkieChunker(Chunker):
             for block in section.blocks:
                 if not block.kind.value == "text":
                     continue
-                pieces = self.chonkiechonkie_text_chunks(block.content)
+                pieces = self.chonkie_text_chunks(block.content)
                 for piece in pieces:
                     text = getattr(piece, "text", None) or (
                         piece.get("text") if isinstance(piece, dict) else str(piece)
@@ -193,7 +193,7 @@ class ChonkieChunker(Chunker):
         Returns:
             The list of :class:`Chunk` records.
         """
-        pieces = self.chonkiechonkie_text_chunks(text)
+        pieces = self.chonkie_text_chunks(text)
         chunks: list[Chunk] = []
         for i, piece in enumerate(pieces):
             text_value = getattr(piece, "text", None) or (

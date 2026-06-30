@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/knowledge/okf.py
-# hypothesis_version: 6.148.6
-
-['$schema', '/', '0.1', 'OKF_SCHEMA_VERSION', 'block_id', 'blocks', 'bundle_id', 'checksum', 'content', 'created_at', 'dumps', 'from_okf', 'heading', 'index', 'kind', 'language', 'loads', 'metadata', 'mime_type', 'page_numbers', 'section_id', 'sections', 'source_location', 'source_uri', 'text', 'to_okf']

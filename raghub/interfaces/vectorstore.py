@@ -50,7 +50,7 @@ class VectorStore(Protocol):
             document_id: The document id.
         """
 
-    def deletehandle_version(self, document_id: str, version: int) -> None:
+    def delete_version(self, document_id: str, version: int) -> None:
         """Delete a specific version of a document.
 
         Args:

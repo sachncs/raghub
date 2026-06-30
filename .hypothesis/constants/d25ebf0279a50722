@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/evaluation/metrics.py
-# hypothesis_version: 6.148.6
-
-[0.0, 1.0, '\\w+', 'answer_correctness', 'context_precision', 'context_recall', 'evaluate_example', 'faithfulness', 'mean_reciprocal_rank', 'mrr', 'precision_at_k', 'recall_at_k']
