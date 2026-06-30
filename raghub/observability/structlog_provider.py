@@ -22,20 +22,20 @@ class StructlogSpan(Span):
 
     def __init__(self, name: str, logger: StructuredLogger, metrics: PrometheusMetrics) -> None:
         self.name = name
-        self._logger = logger
-        self._metrics = metrics
-        self._attrs: dict[str, Any] = {}
-        self._started = time.perf_counter()
+        self.logger = logger
+        self.metrics = metrics
+        self.attrs: dict[str, Any] = {}
+        self.started = time.perf_counter()
 
     def end(self) -> None:
         """Record the span duration and log its completion."""
-        duration_ms = (time.perf_counter() - self._started) * 1000.0
-        self._metrics.record_latency(f"span.{self.name}", duration_ms, **self._attrs)
-        self._logger.info(f"span.end.{self.name}", duration_ms=duration_ms, **self._attrs)
+        duration_ms = (time.perf_counter() - self.started) * 1000.0
+        self.metrics.record_latency(f"span.{self.name}", duration_ms, **self.attrs)
+        self.logger.info(f"span.end.{self.name}", duration_ms=duration_ms, **self.attrs)
 
     def set_attribute(self, key: str, value: Any) -> None:
         """Attach an attribute for later emission."""
-        self._attrs[key] = value
+        self.attrs[key] = value
 
 
 class StructlogTelemetryProvider(TelemetryProvider):
@@ -56,8 +56,8 @@ class StructlogTelemetryProvider(TelemetryProvider):
         from raghub.observability.logging import build_logger
         from raghub.observability.metrics import PrometheusMetrics
 
-        self._logger = logger or StructuredLogger(build_logger("INFO"))
-        self._metrics = metrics or PrometheusMetrics()
+        self.logger = logger or StructuredLogger(build_logger("INFO"))
+        self.metrics = metrics or PrometheusMetrics()
 
     def info(self, message: str, **kwargs: Any) -> None:
         """Emit an info log.
@@ -66,7 +66,7 @@ class StructlogTelemetryProvider(TelemetryProvider):
             message: Log message.
             **kwargs: Structured key/value pairs.
         """
-        self._logger.info(message, **kwargs)
+        self.logger.info(message, **kwargs)
 
     def warning(self, message: str, **kwargs: Any) -> None:
         """Emit a warning log.
@@ -75,7 +75,7 @@ class StructlogTelemetryProvider(TelemetryProvider):
             message: Log message.
             **kwargs: Structured key/value pairs.
         """
-        self._logger.warning(message, **kwargs)
+        self.logger.warning(message, **kwargs)
 
     def error(self, message: str, **kwargs: Any) -> None:
         """Emit an error log.
@@ -84,7 +84,7 @@ class StructlogTelemetryProvider(TelemetryProvider):
             message: Log message.
             **kwargs: Structured key/value pairs.
         """
-        self._logger.error(message, **kwargs)
+        self.logger.error(message, **kwargs)
 
     def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
         """Record a latency metric.
@@ -94,7 +94,7 @@ class StructlogTelemetryProvider(TelemetryProvider):
             value_ms: Latency in milliseconds.
             **labels: Optional label set.
         """
-        self._metrics.record_latency(name, value_ms, **labels)
+        self.metrics.record_latency(name, value_ms, **labels)
 
     def increment(self, name: str, value: int = 1, **labels: Any) -> None:
         """Increment a counter.
@@ -104,7 +104,7 @@ class StructlogTelemetryProvider(TelemetryProvider):
             value: Increment amount.
             **labels: Optional label set.
         """
-        self._metrics.increment(name, value, **labels)
+        self.metrics.increment(name, value, **labels)
 
     def start_span(self, name: str, **attrs: Any) -> Span:
         """Open a span.
@@ -117,7 +117,7 @@ class StructlogTelemetryProvider(TelemetryProvider):
             A :class:`StructlogSpan` (or :class:`NoopSpan` on error).
         """
         try:
-            span = StructlogSpan(name, self._logger, self._metrics)
+            span = StructlogSpan(name, self.logger, self.metrics)
             for key, value in attrs.items():
                 span.set_attribute(key, value)
             return span
@@ -149,9 +149,9 @@ class StructlogTelemetryProvider(TelemetryProvider):
             completion_tokens: Output token count.
             model: Model identifier.
         """
-        self._metrics.increment("tokens.prompt", prompt_tokens, model=model)
-        self._metrics.increment("tokens.completion", completion_tokens, model=model)
-        self._logger.info(
+        self.metrics.increment("tokens.prompt", prompt_tokens, model=model)
+        self.metrics.increment("tokens.completion", completion_tokens, model=model)
+        self.logger.info(
             "tokens",
             name=name,
             prompt_tokens=prompt_tokens,

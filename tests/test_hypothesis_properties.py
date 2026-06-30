@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-hypothesis = pytest.importorskip("hypothesis")
+pytest.importorskip("hypothesis")
 from hypothesis import given, strategies as st
 
 from raghub.evaluation.metrics import (

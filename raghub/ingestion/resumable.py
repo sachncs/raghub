@@ -26,12 +26,12 @@ class ResumableBackgroundIngestionService(BackgroundIngestionService):
             max_workers: Maximum concurrent workers.
         """
         super().__init__(max_workers=max_workers)
-        self._store = PersistentJobStore(db_path)
+        self.store = PersistentJobStore(db_path)
         self.restore_from_store()
 
     def restore_from_store(self) -> None:
         """Reload prior job state into the in-memory map."""
-        for record in self._store.all():
+        for record in self.store.all():
             self.jobs[record["job_id"]] = IngestionJob(
                 job_id=record["job_id"],
                 status=record["status"],
@@ -50,7 +50,7 @@ class ResumableBackgroundIngestionService(BackgroundIngestionService):
             A job id.
         """
         job_id = super().submit(fn, *args, **kwargs)
-        self._store.upsert(job_id, "pending")
+        self.store.upsert(job_id, "pending")
         return job_id
 
     def run_job(self, job_id: str, fn: Any, args: Any, kwargs: Any) -> None:
@@ -60,15 +60,15 @@ class ResumableBackgroundIngestionService(BackgroundIngestionService):
         finally:
             job = self.jobs.get(job_id)
             if job is not None:
-                self._store.upsert(job_id, job.status, job.result)
+                self.store.upsert(job_id, job.status, job.result)
 
     def shutdown(self) -> None:
         """Flush the job store and shut down the executor."""
         try:
             for job_id, job in list(self.jobs.items()):
-                self._store.upsert(job_id, job.status, job.result)
+                self.store.upsert(job_id, job.status, job.result)
         finally:
-            self._store.close()
+            self.store.close()
             self.executor.shutdown(wait=False)
 
 

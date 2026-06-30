@@ -26,18 +26,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
 import random
-import statistics
-import string
 import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from raghub import RAG  # noqa: E402
+from raghub import RAG
 
 
 def _random_text(words: int, seed: int) -> str:
@@ -91,9 +86,9 @@ class BenchmarkResult:
 
 def _peak_memory_mb() -> float | None:
     """Return peak RSS in MB, or ``None`` when ``psutil`` is missing."""
-    try:
-        import resource  # noqa: F401
-    except ImportError:
+    import importlib
+
+    if importlib.util.find_spec("resource") is None:
         return None
     import resource
 

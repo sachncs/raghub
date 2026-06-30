@@ -10,7 +10,6 @@ from raghub.telemetry.langfuse import LangfuseTelemetryProvider, NoopSpan
 
 def test_noop_telemetry_satisfies_protocol() -> None:
     """``NoOpTelemetry`` implements the :class:`TelemetryProvider` contract."""
-    from raghub.interfaces.observability import TelemetryProvider
 
     provider = NoOpTelemetry()
     # All public methods must accept the documented signatures.

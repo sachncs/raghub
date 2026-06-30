@@ -77,23 +77,10 @@ echo "  Python: $(which python)"
 echo "  Pip:    $(pip --version 2>&1 | head -1)"
 
 # ---------- install pip dependencies ----------
-echo "[4/6] Installing pip packages (this may take a minute) ..."
+echo "[4/6] Installing project + extras (this may take a minute) ..."
 pip install --quiet --upgrade pip 2>/dev/null
-if [ -f requirements/all.txt ]; then
-    pip install --quiet -r requirements/all.txt
-else
-    if [ -d requirements ]; then
-        for req_file in requirements/*.txt; do
-            [ -f "$req_file" ] && pip install --quiet -r "$req_file"
-        done
-    fi
-fi
+pip install --quiet -e ".[dev,api,ui,zvec]"
 echo "  pip packages: OK"
-
-# ---------- editable install ----------
-echo "[5/6] Installing raghub in editable mode ..."
-pip install --quiet -e .
-echo "  editable install: OK"
 
 # ---------- data directories ----------
 echo "[6/6] Creating data directories ..."

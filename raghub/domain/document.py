@@ -1,3 +1,9 @@
+"""Legacy document domain model.
+
+Deprecated in favour of the canonical models in
+:mod:`raghub.models`.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

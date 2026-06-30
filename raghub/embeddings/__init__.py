@@ -34,15 +34,15 @@ if TYPE_CHECKING:
 def __getattr__(name: str) -> Any:
     """Lazily expose providers whose SDKs may not be installed."""
     if name == "LiteLLMEmbeddingProvider":
-        from .litellm import LiteLLMEmbeddingProvider as _Provider
+        from .litellm import LiteLLMEmbeddingProvider
 
-        return _Provider
+        return LiteLLMEmbeddingProvider
     if name == "SentenceTransformerEmbeddingProvider":
         from .sentence_transformer import (
-            SentenceTransformerEmbeddingProvider as _Provider,
+            SentenceTransformerEmbeddingProvider,
         )
 
-        return _Provider
+        return SentenceTransformerEmbeddingProvider
     raise AttributeError(f"module 'raghub.embeddings' has no attribute {name!r}")
 
 

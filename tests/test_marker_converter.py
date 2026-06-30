@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from raghub.converters.marker import MarkerConverter, looks_like_pdf
-from raghub.exceptions import ConfigurationError, ConversionError
+from raghub.converters.marker import MARKER_AVAILABLE, MarkerConverter, looks_like_pdf
+from raghub.exceptions import ConfigurationError
 from raghub.models import KnowledgeBundle
+
+pytestmark = pytest.mark.skipif(
+    not MARKER_AVAILABLE,
+    reason="marker-pdf not installed",
+)
 
 
 def test_looks_like_pdf_detects_magic_number() -> None:

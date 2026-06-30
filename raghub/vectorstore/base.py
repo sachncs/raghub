@@ -37,7 +37,7 @@ class BaseVectorStore(ABC):
         """Delete one version."""
 
     @abstractmethod
-    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str) -> list[dict[str, Any]]:
+    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
         """Search by vector with a metadata filter."""
 
     @abstractmethod
@@ -47,7 +47,7 @@ class BaseVectorStore(ABC):
         query: str,
         vector: Sequence[float],
         top_k: int,
-        metadata_filter: str,
+        metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
         """Hybrid search."""
 

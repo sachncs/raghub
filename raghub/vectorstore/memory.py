@@ -200,7 +200,7 @@ class InMemoryVectorStore(BaseVectorStore):
             return 0.0
         return float(np.dot(lhs, rhs) / denom)
 
-    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: Any = "") -> list[dict[str, Any]]:
+    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
         """Cosine-similarity search with metadata pre-filtering.
 
         Args:
@@ -217,14 +217,16 @@ class InMemoryVectorStore(BaseVectorStore):
         """
         if isinstance(metadata_filter, dict):
             dict_filter = metadata_filter
+            str_filter: str | None = None
         else:
             dict_filter = None
+            str_filter = metadata_filter
         with self.lock:
             records = [
                 record
                 for record in self.records.values()
                 if (dict_filter is None or matches_metadata_dict(record, dict_filter))
-                and (dict_filter is not None or self.matches_filter(record, metadata_filter or ""))
+                and (dict_filter is not None or self.matches_filter(record, str_filter or ""))
             ]
         hits = [
             {
@@ -243,7 +245,7 @@ class InMemoryVectorStore(BaseVectorStore):
         query: str,
         vector: Sequence[float],
         top_k: int,
-        metadata_filter: str,
+        metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
         """Hybrid search shim. The in-memory backend collapses to vector search.
 

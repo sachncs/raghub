@@ -102,7 +102,7 @@ class RealZvecBackend(BaseVectorStore):
         safe_id = self.sanitize_id(document_id)
         self.collection.delete_by_filter(filter=f"document_id = '{safe_id}' AND version = {version}")
 
-    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str) -> list[dict[str, Any]]:
+    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
         result = self.collection.query(
             queries=self.zvec.Query(field_name="embedding", vector=vector),
             topk=top_k,
@@ -116,7 +116,7 @@ class RealZvecBackend(BaseVectorStore):
         query: str,
         vector: Sequence[float],
         top_k: int,
-        metadata_filter: str,
+        metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
         return self.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
@@ -203,7 +203,7 @@ class ZvecVectorStore(BaseVectorStore):
     def delete_version(self, document_id: str, version: int) -> None:
         self.backend.delete_version(document_id, version)
 
-    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str) -> list[dict[str, Any]]:
+    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
         return self.backend.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     def hybrid_search(
@@ -212,7 +212,7 @@ class ZvecVectorStore(BaseVectorStore):
         query: str,
         vector: Sequence[float],
         top_k: int,
-        metadata_filter: str,
+        metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
         return self.backend.hybrid_search(query=query, vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 

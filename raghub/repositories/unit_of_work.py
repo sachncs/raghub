@@ -1,3 +1,9 @@
+"""Unit-of-work pattern for transactional SQLite access.
+
+Part of the legacy persistence layer. Coordinates commit/rollback
+across the document, chunk, and session repositories.
+"""
+
 from __future__ import annotations
 
 from raghub.domain import UnitOfWork as BaseUnitOfWork

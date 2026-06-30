@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "retrieval-augmented-generation"
-version = "1.0.0"
+version = "0.2.0"
 description = "Production-grade Dynamic RAG framework"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "Quantiphi", email = "contact@quantiphi.io" }]
+authors = [{ name = "sachin", email = "sachncs@gmail.com" }]
 keywords = ["rag", "llm", "retrieval", "vector-search"]
 classifiers = [
     "Framework :: FastAPI",
@@ -73,8 +73,8 @@ raghub-benchmark = "bench.benchmark:main"
 #
 
 [project.urls]
-Homepage = "https://github.com/quantiphi/raghub"
-Issues = "https://github.com/quantiphi/raghub/issues"
+Homepage = "https://github.com/sachn-cs/raghub"
+Issues = "https://github.com/sachn-cs/raghub/issues"
 
 [tool.setuptools]
 py-modules = ["build_backend"]
@@ -94,6 +94,9 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_hypothesis_properties.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.12"

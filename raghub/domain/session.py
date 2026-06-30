@@ -1,3 +1,9 @@
+"""Legacy session domain model.
+
+Deprecated in favour of the conversation-management layer in
+:mod:`raghub.conversation`.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

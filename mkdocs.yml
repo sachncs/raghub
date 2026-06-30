@@ -1,18 +1,21 @@
 site_name: RAGHub
 nav:
   - Home: index.md
+  - Getting started: guide/getting-started.md
+  - Migration (legacy → facade): migration.md
   - Architecture:
       - Overview: architecture/overview.md
       - Decisions: architecture/decisions.md
   - Guide:
-      - Getting started: guide/getting-started.md
       - Development: guide/development.md
       - Deployment: guide/deployment.md
   - Reference:
       - API: reference/api.md
       - Configuration: reference/configuration.md
+  - Plugins: plugins.md
   - Operations:
       - Monitoring: operations/monitoring.md
+      - Troubleshooting: troubleshooting.md
   - Future: future.md
 theme:
   name: readthedocs

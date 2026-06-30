@@ -1,3 +1,9 @@
+"""SQLite chunk repository.
+
+Implements :class:`raghub.domain.repositories.ChunkRepository`
+against a SQLite database. Part of the legacy persistence layer.
+"""
+
 from __future__ import annotations
 
 from raghub.domain import ChunkRepository

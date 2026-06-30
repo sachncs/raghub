@@ -1,3 +1,9 @@
+"""Legacy chunk domain model.
+
+Deprecated in favour of :class:`raghub.models.Chunk` and
+:class:`raghub.models.ChunkRecord`.
+"""
+
 from __future__ import annotations
 
 from typing import Any

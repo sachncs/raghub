@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -29,10 +30,10 @@ def load_settings_or_path(path: str | None) -> "AppSettings":
     import yaml
 
     if str(path).endswith(".toml"):
-        try:
-            import tomllib  # type: ignore[attr-defined]
-        except ImportError:  # pragma: no cover - Python < 3.11
-            import tomli as tomllib  # type: ignore[no-redef]
+        if sys.version_info >= (3, 11):
+            import tomllib
+        else:
+            import tomli as tomllib
         data = tomllib.loads(Path(path).read_text(encoding="utf-8")) or {}
     else:
         data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}

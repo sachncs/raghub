@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 # has credentials for at least one LLM provider. When none of these
 # are set, :func:`build_llm_provider` falls back to the deterministic
 # heuristic so the framework remains usable offline.
-_LLM_API_KEY_ENV_VARS: tuple[str, ...] = (
+LLM_API_KEY_ENV_VARS: tuple[str, ...] = (
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
     "NVIDIA_API_KEY",
@@ -52,15 +52,15 @@ def any_llm_api_key_present() -> bool:
         variables is set in the process environment; ``False``
         otherwise.
     """
-    return any(os.getenv(name) for name in _LLM_API_KEY_ENV_VARS)
+    return any(os.getenv(name) for name in LLM_API_KEY_ENV_VARS)
 
 
 def __getattr__(name: str) -> Any:
     """Lazily expose :class:`LiteLLMProvider`."""
     if name == "LiteLLMProvider":
-        from .litellm import LiteLLMProvider as _LiteLLM
+        from .litellm import LiteLLMProvider as LiteLLM_import
 
-        return _LiteLLM
+        return LiteLLM_import
     raise AttributeError(f"module 'raghub.llm' has no attribute {name!r}")
 
 

@@ -42,11 +42,11 @@ class InMemoryConversationStore:
 
     def __init__(self, window_size: int = 50) -> None:
         """Initialise the in-memory store."""
-        self._lock = threading.Lock()
-        self._history: dict[str, deque[ConversationTurn]] = defaultdict(
+        self.lock = threading.Lock()
+        self.history: dict[str, deque[ConversationTurn]] = defaultdict(
             lambda: deque(maxlen=window_size)
         )
-        self._window_size = window_size
+        self.window_size = window_size
 
     def append(self, session_id: str, turn: ConversationTurn) -> None:
         """Append a turn to the session's history.
@@ -55,8 +55,8 @@ class InMemoryConversationStore:
             session_id: Session id.
             turn: The turn to record.
         """
-        with self._lock:
-            self._history[session_id].append(turn)
+        with self.lock:
+            self.history[session_id].append(turn)
 
     def load(self, session_id: str, limit: int = 20) -> list[ConversationTurn]:
         """Return the most recent ``limit`` turns (oldest first).
@@ -68,8 +68,8 @@ class InMemoryConversationStore:
         Returns:
             A list of :class:`ConversationTurn` objects.
         """
-        with self._lock:
-            history = list(self._history[session_id])
+        with self.lock:
+            history = list(self.history[session_id])
         if limit <= 0 or limit >= len(history):
             return history
         return history[-limit:]
@@ -80,8 +80,8 @@ class InMemoryConversationStore:
         Args:
             session_id: Session id.
         """
-        with self._lock:
-            self._history.pop(session_id, None)
+        with self.lock:
+            self.history.pop(session_id, None)
 
 
 __all__ = ["ConversationStore", "InMemoryConversationStore"]

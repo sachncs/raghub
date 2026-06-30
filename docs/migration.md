@@ -1,7 +1,8 @@
 # Migration Guide
 
 This guide covers the changes between the legacy single-service
-RAG application and the new `raghub.RAG` facade.
+RAG application and the new `raghub.RAG` facade. Both APIs are
+stable and remain importable; new code should prefer `RAG`.
 
 ## Public API
 
@@ -22,10 +23,13 @@ result = app.query(token=..., question=...)
 from raghub import RAG
 
 rag = RAG()
-rag.ingest("path/to/doc.pdf")
+rag.ingest("path/to/doc.pdf")             # or bytes / directory
 result = rag.query("What is the revenue?")
 print(result.answer)
 ```
+
+`RAG` returns typed Pydantic models; `DynamicRagApplication`
+returns dataclass/Record shapes from the legacy storage layer.
 
 ## Configuration
 
@@ -49,48 +53,57 @@ settings = settings.override(chunk_size_words=400)
 rag = RAG(settings=settings)
 ```
 
-## Vector Store Packages
+The precedence is now: env > TOML > YAML > defaults.
+
+## Vector store packages
 
 ### Before
 
-Two parallel packages: `raghub.vectorstore` (singular, legacy) and
-`raghub.vectorstores` (plural, new).
+Two parallel packages: `raghub.vectorstore` (singular, legacy)
+and `raghub.vectorstores` (plural, new).
 
 ### After
 
 A single package: `raghub.vectorstore` (singular). The Qdrant
 adapter moved from `raghub.vectorstores.qdrant` to
-`raghub.vectorstore.qdrant`.
+`raghub.vectorstore.qdrant`. Imports of the plural package are
+removed.
 
-## Prompt Builders
+## Prompt builders
 
 ### Before
 
-Two parallel classes: `raghub.prompts.builder.PromptBuilder` (used
-in production) and `raghub.prompts.builder.TemplatePromptBuilder`
+Two parallel classes: `raghub.prompts.builder.PromptBuilder`
+(used in production) and `raghub.prompts.builder.TemplatePromptBuilder`
 (legacy stub).
 
 ### After
 
 A single class: `raghub.prompts.builder.PromptBuilder`.
-`TemplatePromptBuilder` is removed. New code should rely on
-`DefaultGenerator` (in `raghub.generation.generator`).
+`TemplatePromptBuilder` is removed. New code relies on
+`DefaultGenerator` (in `raghub.generation.generator`) to assemble
+prompts.
 
-## LLM Providers
+## LLM providers
 
 ### Before
 
-`raghub.llm.nvidia.NvidiaLLMProvider` (deleted) was a thin wrapper
-around the langchain NVIDIA SDK.
+`raghub.llm.nvidia.NvidiaLLMProvider` (deleted) was a thin
+wrapper around the langchain NVIDIA SDK.
 
 ### After
 
-`raghub.llm.litellm.LiteLLMProvider` is the canonical LLM provider.
-It works with any LiteLLM-supported model (OpenAI, NVIDIA,
-Anthropic, Bedrock, …). Update any direct imports of
-`NvidiaLLMProvider` to `LiteLLMProvider(model="nvidia/<model>")`.
+`raghub.llm.litellm.LiteLLMProvider` is the canonical LLM
+provider. It works with any LiteLLM-supported model (OpenAI,
+NVIDIA, Anthropic, Bedrock, Cohere, Voyage, Groq). Update any
+direct imports of `NvidiaLLMProvider` to
+`LiteLLMProvider(model="nvidia/<model>")`.
 
-## Embedding Providers
+When no LLM API key is set, `default_llm()` falls back to the
+deterministic offline `HeuristicLLMProvider` so the facade still
+starts.
+
+## Embedding providers
 
 ### Before
 
@@ -98,10 +111,13 @@ Anthropic, Bedrock, …). Update any direct imports of
 
 ### After
 
-`raghub.embeddings.litellm.LiteLLMEmbeddingProvider` is the canonical
-embedding provider. Update any direct imports of
+`raghub.embeddings.litellm.LiteLLMEmbeddingProvider` is the
+canonical embedding provider. Update direct imports of
 `NvidiaEmbeddingProvider` to
-`LiteLLMEmbeddingProvider(model="nvidia/<model>")`.
+`LiteLLMEmbeddingProvider(model="nvidia/embed-qa-4")`.
+
+When no API key is set, `default_embedder()` falls back to the
+offline `HashingEmbeddingProvider`.
 
 ## Telemetry
 
@@ -113,10 +129,11 @@ embedding provider. Update any direct imports of
 ### After
 
 The provider uses the documented Langfuse v3+ API
-(`get_client()` and `start_as_current_observation`) and emits proper
-spans. The default `RAG(...)` constructor automatically wires
-Langfuse as the default telemetry provider (when credentials are
-present).
+(`get_client()` and `start_as_current_observation`) and emits
+proper spans. The default `RAG(...)` constructor automatically
+wires Langfuse as the default telemetry provider when
+credentials are present, and always wraps the underlying
+provider in `RedactingTelemetry` to scrub secret-looking kwargs.
 
 ## CLI
 
@@ -130,27 +147,36 @@ python -m raghub.cli health
 ### After
 
 ```bash
-python -m raghub.cli health
+python -m raghub.cli init -o raghub.yaml
 python -m raghub.cli ingest ./documents
 python -m raghub.cli query "What is the revenue?"
 python -m raghub.cli eval financebench --examples 25
 ```
 
-The legacy `login` / `health` commands remain available via the
-`raghub.cli_legacy` shim, but new code should call
-`DynamicRagApplication` directly when auth is required.
+The legacy `login` / `health` commands are replaced by:
+- `login` → `POST /auth/login` (FastAPI) or the Streamlit
+  sign-in panel.
+- `health` → `raghub health` (which calls `RAG.health()`).
 
-## Console Scripts
+The new `init` and `eval` commands are new.
+
+## Console scripts
 
 ### Before
 
 `raghub-financebench` pointed at `evaluate_financebench:main`,
-which is `async def main` and would fail at install time.
+which is `async def main` and would fail at install time. The
+`evaluate_financebench.py` script at the repo root is **gone**.
 
 ### After
 
-`raghub-financebench` points at `raghub.cli.eval_cmd:main` (a sync
-shim). It works out of the box.
+`raghub-financebench` points at
+`raghub.cli.eval_cmd:main` (a sync shim). It works out of the
+box. Equivalently:
+
+```bash
+raghub eval financebench --examples 25
+```
 
 ## Exceptions
 
@@ -158,8 +184,46 @@ The exception hierarchy was extended. The legacy aliases
 (`DynamicRagError`, `DocumentError`, `IndexingError`, `PromptError`,
 `LLMError`, `StorageError`, `AuthenticationError`,
 `AuthorizationError`) are preserved and subclass the new
-`RagHubError` base. New code should use the new names
-(`ConfigurationError`, `ConversionError`, `KnowledgeError`,
-`IngestionError`, `EmbeddingError`, `VectorStoreError`,
-`RetrievalError`, `GenerationError`, `PipelineError`,
-`EvaluationError`).
+`RagHubError` base.
+
+New code should use the new names: `ConfigurationError`,
+`ConversionError`, `KnowledgeError`, `IngestionError`,
+`EmbeddingError`, `VectorStoreError`, `RetrievalError`,
+`GenerationError`, `PipelineError`, `EvaluationError`.
+
+## Storage and active-record models
+
+The legacy `Document` / `Chunk` / `Session` active-record models
+(in `raghub.domain`) and the SQLite repositories
+(`raghub.repositories.*`) remain in place for the
+`DynamicRagApplication` surface and continue to round-trip with
+the storage layer. New code should consume the **canonical**
+models in `raghub.models.canonical` (`Document`, `Chunk`,
+`KnowledgeBundle`, `Citation`, `PipelineContext`,
+`PipelineResult`, `EvaluationResult`) which exchange across the
+`RAG` facade boundary.
+
+## Backgrounding
+
+`BackgroundIngestionService` (in `raghub.ingestion.background`)
+is the in-memory worker pool used by the legacy FastAPI
+`/ingest/async` endpoint. The new `RAG.ingest_async(...)` path
+wraps a `ResumableBackgroundIngestionService` (in
+`raghub.ingestion.resumable`) which writes every status
+transition to a SQLite ledger via `PersistentJobStore` so the
+queue survives a crash.
+
+## CLI ↔ Python parity
+
+| Old (still supported) | New (recommended) |
+|---|---|
+| `python -m raghub.cli login` | `POST /auth/login` |
+| `python -m raghub.cli health` | `raghub health` |
+| (none) | `raghub init -o raghub.yaml` |
+| `python -m raghub.cli ingest` | `raghub ingest ...` |
+| `python -m raghub.cli query` | `raghub query "..."` |
+| `python -m raghub.cli eval financebench` | `raghub eval financebench --examples 25` |
+
+The legacy CLI shims (`login`, `health`) are replaced by the
+FastAPI `/auth/login` endpoint and by `raghub health`; new code
+should use the new commands.

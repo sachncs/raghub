@@ -91,24 +91,13 @@ def retry(
         provider (or wrap in ``asyncio.to_thread``) when calling from a
         coroutine to avoid blocking the event loop.
     """
-    last_exc: Exception | None = None
     for attempt in range(max_retries + 1):
         try:
             return fn()
         except Exception as exc:
-            last_exc = exc
             msg = str(exc).lower()
-            # Only sleep+retry if (a) we have budget left and (b) the error
-            # message looks transient. The bare ``raise`` on the else branch
-            # re-raises the original exception unchanged, preserving the
-            # traceback and any chained context.
             if attempt < max_retries and any(k in msg for k in retryable_keywords):
-                # Exponential growth: 1x, 2x, 4x, ... of base_delay.
-                # No jitter: callers that fan out should add their own
-                # randomisation or use a distributed rate limiter.
                 time.sleep(base_delay * (2**attempt))
             else:
                 raise
-    # Unreachable in practice: the loop either returns or re-raises. The
-    # ``type: ignore`` acknowledges that mypy cannot prove this.
-    raise last_exc  # type: ignore[misc]
+    raise RuntimeError("unreachable")

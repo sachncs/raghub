@@ -17,21 +17,24 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 from raghub.evaluation.harness import score_string
 from raghub.exceptions import EvaluationError
 from raghub.interfaces.evaluation import Evaluator
 from raghub.models import EvaluationResult
 
+hf_load_dataset: Any
+
 try:
-    from datasets import load_dataset as _hf_load_dataset  # type: ignore
-    _HF_AVAILABLE = True
-    _ImportError: Exception | None = None
+    _hf_mod = __import__("datasets", fromlist=["load_dataset"])
+    hf_load_dataset = _hf_mod.load_dataset
+    HF_AVAILABLE = True
+    OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
-    _hf_load_dataset = None
-    _HF_AVAILABLE = False
-    _ImportError = exc
+    hf_load_dataset = None
+    HF_AVAILABLE = False
+    OptionalImportError = exc
 
 
 DEFAULT_DATASET = "PatronusAI/financebench"
@@ -70,14 +73,14 @@ def load_huggingface_dataset(dataset_name: str, split: str) -> list[dict]:
     Raises:
         EvaluationError: When the dataset cannot be loaded.
     """
-    if not _HF_AVAILABLE:
+    if not HF_AVAILABLE:
         raise EvaluationError(
             "datasets is not installed; install it via `pip install datasets` or "
             "place a JSONL/JSON file at "
             f"{CACHE_DIR/'financebench.jsonl'}."
         )
     try:
-        ds = _hf_load_dataset(dataset_name, split=split)
+        ds = hf_load_dataset(dataset_name, split=split)
     except Exception as exc:
         raise EvaluationError(
             f"Failed to load FinanceBench from {dataset_name!r}: {exc}"
@@ -108,32 +111,41 @@ class FinanceBenchEvaluator(Evaluator):
             tolerance: Relative tolerance for numeric answers
                 (``abs(pred - gold) / max(|gold|, 1)``).
         """
-        self._dataset_path = dataset_path
-        self._dataset_name = dataset_name
-        self._split = split
-        self._tolerance = tolerance
-        self._examples: list[dict] | None = None
+        self.dataset_path = dataset_path
+        self.dataset_name = dataset_name
+        self.split = split
+        self.tolerance = tolerance
+        self.examples: list[dict] | None = None
 
     def ensure_loaded_examples(self) -> list[dict]:
-        if self._examples is not None:
-            return self._examples
-        if self._dataset_path is not None:
-            self._examples = load_jsonl_file(Path(self._dataset_path))
-            if self._examples:
-                return self._examples
+        """Load the FinanceBench dataset from local cache or HuggingFace.
+
+        The dataset is cached in ``~/.cache/raghub/financebench/``
+        after the first download.
+
+        Returns:
+            A list of example dicts, each with ``question``,
+            ``answer``, and optional ``relevant_ids`` fields.
+        """
+        if self.examples is not None:
+            return self.examples
+        if self.dataset_path is not None:
+            self.examples = load_jsonl_file(Path(self.dataset_path))
+            if self.examples:
+                return self.examples
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         cached = CACHE_DIR / "financebench.jsonl"
         if not cached.exists():
-            self._examples = load_huggingface_dataset(self._dataset_name, self._split)
+            self.examples = load_huggingface_dataset(self.dataset_name, self.split)
             cached.write_text(
-                "\n".join(json.dumps(ex) for ex in self._examples),
+                "\n".join(json.dumps(ex) for ex in self.examples),
                 encoding="utf-8",
             )
         else:
-            self._examples = load_jsonl_file(cached)
-        return self._examples
+            self.examples = load_jsonl_file(cached)
+        return self.examples
 
-    def _ensure_examples(self) -> list[dict]:
+    def ensure_examples(self) -> list[dict]:
         """Backwards-compatible alias for :meth:`ensure_loaded_examples`.
 
         Some legacy call sites (including the ``raghub eval`` CLI)
@@ -151,7 +163,7 @@ class FinanceBenchEvaluator(Evaluator):
         self,
         examples: Sequence[dict] | None = None,
         *,
-        response_factory,
+        response_factory: Any,
     ) -> list[EvaluationResult]:
         """Score every example.
 
@@ -233,7 +245,7 @@ class FinanceBenchEvaluator(Evaluator):
             return 0.0
         if g == 0:
             return 1.0 if p == 0 else 0.0
-        return 1.0 if abs(p - g) / max(abs(g), 1.0) <= self._tolerance else 0.0
+        return 1.0 if abs(p - g) / max(abs(g), 1.0) <= self.tolerance else 0.0
 
 
 def first_number(text: str) -> str:

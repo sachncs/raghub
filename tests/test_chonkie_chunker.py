@@ -48,7 +48,9 @@ def test_build_chonkie_chunker_unknown_raises() -> None:
     from raghub.exceptions import ConfigurationError
 
     with pytest.raises(ConfigurationError):
-        build_chonkie_chunker("not-a-real-chunker")  # type: ignore[arg-type]
+        from typing import cast
+
+        build_chonkie_chunker(cast(str, "not-a-real-chunker"))
 
 
 def test_chonkie_chunker_chunk_handles_bundle() -> None:

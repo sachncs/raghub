@@ -20,7 +20,7 @@ __all__ = ["create_app"]
 def __getattr__(name: str) -> Any:
     """Lazily expose :func:`create_app`."""
     if name == "create_app":
-        from .app import create_app as _create_app
+        from .app import create_app as create_app_import
 
-        return _create_app
+        return create_app_import
     raise AttributeError(f"module 'raghub.api' has no attribute {name!r}")

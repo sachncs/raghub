@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+import types
 
 import pytest
 
@@ -14,12 +14,12 @@ def test_litellm_provider_requires_litellm() -> None:
     saved = litellm_mod.litellm
     try:
         litellm_mod.litellm = None
-        litellm_mod._LITELLM_AVAILABLE = False
+        litellm_mod.LITELLM_AVAILABLE = False
         with pytest.raises(Exception):
             litellm_mod.LiteLLMProvider(model="m")
     finally:
         litellm_mod.litellm = saved
-        litellm_mod._LITELLM_AVAILABLE = True
+        litellm_mod.LITELLM_AVAILABLE = True
 
 
 def test_litellm_provider_generates_text() -> None:
@@ -48,8 +48,9 @@ def test_litellm_provider_generates_text() -> None:
 
     saved = litellm_mod.litellm
     try:
+        litellm_mod.litellm = types.ModuleType("litellm")
         litellm_mod.litellm.completion = _fake_completion
-        litellm_mod._LITELLM_AVAILABLE = True
+        litellm_mod.LITELLM_AVAILABLE = True
         provider = litellm_mod.LiteLLMProvider(model="m")
         result = provider.generate(
             system_prompt="sys",
@@ -69,8 +70,9 @@ def test_litellm_provider_handles_dict_response() -> None:
 
     saved = litellm_mod.litellm
     try:
+        litellm_mod.litellm = types.ModuleType("litellm")
         litellm_mod.litellm.completion = _fake_completion
-        litellm_mod._LITELLM_AVAILABLE = True
+        litellm_mod.LITELLM_AVAILABLE = True
         provider = litellm_mod.LiteLLMProvider(model="m")
         assert provider.generate(system_prompt="x", question="y") == "ok"
     finally:
@@ -100,8 +102,9 @@ def test_litellm_provider_captures_usage() -> None:
 
     saved = litellm_mod.litellm
     try:
+        litellm_mod.litellm = types.ModuleType("litellm")
         litellm_mod.litellm.completion = _fake_completion
-        litellm_mod._LITELLM_AVAILABLE = True
+        litellm_mod.LITELLM_AVAILABLE = True
         provider = litellm_mod.LiteLLMProvider(model="m")
         provider.generate(system_prompt="x", question="y")
         assert provider.last_usage == {
@@ -119,9 +122,9 @@ def test_litellm_provider_build_messages_with_session_history() -> None:
 
     provider = LiteLLMProvider.__new__(LiteLLMProvider)  # bypass __init__
     provider.model_name = "m"
-    provider._api_key = None
-    provider._api_base = None
-    provider._temperature = 0.0
+    provider.api_key = None
+    provider.api_base = None
+    provider.temperature = 0.0
     messages = provider.build_messages(
         system_prompt="sys",
         session_history=[

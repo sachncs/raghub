@@ -28,45 +28,51 @@ from raghub.exceptions import ConfigurationError, ConversionError
 from raghub.interfaces.converter import DocumentConverter
 from raghub.models import KnowledgeBundle
 
+MarkerPdfConverter: Any
+marker_create_model_dict: Any
+
 try:
-    from marker.converters.pdf import PdfConverter as _MarkerPdfConverter
+    _mod = __import__("marker.converters.pdf", fromlist=["PdfConverter"])
+    MarkerPdfConverter = _mod.PdfConverter
 
     try:
-        from marker.models import create_model_dict as _marker_create_model_dict
+        _mod2 = __import__("marker.models", fromlist=["create_model_dict"])
+        marker_create_model_dict = _mod2.create_model_dict
     except Exception:  # pragma: no cover - older marker
-        _marker_create_model_dict = None
+        marker_create_model_dict = None
 
-    _MARKER_AVAILABLE = True
-    _MarkerImportError: Exception | None = None
+    MARKER_AVAILABLE = True
+    MarkerImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
-    _MarkerPdfConverter = None
-    _marker_create_model_dict = None
-    _MARKER_AVAILABLE = False
-    _MarkerImportError = exc
+    MarkerPdfConverter = None
+    marker_create_model_dict = None
+    MARKER_AVAILABLE = False
+    MarkerImportError = exc
 
 
 def build_marker_converter() -> Any:
     """Construct a Marker ``PdfConverter`` regardless of API version."""
-    if not _MARKER_AVAILABLE or _MarkerPdfConverter is None:
+    if not MARKER_AVAILABLE or MarkerPdfConverter is None:
         raise ConfigurationError(
             "marker-pdf is not installed; install it via "
             "`pip install marker-pdf` or set a custom converter."
         )
-    sig = inspect.signature(_MarkerPdfConverter)
+    sig = inspect.signature(MarkerPdfConverter)
     params = sig.parameters
     kwargs: dict[str, Any] = {}
-    if "artifact_dict" in params and _marker_create_model_dict is not None:
-        kwargs["artifact_dict"] = _marker_create_model_dict()
+    if "artifact_dict" in params and marker_create_model_dict is not None:
+        kwargs["artifact_dict"] = marker_create_model_dict()
     try:
-        return _MarkerPdfConverter(**kwargs)
+        return MarkerPdfConverter(**kwargs)
     except TypeError:
         # Older API: ``PdfConverter(config=..., artifact_dict=...)``.
-        from marker.config.parser import ConfigParser  # type: ignore
+        _parser_mod = __import__("marker.config.parser", fromlist=["ConfigParser"])
+        ConfigParser = _parser_mod.ConfigParser
 
         parser = ConfigParser({})
-        return _MarkerPdfConverter(
+        return MarkerPdfConverter(
             config=parser.generate_config_dict(),
-            artifact_dict=_marker_create_model_dict() if _marker_create_model_dict else None,
+            artifact_dict=marker_create_model_dict() if marker_create_model_dict else None,
             processor_list=parser.get_processors(),
             renderer=parser.get_renderer(),
         )
@@ -85,18 +91,22 @@ class MarkerConverter(DocumentConverter):
         Raises:
             ConfigurationError: When ``marker-pdf`` is not installed.
         """
-        if not _MARKER_AVAILABLE:
+        if not MARKER_AVAILABLE:
             raise ConfigurationError(
                 "marker-pdf is not installed; install it via "
                 "`pip install marker-pdf` or set a custom converter."
             )
-        self._device = device
-        self._converter: Any | None = None
+        self.converter: Any | None = None
 
     def marker_converter_instance(self) -> Any:
-        if self._converter is None:
-            self._converter = build_marker_converter()
-        return self._converter
+        """Lazy-initialise and return the Marker ``PdfConverter``.
+
+        Returns:
+            A configured Marker converter instance.
+        """
+        if self.converter is None:
+            self.converter = build_marker_converter()
+        return self.converter
 
     def convert(
         self,
@@ -202,6 +212,3 @@ def looks_like_pdf(file_bytes: bytes) -> bool:
 
 
 __all__ = ["MarkerConverter", "looks_like_pdf"]
-
-
-__all__ = ["MarkerConverter"]

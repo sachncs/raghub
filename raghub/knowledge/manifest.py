@@ -22,51 +22,70 @@ class SourceManifest:
 
     def __init__(self, path: Path | str) -> None:
         """Initialise the manifest at ``path``."""
-        self._path = Path(path)
-        self._records: dict[str, dict[str, Any]] = {}
-        self._load()
+        self.path = Path(path)
+        self.records: dict[str, dict[str, Any]] = {}
+        self.load()
 
-    def _load(self) -> None:
-        if not self._path.exists():
+    def load(self) -> None:
+        if not self.path.exists():
             return
         try:
-            payload = json.loads(self._path.read_text(encoding="utf-8"))
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
-                self._records = {
+                self.records = {
                     str(k): v for k, v in payload.items() if isinstance(v, dict)
                 }
         except json.JSONDecodeError:
-            self._records = {}
+            self.records = {}
 
     def save(self) -> None:
         """Persist the manifest to disk."""
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(
-            json.dumps(self._records, indent=2, sort_keys=True),
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(
+            json.dumps(self.records, indent=2, sort_keys=True),
             encoding="utf-8",
         )
 
     def record(self, source_uri: str, *, bundle_id: str, checksum: str) -> None:
         """Record or update a source."""
-        self._records[source_uri] = {"bundle_id": bundle_id, "checksum": checksum}
+        self.records[source_uri] = {"bundle_id": bundle_id, "checksum": checksum}
 
     def remove(self, source_uri: str) -> None:
         """Remove a source from the manifest."""
-        self._records.pop(source_uri, None)
+        self.records.pop(source_uri, None)
 
     def __contains__(self, source_uri: str) -> bool:
-        return source_uri in self._records
+        """Check whether a source URI is tracked in the manifest.
+
+        Args:
+            source_uri: The source URI to look up.
+
+        Returns:
+            ``True`` if the URI has been recorded.
+        """
+        return source_uri in self.records
 
     def __getitem__(self, source_uri: str) -> dict[str, Any]:
-        return self._records[source_uri]
+        """Retrieve the record for a source URI.
+
+        Args:
+            source_uri: The source URI.
+
+        Returns:
+            The record dict (``bundle_id``, ``checksum``, …).
+
+        Raises:
+            KeyError: When the URI is not tracked.
+        """
+        return self.records[source_uri]
 
     def items(self) -> Iterable[tuple[str, dict[str, Any]]]:
         """Yield ``(source_uri, record)`` pairs."""
-        return self._records.items()
+        return self.records.items()
 
     def sources(self) -> list[str]:
         """Return the list of known source URIs."""
-        return list(self._records.keys())
+        return list(self.records.keys())
 
 
 def sha256_bytes(data: bytes) -> str:

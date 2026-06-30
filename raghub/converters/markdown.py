@@ -18,12 +18,12 @@ from raghub.models import (
     deterministic_id,
 )
 
-_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
-_TABLE_LINE_RE = re.compile(r"^\s*\|.*\|\s*$")
-_FENCE_RE = re.compile(r"^(```|~~~)\s*(\S+)?\s*$")
-_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
-_EQUATION_BLOCK_RE = re.compile(r"^\$\$(.*)\$\$\s*$", re.DOTALL)
-_INLINE_EQUATION_RE = re.compile(r"\$([^$\n]+)\$")
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
+TABLE_LINE_RE = re.compile(r"^\s*\|.*\|\s*$")
+FENCE_RE = re.compile(r"^(```|~~~)\s*(\S+)?\s*$")
+IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
+EQUATION_BLOCK_RE = re.compile(r"^\$\$(.*)\$\$\s*$", re.DOTALL)
+INLINE_EQUATION_RE = re.compile(r"\$([^$\n]+)\$")
 
 
 def normalise_markdown(
@@ -111,7 +111,7 @@ def markdown_to_document_blocks(markdown: str) -> tuple[list[DocumentBlock], str
                 text_buf.append(raw_line)
             continue
 
-        fence_match = _FENCE_RE.match(raw_line.strip())
+        fence_match = FENCE_RE.match(raw_line.strip())
         if fence_match:
             if text_buf:
                 blocks.append(
@@ -123,7 +123,7 @@ def markdown_to_document_blocks(markdown: str) -> tuple[list[DocumentBlock], str
             fence_lang = fence_match.group(2) or ""
             continue
 
-        if _TABLE_LINE_RE.match(raw_line):
+        if TABLE_LINE_RE.match(raw_line):
             if text_buf:
                 blocks.append(
                     DocumentBlock(kind=BlockKind.TEXT, content="\n".join(text_buf).rstrip("\n"))
@@ -132,7 +132,7 @@ def markdown_to_document_blocks(markdown: str) -> tuple[list[DocumentBlock], str
             blocks.append(DocumentBlock(kind=BlockKind.TABLE, content=raw_line.strip()))
             continue
 
-        equation_match = _EQUATION_BLOCK_RE.match(raw_line.strip())
+        equation_match = EQUATION_BLOCK_RE.match(raw_line.strip())
         if equation_match:
             if text_buf:
                 blocks.append(
@@ -148,7 +148,7 @@ def markdown_to_document_blocks(markdown: str) -> tuple[list[DocumentBlock], str
 
     if text_buf:
         trailing = "\n".join(text_buf).rstrip("\n")
-        for raw_image in _IMAGE_RE.finditer(trailing):
+        for raw_image in IMAGE_RE.finditer(trailing):
             caption, uri = raw_image.group(1), raw_image.group(2)
             blocks.append(
                 DocumentBlock(
@@ -157,12 +157,12 @@ def markdown_to_document_blocks(markdown: str) -> tuple[list[DocumentBlock], str
                     metadata={"caption": caption, "source": uri},
                 )
             )
-        trailing = _IMAGE_RE.sub("", trailing)
+        trailing = IMAGE_RE.sub("", trailing)
         if trailing.strip():
             blocks.append(
                 DocumentBlock(
                     kind=BlockKind.TEXT,
-                    content=_INLINE_EQUATION_RE.sub(lambda m: f"\\({m.group(1)}\\)", trailing),
+                    content=INLINE_EQUATION_RE.sub(lambda m: f"\\({m.group(1)}\\)", trailing),
                 )
             )
 
