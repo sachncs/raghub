@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/ingestion/chunkers/chonkie.py
-# hypothesis_version: 6.148.6
-
-[512, 'ChonkieChunker', 'Chunker', 'RecursiveChunker', 'SentenceChunker', 'TokenChunker', 'auto', 'block_id', 'character', 'chonkie', 'chunk', 'chunk_overlap', 'chunk_overlap_tokens', 'chunk_size', 'chunker', 'chunks', 'department', 'id', 'owner', 'return_type', 'section_index', 'split_text', 'text', 'tokenizer', 'word_window']

@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/observability/metrics.py
-# hypothesis_version: 6.148.6
-
-[100, 250, 500, 1000, 2500, 5000, 10000, '/metrics', 'Total errors', 'error_type', 'raghub_auth_total', 'raghub_error_total', 'success', 'text/plain']

@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/telemetry/langfuse.py
-# hypothesis_version: 6.148.6
-
-[1.0, 'LANGFUSE_DEBUG', 'LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY', 'LangfuseSpan', 'NoopSpan', 'T', '__exit__', 'error', 'flush', 'generation', 'info', 'input', 'output', 'propagate_attributes', 'session_id', 'span', 'update', 'user_id', 'warning']

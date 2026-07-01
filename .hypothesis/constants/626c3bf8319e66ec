@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/services/__init__.py
-# hypothesis_version: 6.148.6
-
-[1000.0, 'DynamicRagContainer', 'InMemoryTaskQueue', 'ServiceMixin', 'SynchronousWorker', 'ThreadPoolWorker', 'build_container', 'info', 'logger', 'metrics', 'record_latency']

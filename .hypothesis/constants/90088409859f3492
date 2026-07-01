@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/plugins/registry.py
-# hypothesis_version: 6.148.6
-
-['PluginRegistry', 'raghub.plugins', 'register']

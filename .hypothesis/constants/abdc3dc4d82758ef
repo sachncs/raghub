@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/evaluation/financebench.py
-# hypothesis_version: 6.148.6
-
-[0.0, 0.05, 0.6, 0.99, 1.0, ',', '.cache', '.jsonl', 'DEFAULT_DATASET', 'DEFAULT_SPLIT', 'answer', 'datasets', 'evidence_text', 'financebench', 'financebench.jsonl', 'gold', 'id', 'load_dataset', 'predicted', 'query', 'question', 'raghub', 'relevant_ids', 'token_overlap', 'train', 'utf-8']

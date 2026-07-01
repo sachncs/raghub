@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/cli/ingest_cmd.py
-# hypothesis_version: 6.148.6
-
-['--async', '--config', 'async_job', 'batch', 'ingest', 'job_id', 'json', 'path', 'store_true']

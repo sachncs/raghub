@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/api/defaults.py
-# hypothesis_version: 6.148.6
-
-['ANTHROPIC_API_KEY', 'GROQ_API_KEY', 'LITELLM_API_KEY', 'NVIDIA_API_KEY', 'OPENAI_API_KEY', 'QDRANT_URL', 'auto', 'heuristic']

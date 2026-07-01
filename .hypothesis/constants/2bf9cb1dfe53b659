@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/api/response.py
-# hypothesis_version: 6.148.6
-
-['answer', 'citations', 'hits', 'pipeline_id', 'structured']

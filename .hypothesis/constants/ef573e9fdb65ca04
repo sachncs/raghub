@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/cli/eval_cmd.py
-# hypothesis_version: 6.148.6
-
-[0.0, 1.0, '--examples', '__main__', 'benchmark', 'benchmark to run', 'count', 'eval', 'financebench', 'json', 'metrics', 'pass_rate', 'raghub-financebench', 'results', 'run an evaluation', 'summary']
