@@ -23,7 +23,7 @@ classifiers = [
 ]
 dependencies = [
     "pydantic>=2.8,<3",
-    "pypdf>=5.0,<6",
+    "pypdf>=5.0,<7",
     "numpy>=1.26,<2",
     "PyYAML>=6.0,<7",
     "marker-pdf>=1.0,<2",
