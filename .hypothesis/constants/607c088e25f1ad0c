@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/api/admin.py
-# hypothesis_version: 6.148.6
-
-[401, 403, '/admin', '/documents', '/stats', '/users', 'Missing bearer token', 'admin', 'bearer ', 'chunk_count', 'chunks', 'document_count', 'json', 'size', 'unknown', 'user_count', 'vector_store_size']

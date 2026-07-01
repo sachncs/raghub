@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/documents/validation.py
-# hypothesis_version: 6.148.6
-
-[b'%PDF', b'BM', b'GIF8', b'II*\x00', b'RIFF', b'\x89PNG\r\n\x1a\n', b'\xff\xd8\xff', '.', '.bmp', '.csv', '.doc', '.docx', '.gif', '.htm', '.html', '.jpeg', '.jpg', '.json', '.md', '.pdf', '.png', '.ppt', '.pptx', '.tif', '.tiff', '.txt', '.webp', '.xhtml', '.xls', '.xlsx', '.xml', 'application/json', 'application/msword', 'application/pdf', 'application/xml', 'image/bmp', 'image/gif', 'image/jpeg', 'image/png', 'image/tiff', 'image/webp', 'text/csv', 'text/html', 'text/markdown', 'text/plain']

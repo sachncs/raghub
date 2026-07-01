@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/prompts/builder.py
-# hypothesis_version: 6.148.6
-
-[512, 4096, 'PromptBuilder', 'PromptConfig', 'TokenCounter', 'assistant', 'cl100k_base', 'content', 'context', 'history', 'image_paths', 'question', 'role', 'system', 'text', 'user']

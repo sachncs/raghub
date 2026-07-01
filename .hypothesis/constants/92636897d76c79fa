@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/converters/plaintext.py
-# hypothesis_version: 6.148.6
-
-['PlainTextConverter', 'replace', 'text/plain', 'utf-8']

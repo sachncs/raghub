@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/documents/parsers/office_parser.py
-# hypothesis_version: 6.148.6
-
-[' | ', '.', 'application/msword', 'doc', 'document', 'docx', 'ppt', 'pptx', 'sheet_name', 'slide_number', 'tables', 'text', 'xls', 'xlsx']

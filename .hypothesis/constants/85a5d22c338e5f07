@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/api/rate_limiter.py
-# hypothesis_version: 6.148.6
-
-[1.0, 10.0, 429, 'Too many requests', 'client', 'error', 'http', 'message', 'rate_limit_exceeded', 'type', 'unknown']

@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/ingestion/jobs.py
-# hypothesis_version: 6.148.6
-
-['PersistentJobStore', 'job_id', 'result', 'status']

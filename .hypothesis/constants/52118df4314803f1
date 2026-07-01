@@ -1,4 +1,0 @@
-# file: /Users/sachin/repo/others/quantiphi/raghub/documents/parsers/__init__.py
-# hypothesis_version: 6.148.6
-
-['CsvParser', 'FileParser', 'HtmlParser', 'ImageParser', 'OfficeParser', 'ParsedSection', 'ParserRegistry', 'PdfParser', 'TxtParser']
