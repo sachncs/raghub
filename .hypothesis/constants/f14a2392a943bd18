@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/ingestion/chunkers/word_window.py
+# hypothesis_version: 6.148.6
+
+[100, 800, 'WordWindowChunker', 'block_id', 'block_kind', 'chunk', 'department', 'owner', 'section_index', 'text']

@@ -2,10 +2,19 @@
 
 Implements :class:`raghub.domain.repositories.DocumentRepository`
 against a SQLite database. Part of the legacy persistence layer.
+
+Concurrency:
+    The repository uses ``INSERT OR REPLACE`` for upsert semantics,
+    which means duplicate primary-key writes never raise
+    :class:`IntegrityError`. However, callers that want to detect
+    concurrent duplicate inserts (same checksum) should use
+    :meth:`try_insert` which performs a plain ``INSERT`` and
+    surfaces the exception.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +25,11 @@ import aiosqlite
 from raghub.domain import DocumentRepository
 from raghub.models import DocumentLifecycleStatus, DocumentRecord
 from raghub.storage.database import DatabaseManager
+
+#: Maximum retries for concurrent insert conflicts.
+_MAX_INSERT_RETRIES = 3
+#: Base delay (seconds) for exponential backoff between retries.
+_RETRY_BASE_DELAY = 0.05
 
 
 class SqliteDocumentRepository(DocumentRepository):
@@ -96,6 +110,75 @@ class SqliteDocumentRepository(DocumentRepository):
             ),
         )
         await self.maybe_commit_close(conn)
+
+    async def try_insert(
+        self,
+        record: DocumentRecord,
+        max_retries: int = _MAX_INSERT_RETRIES,
+    ) -> bool:
+        """Insert ``record`` with a plain ``INSERT`` (no replacement).
+
+        Unlike :meth:`save` (which uses ``INSERT OR REPLACE``), this
+        method raises :class:`aiosqlite.IntegrityError` when a row with
+        the same primary key already exists. Callers use this to detect
+        concurrent duplicate-write races.
+
+        The method retries up to ``max_retries`` times with exponential
+        backoff when the conflict is transient (WAL busy, etc.).
+
+        Args:
+            record: The document record to insert.
+            max_retries: Number of retry attempts before giving up.
+
+        Returns:
+            ``True`` when the insert succeeded.
+
+        Raises:
+            aiosqlite.IntegrityError: When the primary key already
+                exists after all retries.
+        """
+        last_exc: Exception | None = None
+        for attempt in range(max_retries):
+            try:
+                conn = await self.conn()
+                await conn.execute(
+                    """
+                    INSERT INTO documents (
+                        document_id, version, checksum, created_at, updated_at,
+                        owner, organization, department, tags, classification,
+                        visibility, status, filename, file_type, mime_type,
+                        chunk_count, chunk_ids, error
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        record.document_id,
+                        record.version,
+                        record.checksum,
+                        record.created_at.isoformat() if hasattr(record.created_at, 'isoformat') else record.created_at,
+                        record.updated_at.isoformat() if hasattr(record.updated_at, 'isoformat') else record.updated_at,
+                        record.owner,
+                        record.organization,
+                        getattr(record, 'department', ''),
+                        json.dumps(getattr(record, 'tags', [])),
+                        record.classification.value,
+                        record.visibility.value,
+                        record.status.value,
+                        getattr(record, 'filename', ''),
+                        getattr(record, 'file_type', ''),
+                        getattr(record, 'mime_type', ''),
+                        getattr(record, 'chunk_count', 0),
+                        json.dumps(getattr(record, 'chunk_ids', [])),
+                        getattr(record, 'error', None),
+                    ),
+                )
+                await self.maybe_commit_close(conn)
+                return True
+            except aiosqlite.IntegrityError as exc:
+                last_exc = exc
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(_RETRY_BASE_DELAY * (2 ** attempt))
+                continue
+        raise last_exc  # type: ignore[misc]
 
     async def get(self, document_id: str) -> DocumentRecord | None:
         conn = await self.conn()

@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/api/rag.py
+# hypothesis_version: 6.148.6
+
+['*', '.toml', 'RAG', 'T', 'added', 'anonymous', 'background_ingestion', 'batch', 'bundle', 'bundle_id', 'bytes://memory', 'checksum', 'chunker', 'close', 'converter', 'create_collection', 'delete', 'delete_document', 'email', 'embedder', 'end_trace', 'financebench', 'generator', 'ingest', 'ingestion_jobs.db', 'initialize', 'list_by_source', 'llm', 'manifest.json', 'modified', 'ok', 'query', 'query failed', 'question', 'removed', 'reranker', 'session_id', 'status', 'structured', 'telemetry', 'text/plain', 'unchanged', 'user_id', 'utf-8', 'vector_store']

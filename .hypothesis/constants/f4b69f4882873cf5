@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/embeddings/hashing.py
+# hypothesis_version: 6.148.6
+
+[-1.0, 1.0, 384, 'hashing-bge', 'little', 'utf-8']

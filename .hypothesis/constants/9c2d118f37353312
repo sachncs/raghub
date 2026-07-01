@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/models/domain.py
+# hypothesis_version: 6.148.6
+
+['ARCHIVED', 'CHUNKING', 'ConversationTurn', 'DELETING', 'EMBEDDING', 'FAILED', 'INDEXING', 'NEW', 'PROCESSING', 'READY', 'UPDATING', 'VALIDATING', 'confidential', 'internal', 'organization', 'private', 'public', 'restricted']

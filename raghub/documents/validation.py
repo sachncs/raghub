@@ -123,6 +123,9 @@ def validate_upload(filename: str, content: bytes, max_bytes: int) -> str:
     if not filename or "." not in filename:
         raise DocumentError("Filename must have an extension")
 
+    if len(content) == 0:
+        raise DocumentError("Uploaded file is empty (0 bytes)")
+
     if len(content) > max_bytes:
         raise DocumentError(f"Upload exceeds maximum size of {max_bytes} bytes")
 

@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/documents/parsers/registry.py
+# hypothesis_version: 6.148.6
+
+['.', '.csv', '.doc', '.docx', '.gif', '.htm', '.html', '.jpeg', '.jpg', '.pdf', '.png', '.ppt', '.pptx', '.tif', '.tiff', '.txt', '.webp', '.xls', '.xlsx', 'application/msword', 'application/pdf', 'image/gif', 'image/jpeg', 'image/jpg', 'image/png', 'image/tiff', 'image/webp', 'replace', 'text/csv', 'text/html', 'text/plain', 'unknown', 'utf-8']

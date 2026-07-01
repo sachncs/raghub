@@ -47,6 +47,7 @@ class JwtAuthenticator:
         user_store: SqliteUserStore,
         algorithm: str = "HS256",
         expire_minutes: int = 60,
+        logger: Any | None = None,
     ) -> None:
         """Initialise the authenticator.
 
@@ -56,11 +57,13 @@ class JwtAuthenticator:
             algorithm: JWT algorithm. ``HS256`` is the default and only
                 one currently exercised.
             expire_minutes: Token lifetime in minutes.
+            logger: Optional structlog/structured logger for audit events.
         """
         self.secret_key = secret_key
         self.user_store = user_store
         self.algorithm = algorithm
         self.expire_minutes = expire_minutes
+        self.logger = logger
 
     async def authenticate(self, email: str, password: str) -> str:
         """Verify credentials and return a freshly-minted JWT.
@@ -80,7 +83,15 @@ class JwtAuthenticator:
         if user is None:
             # Same message as for unknown users so we don't leak which
             # accounts exist.
+            if self.logger is not None:
+                self.logger.info(
+                    "audit.login.failed",
+                    email=email,
+                    reason="invalid_credentials",
+                )
             raise AuthenticationError("Invalid email or password")
+        if self.logger is not None:
+            self.logger.info("audit.login.success", email=user.email)
         now = datetime.now(timezone.utc)
         # ``iat`` and ``exp`` are required by ``PyJWT`` when the
         # default options are enabled; both are timezone-aware UTC
@@ -108,15 +119,25 @@ class JwtAuthenticator:
         """
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+        except jwt.ExpiredSignatureError:
+            if self.logger is not None:
+                self.logger.info("audit.jwt.failed", reason="expired")
+            raise AuthenticationError("Invalid or expired token")
         except jwt.PyJWTError as exc:
-            # Catch the entire PyJWT error hierarchy (expired, invalid
+            # Catch the remaining PyJWT error hierarchy (invalid
             # signature, malformed, etc.) and present a uniform error
             # to the caller.
+            if self.logger is not None:
+                self.logger.info("audit.jwt.failed", reason=str(exc))
             raise AuthenticationError("Invalid or expired token") from exc
         user = await self.user_store.get_by_id(payload["sub"])
         if user is None:
             # The token is valid but the user has been deleted since
             # it was issued; treat as an auth failure.
+            if self.logger is not None:
+                self.logger.info(
+                    "audit.jwt.failed", reason="user_not_found", sub=payload.get("sub")
+                )
             raise AuthenticationError("User not found")
         return UserPrincipal(
             user_id=user.user_id,
@@ -213,14 +234,16 @@ class RBACAuthorizationService:
             needed (currently unused; admin check is principal-only).
     """
 
-    def __init__(self, user_store: SqliteUserStore) -> None:
+    def __init__(self, user_store: SqliteUserStore, logger: Any | None = None) -> None:
         """Initialise the service.
 
         Args:
             user_store: Backing user store. Currently held for future
                 admin-elevation flows.
+            logger: Optional structlog/structured logger for audit events.
         """
         self.user_store = user_store
+        self.logger = logger
 
     async def check_access(self, user: UserPrincipal, required_company: str) -> bool:
         """Return whether ``user`` may access ``required_company``.
@@ -237,7 +260,16 @@ class RBACAuthorizationService:
         # user must have the company in their explicit allow-list.
         if user.is_admin:
             return True
-        return required_company in user.allowed_companies
+        allowed = required_company in user.allowed_companies
+        if not allowed and self.logger is not None:
+            self.logger.info(
+                "audit.rbac.denied",
+                user_id=user.user_id,
+                email=user.email,
+                required_company=required_company,
+                allowed_companies=list(user.allowed_companies),
+            )
+        return allowed
 
     async def filter_companies(self, user: UserPrincipal) -> list[str]:
         """Return the companies ``user`` is allowed to access.
@@ -263,4 +295,11 @@ class RBACAuthorizationService:
             AuthorizationError: If ``user.is_admin`` is ``False``.
         """
         if not user.is_admin:
+            if self.logger is not None:
+                self.logger.info(
+                    "audit.rbac.denied",
+                    user_id=user.user_id,
+                    email=user.email,
+                    reason="admin_access_required",
+                )
             raise AuthorizationError("Admin access required")

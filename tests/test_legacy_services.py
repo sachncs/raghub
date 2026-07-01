@@ -66,7 +66,7 @@ def test_app_factory_creates_fastapi_instance() -> None:
     app = create_app(_StubApp())
     app.dependency_overrides[get_application] = lambda: _StubApp()
     assert isinstance(app, FastAPI)
-    assert "/health" in {route.path for route in app.routes if hasattr(route, "path")}
+    assert "/v1/health" in {route.path for route in app.routes if hasattr(route, "path")}
 
 
 def test_health_route_returns_payload() -> None:
@@ -85,6 +85,6 @@ def test_health_route_returns_payload() -> None:
     app = create_app(_StubApp())
     app.dependency_overrides[get_application] = lambda: _StubApp()
     client = TestClient(app)
-    response = client.get("/health")
+    response = client.get("/v1/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "vector_store": "InMemoryVectorStore"}

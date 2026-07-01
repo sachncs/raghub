@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/documents/parsers/image_parser.py
+# hypothesis_version: 6.148.6
+
+['exif', 'format', 'getexif', 'image', 'mode', 'pytesseract', 'size']

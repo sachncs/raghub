@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/services/application.py
+# hypothesis_version: 6.148.6
+
+['.db', '.json', 'Amazon', 'Apple', 'Google', 'Microsoft', 'RAGHUB_USERS', 'Tesla', 'admin@acme.com', 'alice@acme.com', 'bob@acme.com', 'charlie@acme.com', 'close', 'companies', 'diana@acme.com', 'image_store', 'images', 'ingestion', 'is_admin', 'nvidia_api_key', 'password', 'sessions.db', 'shutdown', 'store', 'uow', 'users.db', 'vector_store']

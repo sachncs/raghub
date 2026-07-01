@@ -80,3 +80,29 @@ class QueryResponse(BaseModel):
     answer: str
     citations: list[dict] = Field(default_factory=list)
     source_chunks: list[dict] = Field(default_factory=list)
+
+
+class BatchIngestItem(BaseModel):
+    """Result of ingesting a single file in a batch request.
+
+    Attributes:
+        filename: Original filename.
+        document_id: The document id assigned on success, or empty.
+        status: ``"ok"`` or ``"error"``.
+        error: Error detail when ``status`` is ``"error"``.
+    """
+
+    filename: str
+    document_id: str = ""
+    status: str = "ok"
+    error: str = ""
+
+
+class BatchIngestResponse(BaseModel):
+    """Response from the batch-ingest endpoint.
+
+    Attributes:
+        documents: One :class:`BatchIngestItem` per uploaded file.
+    """
+
+    documents: list[BatchIngestItem] = Field(default_factory=list)

@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/vectorstore/zvec.py
+# hypothesis_version: 6.148.6
+
+[0.0, '-_.', 'LOCK', 'backend', 'chunk', 'chunk_id', 'classification', 'company', 'created_at', 'department', 'document_id', 'documents', 'embedding', 'embedding_model', 'fields', 'filename', 'hash', 'id', 'internal', 'memory', 'ok', 'owner', 'page', 'score', 'section', 'stats', 'status', 'text', 'version', 'zvec']

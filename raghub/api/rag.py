@@ -196,6 +196,13 @@ class RAG:
             telemetry=self.telemetry,
         )
         self.conversation_store: Any = InMemoryConversationStore()
+        from raghub.pipelines.cache import QueryCache
+
+        self.query_cache: QueryCache | None = (
+            QueryCache(ttl_seconds=self.settings.query_cache_ttl_seconds)
+            if self.settings.enable_query_cache
+            else None
+        )
         self.query_pipeline = QueryPipeline(
             embedder=self.embedder,
             vector_store=self.vector_store,
@@ -204,6 +211,7 @@ class RAG:
             structured=self.structured,
             telemetry=self.telemetry,
             conversation_store=self.conversation_store,
+            cache=self.query_cache,
         )
 
         self.manifest: SourceManifest = manifest or SourceManifest(
@@ -241,7 +249,7 @@ class RAG:
             payload = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
 
         settings = AppSettings(
-            **{k: v for k, v in payload.items() if k in AppSettings.__dataclass_fields__}
+            **{k: v for k, v in payload.items() if k in AppSettings.model_fields}
         )
         settings.ensure_dirs()
         return cls(settings=settings)

@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/documents/chunker.py
+# hypothesis_version: 6.148.6
+
+[100, 800, '.pdf', '/Author', '/Creator', '/Producer', '/Title', 'application/msword', 'application/pdf', 'author', 'creator', 'document', 'full file', 'image', 'image/', 'presentation', 'producer', 'replace', 'spreadsheet', 'text/', 'text/csv', 'title', 'unknown', 'utf-8']

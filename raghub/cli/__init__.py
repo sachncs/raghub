@@ -12,3 +12,5 @@ operations:
 
 All commands route through the public :class:`raghub.RAG` facade.
 """
+
+__all__: list[str] = []

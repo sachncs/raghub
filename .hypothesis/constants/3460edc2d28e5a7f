@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/api/app.py
+# hypothesis_version: 6.148.6
+
+[10.0, 202, 204, 400, 401, 403, 500, '*', ',', '/auth/login', '/auth/logout', '/documents', '/documents/upload', '/health', '/ingest/async', '/query', '/session/history', '1.0.0', 'CORS_ORIGINS', 'Dynamic RAG Platform', 'Missing bearer token', 'background_ingestion', 'bearer ', 'detail', 'documents', 'history', 'job_id', 'json', 'logged_out', 'shutdown', 'status', 'upload.pdf']

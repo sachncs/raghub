@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/llm/litellm.py
+# hypothesis_version: 6.148.6
+
+[0.2, '\n\n---\n\n', 'LiteLLMProvider', 'assistant', 'choices', 'completion', 'completion_tokens', 'content', 'delta', 'gpt-4o-mini', 'image/png', 'image_url', 'include_usage', 'input_tokens', 'message', 'model', 'output_tokens', 'prompt', 'prompt_tokens', 'rb', 'role', 'system', 'text', 'type', 'url', 'usage', 'user', 'utf-8']

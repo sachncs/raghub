@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/auth/service.py
+# hypothesis_version: 6.148.6
+
+['HS256', 'User not found', 'email', 'exp', 'iat', 'sub']

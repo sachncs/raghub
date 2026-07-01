@@ -314,6 +314,7 @@ class QueryPipeline(Pipeline):
         structured: StructuredOutputProvider | None = None,
         telemetry: TelemetryProvider | None = None,
         conversation_store: Any | None = None,
+        cache: Any | None = None,
     ) -> None:
         """Initialise the query pipeline.
 
@@ -327,6 +328,9 @@ class QueryPipeline(Pipeline):
             conversation_store: Optional pluggable conversation
                 store. Defaults to an in-memory store so
                 :class:`QueryPipeline` always has a working backend.
+            cache: Optional :class:`QueryCache` instance. When set,
+                the pipeline checks the cache before running and
+                stores results after a successful run.
         """
         self.embedder = embedder
         self.vector_store = vector_store
@@ -339,6 +343,7 @@ class QueryPipeline(Pipeline):
 
             conversation_store = InMemoryConversationStore()
         self.conversation_store = conversation_store
+        self.cache = cache
 
     def metadata_filter_for_user(self, user: Any) -> dict | str:
         """Derive a metadata filter for the vector store from a user.
@@ -387,6 +392,13 @@ class QueryPipeline(Pipeline):
             response_model = inputs.get("response_model")
             record: bool = bool(inputs.get("record", True))
             from raghub.models import RetrievalHit
+
+            # Query cache check.
+            if self.cache is not None:
+                user_id = getattr(user, "email", None) or getattr(user, "user_id", None)
+                cached = self.cache.get(question, user_id, dict(user_filter) if isinstance(user_filter, dict) else None)
+                if cached is not None:
+                    return cached
 
             # RBAC: derive the metadata filter from the user.
             rbac_filter = self.metadata_filter_for_user(user)
@@ -478,7 +490,7 @@ class QueryPipeline(Pipeline):
                         ),
                     )
 
-            return PipelineResult(
+            result = PipelineResult(
                 pipeline_id=context.pipeline_id,
                 pipeline_name=self.name,
                 success=True,
@@ -490,6 +502,10 @@ class QueryPipeline(Pipeline):
                     "history": history,
                 },
             )
+            if self.cache is not None:
+                user_id = getattr(user, "email", None) or getattr(user, "user_id", None)
+                self.cache.set(question, user_id, dict(user_filter) if isinstance(user_filter, dict) else None, result)
+            return result
         except Exception as exc:
             return PipelineResult(
                 pipeline_id=context.pipeline_id,

@@ -57,13 +57,18 @@ class AuthService(ServiceMixin):
                 invalid.
         """
         started = time.perf_counter()
-        await self.container.authenticator.authenticate(email, password)
+        try:
+            await self.container.authenticator.authenticate(email, password)
+        except AuthenticationError:
+            self.log("audit.login.failed", email=email)
+            raise
         user = await self.container.user_store.get_by_email(email)
         if user is None:
+            self.log("audit.login.failed", email=email, reason="user_not_found")
             raise AuthenticationError("Invalid email or password")
         session = await self.container.store.create_session(user.user_id)
         self.emit_metric("auth_login_latency_ms", started)
-        self.log("login", email=user.email)
+        self.log("audit.login.success", email=user.email)
         return AuthLoginResponse(
             session_token=session.token,
             user_email=user.email,
@@ -101,9 +106,11 @@ class AuthService(ServiceMixin):
         """
         session = await self.container.store.get_by_token(token)
         if session is None:
+            self.log("audit.token.invalid", reason="no_session")
             raise AuthenticationError("Invalid or expired session")
         record = await self.container.user_store.get_by_id(session.user_id)
         if record is None:
+            self.log("audit.token.invalid", user_id=session.user_id, reason="user_deleted")
             raise AuthenticationError("User not found")
         user = UserPrincipal(
             user_id=record.user_id,

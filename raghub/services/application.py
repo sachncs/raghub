@@ -378,7 +378,7 @@ async def build_container(settings: AppSettings) -> DynamicRagContainer:
     user_store = SqliteUserStore(settings.data_dir / "users.db")
     await user_store.initialize()
 
-    jwt_secret = settings.jwt_secret
+    jwt_secret = settings.jwt_secret.get_secret_value()
     if not jwt_secret:
         # ``RuntimeError`` rather than a typed exception so it surfaces
         # in startup logs without callers needing to catch a custom
@@ -389,8 +389,9 @@ async def build_container(settings: AppSettings) -> DynamicRagContainer:
     authenticator = JwtAuthenticator(
         secret_key=jwt_secret,
         user_store=user_store,
+        logger=logger,
     )
-    authorization = RBACAuthorizationService(user_store)
+    authorization = RBACAuthorizationService(user_store, logger=logger)
 
     vector_store: BaseVectorStore = ZvecVectorStore(
         str(settings.zvec_dir),

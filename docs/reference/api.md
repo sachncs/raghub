@@ -87,7 +87,7 @@ print(response)
 # answer:        str
 # citations:     list[Citation]
 # source_chunks: list[SearchResult]
-# structured:    BaseModel | None   (set when response_model=... was used)
+# structured:    dict[str, Any] | None   (set when response_model=... was used)
 # metadata:      dict
 ```
 

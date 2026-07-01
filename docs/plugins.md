@@ -91,8 +91,22 @@ Add the plugin to your package's `pyproject.toml`:
 my_plugin = "my_package.module:my_plugin_factory"
 ```
 
-`PluginRegistry.discover_entrypoints()` then instantiates the
-factory and calls `register(registry)` automatically:
+`PluginRegistry.discover_entrypoints()` uses
+`importlib.metadata.entry_points(group=group)` to enumerate every
+installed package's registered entry points under the given group
+name. For each entry point it calls ``entry.load()`` (which imports
+and returns the factory callable), invokes the factory, and then
+calls ``plugin.register(registry)``:
+
+```python
+entries = importlib.metadata.entry_points(group="raghub.plugins")
+for entry in entries:                     # e.g. "my_plugin"
+    factory = entry.load()                # imports my_package.module:my_plugin_factory
+    plugin = factory()                    # returns MyPlugin()
+    plugin.register(registry)             # registers components
+```
+
+Usage from application code:
 
 ```python
 loaded = PluginRegistry().discover_entrypoints(group="raghub.plugins")

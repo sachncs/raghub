@@ -126,7 +126,9 @@ class RedisConversationStore:
     def load(self, session_id, limit=20): ...
     def clear(self, session_id): ...
 
-rag = RAG(conversation_store=RedisConversationStore(...))
+rag = RAG()
+rag.conversation_store = RedisConversationStore(...)
+rag.query_pipeline.conversation_store = rag.conversation_store
 ```
 
 ## Streaming

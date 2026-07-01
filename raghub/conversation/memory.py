@@ -7,7 +7,8 @@ follow-up questions without requiring the legacy SQLite-backed
 
 For production deployments that already wire the legacy
 :class:`ConversationManager`, the RAG facade can be configured
-with a custom history provider via ``RAG(conversation_store=...)``.
+with a custom history provider by setting
+``rag.conversation_store`` after construction.
 """
 
 from __future__ import annotations

@@ -15,15 +15,14 @@ from __future__ import annotations
 
 import os
 import sys
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import BaseModel, Field, SecretStr
 
 
-@dataclass(slots=True)
-class AppSettings:
+class AppSettings(BaseModel):
     """Runtime configuration for the platform.
 
     Attributes:
@@ -76,10 +75,17 @@ class AppSettings:
     retrieval_mode: str = "sync"
     worker_backend: str = "threadpool"
     require_zvec: bool = False
-    jwt_secret: str = ""
+    jwt_secret: SecretStr = SecretStr("")
     nvidia_api_key: str = ""
     allow_passwordless_login: bool = True
-    extra: dict[str, Any] = field(default_factory=dict)
+    enable_query_cache: bool = False
+    query_cache_ttl_seconds: int = 300
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+    class Config:
+        """Pydantic configuration."""
+
+        arbitrary_types_allowed = True
 
     def ensure_dirs(self) -> None:
         """Create the directories referenced by the settings object."""
@@ -103,19 +109,17 @@ class AppSettings:
                 are kept on the ``extra`` mapping.
 
         Returns:
-            A new dataclass instance; the receiver is not mutated.
+            A new instance; the receiver is not mutated.
         """
-        from dataclasses import asdict, replace
-
-        merged: dict[str, Any] = asdict(self)
-        extra = dict(merged.get("extra", {}))
+        merged: dict[str, Any] = self.model_dump()
+        extra: dict[str, Any] = dict(merged.get("extra", {}))
         for key, value in changes.items():
-            if key in self.__dataclass_fields__:
+            if key in AppSettings.model_fields:
                 merged[key] = value
             else:
                 extra[key] = value
         merged["extra"] = extra
-        return replace(self, **merged)
+        return AppSettings(**merged)
 
 
 def read_toml_file(path: Path) -> dict[str, Any]:
@@ -215,7 +219,7 @@ def load_settings(profile: str | None = None) -> AppSettings:
         ),
         "require_zvec": os.getenv("RAG_REQUIRE_ZVEC", "").lower() in ("1", "true", "yes")
         or payload.get("require_zvec", False),
-        "jwt_secret": os.getenv("JWT_SECRET", payload.get("jwt_secret", "")),
+        "jwt_secret": SecretStr(os.getenv("JWT_SECRET", "")),
         "nvidia_api_key": os.getenv("NVIDIA_API_KEY", payload.get("nvidia_api_key", "")),
         "allow_passwordless_login": os.getenv("RAG_ALLOW_PASSWORDLESS", "").lower()
         in ("1", "true", "yes")
@@ -230,13 +234,14 @@ def load_settings(profile: str | None = None) -> AppSettings:
         # ``JWT_SECRET`` is mandatory in production: without it we
         # cannot sign or verify tokens, and the system would silently
         # accept forged credentials.
-        if not settings.jwt_secret:
+        secret = settings.jwt_secret.get_secret_value()
+        if not secret:
             raise RuntimeError(
                 "JWT_SECRET environment variable is required in production mode"
             )
         # ``JWT_SECRET`` must be at least 32 bytes for SHA-256
         # signing; PyJWT emits an InsecureKeyLengthWarning otherwise.
-        if len(settings.jwt_secret.encode("utf-8")) < 32:
+        if len(secret.encode("utf-8")) < 32:
             raise RuntimeError(
                 "JWT_SECRET must be at least 32 bytes long in production mode "
                 "(PyJWT rejects shorter keys for HS256)."

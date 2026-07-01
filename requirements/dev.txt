@@ -1,3 +1,0 @@
-pytest>=8
-mypy>=1
-ruff>=0.6

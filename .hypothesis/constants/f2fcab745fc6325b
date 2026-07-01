@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/knowledge/__init__.py
+# hypothesis_version: 6.148.6
+
+['SourceManifest', 'dumps', 'from_okf', 'loads', 'to_okf']

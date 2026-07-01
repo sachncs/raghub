@@ -16,6 +16,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      - name: Cache mypy / ruff
+        uses: actions/cache@v4
+        with:
+          path: |
+            .mypy_cache
+            .ruff_cache
+          key: ${{ runner.os }}-lint-${{ hashFiles('pyproject.toml') }}
       - name: Install dependencies
         run: pip install -e ".[api,ui,dev]"
       - name: Lint (ruff)
@@ -29,11 +36,14 @@ jobs:
             raghub/evaluation/ raghub/knowledge/ \
             raghub/conversation/ raghub/cli/ \
             -f 80
-      - name: Unit tests with coverage gate
+      - name: Unit tests with coverage gate (non-platform)
         run: |
           pytest -q --ignore=tests/test_financebench.py \
             --cov=raghub --cov-report=term-missing \
-            --cov-fail-under=72
+            --cov-fail-under=90
+      - name: Non-platform tests (exact local flags)
+        run: |
+          pytest -q --cov=raghub --cov-report=term-missing
       - name: Integration tests (optional)
         env:
           RAGHUB_RUN_PLATFORM_TESTS: "1"
@@ -50,4 +60,17 @@ jobs:
       - name: Dependency audit
         run: |
           pip install pip-audit
-          pip-audit -r requirements/all.txt || true
+          pip-audit || true
+      - name: Validate OpenAPI schema
+        run: |
+          python -c "
+          import json
+          from raghub.api.app import get_app
+          app = get_app()
+          spec = app.openapi()
+          # Basic validation: ensure spec has required keys
+          assert 'openapi' in spec, 'Missing openapi version'
+          assert 'paths' in spec, 'Missing paths'
+          print('OpenAPI schema validated successfully')
+          "
+          || true

@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/storage/sqlite_session_store.py
+# hypothesis_version: 6.148.6
+
+[3600, 'created_at', 'expires_at', 'history', 'json', 'last_seen_at', 'session_id', 'token', 'user_id']

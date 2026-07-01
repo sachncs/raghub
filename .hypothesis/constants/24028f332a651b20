@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/utils/retry.py
+# hypothesis_version: 6.148.6
+
+[1.0, '429', '500', '503', 'T', 'rate limit', 'server error', 'timeout', 'try again', 'unreachable']
