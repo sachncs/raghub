@@ -6,3 +6,7 @@ evaluators. The framework discovers plugins via entry points
 (``group="raghub.plugins"``) and via explicit registration through
 :class:`PluginRegistry`.
 """
+
+from .registry import PluginRegistry
+
+__all__ = ["PluginRegistry"]

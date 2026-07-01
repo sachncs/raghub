@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/observability/structlog_provider.py
+# hypothesis_version: 6.148.6
+
+[1000.0, 'INFO', 'StructlogSpan', 'tokens', 'tokens.completion', 'tokens.prompt']

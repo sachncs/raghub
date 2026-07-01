@@ -5,6 +5,14 @@ validation, virus scanning, deduplication, chunking, embedding, indexing
 — into a single coroutine. It also exposes :meth:`submit_async` for
 fire-and-forget ingestion through :class:`BackgroundIngestionService`.
 
+Memory / streaming:
+    The entire ``file_bytes`` payload is held in memory during
+    ingestion. Files larger than ``max_upload_bytes`` are rejected at
+    the validation gate. For workloads that routinely process files
+    approaching that limit, consider feeding the pipeline through a
+    :class:`~raghub.ingestion.resumable.ResumableUpload` which spills
+    to disk and limits peak RSS.
+
 Lifecycle ordering:
 
     NEW → VALIDATING → PROCESSING → CHUNKING → EMBEDDING → INDEXING → READY
@@ -24,14 +32,28 @@ Deduplication:
     short-circuit and return it (no re-embedding). Otherwise we create a
     new version via :func:`new_version`, preserving the prior record's
     metadata.
+
+Concurrency:
+
+    Two concurrent ingests of the same file both compute the same
+    checksum. To avoid redundant processing, the pipeline uses
+    :meth:`~raghub.repositories.sqlite_document_repo.SqliteDocumentRepository.try_insert`
+    which performs a plain ``INSERT`` and raises
+    :class:`aiosqlite.IntegrityError` when a duplicate primary key
+    arrives first. The catch block below performs an exponential-backoff
+    retry that re-reads the checksum and short-circuits if the other
+    worker has already completed.
 """
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 from typing import Callable
+
+import aiosqlite
 
 from raghub.documents.chunker import ChunkingPlan, build_chunk_records
 from raghub.documents.lifecycle import DocumentLifecycleManager
@@ -41,6 +63,11 @@ from raghub.exceptions import DocumentError
 from raghub.ingestion.background import BackgroundIngestionService
 from raghub.models import Classification, DocumentLifecycleStatus, DocumentRecord, UserPrincipal
 from raghub.repositories import UnitOfWork
+
+#: Maximum retries for concurrent ingest conflicts.
+_MAX_INGEST_RETRIES = 3
+#: Base delay (seconds) for exponential backoff between retries.
+_INGEST_RETRY_DELAY = 0.1
 
 #: Signature for an optional synchronous virus-scan hook. Implementations
 #: should raise if the bytes are malicious; the hook is otherwise expected
@@ -206,24 +233,41 @@ class DocumentIngestionService:
         self.virus_scan_hook(file_bytes)
         checksum = sha256(file_bytes).hexdigest()
 
-        previous = await self.uow.document_repo.get_by_checksum(checksum)
-        # Dedup: an identical, fully-ingested document is returned as-is.
-        # We do *not* re-index because the prior chunks are still valid.
-        if previous is not None and previous.status == DocumentLifecycleStatus.READY:
-            return IngestionResult(document=previous, chunk_ids=previous.chunk_ids)
+        # Retry loop for concurrent ingest of the same file.
+        # Two workers may both see ``previous is None`` and race to
+        # insert. We use ``try_insert`` (plain INSERT → IntegrityError)
+        # to detect the loser and retry with exponential backoff.
+        for attempt in range(_MAX_INGEST_RETRIES):
+            previous = await self.uow.document_repo.get_by_checksum(checksum)
+            # Dedup: an identical, fully-ingested document is returned as-is.
+            # We do *not* re-index because the prior chunks are still valid.
+            if previous is not None and previous.status == DocumentLifecycleStatus.READY:
+                return IngestionResult(document=previous, chunk_ids=previous.chunk_ids)
 
-        base_document = previous if previous else None
-        record = new_version(
-            base_document,
-            checksum=checksum,
-            owner=owner.email,
-            organization=organization,
-            department=department,
-            tags=tags or [],
-            classification=classification,
-            filename=file_name,
-        )
-        await self.uow.document_repo.save(record)
+            base_document = previous if previous else None
+            record = new_version(
+                base_document,
+                checksum=checksum,
+                owner=owner.email,
+                organization=organization,
+                department=department,
+                tags=tags or [],
+                classification=classification,
+                filename=file_name,
+            )
+            try:
+                await self.uow.document_repo.try_insert(record)
+                break  # Insert succeeded — proceed with processing.
+            except aiosqlite.IntegrityError:
+                # Another worker inserted a row for this checksum
+                # between our ``get_by_checksum`` and ``try_insert``.
+                # Back off and re-check.
+                if attempt == _MAX_INGEST_RETRIES - 1:
+                    raise DocumentError(
+                        "Concurrent ingest conflict — please retry."
+                    ) from None
+                await asyncio.sleep(_INGEST_RETRY_DELAY * (2 ** attempt))
+                continue
 
         try:
             # Drive the state machine through the happy-path stages. Each

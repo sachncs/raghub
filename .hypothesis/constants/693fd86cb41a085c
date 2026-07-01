@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/converters/markdown.py
+# hypothesis_version: 6.148.6
+
+['\\$([^$\\n]+)\\$', '^(#{1,6})\\s+(.*)$', '^\\$\\$(.*)\\$\\$\\s*$', '^\\s*\\|.*\\|\\s*$', 'auto', 'bundle', 'caption', 'language', 'normalise_markdown', 'section', 'source']

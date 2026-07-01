@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/documents/versioning.py
+# hypothesis_version: 6.148.6
+
+['created_at', 'document_id', 'status', 'updated_at', 'version']

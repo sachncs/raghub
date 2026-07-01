@@ -7,7 +7,8 @@ implementations include the in-memory and zvec backends in
 
 from __future__ import annotations
 
-from typing import Any, Protocol, Sequence
+from collections.abc import Sequence
+from typing import Any, Protocol
 
 from raghub.models import ChunkRecord
 
@@ -58,7 +59,7 @@ class VectorStore(Protocol):
             version: The version number.
         """
 
-    def search(self, *, vector: list[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
+    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
         """Run filtered vector search.
 
         Args:
@@ -76,7 +77,7 @@ class VectorStore(Protocol):
         self,
         *,
         query: str,
-        vector: list[float],
+        vector: Sequence[float],
         top_k: int,
         metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:

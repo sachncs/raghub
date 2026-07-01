@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/retrieval/pipeline.py
+# hypothesis_version: 6.148.6
+
+[0.0, 0.3, 0.7, 1.0, 'chunk', 'chunk_id', 'score']

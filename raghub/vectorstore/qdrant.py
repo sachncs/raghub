@@ -30,7 +30,18 @@ except Exception as exc:  # pragma: no cover - optional dep
 
 
 class QdrantVectorStore(VectorStore):
-    """Qdrant-backed vector store."""
+    """Qdrant-backed vector store.
+
+    Transport choice — gRPC vs HTTP:
+        The client defaults to HTTP (``prefer_grpc=False``) for broad
+        compatibility. HTTP is simpler to debug, works over any
+        network (including load balancers that don't support gRPC),
+        and avoids the dependency on ``grpcio``. The trade-off is
+        latency: gRPC uses persistent connections and protobuf
+        serialisation (roughly 10-30% faster for high-throughput
+        workloads). When latency matters, switch Qdrant to its gRPC
+        port (usually 6334) and set ``prefer_grpc=True``.
+    """
 
     def __init__(
         self,
@@ -48,7 +59,8 @@ class QdrantVectorStore(VectorStore):
             url: Qdrant server URL.
             api_key: Optional API key.
             embedding_dim: Expected embedding dimension.
-            prefer_grpc: Use gRPC transport when available.
+            prefer_grpc: Use gRPC transport when available (see class
+                docstring for trade-offs).
 
         Raises:
             ConfigurationError: When ``qdrant-client`` is not installed.

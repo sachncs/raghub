@@ -193,7 +193,7 @@ allow-lists receive empty result sets, not 403 errors.
 **Context:** `session_id` alone could be guessed; two users
 sharing an id would otherwise read each other's history.
 
-**Decision:** `RAG._scoped_session_id(user, session_id)` returns
+**Decision:** `RAG.scoped_session_id(user, session_id)` returns
 `f"{uid}::{session_id}"` (or the raw id when no user is set, for
 the in-process anonymous case). `conversation_history` and
 `clear_conversation` likewise scope by the combined key.

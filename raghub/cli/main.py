@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import sys
 
 from raghub.cli import eval_cmd, init_cmd, ingest_cmd, query_cmd, system
+from raghub.cli.rate_limiter import CLIRateLimiter, RateLimitExceeded
+
+_limiter = CLIRateLimiter()
+
+# Commands that are exempt from rate limiting (e.g. health, version).
+_RATE_LIMIT_EXEMPT = frozenset({"health", "version"})
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,6 +38,15 @@ def main() -> int:
     if handler is None:
         parser.print_help()
         return 0
+
+    command = args.command
+    if command not in _RATE_LIMIT_EXEMPT:
+        try:
+            _limiter.check(command)
+        except RateLimitExceeded as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+
     return int(handler(args))
 
 

@@ -25,7 +25,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -37,6 +37,8 @@ from raghub.ingestion.background import BackgroundIngestionService
 from raghub.models.api import (
     AuthLoginRequest,
     AuthLoginResponse,
+    BatchIngestItem,
+    BatchIngestResponse,
     DocumentUploadResponse,
     QueryRequest,
     QueryResponse,
@@ -73,7 +75,19 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         A fully-configured FastAPI app ready to be served by
         ``uvicorn`` or any ASGI server.
     """
-    app = FastAPI(title="Dynamic RAG Platform", version="1.0.0", lifespan=lifespan)
+    from importlib.metadata import metadata as get_metadata
+
+    try:
+        pkg = get_metadata("retrieval-augmented-generation")
+        app_title = pkg["Name"].replace("-", " ").title()
+        app_version = pkg["Version"]
+        app_description = pkg.get("Summary", "Production-grade Dynamic RAG framework")
+    except Exception:
+        app_title = "Dynamic RAG Platform"
+        app_version = "0.2.0"
+        app_description = "Production-grade Dynamic RAG framework"
+
+    app = FastAPI(title=app_title, version=app_version, description=app_description, lifespan=lifespan)
     app.state.application = application
     # Shared background ingestion pool (2 workers by default); the
     # ``/ingest/async`` endpoint submits jobs to it.
@@ -88,7 +102,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
     )
     # Token-bucket rate limiter; per-client IP by default.
     app.add_middleware(RateLimiterMiddleware, rate=10.0, burst=20)
-    app.include_router(admin_router)
+    router = APIRouter()
 
     # Exception handlers translate typed application errors into HTTP
     # responses without leaking internal exception class names.
@@ -112,12 +126,12 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         """Return 500 for any :class:`StorageError`."""
         return JSONResponse(status_code=500, content={"detail": str(exc)})
 
-    @app.get("/health")
+    @router.get("/health")
     def health(app_service: DynamicRagApplication = Depends(get_application)) -> dict[str, Any]:
         """Liveness probe; delegates to :meth:`DynamicRagApplication.health`."""
         return app_service.health()
 
-    @app.post("/auth/login", response_model=AuthLoginResponse)
+    @router.post("/auth/login", response_model=AuthLoginResponse)
     async def login(
         payload: AuthLoginRequest,
         app_service: DynamicRagApplication = Depends(get_application),
@@ -133,7 +147,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         """
         return await app_service.login(payload.email, payload.password)
 
-    @app.post("/auth/logout")
+    @router.post("/auth/logout")
     async def logout(
         authorization: str | None = Header(default=None),
         app_service: DynamicRagApplication = Depends(get_application),
@@ -150,7 +164,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         await app_service.logout(token)
         return {"status": "logged_out"}
 
-    @app.get("/session/history")
+    @router.get("/session/history")
     async def session_history(
         authorization: str | None = Header(default=None),
         app_service: DynamicRagApplication = Depends(get_application),
@@ -168,7 +182,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         history = await app_service.history(token)
         return {"history": [turn.model_dump(mode="json") for turn in history]}
 
-    @app.delete("/session/history", status_code=204, response_class=Response)
+    @router.delete("/session/history", status_code=204, response_class=Response)
     async def clear_history(
         authorization: str | None = Header(default=None),
         app_service: DynamicRagApplication = Depends(get_application),
@@ -182,7 +196,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         await app_service.clear_history(token)
         return Response(status_code=204)
 
-    @app.post("/documents/upload", status_code=202, response_model=DocumentUploadResponse)
+    @router.post("/documents/upload", status_code=202, response_model=DocumentUploadResponse)
     async def upload_document(
         file: UploadFile = File(...),
         company: str | None = Form(default=None),
@@ -217,7 +231,67 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
             filename=document.filename,
         )
 
-    @app.get("/documents")
+    @router.post(
+        "/documents/ingest/batch",
+        status_code=200,
+        response_model=BatchIngestResponse,
+    )
+    async def ingest_documents_batch(
+        files: list[UploadFile] = File(...),
+        company: str | None = Form(default=None),
+        authorization: str | None = Header(default=None),
+        app_service: DynamicRagApplication = Depends(get_application),
+    ) -> BatchIngestResponse:
+        """Ingest multiple documents in a single request.
+
+        Accepts one or more files as multipart upload. Each file is
+        ingested independently; a failure in one does not affect the
+        others.
+
+        Memory characteristics: large files are buffered entirely in
+        memory before ingestion. The per-file peak memory usage
+        depends on the vector-store backend — zvec and Qdrant store
+        vectors server-side so client memory is O(file_size), while
+        the memory backend keeps everything in-process so peak RSS
+        grows with total batch size.
+
+        Args:
+            files: One or more multipart file uploads.
+            company: Optional tenant override applied to **all** files.
+            authorization: The raw ``Authorization`` header.
+
+        Returns:
+            A :class:`BatchIngestResponse` with one item per file.
+        """
+        token = require_bearer(authorization)
+        results: list[BatchIngestItem] = []
+        for file in files:
+            try:
+                content = await file.read()
+                document = await app_service.upload_document(
+                    token=token,
+                    filename=file.filename or "upload.pdf",
+                    content=content,
+                    company=company,
+                )
+                results.append(
+                    BatchIngestItem(
+                        filename=file.filename or "upload.pdf",
+                        document_id=document.document_id,
+                        status="ok",
+                    )
+                )
+            except Exception as exc:
+                results.append(
+                    BatchIngestItem(
+                        filename=file.filename or "upload.pdf",
+                        status="error",
+                        error=str(exc),
+                    )
+                )
+        return BatchIngestResponse(documents=results)
+
+    @router.get("/documents")
     async def list_documents(
         authorization: str | None = Header(default=None),
         app_service: DynamicRagApplication = Depends(get_application),
@@ -235,7 +309,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         documents = await app_service.list_documents(token)
         return {"documents": [document.model_dump(mode="json") for document in documents]}
 
-    @app.get("/documents/{document_id}/status")
+    @router.get("/documents/{document_id}/status")
     async def document_status(
         document_id: str,
         authorization: str | None = Header(default=None),
@@ -254,7 +328,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         document = await app_service.document_status(token, document_id)
         return document.model_dump(mode="json")
 
-    @app.delete("/documents/{document_id}", status_code=204, response_class=Response)
+    @router.delete("/documents/{document_id}", status_code=204, response_class=Response)
     async def delete_document(
         document_id: str,
         authorization: str | None = Header(default=None),
@@ -270,7 +344,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         await app_service.delete_document(token, document_id)
         return Response(status_code=204)
 
-    @app.post("/query", response_model=QueryResponse)
+    @router.post("/query", response_model=QueryResponse)
     async def query(
         payload: QueryRequest,
         authorization: str | None = Header(default=None),
@@ -290,7 +364,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         response = await app_service.query(token=token, question=payload.question)
         return response
 
-    @app.post("/ingest/async")
+    @router.post("/ingest/async")
     async def ingest_async(
         request: Request,
         file: UploadFile = File(...),
@@ -323,6 +397,9 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
             company=company,
         )
         return {"job_id": job_id}
+
+    app.include_router(router, prefix="/v1")
+    app.include_router(admin_router, prefix="/v1")
 
     return app
 

@@ -37,7 +37,7 @@ def load_settings_or_path(path: str | None) -> "AppSettings":
         data = tomllib.loads(Path(path).read_text(encoding="utf-8")) or {}
     else:
         data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
-    return AppSettings(**{k: v for k, v in data.items() if k in AppSettings.__dataclass_fields__})
+    return AppSettings(**{k: v for k, v in data.items() if k in AppSettings.model_fields})
 
 
 def print_json(payload: Any) -> None:

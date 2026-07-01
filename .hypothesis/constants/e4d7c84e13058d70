@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/pipelines/rag.py
+# hypothesis_version: 6.148.6
+
+[1000.0, 128, 'IngestPipeline', 'QueryPipeline', 'allowed_companies', 'answer', 'astream', 'block_id', 'block_kind', 'bundle', 'checksum', 'chunk', 'chunk_count', 'chunk_id', 'chunks', 'citations', 'company', 'completion', 'completion_tokens', 'department', 'duration_ms', 'email', 'embeddings', 'file_bytes', 'force', 'history', 'hits', 'incremental', 'ingest', 'ingest.chunk', 'ingest.convert', 'ingest.embed', 'ingest.upsert', 'is_admin', 'language', 'metadata', 'metadata_filter', 'mime_type', 'model', 'owner', 'prompt', 'prompt_tokens', 'query', 'query.embed_query', 'query.generate', 'query.rerank', 'query.search', 'query.stream', 'query.structured', 'query.tokens', 'question', 'record', 'record_tokens', 'response_model', 'score', 'section_index', 'session_id', 'source_uri', 'structured', 'text', 'top_k', 'user', 'user_id']

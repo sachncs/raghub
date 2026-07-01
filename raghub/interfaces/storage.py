@@ -15,7 +15,7 @@ from raghub.models import ConversationTurn, DocumentVersion, SessionRecord
 class DocumentRegistry(Protocol):
     """Tracks versioned document state."""
 
-    def savehandle_version(self, document: DocumentVersion) -> DocumentVersion:
+    def save_version(self, document: DocumentVersion) -> DocumentVersion:
         """Persist a new version.
 
         Args:
@@ -66,15 +66,16 @@ class ConversationStore(Protocol):
             turn: The new turn to append.
         """
 
-    def load(self, session_id: str) -> list[ConversationTurn]:
-        """Load all turns for ``session_id``.
+    def load(self, session_id: str, limit: int = 20) -> list[ConversationTurn]:
+        """Load turns for ``session_id``.
 
         Args:
             session_id: The session id.
+            limit: Maximum number of turns to return (most recent).
 
         Returns:
-            The full turn history (oldest first). Empty when the
-            session has no history.
+            Full or partial turn history (oldest first). Empty when
+            the session has no history.
         """
 
     def clear(self, session_id: str) -> None:

@@ -17,6 +17,11 @@ Run::
 
     python -m bench.benchmark --documents 10 --queries 50 --concurrency 8
 
+``--realistic`` downloads FinanceBench questions and uses them as the
+query set (requires ``pip install datasets``).::
+
+    python -m bench.benchmark --realistic --documents 10 --queries 50 --concurrency 8
+
 The script writes a JSON report to ``bench/report.json`` (or the
 path supplied via ``--output``).
 """
@@ -157,11 +162,26 @@ async def _run(args: argparse.Namespace) -> BenchmarkResult:
     throughput = ingest_chunks / ingestion_seconds if ingestion_seconds else 0.0
 
     # Query latency
-    queries = [
-        "What was the revenue growth?",
-        "How is the cash flow trending?",
-        "What is the outlook for next quarter?",
-    ]
+    if args.realistic:
+        from raghub.evaluation.financebench import FinanceBenchEvaluator
+
+        evaluator = FinanceBenchEvaluator()
+        examples = evaluator.ensure_loaded_examples()
+        all_questions = [ex.get("question", "") for ex in examples if ex.get("question")]
+        if not all_questions:
+            print("WARNING: No FinanceBench questions found; falling back to synthetic queries.")
+            all_questions = [
+                "What was the revenue growth?",
+                "How is the cash flow trending?",
+                "What is the outlook for next quarter?",
+            ]
+        queries = all_questions
+    else:
+        queries = [
+            "What was the revenue growth?",
+            "How is the cash flow trending?",
+            "What is the outlook for next quarter?",
+        ]
     latencies = await _run_queries(
         rag, queries * (args.queries // len(queries) + 1), args.concurrency
     )
@@ -194,6 +214,7 @@ def main() -> int:
     parser.add_argument("--words-per-document", type=int, default=500)
     parser.add_argument("--queries", type=int, default=50)
     parser.add_argument("--concurrency", type=int, default=4)
+    parser.add_argument("--realistic", action="store_true", help="Use FinanceBench questions for realistic benchmarking")
     parser.add_argument("--output", type=str, default="bench/report.json")
     args = parser.parse_args()
 

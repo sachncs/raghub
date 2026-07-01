@@ -280,6 +280,24 @@ class SqliteSessionStore:
         history = json.loads(row["history"])
         return [ConversationTurn.model_validate(t) for t in history]
 
+    # ------------------------------------------------------------------
+    # SessionStore protocol conformance
+    # ------------------------------------------------------------------
+
+    async def create(self, user_id: str) -> SessionRecord:
+        """Protocol-conformant alias for :meth:`create_session`."""
+        return await self.create_session(user_id)
+
+    async def resolve(self, token: str) -> SessionRecord | None:
+        """Protocol-conformant alias for :meth:`get_by_token`."""
+        return await self.get_by_token(token)
+
+    async def invalidate(self, token: str) -> None:
+        """Protocol-conformant alias — deletes the session for ``token``."""
+        session = await self.get_by_token(token)
+        if session is not None:
+            await self.delete_session(session.session_id)
+
     def row_to_session(self, row: aiosqlite.Row) -> SessionRecord:
         """Hydrate a :class:`SessionRecord` from a SQLite row.
 

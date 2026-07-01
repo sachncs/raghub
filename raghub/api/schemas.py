@@ -11,6 +11,7 @@ from __future__ import annotations
 from raghub.models.api import (
     AuthLoginRequest,
     AuthLoginResponse,
+    BatchIngestResponse,
     DocumentUploadResponse,
     QueryRequest,
     QueryResponse,
@@ -19,6 +20,7 @@ from raghub.models.api import (
 __all__ = [
     "AuthLoginRequest",
     "AuthLoginResponse",
+    "BatchIngestResponse",
     "DocumentUploadResponse",
     "QueryRequest",
     "QueryResponse",

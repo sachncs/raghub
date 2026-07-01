@@ -1,0 +1,4 @@
+# file: /Users/sachin/repo/others/quantiphi/raghub/models/canonical.py
+# hypothesis_version: 6.148.6
+
+[0.0, '0.1', 'BlockKind', 'Chunk', 'Citation', 'Document', 'DocumentBlock', 'DocumentSection', 'Embedding', 'EvaluationResult', 'KnowledgeBundle', 'PipelineContext', 'PipelineResult', 'Query', 'Response', 'SearchResult', 'block', 'bundle', 'code', 'default', 'deterministic_id', 'equation', 'image', 'metadata', 'pipeline', 'section', 'table', 'text', 'utf-8']

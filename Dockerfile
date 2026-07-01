@@ -11,7 +11,8 @@ WORKDIR /app
 # Create a non-root user and group.
 RUN groupadd --system raghub && useradd --system --gid raghub --home /app raghub
 
-# Install dependencies first (better layer caching).
+# Leverage layer caching: copy pyproject.toml first and install deps
+# so that dependency install is cached when only source code changes.
 COPY pyproject.toml README.md ./
 RUN pip install --upgrade pip && pip install -e ".[api,ui,dev]"
 
