@@ -21,6 +21,24 @@ source .venv/bin/activate
 3. Run type checker: `mypy raghub/`
 4. Ensure all FinanceBench tests pass: `FINANCEBENCH_EVAL=1 python -m pytest tests/test_financebench.py -xvs`
 
+## Test Environment Variables
+
+The following environment variables gate optional / slow test suites.
+Set them only when you want the corresponding tests to run; they
+default to **off** so the local `pytest` run stays fast.
+
+| Variable                     | Effect                                                                 |
+|------------------------------|------------------------------------------------------------------------|
+| `RAGHUB_RUN_PLATFORM_TESTS=1` | Runs `tests/test_platform.py` (live LLM + vector store round-trips).    |
+| `FINANCEBENCH_EVAL=1`         | Runs the `tests/test_financebench.py` evaluation suite against the downloaded FinanceBench dataset. |
+
+Example:
+
+```bash
+RAGHUB_RUN_PLATFORM_TESTS=1 pytest -q tests/test_platform.py
+FINANCEBENCH_EVAL=1 pytest -q tests/test_financebench.py
+```
+
 ## Pull Request Process
 
 1. Create a feature branch from `main`
