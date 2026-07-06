@@ -401,6 +401,16 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
     app.include_router(router, prefix="/v1")
     app.include_router(admin_router, prefix="/v1")
 
+    @app.get("/health", include_in_schema=False)
+    def root_health() -> dict[str, str]:
+        """Unversioned liveness probe for orchestrator health checks.
+
+        Mirrors ``GET /v1/health`` but is mounted outside the versioned
+        router so Docker / Kubernetes probes do not need to track API
+        version bumps.
+        """
+        return {"status": "ok"}
+
     return app
 
 

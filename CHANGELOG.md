@@ -4,6 +4,42 @@ All notable changes to RAGHub are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.3.1] - 2026-07-01
+
+`d95d650` — Patch release aligning `pyproject.toml` with the git tag.
+
+### Fixed
+
+- **`pyproject.toml` version** was `0.2.0` while the latest commits
+  shipped under `version:0.3.1`. Bumped to `0.3.1` so the package
+  metadata matches the tag and the CHANGELOG.
+
+### Added
+
+- **`RAGHUB_RUN_PLATFORM_TESTS` env var** documented in
+  `CONTRIBUTING.md` (was previously mentioned only in the CI
+  workflow).
+- **Unversioned `GET /health` route** on the FastAPI app for
+  orchestrator liveness probes (the existing `/v1/health` remains
+  the canonical, application-state-aware check).
+- **`docker-compose.override.yml`** with source-tree bind mounts
+  and `--reload` mode for `api` and `ui` services.
+- **Optional `zvec` extra in Docker**: build with
+  `docker build --build-arg INCLUDE_ZVEC=1 .` to install the
+  optional `zvec` vector-store dependency.
+
+### Changed
+
+- **Docker `HEALTHCHECK`** now hits `GET /health` via a one-shot
+  `urllib` call rather than shelling out to `python -m raghub.cli
+  health`.
+- **Eliminated the lazy-import wrapper** for `migrate_from_json`
+  in `raghub/storage/__init__.py`; the cycle that motivated it no
+  longer exists because `migration.py` itself already lazy-imports
+  its `repositories` / `storage` deps.
+
+---
+
 ## [Unreleased]
 
 ### Added

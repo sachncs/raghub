@@ -1,92 +1,128 @@
 # TODO · RAGHub
 
+> **Audit date:** 2026-07-02 · **Version:** 0.3.2 (unreleased)
+> Based on a full repository audit covering 157 source files, 1,153 tests, Git state, CI/CD, docs, and security posture.
+> Previous TODO (2026-06-30) items reviewed; completed items removed, remaining items re-triaged.
+
+---
+
 ## High Priority
 
 ### Build & Release
 
-- [ ] **Commit the 95-file unstaged batch** — docstrings, naming cleanup, type fixes, CHANGELOG rewrite — before it diverges further
-- [ ] **Fix `pyproject.toml` version** — currently `1.0.0` but tags/CHANGELOG say `v0.2.0-beta`; needs to be `0.2.0` or bumped consistently
-- [ ] **Commit `raghub/cli/_common.py → common.py` rename** — currently staged but not committed (blocks git-flow)
-- [ ] **Stage + commit tag creation** — `v0.1.0-alpha`, `v0.1.0`, `v0.2.0-beta` tags only exist locally; push to origin (or confirm they are pushed)
-- [ ] **Remove stale `requirements/` directory** — `setup.sh` now uses `pip install -e ".[dev,api,ui,zvec]"`; `requirements/*.txt` are dead documentation
+- [ ] **Create & push missing tags** — Commits `v0.3.1` and `v0.3.2` exist but no tags are pushed to origin (only `v0.1.0`, `v0.1.0-alpha`, `v0.2.0-beta` are remote). Run `git tag v0.3.1 <sha> && git tag v0.3.2 <sha> && git push --tags`.
+- [ ] **Fix `build_backend.py` version** — Hardcodes `VERSION = "1.0.0"` while `pyproject.toml` is `0.3.1`. Should track the package version or be derived from it.
+- [ ] **Remove `build_backend.py` if unused** — The PEP 517 build backend exists alongside setuptools in `pyproject.toml`. If not consumed downstream, remove to avoid confusion.
+
+### Type System & Linting
+
+- [ ] **Fix 6 mypy errors** — Remaining issues:
+  - 3× `import-untyped` for `yaml` — fix with `types-PyYAML` (already in `[dev]` deps; just need `pip install`) or inline `# type: ignore[import-untyped]`
+  - 2× LSP violations in `raghub/vectorstore/qdrant.py:219,266` — `search()` and `hybrid_search()` parameter types incompatible with `VectorStore` protocol; widen parameter types or update the protocol
+  - 1× attr-defined in `raghub/ingestion/service.py:259` — `DocumentRepository` ABC (domain/repositories.py) lacks `try_insert`; either add it to the abstract class or cast at call site
+- [ ] **Fix 1 ruff error** — Unused import in non-test code (`F401`); run `ruff check --fix`.
+- [ ] **Migrate Pydantic V2 `Config` class** — `raghub/config/settings.py:85` uses the deprecated nested `Config` class; replace with `model_config = ConfigDict(arbitrary_types_allowed=True)`.
 
 ### Testing
 
-- [ ] **Document skipped-test env vars** — `RAGHUB_RUN_PLATFORM_TESTS=1`, `FINANCEBENCH_EVAL=1` should be documented in `CONTRIBUTING.md` or a `.env.example`
-- [ ] **Lower coverage threshold** or raise it — currently 72%; either raise to 80% or document why 72% is acceptable
-- [ ] **Add CI step** that runs the non-platform tests with the exact same flags as local (`pytest -q --cov=raghub`)
-
-## Medium Priority
-
-### Developer Experience
-
-- [ ] **Create `.env.example`** — list all env vars the app reads (`JWT_SECRET`, `LITELLM_API_KEY`, `QDRANT_URL`, `LANGFUSE_*`, `OPENAI_API_KEY`, etc.)
-- [ ] **Add `pre-commit` config** — ruff format + ruff check + mypy as a pre-commit hook
-- [ ] **Add `justfile` or extend `Makefile`** — add targets for `dev-api`, `dev-ui`, `db-init`, `db-reset`
-- [ ] **Speed up container rebuilds** — Dockerfile copies `pyproject.toml` and installs deps before copying source, which is good, but could add a `.dockerignore`
-- [ ] **Add `.dockerignore`** — exclude `.git/`, `__pycache__/`, `*.db`, `data/`, `tests/`, `docs/`, `bench/`
-
-### Code Quality
-
-- [ ] **Enable `disallow_untyped_defs = true` in mypy** — or at least on a subset of modules; many functions still lack type annotations
-- [ ] **Eliminate remaining circular imports** — the lazy-import wrapper for `migrate_from_json` in `raghub/storage` is a symptom; refactor to break the cycle properly
-- [ ] **Audit protocol conformance** — `raghub/interfaces/` defines many Protocols; verify every implementation fully conforms
-- [ ] **Add module-level `__all__`** to all public subpackages — currently missing from most packages
-
-### Documentation
-
-- [ ] **Audit docs against current API** — `docs/` may be stale after the `_`-prefix rename and docstring pass
-- [ ] **Add migration guide from `dynamic_rag`** — `docs/migration.md` exists but may need updating after the rename
-- [ ] **Document the plugin system** — `docs/plugins.md` covers how to write a plugin but not how entry-point discovery works in practice
-- [ ] **Add docstrings to the `interfaces/` protocols** — consumers of the library need to know contract expectations
-
-### API & Services
-
-- [ ] **Version the FastAPI app** — mount routes under `/v1/` to allow future breaking changes
-- [ ] **Customise OpenAPI docs** — add `title`, `description`, `version` from `pyproject.toml` dynamically
-- [ ] **Add OpenAPI schema validation in CI** — validate that the generated OpenAPI spec is valid
-- [ ] **Add a health-check endpoint in Streamlit** — the Docker `HEALTHCHECK` calls the CLI health command, which is fragile
-
-## Lower Priority
-
-### Edge Cases & Robustness
-
-- [ ] **Handle empty document ingestion gracefully** — test what happens when a 0-byte file is ingested
-- [ ] **Unicode/non-ASCII filenames** — test parsers with non-ASCII filenames and content
-- [ ] **Concurrent ingestion race conditions** — SQLite `IntegrityError` handling when two requests insert the same document hash simultaneously
-- [ ] **qdrant `grpc` vs `http`** — the client defaults may not be optimal for all deployments; document the trade-off
-- [ ] **Large-file streaming** — test ingestion of files >100MB to verify memory bounds
-- [ ] **Token-count edge cases** — what happens when context exceeds the model's max tokens? The prompt builder handles it but the pipeline should too
-
-### Performance
-
-- [ ] **Benchmark `bench/` against a realistic dataset** — currently uses synthetic documents; add a mode that downloads FinanceBench
-- [ ] **Add query-caching layer** — identical queries within a TTL could skip LLM invocation
-- [ ] **Add batch-ingestion endpoint** — the API only ingests one file at a time; a multipart endpoint would be faster for bulk loads
-- [ ] **Profile memory usage during large ingestion** — the `zvec` backend may have different memory characteristics than Qdrant in-memory
-
-### Security
-
-- [ ] **Use `SecretStr` for `jwt_secret`** — deferred from v0.2.0-beta; move from `str` to Pydantic `SecretStr`
-- [ ] **Rate-limit the CLI commands** — only the API has rate limiting; repeated CLI ingest/query calls should respect limits
-- [ ] **Audit logging for auth failures** — RBAC denials and failed JWT verifications should produce structured audit log entries
-- [ ] **Dependency vulnerability scanning DAST** — `pip-audit` runs in CI but not locally; add a `make audit-local` that works without `requirements/*.txt`
-
-### Infrastructure
-
-- [ ] **Docker Compose for development** — add a `docker-compose.override.yml` with volume mounts and hot-reload
-- [ ] **Add `zvec` to the Docker image** — the optional extra is not installed in the Dockerfile; add `.[api,ui,zvec]` if the dep is stable
-- [ ] **CI cache for pip** — the workflow has `pip cache` but could also cache `.mypy_cache` and `.ruff_cache`
-- [ ] **Test on Windows** — the CI matrix only covers ubuntu-latest; add a Windows runner if cross-platform support is intended
-
-### Community & Governance
-
-- [ ] **Add a `CODE_OF_CONDUCT.md`**
-- [ ] **Add a `SUPPORT.md`** — where to file issues, ask questions, get help
-- [ ] **Add a `ROADMAP.md`** — extract from `docs/future.md` into a standalone roadmap file
-- [ ] **Set up Dependabot** — `.github/dependabot.yml` for automated dependency updates
-- [ ] **Add issue/PR labels** — automate triage with GitHub Actions or Probot
+- [ ] **Verify actual coverage meets the 90% gate** — CI enforces `--cov-fail-under=90` but the previous audit showed 72%. If the CI passes today, confirm; otherwise lower the gate or add missing tests.
+- [ ] **Run `mypy raghub/` in CI with `--strict`-equivalent flags** — Current CI runs bare `mypy raghub/`; align with `mypy.ini` to catch the 6 remaining errors.
+- [ ] **Enable dependabot for `dev` dependencies** — Dependabot only watches `pip` (runtime deps) and `github-actions`; `dev` extras (mypy, ruff, pytest, hypothesis) are not tracked.
 
 ---
 
-*Generated 2026-06-30 from a full repository audit. Priority levels are approximate and should be adjusted per team roadmap.*
+## Medium Priority
+
+### Code Quality
+
+- [ ] **Reduce `Any` annotations** — 30 files use `: Any`; heaviest in `observability/` (29 usages across `noop.py`, `redact.py`, `structlog_provider.py`) and `telemetry/langfuse.py` (15). Use `TypeVar`, `ParamSpec`, or concrete overloads where possible.
+- [ ] **Resolve circular-import workarounds** — 11 files use `TYPE_CHECKING` or lazy `importlib`; concentrated in `raghub/services/` (4 files) and `__init__.py` re-export modules. Reorganise to break cycles at the package level.
+- [ ] **Audit protocol conformance** — `raghub/interfaces/` defines 17 Protocols; verify every implementation fully conforms. Known violations: `QdrantVectorStore.search/hybrid_search` incompatible with `VectorStore`. Add `pytest`-based protocol conformance tests.
+- [ ] **Add `try_insert` to `DocumentRepository` ABC** — `SqliteDocumentRepository` implements it but the abstract base in `domain/repositories.py` doesn't declare it. Either add the abstract method or refactor ingestion to use the `interfaces` layer instead.
+
+### Performance & Edge Cases
+
+- [ ] **Benchmark against a realistic dataset** — `bench/benchmark.py` has a `--realistic` flag that downloads FinanceBench; document expected resource usage and publish a baseline.
+- [ ] **Add query-caching layer** — Identical queries within a TTL could skip LLM invocation. Consider `pipelines/cache.py` as the hook point.
+- [ ] **Add batch-ingestion endpoint** — The API (both FastAPI and the `RAG` facade) ingests one file at a time; a multipart endpoint would be faster for bulk loads.
+- [ ] **Handle empty document ingestion gracefully** — Test 0-byte files; the pipeline should reject early with a clear error instead of proceeding to chunking/embedding.
+- [ ] **Handle Unicode/non-ASCII filenames** — Test parsers with filenames containing CJK, RTL, or emoji characters across all converter backends.
+- [ ] **Concurrent ingestion race conditions** — `ingestion/service.py:261` catches `IntegrityError` for concurrent check-and-insert, but this pattern exists only once; audit all write paths for similar races.
+- [ ] **Profile memory usage during large ingestion** — The `zvec` backend may have different memory characteristics than Qdrant in-memory. Add a `--memory-profile` mode to `bench/benchmark.py`.
+
+### Documentation
+
+- [ ] **Add a migration guide from `dynamic_rag`** — `docs/migration.md` exists but covers legacy-to-facade migration; a `dynamic_rag`→`raghub` rename migration may still be needed if users have the old import paths.
+- [ ] **Document env var toggles comprehensively** — `CONTRIBUTING.md` and `.env.example` cover most vars, but `RAGHUB_CLI_RATE_LIMIT*`, `RAG_PROFILE`, and `RAGHUB_USERS` format need explicit documentation.
+- [ ] **Add module docstrings for `repositories/` and `storage/` packages** — The previous docstring pass covered the new spec surface and legacy domain modules but `repositories/` and `storage/` may still be missing `__init__` docstrings.
+
+### API & Services
+
+- [ ] **Customise OpenAPI operation IDs** — The FastAPI app uses dynamic title/version/description but operation IDs are auto-generated; add `operation_id` to endpoints for SDK generation.
+- [ ] **Add rate-limit headers to API responses** — The FastAPI rate limiter works internally but doesn't emit standard `X-RateLimit-*` headers.
+
+---
+
+## Lower Priority
+
+### Security
+
+- [ ] **Use `SecretStr` throughout** — Only `jwt_secret` in settings uses `SecretStr`; evaluate other `str`-typed secrets (e.g., `LITELLM_API_KEY`, `LANGFUSE_SECRET_KEY`) in the settings model.
+- [ ] **Audit logging for auth failures** — RBAC denials and failed JWT verifications should produce structured audit log entries (structlog) with correlation IDs.
+- [ ] **Dependency vulnerability scanning locally** — Add `make audit-local` that runs `pip-audit` without needing `requirements/*.txt` (they don't exist); currently only CI runs it.
+- [ ] **Add `pip audit` to pre-commit** — `.pre-commit-config.yaml` runs ruff + mypy; adding `pip-audit` (or `safety`) as a hook would catch vulnerabilities before commit.
+
+### Infrastructure
+
+- [ ] **Install `zvec` extra in Docker by default** — The Dockerfile has `ARG INCLUDE_ZVEC=0`; consider enabling it by default once the dep is stable, or document how to set the build arg.
+- [ ] **Add Windows to CI matrix** — CI only covers `ubuntu-latest` (Python 3.12, 3.13). Add a Windows runner if cross-platform support is intended.
+- [ ] **Cache pip in pre-commit CI** — `.github/workflows/ci.yml` caches `.mypy_cache` and `.ruff_cache` but not the pip install layer for pre-commit deps.
+- [ ] **Add `RAGHUB_USERS` env validation** — Streamlit's `RAGHUB_USERS` env var format (`email:password:org:role`) is parsed manually; add Pydantic validation or a dedicated settings field.
+
+### Community & Governance
+
+- [ ] **Automate issue/PR triage** — `.github/labels.yml` defines 11 labels but they must be applied manually; add a Probot or GitHub Action for auto-labelling by path/regex.
+- [ ] **Add a versioning policy** — Currently no documented versioning strategy (semver? calendar?); document in `CONTRIBUTING.md` or a `VERSIONING.md`.
+- [ ] **Add a security policy** — `SECURITY.md` exists but points to email; link to GitHub's private vulnerability reporting if enabled.
+
+---
+
+## Deprecated / Fixed (removed from active TODO)
+
+The following items from the 2026-06-30 audit have been resolved and removed:
+
+| Old Item | Status |
+|----------|--------|
+| Commit 95-file unstaged batch | ✅ Clean tree, all committed |
+| Fix `pyproject.toml` version | ✅ Now `0.3.1` (consistent with CHANGELOG) |
+| Commit rename + tag creation | ✅ All committed; tags pushed (except v0.3.1/v0.3.2 — see High Priority) |
+| Remove stale `requirements/` | ✅ Directory removed |
+| Document skipped-test env vars | ✅ Documented in `CONTRIBUTING.md` + `.env.example` |
+| Lower coverage threshold | ✅ Set to 90% in CI and Makefile |
+| Add CI step for non-platform tests | ✅ Full CI pipeline exists |
+| Create `.env.example` | ✅ Created (69 lines) |
+| Add `pre-commit` config | ✅ `.pre-commit-config.yaml` exists |
+| Add `justfile` or extend `Makefile` | ✅ 18 targets in Makefile |
+| Speed up container rebuilds | ✅ Dockerfile uses proper layer caching |
+| Add `.dockerignore` | ✅ Created |
+| Enable `disallow_untyped_defs` | ✅ Set to `true` in `mypy.ini` + `pyproject.toml` |
+| Add module-level `__all__` | ✅ 60+ files defined |
+| Audit docs against current API | ✅ 13 docs files, comprehensive |
+| Add migration guide | ✅ `docs/migration.md` exists |
+| Document plugin system | ✅ `docs/plugins.md` exists |
+| Add docstrings to `interfaces/` protocols | ✅ All 17 files documented |
+| Version the FastAPI app | ✅ Routers mounted under `/v1/` |
+| Customise OpenAPI docs | ✅ Dynamic from package metadata |
+| Add OpenAPI schema validation in CI | ✅ Present |
+| Add health-check endpoint in Streamlit | ✅ Docker `HEALTHCHECK` uses `urllib` `GET /health` |
+| Add rate limiter to CLI | ✅ `CLIRateLimiter` in `raghub/cli/rate_limiter.py` |
+| Add `CODE_OF_CONDUCT.md` | ✅ Exists |
+| Add `SUPPORT.md` | ✅ Exists |
+| Add `ROADMAP.md` | ✅ Exists |
+| Set up Dependabot | ✅ `.github/dependabot.yml` exists |
+| Add issue/PR labels | ✅ `.github/labels.yml` (11 labels) |
+| Docker Compose for development | ✅ `docker-compose.override.yml` exists |
+
+---
+
+*Priority levels are approximate and should be adjusted per team roadmap.*
