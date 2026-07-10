@@ -257,6 +257,7 @@ class DocumentIngestionService:
             )
             try:
                 await self.uow.document_repo.try_insert(record)
+                await self.uow.document_repo.save(record)
                 break  # Insert succeeded — proceed with processing.
             except aiosqlite.IntegrityError:
                 # Another worker inserted a row for this checksum
