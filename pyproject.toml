@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "retrieval-augmented-generation"
-version = "0.3.1"
+version = "0.3.3"
 description = "Production-grade Dynamic RAG framework"
 readme = "README.md"
 requires-python = ">=3.12"
