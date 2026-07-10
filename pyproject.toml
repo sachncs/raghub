@@ -5,12 +5,20 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "retrieval-augmented-generation"
 version = "0.3.3"
-description = "Production-grade Dynamic RAG framework"
+description = "RAGHub — production-grade multi-user retrieval-augmented generation platform"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "sachin", email = "sachncs@gmail.com" }]
-keywords = ["rag", "llm", "retrieval", "vector-search"]
+keywords = [
+    "rag",
+    "raghub",
+    "llm",
+    "retrieval-augmented-generation",
+    "vector-search",
+    "fastapi",
+    "streamlit",
+]
 classifiers = [
     "Framework :: FastAPI",
     "Intended Audience :: Developers",
