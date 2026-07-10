@@ -81,11 +81,11 @@ raghub-benchmark = "bench.benchmark:main"
 #
 
 [project.urls]
-Homepage = "https://github.com/sachn-cs/raghub"
-Issues = "https://github.com/sachn-cs/raghub/issues"
-
-[tool.setuptools]
-py-modules = ["build_backend"]
+Homepage = "https://github.com/sachncs/raghub"
+Repository = "https://github.com/sachncs/raghub"
+Issues = "https://github.com/sachncs/raghub/issues"
+Documentation = "https://github.com/sachncs/raghub/blob/main/docs/index.md"
+Changelog = "https://github.com/sachncs/raghub/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["."]
