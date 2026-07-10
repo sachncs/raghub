@@ -42,7 +42,7 @@ def handle_version(_: argparse.Namespace) -> int:
     from importlib.metadata import PackageNotFoundError, version as _v
 
     try:
-        print(_v("retrieval-augmented-generation"))
+        print(_v("raghub"))
     except PackageNotFoundError:
         print("unknown")
     return 0
