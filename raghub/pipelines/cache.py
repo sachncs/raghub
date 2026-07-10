@@ -9,13 +9,23 @@ enabled via the ``enable_query_cache`` setting.
 from __future__ import annotations
 
 import time
-from typing import Any
 
 from raghub.models import PipelineResult
 
 
 def _canonical_filters(filters: dict | None) -> tuple:
-    return tuple(sorted((filters or {}).items()))
+    """Flatten ``filters`` into a hashable tuple.
+
+    List values (e.g. ``{"company": ["Apple"]}``) are converted to
+    tuples so the resulting key is hashable. ``None`` filters become
+    the empty tuple.
+    """
+    items = []
+    for key, value in sorted((filters or {}).items()):
+        if isinstance(value, list):
+            value = tuple(value)
+        items.append((key, value))
+    return tuple(items)
 
 
 class QueryCache:

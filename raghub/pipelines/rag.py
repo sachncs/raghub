@@ -26,6 +26,7 @@ without the caller managing history.
 
 from __future__ import annotations
 
+import inspect
 import time
 from hashlib import sha256
 from typing import Any, AsyncIterator
@@ -459,9 +460,12 @@ class QueryPipeline(Pipeline):
                         context=hits,
                         conversation=history,
                     )
-                    if hasattr(self.generator, "record_tokens"):
-                        tokens = getattr(self.generator, "record_tokens", lambda: None)()
-                        if tokens:
+                    record_tokens = getattr(self.generator, "record_tokens", None)
+                    if callable(record_tokens):
+                        tokens = record_tokens()
+                        if inspect.isawaitable(tokens):
+                            tokens = await tokens
+                        if isinstance(tokens, dict) and tokens:
                             self.telemetry.record_tokens(
                                 "query.generate",
                                 prompt_tokens=int(tokens.get("prompt", 0)),
