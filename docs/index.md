@@ -2,7 +2,7 @@
 
 Production-grade multi-user retrieval-augmented generation platform built on
 the spec libraries. The single recommended entry point is
-[`raghub.RAG`](https://github.com/sachn-cs/raghub); every collaborator
+[`raghub.RAG`](https://github.com/sachncs/raghub); every collaborator
 behind it — Marker, Chonkie, LiteLLM, Qdrant, Langfuse, Instructor — is
 replaceable.
 

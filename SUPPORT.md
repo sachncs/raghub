@@ -3,7 +3,7 @@
 ## How to File Issues
 
 If you encounter a bug, have a feature request, or want to report a problem,
-please open a [GitHub Issue](https://github.com/sachn-cs/raghub/issues).
+please open a [GitHub Issue](https://github.com/sachncs/raghub/issues).
 
 Before filing, search existing issues to avoid duplicates. Include:
 
@@ -16,7 +16,7 @@ Before filing, search existing issues to avoid duplicates. Include:
 ## How to Ask Questions
 
 For questions, discussions, or ideas, use
-[GitHub Discussions](https://github.com/sachn-cs/raghub/discussions).
+[GitHub Discussions](https://github.com/sachncs/raghub/discussions).
 
 This is the best place for:
 

@@ -1,7 +1,7 @@
 # Getting Started
 
 The recommended way to use RAGHub is through the
-[`raghub.RAG`](../../raghub/api/rag.py) facade. It is a single import,
+[`raghub.RAG`](https://github.com/sachncs/raghub/blob/main/raghub/api/rag.py) facade. It is a single import,
 works offline by default, and lets you replace any spec component
 through the constructor or the plugin registry.
 
@@ -16,7 +16,7 @@ through the constructor or the plugin registry.
 ## Installation
 
 ```bash
-git clone https://github.com/sachn-cs/raghub.git
+git clone https://github.com/sachncs/raghub.git
 cd raghub
 pip install -e ".[api,ui,dev]"
 ```

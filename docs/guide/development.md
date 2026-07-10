@@ -6,7 +6,7 @@ read [`getting-started.md`](getting-started.md) instead.
 ## Environment setup
 
 ```bash
-git clone https://github.com/sachn-cs/raghub.git
+git clone https://github.com/sachncs/raghub.git
 cd raghub
 
 ./setup.sh                       # creates .venv, installs dev extras
@@ -195,7 +195,7 @@ session store. The next ingest runs as a cold start.
   compatibility.
 - Add tests under `tests/` (group by component, e.g.
   `tests/test_<area>_<feature>.py`).
-- Update [`../CHANGELOG.md`](../../CHANGELOG.md) and the related
+- Update [the CHANGELOG](https://github.com/sachncs/raghub/blob/main/CHANGELOG.md) and the related
   reference doc under `docs/reference/` or `docs/guide/` in the
   same change.
 - Run `pytest tests/ -x` and `ruff check raghub/ tests/`
