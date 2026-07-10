@@ -78,14 +78,14 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
     from importlib.metadata import metadata as get_metadata
 
     try:
-        pkg = get_metadata("retrieval-augmented-generation")
+        pkg = get_metadata("raghub")
         app_title = pkg["Name"].replace("-", " ").title()
         app_version = pkg["Version"]
-        app_description = pkg.get("Summary", "Production-grade Dynamic RAG framework")
+        app_description = pkg.get("Summary", "RAGHub — production-grade multi-user retrieval-augmented generation platform")
     except Exception:
-        app_title = "Dynamic RAG Platform"
-        app_version = "0.2.0"
-        app_description = "Production-grade Dynamic RAG framework"
+        app_title = "RAGHub"
+        app_version = "0.3.3"
+        app_description = "RAGHub — production-grade multi-user retrieval-augmented generation platform"
 
     app = FastAPI(title=app_title, version=app_version, description=app_description, lifespan=lifespan)
     app.state.application = application
