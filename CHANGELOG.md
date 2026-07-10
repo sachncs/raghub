@@ -1,304 +1,178 @@
 # Changelog
 
-All notable changes to RAGHub are documented in this file. The
-format follows [Keep a Changelog](https://keepachangelog.com/) and
-the project adheres to [Semantic Versioning](https://semver.org/).
+All notable changes to RAGHub are documented in this file.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [v0.3.1] - 2026-07-01
+Each entry below lists the originating Git commit (short SHA) and its
+ISO 8601 timestamp with timezone. Entries are ordered from newest to
+oldest.
 
-`d95d650` — Patch release aligning `pyproject.toml` with the git tag.
-
-### Fixed
-
-- **`pyproject.toml` version** was `0.2.0` while the latest commits
-  shipped under `version:0.3.1`. Bumped to `0.3.1` so the package
-  metadata matches the tag and the CHANGELOG.
-
-### Added
-
-- **`RAGHUB_RUN_PLATFORM_TESTS` env var** documented in
-  `CONTRIBUTING.md` (was previously mentioned only in the CI
-  workflow).
-- **Unversioned `GET /health` route** on the FastAPI app for
-  orchestrator liveness probes (the existing `/v1/health` remains
-  the canonical, application-state-aware check).
-- **`docker-compose.override.yml`** with source-tree bind mounts
-  and `--reload` mode for `api` and `ui` services.
-- **Optional `zvec` extra in Docker**: build with
-  `docker build --build-arg INCLUDE_ZVEC=1 .` to install the
-  optional `zvec` vector-store dependency.
+## [0.3.3] - 2026-07-02
 
 ### Changed
+- Bumped package version to `0.3.3`.
+  - `5b14d47` (2026-07-02T13:01:43+05:30)
 
-- **Docker `HEALTHCHECK`** now hits `GET /health` via a one-shot
-  `urllib` call rather than shelling out to `python -m raghub.cli
-  health`.
-- **Eliminated the lazy-import wrapper** for `migrate_from_json`
-  in `raghub/storage/__init__.py`; the cycle that motivated it no
-  longer exists because `migration.py` itself already lazy-imports
-  its `repositories` / `storage` deps.
-
----
-
-## [Unreleased]
-
-### Added
-
-- **Module-level docstrings** for all 10 legacy domain / repository
-  modules (``raghub.domain.*``, ``raghub.repositories.*``).
-  Every public function, class, and method has an explicit
-  docstring.
-- **Docstrings for CLI and retrieval hot-paths**:
-  ``handle_health``, ``SearchFilter.build_filter_string``,
-  ``FacetedSearchEngine``, ``IdentityReranker.rerank``,
-  ``KnowledgeManifest.__contains__`` / ``__getitem__``,
-  ``marker_converter_instance``, ``ensure_loaded_examples``,
-  ``safe_histogram`` / ``safe_counter``.
-- **Lazy import wrapper** for ``migrate_from_json`` in
-  ``raghub.storage`` to break the pre-existing circular import
-  cycle between ``storage`` / ``repositories`` / ``domain``.
+## [0.3.2] - 2026-07-01
 
 ### Changed
+- Bumped package version to `0.3.2`.
+  - `b9cff8a` (2026-07-01T13:21:25+05:30)
 
-- **Public naming conventions**: every ``_``-prefixed name across
-  the entire codebase has been renamed to public (e.g.
-  ``_MARKER_AVAILABLE`` → ``MARKER_AVAILABLE``,
-  ``self._llm`` → ``self.llm``, ``_ensure_examples`` →
-  ``ensure_examples``). ~90 names updated across 30+ files.
-- **``setup.sh``** now uses ``pip install -e ".[dev,api,ui,zvec]"``
-  instead of ``requirements/*.txt``, aligning with
-  ``pyproject.toml`` as the single source of truth for
-  dependencies.
-- **``raghub/cli/_common.py``** renamed to ``raghub/cli/common.py``
-  (no underscore prefix). All 5 import sites updated.
-- **``QdrantVectorStore``** merged private ``_upsert`` and
-  ``_search`` methods into the public ``upsert`` / ``search``
-  methods. ``insert`` now calls ``self.upsert``.
-- **``InstructorStructuredOutputProvider.astream``** uses a nested
-  async generator instead of ``yield`` directly, fixing the mypy
-  override mismatch without suppression.
-- **``vectorstore.BaseVectorStore.search``** and
-  ``hybrid_search`` widened ``metadata_filter`` parameter from
-  ``str`` to ``str | dict`` to match both in-memory and Qdrant
-  backends.
+### Dependencies
+- `pypdf` requirement widened from `>=5.0,<6` to `>=5.0,<7`.
+  - `3c4a762` (2026-07-01T07:28:17Z)
+- `numpy` requirement widened from `>=1.26,<2` to `>=1.26,<3`.
+  - `7c587aa` (2026-07-01T07:28:12Z)
+- `chonkie` requirement widened from `>=0.5,<1` to `>=0.5,<2`.
+  - `d8ee793` (2026-07-01T07:28:08Z)
+- `structlog` requirement widened from `>=24,<26` to `>=24,<27`.
+  - `0c6111c` (2026-07-01T07:28:04Z)
+
+## [0.3.1] - 2026-07-01
+
+### Added
+- New FastAPI endpoints, CLI extensions, and Streamlit UI refinements driving the
+  `RAG` facade surface; see `raghub/api/`, `raghub/cli/`, and the new
+  `tests/test_api_endpoints.py`, `tests/test_cli_commands.py`, and
+  `tests/test_rag_facade.py` suites.
+  - `d95d650` (2026-07-01T12:55:47+05:30)
+- New ingestion, conversion, vector store, retrieval, generation, validation,
+  document lifecycle, container, conversation, observability, knowledge,
+  repository, storage, and migration test suites under `tests/`.
+  - `d95d650` (2026-07-01T12:55:47+05:30)
+- New `raghub.pipelines.cache` module.
+  - `d95d650` (2026-07-01T12:55:47+05:30)
+- New `raghub.repositories.sqlite_document_repo` module.
+  - `d95d650` (2026-07-01T12:55:47+05:30)
+- New `raghub.storage.sqlite_session_store` module.
+  - `d95d650` (2026-07-01T12:55:47+05:30)
+- New `bench/benchmark.py` performance harness refinements
+  (`--documents`, `--queries`, `--concurrency` flags, JSON report output).
+  - `d95d650` (2026-07-01T12:55:47+05:30)
+- New project hygiene files: `.dockerignore`, `.env.example`,
+  `.pre-commit-config.yaml`, `.github/dependabot.yml`, `.github/labels.yml`,
+  `.github/workflows/ci.yml`, `.github/workflows/labeler.yml`,
+  `CODE_OF_CONDUCT.md`, `ROADMAP.md`, `SUPPORT.md`, and a `Makefile` with
+  install/test/lint/typecheck/coverage/docs/bench/security targets.
+  - `d95d650` (2026-07-01T12:55:47+05:30)
+
+### Changed
+- Bumped package version to `0.3.1`.
+  - `d95d650` (2026-07-01T12:55:47+05:30)
+  - `ba7a890` (2026-07-01T12:56:08+05:30)
+- Refactored `raghub.api.app`, `raghub.api.rag`, `raghub.api.schemas`,
+  `raghub.auth.service`, `raghub.cli.main`, `raghub.cli.common`,
+  `raghub.config.settings`, `raghub.conversation.memory`,
+  `raghub.converters`, `raghub.documents.validation`, `raghub.evaluation`,
+  `raghub.generation`, `raghub.ingestion.service`,
+  `raghub.interfaces.observability`, `raghub.interfaces.storage`,
+  `raghub.interfaces.vectorstore`, `raghub.models.api`,
+  `raghub.pipelines.rag`, `raghub.plugins`, `raghub.services.application`,
+  `raghub.services.auth_service`, `raghub.storage`, `raghub.utils`, and
+  `raghub.vectorstore.qdrant` in support of the new facade and updated
+  dependency bounds.
+  - `d95d650` (2026-07-01T12:55:47+05:30)
+- Updated `Dockerfile`, `Makefile`, `pyproject.toml`,
+  `docs/architecture/decisions.md`, `docs/guide/getting-started.md`,
+  `docs/plugins.md`, and `docs/reference/api.md` to reflect the new install,
+  test, lint, and typecheck workflow.
+  - `d95d650` (2026-07-01T12:55:47+05:30)
 
 ### Removed
+- Legacy `requirements/*.txt` files (`base.txt`, `dev.txt`, `ml.txt`,
+  `observability.txt`, `parsers.txt`, `all.txt`); the single source of
+  truth is now `pyproject.toml`.
+  - `d95d650` (2026-07-01T12:55:47+05:30)
+- `.hypothesis/` test cache directory that was inadvertently committed in
+  `d95d650`.
+  - `ba7a890` (2026-07-01T12:56:08+05:30)
 
-- **All 29 ``# type: ignore`` suppression comments** — underlying
-  type issues resolved (optional-dep type annotations via ``Any``,
-  ``sys.version_info`` branches for ``tomllib`` compat, aligned
-  protocol signatures, ``cast()`` for ``asyncio.run``, etc.).
-- **All 12 ``# noqa`` suppression comments** — late imports
-  restructured via ``TYPE_CHECKING`` or inlined; ``bench/benchmark.py``
-  uses ``find_spec`` instead of probe-import; ``per-file-ignores``
-  in ``pyproject.toml`` for the standard ``importorskip`` pattern.
-- **Dead fields** from ``AppSettings``: ``retrieval_mode``
-  and ``worker_backend`` (unused outside of settings loading).
-- **Dead code**: ``merge_mapping`` utility, unused
-  ``delete_chunks_by_id`` call in ``QdrantVectorStore.delete``,
-  unused ``query_filter`` / ``query`` params from
-  ``QdrantVectorStore._search``, unused ``_device`` attribute from
-  ``MarkerConverter``, dead ``if False else True`` in
-  ``test_security.py``.
-- **Stale ``pytest.ini`` warning filter**
-  ``error::jwt.warnings.InsecureKeyLengthWarning`` (PyJWT API
-  removed the warning class; the filter blocked all test
-  execution).
-
-### Fixed
-
-- **All 34 mypy errors** across 18 source files — type annotations,
-  incompatible types, missing ``delete_version`` in
-  ``QdrantVectorStore``, dict type mismatches, async generator
-  override signatures, abstract method conformance.
-- **All 34 ruff errors** — unused imports, unused variables,
-  module-level import violations (E402).
-- **Pre-existing test failures** uncovered by the pytest.ini fix:
-  ``JsonDocumentRegistry.get_specific_version`` (renamed from
-  ``get_version``), ``_IncludedRouter.path`` attribute error in
-  ``test_legacy_services.py``, mock-module setup in litellm tests,
-  ``session_id_or_user`` attribute in security test,
-  ``marker_converter`` skip (now runnable with installed dep),
-  ``LiteLLMProvider`` streaming test mock setup.
-- **Missing ``delete_version``** in ``QdrantVectorStore`` — now
-  delegates to the existing delete-by-collection implementation.
-- **PyJWT test blocker**: removed stale
-  ``error::jwt.warnings.InsecureKeyLengthWarning`` filter from
-  ``pytest.ini`` that prevented any test from running.
-
-### Security
-
-- ``JWT_SECRET`` must be ≥ 32 bytes in production (PyJWT's
-  ``InsecureKeyLengthWarning`` is now an error in CI).
-- ``RedactingTelemetry`` scrubs secret-looking kwargs before
-  forwarding to the telemetry backend.
-- Per-user retrieval isolation: unauthorised users receive empty
-  result sets, not 403 errors.
-
----
-
-## [v0.2.0-beta] - 2026-06-30
-
-`8fbdbcd` — Beta release of the RAGHub platform rewrite.
-
-### Added
-
-- **Public ``RAG`` facade** (`raghub.api.rag.RAG`) is the single
-  recommended entry point. Every spec component — Marker,
-  Chonkie, LiteLLM, Instructor, Qdrant, Langfuse — is wired as a
-  default but can be replaced through the constructor.
-- **Multi-user RBAC** at the retrieval layer via
-  ``allowed_company_filter``. Admins see every company;
-  non-admins see only chunks whose ``company`` is in their
-  ``allowed_companies``. The LLM only ever receives authorised
-  context. Unauthorised users with empty allow-lists see no
-  documents.
-- **Conversational RAG** with session-scoped history. Every
-  query accepts ``session_id=``; the ``InMemoryConversationStore``
-  prepends the most recent turns so the LLM can answer
-  follow-up questions.
-- **Streamlit UI** (`streamlit_app.py`) with ``st.chat_message``
-  and ``st.chat_input``, citation rendering per turn, per-user
-  document upload scoped to the user's company, and persistent
-  sign-in. Pre-seeds five demo users.
-- **Token-usage tracking**: ``LiteLLMProvider.generate`` and
-  ``astream`` populate ``self.last_usage``; ``DefaultGenerator``
-  exposes ``record_tokens()``; the ``QueryPipeline`` forwards
-  tokens to the telemetry provider on every call.
-- **Real streaming**: ``RAG.astream`` routes through
-  ``QueryPipeline.stream`` → ``DefaultGenerator.astream`` →
-  ``LiteLLMProvider.astream`` (with
-  ``stream_options={"include_usage": True}``).
-- **Incremental indexing** by SHA-256 content hash.
-  ``IngestPipeline`` short-circuits when the file hasn't changed.
-- **Resumable background ingestion** via
-  ``ResumableBackgroundIngestionService`` (persistent job
-  ledger in SQLite).
-- **Retrieval-quality metrics** (``raghub.evaluation.metrics``):
-  ``recall_at_k``, ``precision_at_k``, ``mean_reciprocal_rank``,
-  ``context_recall``, ``context_precision``, ``faithfulness``,
-  ``answer_correctness``. Integrated into ``FinanceBenchEvaluator``.
-- **Performance benchmark** (``bench/benchmark.py``) measures
-  startup time, ingestion throughput, query latency (p50/p95),
-  queries-per-second under concurrency, and peak RSS.
-- **10 spec libraries** wired as defaults: Marker (PDF → MD),
-  Chonkie (chunking), LiteLLM (LLM + embeddings), Instructor
-  (structured output), Qdrant (vector store), Langfuse
-  (telemetry), OKF (knowledge), datasets (FinanceBench), pypdf
-  (legacy), Tika-style parser fallback.
-- **Open Knowledge Format (OKF)** is the canonical persisted
-  representation. ``KnowledgeBundle`` round-trips through
-  ``to_okf`` / ``from_okf``.
-- **Plugin registry** with entry-point discovery
-  (``[project.entry-points."raghub.plugins"]``).
-- **Structured output** via Instructor; ``RAG.query(..., response_model=MyModel)``
-  returns a typed ``BaseModel`` in ``Response.structured``.
-- **Comprehensive test suite**: 315+ tests across 30+ test
-  files, including 10-user concurrent multi-user tests, security
-  tests, end-to-end tests, retrieval-metric tests, and benchmark
-  tests.
+## [0.3.0] - 2026-06-30
 
 ### Changed
+- Bumped package version to `0.3.0`. No source-code changes were made
+  between this commit and `6e5199e`.
+  - `b39ed86` (2026-06-30T11:41:24+05:30)
 
-- **Public API surface** is now the new ``RAG`` facade. The legacy
-  ``DynamicRagApplication`` and ``Build_application`` entry points
-  remain available for backwards compatibility but are no longer
-  the recommended path.
-- **Configuration precedence**: env > TOML > YAML > defaults.
-  ``AppSettings.override(**changes)`` provides runtime
-  overrides.
-- **Embedders and LLMs** fall back to in-process
-  (``HashingEmbeddingProvider``, ``HeuristicLLMProvider``) when no
-  API key is configured.
-- **Default chunker** uses Chonkie when available, falls back to
-  ``WordWindowChunker``.
+## [0.3.0-pre] - 2026-06-30
 
-### Security
+### Changed
+- Internal pre-release marker; no source-code changes.
+  - `6e5199e` (2026-06-30T08:57:54+05:30)
 
-- ``JWT_SECRET`` must be ≥ 32 bytes in production (PyJWT's
-  ``InsecureKeyLengthWarning`` is now an error in CI).
-- ``RedactingTelemetry`` scrubs secret-looking kwargs before
-  forwarding to the telemetry backend.
-- Per-user retrieval isolation: unauthorised users receive empty
-  result sets, not 403 errors.
+## [0.2.0-beta] - 2026-06-30
 
-### Fixed
+### Changed
+- Labelled the rewrite as the first platform beta. No source-code
+  changes between this commit and `4146805`.
+  - `8fbdbcd` (2026-06-30T00:04:52+05:30)
 
-- ``RAG.astream`` is now a real token stream (previously
-  materialised the full answer before yielding).
-- ``LiteLLMProvider.astream`` populates ``last_usage`` with
-  ``stream_options={"include_usage": True}``.
-- ``MarkerConverter.convert`` raises a clear
-  ``ConfigurationError`` on empty / non-PDF input instead of a
-  raw PDFium crash.
-- ``RAG.ingest`` and ``RAG.aingest`` raise ``RagHubError`` on
-  empty bytes.
-- The 4 ``InsecureKeyLengthWarning`` instances that fired in
-  every test run are gone.
-- Fixed circular imports between ``raghub.domain`` and
-  ``raghub.repositories`` (legacy code now lazy-imports).
+## [0.1.0] - 2026-06-28
 
-### Deferred
+### Changed
+- Marked the first versioned (non-prerelease) cut of the rewritten
+  `raghub` package. No source-code changes between this commit and
+  `71d4be0`.
+  - `4146805` (2026-06-28T19:35:15+05:30)
 
-- ``AppSettings.jwt_secret`` will move to ``SecretStr`` in a future
-  release. The current ``str`` annotation is required for the
-  Pydantic 1.x-style dataclass shape; migrating to ``BaseModel``
-  is a larger refactor.
-- The 48 remaining ``mypy`` warnings (legacy modules) — resolved
-  in the Unreleased changeset.
+## [0.1.0-alpha] - 2026-06-28
 
-### Removed
+### Added
+- Initial alpha of the `raghub` package rewrite, bundling the work
+  between commits `edbcb43` and `71d4be0`:
+  - Renamed the project from `dynamic_rag` to `raghub`.
+    - `74ef554` (2026-06-26T15:50:55+05:30)
+  - Added a virtualenv-friendly developer setup (`setup.sh` and
+    `requirements/*.txt`).
+    - `bf16cbc` (2026-06-26T16:26:12+05:30)
+  - Renamed `_`-prefixed names to public identifiers for Google-style
+    compliance.
+    - `512177e` (2026-06-26T16:26:15+05:30)
+  - Added multi-format document parsers: PDF, HTML, image OCR, Office,
+    CSV, and plain text.
+    - `150adc2` (2026-06-26T16:26:18+05:30)
+  - Added NVIDIA NV-Embed-QA and sentence-transformers embedding
+    providers; ChatNVIDIA MiniMax M3 multimodal LLM; and a token-aware
+    prompt builder.
+    - `d8fdcee` (2026-06-26T16:26:22+05:30)
+  - Added SQLite-backed persistence for the document registry, session
+    store, and user store.
+    - `972ffd0` (2026-06-26T16:26:26+05:30)
+  - Added JWT authentication, RBAC authorization, and a SQLite user
+    store.
+    - `c9fbdc6` (2026-06-26T16:26:29+05:30)
+  - Added structlog logging, Prometheus metrics, and OpenTelemetry
+    tracing.
+    - `f9937f6` (2026-06-26T16:26:32+05:30)
+  - Added a rate limiter, sliding-window conversation store, async
+    ingestion, admin API, and faceted search.
+    - `0430033` (2026-06-26T16:26:36+05:30)
+  - Wired the new components into `build_container` and the API layer.
+    - `5e93074` (2026-06-26T16:26:39+05:30)
+  - Added the initial test suites (parsers, SQLite, JWT auth,
+    embeddings, prompts, observability, etc.).
+    - `ffd8fad` (2026-06-26T16:26:42+05:30)
+  - Added `.gitignore` entries for `__pycache__`, `.venv`, and the
+    `data/` directory.
+    - `2299158` (2026-06-26T16:26:55+05:30)
+- Cut the alpha release.
+  - `71d4be0` (2026-06-28T16:51:20+05:30)
 
-- **Dead code**: ``raghub/cache/``, ``raghub/memory/``,
-  ``raghub/monitoring/`` (placeholder packages), the legacy
-  ``raghub.llm.nvidia`` and ``raghub.embeddings.nvidia`` modules
-  (superseded by LiteLLM), the duplicate
-  ``raghub/vectorstores/`` (plural) package (merged into
-  ``raghub/vectorstore/``), and the ``TemplatePromptBuilder``
-  class.
-- The legacy CLI's ``login`` command (replaced by the FastAPI
-  ``/auth/login`` endpoint and the demo users in the Streamlit
-  UI).
-- Standalone ``evaluate_financebench.py`` at the repo root
-  (replaced by ``raghub-financebench`` console script and
-  ``raghub.cli.eval_cmd``).
+## [0.0.1] - 2026-06-26
 
----
+### Added
+- Project inception. Codebase forked from the `dynamic_rag` prototype
+  under a working `raghub` import path; no production assets shipped.
+  - `edbcb43` (2026-06-26T14:56:06+05:30)
 
-## [v0.1.0] - 2026-06-28
-
-`4146805` — First versioned release of the RAGHub rewrite.
-
-Same feature set as v0.1.0-alpha. This tag marks the initial
-stable version.
-
----
-
-## [v0.1.0-alpha] - 2026-06-28
-
-`71d4be0` — Initial alpha of the RAGHub platform rewrite.
-
-- Renamed from ``dynamic_rag`` to ``raghub``.
-- Eliminated ``_``-prefixed naming convention for Google-style
-  compliance (``512177e``).
-- Multi-format parsers (PDF, HTML, image OCR, Office, CSV, TXT).
-- NVIDIA NV-Embed-QA and sentence-transformers embedding providers.
-- SQLite persistence for document registry, session store, and
-  user store.
-- JWT authenticator and RBAC authorization.
-- Structlog telemetry, Prometheus metrics, OpenTelemetry tracing.
-- Rate limiter, sliding-window conversation, async ingestion,
-  admin API, faceted search.
-- Wiring of all components into ``build_container`` and the API
-  layer.
-- Comprehensive test suite.
-- Developer setup via ``setup.sh`` and ``requirements/*.txt``.
-
----
-
-## [v0.0.1] - 2026-06-26
-
-`edbcb43` — Project inception.
-
-- Initial codebase from the ``dynamic_rag`` prototype.
-- Package rename to ``raghub``.
+[0.3.3]: https://github.com/sachncs/raghub/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/sachncs/raghub/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/sachncs/raghub/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/sachncs/raghub/compare/v0.3.0-pre...v0.3.0
+[0.3.0-pre]: https://github.com/sachncs/raghub/compare/v0.2.0-beta...v0.3.0-pre
+[0.2.0-beta]: https://github.com/sachncs/raghub/compare/v0.1.0...v0.2.0-beta
+[0.1.0]: https://github.com/sachncs/raghub/compare/v0.1.0-alpha...v0.1.0
+[0.1.0-alpha]: https://github.com/sachncs/raghub/compare/v0.0.1...v0.1.0-alpha
+[0.0.1]: https://github.com/sachncs/raghub/releases/tag/v0.0.1
