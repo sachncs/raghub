@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import json
 from concurrent.futures import Future
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from raghub.exceptions import KnowledgeError
-from raghub.knowledge.okf import dumps, from_okf, loads, to_okf
+from raghub.knowledge.okf import from_okf, loads, to_okf
 from raghub.models import (
     BlockKind,
     DocumentBlock,
@@ -56,7 +55,7 @@ class TestPrometheusMetrics:
         from raghub.observability.metrics import PrometheusMetrics
 
         app = FastAPI()
-        metrics = PrometheusMetrics(app=app)
+        PrometheusMetrics(app=app)
         assert any(r.path == "/metrics" for r in app.routes)
 
     def test_register_app_with_non_fastapi(self):
@@ -750,7 +749,6 @@ class TestDefaultStructured:
 @patch.dict("os.environ", {}, clear=True)
 class TestDefaultTelemetry:
     def test_import_error_returns_noop(self):
-        import sys
 
         with patch.dict("sys.modules", {"raghub.telemetry.langfuse": None}, clear=False):
             # Force import to fail so the except ImportError branch is taken

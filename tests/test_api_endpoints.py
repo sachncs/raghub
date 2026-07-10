@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import io
-import json
 from typing import Any
-from unittest.mock import ANY
-from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,7 +10,7 @@ from raghub.api.app import create_app
 from raghub.api.dependencies import get_application
 from raghub.auth.user_store import UserRecord
 from raghub.exceptions import AuthenticationError, AuthorizationError, DocumentError, StorageError
-from raghub.models.api import AuthLoginResponse, BatchIngestResponse, DocumentUploadResponse, QueryResponse
+from raghub.models.api import AuthLoginResponse, QueryResponse
 from raghub.models.domain import ConversationTurn, DocumentRecord, UserPrincipal
 
 
@@ -637,9 +634,9 @@ class TestAppMetadata:
 
         stub = StubApp()
         app = create_app(stub)
-        assert app.title == "Dynamic RAG Platform"
-        assert app.version == "0.2.0"
-        assert "Production-grade" in app.description
+        assert app.title == "RAGHub"
+        assert app.version == "0.3.3"
+        assert "RAGHub" in app.description
 
 
 class TestGetApp:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from raghub.converters.marker import MARKER_AVAILABLE, MarkerConverter
+from raghub.converters.marker import MarkerConverter
 from raghub.exceptions import ConfigurationError, ConversionError
 
 

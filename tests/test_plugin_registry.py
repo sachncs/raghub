@@ -75,9 +75,9 @@ def test_register_and_get_telemetry() -> None:
     logger = MagicMock()
     metrics = MagicMock()
     r.register_telemetry("a", logger, metrics)
-    l, m = r.get_telemetry("a")
-    assert l is logger
-    assert m is metrics
+    telemetry_logger, telemetry_metrics = r.get_telemetry("a")
+    assert telemetry_logger is logger
+    assert telemetry_metrics is metrics
 
 
 def test_register_and_get_evaluator() -> None:

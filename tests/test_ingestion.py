@@ -11,12 +11,9 @@ from __future__ import annotations
 
 import hashlib
 from io import BytesIO
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pypdf import PdfReader
-from pypdf.errors import PdfReadError
 
 from raghub.documents.chunker import (
     ChunkingPlan,
@@ -36,7 +33,6 @@ from raghub.ingestion.chunkers.chonkie import (
     build_chonkie_inner,
 )
 from raghub.models import (
-    ChunkRecord,
     Classification,
     DocumentLifecycleStatus,
     DocumentRecord,

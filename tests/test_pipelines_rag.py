@@ -15,8 +15,6 @@ from raghub.models import (
     DocumentSection,
     KnowledgeBundle,
     PipelineContext,
-    PipelineResult,
-    RetrievalHit,
     UserPrincipal,
     deterministic_id,
 )

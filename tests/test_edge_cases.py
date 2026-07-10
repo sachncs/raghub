@@ -12,10 +12,6 @@ Covers:
 from __future__ import annotations
 
 import asyncio
-import os
-import tempfile
-from hashlib import sha256
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -28,10 +24,8 @@ from raghub.documents.chunker import (
 )
 from raghub.documents.validation import validate_upload, detect_mime_type
 from raghub.exceptions import DocumentError
-from raghub.generation.generator import DefaultGenerator
 from raghub.ingestion.service import DocumentIngestionService
 from raghub.models import (
-    ChunkRecord,
     Classification,
     DocumentLifecycleStatus,
     DocumentRecord,
@@ -284,11 +278,10 @@ class TestConcurrentIngestionRaces:
         embedding = MagicMock()
         embedding.model_name = "m"
         embedding.embed_texts.return_value = [[0.1]]
-        lifecycle = MagicMock()
 
         # First call returns None (no existing checksum), second returns a READY doc
         # after the retry loop re-checks
-        ready_doc = DocumentRecord(
+        DocumentRecord(
             checksum="abc",
             owner="a@a.com",
             organization="Acme",
@@ -434,7 +427,6 @@ class TestTokenCountEdgeCases:
 
     def test_prompt_builder_truncates_when_context_overflows(self) -> None:
         """Builder should drop chunks when context exceeds the token budget."""
-        token_counter = TokenCounter(encoding="cl100k_base")
         budget = 100  # tiny budget for testing
 
         # Build a context that definitely exceeds the budget

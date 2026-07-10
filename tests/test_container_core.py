@@ -69,5 +69,5 @@ class TestBuildApplication:
             "raghub.core.container.load_settings", lambda *a, **kw: settings
         )
 
-        app = await build_application()
+        await build_application()
         assert builder_called
