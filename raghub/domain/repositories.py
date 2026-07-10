@@ -46,6 +46,10 @@ class DocumentRepository(ABC):
     async def list_all(self) -> list[DocumentRecord]:
         ...
 
+    @abstractmethod
+    async def try_insert(self, record: DocumentRecord, max_retries: int = 1) -> bool:
+        ...
+
 
 class ChunkRepository(ABC):
     @abstractmethod

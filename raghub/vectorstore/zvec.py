@@ -174,7 +174,7 @@ class ZvecVectorStore(BaseVectorStore):
 
     def create_backend(self) -> BaseVectorStore:
         try:
-            import zvec
+            import zvec  # type: ignore[import-not-found]
 
             self.zvec_module = zvec
             return RealZvecBackend(zvec, self.path, self.embedding_dim)

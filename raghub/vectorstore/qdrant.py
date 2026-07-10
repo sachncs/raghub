@@ -216,7 +216,7 @@ class QdrantVectorStore(VectorStore):
     def search(
         self,
         *,
-        vector: list[float],
+        vector: Sequence[float],
         top_k: int,
         metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
@@ -263,7 +263,7 @@ class QdrantVectorStore(VectorStore):
         self,
         *,
         query: str,
-        vector: list[float],
+        vector: Sequence[float],
         top_k: int,
         metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
