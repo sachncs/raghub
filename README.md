@@ -1,9 +1,10 @@
 # RAGHub
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Test Status](https://img.shields.io/badge/tests-351%20passed-brightgreen.svg)](tests/)
+[![Test Status](https://img.shields.io/badge/tests-1171%20passed-brightgreen.svg)](tests/)
 [![Ruff](https://img.shields.io/badge/ruff-0%20errors-brightgreen.svg)](https://github.com/astral-sh/ruff)
 [![Mypy](https://img.shields.io/badge/mypy-0%20errors-brightgreen.svg)](https://mypy-lang.org/)
+[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 Production-grade multi-user RAG platform built on the **spec libraries**:
@@ -92,7 +93,7 @@ providers for all spec libraries. Just `pip install` and go.
 ## Installation
 
 ```bash
-git clone https://github.com/sachn-cs/raghub.git
+git clone https://github.com/sachncs/raghub.git
 cd raghub
 pip install -e ".[dev,api,ui,zvec]"
 ```
@@ -254,7 +255,7 @@ python -m mypy raghub/
 
 ### Test suite
 
-351 tests covering:
+1171 tests covering:
 
 - Ingestion pipelines (plain-text, PDF through Marker)
 - Vector store operations (Qdrant, in-memory, ZVec)
@@ -265,8 +266,12 @@ python -m mypy raghub/
 - Security — JWT auth, unauthorised access isolation
 - FinanceBench evaluation metrics
 - Plugin registry and entry-point discovery
-- CLI commands (health, ingest, query, init)
+- CLI commands (health, ingest, query, init, version)
 - Persistence (JSON document registry, SQLite stores)
+- Query cache TTL and invalidation
+- Tracing exporters and OTel span guards
+- Document lifecycle (state machine, FAILED transitions)
+- Lazy-import facade (`raghub.RAG`, `raghub.build_application`)
 
 ---
 
