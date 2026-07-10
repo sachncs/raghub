@@ -39,8 +39,8 @@ def main() -> int:
         parser.print_help()
         return 0
 
-    command = args.command
-    if command not in _RATE_LIMIT_EXEMPT:
+    command = getattr(args, "command", None)
+    if command is not None and command not in _RATE_LIMIT_EXEMPT:
         try:
             _limiter.check(command)
         except RateLimitExceeded as exc:
