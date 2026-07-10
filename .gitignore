@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
+.hypothesis/
 data/
 *.db
 *,cover
@@ -11,3 +12,5 @@ data/
 build/
 dist/
 *.egg-info/
+docs/_build/
+docs/site/

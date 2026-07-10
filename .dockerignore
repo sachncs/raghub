@@ -6,11 +6,12 @@ tests/
 docs/
 bench/
 .venv/
+.hypothesis/
 .mypy_cache/
 .ruff_cache/
 *.egg-info/
 build/
 dist/
 .coverage
-pytest_cache/
-*.pyc
+.pytest_cache/
+*.pyc  
