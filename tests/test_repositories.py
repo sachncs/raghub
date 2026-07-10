@@ -404,10 +404,14 @@ class TestUnitOfWork:
         mock_conn.execute = AsyncMock()
         mock_conn.fetchone = AsyncMock(return_value=None)
         mock_conn.fetchall = AsyncMock(return_value=[])
-        type(uow.db_manager).connection = property(lambda self: mock_conn)
-        with patch.object(uow.db_manager, "connect", new=AsyncMock()) as mock_connect:
-            await uow.initialize()
-            mock_connect.assert_awaited_once()
+        original_connection = DatabaseManager.connection
+        DatabaseManager.connection = property(lambda self: mock_conn)
+        try:
+            with patch.object(uow.db_manager, "connect", new=AsyncMock()) as mock_connect:
+                await uow.initialize()
+                mock_connect.assert_awaited_once()
+        finally:
+            DatabaseManager.connection = original_connection
 
     async def test_health_via_chunk_repo(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
         db_path = str(tmp_path / "test_uow15.db")
