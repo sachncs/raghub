@@ -19,7 +19,7 @@ rather than adding new first-class adapters.
 - **`SecureReadUser` / group ABAC.** `UserPrincipal.allowed_groups`
   is already in the model. Wiring groups through the retrieval
   filter is straightforward; the contract is in
-  [`../architecture/decisions.md`](../architecture/decisions.md).
+  [the architecture decisions](architecture/decisions.md).
 - **Typed rerankers.** `IdentityReranker` ships by default; a
   cross-encoder reranker behind the same `Reranker` interface
   would be a single plugin.

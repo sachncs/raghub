@@ -1,7 +1,7 @@
 # Configuration Reference
 
 `AppSettings` is the runtime configuration snapshot consumed by both
-the [`raghub.RAG`](../..//raghub/api/rag.py) facade and the legacy
+the [`raghub.RAG`](https://github.com/sachncs/raghub/blob/main/raghub/api/rag.py) facade and the legacy
 `DynamicRagApplication`. It is a Python `@dataclass(slots=True)`;
 each field has a corresponding `RAG_*` environment variable and a
 matching key in `config/<profile>.yaml` / `.toml`.

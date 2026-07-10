@@ -166,5 +166,5 @@ returns whatever `DynamicRagApplication.health()` reports.
 
 - [`plugins.md`](../plugins.md) — register a custom telemetry
   pair via `PluginRegistry.register_telemetry(name, logger, metrics)`.
-- [`../architecture/decisions.md`](../architecture/decisions.md#adr-0005-telemetry-scrubbing-is-the-default)
+- [ADR-0005: telemetry scrubbing](../architecture/decisions.md#adr-0005-telemetry-scrubbing-is-the-default)
   — ADR-0005 (default scrubbing) and ADR-0007 (Langfuse v3+ spans).
