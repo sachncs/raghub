@@ -1,13 +1,18 @@
-# RAGHub
+<p align="center">
+  <h1 align="center">RAGHub</h1>
+  <p align="center">Production-grade multi-user retrieval-augmented generation platform built on the spec libraries.</p>
+  <p align="center">
+    <a href="#installation"><img src="https://img.shields.io/badge/python-3.12%20%7C%203.13-blue" alt="Python"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
+    <a href="https://github.com/sachncs/raghub/actions"><img src="https://img.shields.io/github/actions/workflow/status/sachncs/raghub/ci.yml?branch=master" alt="CI"></a>
+    <a href="https://pypi.org/project/raghub/"><img src="https://img.shields.io/pypi/v/raghub" alt="PyPI"></a>
+    <a href="https://github.com/sachncs/raghub/stargazers"><img src="https://img.shields.io/github/stars/sachncs/raghub" alt="Stars"></a>
+  </p>
+</p>
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Test Status](https://img.shields.io/badge/tests-1171%20passed-brightgreen.svg)](tests/)
-[![Ruff](https://img.shields.io/badge/ruff-0%20errors-brightgreen.svg)](https://github.com/astral-sh/ruff)
-[![Mypy](https://img.shields.io/badge/mypy-0%20errors-brightgreen.svg)](https://mypy-lang.org/)
-[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)](tests/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+**Production-grade multi-user RAG platform built on the spec libraries.**
 
-Production-grade multi-user RAG platform built on the **spec libraries**:
+RAGHub is a layered retrieval-augmented generation stack with a single replace-everything facade (`raghub.RAG`), multi-tenant RBAC, conversational memory, resumable ingestion, real streaming, and a FinanceBench evaluator. Every collaborator (converter, chunker, vector store, embedder, retriever, generator, telemetry, evaluator) is replaceable through a registry; the default wiring installs all spec libraries (Marker, Chonkie, LiteLLM, Instructor, Qdrant, Langfuse) and falls back to deterministic in-process providers when no API keys are present, so `pip install` and `import` is enough to be productive.
 
 | Concern | Library |
 |---|---|
@@ -20,77 +25,29 @@ Production-grade multi-user RAG platform built on the **spec libraries**:
 | Observability | [Langfuse](https://github.com/langfuse/langfuse) |
 | Benchmark | [FinanceBench](https://github.com/patronus-ai/financebench) |
 
-Every collaborator is replaceable through the public
-[`raghub.RAG`](raghub/api/rag.py) facade.
-
----
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Features](#features)
-- [Installation](#installation)
-- [CLI](#cli)
-- [Streamlit UI](#streamlit-ui)
-- [FastAPI](#fastapi)
-- [Multi-User & RBAC](#multi-user--rbac)
-- [Conversational RAG](#conversational-rag)
-- [Configuration](#configuration)
-- [Development](#development)
-- [Project Structure](#project-structure)
-- [Plugins](#plugins)
-- [Benchmarking](#benchmarking)
-- [Changelog](#changelog)
-- [License](#license)
-
----
-
-## Quick Start
-
-```python
-from raghub import RAG
-from raghub.models import UserPrincipal
-
-rag = RAG()
-alice = UserPrincipal(user_id="alice", email="alice@x", allowed_companies=["Apple"])
-rag.ingest(open("report.pdf", "rb").read(), source_uri="file://report.pdf", user=alice)
-response = await rag.aquery("What was the revenue?", user=alice, session_id="alice-s1")
-print(response.answer)
-print(response.citations)
-```
-
-No API keys required — RAGHub falls back to deterministic in-process
-providers for all spec libraries. Just `pip install` and go.
-
----
-
 ## Features
 
-- **Multi-tenant RBAC** — query results are scoped to each user's `allowed_companies`.
-  Admins see everything; unauthorised users see nothing.
-- **Conversational history** — session-scoped turn memory enables
-  natural follow-up questions.
-- **Incremental indexing** — content-addressed by SHA-256 hash;
-  unchanged files are skipped on re-ingest.
-- **Real streaming** — `rag.astream` yields tokens as they arrive,
-  with parallel stream-option support.
-- **Token-usage tracking** — every `generate` and `astream` call
-  records prompt/completion token counts.
-- **Resumable ingestion** — persistent SQLite job ledger survives
-  process restarts.
-- **Structured output** — pass a Pydantic `response_model` to
-  `rag.query()` to get typed results via Instructor.
-- **Plugin system** — register custom converters, chunkers, vector
-  stores, evaluators, and telemetry providers.
-- **Observability** — Langfuse, OpenTelemetry, Prometheus metrics,
-  and structlog logging out of the box.
-- **Evaluation** — FinanceBench evaluator with Recall@K,
-  Precision@K, MRR, Faithfulness, Context Recall, Context
-  Precision, and Answer Correctness.
-
----
+- **Multi-tenant RBAC** — Query results are scoped to each user's `allowed_companies`; admins see everything, unauthorised users see nothing.
+- **Conversational history** — Session-scoped turn memory enables natural follow-up questions.
+- **Incremental indexing** — Content-addressed by SHA-256 hash; unchanged files are skipped on re-ingest.
+- **Real streaming** — `rag.astream` yields tokens as they arrive, with parallel stream-option support.
+- **Token-usage tracking** — Every `generate` and `astream` call records prompt / completion token counts.
+- **Resumable ingestion** — Persistent SQLite job ledger survives process restarts.
+- **Structured output** — Pass a Pydantic `response_model` to `rag.query()` to get typed results via Instructor.
+- **Plugin system** — Register custom converters, chunkers, vector stores, evaluators, and telemetry providers.
+- **Observability** — Langfuse, OpenTelemetry, Prometheus metrics, and structlog logging out of the box.
+- **Evaluation** — FinanceBench evaluator with Recall@K, Precision@K, MRR, Faithfulness, Context Recall, Context Precision, and Answer Correctness.
 
 ## Installation
+
+### From PyPI
+
+```bash
+pip install raghub
+pip install "raghub[api,ui,zvec]"   # optional extras
+```
+
+### From source
 
 ```bash
 git clone https://github.com/sachncs/raghub.git
@@ -105,106 +62,71 @@ pip install -e ".[dev,api,ui,zvec]"
 | `ui` | Streamlit |
 | `zvec` | [ZVec](https://github.com/zilliztech/zvec) vector store |
 
-All spec libraries (Marker, Chonkie, LiteLLM, Instructor, Qdrant,
-Langfuse, datasets) are installed by default.
+All spec libraries (Marker, Chonkie, LiteLLM, Instructor, Qdrant, Langfuse, datasets) are installed by default. For a minimal environment use `pip install -e ".[dev]"`.
 
-For a minimal environment:
-```bash
-pip install -e .           # core only
-pip install -e ".[dev]"    # core + dev tooling
+## Quick Start
+
+### Python API
+
+```python
+from raghub import RAG
+from raghub.models import UserPrincipal
+
+rag = RAG()
+alice = UserPrincipal(user_id="alice", email="alice@x", allowed_companies=["Apple"])
+rag.ingest(open("report.pdf", "rb").read(), source_uri="file://report.pdf", user=alice)
+response = await rag.aquery("What was the revenue?", user=alice, session_id="alice-s1")
+print(response.answer)
+print(response.citations)
 ```
 
----
+No API keys required — RAGHub falls back to deterministic in-process providers for all spec libraries.
 
-## CLI
+### CLI
 
 ```bash
-# Emit a starter YAML config
 raghub init -o raghub.yaml
-
-# Ingest a file or directory
 raghub ingest ./documents
-
-# Ask a question
 raghub query "What was the revenue guidance?"
-
-# Liveness probe
 raghub health
-
-# Print the version
 raghub version
 ```
 
----
-
-## Streamlit UI
+### Streamlit UI
 
 ```bash
 streamlit run streamlit_app.py
 ```
 
-The UI pre-seeds five demo users with different `allowed_companies`:
+The UI pre-seeds five demo users with different `allowed_companies`: `alice@acme.com` (Apple), `bob@acme.com` (Microsoft), `charlie@acme.com` (Amazon, Tesla), `diana@acme.com` (Google), `admin@acme.com` (admin). The default password is `password`. Override the user directory with the `RAGHUB_USERS` environment variable.
 
-| Email | Companies | Admin? |
-|---|---|---|
-| alice@acme.com | Apple | No |
-| bob@acme.com | Microsoft | No |
-| charlie@acme.com | Amazon, Tesla | No |
-| diana@acme.com | Google | No |
-| admin@acme.com | (all) | Yes |
-
-The default password is `password`. Override the user directory
-by setting `RAGHUB_USERS` to a JSON mapping.
-
-The UI uses `st.chat_message` + `st.chat_input` for a real chat
-experience with follow-up questions, conversation history, and
-per-turn citation rendering.
-
----
-
-## FastAPI
+### FastAPI
 
 ```bash
 uvicorn raghub.api.app:app --host 0.0.0.0 --port 8000
 ```
 
-The legacy `DynamicRagApplication` is still reachable at
-`/auth/login`, `/documents/upload`, `/query`, etc. The new
-`RAG` facade is the recommended path for new integrations.
-
----
+The legacy `DynamicRagApplication` is still reachable at `/auth/login`, `/documents/upload`, `/query`, etc. The new `RAG` facade is the recommended path for new integrations.
 
 ## Multi-User & RBAC
 
-Every public query method accepts a `UserPrincipal`. The retrieval
-layer is filtered to the user's `allowed_companies`; admins see
-everything. The LLM never receives unauthorised context.
+Every public query method accepts a `UserPrincipal`. The retrieval layer is filtered to the user's `allowed_companies`; admins see everything. The LLM never receives unauthorised context.
 
 ```python
 alice = UserPrincipal(user_id="alice", email="alice@x", allowed_companies=["Apple"])
 bob   = UserPrincipal(user_id="bob",   email="bob@x",   allowed_companies=["Microsoft"])
 admin = UserPrincipal(user_id="admin", email="admin@x", is_admin=True)
 
-# Alice sees only Apple chunks; Bob only Microsoft; admin sees all.
-rag.query("revenue", user=alice)
-rag.query("revenue", user=bob)
-rag.query("revenue", user=admin)
+rag.query("revenue", user=alice)   # Apple-only chunks
+rag.query("revenue", user=bob)     # Microsoft-only chunks
+rag.query("revenue", user=admin)   # all chunks
 ```
 
-A user with no `allowed_companies` and no `is_admin` sees **no
-documents** (the filter resolves to `{"company": []}` which
-matches nothing). An unauthorised user attempting to retrieve
-another tenant's content receives an empty result set.
-
----
+A user with no `allowed_companies` and no `is_admin` sees no documents (the filter resolves to `{"company": []}` which matches nothing). Unauthorised retrieval attempts return an empty result set.
 
 ## Conversational RAG
 
-Every public query method accepts a `session_id`. The pipeline
-loads the most recent turns from the
-[`InMemoryConversationStore`](raghub/conversation/memory.py) (or a
-custom `ConversationStore`) and prepends them to the prompt so the
-LLM can answer follow-up questions.
+Every public query method accepts a `session_id`. The pipeline loads the most recent turns from `InMemoryConversationStore` (or a custom `ConversationStore`) and prepends them to the prompt so the LLM can answer follow-up questions.
 
 ```python
 await rag.aquery("revenue", user=alice, session_id="alice-s1")
@@ -212,103 +134,37 @@ await rag.aquery("revenue", user=alice, session_id="alice-s1")
 await rag.aquery("and growth?", user=alice, session_id="alice-s1")
 ```
 
----
-
 ## Configuration
 
-Configuration precedence (highest first):
+| Setting | Env Variable | Default | Description |
+|---------|--------------|---------|-------------|
+| `RAGHUB_USERS` | yes | inline demo users | JSON path or inline JSON for the user directory (Streamlit UI) |
+| `RAGHUB_STORE_BACKEND` | yes | `memory` | `memory` / `file` / `qdrant` / `zvec` |
+| LLM provider keys | yes | unset | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `NVIDIA_API_KEY` |
+| `JWT_SECRET` | yes | random | JWT signing secret |
+| `QDRANT_URL` | yes | unset | Qdrant server URL |
+| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | yes | unset | Langfuse credentials |
+| TOML/YAML profile | no | — | `config/<profile>.toml` or `.yaml` |
+| Constructor kwargs | no | — | Passed to `RAG(...)` (highest precedence) |
 
-1. Constructor arguments to `RAG(...)`.
-2. Environment variables (`RAG_*`, `JWT_SECRET`, `NVIDIA_API_KEY`,
-   `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `LANGFUSE_PUBLIC_KEY`,
-   `LANGFUSE_SECRET_KEY`, `QDRANT_URL`).
-3. TOML config (`config/<profile>.toml`).
-4. YAML config (`config/<profile>.yaml`).
-5. Built-in defaults.
+Precedence (highest first): constructor arguments → env vars → TOML config → YAML config → built-in defaults. `AppSettings.override(**changes)` returns a new instance with the given fields changed (the original is not mutated).
 
-`AppSettings.override(**changes)` returns a new instance with the
-given fields changed (the original is not mutated). This is the
-runtime-override mechanism.
+## API
 
----
+| Symbol | Type | Description |
+|--------|------|-------------|
+| `raghub.RAG` | class | Single facade; lazy-imports every collaborator |
+| `raghub.build_application` | function | Legacy application builder |
+| `raghub.models.UserPrincipal` | model | Per-user identity with `allowed_companies` and `is_admin` |
+| `raghub.api.app:app` | ASGI | FastAPI app, mounts RBAC-aware endpoints |
+| `raghub.plugins.registry.PluginRegistry` | class | Register converters, chunkers, vector stores, etc. |
+| `raghub.evaluation.FinanceBenchEvaluator` | class | Recall@K, Precision@K, MRR, Faithfulness, Context Recall/Precision, Answer Correctness |
+| `raghub.cli.main` | CLI | `raghub init / ingest / query / health / version` |
+| `raghub.cli.eval_cmd.main` | CLI | `raghub-financebench --examples N` |
 
-## Development
+## Examples
 
-```bash
-# Automated setup (venv + install)
-./setup.sh
-
-# Or manually:
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev,api,ui,zvec]"
-
-# Run tests
-python -m pytest tests/ -q
-
-# Run linter
-python -m ruff check raghub/
-
-# Run type checker
-python -m mypy raghub/
-```
-
-### Test suite
-
-1171 tests covering:
-
-- Ingestion pipelines (plain-text, PDF through Marker)
-- Vector store operations (Qdrant, in-memory, ZVec)
-- LiteLLM embedding and LLM providers (with mocked responses)
-- Multi-user RBAC isolation (10 concurrent users)
-- Session-scoped conversation history
-- Streaming and token-usage tracking
-- Security — JWT auth, unauthorised access isolation
-- FinanceBench evaluation metrics
-- Plugin registry and entry-point discovery
-- CLI commands (health, ingest, query, init, version)
-- Persistence (JSON document registry, SQLite stores)
-- Query cache TTL and invalidation
-- Tracing exporters and OTel span guards
-- Document lifecycle (state machine, FAILED transitions)
-- Lazy-import facade (`raghub.RAG`, `raghub.build_application`)
-
----
-
-## Project Structure
-
-```
-raghub/
-  api/                RAG facade (single entry point), FastAPI, Streamlit
-  config/             YAML / TOML configuration
-  models/             Typed Pydantic domain models (Document, Chunk, Citation, ...)
-  interfaces/         Protocol contracts (DocumentConverter, VectorStore, ...)
-  converters/         Marker, plain-text, OKF normaliser
-  knowledge/          OKF serialisation + InMemoryKnowledgeRepository
-  ingestion/          IngestPipeline (convert → chunk → embed → upsert)
-  embeddings/         LiteLLM, SentenceTransformers, hashing
-  vectorstore/        Qdrant, ZVec, InMemory
-  llm/                LiteLLM, Heuristic
-  structured/         Instructor
-  retrieval/          Pipeline, IdentityReranker
-  generation/         DefaultGenerator (citations, astream, token usage)
-  pipelines/          IngestPipeline, QueryPipeline
-  observability/      NoOpTelemetry, RedactingTelemetry, StructlogTelemetryProvider
-  telemetry/          LangfuseTelemetryProvider, NoopSpan, LangfuseSpan
-  evaluation/         FinanceBenchEvaluator, retrieval metrics
-  plugins/            PluginRegistry, entry-point discovery
-  cli/                CLI commands (health, ingest, query, init, eval)
-```
-
----
-
-## Plugins
-
-Plugins can register converters, chunkers, embedders, vector stores,
-retrievers, rerankers, generators, telemetry providers, or
-evaluators on a `raghub.plugins.registry.PluginRegistry`. They are
-discovered via entry points (`group="raghub.plugins"`) and can be
-registered programmatically:
+Plugins register converters, chunkers, embedders, vector stores, retrievers, rerankers, generators, telemetry providers, and evaluators on `PluginRegistry`. They are discovered via entry points (`group="raghub.plugins"`) and can be registered programmatically:
 
 ```python
 from raghub.plugins.registry import PluginRegistry
@@ -319,7 +175,96 @@ registry.register_converter("marker", MarkerConverter())
 rag = RAG(registry=registry)
 ```
 
----
+Structured output with Pydantic:
+
+```python
+from pydantic import BaseModel
+
+class Revenue(BaseModel):
+    amount: float
+    currency: str
+
+result = await rag.aquery(
+    "What was 2024 revenue?",
+    user=alice,
+    response_model=Revenue,
+)
+print(result.amount, result.currency)
+```
+
+## Project Structure
+
+```
+raghub/
+├── src/raghub/
+│   ├── api/                # RAG facade, FastAPI, Streamlit
+│   ├── config/             # YAML / TOML configuration
+│   ├── models/             # Typed Pydantic domain models (Document, Chunk, Citation)
+│   ├── interfaces/         # Protocol contracts (DocumentConverter, VectorStore)
+│   ├── converters/         # Marker, plain-text, OKF normaliser
+│   ├── knowledge/          # OKF serialisation + InMemoryKnowledgeRepository
+│   ├── ingestion/          # IngestPipeline (convert → chunk → embed → upsert)
+│   ├── embeddings/         # LiteLLM, SentenceTransformers, hashing
+│   ├── vectorstore/        # Qdrant, ZVec, InMemory
+│   ├── llm/                # LiteLLM, Heuristic
+│   ├── structured/         # Instructor
+│   ├── retrieval/          # Pipeline, IdentityReranker
+│   ├── generation/         # DefaultGenerator (citations, astream, token usage)
+│   ├── pipelines/          # IngestPipeline, QueryPipeline
+│   ├── observability/      # NoOpTelemetry, RedactingTelemetry, StructlogTelemetryProvider
+│   ├── telemetry/          # LangfuseTelemetryProvider, NoopSpan, LangfuseSpan
+│   ├── evaluation/         # FinanceBenchEvaluator, retrieval metrics
+│   ├── plugins/            # PluginRegistry, entry-point discovery
+│   └── cli/                # CLI commands (health, ingest, query, init, eval)
+├── tests/                  # 1171 tests across RBAC, streaming, ingestion, plugins, etc.
+├── bench/                  # Performance benchmark harness (startup, QPS, RSS)
+├── streamlit_app.py        # Demo Streamlit UI
+├── pyproject.toml
+└── setup.sh                # venv + dev-deps bootstrap
+```
+
+## Development
+
+```bash
+./setup.sh
+# or:
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev,api,ui,zvec]"
+```
+
+Linting and formatting:
+
+```bash
+ruff check raghub/
+ruff format raghub/
+mypy raghub/
+```
+
+## Testing
+
+```bash
+python -m pytest tests/ -q         # 1171 tests
+python -m pytest tests/ -q -k rbac # just the RBAC suite
+python -m pytest tests/ --cov=raghub --cov-report=term-missing
+```
+
+The suite covers ingestion pipelines, vector store operations, LiteLLM providers (mocked), multi-user RBAC isolation (10 concurrent users), session-scoped conversation history, streaming and token-usage tracking, JWT auth and unauthorised-access isolation, FinanceBench evaluation metrics, the plugin registry and entry-point discovery, all CLI commands, persistence (JSON registry, SQLite stores), query-cache TTL/invalidation, tracing exporters and OTel span guards, document lifecycle state machines, and the lazy-import facade.
+
+## Build
+
+```bash
+pip install build
+python -m build
+```
+
+## Release
+
+```bash
+# Bump version in pyproject.toml, then:
+pytest && ruff check raghub/ && mypy raghub/
+git tag vX.Y.Z && git push origin vX.Y.Z
+# .github/workflows/release.yml publishes to PyPI via trusted publishing
+```
 
 ## Benchmarking
 
@@ -327,26 +272,49 @@ rag = RAG(registry=registry)
 # FinanceBench evaluation
 raghub-financebench --examples 25
 
-# Performance benchmark
+# Performance benchmark (startup, throughput, p50/p95 latency, peak RSS)
 python -m bench.benchmark --documents 100 --queries 200 --concurrency 8
 ```
 
-The performance benchmark measures startup time, ingestion throughput,
-query latency (p50/p95), queries-per-second under concurrency, and
-peak RSS. The report is written to `bench/report.json`.
+Reports are written to `bench/report.json`.
 
-The FinanceBench evaluator reports Recall@K, Precision@K, MRR,
-Faithfulness, Context Recall, Context Precision, and Answer
-Correctness.
+## Tech Stack
 
----
+| Category | Technology |
+|----------|------------|
+| Language | Python 3.12+ |
+| Document conversion | Marker |
+| Chunking | Chonkie |
+| LLM / embeddings | LiteLLM |
+| Structured output | Instructor |
+| Vector store | Qdrant (ZVec optional) |
+| Observability | Langfuse, OpenTelemetry, Prometheus, structlog |
+| Knowledge format | Open Knowledge Format (OKF) |
+| Web framework | FastAPI |
+| Demo UI | Streamlit |
+| Evaluation | FinanceBench |
+| Lint / format | ruff |
+| Type check | mypy (strict optional) |
+| Tests | pytest, hypothesis |
 
-## Changelog
+## Roadmap
 
-See [CHANGELOG.md](CHANGELOG.md) for version history.
+- **v0.3.x** — Current: RAG facade, multi-tenant RBAC, conversational memory, streaming, plugins, FinanceBench evaluator.
+- **v0.4.0** — Planned: expanded plugin entry-point zoo, advanced rerankers (cross-encoder, Cohere), per-tenant rate limits.
+- **v0.5.0** — Planned: streaming-first ingestion UI, query-cache topology, ZVec-backed config presets.
 
----
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant v2.1](CODE_OF_CONDUCT.md).
+
+## Security
+
+Report vulnerabilities to **sachncs@gmail.com** — see [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT.
+[MIT](LICENSE) © 2026 Sachin
