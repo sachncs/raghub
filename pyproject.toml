@@ -9,7 +9,7 @@ description = "RAGHub — production-grade multi-user retrieval-augmented genera
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "sachin", email = "sachncs@gmail.com" }]
+authors = [{ name = "Sachin <sachncs@gmail.com>" }]
 keywords = [
     "rag",
     "raghub",
