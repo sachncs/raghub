@@ -131,9 +131,14 @@ def default_vector_store(embedding_dim: int) -> Any:
         embedding_dim: Expected output dimensionality of the embedder.
 
     Returns:
-        :class:`QdrantVectorStore` when ``qdrant-client`` is
-        installed and the ``QDRANT_URL`` env var is set; otherwise
-        :class:`InMemoryVectorStore`.
+        :class:`QdrantVectorStore` configured with the
+        ``QDRANT_URL`` and ``QDRANT_API_KEY`` environment variables
+        when ``QDRANT_URL`` is set and the optional dependency is
+        installed; otherwise :class:`InMemoryVectorStore`.
+
+    Raises:
+        ConfigurationError: Surfaced only when the optional SDK is
+            present but the constructor itself raises.
     """
     if not os.getenv("QDRANT_URL"):
         from raghub.vectorstore.memory import InMemoryVectorStore
