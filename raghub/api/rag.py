@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
+from tqdm import tqdm
 
 from raghub.api.async_runner import maybe_await
 from raghub.api.defaults import (
@@ -357,15 +358,25 @@ class RAG:
         )
 
     def ingest_directory_sync(
-        self, directory: Path, metadata: dict[str, Any] | None, user: Any | None
+        self, directory: Path, metadata: dict[str, Any] | None, user: Any | None,
+        *, show_progress: bool = True,
     ) -> PipelineResult:
-        """Recursively ingest a directory synchronously."""
+        """Recursively ingest a directory synchronously.
+
+        Args:
+            directory: Directory to walk.
+            metadata: Optional per-file metadata.
+            user: Optional :class:`UserPrincipal`.
+            show_progress: When ``True`` (default), wrap the file loop
+                in a :class:`tqdm.tqdm` progress bar. Suppress with
+                ``False`` for non-interactive callers.
+        """
         from raghub.models import PipelineResult
 
+        files = sorted(p for p in directory.rglob("*") if p.is_file())
         results: list[PipelineResult] = []
-        for child in sorted(directory.rglob("*")):
-            if not child.is_file():
-                continue
+        iterator = tqdm(files, desc="Ingesting", disable=not show_progress, unit="file")
+        for child in iterator:
             results.append(self.ingest(child, metadata=metadata, user=user))
         return PipelineResult(
             pipeline_id="batch",
@@ -403,15 +414,29 @@ class RAG:
         return await self.ingest_one_async(file_bytes, uri, mime_type, metadata, force, user)
 
     async def ingest_directory_async(
-        self, directory: Path, metadata: dict[str, Any] | None, user: Any | None
+        self,
+        directory: Path,
+        metadata: dict[str, Any] | None,
+        user: Any | None,
+        *,
+        show_progress: bool = True,
     ) -> PipelineResult:
-        """Recursively ingest a directory asynchronously."""
+        """Recursively ingest a directory asynchronously.
+
+        Args:
+            directory: Directory to walk.
+            metadata: Optional per-file metadata.
+            user: Optional :class:`UserPrincipal`.
+            show_progress: When ``True`` (default), wrap the file loop
+                in a :class:`tqdm.tqdm` progress bar. Suppress with
+                ``False`` for non-interactive callers.
+        """
         from raghub.models import PipelineResult
 
+        files = sorted(p for p in directory.rglob("*") if p.is_file())
         results: list[PipelineResult] = []
-        for child in sorted(directory.rglob("*")):
-            if not child.is_file():
-                continue
+        iterator = tqdm(files, desc="Ingesting", disable=not show_progress, unit="file")
+        for child in iterator:
             results.append(await self.aingest(child, metadata=metadata, user=user))
         return PipelineResult(
             pipeline_id="batch",
@@ -660,6 +685,7 @@ class RAG:
         *,
         metadata: dict[str, Any] | None = None,
         user: Any | None = None,
+        show_progress: bool = True,
     ) -> dict[str, list[str]]:
         """Reconcile ``directory`` against the manifest.
 
@@ -672,6 +698,17 @@ class RAG:
         The summary is grouped into ``added``, ``modified``,
         ``unchanged``, and ``removed`` lists so the caller can
         report progress.
+
+        Args:
+            directory: Directory to walk.
+            metadata: Optional per-file metadata.
+            user: Optional :class:`UserPrincipal`.
+            show_progress: When ``True`` (default), wrap the file loop
+                in a :class:`tqdm.tqdm` progress bar.
+
+        Returns:
+            A summary dict with ``added``, ``modified``, ``unchanged``,
+            and ``removed`` lists of source URIs.
         """
         from raghub.knowledge.manifest import sha256_bytes
 
@@ -687,7 +724,9 @@ class RAG:
             "removed": [],
         }
 
-        for child in sorted(directory.rglob("*")):
+        files = sorted(p for p in directory.rglob("*") if p.is_file())
+        iterator = tqdm(files, desc="Syncing index", disable=not show_progress, unit="file")
+        for child in iterator:
             if not child.is_file():
                 continue
             uri = str(child.resolve())

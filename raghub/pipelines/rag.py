@@ -32,6 +32,8 @@ from collections.abc import AsyncIterator
 from hashlib import sha256
 from typing import Any
 
+from tqdm import tqdm
+
 from raghub.converters.plaintext import PlainTextConverter
 from raghub.exceptions import PipelineError
 from raghub.ingestion.chunkers.word_window import WordWindowChunker
@@ -173,6 +175,7 @@ class IngestPipeline(Pipeline):
         self.vector_store = vector_store
         self.knowledge_repo = knowledge_repo or InMemoryKnowledgeRepository()
         self.telemetry = telemetry or NoOpTelemetry()
+        self.show_progress = True
 
     def vectors_already_indexed(self, chunks: list[Chunk]) -> bool:
         """Return ``True`` when every chunk already lives in the vector store.
@@ -300,13 +303,20 @@ class IngestPipeline(Pipeline):
                 bundle.metadata = {**bundle.metadata, **normalized_metadata}
 
                 with self.telemetry.span("ingest.chunk"):
-                    chunks = self.chunker.chunk(bundle)
-                    for chunk in chunks:
+                    raw_chunks = self.chunker.chunk(bundle)
+                    chunks: list = []
+                    for chunk in tqdm(
+                        raw_chunks,
+                        desc="Chunking",
+                        disable=not getattr(self, "show_progress", True),
+                        unit="chunk",
+                    ):
                         chunk.document_id = document_id
                         chunk.version = version
                         chunk.company = tenant_company
                         chunk.owner = owner
                         chunk.classification = classification
+                        chunks.append(chunk)
 
                 texts = [chunk.text for chunk in chunks]
                 with self.telemetry.span("ingest.embed", count=len(texts)):
