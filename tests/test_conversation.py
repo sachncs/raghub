@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,7 +10,6 @@ import pytest
 from raghub.conversation.manager import ConversationManager
 from raghub.conversation.sliding_window import SlidingWindowManager
 from raghub.models import ConversationTurn, SessionRecord
-
 
 # ---------------------------------------------------------------------------
 # SlidingWindowManager
@@ -197,8 +196,8 @@ def manager(mock_uow: MagicMock) -> ConversationManager:
 def sample_record() -> SessionRecord:
     return SessionRecord(
         user_id="user-1",
-        expires_at=datetime.now(timezone.utc) + timedelta(seconds=3600),
-        last_seen_at=datetime.now(timezone.utc),
+        expires_at=datetime.now(UTC) + timedelta(seconds=3600),
+        last_seen_at=datetime.now(UTC),
     )
 
 
@@ -220,7 +219,7 @@ class TestConversationManagerBuild:
         mock_uow: MagicMock,
     ) -> None:
         session = await manager.build("user-1")
-        assert session.expires_at > datetime.now(timezone.utc)
+        assert session.expires_at > datetime.now(UTC)
 
     async def test_build_generates_unique_session_id(
         self,

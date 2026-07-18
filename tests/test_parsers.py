@@ -7,13 +7,12 @@ Office, CSV, plain text) plus the MIME/extension-based dispatch in
 
 from __future__ import annotations
 
-
 from raghub.documents.parsers import ParserRegistry
-from raghub.documents.parsers.pdf_parser import PdfParser
+from raghub.documents.parsers.csv_parser import CsvParser
 from raghub.documents.parsers.html_parser import HtmlParser
 from raghub.documents.parsers.image_parser import ImageParser
 from raghub.documents.parsers.office_parser import OfficeParser
-from raghub.documents.parsers.csv_parser import CsvParser
+from raghub.documents.parsers.pdf_parser import PdfParser
 from raghub.documents.parsers.txt_parser import TxtParser
 
 
@@ -136,6 +135,7 @@ class TestParserRegistry:
 
 def _make_minimal_pdf() -> bytes:
     from io import BytesIO
+
     from pypdf import PdfWriter
 
     w = PdfWriter()
@@ -165,8 +165,9 @@ def _make_minimal_png() -> bytes:
 
 
 def _make_minimal_docx() -> bytes:
-    from docx import Document
     from io import BytesIO
+
+    from docx import Document
 
     doc = Document()
     doc.add_paragraph("Hello World")
@@ -176,8 +177,9 @@ def _make_minimal_docx() -> bytes:
 
 
 def _make_minimal_xlsx() -> bytes:
-    from openpyxl import Workbook
     from io import BytesIO
+
+    from openpyxl import Workbook
 
     wb = Workbook()
     ws = wb.active
@@ -189,8 +191,9 @@ def _make_minimal_xlsx() -> bytes:
 
 
 def _make_minimal_pptx() -> bytes:
-    from pptx import Presentation
     from io import BytesIO
+
+    from pptx import Presentation
 
     prs = Presentation()
     slide_layout = prs.slide_layouts[0]

@@ -77,48 +77,50 @@ class DocumentStateMachine:
             sets, marking them terminal.
     """
 
-    allowed: dict[DocumentLifecycleStatus, set[DocumentLifecycleStatus]] = {
-        DocumentLifecycleStatus.NEW: {
-            DocumentLifecycleStatus.VALIDATING,
-            DocumentLifecycleStatus.FAILED,
-        },
-        DocumentLifecycleStatus.VALIDATING: {
-            DocumentLifecycleStatus.PROCESSING,
-            DocumentLifecycleStatus.FAILED,
-        },
-        DocumentLifecycleStatus.PROCESSING: {
-            DocumentLifecycleStatus.CHUNKING,
-            DocumentLifecycleStatus.FAILED,
-        },
-        DocumentLifecycleStatus.CHUNKING: {
-            DocumentLifecycleStatus.EMBEDDING,
-            DocumentLifecycleStatus.FAILED,
-        },
-        DocumentLifecycleStatus.EMBEDDING: {
-            DocumentLifecycleStatus.INDEXING,
-            DocumentLifecycleStatus.FAILED,
-        },
-        DocumentLifecycleStatus.INDEXING: {
-            DocumentLifecycleStatus.READY,
-            DocumentLifecycleStatus.UPDATING,
-            DocumentLifecycleStatus.FAILED,
-        },
-        DocumentLifecycleStatus.READY: {
-            DocumentLifecycleStatus.UPDATING,
-            DocumentLifecycleStatus.DELETING,
-            DocumentLifecycleStatus.ARCHIVED,
-        },
-        DocumentLifecycleStatus.UPDATING: {
-            DocumentLifecycleStatus.INDEXING,
-            DocumentLifecycleStatus.FAILED,
-        },
-        DocumentLifecycleStatus.DELETING: {
-            DocumentLifecycleStatus.ARCHIVED,
-            DocumentLifecycleStatus.FAILED,
-        },
-        DocumentLifecycleStatus.ARCHIVED: set(),
-        DocumentLifecycleStatus.FAILED: set(),
-    }
+    def __init__(self) -> None:
+        """Initialise the immutable allowed-transition table."""
+        self.allowed: dict[DocumentLifecycleStatus, set[DocumentLifecycleStatus]] = {
+            DocumentLifecycleStatus.NEW: {
+                DocumentLifecycleStatus.VALIDATING,
+                DocumentLifecycleStatus.FAILED,
+            },
+            DocumentLifecycleStatus.VALIDATING: {
+                DocumentLifecycleStatus.PROCESSING,
+                DocumentLifecycleStatus.FAILED,
+            },
+            DocumentLifecycleStatus.PROCESSING: {
+                DocumentLifecycleStatus.CHUNKING,
+                DocumentLifecycleStatus.FAILED,
+            },
+            DocumentLifecycleStatus.CHUNKING: {
+                DocumentLifecycleStatus.EMBEDDING,
+                DocumentLifecycleStatus.FAILED,
+            },
+            DocumentLifecycleStatus.EMBEDDING: {
+                DocumentLifecycleStatus.INDEXING,
+                DocumentLifecycleStatus.FAILED,
+            },
+            DocumentLifecycleStatus.INDEXING: {
+                DocumentLifecycleStatus.READY,
+                DocumentLifecycleStatus.UPDATING,
+                DocumentLifecycleStatus.FAILED,
+            },
+            DocumentLifecycleStatus.READY: {
+                DocumentLifecycleStatus.UPDATING,
+                DocumentLifecycleStatus.DELETING,
+                DocumentLifecycleStatus.ARCHIVED,
+            },
+            DocumentLifecycleStatus.UPDATING: {
+                DocumentLifecycleStatus.INDEXING,
+                DocumentLifecycleStatus.FAILED,
+            },
+            DocumentLifecycleStatus.DELETING: {
+                DocumentLifecycleStatus.ARCHIVED,
+                DocumentLifecycleStatus.FAILED,
+            },
+            DocumentLifecycleStatus.ARCHIVED: set(),
+            DocumentLifecycleStatus.FAILED: set(),
+        }
 
     def can_transition(
         self, current: DocumentLifecycleStatus, target: DocumentLifecycleStatus

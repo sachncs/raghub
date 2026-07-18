@@ -16,14 +16,12 @@ from raghub.cli import (
     init_cmd,
     main,
     query_cmd,
-    run_cmd,
     system,
 )
 from raghub.cli.common import (
     load_settings_or_path,
     print_json,
     run_async,
-    write_json,
 )
 
 
@@ -109,7 +107,7 @@ def test_init_prints_sample_when_no_output() -> None:
     )
     try:
         ns = main.build_parser().parse_args(["init"])
-        handler = getattr(ns, "handler")
+        handler = ns.handler
         with redirect_stdout(io.StringIO()):
             handler(ns)
     finally:
@@ -132,7 +130,7 @@ def test_init_writes_sample_to_file(tmp_path: Path) -> None:
 def test_health_prints_json() -> None:
     """``health`` writes a JSON status dict via stdout."""
     ns = main.build_parser().parse_args(["health"])
-    handler = getattr(ns, "handler")
+    handler = ns.handler
     buf = io.StringIO()
     with redirect_stdout(buf):
         handler(ns)
@@ -165,13 +163,13 @@ def test_ingest_query_round_trip(tmp_path: Path) -> None:
     ingest_buf = io.StringIO()
     with redirect_stdout(ingest_buf):
         ns = main.build_parser().parse_args(["ingest", "--config", str(cfg), str(doc)])
-        getattr(ns, "handler")(ns)
+        ns.handler(ns)
     ingest_text = ingest_buf.getvalue()
 
     query_buf = io.StringIO()
     with redirect_stdout(query_buf):
         ns = main.build_parser().parse_args(["query", "--config", str(cfg), "revenue"])
-        getattr(ns, "handler")(ns)
+        ns.handler(ns)
     query_text = query_buf.getvalue()
 
     ingest_payload = _last_json(ingest_text)

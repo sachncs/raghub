@@ -358,8 +358,12 @@ class RAG:
         )
 
     def ingest_directory_sync(
-        self, directory: Path, metadata: dict[str, Any] | None, user: Any | None,
-        *, show_progress: bool = True,
+        self,
+        directory: Path,
+        metadata: dict[str, Any] | None,
+        user: Any | None,
+        *,
+        show_progress: bool = True,
     ) -> PipelineResult:
         """Recursively ingest a directory synchronously.
 

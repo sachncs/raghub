@@ -28,8 +28,9 @@ from __future__ import annotations
 
 import re
 import sys
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 
 from loguru import logger as loguru_logger
 
@@ -67,7 +68,7 @@ def redact_record(record: dict[str, Any]) -> None:
     record.update(scrubbed)
 
 
-def build_logger(level: str = "INFO") -> "LoguruLogger":
+def build_logger(level: str = "INFO") -> LoguruLogger:
     """Configure the process-wide loguru logger.
 
     Removes any default sinks installed by loguru's ``logger`` module

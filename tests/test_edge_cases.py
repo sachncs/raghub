@@ -22,7 +22,7 @@ from raghub.documents.chunker import (
     chunk_words,
     extract_text_from_content,
 )
-from raghub.documents.validation import validate_upload, detect_mime_type
+from raghub.documents.validation import detect_mime_type, validate_upload
 from raghub.exceptions import DocumentError
 from raghub.ingestion.service import DocumentIngestionService
 from raghub.models import (
@@ -32,7 +32,6 @@ from raghub.models import (
     UserPrincipal,
 )
 from raghub.prompts.builder import PromptBuilder, PromptConfig, TokenCounter
-
 
 # =========================================================================
 # 1. Empty document ingestion

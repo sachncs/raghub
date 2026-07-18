@@ -631,8 +631,8 @@ class TestLifespan:
 class TestStorageError:
     def test_storage_error_returns_500(self, app: Any) -> None:
         """The StorageError exception handler returns a 500 response."""
-        from fastapi.testclient import TestClient
         from fastapi.responses import JSONResponse
+        from fastapi.testclient import TestClient
 
         @app.exception_handler(StorageError)
         def _handler(_: Any, exc: StorageError) -> JSONResponse:  # type: ignore[no-untyped-def]

@@ -10,7 +10,6 @@ from raghub.ingestion.chunkers.chonkie import (
 )
 from raghub.models import BlockKind, DocumentBlock, DocumentSection, KnowledgeBundle
 
-
 pytestmark = pytest.mark.skipif(
     not pytest.importorskip("chonkie", reason="chonkie not installed"),
     reason="chonkie is the system under test",

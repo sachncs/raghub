@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
+from datetime import UTC, datetime
 
 from raghub.models import (
     BlockKind,
@@ -114,7 +113,7 @@ def test_pipeline_context_starts_now() -> None:
     # ``ctx.started_at`` is a timezone-aware UTC ``datetime``. Compare
     # with a fresh timezone-aware UTC ``datetime.now`` to compute the
     # delta.
-    delta = abs((datetime.now(timezone.utc) - ctx.started_at).total_seconds())
+    delta = abs((datetime.now(UTC) - ctx.started_at).total_seconds())
     assert delta < 5
 
 

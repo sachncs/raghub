@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from raghub.converters.directory import convert_path, select_converter_for_path
 from raghub.converters.markdown import (
     markdown_to_document_blocks,
     normalise_markdown,
@@ -16,11 +17,9 @@ from raghub.converters.marker import (
     build_marker_converter,
     looks_like_pdf,
 )
-from raghub.converters.directory import convert_path, select_converter_for_path
 from raghub.converters.plaintext import PlainTextConverter
 from raghub.exceptions import ConfigurationError, ConversionError
 from raghub.models import BlockKind, KnowledgeBundle
-
 
 # =========================================================================
 # markdown.py
@@ -256,8 +255,8 @@ class TestConvertPath:
 
     def test_pdf_routes_to_marker(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """For a .pdf path convert_path picks MarkerConverter."""
-        from raghub.converters import marker as marker_module
         from raghub.converters import directory as directory_module
+        from raghub.converters import marker as marker_module
 
         recorded_source: list[str] = []
 

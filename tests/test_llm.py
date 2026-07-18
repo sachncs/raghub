@@ -53,7 +53,6 @@ class TestGetAttr:
 
     def test_lazy_loads_litellm_provider(self) -> None:
         from raghub.llm import LiteLLMProvider as LazyLiteLLM
-
         from raghub.llm.litellm import LiteLLMProvider as DirectLiteLLM
 
         assert LazyLiteLLM is DirectLiteLLM

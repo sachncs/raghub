@@ -17,9 +17,8 @@ from __future__ import annotations
 
 import asyncio
 
-
-from raghub.models import ChunkRecord, Classification, UserPrincipal
 from raghub import RAG
+from raghub.models import ChunkRecord, Classification, UserPrincipal
 
 
 def _make_user(email: str, *companies: str, is_admin: bool = False) -> UserPrincipal:

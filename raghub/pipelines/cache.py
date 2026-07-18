@@ -88,7 +88,9 @@ class QueryCache:
             )
         history_key = tuple(
             (
-                turn.get("question", "") if isinstance(turn, dict) else getattr(turn, "question", ""),
+                turn.get("question", "")
+                if isinstance(turn, dict)
+                else getattr(turn, "question", ""),
                 turn.get("answer", "") if isinstance(turn, dict) else getattr(turn, "answer", ""),
             )
             for turn in history
@@ -218,8 +220,7 @@ class QueryCache:
         to_delete = [
             k
             for k in self._store
-            if (question is None or k[0] == question)
-            and (user_id is None or k[1] == user_id)
+            if (question is None or k[0] == question) and (user_id is None or k[1] == user_id)
         ]
         for key in to_delete:
             del self._store[key]

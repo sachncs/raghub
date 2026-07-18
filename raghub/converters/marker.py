@@ -21,6 +21,7 @@ shape.
 
 from __future__ import annotations
 
+import contextlib
 import inspect
 from typing import Any
 
@@ -32,15 +33,11 @@ MarkerPdfConverter: Any
 marker_create_model_dict: Any
 
 try:
-    marker_module = __import__(
-        "marker.converters.pdf", fromlist=["PdfConverter"]
-    )
+    marker_module = __import__("marker.converters.pdf", fromlist=["PdfConverter"])
     MarkerPdfConverter = marker_module.PdfConverter
 
     try:
-        marker_models_module = __import__(
-            "marker.models", fromlist=["create_model_dict"]
-        )
+        marker_models_module = __import__("marker.models", fromlist=["create_model_dict"])
         marker_create_model_dict = marker_models_module.create_model_dict
     except Exception:  # pragma: no cover - older marker
         marker_create_model_dict = None
@@ -59,7 +56,7 @@ def build_marker_converter() -> Any:
     if not MARKER_AVAILABLE or MarkerPdfConverter is None:
         raise ConfigurationError(
             "marker-pdf is not installed; install it via "
-            "`pip install marker-pdf` or set a custom converter."
+            "`pip install 'raghub[pdf]'` or set a custom converter."
         )
     sig = inspect.signature(MarkerPdfConverter)
     params = sig.parameters
@@ -70,9 +67,7 @@ def build_marker_converter() -> Any:
         return MarkerPdfConverter(**kwargs)
     except TypeError:
         # Older API: ``PdfConverter(config=..., artifact_dict=...)``.
-        marker_parser_module = __import__(
-            "marker.config.parser", fromlist=["ConfigParser"]
-        )
+        marker_parser_module = __import__("marker.config.parser", fromlist=["ConfigParser"])
         ConfigParser = marker_parser_module.ConfigParser
 
         parser = ConfigParser({})
@@ -100,7 +95,7 @@ class MarkerConverter(DocumentConverter):
         if not MARKER_AVAILABLE:
             raise ConfigurationError(
                 "marker-pdf is not installed; install it via "
-                "`pip install marker-pdf` or set a custom converter."
+                "`pip install 'raghub[pdf]'` or set a custom converter."
             )
         self.converter: Any | None = None
 
@@ -181,18 +176,14 @@ class MarkerConverter(DocumentConverter):
             try:
                 rendered = self.marker_converter_instance()(tmp_path)
             finally:
-                try:
+                with contextlib.suppress(OSError):
                     os.unlink(tmp_path)
-                except OSError:
-                    pass
         except ConfigurationError:
             raise
         except Exception as exc:
             if tmp_path is not None:
-                try:
+                with contextlib.suppress(OSError):
                     os.unlink(tmp_path)
-                except OSError:
-                    pass
             raise ConversionError(f"Marker conversion failed: {exc}") from exc
 
         markdown = getattr(rendered, "markdown", None) or str(rendered)

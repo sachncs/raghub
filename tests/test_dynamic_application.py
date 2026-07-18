@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-
 pytestmark = pytest.mark.skipif(
     not os.getenv("RAGHUB_RUN_PLATFORM_TESTS"),
     reason=(
@@ -21,10 +20,10 @@ pytestmark = pytest.mark.skipif(
 def _make_app(tmp_path: Path):
     """Build a ``DynamicRagApplication`` against a temp data dir."""
     os.environ["JWT_SECRET"] = "x" * 64
-    from raghub.config.settings import load_settings
-    from raghub.services.application import build_container, DynamicRagApplication
-
     from pydantic import SecretStr
+
+    from raghub.config.settings import load_settings
+    from raghub.services.application import DynamicRagApplication, build_container
 
     settings = load_settings()
     settings.data_dir = tmp_path

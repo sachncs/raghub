@@ -32,10 +32,8 @@ def load_settings_or_path(path: str | None) -> AppSettings:
     import yaml
 
     if str(path).endswith(".toml"):
-        if sys.version_info >= (3, 11):
-            import tomllib
-        else:
-            import tomli as tomllib
+        import tomllib
+
         data = tomllib.loads(Path(path).read_text(encoding="utf-8")) or {}
     else:
         data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
@@ -48,7 +46,7 @@ def print_json(payload: Any) -> None:
     Args:
         payload: Any JSON-serialisable object.
     """
-    loguru_logger.info(json.dumps(payload, indent=2, default=str))  # noqa: LOG007
+    loguru_logger.info(json.dumps(payload, indent=2, default=str))
 
 
 def write_json(payload: Any) -> None:
@@ -57,8 +55,6 @@ def write_json(payload: Any) -> None:
     Args:
         payload: Any JSON-serialisable object.
     """
-    import sys
-
     sys.stdout.write(json.dumps(payload, indent=2, default=str))
     sys.stdout.write("\n")
     sys.stdout.flush()

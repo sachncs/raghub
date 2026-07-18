@@ -35,10 +35,7 @@ def run_subcommand(args: argparse.Namespace) -> int:
     Returns:
         ``0`` on success.
     """
-    if args.config:
-        rag = RAG.from_config(args.config)
-    else:
-        rag = RAG()
+    rag = RAG.from_config(args.config) if args.config else RAG()
 
     if args.async_job:
         job_id = rag.ingest_async(args.path)

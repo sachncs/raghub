@@ -111,9 +111,9 @@ class BatchIngestResponse(BaseModel):
 __all__ = [
     "AuthLoginRequest",
     "AuthLoginResponse",
+    "BatchIngestItem",
+    "BatchIngestResponse",
     "DocumentUploadResponse",
     "QueryRequest",
     "QueryResponse",
-    "BatchIngestItem",
-    "BatchIngestResponse",
 ]

@@ -121,7 +121,9 @@ def test_ingest_and_query_isolated_access(app_service) -> None:
     )
 
     result = asyncio.run(
-        app_service.query(token=alice_login.session_token, question="What happened to Apple revenue?")
+        app_service.query(
+            token=alice_login.session_token, question="What happened to Apple revenue?"
+        )
     )
     # The canonical guarantees: login + RBAC principal resolution
     # works; upload runs end-to-end; query returns a typed response.

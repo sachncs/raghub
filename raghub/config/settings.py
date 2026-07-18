@@ -14,7 +14,6 @@ when either invariant is violated.
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -133,10 +132,8 @@ def read_toml_file(path: Path) -> dict[str, Any]:
         optional dependencies are non-fatal: the caller logs a
         warning and falls back to YAML.
     """
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:
-        import tomli as tomllib
+    import tomllib
+
     try:
         return tomllib.loads(path.read_text(encoding="utf-8")) or {}
     except ImportError:

@@ -52,9 +52,7 @@ class Tracer:
 
             from raghub.observability.tracing_exporters import SafeConsoleSpanExporter
         except ImportError as exc:
-            raise ConfigurationError(
-                "OpenTelemetry tracing requires opentelemetry-sdk"
-            ) from exc
+            raise ConfigurationError("OpenTelemetry tracing requires opentelemetry-sdk") from exc
 
         resource = Resource.create({"service.name": service_name})
         provider = TracerProvider(resource=resource)

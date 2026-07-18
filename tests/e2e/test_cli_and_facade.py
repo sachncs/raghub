@@ -15,8 +15,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
-
 
 def test_python_m_raghub_cli_runs() -> None:
     """``python -m raghub.cli <sub>`` exits 0 for the canonical subcommands."""

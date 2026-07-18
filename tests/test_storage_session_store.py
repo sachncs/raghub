@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from threading import RLock
 from unittest.mock import MagicMock
 
@@ -13,12 +13,11 @@ from raghub.models import ConversationTurn, SessionRecord
 from raghub.storage.session_store import JsonSessionStore
 from raghub.utils import load_json
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-EPOCH = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+EPOCH = datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
 
 
 def _make_turn(question: str = "q", answer: str = "a") -> ConversationTurn:
@@ -132,7 +131,7 @@ class TestCreate:
         assert s1.token != s2.token
 
     def test_timestamps(self, store):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         session = store.create("user1")
         assert session.created_at == session.last_seen_at
         assert session.expires_at == session.created_at + timedelta(seconds=3600)
@@ -162,7 +161,7 @@ class TestResolve:
 
     def test_expired_token_returns_none_and_evicts(self, store):
         session = store.create("user1")
-        past = datetime.now(timezone.utc) - timedelta(hours=2)
+        past = datetime.now(UTC) - timedelta(hours=2)
         session.expires_at = past
         resolved = store.resolve(session.token)
         assert resolved is None
@@ -187,7 +186,7 @@ class TestResolve:
 
     def test_expired_session_evicted_from_disk(self, store):
         session = store.create("user1")
-        past = datetime.now(timezone.utc) - timedelta(hours=2)
+        past = datetime.now(UTC) - timedelta(hours=2)
         session.expires_at = past
         store.resolve(session.token)
 
@@ -262,7 +261,7 @@ class TestAppendTurn:
 
     def test_expired_token_raises(self, store):
         session = store.create("user1")
-        past = datetime.now(timezone.utc) - timedelta(hours=2)
+        past = datetime.now(UTC) - timedelta(hours=2)
         session.expires_at = past
         turn = _make_turn()
         with pytest.raises(AuthenticationError, match="Invalid session"):
@@ -307,7 +306,7 @@ class TestLoadTurns:
 
     def test_empty_list_for_expired_token(self, store):
         session = store.create("user1")
-        past = datetime.now(timezone.utc) - timedelta(hours=2)
+        past = datetime.now(UTC) - timedelta(hours=2)
         session.expires_at = past
         assert store.load_turns(session.token) == []
 
@@ -339,7 +338,7 @@ class TestClearTurns:
 
     def test_expired_token_raises(self, store):
         session = store.create("user1")
-        past = datetime.now(timezone.utc) - timedelta(hours=2)
+        past = datetime.now(UTC) - timedelta(hours=2)
         session.expires_at = past
         with pytest.raises(AuthenticationError, match="Invalid session"):
             store.clear_turns(session.token)
@@ -383,7 +382,7 @@ class TestExpiry:
 
     def test_create_sets_expiry_in_future(self, store):
         session = store.create("user1")
-        assert session.expires_at > datetime.now(timezone.utc)
+        assert session.expires_at > datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------

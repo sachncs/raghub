@@ -138,7 +138,7 @@ class ChonkieChunker(Chunker):
         chunks: list[Chunk] = []
         for section in bundle.sections:
             for block in section.blocks:
-                if not block.kind.value == "text":
+                if block.kind.value != "text":
                     continue
                 pieces = self.chonkie_text_chunks(block.content)
                 for piece in pieces:

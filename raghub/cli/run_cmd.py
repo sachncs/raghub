@@ -59,7 +59,7 @@ def run_subcommand(args: argparse.Namespace) -> int:
     )
     server = uvicorn.Server(config)
     server.run()
-    return int(server.should_exit and 0 or 1)
+    return int((server.should_exit and 0) or 1)
 
 
 __all__ = ["add_parser", "run_subcommand"]

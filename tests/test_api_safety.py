@@ -93,15 +93,11 @@ def test_health_login_query_metrics_smoke(tmp_path) -> None:
     assert health.status_code == 200
     assert health.json()["status"] in {"ok", "degraded"}
 
-    login = client.post(
-        "/v1/auth/login", json={"email": "alice@email.com", "password": "test"}
-    )
+    login = client.post("/v1/auth/login", json={"email": "alice@email.com", "password": "test"})
     assert login.status_code == 200
     token = login.json()["session_token"]
 
-    history = client.get(
-        "/v1/session/history", headers={"Authorization": f"Bearer {token}"}
-    )
+    history = client.get("/v1/session/history", headers={"Authorization": f"Bearer {token}"})
     assert history.status_code == 200
 
     metrics = client.get("/metrics")

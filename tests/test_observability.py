@@ -7,7 +7,7 @@ introspect log output or scrape the Prometheus exposition format.
 
 from __future__ import annotations
 
-from raghub.observability.logging import LoguruLogger, LoguruTelemetryProvider, build_logger
+from raghub.observability.logging import LoguruLogger, build_logger
 from raghub.observability.metrics import NullMetrics, PrometheusMetrics
 from raghub.observability.tracing import Tracer
 

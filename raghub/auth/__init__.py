@@ -10,8 +10,6 @@ SQLite-backed user store used by the API.
 
 from __future__ import annotations
 
-from typing import Any
-
 from raghub.auth.rbac import RBACAuthorizationService
 from raghub.auth.user_store import SqliteUserStore, UserRecord
 

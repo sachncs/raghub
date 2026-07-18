@@ -5,7 +5,7 @@ RAGHub production state lives in three places:
 | State | Location | Backing store |
 |---|---|---|
 | SQLite registry (documents, chunks) | `RAG_REGISTRY_PATH` | `./data/registry.db` |
-| SQLite session store (JWT sessions) | `RAG_SESSIONS_PATH` | `./data/sessions.db` |
+| SQLite session store (opaque session tokens) | `RAG_SESSIONS_PATH` | `./data/sessions.db` |
 | Qdrant vectors | `QDRANT_URL` HTTP API | named volume `raghub_qdrant_data` |
 | Document upload blob cache | `RAG_DATA_DIR/images` | `./data/images` (optional) |
 

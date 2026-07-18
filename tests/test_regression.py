@@ -10,17 +10,16 @@ import pytest
 
 from raghub import RAG
 from raghub.config.settings import AppSettings
+from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.generation.generator import DefaultGenerator
 from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.interfaces.observability import TelemetryProvider
 from raghub.knowledge.manifest import SourceManifest
+from raghub.llm.heuristic import HeuristicLLMProvider
 from raghub.observability.noop import NoOpTelemetry
 from raghub.observability.redact import RedactingTelemetry
 from raghub.pipelines.rag import IngestPipeline, QueryPipeline
-from raghub.embeddings.hashing import HashingEmbeddingProvider
 from raghub.vectorstore.memory import InMemoryVectorStore
-from raghub.llm.heuristic import HeuristicLLMProvider
-from raghub.generation.generator import DefaultGenerator
-
 
 # ---------------------------------------------------------------------------
 # asyncio.run-inside-event-loop fix
@@ -239,8 +238,8 @@ def test_incremental_short_circuits_unchanged() -> None:
         embedder_calls.append(len(texts))
         return real_embed(texts)
 
-    from typing import cast
     from collections.abc import Callable
+    from typing import cast
 
     rag.embedder.embed_texts = cast(Callable[..., object], spy)
     text = b"unchanged content. The quick brown fox jumps over the lazy dog. " * 4

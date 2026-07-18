@@ -5,16 +5,17 @@ from __future__ import annotations
 import pytest
 
 pytest.importorskip("hypothesis")
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from raghub.evaluation.metrics import (
+    answer_correctness,
     context_precision,
     context_recall,
+    faithfulness,
     mean_reciprocal_rank,
     precision_at_k,
     recall_at_k,
-    answer_correctness,
-    faithfulness,
 )
 from raghub.knowledge.okf import dumps, from_okf, to_okf
 

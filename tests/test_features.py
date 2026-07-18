@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from time import sleep
 
-
 from raghub.models import ConversationTurn
 
 
@@ -107,8 +106,8 @@ class TestBackgroundIngestionService:
 
 class TestFacetedSearchEngine:
     def test_search_filters(self):
-        from raghub.retrieval.search import SearchFilters
         from raghub.models import Classification
+        from raghub.retrieval.search import SearchFilters
 
         filters = SearchFilters(
             companies=["acme"],

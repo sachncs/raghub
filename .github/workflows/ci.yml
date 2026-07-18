@@ -30,6 +30,12 @@ jobs:
           key: ${{ runner.os }}-lint-${{ hashFiles('pyproject.toml') }}
       - name: Install declared dependencies
         run: pip install -e ".[api,ui,dev]"
+      - name: Install locked production dependencies
+        run: pip install -r requirements-lock.txt
+      - name: Validate lock file
+        run: |
+          python scripts/build_requirements_lock.py
+          git diff --exit-code requirements-lock.txt
       - name: Lint (ruff)
         run: ruff check raghub/ tests/ examples/ bench/
       - name: Format check (ruff)
@@ -53,7 +59,7 @@ jobs:
         run: bandit -r raghub/ -q -ll -i
       - name: Dependency audit (pip-audit, gating)
         run: |
-          pip-audit --strict
+          pip-audit --strict -r requirements-lock.txt
       - name: Validate OpenAPI schema (gating)
         run: |
           python -c "

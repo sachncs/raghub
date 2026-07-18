@@ -11,11 +11,9 @@ from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-
 from raghub.cli import eval_cmd, ingest_cmd, main, system
 from raghub.cli.common import load_settings_or_path
 from raghub.models import PipelineResult
-
 
 # =======================================================================
 # main.py  —  lines 28–34, 38

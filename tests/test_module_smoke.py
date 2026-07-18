@@ -95,9 +95,9 @@ def test_raghub_retrieval_init() -> None:
 def test_raghub_prompts_init() -> None:
     """The prompts package re-exports the canonical builder."""
     from raghub.prompts import (
+        SYSTEM_PROMPT_TEMPLATE,
         PromptBuilder,
         PromptConfig,
-        SYSTEM_PROMPT_TEMPLATE,
         TokenCounter,
     )
 
@@ -143,10 +143,24 @@ def test_raghub_vectorstore_init() -> None:
 
 def test_raghub_interfaces_init_has_submodules() -> None:
     """The interfaces package exposes all submodules."""
-    from raghub.interfaces import chunker, converter, embeddings, evaluation
-    from raghub.interfaces import generator, knowledge, llm, observability
-    from raghub.interfaces import pipeline, plugin, prompts, retrieval
-    from raghub.interfaces import storage, structured, vectorstore, workers
+    from raghub.interfaces import (
+        chunker,
+        converter,
+        embeddings,
+        evaluation,
+        generator,
+        knowledge,
+        llm,
+        observability,
+        pipeline,
+        plugin,
+        prompts,
+        retrieval,
+        storage,
+        structured,
+        vectorstore,
+        workers,
+    )
 
     for module in (
         chunker,

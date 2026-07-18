@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 
-
 from raghub.ingestion.background import BackgroundIngestionService
 from raghub.ingestion.jobs import PersistentJobStore
 from raghub.ingestion.resumable import ResumableBackgroundIngestionService

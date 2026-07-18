@@ -24,7 +24,7 @@ class RBACAuthorizationService:
         user_store: User store held for future admin-elevation flows.
     """
 
-    def __init__(self, user_store: "SqliteUserStore", logger: Any | None = None) -> None:
+    def __init__(self, user_store: SqliteUserStore, logger: Any | None = None) -> None:
         """Initialise the service.
 
         Args:

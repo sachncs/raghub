@@ -14,8 +14,7 @@ from __future__ import annotations
 from loguru import logger as loguru_logger
 
 from raghub.api.admin import SENSITIVE_USER_FIELDS, redact_user_payload
-from raghub.api.app import check_upload_size, create_app, get_app
-from raghub.observability.metrics import known_collectors
+from raghub.api.app import check_upload_size
 from raghub.pipelines.cache import QueryCache, canonical_filters
 
 
@@ -113,9 +112,7 @@ def test_cli_init_handler_uses_loguru(monkeypatch) -> None:
     from raghub.cli import init_cmd
 
     captured: list[str] = []
-    handler_id = loguru_logger.add(
-        lambda m: captured.append(m), level="INFO", format="{message}"
-    )
+    handler_id = loguru_logger.add(lambda m: captured.append(m), level="INFO", format="{message}")
     try:
         rc = init_cmd.run_subcommand(
             type("Args", (), {"output": None})()  # type: ignore[abstract]

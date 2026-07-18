@@ -1,10 +1,19 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from raghub.domain.chunk import Chunk
+from raghub.domain.document import Document
+from raghub.domain.repositories import (
+    ChunkRepository,
+    DocumentRepository,
+    SessionRepository,
+    UnitOfWork,
+)
+from raghub.domain.session import Session
 from raghub.models import (
     ChunkRecord,
     ConversationTurn,
@@ -13,17 +22,6 @@ from raghub.models import (
     SessionRecord,
 )
 from raghub.storage.database import DatabaseManager
-
-from raghub.domain.chunk import Chunk
-from raghub.domain.document import Document
-from raghub.domain.session import Session
-from raghub.domain.repositories import (
-    ChunkRepository,
-    DocumentRepository,
-    SessionRepository,
-    UnitOfWork,
-)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -63,7 +61,7 @@ def document(doc_record: DocumentRecord) -> Document:
 
 @pytest.fixture
 def session_record() -> SessionRecord:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return SessionRecord(
         user_id="user-1",
         expires_at=now,
@@ -227,8 +225,8 @@ class TestSession:
     def test_setattr_record_overriden_via_super(self, session: Session) -> None:
         new_record = SessionRecord(
             user_id="u2",
-            expires_at=datetime.now(timezone.utc),
-            last_seen_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(UTC),
+            last_seen_at=datetime.now(UTC),
         )
         session.record = new_record
         assert session.record is new_record

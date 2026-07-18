@@ -57,10 +57,15 @@ automatically; investigate `docker compose logs` for the cause.
 ### `JWT_SECRET` is missing or shorter than 32 bytes
 
 Symptom: the API container exits within a few seconds and the logs
-end with `RuntimeError: JWT_SECRET must be set in production`.
+end with `RuntimeError: JWT_SECRET must be configured`.
 
 Fix: regenerate the secret with `openssl rand -base64 48`, update
 `.env`, then `docker compose up -d api`.
+
+Note: 0.4.0 dropped the legacy ``JwtAuthenticator``; the secret
+signs opaque session tokens (UUIDs minted by
+:class:`SqliteSessionStore`), not JWTs. The constraint is identical
+(32 random bytes) for compatibility with future signature work.
 
 ### Qdrant is unreachable from the API
 

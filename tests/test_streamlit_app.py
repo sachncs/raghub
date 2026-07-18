@@ -77,10 +77,10 @@ def test_app_uses_chat_message_and_chat_input() -> None:
     that the module imports cleanly and exposes the renderer.
     """
     sys.path.insert(0, ".")
-    import streamlit_app
-
     # _render_chat must exist and accept a RAG + _UserState.
     import inspect
+
+    import streamlit_app
 
     sig = inspect.signature(streamlit_app._render_chat)
     params = list(sig.parameters)

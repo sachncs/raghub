@@ -28,12 +28,14 @@ def test_export_passes_through_success_result() -> None:
 def test_export_reraises_unrelated_value_errors() -> None:
     """``ValueError`` messages that don't mention a closed file are re-raised."""
     exporter = SafeConsoleSpanExporter()
-    with patch(
-        "opentelemetry.sdk.trace.export.ConsoleSpanExporter.export",
-        side_effect=ValueError("some other problem"),
+    with (
+        patch(
+            "opentelemetry.sdk.trace.export.ConsoleSpanExporter.export",
+            side_effect=ValueError("some other problem"),
+        ),
+        pytest.raises(ValueError, match="some other problem"),
     ):
-        with pytest.raises(ValueError, match="some other problem"):
-            exporter.export([_stub_span()])
+        exporter.export([_stub_span()])
 
 
 def test_export_returns_failure_on_closed_stdout() -> None:

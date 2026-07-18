@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Iterable
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -96,10 +97,8 @@ class PersistentJobStore:
 
     def close(self) -> None:
         """Close the underlying SQLite connection."""
-        try:
+        with suppress(Exception):
             self.conn.close()
-        except Exception:
-            pass
 
 
 __all__ = ["PersistentJobStore"]

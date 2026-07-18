@@ -55,7 +55,7 @@ class WordWindowChunker(Chunker):
         chunks: list[Chunk] = []
         for section in bundle.sections:
             for block in section.blocks:
-                if not block.kind.value == "text":
+                if block.kind.value != "text":
                     continue
                 for text in self.word_window_chunks(block.content):
                     chunk_id = deterministic_id(

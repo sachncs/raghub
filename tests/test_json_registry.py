@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from raghub.exceptions import StorageError
-from raghub.models import DocumentLifecycleStatus, DocumentRecord, Visibility, Classification
+from raghub.models import Classification, DocumentLifecycleStatus, DocumentRecord, Visibility
 from raghub.storage.json_registry import JsonDocumentRegistry
 
 
@@ -17,8 +17,8 @@ def _make_record(**overrides) -> DocumentRecord:
         document_id="doc-1",
         version=1,
         checksum="abc",
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
         owner="alice@x",
         organization="Apple",
         department="",

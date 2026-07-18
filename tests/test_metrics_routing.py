@@ -44,13 +44,8 @@ def test_prometheus_metrics_token_routing_uses_model_label() -> None:
     metrics = PrometheusMetrics()
     metrics.increment("tokens.prompt", 4, model="lab")
     metrics.increment("tokens.completion", 7, model="lab")
-    assert (
-        REGISTRY.get_sample_value("raghub_prompt_tokens_total", {"model": "lab"}) == 4
-    )
-    assert (
-        REGISTRY.get_sample_value("raghub_completion_tokens_total", {"model": "lab"})
-        == 7
-    )
+    assert REGISTRY.get_sample_value("raghub_prompt_tokens_total", {"model": "lab"}) == 4
+    assert REGISTRY.get_sample_value("raghub_completion_tokens_total", {"model": "lab"}) == 7
 
 
 def test_prometheus_metrics_routes_to_auth_duration() -> None:
@@ -58,9 +53,5 @@ def test_prometheus_metrics_routes_to_auth_duration() -> None:
     metrics = PrometheusMetrics()
     metrics.record_latency("auth.login.success", 12.0)
     metrics.record_latency("query.execute", 30.0)
-    assert (
-        REGISTRY.get_sample_value("raghub_auth_duration_ms_count", {}) is not None
-    )
-    assert (
-        REGISTRY.get_sample_value("raghub_query_duration_ms_count", {}) is not None
-    )
+    assert REGISTRY.get_sample_value("raghub_auth_duration_ms_count", {}) is not None
+    assert REGISTRY.get_sample_value("raghub_query_duration_ms_count", {}) is not None

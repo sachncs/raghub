@@ -39,7 +39,6 @@ from raghub.models import (
     UserPrincipal,
 )
 
-
 # =========================================================================
 # documents/chunker.py
 # =========================================================================
@@ -237,7 +236,7 @@ class TestExtractTextFromContent:
         assert result == [(0, "unknown", "binary data")]
 
     def test_utf8_decode_fallback(self) -> None:
-        result = extract_text_from_content("héllo wörld".encode("utf-8"), "notes.txt", "text/plain")
+        result = extract_text_from_content("héllo wörld".encode(), "notes.txt", "text/plain")
         assert result == [(0, "full file", "héllo wörld")]
 
 

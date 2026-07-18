@@ -23,7 +23,6 @@ from raghub.services.workers import (
     ThreadPoolWorker,
 )
 
-
 # =======================================================================
 # metrics.py
 # =======================================================================
@@ -52,6 +51,7 @@ class TestNullMetrics:
 class TestPrometheusMetrics:
     def test_register_app_with_fastapi(self):
         from fastapi import FastAPI
+
         from raghub.observability.metrics import PrometheusMetrics
 
         app = FastAPI()
@@ -108,6 +108,7 @@ class TestPrometheusMetrics:
 
     def test_duplicate_init_idempotent(self):
         from prometheus_client import REGISTRY
+
         from raghub.observability.metrics import PrometheusMetrics
 
         # Clear registry first
@@ -476,8 +477,8 @@ def test_build_response_no_structured():
 
 
 def test_build_response_with_hits():
-    from raghub.models import ChunkRecord
     from raghub.api.response import build_response
+    from raghub.models import ChunkRecord
 
     chunk = ChunkRecord(
         chunk_id="c1",
@@ -511,6 +512,7 @@ def test_build_response_with_hits():
 class TestBuildResponseWithStructured:
     def test_structured_model_dump(self):
         from pydantic import BaseModel
+
         from raghub.api.response import build_response
 
         class MyModel(BaseModel):
@@ -609,17 +611,19 @@ class TestDefaultEmbedder:
     def test_litellm_config_error_falls_back_to_hashing(self):
         from raghub.exceptions import ConfigurationError
 
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True):
-            with patch(
+        with (
+            patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
+            patch(
                 "raghub.embeddings.litellm.LiteLLMEmbeddingProvider",
                 side_effect=ConfigurationError("fail"),
-            ):
-                from raghub.api.defaults import default_embedder
-                from raghub.embeddings.hashing import HashingEmbeddingProvider
+            ),
+        ):
+            from raghub.api.defaults import default_embedder
+            from raghub.embeddings.hashing import HashingEmbeddingProvider
 
-                result = default_embedder("gpt-4", 256)
-                assert isinstance(result, HashingEmbeddingProvider)
-                assert result.dimension == 256
+            result = default_embedder("gpt-4", 256)
+            assert isinstance(result, HashingEmbeddingProvider)
+            assert result.dimension == 256
 
 
 @patch.dict("os.environ", {}, clear=True)
@@ -656,16 +660,18 @@ class TestDefaultLLM:
     def test_litellm_config_error_falls_back(self):
         from raghub.exceptions import ConfigurationError
 
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True):
-            with patch(
+        with (
+            patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
+            patch(
                 "raghub.llm.litellm.LiteLLMProvider",
                 side_effect=ConfigurationError("fail"),
-            ):
-                from raghub.api.defaults import default_llm
-                from raghub.llm.heuristic import HeuristicLLMProvider
+            ),
+        ):
+            from raghub.api.defaults import default_llm
+            from raghub.llm.heuristic import HeuristicLLMProvider
 
-                result = default_llm("gpt-4")
-                assert isinstance(result, HeuristicLLMProvider)
+            result = default_llm("gpt-4")
+            assert isinstance(result, HeuristicLLMProvider)
 
 
 @patch.dict("os.environ", {}, clear=True)
@@ -678,21 +684,23 @@ class TestDefaultVectorStore:
         assert isinstance(result, InMemoryVectorStore)
 
     def test_with_qdrant_url(self):
-        with patch.dict(
-            "os.environ",
-            {"QDRANT_URL": "http://qdrant:6333", "QDRANT_API_KEY": "secret"},
-            clear=True,
+        with (
+            patch.dict(
+                "os.environ",
+                {"QDRANT_URL": "http://qdrant:6333", "QDRANT_API_KEY": "secret"},
+                clear=True,
+            ),
+            patch("raghub.vectorstore.qdrant.QdrantVectorStore") as mock_qdrant,
         ):
-            with patch("raghub.vectorstore.qdrant.QdrantVectorStore") as mock_qdrant:
-                from raghub.api.defaults import default_vector_store
+            from raghub.api.defaults import default_vector_store
 
-                result = default_vector_store(384)
-                mock_qdrant.assert_called_once_with(
-                    url="http://qdrant:6333",
-                    api_key="secret",
-                    embedding_dim=384,
-                )
-                assert result is mock_qdrant.return_value
+            result = default_vector_store(384)
+            mock_qdrant.assert_called_once_with(
+                url="http://qdrant:6333",
+                api_key="secret",
+                embedding_dim=384,
+            )
+            assert result is mock_qdrant.return_value
 
     def test_qdrant_config_error_falls_back(self):
         from raghub.exceptions import ConfigurationError
@@ -718,38 +726,42 @@ class TestDefaultStructured:
         assert result is None
 
     def test_with_api_key_returns_instructor(self):
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True):
-            with patch(
-                "raghub.structured.instructor.InstructorStructuredOutputProvider"
-            ) as mock_inst:
-                from raghub.api.defaults import default_structured
+        with (
+            patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
+            patch("raghub.structured.instructor.InstructorStructuredOutputProvider") as mock_inst,
+        ):
+            from raghub.api.defaults import default_structured
 
-                result = default_structured()
-                assert result is mock_inst.return_value
+            result = default_structured()
+            assert result is mock_inst.return_value
 
     def test_import_error_returns_none(self):
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True):
-            with patch(
+        with (
+            patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
+            patch(
                 "raghub.structured.instructor.InstructorStructuredOutputProvider",
                 side_effect=ImportError("not installed"),
-            ):
-                from raghub.api.defaults import default_structured
+            ),
+        ):
+            from raghub.api.defaults import default_structured
 
-                result = default_structured()
-                assert result is None
+            result = default_structured()
+            assert result is None
 
     def test_config_error_returns_none(self):
         from raghub.exceptions import ConfigurationError
 
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True):
-            with patch(
+        with (
+            patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
+            patch(
                 "raghub.structured.instructor.InstructorStructuredOutputProvider",
                 side_effect=ConfigurationError("fail"),
-            ):
-                from raghub.api.defaults import default_structured
+            ),
+        ):
+            from raghub.api.defaults import default_structured
 
-                result = default_structured()
-                assert result is None
+            result = default_structured()
+            assert result is None
 
 
 @patch.dict("os.environ", {}, clear=True)
