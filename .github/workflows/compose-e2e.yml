@@ -18,23 +18,17 @@ jobs:
         image: qdrant/qdrant:v1.12.4
         ports:
           - 6333:6333
-        options: >-
-          --health-cmd "wget --no-verbose --tries=1 --spider http://127.0.0.1:6333/health || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - uses: actions/checkout@v7
       - name: Build api image
         run: docker build -t raghub:e2e .
       - name: Start api
         run: |
-          docker run --rm -d --name raghub-e2e \
-            -p 8000:8000 \
+          docker run --rm -d --name raghub-e2e --network host \
             -e JWT_SECRET="$JWT_SECRET" \
             -e RAG_PROFILE="$RAG_PROFILE" \
             -e CORS_ORIGINS="$CORS_ORIGINS" \
-            -e QDRANT_URL="http://host.docker.internal:6333" \
+            -e QDRANT_URL="http://localhost:6333" \
             raghub:e2e
       - name: Wait for healthy
         run: |
@@ -56,4 +50,4 @@ jobs:
             -d '{"email":"nope@x.com","password":"x"}'
       - name: Stop api
         if: always()
-        run: docker stop raghub-e2e
+        run: docker stop raghub-e2e 2>/dev/null || true
