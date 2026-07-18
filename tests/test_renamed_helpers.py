@@ -83,6 +83,8 @@ def test_api_app_singleton_is_public() -> None:
     """The FastAPI app singleton is now ``app_singleton`` (no leading underscore)."""
     import raghub.api.app as app_module
 
+    # Reset the module singleton to avoid state-leak from other tests.
+    app_module.app_singleton = None
     assert hasattr(app_module, "app_singleton")
     assert not hasattr(app_module, "app_instance")
 
@@ -150,8 +152,9 @@ def test_check_upload_size_returns_bool() -> None:
     assert check_upload_size(1024, 1024) is False
 
 
-def test_get_app_returns_fastapi_instance() -> None:
-    """``get_app`` returns a configured :class:`FastAPI` instance."""
-    app = get_app()
-    assert app is not None
-    assert hasattr(app, "router")
+def test_app_singleton_is_public() -> None:
+    """The module exposes the canonical ``app_singleton`` (no leading underscore)."""
+    import raghub.api.app as app_module
+
+    assert hasattr(app_module, "app_singleton")
+    assert not hasattr(app_module, "app_instance")

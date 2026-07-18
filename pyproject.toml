@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "raghub"
-version = "0.3.3"
+version = "0.4.0"
 description = "RAGHub — production-grade multi-user retrieval-augmented generation platform"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"

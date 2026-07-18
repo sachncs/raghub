@@ -672,7 +672,7 @@ class TestGetApp:
         """get_app() lazily builds and returns the same singleton."""
         import raghub.api.app as app_mod
 
-        app_mod.app_instance = None
+        app_mod.app_singleton = None
 
         async def mock_build(*args: object, **kwargs: object) -> StubApp:
             return StubApp()
