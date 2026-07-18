@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 
-
 def test_raghub_init_exposes_rag() -> None:
     """``raghub.RAG`` is the public facade class."""
     from raghub import RAG
@@ -26,14 +25,16 @@ def test_raghub_api_init_lazy_creates_app() -> None:
 def test_raghub_observability_init() -> None:
     """The observability package re-exports the key helpers."""
     from raghub.observability import (
+        LoguruTelemetryProvider,
         NoOpTelemetry,
         RedactingTelemetry,
-        StructlogTelemetryProvider,
+        build_logger,
     )
 
     assert NoOpTelemetry is not None
     assert RedactingTelemetry is not None
-    assert StructlogTelemetryProvider is not None
+    assert LoguruTelemetryProvider is not None
+    assert callable(build_logger)
 
 
 def test_raghub_telemetry_init() -> None:

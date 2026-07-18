@@ -11,6 +11,17 @@ Three concerns live here:
 * :class:`RBACAuthorizationService` — exposes the role-based check that
   protects admin-only endpoints.
 
+Deprecated
+----------
+
+:class:`JwtAuthenticator` and :class:`JwtSessionManager` are retained
+for backwards compatibility with external consumers that already import
+them. The production application paths (:class:`raghub.services.auth_service.AuthService`)
+do **not** use them: the canonical token is an opaque
+:class:`raghub.models.SessionRecord` token minted by
+:class:`raghub.storage.sqlite_session_store.SqliteSessionStore`.
+New code should not import the deprecated classes.
+
 The JWT secret is provided by the caller; it is never logged or echoed
 back in errors. Callers must rotate the secret by issuing new tokens and
 forcing re-authentication — there is no revoke-by-jti machinery here.
@@ -18,7 +29,7 @@ forcing re-authentication — there is no revoke-by-jti machinery here.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import jwt
@@ -31,6 +42,11 @@ from raghub.storage.sqlite_session_store import SqliteSessionStore
 
 class JwtAuthenticator:
     """Mint and validate HS256 JWTs for the application's users.
+
+    .. deprecated::
+        Use :class:`raghub.storage.sqlite_session_store.SqliteSessionStore`
+        to mint opaque session tokens instead. This class is retained for
+        external integrations that already exchange JWTs with the service.
 
     Attributes:
         secret_key: Shared secret used to sign and verify tokens. Must
@@ -57,7 +73,7 @@ class JwtAuthenticator:
             algorithm: JWT algorithm. ``HS256`` is the default and only
                 one currently exercised.
             expire_minutes: Token lifetime in minutes.
-            logger: Optional structlog/structured logger for audit events.
+            logger: Optional loguru-compatible logger for audit events.
         """
         self.secret_key = secret_key
         self.user_store = user_store
@@ -92,7 +108,7 @@ class JwtAuthenticator:
             raise AuthenticationError("Invalid email or password")
         if self.logger is not None:
             self.logger.info("audit.login.success", email=user.email)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # ``iat`` and ``exp`` are required by ``PyJWT`` when the
         # default options are enabled; both are timezone-aware UTC
         # datetimes which the library serialises as POSIX seconds.
@@ -240,7 +256,7 @@ class RBACAuthorizationService:
         Args:
             user_store: Backing user store. Currently held for future
                 admin-elevation flows.
-            logger: Optional structlog/structured logger for audit events.
+            logger: Optional loguru-compatible logger for audit events.
         """
         self.user_store = user_store
         self.logger = logger

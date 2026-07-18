@@ -2,17 +2,19 @@
 
 The :class:`PrometheusMetrics` class registers histograms for query,
 ingestion, and authentication latencies plus counters for auth
-attempts and errors. Callers that want the metrics surface but don't
+attempts, errors, and LLM tokens. Callers that want the metrics surface but don't
 want Prometheus client-side effects can use :class:`NullMetrics`
 which silently drops every call.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from prometheus_client import REGISTRY, Counter, Histogram
 from prometheus_client.openmetrics.exposition import generate_latest
+
+metric_collectors: dict[str, Counter | Histogram] = {}
 
 
 class NullMetrics:
@@ -67,41 +69,25 @@ class PrometheusMetrics:
                 format.
         """
 
+        def collector_registered(name: str) -> bool:
+            public_name = name.removesuffix("_total")
+            return any(metric.name == public_name for metric in REGISTRY.collect())
+
         def safe_histogram(name: str, desc: str, buckets: list[float]) -> Histogram:
-            """Register or retrieve a Prometheus histogram to avoid duplicating metrics.
-
-            ``REGISTRY._names_to_collectors`` is the canonical
-            private lookup used by Prometheus client itself; we use
-            it to short-circuit re-registration in reload scenarios.
-
-            Args:
-                name: The metric name.
-                desc: The metric description.
-                buckets: Histogram bucket boundaries.
-
-            Returns:
-                A registered :class:`Histogram` instance.
-            """
-            existing: Any = REGISTRY._names_to_collectors.get(name)
-            if existing is not None:
-                return existing
-            return Histogram(name, desc, buckets=buckets, registry=REGISTRY)
+            existing: Any = metric_collectors.get(name)
+            if existing is not None and collector_registered(name):
+                return cast(Histogram, existing)
+            collector = Histogram(name, desc, buckets=buckets, registry=REGISTRY)
+            metric_collectors[name] = collector
+            return collector
 
         def safe_counter(name: str, desc: str, labels: list[str] | None = None) -> Counter:
-            """Register or retrieve a Prometheus counter to avoid duplicating metrics.
-
-            Args:
-                name: The metric name.
-                desc: The metric description.
-                labels: Optional list of label names.
-
-            Returns:
-                A registered :class:`Counter` instance.
-            """
-            existing: Any = REGISTRY._names_to_collectors.get(name)
-            if existing is not None:
-                return existing
-            return Counter(name, desc, labels or [], registry=REGISTRY)
+            existing: Any = metric_collectors.get(name)
+            if existing is not None and collector_registered(name):
+                return cast(Counter, existing)
+            collector = Counter(name, desc, labels or [], registry=REGISTRY)
+            metric_collectors[name] = collector
+            return collector
 
         self.query_duration: Histogram = safe_histogram(
             "raghub_query_duration_ms",
@@ -127,6 +113,16 @@ class PrometheusMetrics:
             "raghub_error_total",
             "Total errors",
             ["error_type"],
+        )
+        self.prompt_tokens: Counter = safe_counter(
+            "raghub_prompt_tokens_total",
+            "Total prompt tokens",
+            ["model"],
+        )
+        self.completion_tokens: Counter = safe_counter(
+            "raghub_completion_tokens_total",
+            "Total completion tokens",
+            ["model"],
         )
         if app is not None:
             self.register_app(app)
@@ -163,24 +159,29 @@ class PrometheusMetrics:
         self.auth_total.labels(success=str(success)).inc()
 
     def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
-        """Record a latency using the query duration histogram.
-
-        Args:
-            name: Metric name.
-            value_ms: Latency in milliseconds.
-            **labels: Optional label set.
-        """
-        self.query_duration.observe(value_ms)
+        """Record latency in the matching public histogram."""
+        normalized = name.lower()
+        if "ingest" in normalized:
+            self.ingestion_duration.observe(value_ms)
+        elif "auth" in normalized:
+            self.auth_duration.observe(value_ms)
+        else:
+            self.query_duration.observe(value_ms)
 
     def increment(self, name: str, value: int = 1, **labels: Any) -> None:
-        """Increment a counter using the error counter.
-
-        Args:
-            name: Counter name.
-            value: Increment amount.
-            **labels: Optional label set.
-        """
-        self.error_total.labels(error_type=name).inc(value)
+        """Increment the matching public counter."""
+        normalized = name.lower()
+        model = str(labels.get("model", ""))
+        if normalized in {"tokens.prompt", "prompt_tokens", "prompt_tokens_total"}:
+            self.prompt_tokens.labels(model=model).inc(value)
+        elif normalized in {
+            "tokens.completion",
+            "completion_tokens",
+            "completion_tokens_total",
+        }:
+            self.completion_tokens.labels(model=model).inc(value)
+        else:
+            self.error_total.labels(error_type=name).inc(value)
 
     def record_error(self, error_type: str) -> None:
         """Increment the error counter for ``error_type``.

@@ -1,4 +1,4 @@
-"""Observability helpers: no-op, redacting, and structural implementations.
+"""Observability helpers: no-op, redacting, and loguru-backed implementations.
 
 The module ships three reusable adapters:
 
@@ -7,16 +7,18 @@ The module ships three reusable adapters:
   without performing any I/O.
 * :class:`RedactingTelemetry` — wraps another telemetry provider and
   scrubs kwargs whose keys look like secrets before forwarding.
-* :class:`StructlogTelemetryProvider` — adapts the legacy structlog +
-  Prometheus + OTel stack to the new contract.
+* :class:`LoguruTelemetryProvider` — adapts the new contract to the
+  loguru + Prometheus + OpenTelemetry stack.
 """
 
+from raghub.observability.logging import LoguruLogger, LoguruTelemetryProvider, build_logger
 from raghub.observability.noop import NoOpTelemetry
 from raghub.observability.redact import RedactingTelemetry
-from raghub.observability.structlog_provider import StructlogTelemetryProvider
 
 __all__ = [
+    "LoguruLogger",
+    "LoguruTelemetryProvider",
     "NoOpTelemetry",
     "RedactingTelemetry",
-    "StructlogTelemetryProvider",
+    "build_logger",
 ]

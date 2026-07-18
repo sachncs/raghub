@@ -1,26 +1,29 @@
-"""OpenTelemetry tracer with a console-span default exporter.
+"""Loguru-backed OpenTelemetry tracer.
 
-By default :class:`OpenTelemetryTracer` installs a
-:class:`ConsoleSpanExporter` so spans are printed to stdout. That is
-useful for local development but is rarely what you want in
-production. Production deployments should call
-:func:`add_otlp_exporter` (or replace ``self.processor`` /
-``provider`` directly) **before** :meth:`instrument_app` so spans
-are shipped to a real collector.
+The :class:`Tracer` wraps :mod:`opentelemetry.sdk.trace` so spans can
+be either printed to stdout (development) or shipped over OTLP
+(production). The public surface is small and stable:
+
+* :meth:`Tracer.add_otlp_exporter` — swap the default console exporter
+  for an OTLP one; safe to call once during application startup.
+* :meth:`Tracer.shutdown` — flush and shut down the underlying
+  provider.
+* :meth:`Tracer.instrument_app` — install FastAPI auto-instrumentation.
+
+Example:
+    >>> from raghub.observability.tracing import Tracer
+    >>> tracer = Tracer()
+    >>> tracer.add_otlp_exporter(endpoint="http://collector:4317")
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from opentelemetry import trace
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from raghub.exceptions import ConfigurationError
 
 
-class OpenTelemetryTracer:
+class Tracer:
     """Wrap an OpenTelemetry tracer provider with FastAPI auto-instrumentation.
 
     Attributes:
@@ -37,13 +40,21 @@ class OpenTelemetryTracer:
         Args:
             service_name: The ``service.name`` resource attribute.
 
-        Note:
-            The default ``ConsoleSpanExporter`` writes spans to
-            stdout. For production use, replace it with an
-            ``OTLPSpanExporter`` (or another network exporter)
-            before invoking :meth:`instrument_app`.
+        Raises:
+            ConfigurationError: When OpenTelemetry SDK packages are
+                not installed.
         """
-        from raghub.observability.tracing_exporters import SafeConsoleSpanExporter
+        try:
+            from opentelemetry import trace
+            from opentelemetry.sdk.resources import Resource
+            from opentelemetry.sdk.trace import TracerProvider
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+            from raghub.observability.tracing_exporters import SafeConsoleSpanExporter
+        except ImportError as exc:
+            raise ConfigurationError(
+                "OpenTelemetry tracing requires opentelemetry-sdk"
+            ) from exc
 
         resource = Resource.create({"service.name": service_name})
         provider = TracerProvider(resource=resource)
@@ -53,12 +64,30 @@ class OpenTelemetryTracer:
         self.provider = provider
         self.tracer = trace.get_tracer(service_name)
 
+    def add_otlp_exporter(self, *, endpoint: str, insecure: bool = True) -> None:
+        """Replace the default console exporter with an OTLP one.
+
+        Args:
+            endpoint: The OTLP collector endpoint (e.g.
+                ``"http://otel-collector:4317"``).
+            insecure: When ``True`` (default) use HTTP/gRPC without
+                TLS. Production deployments should set this to
+                ``False`` and supply a TLS endpoint.
+        """
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        exporter = OTLPSpanExporter(endpoint=endpoint, insecure=insecure)
+        self.provider.add_span_processor(BatchSpanProcessor(exporter))
+
     def instrument_app(self, app: Any) -> None:
         """Auto-instrument a FastAPI app with OpenTelemetry middleware.
 
         Args:
             app: A FastAPI application instance.
         """
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
         FastAPIInstrumentor.instrument_app(app)
 
     def create_span(self, name: str) -> Any:
@@ -72,3 +101,18 @@ class OpenTelemetryTracer:
             from :meth:`tracer.start_as_current_span`.
         """
         return self.tracer.start_as_current_span(name)
+
+    def shutdown(self) -> None:
+        """Flush and shut down the underlying provider.
+
+        Safe to call multiple times.
+        """
+        try:
+            self.provider.shutdown()
+        except Exception:
+            # Shutdown is best-effort; an already-shut-down provider
+            # would otherwise raise a confusing error during tests.
+            return
+
+
+__all__ = ["Tracer"]

@@ -1,7 +1,7 @@
 """Telemetry / observability adapters.
 
 The default adapter is Langfuse (spec requirement). The previous
-in-process stack (structlog + Prometheus + OpenTelemetry) is kept
+in-process stack (loguru + Prometheus + OpenTelemetry) is kept
 under :mod:`raghub.observability` for users who prefer not to send
 data to a third-party service.
 
@@ -18,4 +18,3 @@ from raghub.telemetry.langfuse import (
 )
 
 __all__ = ["LangfuseSpan", "LangfuseTelemetryProvider", "NoopSpan"]
-
