@@ -45,7 +45,12 @@ class ConfigurationError(RagHubError):
 
 
 class ConversionError(RagHubError):
-    """Raised when a document conversion step fails (marker, parser, tesseract)."""
+    """Raised when a document conversion step fails (marker, parser, tesseract).
+
+    Examples:
+        * Marker cannot parse a malformed PDF.
+        * A plain-text converter rejects empty bytes.
+    """
 
 
 class KnowledgeError(RagHubError):
@@ -82,8 +87,8 @@ class EvaluationError(RagHubError):
 
 # ---------------------------------------------------------------------------
 # Legacy / compatibility names (kept for existing API consumers).
-# They are subclasses of :class:`RagHubError` so a single ``except
-# RagHubError`` continues to catch everything.
+# They are subclasses of :class:`RagHubError` so a single
+# ``except RagHubError`` continues to catch everything.
 # ---------------------------------------------------------------------------
 
 
@@ -119,33 +124,44 @@ class PromptError(DynamicRagError):
 class LLMError(DynamicRagError):
     """Raised when LLM generation fails.
 
-    Alias of :class:`GenerationError`; kept for callers that imported
-    the legacy name from older versions of the framework.
+    Examples:
+        * Network timeout against the upstream provider.
+        * Malformed model response.
     """
 
 
 class StorageError(DynamicRagError):
-    """Raised when durable storage fails."""
+    """Raised when persistent storage fails (disk full, permission denied)."""
+
+
+class ValidationError(DynamicRagError):
+    """Raised when caller-supplied input fails validation."""
+
+
+class RateLimitError(DynamicRagError):
+    """Raised when a per-caller rate limit is exceeded."""
 
 
 __all__ = [
-    "AuthenticationError",
-    "AuthorizationError",
+    "RagHubError",
     "ConfigurationError",
     "ConversionError",
-    "DocumentError",
-    "DynamicRagError",
-    "EmbeddingError",
-    "EvaluationError",
-    "GenerationError",
-    "IndexingError",
-    "IngestionError",
     "KnowledgeError",
-    "LLMError",
-    "PipelineError",
-    "PromptError",
-    "RagHubError",
-    "RetrievalError",
-    "StorageError",
+    "IngestionError",
+    "EmbeddingError",
     "VectorStoreError",
+    "RetrievalError",
+    "GenerationError",
+    "PipelineError",
+    "EvaluationError",
+    "DynamicRagError",
+    "AuthenticationError",
+    "AuthorizationError",
+    "DocumentError",
+    "IndexingError",
+    "PromptError",
+    "LLMError",
+    "StorageError",
+    "ValidationError",
+    "RateLimitError",
 ]

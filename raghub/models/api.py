@@ -1,8 +1,8 @@
 """API request/response schemas.
 
-Pydantic models used by the FastAPI surface. These mirror a subset of
-the domain types but are kept separate so the wire format can evolve
-independently of the domain model.
+Pydantic models used by the FastAPI surface. These mirror a subset
+of the domain types but are kept separate so the wire format can
+evolve independently of the domain model.
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ class BatchIngestItem(BaseModel):
         filename: Original filename.
         document_id: The document id assigned on success, or empty.
         status: ``"ok"`` or ``"error"``.
-        error: Error detail when ``status`` is ``"error"``.
+        error: Error detail when ``status == "error"``.
     """
 
     filename: str
@@ -106,3 +106,14 @@ class BatchIngestResponse(BaseModel):
     """
 
     documents: list[BatchIngestItem] = Field(default_factory=list)
+
+
+__all__ = [
+    "AuthLoginRequest",
+    "AuthLoginResponse",
+    "DocumentUploadResponse",
+    "QueryRequest",
+    "QueryResponse",
+    "BatchIngestItem",
+    "BatchIngestResponse",
+]
