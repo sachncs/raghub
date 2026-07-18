@@ -338,8 +338,8 @@ The current collection size is reported by
 covers ingestion pipelines, vector store operations, LiteLLM
 providers (mocked), multi-user RBAC isolation (10 concurrent
 users), session-scoped conversation history, streaming and
-token-usage tracking, JWT auth and unauthorised-access
-isolation, FinanceBench evaluation metrics, the plugin registry
+token-usage tracking, opaque session-token auth and
+unauthorised-access isolation, FinanceBench evaluation metrics, the plugin registry
 and entry-point discovery, all CLI commands, persistence (JSON
 registry, SQLite stores), query-cache TTL/invalidation, tracing
 exporters and OTel span guards, document lifecycle state
@@ -402,9 +402,15 @@ Reports are written to `bench/report.json`.
 
 ## Roadmap
 
-- **v0.3.x** — Current: RAG facade, multi-tenant RBAC, conversational memory, streaming, plugins, FinanceBench evaluator.
-- **v0.4.0** — Planned: expanded plugin entry-point zoo, advanced rerankers (cross-encoder, Cohere), per-tenant rate limits.
-- **v0.5.0** — Planned: streaming-first ingestion UI, query-cache topology, ZVec-backed config presets.
+- **v0.4.0** — Released: RAG facade, multi-tenant RBAC fail-closed, opaque
+  session tokens, loguru-backed observability, tqdm progress bars,
+  canonical ingestion pipeline, fail-closed CORS + admin redaction,
+  single canonical `RAG()` entry point. `pip-audit --strict` clean
+  against `requirements-lock.txt`.
+- **v0.5.0** — Planned: per-tenant rate limits, expanded reranker
+  registry (cross-encoder, Cohere), streaming-first ingestion UI.
+- **v0.6.0** — Planned: ZVec-backed config presets, query-cache
+  topology, Postgres backend for `DocumentRepository`.
 
 ## Contributing
 

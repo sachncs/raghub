@@ -201,19 +201,20 @@ rag = RAG(settings=settings)
 ```
 
 See [`reference/configuration.md`](../reference/configuration.md) for
-the full list of keys and the production invariants (JWT secret
-length, passwordless login, structured-log level).
+the full list of keys and the production invariants (secret length,
+passwordless login, structured-log level).
 
 ## API surface
 
-The package ships a FastAPI server bound to the legacy
-`DynamicRagApplication` (the multi-tenant JWT-auth surface). The new
-`RAG` facade is consumed directly or via the Streamlit UI; for an API
+The package ships a FastAPI server bound to the new `RAG` facade.
+The legacy `DynamicRagApplication` is still reachable under
+`/auth/login`, `/documents/upload`, `/query`, etc., but the
+`RAG` facade is the recommended path for new integrations. For an API
 wrapper of the facade, instantiate it in your own FastAPI routes.
 
 ```bash
-# Run the legacy FastAPI server (port 8000)
-uvicorn raghub.api.app:app --reload
+# Run the FastAPI server (port 8000)
+uvicorn raghub.api.app:get_app --factory --reload
 
 # Run the Streamlit UI (port 8501)
 streamlit run streamlit_app.py

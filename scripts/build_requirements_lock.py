@@ -33,7 +33,7 @@ def main() -> int:
         str(output),
         str(repo_root / "pyproject.toml"),
         "-c",
-        "/tmp/req-overrides.in",
+        str(repo_root / "scripts" / "requirements-constraints.in"),
     ]
     return subprocess.call(cmd)
 

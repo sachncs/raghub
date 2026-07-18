@@ -141,7 +141,7 @@ in `.env`.
 | `RAG_EMBEDDING_MODEL` | Embedding model id |
 | `RAG_LLM_MODEL` | LLM model id |
 | `RAG_LOG_LEVEL` | Log level |
-| `JWT_SECRET` | HS256 signing secret (≥ 32 bytes in production) |
+| `JWT_SECRET` | Opaque session-token signing secret (≥ 32 bytes in production). 0.4.0 no longer issues JWTs; this secret signs the UUID session tokens minted by `SqliteSessionStore`. |
 | `NVIDIA_API_KEY` | NVIDIA provider credential |
 | `OPENAI_API_KEY` | OpenAI credential |
 | `ANTHROPIC_API_KEY` | Anthropic credential |
@@ -158,7 +158,9 @@ in `.env`.
 ## Production checklist
 
 * `JWT_SECRET` is a unique value of at least 32 bytes
-  (`openssl rand -base64 48`).
+  (`openssl rand -base64 48`). It signs the opaque session tokens
+  minted by `SqliteSessionStore`; the legacy JWT path was deleted
+  in 0.4.0.
 * At least one LLM credential is exported (`NVIDIA_API_KEY`,
   `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `LITELLM_API_KEY`).
 * `RAG_PROFILE=production` is set in `.env`.

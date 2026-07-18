@@ -1,0 +1,12 @@
+# Compile-time overrides for pip-compile to clear pip-audit.
+#
+# marker-pdf currently transitively requires:
+#   * Pillow<11 (vulnerable; 12.2+ fixed) - moved to optional extra
+#   * transformers 4.57.6 (vulnerable; 5.0+ fixed)
+#   * markdownify 0.13.1 (vulnerable; 0.14.1 fixed)
+# These pins pull the fix versions into the lock until marker-pdf
+# ships a clean release. Pillow is unpinned here because we removed
+# the marker-pdf transitive coupling; the base image ships Pillow>=12
+# directly via the explicit pyproject dependency.
+transformers>=5.0.0
+markdownify>=0.14.1

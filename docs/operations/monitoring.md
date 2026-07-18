@@ -111,13 +111,16 @@ Uvicorn's `--factory`) continues to expose:
 - `raghub_error_total` (Counter, label `error_type`) — error count
 
 These are wired through
-`raghub.observability.metrics.PrometheusMetrics` +
-`raghub.observability.tracing.OpenTelemetryTracer` +
-`raghub.observability.structlog_provider.StructlogTelemetryProvider`.
+`raghub.observability.metrics.PrometheusMetrics` (registered via
+`metrics.register_app(app)` in `create_app`) and
+`raghub.observability.tracing.Tracer` (constructor takes the OTLP
+endpoint via `tracer.add_otlp_exporter(...)`).
+`raghub.observability.logging.LoguruTelemetryProvider` provides the
+loguru-backed span/logger surface; `RedactingTelemetry` is the
+default wrapper that scrubs secret-like kwargs.
 
-The legacy surface is the only place Prometheus + OTel are
-mounted; the new `RAG` facade does not register a Prometheus
-collector or an OTel exporter itself.
+The RAG facade emits loguru records by default; configure
+`LANGFUSE_*` env vars to forward spans through `LoguruTelemetryProvider`.
 
 ## Container-level observability
 
@@ -134,9 +137,12 @@ container.
 ## Structured logging
 
 `build_logger()` in `raghub.observability.logging` configures
-`structlog`. The recommended key log events are `ingest.start`,
-`ingest.stop`, `query.start`, `query.stop`, and `error`-classed
-events emitted from the pipelines.
+`loguru`. The recommended key log events are `ingest.start`,
+`ingest.stop`, `query.start`, `query.stop`, `cli.ingest.start`,
+`cli.run.starting`, and `error`-classed events emitted from the
+pipelines. `RAG.ingest_directory_*` and `RAG.sync_index` emit
+`tqdm.tqdm` progress bars to stderr at the configured log level;
+set `show_progress=False` for non-interactive callers.
 
 The log level is controlled by `RAG_LOG_LEVEL` (default `INFO`).
 
