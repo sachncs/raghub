@@ -6,13 +6,13 @@ import argparse
 
 from loguru import logger as loguru_logger
 
-from raghub.cli import eval_cmd, ingest_cmd, init_cmd, query_cmd, system
+from raghub.cli import eval_cmd, ingest_cmd, init_cmd, query_cmd, run_cmd, system
 from raghub.cli.rate_limiter import CLIRateLimiter, RateLimitExceeded
 
 CLI_LIMITER = CLIRateLimiter()
 
-# Commands that are exempt from rate limiting (e.g. health, version).
-RATE_LIMIT_EXEMPT_COMMANDS = frozenset({"health", "version"})
+# Commands that are exempt from rate limiting (e.g. health, version, run).
+RATE_LIMIT_EXEMPT_COMMANDS = frozenset({"health", "version", "run"})
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_cmd.add_parser(subparsers)
     query_cmd.add_parser(subparsers)
     eval_cmd.add_parser(subparsers)
+    run_cmd.add_parser(subparsers)
     system.add_parser(subparsers)
     return parser
 

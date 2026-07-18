@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from loguru import logger as loguru_logger
+
 if TYPE_CHECKING:
     from raghub.config.settings import AppSettings
 
@@ -41,13 +43,37 @@ def load_settings_or_path(path: str | None) -> AppSettings:
 
 
 def print_json(payload: Any) -> None:
-    """Print ``payload`` as pretty JSON to stdout."""
-    print(json.dumps(payload, indent=2, default=str))
+    """Emit ``payload`` as pretty JSON via the loguru logger.
+
+    Args:
+        payload: Any JSON-serialisable object.
+    """
+    loguru_logger.info(json.dumps(payload, indent=2, default=str))  # noqa: LOG007
+
+
+def write_json(payload: Any) -> None:
+    """Write ``payload`` as pretty JSON to stdout (unformatted channel).
+
+    Args:
+        payload: Any JSON-serialisable object.
+    """
+    import sys
+
+    sys.stdout.write(json.dumps(payload, indent=2, default=str))
+    sys.stdout.write("\n")
+    sys.stdout.flush()
 
 
 def run_async(coro: Any) -> Any:
-    """Run an async coroutine and return its result."""
+    """Run an async coroutine and return its result.
+
+    Args:
+        coro: The coroutine to run.
+
+    Returns:
+        The coroutine's return value.
+    """
     return asyncio.run(coro)
 
 
-__all__ = ["load_settings_or_path", "print_json", "run_async"]
+__all__ = ["load_settings_or_path", "print_json", "run_async", "write_json"]

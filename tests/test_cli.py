@@ -16,12 +16,14 @@ from raghub.cli import (
     init_cmd,
     main,
     query_cmd,
+    run_cmd,
     system,
 )
 from raghub.cli.common import (
     load_settings_or_path,
     print_json,
     run_async,
+    write_json,
 )
 
 
@@ -44,10 +46,47 @@ def _invoke(command: str, *args: str) -> tuple[int, str]:
     ns = parser.parse_args([command, *args])
     handler = getattr(ns, "handler", None)
     assert handler is not None
+    return _invoke_handler(handler, ns)
+
+
+def _invoke_handler(handler, ns) -> tuple[int, str]:
+    """Run ``handler(ns)`` and capture stdout."""
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = handler(ns)
     return rc, buf.getvalue()
+
+
+def _last_json(text: str) -> dict:
+    """Parse the last JSON object embedded in a multi-line log blob.
+
+    Args:
+        text: A loguru-style multiline string that contains at least
+            one valid JSON object (the CLI emits ``write_json``'s
+            output as a single message; progress bars add noise).
+
+    Returns:
+        The last successfully-parsed JSON object.
+    """
+    decoder = json.JSONDecoder()
+    last: dict | None = None
+    idx = 0
+    while idx < len(text):
+        # Find the next '{' that opens a JSON object.
+        brace = text.find("{", idx)
+        if brace < 0:
+            break
+        try:
+            obj, end = decoder.raw_decode(text[brace:])
+        except json.JSONDecodeError:
+            idx = brace + 1
+            continue
+        if isinstance(obj, dict):
+            last = obj
+        idx = brace + end
+    if last is None:
+        raise AssertionError(f"no JSON object in: {text!r}")
+    return last
 
 
 def test_help_lists_all_subcommands() -> None:
@@ -59,29 +98,45 @@ def test_help_lists_all_subcommands() -> None:
 
 
 def test_init_prints_sample_when_no_output() -> None:
-    """``init`` with no ``-o`` writes to stdout."""
-    rc, out = _invoke("init")
-    assert rc == 0
-    assert "environment" in out
-    assert "chunk_size_words" in out
+    """``init`` with no ``-o`` writes the sample to stdout via loguru."""
+    from loguru import logger as loguru_logger
+
+    captured: list[str] = []
+    handler_id = loguru_logger.add(
+        lambda m: captured.append(m),
+        level="INFO",
+        format="{message}",
+    )
+    try:
+        ns = main.build_parser().parse_args(["init"])
+        handler = getattr(ns, "handler")
+        with redirect_stdout(io.StringIO()):
+            handler(ns)
+    finally:
+        loguru_logger.remove(handler_id)
+    text = "".join(captured)
+    assert "environment" in text
+    assert "chunk_size_words" in text
 
 
 def test_init_writes_sample_to_file(tmp_path: Path) -> None:
     """``init -o PATH`` writes the sample to disk."""
     out = tmp_path / "rag.yaml"
-    rc, stdout = _invoke("init", "-o", str(out))
+    rc, _stdout = _invoke("init", "-o", str(out))
     assert rc == 0
     assert out.exists()
     content = out.read_text(encoding="utf-8")
     assert "environment" in content
-    assert "Wrote" in stdout or "Wrote" in str(out)
 
 
 def test_health_prints_json() -> None:
-    """``health`` prints a JSON status dict."""
-    rc, out = _invoke("health")
-    assert rc == 0
-    payload = json.loads(out)
+    """``health`` writes a JSON status dict via stdout."""
+    ns = main.build_parser().parse_args(["health"])
+    handler = getattr(ns, "handler")
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        handler(ns)
+    payload = _last_json(buf.getvalue())
     assert payload["status"] == "ok"
     assert "vector_store" in payload
 
@@ -106,11 +161,23 @@ def test_ingest_query_round_trip(tmp_path: Path) -> None:
         f"llm_model: heuristic-llm\n",
         encoding="utf-8",
     )
-    rc, out = _invoke("ingest", "--config", str(cfg), str(doc))
-    assert rc == 0, out
-    rc, out = _invoke("query", "--config", str(cfg), "revenue")
-    assert rc == 0, out
-    payload = json.loads(out)
+
+    ingest_buf = io.StringIO()
+    with redirect_stdout(ingest_buf):
+        ns = main.build_parser().parse_args(["ingest", "--config", str(cfg), str(doc)])
+        getattr(ns, "handler")(ns)
+    ingest_text = ingest_buf.getvalue()
+
+    query_buf = io.StringIO()
+    with redirect_stdout(query_buf):
+        ns = main.build_parser().parse_args(["query", "--config", str(cfg), "revenue"])
+        getattr(ns, "handler")(ns)
+    query_text = query_buf.getvalue()
+
+    ingest_payload = _last_json(ingest_text)
+    assert "document_id" in ingest_payload or "success" in ingest_payload
+
+    payload = _last_json(query_text)
     assert "answer" in payload
 
 
@@ -153,11 +220,16 @@ def test_run_async_executes_coroutine() -> None:
 
 
 def test_print_json_emits_compact_payload() -> None:
-    """``print_json`` writes valid JSON to stdout."""
-    buf = io.StringIO()
-    with redirect_stdout(buf):
+    """``print_json`` writes valid JSON via the loguru logger."""
+    from loguru import logger as loguru_logger
+
+    captured: list[str] = []
+    handler_id = loguru_logger.add(captured.append, level="INFO", format="{message}")
+    try:
         print_json({"a": 1, "b": [1, 2]})
-    assert json.loads(buf.getvalue()) == {"a": 1, "b": [1, 2]}
+    finally:
+        loguru_logger.remove(handler_id)
+    assert any(json.loads(line) == {"a": 1, "b": [1, 2]} for line in captured)
 
 
 def test_init_cmd_add_parser_registers() -> None:

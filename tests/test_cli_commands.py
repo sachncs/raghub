@@ -199,10 +199,19 @@ def test_load_settings_or_path_toml_legacy_python(tmp_path: Path):
 
 
 def test_handle_version_package_not_found():
-    """handle_version prints 'unknown' when the package is not installed."""
+    """handle_version logs 'unknown' when the package is not installed."""
+    from loguru import logger as loguru_logger
+
     with patch("importlib.metadata.version", side_effect=PackageNotFoundError("x")):
-        buf = io.StringIO()
-        with redirect_stdout(buf):
+        captured: list = []
+        handler_id = loguru_logger.add(
+            lambda m: captured.append(m),
+            level="INFO",
+            format="{extra[version]}",
+        )
+        try:
             rc = system.handle_version(MagicMock())
+        finally:
+            loguru_logger.remove(handler_id)
         assert rc == 0
-        assert buf.getvalue().strip() == "unknown"
+        assert captured == ["unknown\n"]

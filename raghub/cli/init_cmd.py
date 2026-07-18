@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 
+from loguru import logger as loguru_logger
+
 SAMPLE_CONFIG = """# RAGHub configuration — adjust to your environment.
 environment: development
 data_dir: ./data
@@ -42,11 +44,11 @@ def run_subcommand(args: argparse.Namespace) -> int:
     Returns:
         ``0`` on success.
     """
-    if args.output:
-        from pathlib import Path
+    from pathlib import Path
 
+    if args.output:
         Path(args.output).write_text(SAMPLE_CONFIG, encoding="utf-8")
-        print(f"Wrote {args.output}")
+        loguru_logger.info("cli.init.wrote", path=str(args.output))
     else:
-        print(SAMPLE_CONFIG)
+        loguru_logger.info(SAMPLE_CONFIG)
     return 0

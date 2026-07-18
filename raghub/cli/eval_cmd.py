@@ -13,7 +13,7 @@ import argparse
 import asyncio
 import statistics
 
-from raghub.cli.common import print_json
+from raghub.cli.common import write_json
 from raghub.evaluation.financebench import FinanceBenchEvaluator
 
 
@@ -67,7 +67,7 @@ def run_subcommand(args: argparse.Namespace) -> int:
                 for name in {k for r in results for k in r.metrics}
             },
         }
-        print_json(
+        write_json(
             {
                 "summary": summary,
                 "results": [r.model_dump(mode="json") for r in results],

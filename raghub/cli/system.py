@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 
+from loguru import logger as loguru_logger
+
 from raghub.api.rag import RAG
-from raghub.cli.common import print_json
+from raghub.cli.common import write_json
 
 
 def add_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -27,23 +29,29 @@ def handle_health(_: argparse.Namespace) -> int:
         ``0`` on success.
     """
     rag = RAG()
-    print_json(rag.health())
+    write_json(rag.health())
     return 0
 
 
 def handle_version(_: argparse.Namespace) -> int:
-    """Print the package version.
+    """Print the package version via the loguru logger.
 
     Reads via :func:`importlib.metadata.version`. When the package
     is not installed in editable mode the metadata is unavailable;
     in that case we print ``"unknown"`` and exit 0 so the command
     is safe to run in any environment.
+
+    Args:
+        _: Unused argparse namespace (required by the handler protocol).
+
+    Returns:
+        ``0`` on success.
     """
     from importlib.metadata import PackageNotFoundError
-    from importlib.metadata import version as _v
+    from importlib.metadata import version as package_version
 
     try:
-        print(_v("raghub"))
+        loguru_logger.info("cli.version", version=package_version("raghub"))
     except PackageNotFoundError:
-        print("unknown")
+        loguru_logger.info("cli.version", version="unknown")
     return 0

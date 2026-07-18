@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from raghub.api.rag import RAG
-from raghub.cli.common import print_json
+from raghub.cli.common import write_json
 
 
 def add_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -32,7 +32,7 @@ def run_subcommand(args: argparse.Namespace) -> int:
     """
     rag = RAG.from_config(args.config) if args.config else RAG()
     response = rag.query(args.question, top_k=args.top_k)
-    print_json(
+    write_json(
         {
             "answer": response.answer,
             "citations": [c.model_dump() for c in response.citations],
