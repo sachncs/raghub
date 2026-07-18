@@ -39,6 +39,12 @@ class DatabaseManager:
         self.conn: aiosqlite.Connection | None = None
 
     async def connect(self) -> aiosqlite.Connection:
+        """Open (or reuse) the underlying aiosqlite connection.
+
+        Returns:
+            The live :class:`aiosqlite.Connection`. Subsequent calls
+            return the same instance.
+        """
         if self.conn is None:
             # isolation_level=None turns on autocommit so plain
             # INSERT/UPDATE/DELETE persist without an explicit commit;
@@ -51,6 +57,13 @@ class DatabaseManager:
         return self.conn
 
     async def close(self) -> None:
+        """Checkpoint the WAL and close the connection.
+
+        Safe to call multiple times; the second call is a no-op. Any
+        exception raised by the best-effort ``wal_checkpoint`` is
+        swallowed so a stuck file handle does not strand a clean
+        shutdown.
+        """
         if self.conn is not None:
             conn = self.conn
             try:
