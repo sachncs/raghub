@@ -305,7 +305,10 @@ class DocumentIngestionService:
         self.virus_scan_hook(file_bytes)
         checksum = sha256(file_bytes).hexdigest()
 
-        # Dedup: short-circuit when an identical READY document exists.
+        # Dedup: short-circuit only when an identical READY document exists.
+        # A FAILED document with the same checksum is re-ingested so the
+        # operator can recover from a transient converter or embedder
+        # failure without manually retiring the row.
         previous = await self.uow.document_repo.get_by_checksum(checksum)
         if previous is not None and previous.status == DocumentLifecycleStatus.READY:
             return IngestionResult(document=previous, chunk_ids=list(previous.chunk_ids))
