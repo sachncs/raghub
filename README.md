@@ -12,7 +12,24 @@
 
 **Production-grade multi-user RAG platform built on the spec libraries.**
 
-RAGHub is a layered retrieval-augmented generation stack with a single replace-everything facade (`raghub.RAG`), multi-tenant RBAC, conversational memory, resumable ingestion, real streaming, and a FinanceBench evaluator. Every collaborator (converter, chunker, vector store, embedder, retriever, generator, telemetry, evaluator) is replaceable through a registry; the default wiring installs all spec libraries (Marker, Chonkie, LiteLLM, Instructor, Qdrant, Langfuse) and falls back to deterministic in-process providers when no API keys are present, so `pip install` and `import` is enough to be productive.
+RAGHub is a layered retrieval-augmented generation stack with a single
+replace-everything facade (`raghub.RAG`), multi-tenant RBAC, conversational
+memory, resumable ingestion, real streaming, and a FinanceBench
+evaluator. Every collaborator (converter, chunker, vector store,
+embedder, retriever, generator, telemetry, evaluator) is replaceable
+through a registry; the default wiring installs all spec libraries
+(Marker, Chonkie, LiteLLM, Instructor, Qdrant, Langfuse) and falls
+back to deterministic in-process providers when no API keys are
+present, so `pip install` and `import` is enough to be productive.
+
+The framework is fully typed, fully documented (Google-style
+docstrings on every public function), and ships with a loguru-backed
+logger plus tqdm progress bars in every ingest loop. Production
+defaults: fail-closed CORS (wildcard + credentials is rejected),
+non-zero `JWT_SECRET` required, opaque session tokens only, and a
+single canonical ingestion pipeline that calls the configured
+chunker and persists the bundle only after the vector store has
+indexed every chunk.
 
 | Concern | Library |
 |---|---|
@@ -91,7 +108,14 @@ raghub ingest ./documents
 raghub query "What was the revenue guidance?"
 raghub health
 raghub version
+raghub run --host 0.0.0.0 --port 8000   # start the FastAPI server in the foreground
 ```
+
+The CLI emits status events through the loguru logger
+(`cli.ingest`, `cli.version`, `cli.rate_limit_exceeded`, etc.); the
+default sink is stderr at the configured log level. The
+`RAGHUB_CLI_RATE_LIMIT` and `RAGHUB_CLI_RATE_BURST` env vars
+control the per-subcommand rate limit.
 
 ### Streamlit UI
 
@@ -105,9 +129,16 @@ The UI pre-seeds five demo users with different `allowed_companies`: `alice@acme
 
 ```bash
 uvicorn raghub.api.app:get_app --factory --host 0.0.0.0 --port 8000
+# or, equivalently, via the CLI:
+raghub run --host 0.0.0.0 --port 8000
 ```
 
-The legacy `DynamicRagApplication` is still reachable at `/auth/login`, `/documents/upload`, `/query`, etc. The new `RAG` facade is the recommended path for new integrations. The `--factory` flag tells Uvicorn to call `get_app()` on each worker, which is the correct way to use the app factory without falling back to a module-level singleton.
+The legacy `DynamicRagApplication` is still reachable at
+`/auth/login`, `/documents/upload`, `/query`, etc. The new `RAG`
+facade is the recommended path for new integrations. The `--factory`
+flag tells Uvicorn to call `get_app()` on each worker, which is the
+correct way to use the app factory without falling back to a
+module-level singleton.
 
 ## Deployment (Docker)
 
@@ -184,7 +215,7 @@ await rag.aquery("and growth?", user=alice, session_id="alice-s1")
 | `RAGHUB_USERS` | yes | inline demo users | JSON path or inline JSON for the user directory (Streamlit UI) |
 | `RAGHUB_STORE_BACKEND` | yes | `memory` | `memory` / `file` / `qdrant` / `zvec` |
 | LLM provider keys | yes | unset | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `NVIDIA_API_KEY` |
-| `JWT_SECRET` | yes | random | JWT signing secret |
+| `JWT_SECRET` | yes | random | Opaque session-token signing secret (≥32 bytes) |
 | `QDRANT_URL` | yes | unset | Qdrant server URL |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | yes | unset | Langfuse credentials |
 | TOML/YAML profile | no | — | `config/<profile>.toml` or `.yaml` |
@@ -295,8 +326,12 @@ pip-audit
 python -m pytest tests/ -q                       # full suite
 python -m pytest tests/ -q -k rbac               # just the RBAC suite
 python -m pytest tests/ --cov=raghub --cov-report=term-missing
-RAGHUB_RUN_PLATFORM_TESTS=1 python -m pytest tests/test_platform.py
+python -m pytest tests/e2e/                     # qualitative CLI / RAG facade
 ```
+
+`RAGHUB_RUN_PLATFORM_TESTS` is set to ``1`` by ``tests/conftest.py``,
+so platform and dynamic-application tests run as part of the normal
+test run. Set the env var to ``0`` locally to opt out.
 
 The current collection size is reported by
 `pytest tests/ --collect-only` (no hard-coded count). The suite
