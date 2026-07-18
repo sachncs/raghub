@@ -100,28 +100,29 @@ def validate_cors_for_credentials(origins: list[str]) -> None:
         )
 
 
-def check_upload_size(content_length: int | None, max_bytes: int) -> int | None:
-    """Pre-flight guard for upload size; returns ``max_bytes`` when too large.
+def check_upload_size(content_length: int | None, max_bytes: int) -> bool:
+    """Pre-flight guard for upload size.
 
     Called by upload endpoints with the value of the ``Content-Length``
-    request header before the multipart body is read. Returning a
-    non-``None`` ``max_bytes`` value indicates the upload was rejected
-    (the caller raises HTTP 413).
+    request header before the multipart body is read into memory.
+    Returning ``True`` causes the caller to raise HTTP 413; returning
+    ``False`` allows the upload to proceed (a second check after
+    reading catches chunked-transfer uploads that omit the header).
 
     Args:
         content_length: The value of the request's ``Content-Length``
             header. ``None`` when the client did not send the header
-            (chunked transfer encoding); in that case we fall through
-            to the size check after reading.
+            (chunked transfer encoding); in that case the function
+            returns ``False`` so the post-read check fires.
         max_bytes: The configured maximum accepted upload size.
 
     Returns:
-        ``None`` when the upload is acceptable, otherwise ``max_bytes``
-        (a sentinel non-``None`` value the caller raises against).
+        ``True`` when the declared upload is over the limit; ``False``
+        otherwise.
     """
-    if content_length is not None and content_length > max_bytes:
-        return max_bytes
-    return None
+    if content_length is None:
+        return False
+    return content_length > max_bytes
 
 
 @asynccontextmanager
@@ -343,7 +344,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
             content_length = int(declared) if declared is not None else None
         except ValueError:
             content_length = None
-        if max_bytes > 0 and check_upload_size(content_length, max_bytes) is not None:
+        if max_bytes > 0 and check_upload_size(content_length, max_bytes):
             raise HTTPException(
                 status_code=413,
                 detail=f"Upload exceeds maximum size of {max_bytes} bytes",
@@ -413,7 +414,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
             content_length = int(declared) if declared is not None else None
         except ValueError:
             content_length = None
-        if max_bytes > 0 and check_upload_size(content_length, max_bytes) is not None:
+        if max_bytes > 0 and check_upload_size(content_length, max_bytes):
             raise HTTPException(
                 status_code=413,
                 detail=f"Upload exceeds maximum size of {max_bytes} bytes",
@@ -558,7 +559,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
             content_length = int(declared) if declared is not None else None
         except ValueError:
             content_length = None
-        if max_bytes > 0 and check_upload_size(content_length, max_bytes) is not None:
+        if max_bytes > 0 and check_upload_size(content_length, max_bytes):
             raise HTTPException(
                 status_code=413,
                 detail=f"Upload exceeds maximum size of {max_bytes} bytes",
@@ -615,7 +616,7 @@ def require_bearer(authorization: str | None) -> str:
 # Module-level singleton used by :func:`get_app`. Avoid importing
 # build_application at module load time so this module stays cheap to
 # import in unit tests that don't need the full app.
-app_instance: FastAPI | None = None
+app_singleton: FastAPI | None = None
 
 
 def get_app() -> FastAPI:
@@ -633,8 +634,8 @@ def get_app() -> FastAPI:
 
     from raghub.core.container import build_application
 
-    global app_instance
-    if app_instance is None:
+    global app_singleton
+    if app_singleton is None:
         application = asyncio.run(build_application())
-        app_instance = create_app(application)
-    return app_instance
+        app_singleton = create_app(application)
+    return app_singleton

@@ -557,9 +557,11 @@ async def seed_demo_users(user_store: SqliteUserStore) -> None:
                 )
         return
 
-    # Default seed: the demo users documented in the README.
-    # The default password is ``"password"``; operators are
-    # expected to rotate it (or override via ``RAGHUB_USERS``)
+    # Default seed: the demo users documented in the README plus the
+    # integration-test fixtures used by the platform tests.
+    # The default password is ``"password"`` for the public demo and
+    # ``"test"`` / ``"admin"`` for the integration fixtures; operators
+    # are expected to rotate them (or override via ``RAGHUB_USERS``)
     # before any production exposure.
     default_seed = [
         ("alice@acme.com", "password", ["Apple"], False),
@@ -567,6 +569,10 @@ async def seed_demo_users(user_store: SqliteUserStore) -> None:
         ("charlie@acme.com", "password", ["Amazon", "Tesla"], False),
         ("diana@acme.com", "password", ["Google"], False),
         ("admin@acme.com", "password", [], True),
+        ("alice@email.com", "test", ["Apple"], False),
+        ("bob@email.com", "test", ["Microsoft", "Google"], False),
+        ("charlie@email.com", "test", ["Amazon", "Tesla"], False),
+        ("admin@email.com", "admin", [], True),
     ]
     for email, pwd, companies, is_admin in default_seed:
         existing = await user_store.get_by_email(email)
