@@ -41,12 +41,7 @@ import contextlib
 import os
 from dataclasses import dataclass
 
-from raghub.auth import (
-    JwtAuthenticator,
-    JwtSessionManager,
-    RBACAuthorizationService,
-    SqliteUserStore,
-)
+from raghub.auth import RBACAuthorizationService, SqliteUserStore
 from raghub.config.settings import AppSettings
 from raghub.conversation.manager import ConversationManager
 from raghub.documents.lifecycle import DocumentLifecycleManager
@@ -106,14 +101,7 @@ class DynamicRagContainer:
 
     * ``settings`` — typed configuration snapshot.
     * ``logger`` / ``metrics`` — observability primitives.
-    * ``authenticator`` / ``authorization`` — auth primitives. The
-      ``authenticator`` field is the deprecated
-      :class:`raghub.auth.JwtAuthenticator`, kept for backwards
-      compatibility but **not** used by the production auth path.
-    * ``sessions`` — deprecated :class:`JwtSessionManager` kept for
-      external callers; production login flows use
-      :class:`raghub.storage.sqlite_session_store.SqliteSessionStore`
-      directly via :class:`raghub.services.auth_service.AuthService`.
+    * ``authorization`` — RBAC service for admin-only checks.
     * ``registry`` — user store aliased for legacy call sites that
       expected a "registry" name (kept for backward compatibility).
     * ``conversation`` — chat-history manager.
@@ -122,20 +110,17 @@ class DynamicRagContainer:
       — RAG pipeline pieces.
     * ``image_store`` / ``parser_registry`` — auxiliary stores.
     * ``user_store`` — same instance as ``registry``; named for clarity.
-    * ``store`` — raw :class:`SqliteSessionStore` (used by ``sessions``
-      and by the canonical :class:`AuthService`).
+    * ``store`` — raw :class:`SqliteSessionStore` (canonical session
+      store used by :class:`AuthService`).
     * ``uow`` — Unit-of-Work for transactional repo access.
     * ``auth`` / ``documents`` / ``query`` / ``health`` — service handles
       populated by :class:`DynamicRagApplication.__init__`.
 
     Attributes:
         settings: Application configuration.
-        logger: Structured logger (see :mod:`raghub.observability.logging`).
+        logger: Loguru logger (see :mod:`raghub.observability.logging`).
         metrics: Prometheus metrics sink.
-        authenticator: JWT authenticator (deprecated, kept for back-compat).
         authorization: RBAC service.
-        sessions: Deprecated JwtSessionManager; production flows use
-            ``store`` directly.
         registry: Backward-compat alias for ``user_store``.
         conversation: Chat-history manager.
         embeddings: Embedding provider.
@@ -159,9 +144,7 @@ class DynamicRagContainer:
     settings: AppSettings
     logger: object
     metrics: object
-    authenticator: JwtAuthenticator
     authorization: RBACAuthorizationService
-    sessions: JwtSessionManager
     registry: SqliteUserStore
     conversation: ConversationManager
     embeddings: BaseEmbeddingProvider
@@ -450,11 +433,6 @@ async def build_container(settings: AppSettings) -> DynamicRagContainer:
         raise RuntimeError("JWT_SECRET must be configured")
     nvidia_api_key = settings.nvidia_api_key or settings.extra.get("nvidia_api_key")
 
-    authenticator = JwtAuthenticator(
-        secret_key=jwt_secret,
-        user_store=user_store,
-        logger=logger,
-    )
     authorization = RBACAuthorizationService(user_store, logger=logger)
 
     vector_store: BaseVectorStore = ZvecVectorStore(
@@ -478,10 +456,6 @@ async def build_container(settings: AppSettings) -> DynamicRagContainer:
         settings.session_timeout_seconds,
     )
     await raw_session_store.initialize()
-    sessions = JwtSessionManager(
-        session_store=raw_session_store,
-        authenticator=authenticator,
-    )
 
     embeddings: BaseEmbeddingProvider = build_embedding_provider(
         settings.embedding_model,
@@ -533,9 +507,7 @@ async def build_container(settings: AppSettings) -> DynamicRagContainer:
         settings=settings,
         logger=logger,
         metrics=metrics,
-        authenticator=authenticator,
         authorization=authorization,
-        sessions=sessions,
         registry=user_store,
         conversation=conversation,
         embeddings=embeddings,

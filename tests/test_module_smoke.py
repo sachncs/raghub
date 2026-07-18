@@ -116,11 +116,9 @@ def test_raghub_config_init() -> None:
 
 
 def test_raghub_auth_init() -> None:
-    """The auth package re-exports ``JwtAuthenticator`` and friends."""
-    from raghub.auth import JwtAuthenticator, JwtSessionManager, SqliteUserStore
+    """The auth package re-exports the user store and RBAC service."""
+    from raghub.auth import SqliteUserStore
 
-    assert JwtAuthenticator is not None
-    assert JwtSessionManager is not None
     assert SqliteUserStore is not None
 
 

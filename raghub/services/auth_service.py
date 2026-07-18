@@ -3,12 +3,10 @@
 Wraps the user store + opaque session store behind the higher-level
 login/logout/resolve_user operations the application facade calls.
 
-The single auth path is **opaque-session-token only**. The legacy
-:class:`JwtAuthenticator` is still importable for backwards
-compatibility (see :mod:`raghub.auth`) but is not used by this
-service: we no longer mint a JWT that we throw away, we no longer
-double-hit the user store, and we no longer drift between JWT and
-opaque-token semantics depending on the call site.
+The single auth path is **opaque-session-token only**. Tokens are
+:class:`uuid4` strings minted by
+:class:`raghub.storage.sqlite_session_store.SqliteSessionStore`; no
+JWT library is involved.
 """
 
 from __future__ import annotations

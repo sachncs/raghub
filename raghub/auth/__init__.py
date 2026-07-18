@@ -1,28 +1,21 @@
-"""Authentication and authorization package.
+"""Role-based access control (RBAC) services.
 
-The :class:`RBACAuthorizationService` and :class:`SqliteUserStore` are
-production-grade. :class:`JwtAuthenticator` and :class:`JwtSessionManager`
-remain re-exported for backwards compatibility but are not used by the
-default application paths; the canonical token is an opaque
-:class:`raghub.models.SessionRecord` token minted by
-:class:`raghub.storage.sqlite_session_store.SqliteSessionStore`.
+Provides :class:`RBACAuthorizationService` for the role check that
+protects admin-only endpoints. Authentication itself lives in
+:class:`raghub.services.auth_service.AuthService`; session tokens are
+opaque UUIDs minted by :class:`raghub.storage.sqlite_session_store.SqliteSessionStore`.
+The :class:`UserRecord` and :class:`SqliteUserStore` provide the
+SQLite-backed user store used by the API.
 """
 
-from .service import (
-    JwtAuthenticator as JwtAuthenticator,
-)
-from .service import (
-    JwtSessionManager as JwtSessionManager,
-)
-from .service import (
-    RBACAuthorizationService as RBACAuthorizationService,
-)
-from .user_store import SqliteUserStore as SqliteUserStore
-from .user_store import UserRecord as UserRecord
+from __future__ import annotations
+
+from typing import Any
+
+from raghub.auth.rbac import RBACAuthorizationService
+from raghub.auth.user_store import SqliteUserStore, UserRecord
 
 __all__ = [
-    "JwtAuthenticator",
-    "JwtSessionManager",
     "RBACAuthorizationService",
     "SqliteUserStore",
     "UserRecord",
