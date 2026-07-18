@@ -29,6 +29,7 @@ from raghub.domain.repositories import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def chunk_record() -> ChunkRecord:
     return ChunkRecord(
@@ -158,7 +159,9 @@ class TestDocument:
         assert document.record is new_record
         assert document.document_id == new_record.document_id
 
-    def test_update_sets_fields_and_updated_at(self, document: Document, doc_record: DocumentRecord) -> None:
+    def test_update_sets_fields_and_updated_at(
+        self, document: Document, doc_record: DocumentRecord
+    ) -> None:
         before = doc_record.updated_at
         result = document.update(owner="bob", filename="new.pdf")
         assert doc_record.owner == "bob"
@@ -166,7 +169,9 @@ class TestDocument:
         assert doc_record.updated_at > before
         assert result is document
 
-    def test_update_empty_kwargs_still_touches_updated_at(self, document: Document, doc_record: DocumentRecord) -> None:
+    def test_update_empty_kwargs_still_touches_updated_at(
+        self, document: Document, doc_record: DocumentRecord
+    ) -> None:
         before = doc_record.updated_at
         document.update()
         assert doc_record.updated_at > before
@@ -220,7 +225,11 @@ class TestSession:
         assert session.record.user_id == "user-2"
 
     def test_setattr_record_overriden_via_super(self, session: Session) -> None:
-        new_record = SessionRecord(user_id="u2", expires_at=datetime.now(timezone.utc), last_seen_at=datetime.now(timezone.utc))
+        new_record = SessionRecord(
+            user_id="u2",
+            expires_at=datetime.now(timezone.utc),
+            last_seen_at=datetime.now(timezone.utc),
+        )
         session.record = new_record
         assert session.record is new_record
         assert session.session_id == new_record.session_id
@@ -475,9 +484,7 @@ class TestUnitOfWork:
         assert result is uow_with_db
 
     @pytest.mark.asyncio
-    async def test_aenter_without_db_does_not_start_transaction(
-        self, uow: UnitOfWork
-    ) -> None:
+    async def test_aenter_without_db_does_not_start_transaction(self, uow: UnitOfWork) -> None:
         result = await uow.__aenter__()
         assert uow.in_transaction is False
         assert result is uow

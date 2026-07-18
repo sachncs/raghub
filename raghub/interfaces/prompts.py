@@ -6,7 +6,8 @@ The production implementation is :class:`raghub.prompts.builder.PromptBuilder`.
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence
+from collections.abc import Sequence
+from typing import Protocol
 
 from raghub.models import ChunkRecord, ConversationTurn
 

@@ -17,7 +17,7 @@ production via :class:`raghub.repositories.UnitOfWork`.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -109,7 +109,7 @@ class SqliteSessionStore:
         Returns:
             The freshly created :class:`SessionRecord`.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         session = SessionRecord(
             session_id=str(uuid4()),
             user_id=user_id,
@@ -172,7 +172,7 @@ class SqliteSessionStore:
             await self.maybe_commit_close(conn)
             return None
         session = self.row_to_session(row)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if now > session.expires_at:
             # Lazy eviction: delete and report missing. The deletion
             # keeps the table from accumulating dead rows.
@@ -248,7 +248,9 @@ class SqliteSessionStore:
             which would rather lose a turn than crash the request).
         """
         conn = await self.conn()
-        cursor = await conn.execute("SELECT history FROM sessions WHERE session_id = ?", (session_id,))
+        cursor = await conn.execute(
+            "SELECT history FROM sessions WHERE session_id = ?", (session_id,)
+        )
         row = await cursor.fetchone()
         if row is None:
             await self.maybe_commit_close(conn)
@@ -272,7 +274,9 @@ class SqliteSessionStore:
             is unknown.
         """
         conn = await self.conn()
-        cursor = await conn.execute("SELECT history FROM sessions WHERE session_id = ?", (session_id,))
+        cursor = await conn.execute(
+            "SELECT history FROM sessions WHERE session_id = ?", (session_id,)
+        )
         row = await cursor.fetchone()
         await self.maybe_commit_close(conn)
         if row is None:

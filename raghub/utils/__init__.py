@@ -57,4 +57,4 @@ def load_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, An
     """
     if not path.exists():
         return {} if default is None else default
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]

@@ -29,12 +29,8 @@ def rag() -> RAG:
 
 def test_user_cannot_bypass_rbac_via_metadata_filter(rag: RAG) -> None:
     """Supplying a custom ``metadata_filter`` does not bypass the RBAC filter."""
-    alice = UserPrincipal(
-        user_id="alice@x", email="alice@x", allowed_companies=["Apple"]
-    )
-    bob = UserPrincipal(
-        user_id="bob@x", email="bob@x", allowed_companies=["Microsoft"]
-    )
+    alice = UserPrincipal(user_id="alice@x", email="alice@x", allowed_companies=["Apple"])
+    bob = UserPrincipal(user_id="bob@x", email="bob@x", allowed_companies=["Microsoft"])
 
     async def _drive() -> None:
         await rag.aingest(
@@ -68,12 +64,8 @@ def test_session_id_does_not_leak_other_users_history(rag: RAG) -> None:
     caller's :class:`UserPrincipal`, so two users that happen to
     share or guess a ``session_id`` cannot read each other's turns.
     """
-    alice = UserPrincipal(
-        user_id="alice@x", email="alice@x", allowed_companies=["Apple"]
-    )
-    bob = UserPrincipal(
-        user_id="bob@x", email="bob@x", allowed_companies=["Microsoft"]
-    )
+    alice = UserPrincipal(user_id="alice@x", email="alice@x", allowed_companies=["Apple"])
+    bob = UserPrincipal(user_id="bob@x", email="bob@x", allowed_companies=["Microsoft"])
 
     async def _drive() -> None:
         await rag.aingest(b"Apple revenue " * 5, source_uri="file://apple.txt", user=alice)
@@ -101,12 +93,8 @@ def test_session_id_does_not_leak_other_users_history(rag: RAG) -> None:
 
 def test_empty_allow_list_sees_nothing(rag: RAG) -> None:
     """A user with no allow-list and no admin sees no documents."""
-    unauth = UserPrincipal(
-        user_id="eve@x", email="eve@x", allowed_companies=[], is_admin=False
-    )
-    alice = UserPrincipal(
-        user_id="alice@x", email="alice@x", allowed_companies=["Apple"]
-    )
+    unauth = UserPrincipal(user_id="eve@x", email="eve@x", allowed_companies=[], is_admin=False)
+    alice = UserPrincipal(user_id="alice@x", email="alice@x", allowed_companies=["Apple"])
 
     async def _drive() -> None:
         await rag.aingest(b"Apple revenue " * 5, source_uri="file://apple.txt", user=alice)

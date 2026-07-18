@@ -39,7 +39,8 @@ def handle_version(_: argparse.Namespace) -> int:
     in that case we print ``"unknown"`` and exit 0 so the command
     is safe to run in any environment.
     """
-    from importlib.metadata import PackageNotFoundError, version as _v
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as _v
 
     try:
         print(_v("raghub"))

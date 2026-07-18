@@ -141,7 +141,9 @@ def test_document_section_blocks_in_order() -> None:
         blocks=[
             DocumentBlock(kind=BlockKind.TEXT, content="first"),
             DocumentBlock(kind=BlockKind.CODE, content="x = 1"),
-            DocumentBlock(kind=BlockKind.IMAGE, content="fig1.png", metadata={"caption": "Figure 1"}),
+            DocumentBlock(
+                kind=BlockKind.IMAGE, content="fig1.png", metadata={"caption": "Figure 1"}
+            ),
         ],
     )
     assert [b.kind for b in section.blocks] == [

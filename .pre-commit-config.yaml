@@ -11,3 +11,16 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-PyYAML]
+
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.7.0
+    hooks:
+      - id: interrogate
+        args: ["-v", "--fail-under=80",
+               "raghub/api/rag.py",
+               "raghub/api/defaults.py",
+               "raghub/api/response.py",
+               "raghub/evaluation/",
+               "raghub/knowledge/",
+               "raghub/conversation/",
+               "raghub/cli/"]

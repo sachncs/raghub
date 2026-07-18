@@ -15,6 +15,7 @@ litellm: Any
 
 try:
     import litellm
+
     LITELLM_AVAILABLE = True
     OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
@@ -46,9 +47,7 @@ class LiteLLMEmbeddingProvider(BaseEmbeddingProvider):
             ConfigurationError: When ``litellm`` is not installed.
         """
         if not LITELLM_AVAILABLE:
-            raise ConfigurationError(
-                "litellm is not installed; run `pip install litellm`."
-            )
+            raise ConfigurationError("litellm is not installed; run `pip install litellm`.")
         self.model_name = model
         self.api_key = api_key
         self.api_base = api_base
@@ -82,7 +81,10 @@ class LiteLLMEmbeddingProvider(BaseEmbeddingProvider):
             kwargs["api_base"] = self.api_base
         response = litellm.embedding(**kwargs)
         data = response.get("data", []) if isinstance(response, dict) else response.data
-        return [list(item["embedding"]) if isinstance(item, dict) else list(item.embedding) for item in data]
+        return [
+            list(item["embedding"]) if isinstance(item, dict) else list(item.embedding)
+            for item in data
+        ]
 
 
 __all__ = ["LiteLLMEmbeddingProvider"]

@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from raghub.evaluation.harness import score_string
 from raghub.exceptions import EvaluationError
@@ -27,8 +28,8 @@ from raghub.models import EvaluationResult
 hf_load_dataset: Any
 
 try:
-    _hf_mod = __import__("datasets", fromlist=["load_dataset"])
-    hf_load_dataset = _hf_mod.load_dataset
+    datasets_module = __import__("datasets", fromlist=["load_dataset"])
+    hf_load_dataset = datasets_module.load_dataset
     HF_AVAILABLE = True
     OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
@@ -56,8 +57,12 @@ def load_jsonl_file(path: Path) -> list[dict]:
     if not path.exists():
         return []
     if path.suffix == ".jsonl":
-        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    return json.loads(path.read_text(encoding="utf-8"))
+        return [
+            json.loads(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    return json.loads(path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
 
 
 def load_huggingface_dataset(dataset_name: str, split: str) -> list[dict]:
@@ -77,14 +82,12 @@ def load_huggingface_dataset(dataset_name: str, split: str) -> list[dict]:
         raise EvaluationError(
             "datasets is not installed; install it via `pip install datasets` or "
             "place a JSONL/JSON file at "
-            f"{CACHE_DIR/'financebench.jsonl'}."
+            f"{CACHE_DIR / 'financebench.jsonl'}."
         )
     try:
         ds = hf_load_dataset(dataset_name, split=split)
     except Exception as exc:
-        raise EvaluationError(
-            f"Failed to load FinanceBench from {dataset_name!r}: {exc}"
-        ) from exc
+        raise EvaluationError(f"Failed to load FinanceBench from {dataset_name!r}: {exc}") from exc
     return [dict(record) for record in ds]
 
 
@@ -266,4 +269,4 @@ def first_number(text: str) -> str:
     return ""
 
 
-__all__ = ["FinanceBenchEvaluator", "DEFAULT_DATASET", "DEFAULT_SPLIT"]
+__all__ = ["DEFAULT_DATASET", "DEFAULT_SPLIT", "FinanceBenchEvaluator"]

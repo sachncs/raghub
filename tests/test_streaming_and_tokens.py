@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, AsyncIterator, Sequence
+import threading
+from collections.abc import AsyncIterator, Sequence
+from contextlib import suppress
+from typing import Any
 
+import pytest
 
 from raghub.generation.generator import DefaultGenerator
 from raghub.llm.base import BaseLLMProvider
@@ -90,6 +94,84 @@ def test_default_generator_aggregates_usage_across_chunks() -> None:
     assert "".join(chunks) == "hello world!"
 
 
+class NativeAsyncLLM:
+    model_name = "native"
+
+    def __init__(self) -> None:
+        self.last_usage = {"prompt": 8, "completion": 3, "model": self.model_name}
+        self.conversation: Sequence[ConversationTurn] = ()
+
+    def generate(self, **kwargs: Any) -> str:
+        raise AssertionError("sync generation should not run")
+
+    async def async_generate(
+        self, *, conversation: Sequence[ConversationTurn], **kwargs: Any
+    ) -> str:
+        self.conversation = conversation
+        return "native answer"
+
+
+def test_default_generator_prefers_native_async_and_records_nonstream_tokens() -> None:
+    llm = NativeAsyncLLM()
+    generator = DefaultGenerator(llm=llm)
+    conversation = [ConversationTurn(question="before", answer="earlier")]
+
+    answer, citations = asyncio.run(
+        generator.generate(question="now", context=[], conversation=conversation)
+    )
+
+    assert answer == "native answer"
+    assert citations == []
+    assert [(turn.question, turn.answer) for turn in llm.conversation] == [("before", "earlier")]
+    assert generator.record_tokens() == {
+        "prompt": 8,
+        "completion": 3,
+        "model": "native",
+    }
+
+
+class SyncThreadLLM(BaseLLMProvider):
+    model_name = "sync-thread"
+
+    def __init__(self) -> None:
+        self.thread_id: int | None = None
+
+    def generate(self, **kwargs: Any) -> str:
+        self.thread_id = threading.get_ident()
+        return "threaded"
+
+
+def test_default_generator_does_not_run_sync_completion_on_event_loop() -> None:
+    llm = SyncThreadLLM()
+    generator = DefaultGenerator(llm=llm)
+    event_loop_thread = threading.get_ident()
+
+    answer, citations = asyncio.run(generator.generate(question="q", context=[]))
+
+    assert answer == "threaded"
+    assert citations == []
+    assert llm.thread_id is not None
+    assert llm.thread_id != event_loop_thread
+
+
+class WaitingAsyncLLM:
+    model_name = "waiting"
+
+    def generate(self, **kwargs: Any) -> str:
+        raise AssertionError("sync generation should not run")
+
+    async def async_generate(self, **kwargs: Any) -> str:
+        await asyncio.Event().wait()
+        return "unreachable"
+
+
+def test_default_generator_enforces_configurable_timeout() -> None:
+    generator = DefaultGenerator(llm=WaitingAsyncLLM(), timeout_seconds=0.01)
+
+    with pytest.raises(TimeoutError):
+        asyncio.run(generator.generate(question="q", context=[]))
+
+
 def test_litellm_provider_passes_stream_options() -> None:
     """``LiteLLMProvider.astream`` asks LiteLLM to include usage in the stream."""
     import raghub.llm.litellm as litellm_mod
@@ -119,10 +201,8 @@ def test_litellm_provider_passes_stream_options() -> None:
 
         async def _drive() -> None:
             gen = provider.astream(system_prompt="", question="hi")
-            try:
+            with suppress(StopAsyncIteration):
                 await gen.__anext__()
-            except StopAsyncIteration:
-                pass
 
         asyncio.run(_drive())
     finally:
@@ -130,4 +210,3 @@ def test_litellm_provider_passes_stream_options() -> None:
 
     assert captured.get("stream_options") == {"include_usage": True}
     assert captured.get("stream") is True
-

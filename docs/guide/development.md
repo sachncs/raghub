@@ -15,10 +15,16 @@ source .venv/bin/activate
 pip install -e ".[api,ui,dev]"   # for a fresh checkout
 ```
 
-`setup.sh` provisions a `.venv`, installs the project in editable
-mode with the `api`, `ui`, and `dev` extras, and prints the next
-steps. `./cleanup.sh` removes `.venv`, `data/`, and
-`__pycache__/` — `./setup.sh` rebuilds from scratch.
+`setup.sh` requires Python 3.12 — the script refuses anything
+else, with installation hints for both macOS and Linux. It
+provisions a `.venv`, installs the project in editable mode with
+the `api`, `ui`, and `dev` extras, and prints the next steps.
+`./cleanup.sh` removes `.venv`, `data/`, and `__pycache__/` —
+`./setup.sh` rebuilds from scratch.
+
+`setup.sh` no longer runs `pip install -e ".[...,zvec]"`; the
+`zvec` extra is opt-in (it pulls a native extension that is not
+required for the supported production path).
 
 ## Running tests
 
@@ -34,7 +40,10 @@ pytest tests/test_platform.py::test_ingest_and_query_isolated_access -xvs
 The test suite covers the spec libraries, multi-user RBAC, the
 conversational pipeline, structured output, telemetry scrubbing,
 the resumable ingestion service, retrieval metrics, and the
-performance benchmark. There are 315+ tests across 30+ files.
+performance benchmark. The current collection size is reported
+by `pytest tests/ --collect-only`; the suite shape changes as
+new plugin tests land, so refer to the collector output rather
+than a hard-coded number.
 
 ### FinanceBench
 
@@ -85,7 +94,20 @@ exposed as `raghub-benchmark`.
 ```bash
 ruff check raghub/ tests/
 mypy raghub/
+interrogate -v \
+    raghub/api/rag.py raghub/api/defaults.py raghub/api/response.py \
+    raghub/evaluation/ raghub/knowledge/ \
+    raghub/conversation/ raghub/cli/ \
+    -f 80
+bandit -r raghub/ -q -ll -i
+pip-audit
 ```
+
+`ruff`, `mypy`, `interrogate`, `bandit`, and `pip-audit` are
+declared in the `dev` extra and installed by `setup.sh`. The
+ruff, mypy, and pytest configuration lives in `pyproject.toml`;
+root stubs (`ruff.toml`, `mypy.ini`, `pytest.ini`) have been
+removed so there is a single source of truth.
 
 The project is clean: zero ruff errors in `raghub/`. There are
 48 remaining mypy warnings concentrated in the legacy `services/`,

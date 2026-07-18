@@ -10,6 +10,7 @@ from raghub.models import (
     BlockKind,
     ChunkRecord,
     Citation,
+    Classification,
     ConversationTurn,
     DocumentBlock,
     DocumentSection,
@@ -26,10 +27,10 @@ from raghub.pipelines.rag import (
     sha256_checksum,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helper factories
 # ---------------------------------------------------------------------------
+
 
 def make_section(
     index: int = 0,
@@ -174,6 +175,7 @@ def mock_conversation_store() -> MagicMock:
 # chunks_from_knowledge_bundle tests
 # ---------------------------------------------------------------------------
 
+
 class TestChunksFromKnowledgeBundle:
     def test_skips_non_text_blocks(self) -> None:
         bundle = make_bundle(
@@ -281,6 +283,7 @@ class TestChunksFromKnowledgeBundle:
 # sha256_checksum tests
 # ---------------------------------------------------------------------------
 
+
 class TestSha256Checksum:
     def test_returns_hex_string(self) -> None:
         result = sha256_checksum(b"hello")
@@ -297,6 +300,7 @@ class TestSha256Checksum:
 # ---------------------------------------------------------------------------
 # primary_company tests
 # ---------------------------------------------------------------------------
+
 
 class TestPrimaryCompany:
     def test_none_user_returns_empty(self) -> None:
@@ -324,6 +328,7 @@ class TestPrimaryCompany:
 # IngestPipeline — __init__
 # ---------------------------------------------------------------------------
 
+
 class TestIngestPipelineInit:
     def test_requires_embedder_and_vector_store(self) -> None:
         with pytest.raises(PipelineError, match="requires embedder and vector_store"):
@@ -339,6 +344,7 @@ class TestIngestPipelineInit:
         from raghub.ingestion.chunkers.word_window import WordWindowChunker
         from raghub.knowledge.repository import InMemoryKnowledgeRepository
         from raghub.observability.noop import NoOpTelemetry
+
         assert isinstance(pipe.converter, PlainTextConverter)
         assert isinstance(pipe.chunker, WordWindowChunker)
         assert pipe.embedder is mock_embedder
@@ -374,6 +380,7 @@ class TestIngestPipelineInit:
 # ---------------------------------------------------------------------------
 # IngestPipeline — run
 # ---------------------------------------------------------------------------
+
 
 class TestIngestPipelineRun:
     @pytest.fixture
@@ -431,9 +438,7 @@ class TestIngestPipelineRun:
         existing_bundle = make_bundle(
             bundle_id="existing-bundle",
             checksum=sha256_checksum(b"pdf content"),
-            sections=[
-                make_section(blocks=[make_block(content="existing text")])
-            ],
+            sections=[make_section(blocks=[make_block(content="existing text")])],
         )
         mock_knowledge_repo.get.return_value = existing_bundle
 
@@ -477,9 +482,7 @@ class TestIngestPipelineRun:
         pipeline_context: PipelineContext,
     ) -> None:
         pipe = IngestPipeline(embedder=mock_embedder, vector_store=mock_vector_store)
-        with patch.object(
-            pipe.converter, "convert", side_effect=ValueError("boom")
-        ):
+        with patch.object(pipe.converter, "convert", side_effect=ValueError("boom")):
             result = await pipe.run(
                 pipeline_context,
                 file_bytes=b"data",
@@ -502,9 +505,7 @@ class TestIngestPipelineRun:
         pipe: IngestPipeline,
         pipeline_context: PipelineContext,
     ) -> None:
-        with patch.object(
-            pipe.converter, "convert", side_effect=ValueError("fail")
-        ):
+        with patch.object(pipe.converter, "convert", side_effect=ValueError("fail")):
             await pipe.run(
                 pipeline_context,
                 file_bytes=b"data",
@@ -523,6 +524,81 @@ class TestIngestPipelineRun:
         result = await pipe.run(pipeline_context, **inputs)
         for chunk in result.outputs["chunks"]:
             assert chunk.owner == "dev@acme.com"
+
+    async def test_configured_chunker_and_metadata_are_used(
+        self,
+        mock_converter: MagicMock,
+        mock_chunker: MagicMock,
+        mock_embedder: MagicMock,
+        mock_vector_store: MagicMock,
+        mock_knowledge_repo: MagicMock,
+        pipeline_context: PipelineContext,
+        inputs: dict[str, Any],
+    ) -> None:
+        events: list[str] = []
+        mock_vector_store.upsert.side_effect = lambda chunks, vectors: events.append("upsert")
+        mock_knowledge_repo.save.side_effect = lambda bundle: events.append("save")
+        pipe = IngestPipeline(
+            converter=mock_converter,
+            chunker=mock_chunker,
+            embedder=mock_embedder,
+            vector_store=mock_vector_store,
+            knowledge_repo=mock_knowledge_repo,
+        )
+        inputs.update(
+            document_id="doc-normalized",
+            version=4,
+            company="tenant",
+            owner="owner@example.com",
+            classification=Classification.CONFIDENTIAL,
+        )
+
+        result = await pipe.run(pipeline_context, **inputs)
+
+        assert result.success is True
+        mock_chunker.chunk.assert_called_once_with(result.outputs["bundle"])
+        for chunk in result.outputs["chunks"]:
+            assert chunk.document_id == "doc-normalized"
+            assert chunk.version == 4
+            assert chunk.company == "tenant"
+            assert chunk.owner == "owner@example.com"
+            assert chunk.classification == Classification.CONFIDENTIAL
+        assert events == ["upsert", "save"]
+
+    @pytest.mark.parametrize("failure_stage", ["embed", "upsert"])
+    async def test_failed_indexing_is_retryable_without_persisting_bundle(
+        self,
+        failure_stage: str,
+        mock_converter: MagicMock,
+        mock_chunker: MagicMock,
+        mock_embedder: MagicMock,
+        mock_vector_store: MagicMock,
+        mock_knowledge_repo: MagicMock,
+        pipeline_context: PipelineContext,
+        inputs: dict[str, Any],
+    ) -> None:
+        vectors = mock_embedder.embed_texts.return_value
+        if failure_stage == "embed":
+            mock_embedder.embed_texts.side_effect = [RuntimeError("embed failed"), vectors]
+        else:
+            mock_vector_store.upsert.side_effect = [RuntimeError("upsert failed"), None]
+        pipe = IngestPipeline(
+            converter=mock_converter,
+            chunker=mock_chunker,
+            embedder=mock_embedder,
+            vector_store=mock_vector_store,
+            knowledge_repo=mock_knowledge_repo,
+        )
+
+        first = await pipe.run(pipeline_context, **inputs)
+        assert first.success is False
+        mock_knowledge_repo.save.assert_not_called()
+
+        second = await pipe.run(pipeline_context, **inputs)
+        assert second.success is True
+        assert mock_chunker.chunk.call_count == 2
+        assert mock_embedder.embed_texts.call_count == 2
+        mock_knowledge_repo.save.assert_called_once_with(second.outputs["bundle"])
 
     async def test_empty_texts_no_embedding(
         self,
@@ -555,6 +631,7 @@ class TestIngestPipelineRun:
 # QueryPipeline — __init__
 # ---------------------------------------------------------------------------
 
+
 class TestQueryPipelineInit:
     def test_requires_dependencies(self) -> None:
         with pytest.raises(TypeError):
@@ -572,8 +649,10 @@ class TestQueryPipelineInit:
             generator=mock_generator,
         )
         from raghub.observability.noop import NoOpTelemetry
+
         assert isinstance(pipe.telemetry, NoOpTelemetry)
         from raghub.conversation.memory import InMemoryConversationStore
+
         assert isinstance(pipe.conversation_store, InMemoryConversationStore)
 
     def test_accepts_explicit_dependencies(
@@ -608,6 +687,7 @@ class TestQueryPipelineInit:
 # QueryPipeline — metadata_filter_for_user
 # ---------------------------------------------------------------------------
 
+
 class TestMetadataFilterForUser:
     @pytest.fixture
     def pipe(
@@ -633,9 +713,7 @@ class TestMetadataFilterForUser:
         user = MagicMock(is_admin=False, allowed_companies=["acme", "beta"])
         assert pipe.metadata_filter_for_user(user) == {"company": ["acme", "beta"]}
 
-    def test_user_with_empty_companies_returns_empty_list_dict(
-        self, pipe: QueryPipeline
-    ) -> None:
+    def test_user_with_empty_companies_returns_empty_list_dict(self, pipe: QueryPipeline) -> None:
         user = MagicMock(is_admin=False, allowed_companies=[])
         assert pipe.metadata_filter_for_user(user) == {"company": []}
 
@@ -649,6 +727,7 @@ class TestMetadataFilterForUser:
 # ---------------------------------------------------------------------------
 # QueryPipeline — run
 # ---------------------------------------------------------------------------
+
 
 class TestQueryPipelineRun:
     @pytest.fixture
@@ -713,7 +792,9 @@ class TestQueryPipelineRun:
         mock_conversation_store: MagicMock,
         mock_generator: MagicMock,
     ) -> None:
-        mock_generator.record_tokens = MagicMock(return_value={"prompt": 5, "completion": 10, "model": "gpt-4"})
+        mock_generator.record_tokens = MagicMock(
+            return_value={"prompt": 5, "completion": 10, "model": "gpt-4"}
+        )
         result = await pipe.run(
             pipeline_context,
             question="what is acme?",
@@ -722,6 +803,9 @@ class TestQueryPipelineRun:
         )
         assert result.success is True
         assert len(result.outputs["history"]) == 1
+        assert (
+            mock_generator.generate.await_args.kwargs["conversation"] == result.outputs["history"]
+        )
         mock_conversation_store.append.assert_called_once()
 
     async def test_session_load_error_returns_empty_history(
@@ -782,7 +866,9 @@ class TestQueryPipelineRun:
         mock_generator: MagicMock,
         mock_telemetry: MagicMock,
     ) -> None:
-        mock_generator.record_tokens = MagicMock(return_value={"prompt": 10, "completion": 20, "model": "gpt-4"})
+        mock_generator.record_tokens = MagicMock(
+            return_value={"prompt": 10, "completion": 20, "model": "gpt-4"}
+        )
         pipe.telemetry = mock_telemetry
         result = await pipe.run(
             pipeline_context,
@@ -880,6 +966,7 @@ class TestQueryPipelineRun:
 # QueryPipeline — stream
 # ---------------------------------------------------------------------------
 
+
 class TestQueryPipelineStream:
     @pytest.fixture
     def pipe(
@@ -892,7 +979,9 @@ class TestQueryPipelineStream:
     ) -> QueryPipeline:
         generator = MagicMock()
         generator.astream = _make_astream("hello", " world")
-        generator.record_tokens = MagicMock(return_value={"prompt": 3, "completion": 7, "model": "gpt-4"})
+        generator.record_tokens = MagicMock(
+            return_value={"prompt": 3, "completion": 7, "model": "gpt-4"}
+        )
         return QueryPipeline(
             embedder=mock_embedder,
             vector_store=mock_vector_store,
@@ -919,9 +1008,7 @@ class TestQueryPipelineStream:
         mock_conversation_store: MagicMock,
     ) -> None:
         tokens = []
-        async for token in pipe.stream(
-            pipeline_context, question="hi", session_id="sess-1"
-        ):
+        async for token in pipe.stream(pipeline_context, question="hi", session_id="sess-1"):
             tokens.append(token)
         assert "".join(tokens) == "hello world"
         mock_conversation_store.append.assert_called_once()
@@ -964,9 +1051,7 @@ class TestQueryPipelineStream:
         )
         user = UserPrincipal(email="u@a.com", is_admin=True)
         tokens = []
-        async for token in pipe.stream(
-            pipeline_context, question="hi", user=user
-        ):
+        async for token in pipe.stream(pipeline_context, question="hi", user=user):
             tokens.append(token)
         # user span attribute should be set
         span = mock_telemetry.span.return_value
@@ -1011,9 +1096,7 @@ class TestQueryPipelineStream:
             conversation_store=mock_conversation_store,
         )
         tokens = []
-        async for token in pipe.stream(
-            pipeline_context, question="hi", session_id="sess-1"
-        ):
+        async for token in pipe.stream(pipeline_context, question="hi", session_id="sess-1"):
             tokens.append(token)
         assert "".join(tokens) == "data"
 
@@ -1024,9 +1107,7 @@ class TestQueryPipelineStream:
         pipeline_context: PipelineContext,
     ) -> None:
         generator = MagicMock()
-        generator.generate = AsyncMock(
-            return_value=("hello world", [])
-        )
+        generator.generate = AsyncMock(return_value=("hello world", []))
         del generator.astream
         pipe = QueryPipeline(
             embedder=mock_embedder,
@@ -1046,9 +1127,7 @@ class TestQueryPipelineStream:
         pipeline_context: PipelineContext,
     ) -> None:
         generator = MagicMock()
-        generator.generate = AsyncMock(
-            return_value=("answer text", [])
-        )
+        generator.generate = AsyncMock(return_value=("answer text", []))
         del generator.astream
         pipe = QueryPipeline(
             embedder=mock_embedder,
@@ -1057,9 +1136,7 @@ class TestQueryPipelineStream:
             conversation_store=mock_conversation_store,
         )
         tokens = []
-        async for token in pipe.stream(
-            pipeline_context, question="hi", session_id="sess-1"
-        ):
+        async for token in pipe.stream(pipeline_context, question="hi", session_id="sess-1"):
             tokens.append(token)
         assert "".join(tokens) == "answer text "
         mock_conversation_store.append.assert_called_once()
@@ -1081,9 +1158,7 @@ class TestQueryPipelineStream:
             conversation_store=mock_conversation_store,
         )
         tokens = []
-        async for token in pipe.stream(
-            pipeline_context, question="hi", session_id="sess-1"
-        ):
+        async for token in pipe.stream(pipeline_context, question="hi", session_id="sess-1"):
             tokens.append(token)
         mock_conversation_store.append.assert_not_called()
 
@@ -1103,7 +1178,9 @@ class TestQueryPipelineStream:
 
 def _make_astream(*tokens: str):
     """Return an async generator function that yields the given tokens."""
+
     async def astream_fn(**kwargs):
         for t in tokens:
             yield t
+
     return astream_fn

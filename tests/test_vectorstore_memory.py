@@ -6,7 +6,8 @@ from typing import Any
 
 import pytest
 
-from raghub.models import ChunkRecord, Classification
+from raghub.core.rbac import allowed_company_filter
+from raghub.models import ChunkRecord, Classification, UserPrincipal
 from raghub.retrieval.search import (
     FacetedSearchEngine,
     SearchFilters,
@@ -18,10 +19,10 @@ from raghub.vectorstore.memory import (
     matches_metadata_dict,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_chunk(**overrides: Any) -> ChunkRecord:
     defaults: dict[str, Any] = dict(
@@ -37,8 +38,9 @@ def make_chunk(**overrides: Any) -> ChunkRecord:
 
 
 # ===================================================================
-# matches_metadata_dict  (memory.py lines 40–51)
+# matches_metadata_dict  (memory.py lines 40-51)
 # ===================================================================
+
 
 class TestMatchesMetadataDict:
     def test_list_value_matches(self) -> None:
@@ -66,21 +68,18 @@ class TestMatchesMetadataDict:
         assert matches_metadata_dict(record, {})
 
     def test_multiple_criteria_all_pass(self) -> None:
-        record = MemoryVectorRecord(
-            chunk=make_chunk(company="Acme", document_id="d1"), vector=[]
-        )
+        record = MemoryVectorRecord(chunk=make_chunk(company="Acme", document_id="d1"), vector=[])
         assert matches_metadata_dict(record, {"company": ["Acme"], "document_id": "d1"})
 
     def test_multiple_criteria_one_fails(self) -> None:
-        record = MemoryVectorRecord(
-            chunk=make_chunk(company="Acme", document_id="d1"), vector=[]
-        )
+        record = MemoryVectorRecord(chunk=make_chunk(company="Acme", document_id="d1"), vector=[])
         assert not matches_metadata_dict(record, {"company": ["Acme"], "document_id": "d2"})
 
 
 # ===================================================================
 # InMemoryVectorStore
 # ===================================================================
+
 
 class TestInMemoryVectorStoreInit:
     def test_initial_state(self) -> None:
@@ -210,7 +209,7 @@ class TestMatchesFilter:
 
     def test_company_in_with_double_quotes(self) -> None:
         store = InMemoryVectorStore()
-        record = MemoryVectorRecord(chunk=make_chunk(company='Acme'), vector=[])
+        record = MemoryVectorRecord(chunk=make_chunk(company="Acme"), vector=[])
         assert store.matches_filter(record, 'company IN ("Acme")') is True
 
     def test_document_id_eq_match(self) -> None:
@@ -223,10 +222,10 @@ class TestMatchesFilter:
         record = MemoryVectorRecord(chunk=make_chunk(document_id="d2"), vector=[])
         assert store.matches_filter(record, "document_id = 'd1'") is False
 
-    def test_unknown_filter_pass_through_returns_true(self) -> None:
+    def test_unknown_filter_fails_closed(self) -> None:
         store = InMemoryVectorStore()
         record = MemoryVectorRecord(chunk=make_chunk(), vector=[])
-        assert store.matches_filter(record, "unknown_field = 'x'") is True
+        assert store.matches_filter(record, "unknown_field = 'x'") is False
 
 
 class TestComputeScore:
@@ -293,7 +292,9 @@ class TestSearch:
             ],
             [[0.1, 0.2], [0.1, 0.2], [0.1, 0.2]],
         )
-        results = store.search(vector=[0.1, 0.2], top_k=5, metadata_filter={"company": ["Acme", "Beta"]})
+        results = store.search(
+            vector=[0.1, 0.2], top_k=5, metadata_filter={"company": ["Acme", "Beta"]}
+        )
         assert len(results) == 2
         assert {r["chunk_id"] for r in results} == {"c1", "c2"}
 
@@ -326,6 +327,39 @@ class TestSearch:
         store.insert([make_chunk(chunk_id="c1")], [[0.1, 0.2]])
         results = store.search(vector=[0.1, 0.2], top_k=5)
         assert len(results) == 1
+
+
+class TestRbacIsolation:
+    def test_non_admin_sees_only_allowed_company(self) -> None:
+        store = InMemoryVectorStore()
+        store.insert(
+            [
+                make_chunk(chunk_id="acme", company="Acme"),
+                make_chunk(chunk_id="beta", company="Beta"),
+            ],
+            [[1.0, 0.0], [1.0, 0.0]],
+        )
+        user = UserPrincipal(email="user@acme.com", allowed_companies=["Acme"])
+        results = store.search(
+            vector=[1.0, 0.0],
+            top_k=5,
+            metadata_filter=allowed_company_filter(user),
+        )
+        assert [result["chunk_id"] for result in results] == ["acme"]
+
+    def test_non_admin_empty_allow_list_sees_nothing(self) -> None:
+        store = InMemoryVectorStore()
+        store.insert([make_chunk(chunk_id="acme")], [[1.0, 0.0]])
+        user = UserPrincipal(email="user@acme.com", allowed_companies=[])
+        assert allowed_company_filter(user) == {"company": []}
+        assert (
+            store.search(
+                vector=[1.0, 0.0],
+                top_k=5,
+                metadata_filter=allowed_company_filter(user),
+            )
+            == []
+        )
 
 
 class TestHybridSearch:
@@ -418,8 +452,9 @@ class TestHealth:
 
 
 # ===================================================================
-# build_filter_string  (search.py lines 33–54)
+# build_filter_string  (search.py lines 33-54)
 # ===================================================================
+
 
 class TestBuildFilterString:
     def test_none_returns_empty_string(self) -> None:
@@ -463,6 +498,7 @@ class TestBuildFilterString:
 # ===================================================================
 # FacetedSearchEngine
 # ===================================================================
+
 
 class FakeEmbeddingProvider:
     def embed_text(self, text: str) -> list[float]:
@@ -537,7 +573,9 @@ class TestFacetedSearchEngineSearch:
                     {"chunk_id": "c1", "score": 0.9, "chunk": chunk},
                 ]
 
-        engine = FacetedSearchEngine(vector_store=DedupStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=DedupStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         results = engine.search("test", top_k=10)
         assert len(results) == 1
 
@@ -554,58 +592,90 @@ class TestFacetedSearchEngineSearch:
 
 class TestFacetedSearchEngineMatchesFilters:
     def test_passes_when_no_filters_active(self) -> None:
-        engine = FacetedSearchEngine(vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         chunk = make_chunk()
         assert engine.matches_filters(chunk, SearchFilters()) is True
 
     def test_company_filter_pass(self) -> None:
-        engine = FacetedSearchEngine(vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         chunk = make_chunk(company="Acme")
         assert engine.matches_filters(chunk, SearchFilters(companies=["Acme"])) is True
 
     def test_company_filter_fail(self) -> None:
-        engine = FacetedSearchEngine(vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         chunk = make_chunk(company="Acme")
         assert engine.matches_filters(chunk, SearchFilters(companies=["Beta"])) is False
 
     def test_department_filter_pass(self) -> None:
-        engine = FacetedSearchEngine(vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         chunk = make_chunk(department="Engineering")
         assert engine.matches_filters(chunk, SearchFilters(departments=["Engineering"])) is True
 
     def test_department_filter_fail(self) -> None:
-        engine = FacetedSearchEngine(vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         chunk = make_chunk(department="Engineering")
         assert engine.matches_filters(chunk, SearchFilters(departments=["Sales"])) is False
 
     def test_classification_filter_pass(self) -> None:
-        engine = FacetedSearchEngine(vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         chunk = make_chunk(classification=Classification.CONFIDENTIAL)
-        assert engine.matches_filters(chunk, SearchFilters(classifications=[Classification.CONFIDENTIAL])) is True
+        assert (
+            engine.matches_filters(
+                chunk, SearchFilters(classifications=[Classification.CONFIDENTIAL])
+            )
+            is True
+        )
 
     def test_classification_filter_fail(self) -> None:
-        engine = FacetedSearchEngine(vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         chunk = make_chunk(classification=Classification.INTERNAL)
-        assert engine.matches_filters(chunk, SearchFilters(classifications=[Classification.RESTRICTED])) is False
+        assert (
+            engine.matches_filters(
+                chunk, SearchFilters(classifications=[Classification.RESTRICTED])
+            )
+            is False
+        )
 
     def test_owner_filter_pass(self) -> None:
-        engine = FacetedSearchEngine(vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         chunk = make_chunk(owner="a@co.com")
         assert engine.matches_filters(chunk, SearchFilters(owners=["a@co.com"])) is True
 
     def test_owner_filter_fail(self) -> None:
-        engine = FacetedSearchEngine(vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         chunk = make_chunk(owner="a@co.com")
         assert engine.matches_filters(chunk, SearchFilters(owners=["b@co.com"])) is False
 
     def test_multiple_filters_all_pass(self) -> None:
-        engine = FacetedSearchEngine(vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         chunk = make_chunk(company="Acme", department="Eng", owner="a@co.com")
         filters = SearchFilters(companies=["Acme"], departments=["Eng"], owners=["a@co.com"])
         assert engine.matches_filters(chunk, filters) is True
 
     def test_multiple_filters_one_fails(self) -> None:
-        engine = FacetedSearchEngine(vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=InMemoryVectorStore(), embedding_provider=FakeEmbeddingProvider()
+        )
         chunk = make_chunk(company="Acme", department="Eng")
         filters = SearchFilters(companies=["Acme"], departments=["Sales"])
         assert engine.matches_filters(chunk, filters) is False
@@ -658,7 +728,9 @@ class TestFacetedSearchEngineCountByField:
         class StoreNoRecords:
             records = None
 
-        engine = FacetedSearchEngine(vector_store=StoreNoRecords(), embedding_provider=FakeEmbeddingProvider())
+        engine = FacetedSearchEngine(
+            vector_store=StoreNoRecords(), embedding_provider=FakeEmbeddingProvider()
+        )
         assert engine.count_by_field("company") == {}
 
     def test_list_value_in_field_counts_each_element(self) -> None:

@@ -23,7 +23,7 @@ jobs:
             .mypy_cache
             .ruff_cache
           key: ${{ runner.os }}-lint-${{ hashFiles('pyproject.toml') }}
-      - name: Install dependencies
+      - name: Install declared dependencies
         run: pip install -e ".[api,ui,dev]"
       - name: Lint (ruff)
         run: ruff check raghub/ tests/ examples/ bench/
@@ -36,41 +36,31 @@ jobs:
             raghub/evaluation/ raghub/knowledge/ \
             raghub/conversation/ raghub/cli/ \
             -f 80
-      - name: Unit tests with coverage gate (non-platform)
+      - name: Unit tests with coverage gate
         run: |
           pytest -q --ignore=tests/test_financebench.py \
             --cov=raghub --cov-report=term-missing \
             --cov-fail-under=90
-      - name: Non-platform tests (exact local flags)
-        run: |
-          pytest -q --cov=raghub --cov-report=term-missing
-      - name: Integration tests (optional)
+      - name: Integration tests (platform)
         env:
           RAGHUB_RUN_PLATFORM_TESTS: "1"
         run: |
-          pytest -q tests/test_platform.py || true
-      - name: Build docs
+          pytest -q tests/test_platform.py
+      - name: Build docs (mkdocs)
+        run: mkdocs build --strict
+      - name: Security scan (bandit)
+        run: bandit -r raghub/ -q -ll -i
+      - name: Dependency audit (pip-audit, gating)
         run: |
-          pip install mkdocs
-          mkdocs build --strict
-      - name: Security scan (Bandit)
-        run: |
-          pip install bandit
-          bandit -r raghub/ -q -ll -i
-      - name: Dependency audit
-        run: |
-          pip install pip-audit
-          pip-audit || true
-      - name: Validate OpenAPI schema
+          pip-audit --strict
+      - name: Validate OpenAPI schema (gating)
         run: |
           python -c "
-          import json
           from raghub.api.app import get_app
           app = get_app()
           spec = app.openapi()
-          # Basic validation: ensure spec has required keys
           assert 'openapi' in spec, 'Missing openapi version'
           assert 'paths' in spec, 'Missing paths'
-          print('OpenAPI schema validated successfully')
+          assert spec.get('components', {}).get('schemas'), 'Missing schemas'
+          print('OpenAPI schema validated:', spec['openapi'], 'paths:', len(spec['paths']))
           "
-          || true

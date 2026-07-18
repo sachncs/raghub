@@ -8,6 +8,10 @@ single writer.
 
 Configuration applied on connect:
 
+* ``isolation_level=None`` — autocommit. Stores no longer need to
+  remember to call ``commit`` after every write; a plain ``INSERT``
+  persists immediately. Explicit ``BEGIN``/``COMMIT`` still works for
+  multi-statement :class:`UnitOfWork` transactions.
 * ``PRAGMA journal_mode=WAL`` — concurrent readers with one writer.
 * ``PRAGMA synchronous=NORMAL`` — durability with one fewer fsync
   per commit; acceptable for application-level WAL files.
@@ -21,6 +25,7 @@ driver serialises access internally.
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 import aiosqlite
@@ -30,51 +35,37 @@ class DatabaseManager:
     """Manages a shared :class:`aiosqlite.Connection` with WAL mode."""
 
     def __init__(self, db_path: str | Path) -> None:
-        """Initialise the manager.
-
-        Args:
-            db_path: Path to the SQLite database file. Created on first
-                :meth:`connect` if it does not exist.
-        """
         self.db_path = str(db_path)
         self.conn: aiosqlite.Connection | None = None
 
     async def connect(self) -> aiosqlite.Connection:
-        """Open (or reuse) the connection, applying required PRAGMAs.
-
-        Returns:
-            The live :class:`aiosqlite.Connection`.
-        """
         if self.conn is None:
-            self.conn = await aiosqlite.connect(self.db_path)
+            # isolation_level=None turns on autocommit so plain
+            # INSERT/UPDATE/DELETE persist without an explicit commit;
+            # BEGIN/COMMIT still drive UnitOfWork transactions.
+            self.conn = await aiosqlite.connect(self.db_path, isolation_level=None)
             self.conn.row_factory = aiosqlite.Row
-            # WAL mode + normal sync + foreign keys: the standard
-            # combo for application-level SQLite use.
             await self.conn.execute("PRAGMA journal_mode=WAL")
             await self.conn.execute("PRAGMA synchronous=NORMAL")
             await self.conn.execute("PRAGMA foreign_keys=ON")
         return self.conn
 
     async def close(self) -> None:
-        """Close the underlying connection.
-
-        No-op when the manager has not been connected. After calling
-        this, :meth:`connect` will re-open the connection.
-        """
         if self.conn is not None:
-            await self.conn.close()
-            self.conn = None
+            conn = self.conn
+            try:
+                # ponytail: best-effort WAL checkpoint before close pushes any
+                # straggling -wal frames back into the main file so a subsequent
+                # cold start sees a clean database. Silently ignored on
+                # in-memory or already-checkpointed DBs.
+                with contextlib.suppress(Exception):
+                    await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                await conn.close()
+            finally:
+                self.conn = None
 
     @property
     def connection(self) -> aiosqlite.Connection:
-        """Return the active connection.
-
-        Returns:
-            The :class:`aiosqlite.Connection`.
-
-        Raises:
-            RuntimeError: If :meth:`connect` has not been called.
-        """
         if self.conn is None:
             raise RuntimeError("Database not connected. Call connect() first.")
         return self.conn

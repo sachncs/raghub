@@ -17,8 +17,12 @@ from raghub.storage.sqlite_session_store import SqliteSessionStore
 
 
 class SqliteSessionRepository(SessionRepository):
-    def __init__(self, db_path: str | Path, timeout_seconds: int = 3600,
-                 db_manager: DatabaseManager | None = None) -> None:
+    def __init__(
+        self,
+        db_path: str | Path,
+        timeout_seconds: int = 3600,
+        db_manager: DatabaseManager | None = None,
+    ) -> None:
         self.inner = SqliteSessionStore(db_path, timeout_seconds, db_manager=db_manager)
         self.db_manager = db_manager
 

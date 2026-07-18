@@ -32,12 +32,16 @@ MarkerPdfConverter: Any
 marker_create_model_dict: Any
 
 try:
-    _mod = __import__("marker.converters.pdf", fromlist=["PdfConverter"])
-    MarkerPdfConverter = _mod.PdfConverter
+    marker_module = __import__(
+        "marker.converters.pdf", fromlist=["PdfConverter"]
+    )
+    MarkerPdfConverter = marker_module.PdfConverter
 
     try:
-        _mod2 = __import__("marker.models", fromlist=["create_model_dict"])
-        marker_create_model_dict = _mod2.create_model_dict
+        marker_models_module = __import__(
+            "marker.models", fromlist=["create_model_dict"]
+        )
+        marker_create_model_dict = marker_models_module.create_model_dict
     except Exception:  # pragma: no cover - older marker
         marker_create_model_dict = None
 
@@ -66,8 +70,10 @@ def build_marker_converter() -> Any:
         return MarkerPdfConverter(**kwargs)
     except TypeError:
         # Older API: ``PdfConverter(config=..., artifact_dict=...)``.
-        _parser_mod = __import__("marker.config.parser", fromlist=["ConfigParser"])
-        ConfigParser = _parser_mod.ConfigParser
+        marker_parser_module = __import__(
+            "marker.config.parser", fromlist=["ConfigParser"]
+        )
+        ConfigParser = marker_parser_module.ConfigParser
 
         parser = ConfigParser({})
         return MarkerPdfConverter(

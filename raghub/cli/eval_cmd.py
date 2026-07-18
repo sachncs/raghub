@@ -24,9 +24,7 @@ def add_parser(subparsers: argparse._SubParsersAction) -> None:
         subparsers: The argparse subparsers container.
     """
     parser = subparsers.add_parser("eval", help="run an evaluation")
-    parser.add_argument(
-        "benchmark", choices=["financebench"], help="benchmark to run"
-    )
+    parser.add_argument("benchmark", choices=["financebench"], help="benchmark to run")
     parser.add_argument(
         "--examples",
         type=int,
@@ -47,17 +45,17 @@ def run_subcommand(args: argparse.Namespace) -> int:
         ``0`` on success.
     """
 
-    async def _async() -> int:
+    async def async_main() -> int:
         evaluator = FinanceBenchEvaluator()
 
-        async def _factory(_example: object) -> str:
+        async def factory(_example: object) -> str:
             return ""
 
         examples = []
         if args.examples:
             rows = await asyncio.to_thread(evaluator.ensure_examples)
             examples = rows[: args.examples]
-        results = await evaluator.evaluate(examples, response_factory=_factory)
+        results = await evaluator.evaluate(examples, response_factory=factory)
         summary = {
             "benchmark": evaluator.benchmark,
             "count": len(results),
@@ -77,7 +75,7 @@ def run_subcommand(args: argparse.Namespace) -> int:
         )
         return 0
 
-    return asyncio.run(_async())
+    return asyncio.run(async_main())
 
 
 def build_console_namespace(args: argparse.Namespace) -> argparse.Namespace:
@@ -100,9 +98,7 @@ def main() -> int:
         ``0`` on success.
     """
     parser = argparse.ArgumentParser(prog="raghub-financebench")
-    parser.add_argument(
-        "--examples", type=int, default=10, help="number of examples to evaluate"
-    )
+    parser.add_argument("--examples", type=int, default=10, help="number of examples to evaluate")
     return run_subcommand(build_console_namespace(parser.parse_args()))
 
 

@@ -13,8 +13,8 @@ that and falls back to a non-structured generator.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from typing import Any, Sequence, Type, TypeVar
+from collections.abc import AsyncIterator, Sequence
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
@@ -28,6 +28,7 @@ instructor: Any
 
 try:
     import instructor
+
     INSTRUCTOR_AVAILABLE = True
     OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
@@ -63,9 +64,7 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
             ConfigurationError: When ``instructor`` is not installed.
         """
         if not INSTRUCTOR_AVAILABLE:
-            raise ConfigurationError(
-                "instructor is not installed; run `pip install instructor`."
-            )
+            raise ConfigurationError("instructor is not installed; run `pip install instructor`.")
         self.model = model
         self.api_key = api_key
         self.async_client = async_client
@@ -93,7 +92,7 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
     async def generate(
         self,
         *,
-        response_model: Type[T],
+        response_model: type[T],
         question: str,
         context: Sequence[RetrievalHit],
     ) -> T:
@@ -107,9 +106,7 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
         Returns:
             A populated ``response_model`` instance.
         """
-        context_text = "\n\n".join(
-            f"[{i + 1}] {hit.chunk.text}" for i, hit in enumerate(context)
-        )
+        context_text = "\n\n".join(f"[{i + 1}] {hit.chunk.text}" for i, hit in enumerate(context))
         messages: list[dict] = [
             {
                 "role": "system",
@@ -122,12 +119,12 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
         ]
         if self.async_client:
             client = self.async_instructor_client()
-            return await client.create(
+            return await client.create(  # type: ignore[no-any-return]
                 messages=messages,
                 response_model=response_model,
             )
         client = self.sync_instructor_client()
-        return client.create(
+        return client.create(  # type: ignore[no-any-return]
             messages=messages,
             response_model=response_model,
         )
@@ -135,7 +132,7 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
     async def astream(
         self,
         *,
-        response_model: Type[T],
+        response_model: type[T],
         question: str,
         context: Sequence[RetrievalHit],
     ) -> AsyncIterator[T]:
@@ -144,10 +141,10 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
             response_model=response_model, question=question, context=context
         )
 
-        async def _generate() -> AsyncIterator[T]:
+        async def stream() -> AsyncIterator[T]:
             yield result
 
-        return _generate()
+        return stream()
 
 
 __all__ = ["InstructorStructuredOutputProvider"]

@@ -114,9 +114,7 @@ def test_query_pipeline_returns_answer() -> None:
         ],
         [embedder.embed_text("revenue is high")],
     )
-    result = asyncio.run(
-        pipeline.run(PipelineContext(pipeline_name="query"), question="revenue")
-    )
+    result = asyncio.run(pipeline.run(PipelineContext(pipeline_name="query"), question="revenue"))
     assert result.success, result.error
     assert result.outputs["answer"]
     assert result.outputs["hits"]

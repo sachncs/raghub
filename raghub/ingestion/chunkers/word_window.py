@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from raghub.documents.chunker import chunk_words as legacy_chunk_words
 from raghub.documents.chunker import ChunkingPlan as LegacyPlan
+from raghub.documents.chunker import chunk_words as legacy_chunk_words
 from raghub.documents.chunker import normalize_text as normalize_text
 from raghub.interfaces.chunker import Chunker
 from raghub.models import Chunk
@@ -70,7 +70,9 @@ class WordWindowChunker(Chunker):
                             chunk_id=chunk_id,
                             document_id=bundle.bundle_id,
                             version=1,
-                            page=(section.page_numbers[0] if section.page_numbers else section.index),
+                            page=(
+                                section.page_numbers[0] if section.page_numbers else section.index
+                            ),
                             source_location=section.source_location or bundle.source_uri,
                             section=section.heading,
                             company="",

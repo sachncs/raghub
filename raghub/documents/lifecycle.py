@@ -29,7 +29,9 @@ class DocumentLifecycleManager:
 
     machine: DocumentStateMachine = field(default_factory=DocumentStateMachine)
 
-    def transition(self, document: DocumentVersion, status: DocumentLifecycleStatus) -> DocumentVersion:
+    def transition(
+        self, document: DocumentVersion, status: DocumentLifecycleStatus
+    ) -> DocumentVersion:
         """Update ``document.status`` to ``status`` if the transition is legal.
 
         Args:

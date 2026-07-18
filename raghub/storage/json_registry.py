@@ -25,7 +25,7 @@ scanning every document's history.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
 
@@ -92,7 +92,9 @@ class JsonDocumentRegistry:
                 if isinstance(versions, list)
             }
             self.checksum_index = {
-                checksum: tuple(value) for checksum, value in checksum_index.items() if isinstance(value, list)
+                checksum: tuple(value)
+                for checksum, value in checksum_index.items()
+                if isinstance(value, list)
             }
         except Exception:
             # Bad JSON or schema mismatch — start fresh. This is
@@ -115,7 +117,9 @@ class JsonDocumentRegistry:
                         document_id: [version.model_dump(mode="json") for version in versions]
                         for document_id, versions in self.documents.items()
                     },
-                    "checksum_index": {checksum: list(value) for checksum, value in self.checksum_index.items()},
+                    "checksum_index": {
+                        checksum: list(value) for checksum, value in self.checksum_index.items()
+                    },
                 },
             )
         except Exception as exc:  # pragma: no cover - persistence error path
@@ -155,7 +159,7 @@ class JsonDocumentRegistry:
                     # latest as ``ARCHIVED`` so historical chains stay
                     # accurate even after the active version changes.
                     versions[-1].status = DocumentLifecycleStatus.ARCHIVED
-                    versions[-1].updated_at = datetime.now(timezone.utc)
+                    versions[-1].updated_at = datetime.now(UTC)
                 versions.append(document)
             # Update the checksum index unconditionally so dedup lookups
             # always reflect the most recent write.
@@ -226,7 +230,10 @@ class JsonDocumentRegistry:
                 latest = versions[-1]
                 # Skip archived rows so historical chains don't pollute
                 # tenant-facing listings.
-                if latest.organization in companies and latest.status != DocumentLifecycleStatus.ARCHIVED:
+                if (
+                    latest.organization in companies
+                    and latest.status != DocumentLifecycleStatus.ARCHIVED
+                ):
                     result.append(latest)
             return result
 
@@ -243,7 +250,7 @@ class JsonDocumentRegistry:
             if latest is None:
                 return
             latest.status = DocumentLifecycleStatus.ARCHIVED
-            latest.updated_at = datetime.now(timezone.utc)
+            latest.updated_at = datetime.now(UTC)
             self.save()
 
     def dump(self) -> RegistrySnapshot:

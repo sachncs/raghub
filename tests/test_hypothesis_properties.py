@@ -35,9 +35,7 @@ def test_recall_at_k_bounds(retrieved: list[str], relevant: list[str], k: int) -
     relevant=st.lists(st.text(min_size=1, max_size=10), min_size=0, max_size=10),
     k=st.integers(min_value=1, max_value=20),
 )
-def test_precision_at_k_bounds(
-    retrieved: list[str], relevant: list[str], k: int
-) -> None:
+def test_precision_at_k_bounds(retrieved: list[str], relevant: list[str], k: int) -> None:
     """Precision@K is always in [0, 1] (or 0 when k is 0)."""
     value = precision_at_k(retrieved, relevant, k)
     assert 0.0 <= value <= 1.0

@@ -27,8 +27,11 @@ META_FILE = DATA_DIR / "financebench_document_information.jsonl"
 
 REQUIRED_PDFS: set[str] = set()
 
-pytestmark = [pytest.mark.skipif(not os.environ.get("FINANCEBENCH_EVAL"),
-                                 reason="Set FINANCEBENCH_EVAL=1 to run")]
+pytestmark = [
+    pytest.mark.skipif(
+        not os.environ.get("FINANCEBENCH_EVAL"), reason="Set FINANCEBENCH_EVAL=1 to run"
+    )
+]
 
 
 def _download_file(url: str, dest: Path) -> bool:
@@ -85,7 +88,7 @@ class TestFinanceBenchSample:
 
         PDF_DIR.mkdir(parents=True, exist_ok=True)
         doc_names: set[str] = set()
-        for q in questions[:self.SAMPLE_SIZE]:
+        for q in questions[: self.SAMPLE_SIZE]:
             for evidence in q.get("evidence", []):
                 doc_name = evidence.get("evidence_doc_name", "")
                 if doc_name:
@@ -124,7 +127,7 @@ class TestFinanceBenchSample:
     async def test_evaluate_questions(self, app_service, questions):
         """Run questions through the RAG pipeline and score answers."""
         results: list[dict] = []
-        for q in questions[:self.SAMPLE_SIZE]:
+        for q in questions[: self.SAMPLE_SIZE]:
             question_text = q["question"]
             gold_answer = q.get("answer", "")
             try:
@@ -132,23 +135,27 @@ class TestFinanceBenchSample:
                     token="",
                     question=question_text,
                 )
-                results.append({
-                    "financebench_id": q.get("financebench_id"),
-                    "question": question_text,
-                    "gold_answer": gold_answer,
-                    "system_answer": response.answer,
-                    "citations": response.citations,
-                    "has_citations": len(response.citations) > 0,
-                })
+                results.append(
+                    {
+                        "financebench_id": q.get("financebench_id"),
+                        "question": question_text,
+                        "gold_answer": gold_answer,
+                        "system_answer": response.answer,
+                        "citations": response.citations,
+                        "has_citations": len(response.citations) > 0,
+                    }
+                )
             except Exception as exc:
-                results.append({
-                    "financebench_id": q.get("financebench_id"),
-                    "question": question_text,
-                    "gold_answer": gold_answer,
-                    "system_answer": f"ERROR: {exc}",
-                    "citations": [],
-                    "has_citations": False,
-                })
+                results.append(
+                    {
+                        "financebench_id": q.get("financebench_id"),
+                        "question": question_text,
+                        "gold_answer": gold_answer,
+                        "system_answer": f"ERROR: {exc}",
+                        "citations": [],
+                        "has_citations": False,
+                    }
+                )
 
         _write_results(results)
         coverage = sum(1 for r in results if r["has_citations"]) / len(results)
@@ -158,7 +165,7 @@ class TestFinanceBenchSample:
     async def test_empty_response_rate(self, app_service, questions):
         """Check that the system produces non-empty answers."""
         empty = 0
-        for q in questions[:self.SAMPLE_SIZE]:
+        for q in questions[: self.SAMPLE_SIZE]:
             response = await app_service.query(token="", question=q["question"])
             if not response.answer or response.answer.strip() == "":
                 empty += 1

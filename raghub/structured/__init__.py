@@ -15,4 +15,3 @@ Public re-exports:
 from raghub.structured.instructor import InstructorStructuredOutputProvider
 
 __all__ = ["InstructorStructuredOutputProvider"]
-

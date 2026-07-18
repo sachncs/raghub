@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 
 class PersistentJobStore:
@@ -52,7 +53,9 @@ class PersistentJobStore:
         """
         import time
 
-        encoded = json.dumps(result) if result is not None and not isinstance(result, str) else result
+        encoded = (
+            json.dumps(result) if result is not None and not isinstance(result, str) else result
+        )
         self.conn.execute(
             """
             INSERT INTO ingestion_jobs (job_id, status, result, created_at)

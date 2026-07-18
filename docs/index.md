@@ -71,6 +71,9 @@ raghub query "What was the revenue guidance?"
 - [Plugin authoring](plugins.md)
 - [Migration guide (legacy → RAG facade)](migration.md)
 - [Monitoring & observability](operations/monitoring.md)
+- [Backup & restore](operations/backup.md)
+- [Runbook](operations/runbook.md)
+- [Scaling](operations/scaling.md)
 - [Troubleshooting](troubleshooting.md)
 - [Future extensions](future.md)
 

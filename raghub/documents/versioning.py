@@ -7,7 +7,7 @@ status to ``NEW``, and applies any caller-supplied overrides.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from raghub.models import DocumentLifecycleStatus, DocumentVersion
@@ -41,7 +41,7 @@ def new_version(previous: DocumentVersion | None, **overrides: Any) -> DocumentV
     # New versions always start in the ``NEW`` state; the ingestion
     # pipeline will drive them through the lifecycle.
     payload["status"] = DocumentLifecycleStatus.NEW
-    payload["updated_at"] = datetime.now(timezone.utc)
+    payload["updated_at"] = datetime.now(UTC)
     if previous is not None:
         # ``setdefault`` keeps any caller overrides intact; the only
         # case these fire is when the caller did not already supply

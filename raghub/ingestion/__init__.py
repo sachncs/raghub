@@ -3,6 +3,12 @@
 The legacy :class:`DocumentIngestionService` and
 :class:`IngestionResult` are imported lazily to keep the base
 package free of ``aiosqlite`` at import time.
+
+The legacy service is now a **thin wrapper** around
+:class:`raghub.pipelines.rag.IngestPipeline`. All real work
+(conversion, chunking, embedding, indexing, deduplication) lives
+in the canonical pipeline; the legacy class preserves the public
+method surface for FastAPI, CLI, streamlit, and background jobs.
 """
 
 from typing import TYPE_CHECKING, Any

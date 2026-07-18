@@ -101,7 +101,7 @@ class AppSettings(BaseModel):
         if self.profile_path is not None:
             self.profile_path = Path(self.profile_path)
 
-    def override(self, **changes: Any) -> "AppSettings":
+    def override(self, **changes: Any) -> AppSettings:
         """Return a new :class:`AppSettings` with the given fields changed.
 
         Args:
@@ -204,15 +204,15 @@ def load_settings(profile: str | None = None) -> AppSettings:
             )
         ),
         "max_upload_bytes": int(
-            os.getenv("RAG_MAX_UPLOAD_BYTES", str(payload.get("max_upload_bytes", 20 * 1024 * 1024)))
+            os.getenv(
+                "RAG_MAX_UPLOAD_BYTES", str(payload.get("max_upload_bytes", 20 * 1024 * 1024))
+            )
         ),
         "embedding_model": os.getenv(
             "RAG_EMBEDDING_MODEL", payload.get("embedding_model", "hashing-bge")
         ),
         "llm_model": os.getenv("RAG_LLM_MODEL", payload.get("llm_model", "heuristic-llm")),
-        "retrieval_mode": os.getenv(
-            "RAG_RETRIEVAL_MODE", payload.get("retrieval_mode", "sync")
-        ),
+        "retrieval_mode": os.getenv("RAG_RETRIEVAL_MODE", payload.get("retrieval_mode", "sync")),
         "log_level": os.getenv("RAG_LOG_LEVEL", payload.get("log_level", "INFO")),
         "worker_backend": os.getenv(
             "RAG_WORKER_BACKEND", payload.get("worker_backend", "threadpool")
@@ -236,9 +236,7 @@ def load_settings(profile: str | None = None) -> AppSettings:
         # accept forged credentials.
         secret = settings.jwt_secret.get_secret_value()
         if not secret:
-            raise RuntimeError(
-                "JWT_SECRET environment variable is required in production mode"
-            )
+            raise RuntimeError("JWT_SECRET environment variable is required in production mode")
         # ``JWT_SECRET`` must be at least 32 bytes for SHA-256
         # signing; PyJWT emits an InsecureKeyLengthWarning otherwise.
         if len(secret.encode("utf-8")) < 32:

@@ -59,7 +59,9 @@ class VectorStore(Protocol):
             version: The version number.
         """
 
-    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
+    def search(
+        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
+    ) -> list[dict[str, Any]]:
         """Run filtered vector search.
 
         Args:

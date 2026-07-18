@@ -56,6 +56,7 @@ def store(tmp_path):
 # __init__ / load / save
 # ---------------------------------------------------------------------------
 
+
 class TestInit:
     def test_sets_path_and_timeout(self, tmp_path):
         p = tmp_path / "s.json"
@@ -110,6 +111,7 @@ class TestInit:
 # create
 # ---------------------------------------------------------------------------
 
+
 class TestCreate:
     def test_returns_session_record(self, store):
         session = store.create("user1")
@@ -145,6 +147,7 @@ class TestCreate:
 # ---------------------------------------------------------------------------
 # resolve
 # ---------------------------------------------------------------------------
+
 
 class TestResolve:
     def test_valid_token_returns_session(self, store):
@@ -202,6 +205,7 @@ class TestResolve:
 # invalidate
 # ---------------------------------------------------------------------------
 
+
 class TestInvalidate:
     def test_removes_session(self, store):
         session = store.create("user1")
@@ -228,6 +232,7 @@ class TestInvalidate:
 # ---------------------------------------------------------------------------
 # append_turn
 # ---------------------------------------------------------------------------
+
 
 class TestAppendTurn:
     def test_appends_to_session_history(self, store):
@@ -281,6 +286,7 @@ class TestAppendTurn:
 # load_turns
 # ---------------------------------------------------------------------------
 
+
 class TestLoadTurns:
     def test_returns_history(self, store):
         session = store.create("user1")
@@ -309,6 +315,7 @@ class TestLoadTurns:
 # ---------------------------------------------------------------------------
 # clear_turns
 # ---------------------------------------------------------------------------
+
 
 class TestClearTurns:
     def test_clears_history(self, store):
@@ -348,6 +355,7 @@ class TestClearTurns:
 # Expiry behaviour (sliding window)
 # ---------------------------------------------------------------------------
 
+
 class TestExpiry:
     def test_sliding_window_keeps_active_session_alive(self, tmp_path):
         p = tmp_path / "sw.json"
@@ -381,6 +389,7 @@ class TestExpiry:
 # ---------------------------------------------------------------------------
 # Locking
 # ---------------------------------------------------------------------------
+
 
 class TestLocking:
     def test_lock_is_rlock(self, store):

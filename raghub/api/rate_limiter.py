@@ -7,10 +7,10 @@ maximum ``burst`` capacity. Every request costs one or more tokens; a request
 is admitted only if the bucket contains enough tokens at the moment of the
 call.
 
-The implementation is intentionally lock-free and process-local; it is suitable
-for single-process deployments and development. Multi-worker or multi-pod
-deployments should rely on a distributed limiter (e.g. Redis-backed) to keep
-the limit consistent across replicas.
+The implementation is process-local; it is suitable for single-process
+deployments and development. Multi-worker or multi-pod deployments should
+rely on a distributed limiter (e.g. Redis-backed) to keep the limit
+consistent across replicas.
 
 Design notes:
 
@@ -22,13 +22,17 @@ Design notes:
   had just refilled to ``burst``, giving the client an initial burst budget.
 * **Monotonic clock:** we use :func:`time.monotonic` so that wall-clock jumps
   (NTP, suspend/resume) cannot grant free tokens.
+* **Thread safety:** every mutation is serialised under a re-entrant lock so
+  the middleware can be safely invoked from background threads (e.g. a
+  threadpool that backs ``BackgroundIngestionService``).
 
 This module is referenced from ``raghub.api.app.create_app`` where the
-middleware is conditionally mounted when ``RATE_LIMIT_ENABLED`` is true.
+middleware is unconditionally mounted.
 """
 
 from __future__ import annotations
 
+from threading import RLock
 from time import monotonic
 from typing import Any
 
@@ -45,12 +49,15 @@ class TokenBucket:
         burst: Maximum bucket capacity. Also the initial budget for a new key.
         buckets: Internal mapping of key -> ``(tokens, last_refill_monotonic)``.
             Exposed mainly for inspection; treat as private.
+        lock: Re-entrant lock that serialises every mutation. Callers that
+            drive :meth:`allow` from many OS threads at once get consistent
+            state without having to wrap the call externally.
 
     Thread safety:
-        This implementation is **not** thread-safe. FastAPI typically runs on
-        a single asyncio loop per worker, which is safe, but if you call
-        :meth:`allow` from multiple OS threads wrap it in a lock or use an
-        atomic counter instead.
+        This implementation is thread-safe. All reads and writes of
+        :pyattr:`buckets` are guarded by a :class:`threading.RLock`. FastAPI
+        typically runs on a single asyncio loop per worker, which is also
+        safe, but worker-thread callers no longer need their own lock.
     """
 
     def __init__(self, rate: float = 10.0, burst: int = 20) -> None:
@@ -63,6 +70,7 @@ class TokenBucket:
         self.rate = rate
         self.burst = burst
         self.buckets: dict[str, tuple[float, float]] = {}
+        self.lock = RLock()
 
     def allow(self, key: str, cost: float = 1.0) -> bool:
         """Attempt to debit ``cost`` tokens from ``key``'s bucket.
@@ -88,26 +96,27 @@ class TokenBucket:
             ``True`` if the request is admitted, ``False`` if the bucket does
             not contain enough tokens.
         """
-        now = monotonic()
-        # First-time seeding: a brand-new key starts with a full bucket.
-        # The ``now`` for ``last_refill`` ensures the next call measures the
-        # elapsed time from this moment, not from epoch zero.
-        tokens, last_refill = self.buckets.get(key, (self.burst, now))
-        elapsed = now - last_refill
-        # Lazy refill: capped at ``burst`` so we never exceed capacity,
-        # even after long idle periods (e.g. process slept then resumed).
-        tokens = min(self.burst, tokens + elapsed * self.rate)
-        # Write the refilled state regardless of outcome so the next call
-        # sees an accurate ``last_refill`` even on rejections.
-        self.buckets[key] = (tokens, now)
-        if tokens >= cost:
-            # Admit: debit the cost. We write the bucket again so the
-            # post-deduction state is recorded atomically with the decision.
-            self.buckets[key] = (tokens - cost, now)
-            return True
-        # Reject: caller should respond with 429. No further write needed
-        # because the bucket state is already current.
-        return False
+        with self.lock:
+            now = monotonic()
+            # First-time seeding: a brand-new key starts with a full bucket.
+            # The ``now`` for ``last_refill`` ensures the next call measures the
+            # elapsed time from this moment, not from epoch zero.
+            tokens, last_refill = self.buckets.get(key, (self.burst, now))
+            elapsed = now - last_refill
+            # Lazy refill: capped at ``burst`` so we never exceed capacity,
+            # even after long idle periods (e.g. process slept then resumed).
+            tokens = min(self.burst, tokens + elapsed * self.rate)
+            # Write the refilled state regardless of outcome so the next call
+            # sees an accurate ``last_refill`` even on rejections.
+            self.buckets[key] = (tokens, now)
+            if tokens >= cost:
+                # Admit: debit the cost. We write the bucket again so the
+                # post-deduction state is recorded atomically with the decision.
+                self.buckets[key] = (tokens - cost, now)
+                return True
+            # Reject: caller should respond with 429. No further write needed
+            # because the bucket state is already current.
+            return False
 
 
 class RateLimiterMiddleware:
@@ -148,6 +157,7 @@ class RateLimiterMiddleware:
             send: ASGI send callable.
         """
         from starlette.responses import JSONResponse
+
         # Pass-through for lifespan and websocket scopes: the rate limiter
         # only governs HTTP traffic.
         if scope["type"] != "http":

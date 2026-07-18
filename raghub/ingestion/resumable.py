@@ -62,14 +62,30 @@ class ResumableBackgroundIngestionService(BackgroundIngestionService):
             if job is not None:
                 self.store.upsert(job_id, job.status, job.result)
 
-    def shutdown(self) -> None:
-        """Flush the job store and shut down the executor."""
+    def shutdown(self, *, wait: bool = False) -> None:
+        """Flush the job store and shut down the executor.
+
+        Persists every in-memory job status to the durable ledger
+        before delegating to :meth:`BackgroundIngestionService.shutdown`.
+        Idempotent and safe to call multiple times.
+
+        Args:
+            wait: Forwarded to :class:`concurrent.futures.ThreadPoolExecutor.shutdown`.
+                ``False`` returns promptly after the executor has been
+                told to wind down.
+        """
+        if self.closed:
+            return
         try:
             for job_id, job in list(self.jobs.items()):
                 self.store.upsert(job_id, job.status, job.result)
         finally:
-            self.store.close()
-            self.executor.shutdown(wait=False)
+            try:
+                self.store.close()
+            finally:
+                # Delegate to the parent so the executor is properly
+                # closed and the ``closed`` flag is set.
+                super().shutdown(wait=wait)
 
 
 __all__ = ["ResumableBackgroundIngestionService"]

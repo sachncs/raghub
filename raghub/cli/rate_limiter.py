@@ -39,8 +39,12 @@ class CLIRateLimiter:
         enabled_env = os.environ.get("RAGHUB_CLI_RATE_LIMIT_ENABLED", "1")
 
         # Default: 30 calls/minute = 0.5 tokens/second, burst of 5.
-        self.rate = float(rate_env) / 60.0 if rate_env is not None else (rate if rate is not None else 0.5)
-        self.burst = int(burst_env) if burst_env is not None else (burst if burst is not None else 5)
+        self.rate = (
+            float(rate_env) / 60.0 if rate_env is not None else (rate if rate is not None else 0.5)
+        )
+        self.burst = (
+            int(burst_env) if burst_env is not None else (burst if burst is not None else 5)
+        )
         enabled_raw = str(enabled_env if enabled is None else ("1" if enabled else "0")).lower()
         self.enabled = enabled_raw not in ("0", "false", "no")
         self.buckets: dict[str, tuple[float, float]] = {}

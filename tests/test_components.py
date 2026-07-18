@@ -8,10 +8,9 @@ and verifies that the building blocks compose correctly.
 from __future__ import annotations
 
 from raghub.core.document_state import DocumentStateMachine
-from raghub.embeddings.hashing import HashingEmbeddingProvider
-from raghub.models import DocumentLifecycleStatus
 from raghub.core.rbac import allowed_company_filter
-from raghub.models import UserPrincipal
+from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.models import DocumentLifecycleStatus, UserPrincipal
 from raghub.vectorstore.memory import InMemoryVectorStore
 
 
@@ -44,4 +43,4 @@ def test_embedding_and_vectorstore_filter() -> None:
 
 def test_rbac_filter_builder() -> None:
     user = UserPrincipal(email="alice@email.com", allowed_companies=["Apple"])
-    assert allowed_company_filter(user) == "company IN ('Apple')"
+    assert allowed_company_filter(user) == {"company": ["Apple"]}

@@ -38,9 +38,7 @@ class InMemoryKnowledgeRepository(KnowledgeRepository):
     def list_by_source(self, source_uri: str) -> list[KnowledgeBundle]:
         """Return every bundle for ``source_uri`` (newest first)."""
         return [
-            self.bundles[bid]
-            for bid in self.by_source.get(source_uri, [])
-            if bid in self.bundles
+            self.bundles[bid] for bid in self.by_source.get(source_uri, []) if bid in self.bundles
         ]
 
     def delete(self, bundle_id: str) -> None:

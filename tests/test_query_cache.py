@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from raghub.models import PipelineResult
+from raghub.models import ConversationTurn, PipelineResult
 from raghub.pipelines.cache import QueryCache
 
 
@@ -107,3 +107,46 @@ def test_get_with_none_user_id() -> None:
     cache = QueryCache(ttl_seconds=60)
     cache.set("q", None, None, _make_result())
     assert cache.get("q", None, None) is not None
+
+
+def test_cache_key_scopes_query_shape_and_conversation() -> None:
+    class ResponseModel:
+        pass
+
+    cache = QueryCache(ttl_seconds=60)
+    result = _make_result()
+    history = [ConversationTurn(question="before", answer="earlier")]
+    options = {
+        "top_k": 3,
+        "response_model": ResponseModel,
+        "session_id": "session-a",
+        "history": history,
+        "scope": (False, ("Acme",), ("finance",)),
+    }
+    cache.set("q", "alice", None, result, **options)
+
+    assert cache.get("q", "alice", None, **options) is result
+    assert cache.get("q", "alice", None, **{**options, "top_k": 4}) is None
+    assert cache.get("q", "alice", None, **{**options, "response_model": None}) is None
+    assert cache.get("q", "alice", None, **{**options, "session_id": "session-b"}) is None
+    assert (
+        cache.get(
+            "q",
+            "alice",
+            None,
+            **{
+                **options,
+                "history": [ConversationTurn(question="changed", answer="earlier")],
+            },
+        )
+        is None
+    )
+    assert (
+        cache.get(
+            "q",
+            "alice",
+            None,
+            **{**options, "scope": (True, (), ())},
+        )
+        is None
+    )

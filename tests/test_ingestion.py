@@ -178,49 +178,38 @@ class TestExtractPdfText:
 class TestExtractTextFromContent:
     def test_pdf_by_mime(self) -> None:
         pdf_bytes = _make_pdf("PDF content")
-        result = extract_text_from_content(
-            pdf_bytes, "doc.pdf", "application/pdf"
-        )
+        result = extract_text_from_content(pdf_bytes, "doc.pdf", "application/pdf")
         assert len(result) == 1
         assert result[0][2].strip() == "PDF content"
 
     def test_pdf_by_extension(self) -> None:
         pdf_bytes = _make_pdf("PDF ext")
-        result = extract_text_from_content(
-            pdf_bytes, "doc.pdf", "application/octet-stream"
-        )
+        result = extract_text_from_content(pdf_bytes, "doc.pdf", "application/octet-stream")
         assert len(result) == 1
         assert result[0][2].strip() == "PDF ext"
 
     def test_plain_text(self) -> None:
-        result = extract_text_from_content(
-            b"hello world", "readme.txt", "text/plain"
-        )
+        result = extract_text_from_content(b"hello world", "readme.txt", "text/plain")
         assert result == [(0, "full file", "hello world")]
 
     def test_csv(self) -> None:
-        result = extract_text_from_content(
-            b"a,b,c\n1,2,3", "data.csv", "text/csv"
-        )
+        result = extract_text_from_content(b"a,b,c\n1,2,3", "data.csv", "text/csv")
         assert result == [(0, "full file", "a,b,c\n1,2,3")]
 
     def test_image(self) -> None:
-        result = extract_text_from_content(
-            b"fake-image-data", "photo.png", "image/png"
-        )
+        result = extract_text_from_content(b"fake-image-data", "photo.png", "image/png")
         assert result == [(0, "image", "fake-image-data")]
 
     def test_docx_mime(self) -> None:
         result = extract_text_from_content(
-            b"docx content", "report.docx",
+            b"docx content",
+            "report.docx",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
         assert result == [(0, "document", "docx content")]
 
     def test_doc_mime(self) -> None:
-        result = extract_text_from_content(
-            b"doc content", "report.doc", "application/msword"
-        )
+        result = extract_text_from_content(b"doc content", "report.doc", "application/msword")
         assert result == [(0, "document", "doc content")]
 
     def test_xlsx_mime(self) -> None:
@@ -229,9 +218,7 @@ class TestExtractTextFromContent:
         assert result == [(0, "spreadsheet", "sheet data")]
 
     def test_xls_mime(self) -> None:
-        result = extract_text_from_content(
-            b"old sheet", "data.xls", "application/vnd.ms-excel"
-        )
+        result = extract_text_from_content(b"old sheet", "data.xls", "application/vnd.ms-excel")
         assert result == [(0, "spreadsheet", "old sheet")]
 
     def test_pptx_mime(self) -> None:
@@ -246,15 +233,11 @@ class TestExtractTextFromContent:
         assert result == [(0, "presentation", "old slides")]
 
     def test_unknown_mime(self) -> None:
-        result = extract_text_from_content(
-            b"binary data", "file.bin", "application/octet-stream"
-        )
+        result = extract_text_from_content(b"binary data", "file.bin", "application/octet-stream")
         assert result == [(0, "unknown", "binary data")]
 
     def test_utf8_decode_fallback(self) -> None:
-        result = extract_text_from_content(
-            "héllo wörld".encode("utf-8"), "notes.txt", "text/plain"
-        )
+        result = extract_text_from_content("héllo wörld".encode("utf-8"), "notes.txt", "text/plain")
         assert result == [(0, "full file", "héllo wörld")]
 
 
@@ -433,7 +416,9 @@ class TestDocumentIngestionServiceInit:
 
 
 class TestSubmitAsync:
-    def test_submit_without_background_service(self, service: DocumentIngestionService, owner: UserPrincipal) -> None:
+    def test_submit_without_background_service(
+        self, service: DocumentIngestionService, owner: UserPrincipal
+    ) -> None:
         job_id = service.submit_async(
             file_name="test.txt",
             file_bytes=b"hello",
@@ -442,7 +427,9 @@ class TestSubmitAsync:
         )
         assert isinstance(job_id, str)
 
-    def test_submit_with_background_service(self, service: DocumentIngestionService, owner: UserPrincipal) -> None:
+    def test_submit_with_background_service(
+        self, service: DocumentIngestionService, owner: UserPrincipal
+    ) -> None:
         bg = MagicMock()
         bg.submit.return_value = "bg-job-1"
         job_id = service.submit_async(
@@ -469,7 +456,27 @@ class TestIngest:
     ) -> None:
         mock_uow.document_repo.get_by_checksum.return_value = None
         mock_validate.return_value = "text/plain"
-        # Make build_chunk_records produce 2 chunks
+        # Wire a stub pipeline that always succeeds; the wrapper now
+        # delegates every real piece of work to the new IngestPipeline.
+        from raghub.models import PipelineResult
+
+        async def fake_run(_context: object, **_kwargs: object) -> PipelineResult:
+            return PipelineResult(
+                pipeline_id="i",
+                pipeline_name="ingest",
+                success=True,
+                outputs={
+                    "bundle": None,
+                    "chunks": [],
+                    "chunk_count": 0,
+                    "document_id": "doc-new",
+                    "version": 1,
+                    "incremental": False,
+                },
+            )
+
+        service._pipeline = MagicMock()
+        service._pipeline.run = fake_run  # type: ignore[assignment]
         text = "hello world foo bar baz"
         result = await service.ingest(
             file_name="notes.txt",
@@ -480,11 +487,9 @@ class TestIngest:
         assert isinstance(result, IngestionResult)
         assert result.document is not None
         assert result.chunk_ids is not None
+        # Document is persisted at the wrapper level after a successful
+        # pipeline run.
         mock_uow.document_repo.save.assert_called()
-        mock_uow.chunk_repo.upsert.assert_called_once()
-        mock_uow.chunk_repo.optimize.assert_called_once()
-        # Lifecycle transitions
-        assert mock_lifecycle.transition.call_count >= 5
 
     @patch("raghub.documents.validation.validate_upload")
     async def test_dedup_ready_document_short_circuits(
@@ -512,8 +517,9 @@ class TestIngest:
         assert result.document is existing
         assert result.chunk_ids == ["c1", "c2"]
         # No further processing
-        mock_uow.chunk_repo.upsert.assert_not_called()
         mock_uow.document_repo.save.assert_not_called()
+        # Pipeline was not invoked on a dedup short-circuit.
+        assert service._pipeline is None or service._pipeline.run.call_count == 0  # type: ignore[union-attr]
 
     @patch("raghub.documents.validation.validate_upload")
     async def test_dedup_non_ready_creates_new_version(
@@ -525,6 +531,8 @@ class TestIngest:
         mock_lifecycle: MagicMock,
         owner: UserPrincipal,
     ) -> None:
+        from raghub.models import PipelineResult
+
         existing = DocumentRecord(
             checksum="abc",
             owner="alice@acme.com",
@@ -532,6 +540,25 @@ class TestIngest:
             status=DocumentLifecycleStatus.FAILED,
         )
         mock_uow.document_repo.get_by_checksum.return_value = existing
+        mock_validate.return_value = "text/plain"
+
+        async def fake_run(_context: object, **_kwargs: object) -> PipelineResult:
+            return PipelineResult(
+                pipeline_id="i",
+                pipeline_name="ingest",
+                success=True,
+                outputs={
+                    "bundle": None,
+                    "chunks": [],
+                    "chunk_count": 0,
+                    "document_id": "doc-different",
+                    "version": 2,
+                    "incremental": False,
+                },
+            )
+
+        service._pipeline = MagicMock()
+        service._pipeline.run = fake_run  # type: ignore[assignment]
         text = "hello world foo bar baz"
         result = await service.ingest(
             file_name="notes.txt",
@@ -540,7 +567,7 @@ class TestIngest:
             organization="Acme",
         )
         assert result.document is not existing
-        assert result.document.version > 1 or result.document.document_id != existing.document_id
+        assert result.document.version == 2
 
     @patch("raghub.documents.validation.validate_upload")
     async def test_validation_failure_propagates(
@@ -591,7 +618,7 @@ class TestIngest:
             )
 
     @patch("raghub.documents.validation.validate_upload")
-    async def test_lifecycle_transition_failure_sets_failed(
+    async def test_pipeline_failure_propagates_as_document_error(
         self,
         mock_validate: MagicMock,
         mock_uow: MagicMock,
@@ -600,23 +627,38 @@ class TestIngest:
         owner: UserPrincipal,
     ) -> None:
         from raghub.exceptions import DocumentError
+        from raghub.models import PipelineResult
 
         mock_uow.document_repo.get_by_checksum.return_value = None
-        mock_lifecycle.transition.side_effect = ValueError("Illegal transition")
+        mock_validate.return_value = "text/plain"
 
+        async def fake_run(_context: object, **_kwargs: object) -> PipelineResult:
+            return PipelineResult(
+                pipeline_id="i",
+                pipeline_name="ingest",
+                success=False,
+                error="Illegal transition",
+            )
+
+        svc = DocumentIngestionService(
+            uow=mock_uow,
+            embedding_provider=mock_embedding_provider,
+            lifecycle_manager=mock_lifecycle,
+            plan=ChunkingPlan(),
+            max_upload_bytes=10_000_000,
+        )
+        svc._pipeline = MagicMock()
+        svc._pipeline.run = fake_run  # type: ignore[assignment]
         with pytest.raises(DocumentError, match="Illegal transition"):
-            await service_factory(
-                mock_uow, mock_embedding_provider, mock_lifecycle
-            ).ingest(
+            await svc.ingest(
                 file_name="test.txt",
                 file_bytes=b"hello world foo bar",
                 owner=owner,
                 organization="Acme",
             )
-        assert mock_uow.document_repo.save.call_count >= 2
 
     @patch("raghub.documents.validation.validate_upload")
-    async def test_embedding_failure_sets_failed(
+    async def test_pipeline_failure_with_prior_failed_record_persists_status(
         self,
         mock_validate: MagicMock,
         mock_uow: MagicMock,
@@ -625,20 +667,47 @@ class TestIngest:
         owner: UserPrincipal,
     ) -> None:
         from raghub.exceptions import DocumentError
+        from raghub.models import PipelineResult
 
-        mock_uow.document_repo.get_by_checksum.return_value = None
-        mock_embedding_provider.embed_texts.side_effect = RuntimeError("Embedding failed")
+        existing = DocumentRecord(
+            checksum="abc",
+            owner="alice@acme.com",
+            organization="Acme",
+            status=DocumentLifecycleStatus.FAILED,
+        )
+        mock_uow.document_repo.get_by_checksum.return_value = existing
+        mock_validate.return_value = "text/plain"
 
+        async def fake_run(_context: object, **_kwargs: object) -> PipelineResult:
+            return PipelineResult(
+                pipeline_id="i",
+                pipeline_name="ingest",
+                success=False,
+                error="Embedding failed",
+            )
+
+        svc = DocumentIngestionService(
+            uow=mock_uow,
+            embedding_provider=mock_embedding_provider,
+            lifecycle_manager=mock_lifecycle,
+            plan=ChunkingPlan(),
+            max_upload_bytes=10_000_000,
+        )
+        svc._pipeline = MagicMock()
+        svc._pipeline.run = fake_run  # type: ignore[assignment]
         with pytest.raises(DocumentError, match="Embedding failed"):
-            await service_factory(
-                mock_uow, mock_embedding_provider, mock_lifecycle
-            ).ingest(
+            await svc.ingest(
                 file_name="test.txt",
                 file_bytes=b"hello world foo bar",
                 owner=owner,
                 organization="Acme",
             )
-        mock_uow.chunk_repo.upsert.assert_not_called()
+        # Wrapper persists the failure on the prior record so callers
+        # polling ``document_status`` see the latest error.
+        assert mock_uow.document_repo.save.call_count >= 1
+        last_saved = mock_uow.document_repo.save.call_args[0][0]
+        assert last_saved.status == DocumentLifecycleStatus.FAILED
+        assert "Embedding failed" in (last_saved.error or "")
 
     @patch("raghub.documents.validation.validate_upload")
     async def test_ingestion_result_fields(
@@ -648,7 +717,28 @@ class TestIngest:
         mock_uow: MagicMock,
         owner: UserPrincipal,
     ) -> None:
+        from raghub.models import PipelineResult
+
         mock_uow.document_repo.get_by_checksum.return_value = None
+        mock_validate.return_value = "text/plain"
+
+        async def fake_run(_context: object, **_kwargs: object) -> PipelineResult:
+            return PipelineResult(
+                pipeline_id="i",
+                pipeline_name="ingest",
+                success=True,
+                outputs={
+                    "bundle": None,
+                    "chunks": [],
+                    "chunk_count": 0,
+                    "document_id": "doc-1",
+                    "version": 1,
+                    "incremental": False,
+                },
+            )
+
+        service._pipeline = MagicMock()
+        service._pipeline.run = fake_run  # type: ignore[assignment]
         text = "hello world foo bar baz"
         result = await service.ingest(
             file_name="notes.txt",
@@ -663,34 +753,7 @@ class TestIngest:
         assert hasattr(result, "document")
         assert hasattr(result, "chunk_ids")
         assert isinstance(result.document, DocumentRecord)
-
-    @patch("raghub.documents.validation.validate_upload")
-    async def test_error_during_ingestion_persists_failed(
-        self,
-        mock_validate: MagicMock,
-        mock_uow: MagicMock,
-        mock_embedding_provider: MagicMock,
-        mock_lifecycle: MagicMock,
-        owner: UserPrincipal,
-    ) -> None:
-        from raghub.exceptions import DocumentError
-
-        mock_uow.document_repo.get_by_checksum.return_value = None
-        mock_lifecycle.transition.side_effect = ValueError("boom")
-
-        with pytest.raises(DocumentError):
-            await service_factory(
-                mock_uow, mock_embedding_provider, mock_lifecycle
-            ).ingest(
-                file_name="x.txt",
-                file_bytes=b"a b c d e f g h i j k l m n o p",
-                owner=owner,
-                organization="Acme",
-            )
-        # Verify the record was saved as FAILED
-        final_save_call = mock_uow.document_repo.save.call_args[0][0]
-        assert final_save_call.status == DocumentLifecycleStatus.FAILED
-        assert final_save_call.error == "boom"
+        assert result.document.classification == Classification.CONFIDENTIAL
 
 
 # =========================================================================
@@ -700,22 +763,21 @@ class TestIngest:
 
 class TestBuildChonkieInner:
     def test_raises_when_chonkie_unavailable(self) -> None:
-        with patch(
-            "raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False
-        ), patch(
-            "raghub.ingestion.chunkers.chonkie.CHONKIE_MODULE", None
+        with (
+            patch("raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False),
+            patch("raghub.ingestion.chunkers.chonkie.CHONKIE_MODULE", None),
         ):
             from raghub.exceptions import ConfigurationError
+
             with pytest.raises(ConfigurationError, match="not installed"):
                 build_chonkie_inner(chunk_size=10, chunk_overlap=2, tokenizer="character")
 
 
 class TestChonkieChunker:
     def test_init_raises_when_chonkie_unavailable(self) -> None:
-        with patch(
-            "raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False
-        ):
+        with patch("raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False):
             from raghub.exceptions import ConfigurationError
+
             with pytest.raises(ConfigurationError, match="not installed"):
                 ChonkieChunker(chunk_size=10, chunk_overlap=2)
 
@@ -903,28 +965,28 @@ class TestBuildChonkieChunker:
         assert isinstance(chunker, ChonkieChunker)
 
     def test_explicit_chonkie_unavailable(self) -> None:
-        with patch(
-            "raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False
-        ):
+        with patch("raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False):
             from raghub.exceptions import ConfigurationError
+
             with pytest.raises(ConfigurationError, match="not installed"):
                 build_chonkie_chunker("chonkie")
 
     def test_auto_falls_back_to_word_window(self) -> None:
-        with patch(
-            "raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False
-        ):
+        with patch("raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False):
             from raghub.ingestion.chunkers.word_window import WordWindowChunker
+
             chunker = build_chonkie_chunker("auto")
             assert isinstance(chunker, WordWindowChunker)
 
     def test_explicit_word_window(self) -> None:
         from raghub.ingestion.chunkers.word_window import WordWindowChunker
+
         chunker = build_chonkie_chunker("word_window")
         assert isinstance(chunker, WordWindowChunker)
 
     def test_unknown_name_raises(self) -> None:
         from raghub.exceptions import ConfigurationError
+
         with pytest.raises(ConfigurationError, match="Unknown chunker"):
             build_chonkie_chunker("nonexistent")
 
@@ -944,14 +1006,17 @@ class TestBuildChonkieChunker:
 class TestIngestionInit:
     def test_lazy_import_service(self) -> None:
         from raghub.ingestion import DocumentIngestionService
+
         assert DocumentIngestionService is not None
 
     def test_lazy_import_result(self) -> None:
         from raghub.ingestion import IngestionResult
+
         assert IngestionResult is not None
 
     def test_getattr_valid_names(self) -> None:
         from raghub.ingestion import __getattr__
+
         svc = __getattr__("DocumentIngestionService")
         assert svc is DocumentIngestionService
         res = __getattr__("IngestionResult")
@@ -959,11 +1024,13 @@ class TestIngestionInit:
 
     def test_getattr_invalid_name_raises(self) -> None:
         from raghub.ingestion import __getattr__
+
         with pytest.raises(AttributeError, match="has no attribute"):
             __getattr__("NonExistent")
 
     def test__all__export(self) -> None:
         from raghub.ingestion import __all__
+
         assert "DocumentIngestionService" in __all__
         assert "IngestionResult" in __all__
 

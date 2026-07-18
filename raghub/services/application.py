@@ -22,12 +22,25 @@ Failure modes: :func:`build_container` raises :class:`RuntimeError` when
 provided. SQLite-backed stores are initialised eagerly during build
 (``initialize`` is called) so a misconfigured schema surfaces immediately
 rather than on the first request.
+
+Production safety
+-----------------
+
+:func:`build_container` refuses to seed the demo users when
+``settings.environment == "production"`` or when ``CORS_ORIGINS`` is
+``"*"`` — both signal a production-style deploy that must not silently
+fall back to the ``alice@acme.com / password`` defaults. Operators
+should either set ``RAGHUB_USERS`` or bootstrap accounts via the user
+store before starting.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import os
 from dataclasses import dataclass
+
 from raghub.auth import (
     JwtAuthenticator,
     JwtSessionManager,
@@ -36,19 +49,11 @@ from raghub.auth import (
 )
 from raghub.config.settings import AppSettings
 from raghub.conversation.manager import ConversationManager
-from raghub.documents.chunker import ChunkingPlan
 from raghub.documents.lifecycle import DocumentLifecycleManager
 from raghub.documents.parsers import ParserRegistry
 from raghub.embeddings import BaseEmbeddingProvider, build_embedding_provider
 from raghub.ingestion.service import DocumentIngestionService
 from raghub.llm import BaseLLMProvider, build_llm_provider
-from raghub.observability.logging import build_logger
-from raghub.observability.metrics import PrometheusMetrics
-from raghub.prompts.builder import PromptBuilder
-from raghub.retrieval.pipeline import RetrievalPipeline
-from raghub.retrieval.reranker import IdentityReranker
-from raghub.storage.image_store import FilesystemImageStore
-from raghub.storage.sqlite_session_store import SqliteSessionStore
 from raghub.models import (
     AuthLoginResponse,
     ConversationTurn,
@@ -56,9 +61,41 @@ from raghub.models import (
     QueryResponse,
     UserPrincipal,
 )
+from raghub.observability.logging import build_logger
+from raghub.observability.metrics import PrometheusMetrics
+from raghub.prompts.builder import PromptBuilder
 from raghub.repositories import UnitOfWork
+from raghub.retrieval.pipeline import RetrievalPipeline
+from raghub.retrieval.reranker import IdentityReranker
+from raghub.storage.image_store import FilesystemImageStore
+from raghub.storage.sqlite_session_store import SqliteSessionStore
 from raghub.vectorstore.base import BaseVectorStore
 from raghub.vectorstore.zvec import ZvecVectorStore
+
+
+def seed_blocked(settings: AppSettings) -> bool:
+    """Return ``True`` when the demo-user seed must be skipped.
+
+    The seed is suppressed when either signal of a production deploy
+    is present:
+
+    * ``settings.environment == "production"`` — explicit opt-in to
+      production semantics.
+    * ``CORS_ORIGINS`` is ``"*"`` — the same misconfiguration that the
+      CORS guard rejects at startup; if the operator left it as a
+      wildcard the platform is not configured for production and
+      must not silently create default accounts.
+
+    Args:
+        settings: The loaded application settings.
+
+    Returns:
+        ``True`` when the demo seed must be skipped.
+    """
+    if settings.environment == "production":
+        return True
+    cors = os.getenv("CORS_ORIGINS", "").strip()
+    return cors == "*"
 
 
 @dataclass
@@ -69,7 +106,14 @@ class DynamicRagContainer:
 
     * ``settings`` — typed configuration snapshot.
     * ``logger`` / ``metrics`` — observability primitives.
-    * ``authenticator`` / ``authorization`` / ``sessions`` — auth trio.
+    * ``authenticator`` / ``authorization`` — auth primitives. The
+      ``authenticator`` field is the deprecated
+      :class:`raghub.auth.JwtAuthenticator`, kept for backwards
+      compatibility but **not** used by the production auth path.
+    * ``sessions`` — deprecated :class:`JwtSessionManager` kept for
+      external callers; production login flows use
+      :class:`raghub.storage.sqlite_session_store.SqliteSessionStore`
+      directly via :class:`raghub.services.auth_service.AuthService`.
     * ``registry`` — user store aliased for legacy call sites that
       expected a "registry" name (kept for backward compatibility).
     * ``conversation`` — chat-history manager.
@@ -78,7 +122,8 @@ class DynamicRagContainer:
       — RAG pipeline pieces.
     * ``image_store`` / ``parser_registry`` — auxiliary stores.
     * ``user_store`` — same instance as ``registry``; named for clarity.
-    * ``store`` — raw :class:`SqliteSessionStore` (used by ``sessions``).
+    * ``store`` — raw :class:`SqliteSessionStore` (used by ``sessions``
+      and by the canonical :class:`AuthService`).
     * ``uow`` — Unit-of-Work for transactional repo access.
     * ``auth`` / ``documents`` / ``query`` / ``health`` — service handles
       populated by :class:`DynamicRagApplication.__init__`.
@@ -87,9 +132,10 @@ class DynamicRagContainer:
         settings: Application configuration.
         logger: Structured logger (see :mod:`raghub.observability.logging`).
         metrics: Prometheus metrics sink.
-        authenticator: JWT authenticator.
+        authenticator: JWT authenticator (deprecated, kept for back-compat).
         authorization: RBAC service.
-        sessions: Login / logout facade.
+        sessions: Deprecated JwtSessionManager; production flows use
+            ``store`` directly.
         registry: Backward-compat alias for ``user_store``.
         conversation: Chat-history manager.
         embeddings: Embedding provider.
@@ -330,8 +376,19 @@ class DynamicRagApplication:
         Closes the database manager, the in-memory vector store, and
         any background ingestion service that the application owns.
         Safe to call multiple times.
+
+        Each collaborator is closed in order; failures are logged
+        rather than re-raised so a single stuck resource does not
+        strand the others.
         """
-        for attr in ("uow", "store", "vector_store", "image_store", "ingestion"):
+        for attr in (
+            "background_ingestion",
+            "ingestion",
+            "image_store",
+            "vector_store",
+            "store",
+            "uow",
+        ):
             collaborator = getattr(self.container, attr, None)
             if collaborator is None:
                 continue
@@ -342,8 +399,15 @@ class DynamicRagApplication:
                 result = close()
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception:
-                continue
+            except Exception as exc:
+                # Log to the structured logger so operators see what
+                # failed without the shutdown loop swallowing it.
+                logger = getattr(self.container, "logger", None)
+                if logger is not None:
+                    info = getattr(logger, "error", None)
+                    if callable(info):
+                        with contextlib.suppress(Exception):
+                            info("shutdown.error", component=attr, error=str(exc))
 
 
 async def build_container(settings: AppSettings) -> DynamicRagContainer:
@@ -354,13 +418,13 @@ async def build_container(settings: AppSettings) -> DynamicRagContainer:
 
     1. Logger and metrics.
     2. User store (initialised against ``data_dir/users.db``).
-    3. JWT authenticator (validates ``settings.jwt_secret`` is non-empty).
-    4. RBAC service.
-    5. Vector store (``ZvecVectorStore`` with optional fallback).
-    6. Unit-of-work (initialised against the registry SQLite db).
-    7. Session store (initialised against ``data_dir/sessions.db``).
-    8. Embeddings, LLM (built via factory helpers).
-    9. Prompt builder, conversation, ingestion, retrieval, image store.
+    3. RBAC service.
+    4. Vector store (``ZvecVectorStore`` with optional fallback).
+    5. Unit-of-work (initialised against the registry SQLite db).
+    6. Session store (initialised against ``data_dir/sessions.db``).
+    7. Embeddings, LLM (built via factory helpers).
+    8. Prompt builder, conversation, ingestion, retrieval, image store.
+    9. Demo-user seeding — skipped in production / wildcard CORS.
 
     Args:
         settings: The loaded application settings.
@@ -370,7 +434,7 @@ async def build_container(settings: AppSettings) -> DynamicRagContainer:
         by :class:`DynamicRagApplication`.
 
     Raises:
-        RuntimeError: If ``JWT_SECRET`` is missing from settings.
+        RuntimeError: When ``JWT_SECRET`` is missing from settings.
     """
     logger = build_logger(settings.log_level)
     metrics = PrometheusMetrics()
@@ -436,7 +500,6 @@ async def build_container(settings: AppSettings) -> DynamicRagContainer:
         uow=uow,
         embedding_provider=embeddings,
         lifecycle_manager=lifecycle,
-        plan=ChunkingPlan(settings.chunk_size_words, settings.chunk_overlap_words),
         max_upload_bytes=settings.max_upload_bytes,
     )
     retrieval = RetrievalPipeline(
@@ -451,52 +514,20 @@ async def build_container(settings: AppSettings) -> DynamicRagContainer:
     # the box without an external auth bootstrap step. Users with
     # ``is_admin: true`` see every company; non-admin users are
     # scoped to the listed companies. Passwords are bcrypt-hashed.
-    import json as json_import
-    import os as os_import
-
-    users_env = os_import.getenv("RAGHUB_USERS", "").strip()
-    if users_env:
-        try:
-            seed_users = json_import.loads(users_env)
-        except json_import.JSONDecodeError as exc:
-            raise RuntimeError(
-                f"RAGHUB_USERS is not valid JSON: {exc}"
-            ) from exc
-        if isinstance(seed_users, dict):
-            for email, cfg in seed_users.items():
-                if not isinstance(cfg, dict):
-                    continue
-                existing = await user_store.get_by_email(email)
-                if existing is not None:
-                    continue
-                await user_store.create_user(
-                    email=email,
-                    password=str(cfg.get("password", "password")),
-                    companies=list(cfg.get("companies", []) or []),
-                    is_admin=bool(cfg.get("is_admin", False)),
-                )
+    #
+    # Production safety: the seed is suppressed in production / when
+    # CORS_ORIGINS is the default wildcard. Operators should either
+    # set ``RAGHUB_USERS`` or bootstrap accounts via the user store
+    # before starting.
+    if not seed_blocked(settings):
+        await seed_demo_users(user_store)
     else:
-        # Default seed: the demo users documented in the README.
-        # The default password is ``"password"``; operators are
-        # expected to rotate it (or override via ``RAGHUB_USERS``)
-        # before any production exposure.
-        default_seed = [
-            ("alice@acme.com", "password", ["Apple"], False),
-            ("bob@acme.com", "password", ["Microsoft"], False),
-            ("charlie@acme.com", "password", ["Amazon", "Tesla"], False),
-            ("diana@acme.com", "password", ["Google"], False),
-            ("admin@acme.com", "password", [], True),
-        ]
-        for email, pwd, companies, is_admin in default_seed:
-            existing = await user_store.get_by_email(email)
-            if existing is not None:
-                continue
-            await user_store.create_user(
-                email=email,
-                password=pwd,
-                companies=companies,
-                is_admin=is_admin,
-            )
+        # Log so the operator can see why the seed was skipped; the
+        # structured logger is the only side-effect-free channel.
+        info = getattr(logger, "warning", None) or getattr(logger, "info", None)
+        if callable(info):
+            with contextlib.suppress(Exception):
+                info("seed.skipped", reason="production_or_wildcard_cors")
 
     return DynamicRagContainer(
         settings=settings,
@@ -519,3 +550,59 @@ async def build_container(settings: AppSettings) -> DynamicRagContainer:
         store=raw_session_store,
         uow=uow,
     )
+
+
+async def seed_demo_users(user_store: SqliteUserStore) -> None:
+    """Seed demo users from ``RAGHUB_USERS`` or the default list.
+
+    Reads ``RAGHUB_USERS`` (a JSON object) when present; otherwise
+    inserts the five documented demo users. Skips any user that
+    already exists.
+
+    Args:
+        user_store: The user store to populate.
+    """
+    import json as json_import
+
+    users_env = os.getenv("RAGHUB_USERS", "").strip()
+    if users_env:
+        try:
+            seed_users = json_import.loads(users_env)
+        except json_import.JSONDecodeError as exc:
+            raise RuntimeError(f"RAGHUB_USERS is not valid JSON: {exc}") from exc
+        if isinstance(seed_users, dict):
+            for email, cfg in seed_users.items():
+                if not isinstance(cfg, dict):
+                    continue
+                existing = await user_store.get_by_email(email)
+                if existing is not None:
+                    continue
+                await user_store.create_user(
+                    email=email,
+                    password=str(cfg.get("password", "password")),
+                    companies=list(cfg.get("companies", []) or []),
+                    is_admin=bool(cfg.get("is_admin", False)),
+                )
+        return
+
+    # Default seed: the demo users documented in the README.
+    # The default password is ``"password"``; operators are
+    # expected to rotate it (or override via ``RAGHUB_USERS``)
+    # before any production exposure.
+    default_seed = [
+        ("alice@acme.com", "password", ["Apple"], False),
+        ("bob@acme.com", "password", ["Microsoft"], False),
+        ("charlie@acme.com", "password", ["Amazon", "Tesla"], False),
+        ("diana@acme.com", "password", ["Google"], False),
+        ("admin@acme.com", "password", [], True),
+    ]
+    for email, pwd, companies, is_admin in default_seed:
+        existing = await user_store.get_by_email(email)
+        if existing is not None:
+            continue
+        await user_store.create_user(
+            email=email,
+            password=pwd,
+            companies=companies,
+            is_admin=is_admin,
+        )

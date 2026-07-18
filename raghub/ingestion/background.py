@@ -20,6 +20,10 @@ Design notes:
   on ``job.result`` as a string and ``job.status`` becomes ``"failed"``.
   The calling thread never sees the exception; check the job before
   trusting its output.
+* **Idempotent shutdown.** :meth:`shutdown` waits for in-flight jobs,
+  cancels the executor, and refuses new submissions. Subsequent
+  :meth:`submit` calls raise :class:`RuntimeError`; subsequent
+  :meth:`shutdown` calls are no-ops.
 """
 
 from __future__ import annotations
@@ -65,6 +69,7 @@ class BackgroundIngestionService:
     Attributes:
         executor: Backing thread pool.
         jobs: Map from job id to :class:`IngestionJob`.
+        closed: ``True`` after :meth:`shutdown` has been invoked.
     """
 
     def __init__(self, max_workers: int = 2) -> None:
@@ -78,6 +83,7 @@ class BackgroundIngestionService:
         """
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         self.jobs: dict[str, IngestionJob] = {}
+        self.closed = False
 
     def submit(self, fn: Any, *args: Any, **kwargs: Any) -> str:
         """Submit a callable for background execution.
@@ -91,7 +97,12 @@ class BackgroundIngestionService:
         Returns:
             A job id that can be passed to :meth:`get_status` and
             :meth:`get_result`.
+
+        Raises:
+            RuntimeError: If the service has been shut down.
         """
+        if self.closed:
+            raise RuntimeError("BackgroundIngestionService is shut down")
         job_id = str(uuid4())
         # Register the job *before* submitting so ``run_job`` can find
         # it when the worker thread starts. ``"pending"`` is the
@@ -158,3 +169,23 @@ class BackgroundIngestionService:
         """
         job = self.jobs.get(job_id)
         return job.result if job else None
+
+    def shutdown(self, *, wait: bool = True) -> None:
+        """Release the thread pool and refuse further submissions.
+
+        Sets the :pyattr:`shutdown` flag so subsequent :meth:`submit`
+        calls raise :class:`RuntimeError`. The underlying executor is
+        then told to shut down; ``wait=True`` (default) blocks until
+        in-flight jobs have completed, ``wait=False`` returns
+        immediately.
+
+        Idempotent: a second call is a no-op.
+
+        Args:
+            wait: When ``True``, block until queued jobs finish.
+                ``False`` cancels pending work and returns promptly.
+        """
+        if self.closed:
+            return
+        self.closed = True
+        self.executor.shutdown(wait=wait)

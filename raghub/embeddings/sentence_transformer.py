@@ -15,6 +15,7 @@ SentenceTransformer: Any
 
 try:
     from sentence_transformers import SentenceTransformer
+
     ST_AVAILABLE = True
     OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
@@ -37,8 +38,7 @@ class SentenceTransformerEmbeddingProvider(BaseEmbeddingProvider):
             from raghub.exceptions import ConfigurationError
 
             raise ConfigurationError(
-                "sentence-transformers is not installed; run "
-                "`pip install sentence-transformers`."
+                "sentence-transformers is not installed; run `pip install sentence-transformers`."
             )
         self.model_name = model_name
         self.model = SentenceTransformer(model_name)
@@ -52,7 +52,7 @@ class SentenceTransformerEmbeddingProvider(BaseEmbeddingProvider):
         Returns:
             A 384-dim (or model-specific dim) float vector.
         """
-        return self.model.encode([text]).tolist()[0]
+        return self.model.encode([text]).tolist()[0]  # type: ignore[no-any-return]
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Embed a list of texts in one batched call.
@@ -63,9 +63,9 @@ class SentenceTransformerEmbeddingProvider(BaseEmbeddingProvider):
         Returns:
             A list of float vectors, one per input.
         """
-        return self.model.encode(texts).tolist()
+        return self.model.encode(texts).tolist()  # type: ignore[no-any-return]
 
     @property
     def dimension(self) -> int:
         """Return the model's native embedding dimension."""
-        return self.model.get_sentence_embedding_dimension()
+        return self.model.get_sentence_embedding_dimension()  # type: ignore[no-any-return]

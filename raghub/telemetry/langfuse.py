@@ -22,8 +22,9 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import Any, Callable, Iterator, TypeVar
+from typing import Any, TypeVar
 
 from raghub.interfaces.observability import Span, TelemetryProvider
 
@@ -33,8 +34,8 @@ langfuse_get_client: Any
 LangfuseLegacy: Any
 
 try:
-    from langfuse import get_client as langfuse_get_client
     from langfuse import Langfuse as LangfuseLegacy
+    from langfuse import get_client as langfuse_get_client
 
     LANGFUSE_AVAILABLE = True
     IMPORT_ERROR: Exception | None = None
@@ -295,11 +296,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         if self.client is None:
             return NoopSpan(name)
         # Propagate user/session attributes to child observations.
-        propagate = {
-            k: v
-            for k, v in attrs.items()
-            if k in ("user_id", "session_id") and v
-        }
+        propagate = {k: v for k, v in attrs.items() if k in ("user_id", "session_id") and v}
         if propagate:
             self.safe_call(self.propagate_to_langfuse, **propagate)
         start_obs = getattr(self.client, "start_as_current_observation", None)
@@ -351,9 +348,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         start_obs = getattr(self.client, "start_as_current_observation", None)
         if start_obs is None:
             return
-        gen = self.safe_call(
-            start_obs, as_type="generation", name=name, model=model
-        )
+        gen = self.safe_call(start_obs, as_type="generation", name=name, model=model)
         if gen is None:
             return
 
@@ -408,4 +403,4 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         self.safe_call(flush)
 
 
-__all__ = ["LangfuseTelemetryProvider", "LangfuseSpan", "NoopSpan"]
+__all__ = ["LangfuseSpan", "LangfuseTelemetryProvider", "NoopSpan"]

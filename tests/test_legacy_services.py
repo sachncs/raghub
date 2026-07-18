@@ -51,14 +51,35 @@ def test_build_container_raises_when_jwt_secret_missing() -> None:
 
 
 def test_app_factory_creates_fastapi_instance() -> None:
-    """``create_app`` returns a :class:`fastapi.FastAPI` with the expected routes."""
+    """``create_app`` returns a :class:`fastapi.FastAPI` with the expected routes.
+
+    The versioned router is mounted under ``/v1`` and the unversioned
+    ``/health`` liveness probe is mounted on the app directly. The
+    versioned routes are reachable through the TestClient even though
+    they show up as ``_IncludedRouter`` placeholders in ``app.routes``
+    before the lifespan iterates them.
+    """
     from fastapi import FastAPI
+    from fastapi.testclient import TestClient
 
     from raghub.api.app import create_app
     from raghub.api.dependencies import get_application
 
+    class _MetricsStub:
+        def register_app(self, app: object) -> None:
+            from fastapi import FastAPI
+
+            if isinstance(app, FastAPI):
+
+                @app.get("/metrics")
+                async def metrics_stub() -> dict[str, str]:
+                    return {"status": "stub"}
+
+    class _ContainerStub:
+        metrics = _MetricsStub()
+
     class _StubApp:
-        container = type("C", (), {})()
+        container = _ContainerStub()
 
         def health(self):
             return {"status": "ok"}
@@ -66,7 +87,14 @@ def test_app_factory_creates_fastapi_instance() -> None:
     app = create_app(_StubApp())
     app.dependency_overrides[get_application] = lambda: _StubApp()
     assert isinstance(app, FastAPI)
-    assert "/v1/health" in {route.path for route in app.routes if hasattr(route, "path")}
+    client = TestClient(app)
+    # Both the versioned ``/v1/health`` and the unversioned ``/health``
+    # probe are reachable.
+    assert client.get("/v1/health").status_code == 200
+    assert client.get("/health").status_code == 200
+    # The Prometheus ``/metrics`` endpoint is registered when the
+    # application container exposes a metrics sink.
+    assert client.get("/metrics").status_code == 200
 
 
 def test_health_route_returns_payload() -> None:
@@ -76,8 +104,15 @@ def test_health_route_returns_payload() -> None:
     from raghub.api.app import create_app
     from raghub.api.dependencies import get_application
 
+    class _MetricsStub:
+        def register_app(self, _app: object) -> None:
+            return None
+
+    class _ContainerStub:
+        metrics = _MetricsStub()
+
     class _StubApp:
-        container = type("C", (), {})()
+        container = _ContainerStub()
 
         def health(self):
             return {"status": "ok", "vector_store": "InMemoryVectorStore"}
@@ -88,3 +123,5 @@ def test_health_route_returns_payload() -> None:
     response = client.get("/v1/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "vector_store": "InMemoryVectorStore"}
+    # ``/health`` (unversioned) is the liveness probe used by orchestrators.
+    assert client.get("/health").status_code == 200

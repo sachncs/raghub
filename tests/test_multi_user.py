@@ -64,9 +64,7 @@ def _seed_chunks(rag: RAG, company: str, owner: str, text_seed: str) -> None:
         )
         for i in range(3)
     ]
-    vectors = [
-        rag.embedder.embed_text(f"{text_seed} {i}") for i in range(3)
-    ]
+    vectors = [rag.embedder.embed_text(f"{text_seed} {i}") for i in range(3)]
     rag.vector_store.upsert(chunks, vectors)
 
 
@@ -145,7 +143,11 @@ def test_conversation_history_isolated_per_session() -> None:
     assert alice_hist and bob_hist
     # Alice's history should not contain Bob's session id nor any
     # content that came from the Microsoft chunks.
-    assert all(turn.session_id != "bob-s" for turn in alice_hist) if hasattr(alice_hist[0], "session_id") else True
+    assert (
+        all(turn.session_id != "bob-s" for turn in alice_hist)
+        if hasattr(alice_hist[0], "session_id")
+        else True
+    )
     # Bob never asked as Alice.
     assert all("alice" not in str(getattr(turn, "question", "")).lower() for turn in bob_hist)
 
@@ -172,22 +174,16 @@ def test_concurrent_users_isolated() -> None:
     rag = RAG()
     for i in range(10):
         _seed_chunks(rag, f"Company{i}", f"user{i}@x", f"secret{i}")
-    users = [
-        _make_user(f"user{i}@x", f"Company{i}") for i in range(10)
-    ]
+    users = [_make_user(f"user{i}@x", f"Company{i}") for i in range(10)]
 
     async def _ask(user: UserPrincipal) -> list[str]:
-        response = await rag.aquery(
-            "secret", user=user, session_id=f"s-{user.user_id}"
-        )
+        response = await rag.aquery("secret", user=user, session_id=f"s-{user.user_id}")
         return [c.document_id for c in response.citations]
 
     async def _drive() -> None:
         results = await asyncio.gather(*[_ask(u) for u in users])
         for i, docs in enumerate(results):
-            assert all(d == f"Company{i}-doc" for d in docs), (
-                f"user {i} saw wrong docs: {docs}"
-            )
+            assert all(d == f"Company{i}-doc" for d in docs), f"user {i} saw wrong docs: {docs}"
 
     asyncio.run(_drive())
 
@@ -208,9 +204,7 @@ def test_session_history_uses_canonical_session_id() -> None:
     rag = RAG()
     _seed_chunks(rag, "Apple", "alice@x", "apple")
     alice = _make_user("alice@x", "Apple")
-    asyncio.run(
-        rag.aquery("first", user=alice, session_id="x")
-    )
+    asyncio.run(rag.aquery("first", user=alice, session_id="x"))
     history = rag.conversation_history("x", user=alice)
     assert len(history) == 1
     assert history[0].question == "first"

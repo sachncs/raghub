@@ -12,9 +12,11 @@ from typing import Any
 
 from raghub.models import (
     CanonicalResponse as Response,
+)
+from raghub.models import (
+    PipelineResult,
     SearchResult,
 )
-from raghub.models import PipelineResult
 
 
 def build_response(result: PipelineResult) -> Response:
@@ -48,8 +50,7 @@ def build_response(result: PipelineResult) -> Response:
         answer=answer,
         citations=citations,
         source_chunks=[
-            SearchResult(chunk_id=h.chunk_id, score=h.score, chunk=h.chunk)
-            for h in hits
+            SearchResult(chunk_id=h.chunk_id, score=h.score, chunk=h.chunk) for h in hits
         ],
         metadata={"pipeline_id": result.pipeline_id, "structured": structured is not None},
         structured=structured_payload,

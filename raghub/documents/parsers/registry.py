@@ -66,11 +66,15 @@ class ParserRegistry:
         self.register("image/gif", image)
         self.register("image/webp", image)
         self.register("image/tiff", image)
-        self.register("application/vnd.openxmlformats-officedocument.wordprocessingml.document", office)
+        self.register(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document", office
+        )
         self.register("application/msword", office)
         self.register("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", office)
         self.register("application/vnd.ms-excel", office)
-        self.register("application/vnd.openxmlformats-officedocument.presentationml.presentation", office)
+        self.register(
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation", office
+        )
         self.register("application/vnd.ms-powerpoint", office)
 
         # Same parsers, addressed by file extension. The leading dot

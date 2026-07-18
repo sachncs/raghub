@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from raghub.models import RetrievalHit
 from raghub.interfaces.retrieval import Reranker
+from raghub.models import RetrievalHit
 
 
 class IdentityReranker(Reranker):
@@ -22,4 +22,3 @@ class IdentityReranker(Reranker):
             The same hits in the same order.
         """
         return list(hits)
-

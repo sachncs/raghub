@@ -47,9 +47,7 @@ def default_chunker(chunk_size: int, chunk_overlap: int) -> Chunker:
     """
     from raghub.ingestion.chunkers.chonkie import build_chonkie_chunker
 
-    return build_chonkie_chunker(
-        "auto", chunk_size=chunk_size, chunk_overlap=chunk_overlap
-    )
+    return build_chonkie_chunker("auto", chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
 
 def default_embedder(embedding_model: str, embedding_dim: int) -> EmbeddingProvider:
@@ -75,9 +73,7 @@ def default_embedder(embedding_model: str, embedding_dim: int) -> EmbeddingProvi
     ):
         from raghub.embeddings.hashing import HashingEmbeddingProvider
 
-        return HashingEmbeddingProvider(
-            dimension=embedding_dim, model_name=embedding_model
-        )
+        return HashingEmbeddingProvider(dimension=embedding_dim, model_name=embedding_model)
     try:
         from raghub.embeddings.litellm import LiteLLMEmbeddingProvider
 
@@ -85,9 +81,7 @@ def default_embedder(embedding_model: str, embedding_dim: int) -> EmbeddingProvi
     except ConfigurationError:
         from raghub.embeddings.hashing import HashingEmbeddingProvider
 
-        return HashingEmbeddingProvider(
-            dimension=embedding_dim, model_name=embedding_model
-        )
+        return HashingEmbeddingProvider(dimension=embedding_dim, model_name=embedding_model)
 
 
 def default_llm(llm_model: str) -> Any:
@@ -148,7 +142,11 @@ def default_vector_store(embedding_dim: int) -> Any:
     try:
         from raghub.vectorstore.qdrant import QdrantVectorStore
 
-        return QdrantVectorStore(embedding_dim=embedding_dim)
+        return QdrantVectorStore(
+            url=os.environ["QDRANT_URL"],
+            api_key=os.getenv("QDRANT_API_KEY"),
+            embedding_dim=embedding_dim,
+        )
     except ConfigurationError:
         from raghub.vectorstore.memory import InMemoryVectorStore
 

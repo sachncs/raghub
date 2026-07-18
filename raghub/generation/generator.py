@@ -12,6 +12,9 @@ so observability pipelines can attribute cost.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
+import os
 from collections.abc import AsyncIterator, Sequence
 
 from raghub.llm.base import BaseLLMProvider
@@ -40,15 +43,24 @@ class DefaultGenerator:
             "question using the supplied context. Cite sources inline as "
             "[chunk:ID]."
         ),
+        timeout_seconds: float | None = None,
     ) -> None:
         """Initialise the generator.
 
         Args:
             llm: The LLM provider.
             system_prompt: The system message.
+            timeout_seconds: Maximum completion time. Defaults to the
+                ``RAG_LLM_TIMEOUT_SECONDS`` environment variable when set.
         """
+        configured_timeout = os.getenv("RAG_LLM_TIMEOUT_SECONDS")
+        if timeout_seconds is None and configured_timeout:
+            timeout_seconds = float(configured_timeout)
+        if timeout_seconds is not None and timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be greater than zero")
         self.llm = llm
         self.system_prompt = system_prompt
+        self.timeout_seconds = timeout_seconds
         self.last_usage: dict[str, int | str] | None = None
 
     async def generate(
@@ -70,12 +82,30 @@ class DefaultGenerator:
         """
         context_texts = [hit.chunk.text for hit in context]
         turns = [ConversationTurn(question=t.question, answer=t.answer) for t in conversation]
-        answer = self.llm.generate(
-            system_prompt=self.system_prompt,
-            conversation=turns,
-            context=context_texts,
-            question=question,
-        )
+        async_generate = getattr(self.llm, "async_generate", None)
+        if callable(async_generate):
+            completion = async_generate(
+                system_prompt=self.system_prompt,
+                conversation=turns,
+                context=context_texts,
+                question=question,
+            )
+        else:
+            completion = asyncio.to_thread(
+                self.llm.generate,
+                system_prompt=self.system_prompt,
+                conversation=turns,
+                context=context_texts,
+                question=question,
+            )
+        if inspect.isawaitable(completion):
+            answer = (
+                await completion
+                if self.timeout_seconds is None
+                else await asyncio.wait_for(completion, timeout=self.timeout_seconds)
+            )
+        else:
+            answer = str(completion)
         citations: list[Citation] = []
         for hit in context:
             citations.append(
@@ -94,8 +124,20 @@ class DefaultGenerator:
         usage = getattr(self.llm, "last_usage", None) or getattr(self.llm, "token_usage", None)
         if isinstance(usage, dict):
             self.last_usage = {
-                "prompt": int(usage.get("prompt_tokens", usage.get("input", 0)) or 0),
-                "completion": int(usage.get("completion_tokens", usage.get("output", 0)) or 0),
+                "prompt": int(
+                    usage.get(
+                        "prompt_tokens",
+                        usage.get("prompt", usage.get("input", 0)),
+                    )
+                    or 0
+                ),
+                "completion": int(
+                    usage.get(
+                        "completion_tokens",
+                        usage.get("completion", usage.get("output", 0)),
+                    )
+                    or 0
+                ),
                 "model": str(usage.get("model", getattr(self.llm, "model_name", "")) or ""),
             }
         return answer, citations
@@ -123,10 +165,7 @@ class DefaultGenerator:
         astream = getattr(self.llm, "astream", None)
         if callable(astream):
             context_texts = [hit.chunk.text for hit in context]
-            turns = [
-                ConversationTurn(question=t.question, answer=t.answer)
-                for t in conversation
-            ]
+            turns = [ConversationTurn(question=t.question, answer=t.answer) for t in conversation]
             async for piece in astream(
                 system_prompt=self.system_prompt,
                 conversation=turns,
@@ -152,14 +191,11 @@ class DefaultGenerator:
         keys (LiteLLM v1+, Instructor) and the shorter ``prompt``/
         ``completion`` keys (the RAG facade's own convention).
         """
-        usage = getattr(self.llm, "last_usage", None) or getattr(
-            self.llm, "token_usage", None
-        )
+        usage = getattr(self.llm, "last_usage", None) or getattr(self.llm, "token_usage", None)
         if isinstance(usage, dict):
             self.last_usage = {
                 "prompt": int(
-                    usage.get("prompt_tokens", usage.get("prompt", usage.get("input", 0)))
-                    or 0
+                    usage.get("prompt_tokens", usage.get("prompt", usage.get("input", 0))) or 0
                 ),
                 "completion": int(
                     usage.get(
@@ -168,9 +204,7 @@ class DefaultGenerator:
                     )
                     or 0
                 ),
-                "model": str(
-                    usage.get("model", getattr(self.llm, "model_name", "")) or ""
-                ),
+                "model": str(usage.get("model", getattr(self.llm, "model_name", "")) or ""),
             }
 
 

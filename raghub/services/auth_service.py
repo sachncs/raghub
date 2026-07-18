@@ -1,7 +1,14 @@
 """Authentication service used by the API and CLI.
 
-Wraps the JWT authenticator and session store behind the higher-level
+Wraps the user store + opaque session store behind the higher-level
 login/logout/resolve_user operations the application facade calls.
+
+The single auth path is **opaque-session-token only**. The legacy
+:class:`JwtAuthenticator` is still importable for backwards
+compatibility (see :mod:`raghub.auth`) but is not used by this
+service: we no longer mint a JWT that we throw away, we no longer
+double-hit the user store, and we no longer drift between JWT and
+opaque-token semantics depending on the call site.
 """
 
 from __future__ import annotations
@@ -37,12 +44,11 @@ class AuthService(ServiceMixin):
 
         Steps:
 
-        1. Verify the password via the JWT authenticator (this also
-           returns a signed bearer token, which we discard).
-        2. Reload the user from the store to capture email/companies for
-           the response (this duplicates the work ``authenticate`` did).
-        3. Create a new session in the session store.
-        4. Emit a latency metric and a log event.
+        1. Verify the password against the bcrypt hash via the user
+           store. This is the only DB roundtrip on the auth path.
+        2. Create a new session in the session store; the session
+           token is the opaque bearer token we hand back to the client.
+        3. Emit a latency metric and a log event.
 
         Args:
             email: User email.
@@ -57,14 +63,9 @@ class AuthService(ServiceMixin):
                 invalid.
         """
         started = time.perf_counter()
-        try:
-            await self.container.authenticator.authenticate(email, password)
-        except AuthenticationError:
-            self.log("audit.login.failed", email=email)
-            raise
-        user = await self.container.user_store.get_by_email(email)
+        user = await self.container.user_store.verify_password(email, password)
         if user is None:
-            self.log("audit.login.failed", email=email, reason="user_not_found")
+            self.log("audit.login.failed", email=email, reason="invalid_credentials")
             raise AuthenticationError("Invalid email or password")
         session = await self.container.store.create_session(user.user_id)
         self.emit_metric("auth_login_latency_ms", started)
@@ -120,3 +121,6 @@ class AuthService(ServiceMixin):
             is_admin=record.is_admin,
         )
         return user, list(session.history)
+
+
+__all__ = ["AuthService"]

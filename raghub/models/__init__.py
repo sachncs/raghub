@@ -13,20 +13,6 @@ should prefer ``from raghub.models import ChunkRecord`` over reaching
 into the sub-modules directly.
 """
 
-from .domain import (
-    ChunkRecord,
-    Classification,
-    ConversationTurn,
-    DocumentLifecycleStatus,
-    DocumentRecord,
-    DocumentVersion,
-    RetrievalHit,
-    SearchRequest,
-    SearchResponse,
-    SessionRecord,
-    UserPrincipal,
-    Visibility,
-)
 from .api import (
     AuthLoginRequest,
     AuthLoginResponse,
@@ -46,10 +32,28 @@ from .canonical import (
     KnowledgeBundle,
     PipelineContext,
     PipelineResult,
-    Query as CanonicalQuery,
-    Response as CanonicalResponse,
     SearchResult,
     deterministic_id,
+)
+from .canonical import (
+    Query as CanonicalQuery,
+)
+from .canonical import (
+    Response as CanonicalResponse,
+)
+from .domain import (
+    ChunkRecord,
+    Classification,
+    ConversationTurn,
+    DocumentLifecycleStatus,
+    DocumentRecord,
+    DocumentVersion,
+    RetrievalHit,
+    SearchRequest,
+    SearchResponse,
+    SessionRecord,
+    UserPrincipal,
+    Visibility,
 )
 
 __all__ = [

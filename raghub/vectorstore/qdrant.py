@@ -8,7 +8,9 @@ contract against a Qdrant server. Falls back gracefully when the
 from __future__ import annotations
 
 import uuid
-from typing import Any, Sequence
+from collections.abc import Sequence
+from contextlib import suppress
+from typing import Any
 
 from raghub.exceptions import ConfigurationError, VectorStoreError
 from raghub.interfaces.vectorstore import VectorStore
@@ -20,6 +22,7 @@ qmodels: Any
 try:
     from qdrant_client import QdrantClient
     from qdrant_client.http import models as qmodels
+
     QDRANT_AVAILABLE = True
     OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
@@ -81,23 +84,25 @@ class QdrantVectorStore(VectorStore):
         """Create the Qdrant collection if it does not already exist."""
         try:
             self.client.get_collection(self.collection)
-        except Exception:
-            self.client.recreate_collection(
+            return
+        except Exception as exc:
+            if getattr(exc, "status_code", None) != 404:
+                raise VectorStoreError(f"Qdrant collection lookup failed: {exc}") from exc
+        try:
+            self.client.create_collection(
                 collection_name=self.collection,
                 vectors_config=qmodels.VectorParams(
                     size=self.embedding_dim,
                     distance=qmodels.Distance.COSINE,
                 ),
             )
+        except Exception as exc:
+            raise VectorStoreError(f"Qdrant collection creation failed: {exc}") from exc
 
     def optimize(self) -> None:
         """Qdrant has no separate optimisation step; flush in-memory state."""
-        try:
-            self.client.update_collection_aliases(  # cheap call to verify liveness
-                change_aliases_operations=[]
-            )
-        except Exception:
-            pass
+        with suppress(Exception):
+            self.client.update_collection_aliases(change_aliases_operations=[])
 
     def delete_version(self, document_id: str, version: int) -> None:
         """Delete a specific version of a document.
@@ -158,22 +163,9 @@ class QdrantVectorStore(VectorStore):
                     qmodels.PointStruct(
                         id=self.qdrant_point_id(chunk.chunk_id),
                         vector=list(vector),
-                        payload={
-                            "chunk_id": chunk.chunk_id,
-                            "document_id": chunk.document_id,
-                            "version": chunk.version,
-                            "page": chunk.page,
-                            "source_location": chunk.source_location,
-                            "section": chunk.section,
-                            "company": chunk.company,
-                            "owner": chunk.owner,
-                            "department": chunk.department,
-                            "classification": chunk.classification.value,
-                            "text": chunk.text,
-                            "metadata": chunk.metadata,
-                        },
+                        payload=chunk.model_dump(mode="json"),
                     )
-                    for chunk, vector in zip(chunks, vectors)
+                    for chunk, vector in zip(chunks, vectors, strict=True)
                 ],
             )
         except Exception as exc:
@@ -220,41 +212,61 @@ class QdrantVectorStore(VectorStore):
         top_k: int,
         metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
-        """Run vector search.
+        """Run vector search with a canonical metadata filter."""
+        if metadata_filter == "":
+            query_filter = None
+        elif not isinstance(metadata_filter, dict):
+            raise VectorStoreError("Qdrant metadata_filter must be a dict or empty string")
+        else:
+            conditions = []
+            for key, value in metadata_filter.items():
+                if key not in {"company", "document_id"}:
+                    raise VectorStoreError(f"Unsupported Qdrant metadata filter field: {key}")
+                if isinstance(value, str):
+                    match = qmodels.MatchValue(value=value)
+                elif isinstance(value, list) and all(isinstance(item, str) for item in value):
+                    match = qmodels.MatchAny(any=value)
+                else:
+                    raise VectorStoreError(f"Unsupported Qdrant metadata filter value for {key}")
+                conditions.append(qmodels.FieldCondition(key=key, match=match))
+            query_filter = qmodels.Filter(must=conditions) if conditions else None
 
-        ``metadata_filter`` is interpreted as a Qdrant filter JSON
-        string; the legacy in-memory backends used a SQL fragment.
-        """
         try:
-            response = self.client.search(
-                collection_name=self.collection,
-                query_vector=vector,
-                limit=top_k,
-                with_payload=True,
-            )
+            query_points = getattr(self.client, "query_points", None)
+            if query_points is None:
+                response = self.client.search(
+                    collection_name=self.collection,
+                    query_vector=list(vector),
+                    query_filter=query_filter,
+                    limit=top_k,
+                    with_payload=True,
+                )
+                hits = response
+            else:
+                response = query_points(
+                    collection_name=self.collection,
+                    query=list(vector),
+                    query_filter=query_filter,
+                    limit=top_k,
+                    with_payload=True,
+                )
+                hits = getattr(response, "points", response)
         except Exception as exc:
             raise VectorStoreError(f"Qdrant search failed: {exc}") from exc
 
         results: list[dict[str, Any]] = []
-        for hit in response:
-            payload = hit.payload or {}
+        for hit in hits:
+            try:
+                chunk = ChunkRecord.model_validate(hit.payload)
+            except Exception as exc:
+                raise VectorStoreError(
+                    f"Qdrant search returned invalid payload for point {hit.id}"
+                ) from exc
             results.append(
                 {
-                    "chunk_id": payload.get("chunk_id", str(hit.id)),
+                    "chunk_id": chunk.chunk_id,
                     "score": float(hit.score),
-                    "chunk": ChunkRecord(
-                        chunk_id=payload.get("chunk_id", str(hit.id)),
-                        document_id=payload.get("document_id", ""),
-                        version=int(payload.get("version", 1)),
-                        page=int(payload.get("page", 0)),
-                        source_location=payload.get("source_location", ""),
-                        section=payload.get("section", ""),
-                        company=payload.get("company", ""),
-                        owner=payload.get("owner", ""),
-                        department=payload.get("department", ""),
-                        text=payload.get("text", ""),
-                        metadata=payload.get("metadata", {}) or {},
-                    ),
+                    "chunk": chunk,
                 }
             )
         return results
@@ -278,7 +290,11 @@ class QdrantVectorStore(VectorStore):
         issue a ``query_points`` call with both dense and sparse
         inputs.
         """
-        return self.search(vector=vector, top_k=top_k)
+        return self.search(
+            vector=vector,
+            top_k=top_k,
+            metadata_filter=metadata_filter,
+        )
 
     def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
         """Return empty list; Qdrant keyword channel requires a sparse vector config

@@ -8,6 +8,10 @@ inspecting ``UserPrincipal.is_admin``.
 The dependency itself resolves the principal (not just checks the role)
 so downstream handlers receive a typed :class:`UserPrincipal` rather
 than a bare boolean.
+
+Sensitive fields (``password_hash`` and any other hash-like keys on
+the user record) are redacted in every admin response before the data
+leaves the application boundary.
 """
 
 from __future__ import annotations
@@ -20,8 +24,32 @@ from raghub.api.dependencies import get_application
 from raghub.models import UserPrincipal
 from raghub.services.application import DynamicRagApplication
 
-
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+SENSITIVE_USER_FIELDS = frozenset({"password_hash", "password", "token", "secret"})
+
+
+def redact_user_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Remove hash-like fields from a serialised user payload.
+
+    The admin ``/users`` endpoint used to dump raw ``password_hash``
+    fields. We now redact any sensitive key in the payload so that
+    even if new hash-like fields are added to :class:`UserRecord`,
+    the API surface remains safe to expose.
+
+    Args:
+        payload: A user dict produced by ``UserRecord.model_dump``.
+
+    Returns:
+        A shallow copy of ``payload`` with sensitive fields replaced
+        by the literal string ``"***"``.
+    """
+    redacted = dict(payload)
+    for key in list(redacted.keys()):
+        if key.lower() in SENSITIVE_USER_FIELDS or "hash" in key.lower():
+            redacted[key] = "***"
+    return redacted
 
 
 async def require_admin(
@@ -78,15 +106,17 @@ async def list_users(
 ) -> list[dict[str, Any]]:
     """Return every user in the user store.
 
-    Admin-only. Note that password hashes are included in the dump;
-    do not expose this endpoint to non-admin callers and consider
-    redacting hashes at the API gateway for defence in depth.
+    Admin-only. Password hashes and other sensitive fields are
+    redacted before the response is built; the endpoint can be
+    exposed to admin callers without leaking credentials.
 
     Returns:
-        A list of serialised :class:`UserRecord` dicts.
+        A list of serialised :class:`UserRecord` dicts with
+        ``password_hash`` (and any hash-like field) replaced by
+        ``"***"``.
     """
     users = await app_service.container.user_store.list_users()
-    return [user.model_dump(mode="json") for user in users]
+    return [redact_user_payload(user.model_dump(mode="json")) for user in users]
 
 
 @router.get("/stats")
@@ -131,3 +161,12 @@ def require_bearer(authorization: str | None) -> str:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
     return authorization.split(" ", 1)[1].strip()
+
+
+__all__ = [
+    "SENSITIVE_USER_FIELDS",
+    "redact_user_payload",
+    "require_admin",
+    "require_bearer",
+    "router",
+]

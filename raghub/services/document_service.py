@@ -80,8 +80,10 @@ class DocumentService(ServiceMixin):
         )
 
         self.emit_metric("document_ingest_latency_ms", started)
-        self.log("document_ingested", document_id=result.document.document_id, company=target_company)
-        return result.document
+        self.log(
+            "document_ingested", document_id=result.document.document_id, company=target_company
+        )
+        return result.document  # type: ignore[no-any-return]
 
     async def list_documents(self, token: str) -> list[DocumentRecord]:
         """List the documents visible to the caller.
@@ -99,7 +101,7 @@ class DocumentService(ServiceMixin):
         auth: Any = self.container.auth
         user, _ = await auth.resolve_user(token)
         if user.is_admin:
-            return await self.container.uow.document_repo.list_all()
+            return await self.container.uow.document_repo.list_all()  # type: ignore[no-any-return]
         results: list[DocumentRecord] = []
         for org in user.allowed_companies:
             docs = await self.container.uow.document_repo.list_by_organization(org)
@@ -128,7 +130,7 @@ class DocumentService(ServiceMixin):
             raise DocumentError("Unknown document")
         if not can_access_company(user, document.organization):
             raise AuthorizationError("Forbidden")
-        return document
+        return document  # type: ignore[no-any-return]
 
     async def delete_document(self, token: str, document_id: str) -> None:
         """Delete a document and all of its chunks.

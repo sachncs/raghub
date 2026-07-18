@@ -7,8 +7,8 @@ orchestrate the prompt builder + LLM provider + citation attachment.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from typing import Protocol, Sequence
+from collections.abc import AsyncIterator, Sequence
+from typing import Protocol
 
 from raghub.models import (
     Citation,

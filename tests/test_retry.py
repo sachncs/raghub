@@ -89,8 +89,5 @@ def test_retry_custom_retryable_keywords() -> None:
             raise RuntimeError("please-retry-me")
         return "ok"
 
-    assert (
-        retry(fn, max_retries=2, base_delay=0, retryable_keywords=("please-retry-me",))
-        == "ok"
-    )
+    assert retry(fn, max_retries=2, base_delay=0, retryable_keywords=("please-retry-me",)) == "ok"
     assert len(calls) == 2

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from raghub.models import ChunkRecord
@@ -100,15 +100,32 @@ class RealZvecBackend(BaseVectorStore):
 
     def delete_version(self, document_id: str, version: int) -> None:
         safe_id = self.sanitize_id(document_id)
-        self.collection.delete_by_filter(filter=f"document_id = '{safe_id}' AND version = {version}")
-
-    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
-        result = self.collection.query(
-            queries=self.zvec.Query(field_name="embedding", vector=vector),
-            topk=top_k,
-            filter=metadata_filter,
+        self.collection.delete_by_filter(
+            filter=f"document_id = '{safe_id}' AND version = {version}"
         )
+
+    def search(
+        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
+    ) -> list[dict[str, Any]]:
+        """Search the collection, honouring the canonical RBAC filter."""
+        filter_clause = self._native_filter(metadata_filter)
+        if filter_clause is None:
+            result = self.collection.query(
+                queries=self.zvec.Query(field_name="embedding", vector=vector),
+                topk=top_k,
+            )
+        else:
+            result = self.collection.query(
+                queries=self.zvec.Query(field_name="embedding", vector=vector),
+                topk=top_k,
+                filter=filter_clause,
+            )
         return self.normalize_search_result(result)
+
+    @staticmethod
+    def _native_filter(metadata_filter: str | dict) -> str | None:
+        """Translate a canonical dict filter into a Zvec SQL fragment."""
+        return native_filter(metadata_filter)
 
     def hybrid_search(
         self,
@@ -119,6 +136,14 @@ class RealZvecBackend(BaseVectorStore):
         metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
         return self.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
+
+    def matches_metadata(self, metadata_filter: str | dict) -> bool:
+        """Return whether ``metadata_filter`` can be translated into a Zvec query."""
+        try:
+            self._native_filter(metadata_filter)
+        except ValueError:
+            return False
+        return True
 
     def optimize(self) -> None:
         self.collection.optimize()
@@ -134,11 +159,18 @@ class RealZvecBackend(BaseVectorStore):
         if result is None:
             return normalized
         for item in result:
-            fields = item.get("fields", {}) if isinstance(item, dict) else getattr(item, "fields", {})
+            fields = (
+                item.get("fields", {}) if isinstance(item, dict) else getattr(item, "fields", {})
+            )
             normalized.append(
                 {
-                    "chunk_id": fields.get("chunk_id", item.get("id") if isinstance(item, dict) else getattr(item, "id", "")),
-                    "score": item.get("score", 0.0) if isinstance(item, dict) else getattr(item, "score", 0.0),
+                    "chunk_id": fields.get(
+                        "chunk_id",
+                        item.get("id") if isinstance(item, dict) else getattr(item, "id", ""),
+                    ),
+                    "score": item.get("score", 0.0)
+                    if isinstance(item, dict)
+                    else getattr(item, "score", 0.0),
                     "chunk": ChunkRecord(
                         chunk_id=fields.get("chunk_id", ""),
                         document_id=fields.get("document_id", ""),
@@ -151,7 +183,7 @@ class RealZvecBackend(BaseVectorStore):
                         classification=fields.get("classification", "internal"),
                         created_at=datetime.fromisoformat(str(fields.get("created_at")))
                         if fields.get("created_at")
-                        else datetime.now(timezone.utc),
+                        else datetime.now(UTC),
                         embedding_model=fields.get("embedding_model", ""),
                         hash=fields.get("hash", ""),
                         text=fields.get("text", ""),
@@ -174,7 +206,7 @@ class ZvecVectorStore(BaseVectorStore):
 
     def create_backend(self) -> BaseVectorStore:
         try:
-            import zvec  # type: ignore[import-not-found]
+            import zvec
 
             self.zvec_module = zvec
             return RealZvecBackend(zvec, self.path, self.embedding_dim)
@@ -203,7 +235,9 @@ class ZvecVectorStore(BaseVectorStore):
     def delete_version(self, document_id: str, version: int) -> None:
         self.backend.delete_version(document_id, version)
 
-    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
+    def search(
+        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
+    ) -> list[dict[str, Any]]:
         return self.backend.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     def hybrid_search(
@@ -214,7 +248,9 @@ class ZvecVectorStore(BaseVectorStore):
         top_k: int,
         metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
-        return self.backend.hybrid_search(query=query, vector=vector, top_k=top_k, metadata_filter=metadata_filter)
+        return self.backend.hybrid_search(
+            query=query, vector=vector, top_k=top_k, metadata_filter=metadata_filter
+        )
 
     def optimize(self) -> None:
         self.backend.optimize()

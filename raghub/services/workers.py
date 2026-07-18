@@ -19,9 +19,10 @@ This module ships three small abstractions matching the
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from queue import Queue
-from typing import Any, Callable
+from typing import Any
 
 from raghub.interfaces.workers import BackgroundWorker, TaskQueue
 

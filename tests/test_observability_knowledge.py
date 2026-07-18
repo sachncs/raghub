@@ -311,9 +311,7 @@ def test_loads_valid_json():
 
 
 def test_to_okf_schema_version_override():
-    bundle = KnowledgeBundle(
-        source_uri="file://x", schema_version="0.2", sections=[]
-    )
+    bundle = KnowledgeBundle(source_uri="file://x", schema_version="0.2", sections=[])
     payload = to_okf(bundle)
     assert payload["$schema"] == "okf/0.2"
 
@@ -680,12 +678,20 @@ class TestDefaultVectorStore:
         assert isinstance(result, InMemoryVectorStore)
 
     def test_with_qdrant_url(self):
-        with patch.dict("os.environ", {"QDRANT_URL": "http://localhost:6333"}, clear=True):
+        with patch.dict(
+            "os.environ",
+            {"QDRANT_URL": "http://qdrant:6333", "QDRANT_API_KEY": "secret"},
+            clear=True,
+        ):
             with patch("raghub.vectorstore.qdrant.QdrantVectorStore") as mock_qdrant:
                 from raghub.api.defaults import default_vector_store
 
                 result = default_vector_store(384)
-                mock_qdrant.assert_called_once_with(embedding_dim=384)
+                mock_qdrant.assert_called_once_with(
+                    url="http://qdrant:6333",
+                    api_key="secret",
+                    embedding_dim=384,
+                )
                 assert result is mock_qdrant.return_value
 
     def test_qdrant_config_error_falls_back(self):

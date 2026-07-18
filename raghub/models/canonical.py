@@ -31,7 +31,7 @@ Classes unique to the canonical set:
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import uuid4
@@ -43,7 +43,6 @@ from raghub.models.domain import (
     DocumentRecord,
     SearchRequest,
 )
-
 
 # ---------------------------------------------------------------------------
 # Identity helpers
@@ -169,7 +168,7 @@ class Embedding(BaseModel):
     model: str
     dim: int
     vector: list[float]
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ---------------------------------------------------------------------------
@@ -255,9 +254,7 @@ class KnowledgeBundle(BaseModel):
         created_at: Bundle creation time (UTC).
     """
 
-    bundle_id: str = Field(
-        default_factory=lambda: deterministic_id("bundle", str(uuid4()))
-    )
+    bundle_id: str = Field(default_factory=lambda: deterministic_id("bundle", str(uuid4())))
     schema_version: str = "0.1"
     source_uri: str
     checksum: str = ""
@@ -265,7 +262,7 @@ class KnowledgeBundle(BaseModel):
     mime_type: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
     sections: list[DocumentSection] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ---------------------------------------------------------------------------
@@ -284,15 +281,11 @@ class PipelineContext(BaseModel):
         started_at: Pipeline start timestamp (UTC).
     """
 
-    pipeline_id: str = Field(
-        default_factory=lambda: deterministic_id("pipeline", str(uuid4()))
-    )
+    pipeline_id: str = Field(default_factory=lambda: deterministic_id("pipeline", str(uuid4())))
     pipeline_name: str = "default"
     user: Any | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    started_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class PipelineResult(BaseModel):
@@ -312,9 +305,7 @@ class PipelineResult(BaseModel):
     success: bool = True
     outputs: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
-    finished_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    finished_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ---------------------------------------------------------------------------
@@ -339,9 +330,7 @@ class EvaluationResult(BaseModel):
     metrics: dict[str, float] = Field(default_factory=dict)
     passed: bool = True
     details: dict[str, Any] = Field(default_factory=dict)
-    evaluated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 __all__ = [

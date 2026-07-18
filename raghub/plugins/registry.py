@@ -7,8 +7,9 @@ components when a caller does not provide one explicitly.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from importlib import metadata
-from typing import Any, Callable
+from typing import Any
 
 from raghub.interfaces.chunker import Chunker
 from raghub.interfaces.converter import DocumentConverter
@@ -66,9 +67,7 @@ class PluginRegistry:
         """Register a generator under ``name``."""
         self.generators[name] = generator
 
-    def register_structured(
-        self, name: str, provider: StructuredOutputProvider
-    ) -> None:
+    def register_structured(self, name: str, provider: StructuredOutputProvider) -> None:
         """Register a structured-output provider under ``name``."""
         self.structured[name] = provider
 

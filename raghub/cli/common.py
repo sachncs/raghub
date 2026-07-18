@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from raghub.config.settings import AppSettings
 
 
-def load_settings_or_path(path: str | None) -> "AppSettings":
+def load_settings_or_path(path: str | None) -> AppSettings:
     """Load settings from a config file path or the active profile.
 
     Args:

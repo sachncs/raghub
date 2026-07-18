@@ -117,15 +117,13 @@ class ChonkieChunker(Chunker):
     def chonkie_text_chunks(self, text: str) -> list[Any]:
         """Invoke the underlying Chonkie chunker; tolerate API drift."""
         try:
-            return self.inner(text)
+            return self.inner(text)  # type: ignore[no-any-return]
         except TypeError:
             # Older Chonkie takes a string directly via ``.chunk()`` or
             # ``.split_text()``.
-            chunk = getattr(self.inner, "chunk", None) or getattr(
-                self.inner, "split_text", None
-            )
+            chunk = getattr(self.inner, "chunk", None) or getattr(self.inner, "split_text", None)
             if chunk is not None:
-                return chunk(text)
+                return chunk(text)  # type: ignore[no-any-return]
             raise
 
     def chunk(self, bundle: Any) -> list[Chunk]:
@@ -144,9 +142,11 @@ class ChonkieChunker(Chunker):
                     continue
                 pieces = self.chonkie_text_chunks(block.content)
                 for piece in pieces:
-                    text: str = getattr(piece, "text", None) or (
-                        piece.get("text") if isinstance(piece, dict) else str(piece)
-                    ) or ""
+                    text: str = (
+                        getattr(piece, "text", None)
+                        or (piece.get("text") if isinstance(piece, dict) else str(piece))
+                        or ""
+                    )
                     chunk_id = (
                         getattr(piece, "id", None)
                         or (piece.get("id") if isinstance(piece, dict) else None)
@@ -157,7 +157,9 @@ class ChonkieChunker(Chunker):
                             chunk_id=chunk_id,
                             document_id=bundle.bundle_id,
                             version=1,
-                            page=(section.page_numbers[0] if section.page_numbers else section.index),
+                            page=(
+                                section.page_numbers[0] if section.page_numbers else section.index
+                            ),
                             source_location=section.source_location or bundle.source_uri,
                             section=section.heading,
                             company="",
@@ -197,9 +199,11 @@ class ChonkieChunker(Chunker):
         pieces = self.chonkie_text_chunks(text)
         chunks: list[Chunk] = []
         for i, piece in enumerate(pieces):
-            text_value: str = getattr(piece, "text", None) or (
-                piece.get("text") if isinstance(piece, dict) else str(piece)
-            ) or ""
+            text_value: str = (
+                getattr(piece, "text", None)
+                or (piece.get("text") if isinstance(piece, dict) else str(piece))
+                or ""
+            )
             chunk_id = (
                 getattr(piece, "id", None)
                 or (piece.get("id") if isinstance(piece, dict) else None)

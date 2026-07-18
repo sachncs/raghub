@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import argparse
-import sys
 
-from raghub.cli import eval_cmd, init_cmd, ingest_cmd, query_cmd, system
+from loguru import logger as loguru_logger
+
+from raghub.cli import eval_cmd, ingest_cmd, init_cmd, query_cmd, system
 from raghub.cli.rate_limiter import CLIRateLimiter, RateLimitExceeded
 
-_limiter = CLIRateLimiter()
+CLI_LIMITER = CLIRateLimiter()
 
 # Commands that are exempt from rate limiting (e.g. health, version).
-_RATE_LIMIT_EXEMPT = frozenset({"health", "version"})
+RATE_LIMIT_EXEMPT_COMMANDS = frozenset({"health", "version"})
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -40,11 +41,11 @@ def main() -> int:
         return 0
 
     command = getattr(args, "command", None)
-    if command is not None and command not in _RATE_LIMIT_EXEMPT:
+    if command is not None and command not in RATE_LIMIT_EXEMPT_COMMANDS:
         try:
-            _limiter.check(command)
+            CLI_LIMITER.check(command)
         except RateLimitExceeded as exc:
-            print(f"error: {exc}", file=sys.stderr)
+            loguru_logger.error("cli.rate_limit_exceeded", command=command, error=str(exc))
             return 1
 
     return int(handler(args))

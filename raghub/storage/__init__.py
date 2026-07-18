@@ -6,6 +6,6 @@ from .sqlite_session_store import SqliteSessionStore
 
 __all__ = [
     "FilesystemImageStore",
-    "migrate_from_json",
     "SqliteSessionStore",
+    "migrate_from_json",
 ]

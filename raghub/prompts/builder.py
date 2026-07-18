@@ -117,7 +117,7 @@ class TokenCounter:
             # when tiktoken is given a partial sequence. We accept this
             # rather than stripping characters because the loss is
             # strictly bounded by one token.
-            return self.enc.decode(tokens)
+            return self.enc.decode(tokens)  # type: ignore[no-any-return]
         words = text.split()[:max_tokens]
         return " ".join(words)
 
@@ -240,4 +240,4 @@ SYSTEM_PROMPT_TEMPLATE = (
 )
 
 
-__all__ = ["PromptBuilder", "PromptConfig", "TokenCounter", "SYSTEM_PROMPT_TEMPLATE"]
+__all__ = ["SYSTEM_PROMPT_TEMPLATE", "PromptBuilder", "PromptConfig", "TokenCounter"]

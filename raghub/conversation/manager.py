@@ -12,7 +12,7 @@ or no-op) so callers can treat unknown tokens uniformly.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from raghub.conversation.sliding_window import SlidingWindowManager
 from raghub.domain import Session
@@ -50,8 +50,8 @@ class ConversationManager:
         """
         record = SessionRecord(
             user_id=user_id,
-            expires_at=datetime.now(timezone.utc) + timedelta(seconds=3600),
-            last_seen_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(UTC) + timedelta(seconds=3600),
+            last_seen_at=datetime.now(UTC),
         )
         await self.uow.session_repo.save(record)
         return Session(record)
@@ -96,7 +96,7 @@ class ConversationManager:
         record.history.append(turn)
         # Update the session's last-seen timestamp on every append so
         # expiry sweeps can identify idle sessions.
-        record.last_seen_at = datetime.now(timezone.utc)
+        record.last_seen_at = datetime.now(UTC)
         await self.uow.session_repo.save(record)
 
     async def load(self, session_token: str) -> list[ConversationTurn]:
@@ -124,7 +124,7 @@ class ConversationManager:
         if record is None:
             return
         record.history.clear()
-        record.last_seen_at = datetime.now(timezone.utc)
+        record.last_seen_at = datetime.now(UTC)
         await self.uow.session_repo.save(record)
 
     async def add_turn(self, session_id: str, turn: ConversationTurn) -> None:
@@ -145,7 +145,7 @@ class ConversationManager:
         # history state. Doing it in the opposite order would silently
         # drop the most recent turn when the budget is already tight.
         record.history.append(turn)
-        record.last_seen_at = datetime.now(timezone.utc)
+        record.last_seen_at = datetime.now(UTC)
         await self.uow.session_repo.save(record)
         await self.trim_history(session_id)
 
@@ -181,6 +181,6 @@ class ConversationManager:
         # safer than reassigning the attribute on the persisted record.
         record.history.clear()
         record.history.extend(trimmed)
-        record.last_seen_at = datetime.now(timezone.utc)
+        record.last_seen_at = datetime.now(UTC)
         await self.uow.session_repo.save(record)
         return trimmed

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import types
 
 import pytest
@@ -10,12 +11,13 @@ import pytest
 def test_litellm_provider_requires_litellm() -> None:
     """Without litellm installed, the provider raises ConfigurationError."""
     import raghub.llm.litellm as litellm_mod
+    from raghub.exceptions import ConfigurationError
 
     saved = litellm_mod.litellm
     try:
         litellm_mod.litellm = None
         litellm_mod.LITELLM_AVAILABLE = False
-        with pytest.raises(Exception):
+        with pytest.raises(ConfigurationError):
             litellm_mod.LiteLLMProvider(model="m")
     finally:
         litellm_mod.litellm = saved
@@ -94,8 +96,9 @@ def test_litellm_provider_captures_usage() -> None:
         completion_tokens = 22
 
     class _FakeResponse:
-        choices = [_FakeChoice()]
-        usage = _FakeUsage()
+        def __init__(self) -> None:
+            self.choices = [_FakeChoice()]
+            self.usage = _FakeUsage()
 
     def _fake_completion(model: str, messages: list, **kwargs: object) -> _FakeResponse:
         return _FakeResponse()
@@ -119,6 +122,7 @@ def test_litellm_provider_captures_usage() -> None:
 def test_litellm_provider_build_messages_with_session_history() -> None:
     """The OpenAI-style message list includes the session history."""
     from raghub.llm.litellm import LiteLLMProvider
+    from raghub.models import ConversationTurn
 
     provider = LiteLLMProvider.__new__(LiteLLMProvider)  # bypass __init__
     provider.model_name = "m"
@@ -127,6 +131,7 @@ def test_litellm_provider_build_messages_with_session_history() -> None:
     provider.temperature = 0.0
     messages = provider.build_messages(
         system_prompt="sys",
+        conversation=[ConversationTurn(question="ignored", answer="ignored")],
         session_history=[
             {"role": "user", "content": "q1"},
             {"role": "assistant", "content": "a1"},
@@ -139,3 +144,58 @@ def test_litellm_provider_build_messages_with_session_history() -> None:
     assert messages[2] == {"role": "assistant", "content": "a1"}
     assert messages[3] == {"role": "user", "content": "q2"}
     assert messages[4] == {"role": "user", "content": "q3"}
+
+
+def test_litellm_provider_build_messages_with_conversation() -> None:
+    from raghub.llm.litellm import LiteLLMProvider
+    from raghub.models import ConversationTurn
+
+    provider = LiteLLMProvider.__new__(LiteLLMProvider)
+    messages = provider.build_messages(
+        system_prompt="sys",
+        conversation=[ConversationTurn(question="q1", answer="a1")],
+        context=["facts"],
+        question="q2",
+    )
+
+    assert messages == [
+        {"role": "system", "content": "sys"},
+        {"role": "user", "content": "q1"},
+        {"role": "assistant", "content": "a1"},
+        {"role": "system", "content": "Context:\nfacts"},
+        {"role": "user", "content": "q2"},
+    ]
+
+
+def test_litellm_provider_uses_native_async_completion() -> None:
+    import raghub.llm.litellm as litellm_mod
+    from raghub.models import ConversationTurn
+
+    captured: dict[str, object] = {}
+
+    async def async_completion(**kwargs: object) -> dict:
+        captured.update(kwargs)
+        return {"choices": [{"message": {"content": "async answer"}}]}
+
+    saved = litellm_mod.litellm
+    try:
+        litellm_mod.litellm = types.ModuleType("litellm")
+        litellm_mod.litellm.acompletion = async_completion
+        litellm_mod.LITELLM_AVAILABLE = True
+        provider = litellm_mod.LiteLLMProvider(model="m", timeout_seconds=2)
+        answer = asyncio.run(
+            provider.async_generate(
+                system_prompt="sys",
+                conversation=[ConversationTurn(question="q1", answer="a1")],
+                question="q2",
+            )
+        )
+    finally:
+        litellm_mod.litellm = saved
+
+    assert answer == "async answer"
+    assert captured["timeout"] == 2
+    assert captured["messages"][1:3] == [
+        {"role": "user", "content": "q1"},
+        {"role": "assistant", "content": "a1"},
+    ]

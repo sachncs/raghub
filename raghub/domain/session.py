@@ -6,7 +6,7 @@ Deprecated in favour of the conversation-management layer in
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from raghub.models import ConversationTurn, SessionRecord
@@ -36,10 +36,10 @@ class Session:
     def add_turn(self, question: str, answer: str, **kwargs: Any) -> Session:
         turn = ConversationTurn(question=question, answer=answer, **kwargs)
         self.record.history.append(turn)
-        self.record.last_seen_at = datetime.now(timezone.utc)
+        self.record.last_seen_at = datetime.now(UTC)
         return self
 
     def clear(self) -> Session:
         self.record.history.clear()
-        self.record.last_seen_at = datetime.now(timezone.utc)
+        self.record.last_seen_at = datetime.now(UTC)
         return self

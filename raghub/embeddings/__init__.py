@@ -75,17 +75,14 @@ def build_embedding_provider(
     # ``nvidia/`` and similar remote prefixes need a credential. When
     # none is present we silently swap to the local SentenceTransformer
     # so the framework keeps working offline.
-    needs_remote = (
-        "litellm" in name
-        or any(
-            name.startswith(prefix)
-            for prefix in (
-                "openai/",
-                "cohere/",
-                "voyage/",
-                "azure/",
-                "nvidia/",
-            )
+    needs_remote = "litellm" in name or any(
+        name.startswith(prefix)
+        for prefix in (
+            "openai/",
+            "cohere/",
+            "voyage/",
+            "azure/",
+            "nvidia/",
         )
     )
     if needs_remote:

@@ -24,13 +24,15 @@ def _make_app(tmp_path: Path):
     from raghub.config.settings import load_settings
     from raghub.services.application import build_container, DynamicRagApplication
 
+    from pydantic import SecretStr
+
     settings = load_settings()
     settings.data_dir = tmp_path
     settings.registry_path = tmp_path / "registry.db"
     settings.sessions_path = tmp_path / "sessions.db"
     settings.zvec_dir = tmp_path / "zvec"
     settings.environment = "development"
-    settings.jwt_secret = "x" * 64
+    settings.jwt_secret = SecretStr("x" * 64)
     settings.allow_passwordless_login = False
     container = asyncio.run(build_container(settings))
     return DynamicRagApplication(container)
@@ -118,7 +120,9 @@ def test_dynamic_app_shutdown_is_idempotent(tmp_path: Path) -> None:
     asyncio.run(app.shutdown())  # second call should also be a no-op
 
 
-def test_dynamic_app_raghub_users_env_seeds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dynamic_app_raghub_users_env_seeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """``RAGHUB_USERS`` adds extra users at startup."""
     import json
 
@@ -141,6 +145,8 @@ def test_dynamic_app_raghub_users_invalid_json_raises(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A bad ``RAGHUB_USERS`` value raises a clear ``RuntimeError``."""
+    from pydantic import SecretStr
+
     monkeypatch.setenv("RAGHUB_USERS", "{not json")
     import asyncio
 
@@ -153,20 +159,22 @@ def test_dynamic_app_raghub_users_invalid_json_raises(
     settings.sessions_path = tmp_path / "sessions.db"
     settings.zvec_dir = tmp_path / "zvec"
     settings.environment = "development"
-    settings.jwt_secret = "x" * 64
+    settings.jwt_secret = SecretStr("x" * 64)
     with pytest.raises(RuntimeError, match="RAGHUB_USERS"):
         asyncio.run(build_container(settings))
 
 
 def test_dynamic_app_build_container_raises_without_jwt_secret(
-    monkeypatch: pytest.MonkeyPatch
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``build_container`` refuses to start when ``JWT_SECRET`` is empty."""
+    from pydantic import SecretStr
+
     monkeypatch.delenv("JWT_SECRET", raising=False)
     from raghub.config.settings import AppSettings
     from raghub.services.application import build_container
 
     settings = AppSettings(environment="development")
-    settings.jwt_secret = ""
+    settings.jwt_secret = SecretStr("")
     with pytest.raises(RuntimeError, match="JWT_SECRET"):
         asyncio.run(build_container(settings))

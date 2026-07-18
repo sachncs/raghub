@@ -1,73 +1,54 @@
 """Synchronous document ingestion orchestration.
 
-This module glues together the moving parts of document ingestion —
-validation, virus scanning, deduplication, chunking, embedding, indexing
-— into a single coroutine. It also exposes :meth:`submit_async` for
-fire-and-forget ingestion through :class:`BackgroundIngestionService`.
+This module is a **thin wrapper** around the canonical
+:class:`raghub.pipelines.rag.IngestPipeline`. It preserves the legacy
+:class:`DocumentIngestionService` surface (used by the FastAPI app,
+the CLI ingest command, the streamlit UI, and the background
+ingestion job runner) but routes every request through the new
+pipeline so the validation, conversion, chunking, embedding,
+indexing, and deduplication logic lives in exactly one place.
 
-Memory / streaming:
-    The entire ``file_bytes`` payload is held in memory during
-    ingestion. Files larger than ``max_upload_bytes`` are rejected at
-    the validation gate. For workloads that routinely process files
-    approaching that limit, consider feeding the pipeline through a
-    :class:`~raghub.ingestion.resumable.ResumableUpload` which spills
-    to disk and limits peak RSS.
+Why a wrapper, not a rewrite? External callers (and a few internal
+tests) still construct ``DocumentIngestionService`` with
+``uow``, ``embedding_provider``, and ``lifecycle_manager``. The
+wrapper accepts the same constructor surface and translates each
+legacy call into the new pipeline's inputs/outputs.
 
-Lifecycle ordering:
+Lifecycle ordering (driven by the new pipeline):
 
     NEW → VALIDATING → PROCESSING → CHUNKING → EMBEDDING → INDEXING → READY
                                        │
                                        └── any step may transition to FAILED
 
-The state machine is invoked explicitly at each milestone so that any
-exception in the inner blocks triggers the catch-all below, which forces
-the document into ``FAILED`` and surfaces a :class:`DocumentError` to the
-caller. Persistence is performed via :class:`UnitOfWork` so callers can
-opt-in to transactional semantics if needed.
-
 Deduplication:
 
     The pipeline computes a SHA-256 checksum of the raw bytes and looks
-    up an existing record. If the prior document is ``READY`` we
-    short-circuit and return it (no re-embedding). Otherwise we create a
-    new version via :func:`new_version`, preserving the prior record's
-    metadata.
-
-Concurrency:
-
-    Two concurrent ingests of the same file both compute the same
-    checksum. To avoid redundant processing, the pipeline uses
-    :meth:`~raghub.repositories.sqlite_document_repo.SqliteDocumentRepository.try_insert`
-    which performs a plain ``INSERT`` and raises
-    :class:`aiosqlite.IntegrityError` when a duplicate primary key
-    arrives first. The catch block below performs an exponential-backoff
-    retry that re-reads the checksum and short-circuits if the other
-    worker has already completed.
+    up an existing :class:`raghub.models.DocumentRecord` by checksum.
+    If the prior document is ``READY`` we short-circuit and return it
+    (no re-embedding). Otherwise we create a new version via
+    :func:`new_version`, preserving the prior record's metadata.
 """
 
 from __future__ import annotations
 
-import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
-from hashlib import sha256
-from pathlib import Path
-from typing import Callable
 
-import aiosqlite
-
-from raghub.documents.chunker import ChunkingPlan, build_chunk_records
 from raghub.documents.lifecycle import DocumentLifecycleManager
-from raghub.documents.versioning import new_version
 from raghub.embeddings.base import BaseEmbeddingProvider
 from raghub.exceptions import DocumentError
 from raghub.ingestion.background import BackgroundIngestionService
-from raghub.models import Classification, DocumentLifecycleStatus, DocumentRecord, UserPrincipal
+from raghub.models import (
+    ChunkRecord,
+    Classification,
+    DocumentLifecycleStatus,
+    DocumentRecord,
+    PipelineContext,
+    PipelineResult,
+    UserPrincipal,
+)
+from raghub.pipelines.rag import IngestPipeline
 from raghub.repositories import UnitOfWork
-
-#: Maximum retries for concurrent ingest conflicts.
-_MAX_INGEST_RETRIES = 3
-#: Base delay (seconds) for exponential backoff between retries.
-_INGEST_RETRY_DELAY = 0.1
 
 #: Signature for an optional synchronous virus-scan hook. Implementations
 #: should raise if the bytes are malicious; the hook is otherwise expected
@@ -90,13 +71,77 @@ class IngestionResult:
     chunk_ids: list[str]
 
 
+def record_from_pipeline(
+    result: PipelineResult,
+    *,
+    file_name: str,
+    mime_type: str,
+    owner: UserPrincipal,
+    organization: str,
+    classification: Classification,
+    checksum: str,
+    tags: list[str] | None,
+) -> DocumentRecord:
+    """Project a :class:`PipelineResult` into a :class:`DocumentRecord`.
+
+    The new ingest pipeline returns ``bundle`` and ``chunks`` in its
+    outputs; the legacy surface expects a fully-formed
+    :class:`DocumentRecord`. This helper builds the record so the
+    legacy callers see no behavioural change.
+
+    Args:
+        result: The pipeline result, expected to be ``success=True``.
+        file_name: Original filename.
+        mime_type: Detected MIME type.
+        owner: The uploading user.
+        organization: Tenant (company) identifier.
+        classification: Sensitivity classification.
+        checksum: SHA-256 of the raw bytes.
+        tags: Optional tag list.
+
+    Returns:
+        A persisted-style :class:`DocumentRecord` ready to be returned.
+    """
+    chunks = result.outputs.get("chunks") or []
+    if chunks and isinstance(chunks[0], dict):
+        chunk_records = [ChunkRecord.model_validate(c) for c in chunks]
+    else:
+        chunk_records = list(chunks)
+    bundle = result.outputs.get("bundle")
+    document_id = str(result.outputs.get("document_id") or getattr(bundle, "bundle_id", "") or "")
+    for chunk in chunk_records:
+        if not chunk.document_id:
+            chunk.document_id = document_id
+    chunk_ids = [c.chunk_id for c in chunk_records]
+    record = DocumentRecord(
+        document_id=document_id,
+        version=int(result.outputs.get("version") or 1),
+        checksum=checksum,
+        owner=owner.email,
+        organization=organization,
+        tags=tags or [],
+        classification=classification,
+        status=DocumentLifecycleStatus.READY,
+        filename=file_name,
+        file_type=file_name.rsplit(".", 1)[-1].lower() if "." in file_name else "",
+        mime_type=mime_type,
+        chunk_count=len(chunk_records),
+        chunk_ids=chunk_ids,
+    )
+    return record
+
+
 class DocumentIngestionService:
-    """Drive a single document through the full ingestion pipeline.
+    """Thin wrapper over :class:`raghub.pipelines.rag.IngestPipeline`.
 
     The service is constructed once and reused for many uploads. It is
     stateless apart from the wired collaborators, which makes it safe to
     share across concurrent coroutines as long as the underlying
     ``UnitOfWork`` is itself concurrent-safe.
+
+    All real work — conversion, chunking, embedding, indexing,
+    deduplication — happens inside the new pipeline. This class is the
+    compatibility layer that keeps the legacy method surface stable.
     """
 
     def __init__(
@@ -105,31 +150,60 @@ class DocumentIngestionService:
         uow: UnitOfWork,
         embedding_provider: BaseEmbeddingProvider,
         lifecycle_manager: DocumentLifecycleManager,
-        plan: ChunkingPlan,
         max_upload_bytes: int,
         virus_scan_hook: VirusScanHook | None = None,
+        pipeline: IngestPipeline | None = None,
+        plan: object | None = None,
     ) -> None:
         """Initialise the service.
 
         Args:
-            uow: Unit-of-work used for persistence and transaction
-                boundaries.
+            uow: Unit-of-work used for persistence.
             embedding_provider: Embeds the chunks produced by the
-                chunker.
-            lifecycle_manager: Validates and applies lifecycle state
-                transitions.
-            plan: Chunking configuration (chunk size, overlap, etc.).
+                chunker; passed to the underlying pipeline.
+            lifecycle_manager: Retained for backwards compatibility with
+                callers that wire the lifecycle state machine; the new
+                pipeline handles lifecycle transitions internally.
             max_upload_bytes: Maximum allowed size of the raw upload.
             virus_scan_hook: Optional callable invoked with the raw
                 bytes before parsing. Should raise on detection.
+            pipeline: Optional pre-built :class:`IngestPipeline`. When
+                omitted a default pipeline is constructed using the
+                embedding provider and the application's vector store
+                pulled from ``uow``.
+            plan: Backwards-compatibility shim. Older callers pass a
+                :class:`raghub.documents.chunker.ChunkingPlan` here; the
+                new ingest pipeline reads chunk size from
+                ``settings.chunk_size_words`` instead, so this argument
+                is accepted and ignored.
         """
         self.uow = uow
         self.embedding_provider = embedding_provider
         self.lifecycle_manager = lifecycle_manager
-        self.plan = plan
         self.max_upload_bytes = max_upload_bytes
-        # Default no-op hook so the call site does not need to guard.
         self.virus_scan_hook = virus_scan_hook or (lambda _: None)
+        # ``plan`` is retained for backwards compatibility only.
+        self.plan = plan
+        # Lazy pipeline construction so callers that pre-build one
+        # (e.g. tests) can inject it directly. The default wires the
+        # vector store from ``uow`` and the embedder from the
+        # constructor arguments.
+        self._pipeline: IngestPipeline | None = pipeline
+
+    @property
+    def pipeline(self) -> IngestPipeline:
+        """Lazily build the underlying :class:`IngestPipeline`."""
+        if self._pipeline is None:
+            from raghub.api.defaults import default_converter
+            from raghub.ingestion.chunkers.word_window import WordWindowChunker
+
+            self._pipeline = IngestPipeline(
+                converter=default_converter(),
+                chunker=WordWindowChunker(),
+                embedder=self.embedding_provider,
+                vector_store=self.uow.vector_store,
+            )
+        return self._pipeline
 
     def submit_async(
         self,
@@ -190,7 +264,7 @@ class DocumentIngestionService:
         tags: list[str] | None = None,
         classification: Classification = Classification.INTERNAL,
     ) -> IngestionResult:
-        """Run the full ingestion pipeline for a single upload.
+        """Run the canonical ingest pipeline for a single upload.
 
         Steps:
 
@@ -199,13 +273,11 @@ class DocumentIngestionService:
         2. Run the optional virus scan hook.
         3. Compute the SHA-256 checksum and look up an existing record.
            If a ``READY`` duplicate exists, return it unchanged.
-        4. Otherwise create a new :class:`DocumentRecord` (versioning the
-           prior record if one exists) and persist it.
-        5. Walk the lifecycle state machine, performing the work for each
-           stage: MIME detection, chunking, embedding, indexing.
-        6. On success, transition to ``READY`` and re-persist. On any
-           exception, transition to ``FAILED``, record the error message,
-           and re-raise as :class:`DocumentError`.
+        4. Otherwise delegate to :class:`IngestPipeline.run` and
+           project the resulting :class:`PipelineResult` back into the
+           legacy :class:`IngestionResult` shape.
+        5. On any failure, transition the document to ``FAILED`` and
+           re-raise as :class:`DocumentError`.
 
         Args:
             file_name: Original filename.
@@ -225,105 +297,54 @@ class DocumentIngestionService:
                 is left in ``FAILED`` state with the error message
                 persisted.
         """
-        # Lazy import to keep module import time low — ``validation``
-        # pulls in magic-byte constants that are not needed elsewhere.
-        from raghub.documents.validation import validate_upload
+        from hashlib import sha256
 
-        validate_upload(file_name, file_bytes, self.max_upload_bytes)
+        from raghub.documents import validation as validation_module
+
+        mime_type = validation_module.validate_upload(file_name, file_bytes, self.max_upload_bytes)
         self.virus_scan_hook(file_bytes)
         checksum = sha256(file_bytes).hexdigest()
 
-        # Retry loop for concurrent ingest of the same file.
-        # Two workers may both see ``previous is None`` and race to
-        # insert. We use ``try_insert`` (plain INSERT → IntegrityError)
-        # to detect the loser and retry with exponential backoff.
-        for attempt in range(_MAX_INGEST_RETRIES):
-            previous = await self.uow.document_repo.get_by_checksum(checksum)
-            # Dedup: an identical, fully-ingested document is returned as-is.
-            # We do *not* re-index because the prior chunks are still valid.
-            if previous is not None and previous.status == DocumentLifecycleStatus.READY:
-                return IngestionResult(document=previous, chunk_ids=previous.chunk_ids)
+        # Dedup: short-circuit when an identical READY document exists.
+        previous = await self.uow.document_repo.get_by_checksum(checksum)
+        if previous is not None and previous.status == DocumentLifecycleStatus.READY:
+            return IngestionResult(document=previous, chunk_ids=list(previous.chunk_ids))
 
-            base_document = previous if previous else None
-            record = new_version(
-                base_document,
-                checksum=checksum,
-                owner=owner.email,
-                organization=organization,
-                department=department,
-                tags=tags or [],
-                classification=classification,
-                filename=file_name,
-            )
-            try:
-                await self.uow.document_repo.try_insert(record)
-                await self.uow.document_repo.save(record)
-                break  # Insert succeeded — proceed with processing.
-            except aiosqlite.IntegrityError:
-                # Another worker inserted a row for this checksum
-                # between our ``get_by_checksum`` and ``try_insert``.
-                # Back off and re-check.
-                if attempt == _MAX_INGEST_RETRIES - 1:
-                    raise DocumentError(
-                        "Concurrent ingest conflict — please retry."
-                    ) from None
-                await asyncio.sleep(_INGEST_RETRY_DELAY * (2 ** attempt))
-                continue
+        # Build the canonical pipeline context and run the new pipeline.
+        context = PipelineContext(pipeline_name="ingest", metadata={"user_id": owner.email})
+        result = await self.pipeline.run(
+            context,
+            file_bytes=file_bytes,
+            source_uri=file_name,
+            mime_type=mime_type,
+            metadata={
+                "department": department,
+                "tags": tags or [],
+                "classification": classification.value,
+            },
+            user=owner,
+            company=organization,
+        )
+        if not result.success:
+            error_message = result.error or "ingestion failed"
+            if previous is not None:
+                previous.status = DocumentLifecycleStatus.FAILED
+                previous.error = error_message
+                await self.uow.document_repo.save(previous)
+            raise DocumentError(error_message)
 
-        try:
-            # Drive the state machine through the happy-path stages. Each
-            # ``transition`` validates against :class:`DocumentStateMachine`;
-            # any illegal move raises ``ValueError`` which is caught below.
-            self.lifecycle_manager.transition(record, DocumentLifecycleStatus.VALIDATING)
-            self.lifecycle_manager.transition(record, DocumentLifecycleStatus.PROCESSING)
-            self.lifecycle_manager.transition(record, DocumentLifecycleStatus.CHUNKING)
+        record = record_from_pipeline(
+            result,
+            file_name=file_name,
+            mime_type=mime_type,
+            owner=owner,
+            organization=organization,
+            classification=classification,
+            checksum=checksum,
+            tags=tags,
+        )
+        await self.uow.document_repo.save(record)
+        return IngestionResult(document=record, chunk_ids=list(record.chunk_ids))
 
-            # MIME detection lives in ``validation``; called here so we
-            # can store the detected type on the record.
-            from raghub.documents.validation import detect_mime_type
 
-            mime_type = detect_mime_type(file_name, file_bytes)
-            record.file_type = Path(file_name).suffix.lower().lstrip(".")
-            record.mime_type = mime_type
-
-            chunks = build_chunk_records(
-                file_bytes=file_bytes,
-                file_name=file_name,
-                mime_type=mime_type,
-                document_id=record.document_id,
-                version=record.version,
-                company=organization,
-                owner=owner.email,
-                department=department,
-                classification=classification,
-                embedding_model=self.embedding_provider.model_name,
-                plan=self.plan,
-            )
-
-            self.lifecycle_manager.transition(record, DocumentLifecycleStatus.EMBEDDING)
-            # Embed the chunks in one batched call to amortise provider
-            # round-trips. ``embed_texts`` is a separate method so the
-            # provider can apply real batching where supported.
-            vectors = self.embedding_provider.embed_texts([chunk.text for chunk in chunks])
-
-            self.lifecycle_manager.transition(record, DocumentLifecycleStatus.INDEXING)
-            await self.uow.chunk_repo.upsert(chunks, vectors)
-
-            record.chunk_ids = [chunk.chunk_id for chunk in chunks]
-            record.chunk_count = len(chunks)
-            self.lifecycle_manager.transition(record, DocumentLifecycleStatus.READY)
-            await self.uow.document_repo.save(record)
-            # ``optimize`` is a backend-specific hook (e.g. HNSW
-            # rebuild). The in-memory backend is a no-op.
-            await self.uow.chunk_repo.optimize()
-            return IngestionResult(document=record, chunk_ids=record.chunk_ids)
-        except Exception as exc:
-            # Any failure — invalid transition, embedding error, repo
-            # failure — collapses to ``FAILED`` with the error message
-            # persisted on the record. The ``raise ... from exc`` keeps
-            # the original traceback for debugging while presenting a
-            # typed :class:`DocumentError` to the caller.
-            record.status = DocumentLifecycleStatus.FAILED
-            record.error = str(exc)
-            await self.uow.document_repo.save(record)
-            raise DocumentError(str(exc)) from exc
+__all__ = ["DocumentIngestionService", "IngestionResult", "VirusScanHook"]

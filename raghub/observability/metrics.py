@@ -14,7 +14,7 @@ from typing import Any, cast
 from prometheus_client import REGISTRY, Counter, Histogram
 from prometheus_client.openmetrics.exposition import generate_latest
 
-metric_collectors: dict[str, Counter | Histogram] = {}
+known_collectors: dict[str, Counter | Histogram] = {}
 
 
 class NullMetrics:
@@ -74,19 +74,19 @@ class PrometheusMetrics:
             return any(metric.name == public_name for metric in REGISTRY.collect())
 
         def safe_histogram(name: str, desc: str, buckets: list[float]) -> Histogram:
-            existing: Any = metric_collectors.get(name)
+            existing: Any = known_collectors.get(name)
             if existing is not None and collector_registered(name):
                 return cast(Histogram, existing)
             collector = Histogram(name, desc, buckets=buckets, registry=REGISTRY)
-            metric_collectors[name] = collector
+            known_collectors[name] = collector
             return collector
 
         def safe_counter(name: str, desc: str, labels: list[str] | None = None) -> Counter:
-            existing: Any = metric_collectors.get(name)
+            existing: Any = known_collectors.get(name)
             if existing is not None and collector_registered(name):
                 return cast(Counter, existing)
             collector = Counter(name, desc, labels or [], registry=REGISTRY)
-            metric_collectors[name] = collector
+            known_collectors[name] = collector
             return collector
 
         self.query_duration: Histogram = safe_histogram(

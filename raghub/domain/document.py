@@ -6,7 +6,7 @@ Deprecated in favour of the canonical models in
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from raghub.models import DocumentLifecycleStatus, DocumentRecord
@@ -40,11 +40,11 @@ class Document:
     def update(self, **kwargs: Any) -> Document:
         for key, value in kwargs.items():
             setattr(self.record, key, value)
-        self.record.updated_at = datetime.now(timezone.utc)
+        self.record.updated_at = datetime.now(UTC)
         return self
 
     def mark_failed(self, error: str) -> Document:
         self.record.status = self.record.status.__class__.FAILED
         self.record.error = error
-        self.record.updated_at = datetime.now(timezone.utc)
+        self.record.updated_at = datetime.now(UTC)
         return self

@@ -34,15 +34,14 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import sys
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
+from contextlib import suppress
 from pathlib import Path
-from typing import Any, Sequence, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
 
 from raghub.api.async_runner import maybe_await
-from raghub.interfaces.generator import Generator
 from raghub.api.defaults import (
     default_chunker,
     default_converter,
@@ -56,13 +55,16 @@ from raghub.api.response import build_response
 from raghub.config.settings import AppSettings, load_settings
 from raghub.conversation.memory import InMemoryConversationStore
 from raghub.evaluation.financebench import FinanceBenchEvaluator
-from raghub.exceptions import ConfigurationError, RagHubError
+from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
 from raghub.generation.generator import DefaultGenerator
 from raghub.ingestion.resumable import ResumableBackgroundIngestionService
+from raghub.interfaces.generator import Generator
 from raghub.knowledge.manifest import SourceManifest
 from raghub.knowledge.repository import InMemoryKnowledgeRepository
 from raghub.models import (
     CanonicalResponse as Response,
+)
+from raghub.models import (
     EvaluationResult,
     PipelineContext,
     PipelineResult,
@@ -109,6 +111,7 @@ class RAG:
         chunker: Any = None,
         embedder: Any = None,
         llm: Any = None,
+        llm_timeout_seconds: float | None = None,
         vector_store: Any = None,
         generator: Any = None,
         reranker: Any = None,
@@ -135,6 +138,7 @@ class RAG:
             llm: LLM provider. Defaults to
                 :class:`LiteLLMProvider` (with
                 :class:`HeuristicLLMProvider` fallback).
+            llm_timeout_seconds: Maximum completion time for the default generator.
             vector_store: Vector store. Defaults to
                 :class:`QdrantVectorStore` (with
                 :class:`InMemoryVectorStore` fallback).
@@ -164,9 +168,7 @@ class RAG:
         self.registry = registry or PluginRegistry()
 
         self.knowledge_repo = knowledge_repo or InMemoryKnowledgeRepository()
-        self.vector_store = vector_store or default_vector_store(
-            self.settings.embedding_dim
-        )
+        self.vector_store = vector_store or default_vector_store(self.settings.embedding_dim)
         self.embedder = embedder or default_embedder(
             self.settings.embedding_model, self.settings.embedding_dim
         )
@@ -176,10 +178,11 @@ class RAG:
             self.settings.chunk_size_words, self.settings.chunk_overlap_words
         )
         self.reranker = reranker or IdentityReranker()
-        self.generator = cast(Generator, generator or DefaultGenerator(llm=self.llm))
-        self.structured = (
-            structured if structured is not None else default_structured()
+        self.generator = cast(
+            Generator,
+            generator or DefaultGenerator(llm=self.llm, timeout_seconds=llm_timeout_seconds),
         )
+        self.structured = structured if structured is not None else default_structured()
 
         if telemetry is None:
             inner = default_telemetry()
@@ -224,7 +227,7 @@ class RAG:
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_config(cls, path: str | Path) -> "RAG":
+    def from_config(cls, path: str | Path) -> RAG:
         """Build a facade from a YAML or TOML configuration file.
 
         Args:
@@ -238,10 +241,8 @@ class RAG:
 
         p = Path(path)
         if p.suffix.lower() == ".toml":
-            if sys.version_info >= (3, 11):
-                import tomllib
-            else:
-                import tomli as tomllib
+            import tomllib
+
             payload = tomllib.loads(p.read_text(encoding="utf-8")) or {}
         else:
             import yaml
@@ -269,18 +270,18 @@ class RAG:
         """Release all held resources; safe to call multiple times.
 
         Closes the telemetry provider, the vector store, the
-        knowledge repository, and the background ingestion
-        service. Errors from any single collaborator are swallowed
-        so the rest of the shutdown still completes. The LLM,
-        embedder, and generator are also closed when they expose
-        a ``close()`` method.
+        knowledge repository, the background ingestion service,
+        and the unit-of-work (when one was supplied). Errors from
+        any single collaborator are swallowed so the rest of the
+        shutdown still completes. The LLM, embedder, and
+        generator are also closed when they expose a ``close()``
+        method.
         """
         if hasattr(self.telemetry, "end_trace"):
-            try:
+            with suppress(Exception):
                 self.telemetry.end_trace()
-            except Exception:
-                pass
         for collaborator in (
+            getattr(self, "unit_of_work", None),
             self.vector_store,
             self.knowledge_repo,
             getattr(self, "background_ingestion", None),
@@ -337,7 +338,7 @@ class RAG:
             composite result for a directory.
 
         Raises:
-            RagHubError: When the source bytes are empty.
+            IngestionError: When ingestion cannot complete.
         """
         if isinstance(source, (str, Path)):
             p = Path(source)
@@ -349,11 +350,10 @@ class RAG:
             file_bytes = bytes(source)
             uri = source_uri or "bytes://memory"
         if not file_bytes:
-            raise RagHubError(
-                f"ingest({source!r}) received empty bytes; nothing to index."
-            )
-        return maybe_await(
-            self.ingest_one_async(file_bytes, uri, mime_type, metadata, force, user)
+            raise IngestionError(f"ingest({source!r}) received empty bytes; nothing to index.")
+        return cast(
+            PipelineResult,
+            maybe_await(self.ingest_one_async(file_bytes, uri, mime_type, metadata, force, user)),
         )
 
     def ingest_directory_sync(
@@ -387,7 +387,7 @@ class RAG:
         """Async version of :meth:`ingest`.
 
         Raises:
-            RagHubError: When the source bytes are empty.
+            IngestionError: When ingestion cannot complete.
         """
         if isinstance(source, (str, Path)):
             p = Path(source)
@@ -399,12 +399,8 @@ class RAG:
             file_bytes = bytes(source)
             uri = source_uri or "bytes://memory"
         if not file_bytes:
-            raise RagHubError(
-                f"aingest({source!r}) received empty bytes; nothing to index."
-            )
-        return await self.ingest_one_async(
-            file_bytes, uri, mime_type, metadata, force, user
-        )
+            raise IngestionError(f"aingest({source!r}) received empty bytes; nothing to index.")
+        return await self.ingest_one_async(file_bytes, uri, mime_type, metadata, force, user)
 
     async def ingest_directory_async(
         self, directory: Path, metadata: dict[str, Any] | None, user: Any | None
@@ -438,7 +434,7 @@ class RAG:
             pipeline_name="ingest",
             metadata={"user_id": getattr(user, "email", None)} if user is not None else {},
         )
-        return await self.ingest_pipeline.run(
+        result = await self.ingest_pipeline.run(
             context,
             file_bytes=file_bytes,
             source_uri=source_uri,
@@ -447,6 +443,9 @@ class RAG:
             force=force,
             user=user,
         )
+        if not result.success:
+            raise IngestionError(result.error or "ingestion failed")
+        return result
 
     # ------------------------------------------------------------------
     # Deletion
@@ -456,13 +455,29 @@ class RAG:
         """Delete a document and all of its chunks.
 
         Accepts either a bundle id (the deterministic
-        ``document_id`` recorded on each chunk) or a source URI
-        (the ``source_uri`` argument supplied to :meth:`ingest`).
+        ``document_id`` recorded on each chunk), a source URI (the
+        ``source_uri`` argument supplied to :meth:`ingest`), or any
+        prior bundle id that has been retired to that source. All
+        matching bundles are removed from both the vector store and
+        the knowledge repository so a subsequent ingest does not see
+        stale entries.
         """
         target_ids: set[str] = {document_id}
         if hasattr(self.knowledge_repo, "list_by_source"):
             for bundle in self.knowledge_repo.list_by_source(document_id):
                 target_ids.add(bundle.bundle_id)
+        # Walk every bundle already known for this source and add its
+        # bundle id to the deletion set. This catches the prior
+        # bundle id a re-ingest left behind; without it, a subsequent
+        # ingest would still see the old bundle and short-circuit on
+        # the wrong checksum.
+        if hasattr(self.manifest, "sources"):
+            for prior_uri in list(self.manifest.sources()):
+                if prior_uri == document_id:
+                    prior_record = self.manifest[prior_uri]
+                    prior_bundle_id = str(prior_record.get("bundle_id", ""))
+                    if prior_bundle_id:
+                        target_ids.add(prior_bundle_id)
         for tid in target_ids:
             if hasattr(self.vector_store, "delete_document"):
                 self.vector_store.delete_document(tid)
@@ -484,15 +499,18 @@ class RAG:
         response_model: type | None = None,
     ) -> Response:
         """Ask a question and return a typed :class:`Response`."""
-        return maybe_await(
-            self.aquery(
-                question,
-                user=user,
-                session_id=session_id,
-                top_k=top_k,
-                metadata_filter=metadata_filter,
-                response_model=response_model,
-            )
+        return cast(
+            Response,
+            maybe_await(
+                self.aquery(
+                    question,
+                    user=user,
+                    session_id=session_id,
+                    top_k=top_k,
+                    metadata_filter=metadata_filter,
+                    response_model=response_model,
+                )
+            ),
         )
 
     @staticmethod
@@ -517,11 +535,7 @@ class RAG:
             return None
         if user is None:
             return session_id
-        uid = (
-            getattr(user, "user_id", None)
-            or getattr(user, "email", None)
-            or "anonymous"
-        )
+        uid = getattr(user, "user_id", None) or getattr(user, "email", None) or "anonymous"
         return f"{uid}::{session_id}"
 
     async def aquery(
@@ -613,7 +627,10 @@ class RAG:
                 return await result
             return result
 
-        return maybe_await(evaluator.evaluate(examples, response_factory=coerce_answer))
+        return cast(
+            list[EvaluationResult],
+            maybe_await(evaluator.evaluate(examples, response_factory=coerce_answer)),
+        )
 
     # ------------------------------------------------------------------
     # Diagnostics
@@ -644,7 +661,18 @@ class RAG:
         metadata: dict[str, Any] | None = None,
         user: Any | None = None,
     ) -> dict[str, list[str]]:
-        """Reconcile ``directory`` against the manifest."""
+        """Reconcile ``directory`` against the manifest.
+
+        Uses the manifest's ``bundle_id`` and the source URI
+        independently: a changed file produces a new bundle id but
+        the prior bundle id (still in the manifest under the same
+        source URI) must be retired so a re-ingest does not double
+        index or short-circuit on the wrong checksum.
+
+        The summary is grouped into ``added``, ``modified``,
+        ``unchanged``, and ``removed`` lists so the caller can
+        report progress.
+        """
         from raghub.knowledge.manifest import sha256_bytes
 
         directory = Path(directory)
@@ -666,20 +694,37 @@ class RAG:
             seen.add(uri)
             data = child.read_bytes()
             checksum = sha256_bytes(data)
-            prior = self.manifest[uri] if uri in self.manifest else None
+            prior = None
+            if uri in self.manifest:
+                prior = self.manifest[uri]
+            bundle_id = deterministic_id("bundle", uri, checksum)
             if prior is None:
-                self.ingest(child, metadata=metadata, user=user)
+                result = self.ingest(child, metadata=metadata, user=user)
+                if isinstance(result, PipelineResult) and not result.success:
+                    raise IngestionError(result.error or f"failed to ingest {uri}")
                 self.manifest.record(
                     uri,
-                    bundle_id=deterministic_id("bundle", uri, checksum),
+                    bundle_id=bundle_id,
                     checksum=checksum,
                 )
                 summary["added"].append(uri)
             elif prior.get("checksum") != checksum:
-                self.ingest(child, metadata=metadata, force=True, user=user)
+                # Retire the prior bundle id from the manifest before
+                # re-ingesting so the manifest lookup cannot return a
+                # stale record on the next incremental ingest.
+                prior_bundle_id = str(prior.get("bundle_id", ""))
+                result = self.ingest(child, metadata=metadata, force=True, user=user)
+                if isinstance(result, PipelineResult) and not result.success:
+                    raise IngestionError(result.error or f"failed to ingest {uri}")
+                if prior_bundle_id and prior_bundle_id != bundle_id:
+                    # ``delete`` uses both ``bundle_id`` from the
+                    # manifest and ``source_uri`` so the old vector
+                    # chunks are removed even if the bundle_id is
+                    # later reused.
+                    self.delete(prior_bundle_id)
                 self.manifest.record(
                     uri,
-                    bundle_id=deterministic_id("bundle", uri, checksum),
+                    bundle_id=bundle_id,
                     checksum=checksum,
                 )
                 summary["modified"].append(uri)
@@ -691,7 +736,8 @@ class RAG:
                 continue
             if not prior_uri.startswith(str(directory.resolve())):
                 continue
-            bundle_id = self.manifest[prior_uri].get("bundle_id", "")
+            prior_record = self.manifest[prior_uri]
+            bundle_id = str(prior_record.get("bundle_id", ""))
             self.delete(bundle_id)
             self.manifest.remove(prior_uri)
             summary["removed"].append(prior_uri)
@@ -722,20 +768,23 @@ class RAG:
             file_bytes = bytes(source)
             uri = source_uri or "bytes://memory"
 
-        return self.background_ingestion.submit(
-            self.ingest,
-            source=file_bytes,
-            source_uri=uri,
-            mime_type=mime_type,
-            metadata=metadata,
-            user=user,
+        return cast(
+            str,
+            self.background_ingestion.submit(
+                self.ingest,
+                source=file_bytes,
+                source_uri=uri,
+                mime_type=mime_type,
+                metadata=metadata,
+                user=user,
+            ),
         )
 
     def job_status(self, job_id: str) -> str | None:
         """Return the status of a background ingestion job."""
         if self.background_ingestion is None:
             return None
-        return self.background_ingestion.get_status(job_id)
+        return cast(str | None, self.background_ingestion.get_status(job_id))
 
     # ------------------------------------------------------------------
     # Conversation history
@@ -764,7 +813,7 @@ class RAG:
             first.
         """
         scoped = self.scoped_session_id(user, session_id) or session_id
-        return self.conversation_store.load(scoped, limit=limit)
+        return cast(list[Any], self.conversation_store.load(scoped, limit=limit))
 
     def clear_conversation(
         self,

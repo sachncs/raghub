@@ -53,7 +53,9 @@ class TestDocumentService:
                 status=DocumentLifecycleStatus.READY,
             )
         )
-        with patch("raghub.services.document_service.detect_mime_type", return_value="application/pdf"):
+        with patch(
+            "raghub.services.document_service.detect_mime_type", return_value="application/pdf"
+        ):
             result = await service.upload_document(
                 token="tok1", filename="Acme_report.pdf", content=b"pdf data"
             )
@@ -73,17 +75,15 @@ class TestDocumentService:
             [],
         )
         with (
-            patch("raghub.services.document_service.detect_mime_type", return_value="application/pdf"),
+            patch(
+                "raghub.services.document_service.detect_mime_type", return_value="application/pdf"
+            ),
             pytest.raises(AuthorizationError, match="cannot upload documents"),
         ):
-            await service.upload_document(
-                token="tok1", filename="Acme_report.pdf", content=b"data"
-            )
+            await service.upload_document(token="tok1", filename="Acme_report.pdf", content=b"data")
 
     @pytest.mark.asyncio
-    async def test_list_documents_admin_sees_all(
-        self, service: Any, container: MagicMock
-    ) -> None:
+    async def test_list_documents_admin_sees_all(self, service: Any, container: MagicMock) -> None:
         container.uow.document_repo.list_all.return_value = [
             DocumentRecord(
                 document_id="d1",
@@ -97,9 +97,7 @@ class TestDocumentService:
         assert len(docs) == 1
 
     @pytest.mark.asyncio
-    async def test_list_documents_nonadmin_scoped(
-        self, service: Any, container: MagicMock
-    ) -> None:
+    async def test_list_documents_nonadmin_scoped(self, service: Any, container: MagicMock) -> None:
         container.auth.resolve_user.return_value = (
             UserPrincipal(
                 user_id="u1",
@@ -123,9 +121,7 @@ class TestDocumentService:
         container.uow.document_repo.list_by_organization.assert_awaited_once_with("Acme")
 
     @pytest.mark.asyncio
-    async def test_document_status_success(
-        self, service: Any, container: MagicMock
-    ) -> None:
+    async def test_document_status_success(self, service: Any, container: MagicMock) -> None:
         container.uow.document_repo.get.return_value = DocumentRecord(
             document_id="d1",
             checksum="abc",
@@ -137,17 +133,13 @@ class TestDocumentService:
         assert doc.document_id == "d1"
 
     @pytest.mark.asyncio
-    async def test_document_status_not_found(
-        self, service: Any, container: MagicMock
-    ) -> None:
+    async def test_document_status_not_found(self, service: Any, container: MagicMock) -> None:
         container.uow.document_repo.get.return_value = None
         with pytest.raises(DocumentError):
             await service.document_status("tok1", "d1")
 
     @pytest.mark.asyncio
-    async def test_delete_document_admin_only(
-        self, service: Any, container: MagicMock
-    ) -> None:
+    async def test_delete_document_admin_only(self, service: Any, container: MagicMock) -> None:
         await service.delete_document("tok1", "d1")
         container.uow.document_repo.delete.assert_awaited_once_with("d1")
 
@@ -232,9 +224,7 @@ class TestQueryService:
             company="Acme",
             owner="a@b.com",
         )
-        container.retrieval.retrieve.return_value = [
-            MagicMock(chunk=chunk)
-        ]
+        container.retrieval.retrieve.return_value = [MagicMock(chunk=chunk)]
         container.llm.generate.return_value = "Revenue grew 12%."
         result = await service.query(token="tok1", question="What is revenue?")
         assert result.answer == "Revenue grew 12%."
@@ -260,12 +250,17 @@ class TestAuthService:
 
     @pytest.mark.asyncio
     async def test_login_success(self, service: Any, container: MagicMock) -> None:
-        container.user_store.get_by_email.return_value = MagicMock(
+        # ``verify_password`` is the canonical auth path now; the
+        # legacy ``get_by_email`` is still used to hydrate the
+        # response after a successful password check.
+        user_record = MagicMock(
             user_id="u1",
             email="a@b.com",
             allowed_companies=["Acme"],
             is_admin=False,
         )
+        container.user_store.verify_password.return_value = user_record
+        container.user_store.get_by_email.return_value = user_record
         container.store.create_session.return_value = MagicMock(token="tok1")
         result = await service.login("a@b.com", "pwd")
         assert result.session_token == "tok1"
@@ -273,8 +268,7 @@ class TestAuthService:
 
     @pytest.mark.asyncio
     async def test_login_user_not_found(self, service: Any, container: MagicMock) -> None:
-        container.authenticator.authenticate.return_value = None
-        container.user_store.get_by_email.return_value = None
+        container.user_store.verify_password.return_value = None
         with pytest.raises(AuthenticationError):
             await service.login("a@b.com", "pwd")
 
@@ -285,16 +279,16 @@ class TestAuthService:
         container.store.delete_session.assert_awaited_once_with("s1")
 
     @pytest.mark.asyncio
-    async def test_logout_noop_for_missing_session(self, service: Any, container: MagicMock) -> None:
+    async def test_logout_noop_for_missing_session(
+        self, service: Any, container: MagicMock
+    ) -> None:
         container.store.get_by_token.return_value = None
         await service.logout("tok1")
         container.store.delete_session.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_resolve_user_success(self, service: Any, container: MagicMock) -> None:
-        container.store.get_by_token.return_value = MagicMock(
-            user_id="u1", history=[MagicMock()]
-        )
+        container.store.get_by_token.return_value = MagicMock(user_id="u1", history=[MagicMock()])
         container.user_store.get_by_id.return_value = MagicMock(
             user_id="u1",
             email="a@b.com",

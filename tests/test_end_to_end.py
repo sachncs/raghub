@@ -68,9 +68,7 @@ def test_e2e_multi_user_ingest_query_delete(rag: RAG) -> None:
         # Delete and re-query.
         rag.delete("file://apple.txt")
         after_delete = await rag.aquery("revenue", user=alice)
-        assert all(
-            "apple.txt" not in c.source_uri for c in after_delete.citations
-        )
+        assert all("apple.txt" not in c.source_uri for c in after_delete.citations)
 
     asyncio.run(_drive())
 

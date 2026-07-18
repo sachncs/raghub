@@ -8,6 +8,14 @@ with citations.
 The method is intentionally a single async function because it is the
 hot path for the entire chat experience; splitting it across helpers
 would just add latency without improving readability.
+
+Conversation history is **always** propagated to the LLM through two
+channels: as the legacy ``conversation`` argument (used by the
+heuristic provider) and as ``session_history`` (used by
+:class:`raghub.llm.litellm.LiteLLMProvider` via
+``build_messages``). The :class:`raghub.generation.generator.DefaultGenerator`
+also receives the history as a kwarg so streaming paths see the same
+context as the synchronous path.
 """
 
 from __future__ import annotations
@@ -44,6 +52,9 @@ class QueryService(ServiceMixin):
         3. Flatten the last 4 history turns into the chat-template shape
            expected by the LLM provider.
         4. Call the LLM with the retrieved chunk texts as context.
+           Conversation history is propagated through both
+           ``conversation=`` (heuristic provider) and
+           ``session_history=`` (LiteLLM via ``build_messages``).
         5. Append the new Q/A turn to the conversation.
         6. Build citations from the chunk metadata.
         7. Emit a metric and a log event.
@@ -68,21 +79,24 @@ class QueryService(ServiceMixin):
         # The last 4 turns are flattened into chat-template messages;
         # older turns are kept in the session for re-loading but are
         # intentionally omitted from the immediate context to keep the
-        # prompt small.
+        # prompt small. The same list is also passed as
+        # ``session_history`` so LiteLLMProvider.build_messages sees
+        # the prior turns when assembling OpenAI-style messages.
+        session_history = [
+            msg
+            for t in history[-4:]
+            for msg in (
+                {"role": "user", "content": t.question},
+                {"role": "assistant", "content": t.answer},
+            )
+        ]
         answer = self.container.llm.generate(
             system_prompt=self.container.prompt_builder.config.system_prompt,
             conversation=history,
             context=context_list,
             question=question,
             image_paths=[],
-            session_history=[
-                msg
-                for t in history[-4:]
-                for msg in (
-                    {"role": "user", "content": t.question},
-                    {"role": "assistant", "content": t.answer},
-                )
-            ],
+            session_history=session_history,
         )
         await self.container.conversation.append(
             token, question, answer, metadata={"top_k": self.container.settings.top_k}
@@ -104,3 +118,6 @@ class QueryService(ServiceMixin):
             citations=citations,
             source_chunks=[chunk.model_dump(mode="json") for chunk in chunks],
         )
+
+
+__all__ = ["QueryService"]

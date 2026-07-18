@@ -28,8 +28,9 @@ from __future__ import annotations
 
 import inspect
 import time
+from collections.abc import AsyncIterator
 from hashlib import sha256
-from typing import Any, AsyncIterator
+from typing import Any
 
 from raghub.converters.plaintext import PlainTextConverter
 from raghub.exceptions import PipelineError
@@ -47,6 +48,7 @@ from raghub.interfaces.vectorstore import VectorStore
 from raghub.knowledge.repository import InMemoryKnowledgeRepository
 from raghub.models import (
     Chunk,
+    Classification,
     KnowledgeBundle,
     PipelineContext,
     PipelineResult,
@@ -172,6 +174,38 @@ class IngestPipeline(Pipeline):
         self.knowledge_repo = knowledge_repo or InMemoryKnowledgeRepository()
         self.telemetry = telemetry or NoOpTelemetry()
 
+    def vectors_already_indexed(self, chunks: list[Chunk]) -> bool:
+        """Return ``True`` when every chunk already lives in the vector store.
+
+        The incremental short-circuit must only fire when the chunks
+        from the prior bundle are present in the vector store; this
+        prevents double-indexing on a partial prior run and ensures
+        we don't re-embed on the hot path. The default implementation
+        consults :meth:`BaseVectorStore.has_chunk` when present and
+        otherwise assumes the chunks are present (forcing a re-embed
+        only when the vector store explicitly tells us it is empty).
+
+        Args:
+            chunks: The chunks derived from the prior bundle.
+
+        Returns:
+            ``True`` when every chunk is present in the vector store;
+            ``False`` when at least one is missing.
+        """
+        if not chunks:
+            return True
+        has_chunk = getattr(self.vector_store, "has_chunk", None)
+        if not callable(has_chunk):
+            # Conservative fallback: assume the prior index run
+            # completed. Stores without a membership probe cannot
+            # distinguish the empty-index edge case, so we defer to
+            # the existing bundle.
+            return True
+        try:
+            return all(bool(has_chunk(chunk.chunk_id)) for chunk in chunks)
+        except Exception:
+            return False
+
     async def run(
         self,
         context: PipelineContext,
@@ -198,43 +232,60 @@ class IngestPipeline(Pipeline):
             source_uri: str = inputs["source_uri"]
             mime_type: str = inputs.get("mime_type", "")
             language: str = inputs.get("language", "")
-            metadata: dict | None = inputs.get("metadata")
+            metadata: dict[str, Any] = dict(inputs.get("metadata") or {})
             force: bool = bool(inputs.get("force", False))
             user: Any | None = inputs.get("user")
-            tenant_company: str = inputs.get("company", "") or primary_company(user)
-
+            tenant_company: str = str(
+                inputs.get("company") or primary_company(user) or metadata.get("company", "")
+            )
             checksum = sha256_checksum(file_bytes)
             bundle_id = deterministic_id("bundle", source_uri, checksum)
-            with self.telemetry.span(
-                "ingest", source_uri=source_uri, bundle_id=bundle_id
-            ) as sp:
+            document_id = str(inputs.get("document_id") or bundle_id)
+            version = int(inputs.get("version") or metadata.get("version") or 1)
+            owner = str(
+                inputs.get("owner") or getattr(user, "email", None) or metadata.get("owner", "")
+            )
+            classification = Classification(
+                inputs.get("classification")
+                or metadata.get("classification")
+                or Classification.INTERNAL
+            )
+            normalized_metadata = {
+                **metadata,
+                "company": tenant_company,
+                "owner": owner,
+                "classification": classification.value,
+                "document_id": document_id,
+                "version": version,
+            }
+            with self.telemetry.span("ingest", source_uri=source_uri, bundle_id=bundle_id) as sp:
                 sp.set_attribute("checksum", checksum)
 
                 # Incremental short-circuit: an unchanged file is
-                # recognised by its SHA-256.
-                existing = (
-                    self.knowledge_repo.get(bundle_id)
-                    if not force
-                    else None
-                )
+                # recognised by its SHA-256, but we only short-circuit
+                # when the prior bundle's chunks are already in the
+                # vector store. This prevents the no-double-index
+                # invariant from being broken by a partial prior
+                # run (e.g. a crash between ``vector_store.upsert``
+                # and the post-write bookkeeping).
+                existing = self.knowledge_repo.get(bundle_id) if not force else None
                 if existing is not None and existing.checksum == checksum:
-                    return PipelineResult(
-                        pipeline_id=context.pipeline_id,
-                        pipeline_name=self.name,
-                        success=True,
-                        outputs={
-                            "bundle": existing,
-                            "chunks": chunks_from_knowledge_bundle(
-                                existing, bundle_id, company=tenant_company
-                            ),
-                            "chunk_count": sum(
-                                sum(1 for b in s.blocks if b.kind.value == "text")
-                                for s in existing.sections
-                            ),
-                            "embeddings": [],
-                            "incremental": True,
-                        },
+                    prior_chunks = chunks_from_knowledge_bundle(
+                        existing, document_id, company=tenant_company
                     )
+                    if self.vectors_already_indexed(prior_chunks):
+                        return PipelineResult(
+                            pipeline_id=context.pipeline_id,
+                            pipeline_name=self.name,
+                            success=True,
+                            outputs={
+                                "bundle": existing,
+                                "chunks": prior_chunks,
+                                "chunk_count": len(prior_chunks),
+                                "embeddings": [],
+                                "incremental": True,
+                            },
+                        )
 
                 with self.telemetry.span("ingest.convert"):
                     bundle: KnowledgeBundle = self.converter.convert(
@@ -242,28 +293,30 @@ class IngestPipeline(Pipeline):
                         file_bytes=file_bytes,
                         mime_type=mime_type,
                         language=language,
-                        metadata={**(metadata or {}), "company": tenant_company},
+                        metadata=normalized_metadata,
                     )
                 bundle.bundle_id = bundle_id
                 bundle.checksum = checksum
-
-                self.knowledge_repo.save(bundle)
+                bundle.metadata = {**bundle.metadata, **normalized_metadata}
 
                 with self.telemetry.span("ingest.chunk"):
-                    chunks = chunks_from_knowledge_bundle(
-                        bundle, bundle_id, company=tenant_company
-                    )
-                    if user is not None:
-                        for c in chunks:
-                            c.owner = getattr(user, "email", c.owner) or c.owner
+                    chunks = self.chunker.chunk(bundle)
+                    for chunk in chunks:
+                        chunk.document_id = document_id
+                        chunk.version = version
+                        chunk.company = tenant_company
+                        chunk.owner = owner
+                        chunk.classification = classification
 
                 texts = [chunk.text for chunk in chunks]
                 with self.telemetry.span("ingest.embed", count=len(texts)):
                     vectors = self.embedder.embed_texts(texts) if texts else []
 
                 with self.telemetry.span("ingest.upsert", count=len(chunks)):
-                    if chunks and vectors:
+                    if chunks:
                         self.vector_store.upsert(chunks, vectors)
+
+                self.knowledge_repo.save(bundle)
 
                 return PipelineResult(
                     pipeline_id=context.pipeline_id,
@@ -394,15 +447,33 @@ class QueryPipeline(Pipeline):
             record: bool = bool(inputs.get("record", True))
             from raghub.models import RetrievalHit
 
-            # Query cache check.
-            if self.cache is not None:
-                user_id = getattr(user, "email", None) or getattr(user, "user_id", None)
-                cached = self.cache.get(question, user_id, dict(user_filter) if isinstance(user_filter, dict) else None)
-                if cached is not None:
-                    return cached
+            history: list = []
+            if session_id:
+                try:
+                    history = self.conversation_store.load(session_id, limit=20)
+                except Exception:
+                    history = []
 
-            # RBAC: derive the metadata filter from the user.
             rbac_filter = self.metadata_filter_for_user(user)
+            user_id = getattr(user, "email", None) or getattr(user, "user_id", None)
+            scope = (
+                bool(getattr(user, "is_admin", False)),
+                tuple(sorted(str(value) for value in getattr(user, "allowed_companies", []) or [])),
+                tuple(sorted(str(value) for value in getattr(user, "allowed_groups", []) or [])),
+            )
+            if self.cache is not None:
+                cached = self.cache.get(
+                    question,
+                    user_id,
+                    user_filter,
+                    top_k=top_k,
+                    response_model=response_model,
+                    session_id=session_id,
+                    history=history,
+                    scope=scope,
+                )
+                if isinstance(cached, PipelineResult):
+                    return cached
 
             with self.telemetry.span("query", question=question[:128], top_k=top_k) as span:
                 if user is not None:
@@ -435,22 +506,11 @@ class QueryPipeline(Pipeline):
                     hits = [
                         h
                         for h in hits
-                        if all(
-                            getattr(h.chunk, k, None) == v
-                            for k, v in user_filter.items()
-                        )
+                        if all(getattr(h.chunk, k, None) == v for k, v in user_filter.items())
                     ]
                 if self.reranker is not None:
                     with self.telemetry.span("query.rerank"):
                         hits = self.reranker.rerank(question=question, hits=hits)
-
-                # Load conversation history for follow-up questions.
-                history: list = []
-                if session_id:
-                    try:
-                        history = self.conversation_store.load(session_id, limit=20)
-                    except Exception:
-                        history = []
 
                 answer: Any
                 citations: list = []
@@ -507,8 +567,17 @@ class QueryPipeline(Pipeline):
                 },
             )
             if self.cache is not None:
-                user_id = getattr(user, "email", None) or getattr(user, "user_id", None)
-                self.cache.set(question, user_id, dict(user_filter) if isinstance(user_filter, dict) else None, result)
+                self.cache.set(
+                    question,
+                    user_id,
+                    user_filter,
+                    result,
+                    top_k=top_k,
+                    response_model=response_model,
+                    session_id=session_id,
+                    history=history,
+                    scope=scope,
+                )
             return result
         except Exception as exc:
             return PipelineResult(
@@ -569,10 +638,7 @@ class QueryPipeline(Pipeline):
                 hits = [
                     h
                     for h in hits
-                    if all(
-                        getattr(h.chunk, k, None) == v
-                        for k, v in user_filter.items()
-                    )
+                    if all(getattr(h.chunk, k, None) == v for k, v in user_filter.items())
                 ]
             if self.reranker is not None:
                 with self.telemetry.span("query.rerank"):
@@ -586,16 +652,16 @@ class QueryPipeline(Pipeline):
             astream = getattr(self.generator, "astream", None)
             if astream is not None:
                 collected: list[str] = []
-                async for piece in astream(
-                    question=question, context=hits, conversation=history
-                ):
+                async for piece in astream(question=question, context=hits, conversation=history):
                     if piece:
                         collected.append(piece)
                         yield piece
-                # Propagate token usage from the underlying LLM.
-                if hasattr(self.generator, "record_tokens"):
-                    tokens = self.generator.record_tokens()
-                    if tokens:
+                record_tokens = getattr(self.generator, "record_tokens", None)
+                if callable(record_tokens):
+                    tokens = record_tokens()
+                    if inspect.isawaitable(tokens):
+                        tokens = await tokens
+                    if isinstance(tokens, dict) and tokens:
                         with self.telemetry.span("query.tokens") as tok_span:
                             tok_span.set_attribute("prompt_tokens", int(tokens.get("prompt", 0)))
                             tok_span.set_attribute(

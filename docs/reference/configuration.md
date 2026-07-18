@@ -84,13 +84,14 @@ Beyond `RAG_*`, the facade reacts to these direct variables:
 | `ANTHROPIC_API_KEY` | Anthropic provider credentials |
 | `GROQ_API_KEY` | Groq provider credentials |
 | `LITELLM_API_KEY` | LiteLLM provider credentials (generic) |
-| `QDRANT_URL` | Switches the default vector store to Qdrant |
+| `QDRANT_URL` | Switches the default vector store to Qdrant. The compose stack auto-sets this to `http://qdrant:6333`. |
 | `LANGFUSE_PUBLIC_KEY` | Enables Langfuse telemetry |
 | `LANGFUSE_SECRET_KEY` | Enables Langfuse telemetry |
 | `LANGFUSE_HOST` | Optional Langfuse self-hosted endpoint |
 | `CORS_ORIGINS` | FastAPI surface only; comma-separated allow-list |
 | `RAGHUB_USERS` | Streamlit UI demo-user JSON override |
 | `RAGHUB_FINANCEBENCH_CACHE` | Local FinanceBench cache directory |
+| `RAGHUB_API_URL` | UI → API URL inside the compose network |
 
 ## Production invariants (`environment == "production"`)
 

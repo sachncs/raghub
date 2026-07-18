@@ -15,6 +15,9 @@ nav:
   - Plugins: plugins.md
   - Operations:
       - Monitoring: operations/monitoring.md
+      - Backup: operations/backup.md
+      - Runbook: operations/runbook.md
+      - Scaling: operations/scaling.md
       - Troubleshooting: troubleshooting.md
   - Future: future.md
 theme:

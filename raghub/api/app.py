@@ -5,16 +5,23 @@ bound to a fully-wired :class:`DynamicRagApplication`. The factory
 wires in:
 
 * CORS middleware (origins from ``CORS_ORIGINS`` env, comma-separated).
+  Wildcard origins combined with credentials are refused at startup
+  because browsers reject the combination at runtime.
 * The :class:`RateLimiterMiddleware` (default 10 rps, burst 20).
 * The admin router from :mod:`raghub.api.admin`.
 * Exception handlers for ``AuthenticationError`` (401),
   ``AuthorizationError`` (403), ``DocumentError`` (400), and
   ``StorageError`` (500).
+* A ``/metrics`` Prometheus endpoint registered via the
+  :class:`raghub.observability.metrics.PrometheusMetrics` instance
+  shared with the application container.
 * A shared :class:`BackgroundIngestionService` placed on
   ``app.state.background_ingestion`` for the ``/ingest/async`` endpoint.
 
 Also exposes :func:`require_bearer` (used by routes to extract the
-bearer token from the ``Authorization`` header) and :func:`get_app`
+bearer token from the ``Authorization`` header), :func:`check_upload_size`
+(a pre-flight guard that rejects oversize uploads with HTTP 413
+before the multipart body is read into memory), and :func:`get_app`
 (a lazy singleton convenience used by tooling that needs the app
 without going through the FastAPI CLI).
 """
@@ -22,10 +29,22 @@ without going through the FastAPI CLI).
 from __future__ import annotations
 
 import os
-from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
+from typing import Any
 
-from fastapi import APIRouter, Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -46,23 +65,100 @@ from raghub.models.api import (
 from raghub.services.application import DynamicRagApplication
 
 
+def cors_origins_from_env() -> list[str]:
+    """Return the parsed CORS_ORIGINS list.
+
+    Reads ``CORS_ORIGINS`` (comma-separated). Falls back to a sane
+    default of ``["*"]`` for development convenience; production
+    deployments must override the env var.
+    """
+    raw = os.getenv("CORS_ORIGINS", "*").strip()
+    if not raw:
+        return ["*"]
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def validate_cors_for_credentials(origins: list[str]) -> None:
+    """Refuse to start with ``allow_credentials=True`` + wildcard origins.
+
+    Browsers reject ``Access-Control-Allow-Origin: *`` together with
+    credentials, and FastAPI's CORS middleware silently passes the
+    configuration through to the response. We catch the misconfiguration
+    here so misdeployments fail loud instead of returning headers
+    browsers discard.
+
+    Args:
+        origins: The list of origins the middleware would advertise.
+
+    Raises:
+        RuntimeError: When ``origins`` contains ``"*"``.
+    """
+    if any(origin == "*" for origin in origins):
+        raise RuntimeError(
+            "CORS_ORIGINS='*' is incompatible with allow_credentials=True; "
+            "set CORS_ORIGINS to a comma-separated list of explicit origins."
+        )
+
+
+def check_upload_size(content_length: int | None, max_bytes: int) -> int | None:
+    """Pre-flight guard for upload size; returns ``max_bytes`` when too large.
+
+    Called by upload endpoints with the value of the ``Content-Length``
+    request header before the multipart body is read. Returning a
+    non-``None`` ``max_bytes`` value indicates the upload was rejected
+    (the caller raises HTTP 413).
+
+    Args:
+        content_length: The value of the request's ``Content-Length``
+            header. ``None`` when the client did not send the header
+            (chunked transfer encoding); in that case we fall through
+            to the size check after reading.
+        max_bytes: The configured maximum accepted upload size.
+
+    Returns:
+        ``None`` when the upload is acceptable, otherwise ``max_bytes``
+        (a sentinel non-``None`` value the caller raises against).
+    """
+    if content_length is not None and content_length > max_bytes:
+        return max_bytes
+    return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """FastAPI lifespan: graceful shutdown of collaborators."""
+    """FastAPI lifespan: graceful shutdown of collaborators.
+
+    Each collaborator's :meth:`shutdown` is wrapped in
+    :func:`contextlib.suppress` so a single failure does not skip the
+    rest. Errors are logged so operators see the failure rather than
+    having it silently swallowed.
+    """
     try:
         yield
     finally:
         application: DynamicRagApplication = app.state.application
         try:
             await application.shutdown()
-        except Exception:
-            pass
+        except Exception as exc:
+            with suppress(Exception):
+                logger = getattr(application.container, "logger", None)
+                error_method = getattr(logger, "error", None)
+                if callable(error_method):
+                    error_method("shutdown.error", component="application", error=str(exc))
         background = getattr(app.state, "background_ingestion", None)
         if background is not None and hasattr(background, "shutdown"):
             try:
                 background.shutdown()
-            except Exception:
-                pass
+            except Exception as exc:
+                with suppress(Exception):
+                    logger = getattr(application.container, "logger", None)
+                    error_method = getattr(logger, "error", None)
+                    if callable(error_method):
+                        error_method(
+                            "shutdown.error",
+                            component="background_ingestion",
+                            error=str(exc),
+                        )
 
 
 def create_app(application: DynamicRagApplication) -> FastAPI:
@@ -74,6 +170,10 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
     Returns:
         A fully-configured FastAPI app ready to be served by
         ``uvicorn`` or any ASGI server.
+
+    Raises:
+        RuntimeError: When CORS configuration is invalid (wildcard
+            origins with credentials).
     """
     from importlib.metadata import metadata as get_metadata
 
@@ -81,21 +181,37 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         pkg = get_metadata("raghub")
         app_title = pkg["Name"].replace("-", " ").title()
         app_version = pkg["Version"]
-        app_description = pkg.get("Summary", "RAGHub — production-grade multi-user retrieval-augmented generation platform")
+        app_description = pkg.get(
+            "Summary",
+            "RAGHub — production-grade multi-user retrieval-augmented generation platform",
+        )
     except Exception:
         app_title = "RAGHub"
         app_version = "0.3.3"
-        app_description = "RAGHub — production-grade multi-user retrieval-augmented generation platform"
+        app_description = (
+            "RAGHub — production-grade multi-user retrieval-augmented generation platform"
+        )
 
-    app = FastAPI(title=app_title, version=app_version, description=app_description, lifespan=lifespan)
+    app = FastAPI(
+        title=app_title, version=app_version, description=app_description, lifespan=lifespan
+    )
     app.state.application = application
+    # Register Prometheus metrics endpoint; the application's metrics
+    # instance is the single source of truth.
+    metrics = getattr(application.container, "metrics", None)
+    if metrics is not None:
+        register = getattr(metrics, "register_app", None)
+        if callable(register):
+            register(app)
     # Shared background ingestion pool (2 workers by default); the
     # ``/ingest/async`` endpoint submits jobs to it.
     app.state.background_ingestion = BackgroundIngestionService(max_workers=2)
 
+    cors_origins = cors_origins_from_env()
+    validate_cors_for_credentials(cors_origins)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -198,6 +314,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
 
     @router.post("/documents/upload", status_code=202, response_model=DocumentUploadResponse)
     async def upload_document(
+        request: Request,
         file: UploadFile = File(...),
         company: str | None = Form(default=None),
         authorization: str | None = Header(default=None),
@@ -206,6 +323,9 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         """Upload a PDF document and synchronously index it.
 
         Args:
+            request: The incoming FastAPI request (used to read
+                ``Content-Length`` so oversize uploads can be rejected
+                before the body is buffered into memory).
             file: The multipart upload.
             company: Optional tenant override; derived from the filename
                 when omitted.
@@ -216,7 +336,26 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
             version, status, company, and filename.
         """
         token = require_bearer(authorization)
+        max_bytes = int(getattr(app_service.container.settings, "max_upload_bytes", 0) or 0)
+        declared = request.headers.get("content-length")
+        content_length: int | None
+        try:
+            content_length = int(declared) if declared is not None else None
+        except ValueError:
+            content_length = None
+        if max_bytes > 0 and check_upload_size(content_length, max_bytes) is not None:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Upload exceeds maximum size of {max_bytes} bytes",
+            )
         content = await file.read()
+        if max_bytes > 0 and len(content) > max_bytes:
+            # Client may have omitted Content-Length (chunked encoding);
+            # fall back to a post-read check.
+            raise HTTPException(
+                status_code=413,
+                detail=f"Upload exceeds maximum size of {max_bytes} bytes",
+            )
         document = await app_service.upload_document(
             token=token,
             filename=file.filename or "upload.pdf",
@@ -237,6 +376,7 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         response_model=BatchIngestResponse,
     )
     async def ingest_documents_batch(
+        request: Request,
         files: list[UploadFile] = File(...),
         company: str | None = Form(default=None),
         authorization: str | None = Header(default=None),
@@ -256,6 +396,9 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         grows with total batch size.
 
         Args:
+            request: The incoming FastAPI request (used to read the
+                ``Content-Length`` header so oversize batch uploads are
+                rejected before the body is buffered).
             files: One or more multipart file uploads.
             company: Optional tenant override applied to **all** files.
             authorization: The raw ``Authorization`` header.
@@ -264,10 +407,30 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
             A :class:`BatchIngestResponse` with one item per file.
         """
         token = require_bearer(authorization)
+        max_bytes = int(getattr(app_service.container.settings, "max_upload_bytes", 0) or 0)
+        declared = request.headers.get("content-length")
+        try:
+            content_length = int(declared) if declared is not None else None
+        except ValueError:
+            content_length = None
+        if max_bytes > 0 and check_upload_size(content_length, max_bytes) is not None:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Upload exceeds maximum size of {max_bytes} bytes",
+            )
         results: list[BatchIngestItem] = []
         for file in files:
             try:
                 content = await file.read()
+                if max_bytes > 0 and len(content) > max_bytes:
+                    results.append(
+                        BatchIngestItem(
+                            filename=file.filename or "upload.pdf",
+                            status="error",
+                            error=f"Upload exceeds maximum size of {max_bytes} bytes",
+                        )
+                    )
+                    continue
                 document = await app_service.upload_document(
                     token=token,
                     filename=file.filename or "upload.pdf",
@@ -380,14 +543,32 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
             authorization: The raw ``Authorization`` header.
             app_service: The application facade.
             request: The current FastAPI request (used to reach
-                ``app.state.background_ingestion``).
+                ``app.state.background_ingestion`` and to read
+                ``Content-Length`` so oversize uploads can be
+                rejected before the body is read).
 
         Returns:
             ``{"job_id": "<uuid>"}`` that can later be polled via the
             background ingestion service.
         """
         token = require_bearer(authorization)
+        max_bytes = int(getattr(app_service.container.settings, "max_upload_bytes", 0) or 0)
+        declared = request.headers.get("content-length")
+        try:
+            content_length = int(declared) if declared is not None else None
+        except ValueError:
+            content_length = None
+        if max_bytes > 0 and check_upload_size(content_length, max_bytes) is not None:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Upload exceeds maximum size of {max_bytes} bytes",
+            )
         content = await file.read()
+        if max_bytes > 0 and len(content) > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Upload exceeds maximum size of {max_bytes} bytes",
+            )
         background = request.app.state.background_ingestion
         job_id = background.submit(
             app_service.upload_document,

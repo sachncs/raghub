@@ -21,8 +21,9 @@ class SqliteChunkRepository(ChunkRepository):
     async def insert(self, record: ChunkRecord, embedding: list[float]) -> None:
         self.store.insert([record], [embedding])
 
-    async def upsert(self, records: list[ChunkRecord],
-                     embeddings: list[list[float]] | None = None) -> None:
+    async def upsert(
+        self, records: list[ChunkRecord], embeddings: list[list[float]] | None = None
+    ) -> None:
         if embeddings is None:
             raise ValueError("embeddings required for upsert")
         self.store.upsert(records, embeddings)
@@ -33,10 +34,10 @@ class SqliteChunkRepository(ChunkRepository):
     async def delete_by_document(self, document_id: str) -> None:
         self.store.delete_document(document_id)
 
-    async def search(self, vector: list[float], top_k: int,
-                     metadata_filter: str = "") -> list[dict]:
-        return self.store.search(vector=vector, top_k=top_k,
-                                  metadata_filter=metadata_filter)
+    async def search(
+        self, vector: list[float], top_k: int, metadata_filter: str = ""
+    ) -> list[dict]:
+        return self.store.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     async def optimize(self) -> None:
         self.store.optimize()

@@ -1,4 +1,5 @@
 """Targeted tests for uncovered CLI lines."""
+
 from __future__ import annotations
 
 import argparse
@@ -46,7 +47,8 @@ def test_main_module_entry_via_subprocess():
 
     result = subprocess.run(
         [sys.executable, "-m", "raghub.cli", "version"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0
 

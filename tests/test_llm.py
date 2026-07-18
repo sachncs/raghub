@@ -270,9 +270,7 @@ class TestRecordUsage:
         provider.model_name = "gpt-4"
         provider.last_usage = None
 
-        response = {
-            "usage": {"prompt_tokens": 5, "completion_tokens": 10, "output_tokens": 999}
-        }
+        response = {"usage": {"prompt_tokens": 5, "completion_tokens": 10, "output_tokens": 999}}
         provider.record_usage(response)
         assert provider.last_usage == {"prompt": 5, "completion": 10, "model": "gpt-4"}
 
@@ -338,7 +336,9 @@ class TestAstreamErrorHandling:
 
             provider = litellm_mod.LiteLLMProvider(model="m")
             gen = provider.astream(system_prompt="s", question="q")
-            with pytest.raises(Exception, match="LiteLLM streaming failed: stream failed") as exc_info:
+            with pytest.raises(
+                Exception, match="LiteLLM streaming failed: stream failed"
+            ) as exc_info:
                 async for _ in gen:
                     pass
             from raghub.exceptions import LLMError
@@ -384,9 +384,7 @@ class TestAstreamChunks:
                 {"usage": {"prompt_tokens": 10, "completion_tokens": 20}},
                 {"choices": [{"delta": {"content": ""}}]},
             ]
-            litellm_mod.litellm.acompletion = AsyncMock(
-                return_value=self._make_async_iter(chunks)
-            )
+            litellm_mod.litellm.acompletion = AsyncMock(return_value=self._make_async_iter(chunks))
             litellm_mod.LITELLM_AVAILABLE = True
 
             provider = litellm_mod.LiteLLMProvider(model="m")
@@ -410,9 +408,7 @@ class TestAstreamChunks:
             chunks = [
                 {"usage": {"input_tokens": 5, "output_tokens": 15}},
             ]
-            litellm_mod.litellm.acompletion = AsyncMock(
-                return_value=self._make_async_iter(chunks)
-            )
+            litellm_mod.litellm.acompletion = AsyncMock(return_value=self._make_async_iter(chunks))
             litellm_mod.LITELLM_AVAILABLE = True
 
             provider = litellm_mod.LiteLLMProvider(model="gpt-4")
@@ -435,9 +431,7 @@ class TestAstreamChunks:
                 {"foo": "bar"},  # no choices → skip
                 {"choices": [{"delta": {"content": "hi"}}]},
             ]
-            litellm_mod.litellm.acompletion = AsyncMock(
-                return_value=self._make_async_iter(chunks)
-            )
+            litellm_mod.litellm.acompletion = AsyncMock(return_value=self._make_async_iter(chunks))
             litellm_mod.LITELLM_AVAILABLE = True
 
             provider = litellm_mod.LiteLLMProvider(model="m")
@@ -466,9 +460,7 @@ class TestAstreamChunks:
                 obj_chunk,  # not a dict → continue
                 {"choices": [{"delta": {"content": "yes"}}]},
             ]
-            litellm_mod.litellm.acompletion = AsyncMock(
-                return_value=self._make_async_iter(chunks)
-            )
+            litellm_mod.litellm.acompletion = AsyncMock(return_value=self._make_async_iter(chunks))
             litellm_mod.LITELLM_AVAILABLE = True
 
             provider = litellm_mod.LiteLLMProvider(model="m")
@@ -505,9 +497,7 @@ class TestAstreamChunks:
                 FakeUsageChunk(),
                 {"choices": [{"delta": {"content": "obj"}}]},
             ]
-            litellm_mod.litellm.acompletion = AsyncMock(
-                return_value=self._make_async_iter(chunks)
-            )
+            litellm_mod.litellm.acompletion = AsyncMock(return_value=self._make_async_iter(chunks))
             litellm_mod.LITELLM_AVAILABLE = True
 
             provider = litellm_mod.LiteLLMProvider(model="m")
@@ -531,9 +521,7 @@ class TestAstreamChunks:
             chunks = [
                 {"choices": [{"delta": {"content": "hello"}}]},
             ]
-            litellm_mod.litellm.acompletion = AsyncMock(
-                return_value=self._make_async_iter(chunks)
-            )
+            litellm_mod.litellm.acompletion = AsyncMock(return_value=self._make_async_iter(chunks))
             litellm_mod.LITELLM_AVAILABLE = True
 
             provider = litellm_mod.LiteLLMProvider(model="m")
@@ -555,9 +543,7 @@ class TestAstreamChunks:
             chunks = [
                 {"choices": [{"delta": {"content": "t"}}]},
             ]
-            litellm_mod.litellm.acompletion = AsyncMock(
-                return_value=self._make_async_iter(chunks)
-            )
+            litellm_mod.litellm.acompletion = AsyncMock(return_value=self._make_async_iter(chunks))
             litellm_mod.LITELLM_AVAILABLE = True
 
             provider = litellm_mod.LiteLLMProvider(model="m")

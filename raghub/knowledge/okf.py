@@ -124,9 +124,7 @@ def from_okf(payload: dict[str, Any] | str) -> KnowledgeBundle:
             try:
                 kind = BlockKind(raw_block.get("kind", "text"))
             except ValueError as exc:
-                raise KnowledgeError(
-                    f"Unknown OKF block kind: {raw_block.get('kind')!r}"
-                ) from exc
+                raise KnowledgeError(f"Unknown OKF block kind: {raw_block.get('kind')!r}") from exc
             blocks.append(
                 DocumentBlock(
                     block_id=raw_block.get("block_id", ""),

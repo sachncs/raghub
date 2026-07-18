@@ -4,6 +4,8 @@ __pycache__/
 .hypothesis/
 data/
 *.db
+*.db-wal
+*.db-shm
 *,cover
 .coverage
 .pytest_cache/

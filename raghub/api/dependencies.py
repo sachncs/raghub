@@ -24,4 +24,4 @@ def get_application(request: Request) -> DynamicRagApplication:
     Returns:
         The shared application instance.
     """
-    return request.app.state.application
+    return request.app.state.application  # type: ignore[no-any-return]

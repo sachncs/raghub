@@ -299,8 +299,7 @@ def test_toml_loaded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config_dir.mkdir()
     cfg = config_dir / "development.toml"
     cfg.write_text(
-        'environment = "development"\nchunk_size_words = 200\n'
-        'embedding_dim = 64\n',
+        'environment = "development"\nchunk_size_words = 200\nembedding_dim = 64\n',
         encoding="utf-8",
     )
     cwd = Path.cwd()
@@ -385,9 +384,7 @@ def test_query_pipeline_emits_spans() -> None:
     async def _drive():
         from raghub.models import PipelineContext
 
-        return await pipeline.run(
-            PipelineContext(pipeline_name="query"), question="revenue"
-        )
+        return await pipeline.run(PipelineContext(pipeline_name="query"), question="revenue")
 
     result = asyncio.run(_drive())
     assert result.success
@@ -438,7 +435,9 @@ class _Capture(TelemetryProvider):
         pass
 
     def record_tokens(self, name, prompt_tokens, completion_tokens, model=""):
-        self.events.append(("tokens", {"name": name, "prompt": prompt_tokens, "completion": completion_tokens}))
+        self.events.append(
+            ("tokens", {"name": name, "prompt": prompt_tokens, "completion": completion_tokens})
+        )
 
 
 class _PlainConverter:

@@ -20,7 +20,7 @@ judge-LLM evaluator (e.g. RAGAS) on top of these primitives.
 from __future__ import annotations
 
 import re
-from typing import Iterable, Sequence
+from collections.abc import Iterable, Sequence
 
 TOKEN_RE = re.compile(r"\w+")
 
@@ -30,9 +30,7 @@ def tokenize(text: str) -> set[str]:
     return set(t.lower() for t in TOKEN_RE.findall(text or ""))
 
 
-def recall_at_k(
-    retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int
-) -> float:
+def recall_at_k(retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int) -> float:
     """Recall@K — fraction of relevant items in the top-k.
 
     Args:
@@ -52,9 +50,7 @@ def recall_at_k(
     return len(relevant & top) / len(relevant)
 
 
-def precision_at_k(
-    retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int
-) -> float:
+def precision_at_k(retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int) -> float:
     """Precision@K — fraction of the top-k that is relevant.
 
     Args:
@@ -74,9 +70,7 @@ def precision_at_k(
     return sum(1 for r in top if r in relevant) / k
 
 
-def mean_reciprocal_rank(
-    retrieved_ids: Sequence[str], relevant_ids: Iterable[str]
-) -> float:
+def mean_reciprocal_rank(retrieved_ids: Sequence[str], relevant_ids: Iterable[str]) -> float:
     """Mean Reciprocal Rank (MRR) — 1 / rank of first relevant hit.
 
     Args:
@@ -94,9 +88,7 @@ def mean_reciprocal_rank(
     return 0.0
 
 
-def context_recall(
-    answer: str, contexts: Sequence[str]
-) -> float:
+def context_recall(answer: str, contexts: Sequence[str]) -> float:
     """Fraction of answer tokens present in the retrieved context.
 
     Args:
@@ -118,9 +110,7 @@ def context_recall(
     return len(answer_tokens & context_tokens) / len(answer_tokens)
 
 
-def context_precision(
-    question: str, contexts: Sequence[str]
-) -> float:
+def context_precision(question: str, contexts: Sequence[str]) -> float:
     """Fraction of retrieved context relevant to the question.
 
     Args:
@@ -162,9 +152,7 @@ def faithfulness(answer: str, contexts: Sequence[str]) -> float:
     return context_recall(answer, contexts)
 
 
-def answer_correctness(
-    answer: str, ground_truth: str
-) -> float:
+def answer_correctness(answer: str, ground_truth: str) -> float:
     """Jaccard overlap between answer and ground-truth tokens.
 
     Args:

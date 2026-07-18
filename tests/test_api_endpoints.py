@@ -58,9 +58,7 @@ class StubApp:
             raise AuthenticationError("Invalid token")
         return None
 
-    async def resolve_user(
-        self, token: str
-    ) -> tuple[UserPrincipal, list[ConversationTurn]]:
+    async def resolve_user(self, token: str) -> tuple[UserPrincipal, list[ConversationTurn]]:
         if token == "admin-token":
             return (
                 UserPrincipal(email="admin@acme.com", is_admin=True),
@@ -95,9 +93,7 @@ class StubApp:
     async def list_documents(self, token: str) -> list[DocumentRecord]:
         return [_doc(), _doc(document_id="doc-2", organization="Microsoft")]
 
-    async def document_status(
-        self, token: str, document_id: str
-    ) -> DocumentRecord:
+    async def document_status(self, token: str, document_id: str) -> DocumentRecord:
         if document_id == "not-found":
             raise DocumentError("Document not found")
         return _doc(document_id=document_id)
@@ -115,9 +111,7 @@ class StubApp:
     async def history(self, token: str) -> list[ConversationTurn]:
         return [_turn()]
 
-    async def query(
-        self, *, token: str, question: str
-    ) -> QueryResponse:
+    async def query(self, *, token: str, question: str) -> QueryResponse:
         return QueryResponse(
             answer="42",
             citations=[{"source": "doc-1", "page": 1}],
@@ -130,6 +124,15 @@ class _ContainerStub:
         self.uow = _UoWStub()
         self.user_store = _UserStoreStub()
         self.vector_store = _VectorStoreStub()
+        # Real Settings instance so the new size-guard in
+        # ``/documents/upload`` reads ``max_upload_bytes`` correctly.
+        from types import SimpleNamespace
+
+        self.settings = SimpleNamespace(max_upload_bytes=20 * 1024 * 1024)
+        self.logger = SimpleNamespace(error=lambda *a, **k: None, info=lambda *a, **k: None)
+        # Minimal metrics stub exposing ``register_app`` no-op so the
+        # ``create_app`` body can call it.
+        self.metrics = SimpleNamespace(register_app=lambda _app: None)
 
 
 class _UoWStub:
@@ -197,7 +200,9 @@ class TestHealth:
 
 class TestAuthLogin:
     def test_login_success(self, client: TestClient) -> None:
-        resp = client.post("/v1/auth/login", json={"email": "alice@acme.com", "password": "password"})
+        resp = client.post(
+            "/v1/auth/login", json={"email": "alice@acme.com", "password": "password"}
+        )
         assert resp.status_code == 200
         body = resp.json()
         assert body["session_token"] == "test-token"
@@ -208,7 +213,9 @@ class TestAuthLogin:
         assert resp.status_code == 401
         assert "Invalid credentials" in resp.json()["detail"]
 
-    @pytest.mark.parametrize("payload", [{}, {"email": "not-an-email"}, {"email": "a@b.c", "password": ""}])
+    @pytest.mark.parametrize(
+        "payload", [{}, {"email": "not-an-email"}, {"email": "a@b.c", "password": ""}]
+    )
     def test_login_validation_error(self, client: TestClient, payload: dict) -> None:
         resp = client.post("/v1/auth/login", json=payload)
         assert resp.status_code == 422
@@ -385,11 +392,15 @@ class TestDeleteDocument:
         assert resp.status_code == 204
 
     def test_delete_not_found(self, client: TestClient) -> None:
-        resp = client.delete("/v1/documents/not-found", headers={"Authorization": "Bearer admin-token"})
+        resp = client.delete(
+            "/v1/documents/not-found", headers={"Authorization": "Bearer admin-token"}
+        )
         assert resp.status_code == 400
 
     def test_delete_non_admin(self, client: TestClient) -> None:
-        resp = client.delete("/v1/documents/doc-1", headers={"Authorization": "Bearer nonadmin-token"})
+        resp = client.delete(
+            "/v1/documents/doc-1", headers={"Authorization": "Bearer nonadmin-token"}
+        )
         assert resp.status_code == 403
 
     def test_delete_missing_token(self, client: TestClient) -> None:
@@ -532,20 +543,37 @@ class TestErrorHandlers:
 
 class TestCORS:
     def test_cors_headers_on_success(self, client: TestClient) -> None:
-        resp = client.get("/v1/health", headers={"Origin": "http://example.com"})
-        assert resp.headers.get("access-control-allow-origin") == "*"
+        resp = client.get("/v1/health", headers={"Origin": "http://testserver"})
+        assert resp.headers.get("access-control-allow-origin") == "http://testserver"
         assert resp.headers.get("access-control-allow-credentials") == "true"
 
     def test_cors_preflight(self, client: TestClient) -> None:
         resp = client.options(
             "/v1/health",
             headers={
-                "Origin": "http://example.com",
+                "Origin": "http://testserver",
                 "Access-Control-Request-Method": "GET",
             },
         )
         assert resp.status_code == 200
-        assert resp.headers.get("access-control-allow-origin") == "http://example.com"
+        assert resp.headers.get("access-control-allow-origin") == "http://testserver"
+
+    def test_wildcard_origins_rejected_at_startup(self) -> None:
+        """``create_app`` refuses wildcard origins when credentials are enabled."""
+        import pytest
+
+        from raghub.api.app import validate_cors_for_credentials
+
+        with pytest.raises(RuntimeError, match="incompatible with allow_credentials"):
+            validate_cors_for_credentials(["*"])
+
+    def test_explicit_origins_accepted(self) -> None:
+        """Explicit origin lists pass the credentials guard."""
+        from raghub.api.app import validate_cors_for_credentials
+
+        # Should not raise.
+        validate_cors_for_credentials(["https://app.example.com"])
+        validate_cors_for_credentials(["https://a.example.com", "https://b.example.com"])
 
 
 # ===================================================================

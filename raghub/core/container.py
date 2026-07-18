@@ -37,7 +37,11 @@ def __getattr__(name: str) -> Any:
     if name in {"DynamicRagApplication", "DynamicRagContainer", "build_container"}:
         from raghub.services.application import (
             DynamicRagApplication as app_import,
+        )
+        from raghub.services.application import (
             DynamicRagContainer as ctr_import,
+        )
+        from raghub.services.application import (
             build_container as bc_import,
         )
 
@@ -66,6 +70,8 @@ async def build_application(profile: str | None = None) -> Any:
     """
     from raghub.services.application import (
         DynamicRagApplication,
+    )
+    from raghub.services.application import (
         build_container as build_container_import,
     )
 
@@ -79,5 +85,4 @@ __all__ = [
     "DynamicRagApplication",
     "DynamicRagContainer",
     "build_application",
-    
 ]

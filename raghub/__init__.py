@@ -14,8 +14,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from raghub.api.rag import RAG as RAG
-    from raghub.services.application import DynamicRagApplication, DynamicRagContainer
     from raghub.core.container import build_application
+    from raghub.services.application import DynamicRagApplication, DynamicRagContainer
 
 
 def __getattr__(name: str) -> Any:
@@ -31,6 +31,8 @@ def __getattr__(name: str) -> Any:
     if name in {"DynamicRagApplication", "DynamicRagContainer"}:
         from raghub.services.application import (
             DynamicRagApplication as app_import,
+        )
+        from raghub.services.application import (
             DynamicRagContainer as ctr_import,
         )
 
@@ -39,8 +41,8 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
+    "RAG",
     "DynamicRagApplication",
     "DynamicRagContainer",
-    "RAG",
     "build_application",
 ]

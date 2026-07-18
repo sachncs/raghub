@@ -119,7 +119,10 @@ def test_registry_list_accessible_filters_company_and_archived(tmp_path: Path) -
     reg.save_version(_make_record(document_id="c", organization="Apple", version=2))
     out = reg.list_accessible(["Apple"])
     assert {d.document_id for d in out} == {"a", "c"}
-    assert reg.list_accessible(["Microsoft"]) and reg.list_accessible(["Microsoft"])[0].document_id == "b"
+    assert (
+        reg.list_accessible(["Microsoft"])
+        and reg.list_accessible(["Microsoft"])[0].document_id == "b"
+    )
     assert reg.list_accessible(["Amazon"]) == []
 
 

@@ -24,7 +24,7 @@ stored as integers per SQLite convention.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -55,7 +55,7 @@ class UserRecord(BaseModel):
     allowed_companies: list[str] = Field(default_factory=list)
     allowed_groups: list[str] = Field(default_factory=list)
     is_admin: bool = False
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class SqliteUserStore:

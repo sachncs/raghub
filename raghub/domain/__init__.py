@@ -5,10 +5,10 @@ models in :mod:`raghub.models`. New code should use the models
 from :mod:`raghub.models.canonical` instead.
 """
 
-from .document import Document
 from .chunk import Chunk
+from .document import Document
+from .repositories import ChunkRepository, DocumentRepository, SessionRepository, UnitOfWork
 from .session import Session
-from .repositories import DocumentRepository, ChunkRepository, SessionRepository, UnitOfWork
 
 __all__ = [
     "Chunk",

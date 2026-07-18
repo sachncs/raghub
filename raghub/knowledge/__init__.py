@@ -14,9 +14,9 @@ Public re-exports:
 * :class:`SourceManifest` — checksum-indexed source manifest.
 """
 
+from raghub.knowledge.manifest import SourceManifest
 from raghub.knowledge.okf import dumps, from_okf, loads, to_okf
 from raghub.knowledge.repository import InMemoryKnowledgeRepository
-from raghub.knowledge.manifest import SourceManifest
 
 __all__ = [
     "InMemoryKnowledgeRepository",
@@ -26,4 +26,3 @@ __all__ = [
     "loads",
     "to_okf",
 ]
-

@@ -12,9 +12,10 @@ rebuilt from the in-memory knowledge repository.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 
 class SourceManifest:
@@ -32,9 +33,7 @@ class SourceManifest:
         try:
             payload = json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
-                self.records = {
-                    str(k): v for k, v in payload.items() if isinstance(v, dict)
-                }
+                self.records = {str(k): v for k, v in payload.items() if isinstance(v, dict)}
         except json.JSONDecodeError:
             self.records = {}
 

@@ -16,6 +16,7 @@ from raghub.models import ConversationTurn, SessionRecord
 # SlidingWindowManager
 # ---------------------------------------------------------------------------
 
+
 class TestSlidingWindowManager:
     """Comprehensive coverage for the sliding-window trimmer."""
 
@@ -100,7 +101,7 @@ class TestSlidingWindowManager:
     def test_trim_keeps_newest_when_budget_exceeded(self) -> None:
         mgr = SlidingWindowManager(max_tokens=25)
         turns = [
-            self.make_turn("old " * 20, "old answer " * 20),   # ~40+ wds -> too big
+            self.make_turn("old " * 20, "old answer " * 20),  # ~40+ wds -> too big
             self.make_turn("new", "latest"),
         ]
         result = mgr.trim(turns)
@@ -179,6 +180,7 @@ class TestSlidingWindowManager:
 # ConversationManager
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_uow() -> MagicMock:
     uow = MagicMock()
@@ -202,21 +204,27 @@ def sample_record() -> SessionRecord:
 
 class TestConversationManagerBuild:
     pytestmark = pytest.mark.asyncio
+
     async def test_build_creates_and_returns_session(
-        self, manager: ConversationManager, mock_uow: MagicMock,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
     ) -> None:
         session = await manager.build("user-1")
         assert session.user_id == "user-1"
         mock_uow.session_repo.save.assert_awaited_once()
 
     async def test_build_sets_expiry(
-        self, manager: ConversationManager, mock_uow: MagicMock,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
     ) -> None:
         session = await manager.build("user-1")
         assert session.expires_at > datetime.now(timezone.utc)
 
     async def test_build_generates_unique_session_id(
-        self, manager: ConversationManager,
+        self,
+        manager: ConversationManager,
     ) -> None:
         s1 = await manager.build("user-1")
         s2 = await manager.build("user-1")
@@ -225,8 +233,12 @@ class TestConversationManagerBuild:
 
 class TestConversationManagerResolve:
     pytestmark = pytest.mark.asyncio
+
     async def test_resolve_known_token(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         mock_uow.session_repo.get_by_token.return_value = sample_record
         session = await manager.resolve(sample_record.token)
@@ -235,14 +247,18 @@ class TestConversationManagerResolve:
         mock_uow.session_repo.get_by_token.assert_awaited_with(sample_record.token)
 
     async def test_resolve_unknown_token_returns_none(
-        self, manager: ConversationManager, mock_uow: MagicMock,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
     ) -> None:
         mock_uow.session_repo.get_by_token.return_value = None
         session = await manager.resolve("unknown-token")
         assert session is None
 
     async def test_resolve_empty_token(
-        self, manager: ConversationManager, mock_uow: MagicMock,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
     ) -> None:
         mock_uow.session_repo.get_by_token.return_value = None
         assert await manager.resolve("") is None
@@ -250,8 +266,12 @@ class TestConversationManagerResolve:
 
 class TestConversationManagerAppend:
     pytestmark = pytest.mark.asyncio
+
     async def test_append_adds_turn_and_updates_timestamp(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         mock_uow.session_repo.get_by_token.return_value = sample_record
         before = sample_record.last_seen_at
@@ -263,7 +283,10 @@ class TestConversationManagerAppend:
         mock_uow.session_repo.save.assert_awaited()
 
     async def test_append_with_metadata(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         mock_uow.session_repo.get_by_token.return_value = sample_record
         metadata = {"source": "test", "confidence": 0.95}
@@ -271,21 +294,29 @@ class TestConversationManagerAppend:
         assert sample_record.history[0].metadata == metadata
 
     async def test_append_unknown_session_is_no_op(
-        self, manager: ConversationManager, mock_uow: MagicMock,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
     ) -> None:
         mock_uow.session_repo.get_by_token.return_value = None
         await manager.append("bad-token", "Q?", "A!")
         mock_uow.session_repo.save.assert_not_awaited()
 
     async def test_append_defaults_metadata_to_empty_dict(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         mock_uow.session_repo.get_by_token.return_value = sample_record
         await manager.append(sample_record.token, "Q?", "A!")
         assert sample_record.history[0].metadata == {}
 
     async def test_append_multiple_turns_preserves_order(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         mock_uow.session_repo.get_by_token.return_value = sample_record
         await manager.append(sample_record.token, "Q1", "A1")
@@ -297,8 +328,12 @@ class TestConversationManagerAppend:
 
 class TestConversationManagerLoad:
     pytestmark = pytest.mark.asyncio
+
     async def test_load_returns_history(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         turn = ConversationTurn(question="Q?", answer="A!")
         sample_record.history.append(turn)
@@ -308,13 +343,18 @@ class TestConversationManagerLoad:
         assert history[0].question == "Q?"
 
     async def test_load_unknown_session_returns_empty(
-        self, manager: ConversationManager, mock_uow: MagicMock,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
     ) -> None:
         mock_uow.session_repo.get_by_token.return_value = None
         assert await manager.load("bad-token") == []
 
     async def test_load_returns_copy_not_reference(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         turn = ConversationTurn(question="Q?", answer="A!")
         sample_record.history.append(turn)
@@ -326,8 +366,12 @@ class TestConversationManagerLoad:
 
 class TestConversationManagerClear:
     pytestmark = pytest.mark.asyncio
+
     async def test_clear_empties_history_and_updates_timestamp(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         sample_record.history.append(ConversationTurn(question="Q?", answer="A!"))
         mock_uow.session_repo.get_by_token.return_value = sample_record
@@ -338,7 +382,9 @@ class TestConversationManagerClear:
         mock_uow.session_repo.save.assert_awaited()
 
     async def test_clear_unknown_session_is_no_op(
-        self, manager: ConversationManager, mock_uow: MagicMock,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
     ) -> None:
         mock_uow.session_repo.get_by_token.return_value = None
         await manager.clear("bad-token")
@@ -347,16 +393,24 @@ class TestConversationManagerClear:
 
 class TestConversationManagerAddTurn:
     pytestmark = pytest.mark.asyncio
+
     async def test_add_turn_appends_and_trims(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
-        sample_record.history.append(ConversationTurn(question="old " * 100, answer="old answer " * 100))
+        sample_record.history.append(
+            ConversationTurn(question="old " * 100, answer="old answer " * 100)
+        )
         mock_uow.session_repo.get.return_value = sample_record
         # After append+save, the side effect: trim is called.
         original_trim = manager.trim_history
         trimmed_called = False
 
-        async def tracking_trim(session_id: str, max_tokens: int | None = None) -> list[ConversationTurn]:
+        async def tracking_trim(
+            session_id: str, max_tokens: int | None = None
+        ) -> list[ConversationTurn]:
             nonlocal trimmed_called
             trimmed_called = True
             return await original_trim(session_id, max_tokens)
@@ -367,7 +421,9 @@ class TestConversationManagerAddTurn:
         assert trimmed_called
 
     async def test_add_turn_unknown_session_is_no_op(
-        self, manager: ConversationManager, mock_uow: MagicMock,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
     ) -> None:
         mock_uow.session_repo.get.return_value = None
         turn = ConversationTurn(question="Q?", answer="A!")
@@ -375,7 +431,10 @@ class TestConversationManagerAddTurn:
         mock_uow.session_repo.save.assert_not_awaited()
 
     async def test_add_turn_saves_before_trim(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         mock_uow.session_repo.get.return_value = sample_record
         call_order: list[str] = []
@@ -390,7 +449,9 @@ class TestConversationManagerAddTurn:
 
         original_trim = manager.trim_history
 
-        async def tracking_trim(session_id: str, max_tokens: int | None = None) -> list[ConversationTurn]:
+        async def tracking_trim(
+            session_id: str, max_tokens: int | None = None
+        ) -> list[ConversationTurn]:
             call_order.append("trim")
             return await original_trim(session_id, max_tokens)
 
@@ -403,8 +464,12 @@ class TestConversationManagerAddTurn:
 
 class TestConversationManagerTrimHistory:
     pytestmark = pytest.mark.asyncio
+
     async def test_trim_history_uses_default_budget(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         sample_record.history.append(ConversationTurn(question="hello", answer="world"))
         mock_uow.session_repo.get.return_value = sample_record
@@ -412,7 +477,10 @@ class TestConversationManagerTrimHistory:
         assert isinstance(result, list)
 
     async def test_trim_history_with_override_budget(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         turn = ConversationTurn(question="a " * 500, answer="b " * 500)
         sample_record.history.append(turn)
@@ -421,17 +489,24 @@ class TestConversationManagerTrimHistory:
         assert len(result) <= 1  # likely empty since the turn is huge
 
     async def test_trim_history_unknown_session_returns_empty(
-        self, manager: ConversationManager, mock_uow: MagicMock,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
     ) -> None:
         mock_uow.session_repo.get.return_value = None
         result = await manager.trim_history("bad-id")
         assert result == []
 
     async def test_trim_history_persists_trimmed(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         sample_record.history.append(ConversationTurn(question="tiny", answer="tiny"))
-        sample_record.history.append(ConversationTurn(question="large " * 200, answer="large answer " * 200))
+        sample_record.history.append(
+            ConversationTurn(question="large " * 200, answer="large answer " * 200)
+        )
         mock_uow.session_repo.get.return_value = sample_record
         before = sample_record.last_seen_at
         result = await manager.trim_history(sample_record.session_id)
@@ -445,7 +520,10 @@ class TestConversationManagerTrimHistory:
         assert len(sample_record.history) == len(result)
 
     async def test_trim_history_sliding_window_default(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         """Verify that default trim uses self.sliding_window (max_tokens=512)."""
         turn = ConversationTurn(question="hello", answer="world")
@@ -456,7 +534,10 @@ class TestConversationManagerTrimHistory:
             spy.assert_called_once()
 
     async def test_trim_history_override_does_not_mutate_sliding_window(
-        self, manager: ConversationManager, mock_uow: MagicMock, sample_record: SessionRecord,
+        self,
+        manager: ConversationManager,
+        mock_uow: MagicMock,
+        sample_record: SessionRecord,
     ) -> None:
         """Verify that passing max_tokens does not change self.sliding_window's budget."""
         original_max = manager.sliding_window.max_tokens

@@ -6,7 +6,8 @@ Benchmark-agnostic scoring layer. Concrete implementations include
 
 from __future__ import annotations
 
-from typing import Any, Protocol, Sequence
+from collections.abc import Sequence
+from typing import Any, Protocol
 
 from raghub.models import EvaluationResult
 

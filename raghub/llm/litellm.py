@@ -27,6 +27,7 @@ litellm: Any
 
 try:
     import litellm
+
     LITELLM_AVAILABLE = True
     OptionalImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
@@ -51,6 +52,7 @@ class LiteLLMProvider(BaseLLMProvider):
         api_key: str | None = None,
         api_base: str | None = None,
         temperature: float = 0.2,
+        timeout_seconds: float | None = None,
     ) -> None:
         """Initialise the provider.
 
@@ -59,18 +61,20 @@ class LiteLLMProvider(BaseLLMProvider):
             api_key: Optional API key override.
             api_base: Optional API base override.
             temperature: Sampling temperature for ``completion``.
+            timeout_seconds: Optional LiteLLM request timeout.
 
         Raises:
             ConfigurationError: When ``litellm`` is not installed.
         """
         if not LITELLM_AVAILABLE:
-            raise ConfigurationError(
-                "litellm is not installed; run `pip install litellm`."
-            )
+            raise ConfigurationError("litellm is not installed; run `pip install litellm`.")
+        if timeout_seconds is not None and timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be greater than zero")
         self.model_name = model
         self.api_key = api_key
         self.api_base = api_base
         self.temperature = temperature
+        self.timeout_seconds = timeout_seconds
         # Most recent token-usage record, populated by :meth:`generate`
         # and :meth:`astream`. Read by :class:`DefaultGenerator` to
         # forward to telemetry.
@@ -79,9 +83,7 @@ class LiteLLMProvider(BaseLLMProvider):
     def require_litellm(self) -> None:
         """Raise a clear error if LiteLLM is not installed."""
         if not LITELLM_AVAILABLE:
-            raise ConfigurationError(
-                "litellm is not installed; run `pip install litellm`."
-            )
+            raise ConfigurationError("litellm is not installed; run `pip install litellm`.")
 
     # ------------------------------------------------------------------
     # Message building (OpenAI-style dicts)
@@ -102,8 +104,7 @@ class LiteLLMProvider(BaseLLMProvider):
         Args:
             system_prompt: System instructions; becomes the first
                 ``system`` message.
-            conversation: Recent in-window turns (currently unused
-                here; the API keeps the parameter for future use).
+            conversation: Recent in-window question/answer turns.
             context: Retrieved chunks; joined into a single system
                 message labelled ``"Context:"``.
             question: The latest user question. When ``image_paths``
@@ -120,12 +121,17 @@ class LiteLLMProvider(BaseLLMProvider):
         """
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
 
+        if not session_history:
+            for turn in conversation:
+                messages.append({"role": "user", "content": turn.question})
+                messages.append({"role": "assistant", "content": turn.answer})
+
         if session_history:
-            for turn in session_history:
-                role = turn.get("role", "user")
+            for session_item in session_history:
+                role = session_item.get("role", "user")
                 if role not in {"user", "assistant", "system"}:
                     role = "user"
-                messages.append({"role": role, "content": turn.get("content", "")})
+                messages.append({"role": role, "content": session_item.get("content", "")})
 
         if context:
             formatted_context = "\n\n---\n\n".join(context)
@@ -179,14 +185,17 @@ class LiteLLMProvider(BaseLLMProvider):
             session_history=session_history,
         )
         self.require_litellm()
+        options = {
+            "model": self.model_name,
+            "messages": messages,
+            "temperature": self.temperature,
+            "api_key": self.api_key,
+            "api_base": self.api_base,
+        }
+        if self.timeout_seconds is not None:
+            options["timeout"] = self.timeout_seconds
         try:
-            response = litellm.completion(
-                model=self.model_name,
-                messages=messages,
-                temperature=self.temperature,
-                api_key=self.api_key,
-                api_base=self.api_base,
-            )
+            response = litellm.completion(**options)
         except Exception as exc:
             raise LLMError(f"LiteLLM completion failed: {exc}") from exc
 
@@ -194,7 +203,47 @@ class LiteLLMProvider(BaseLLMProvider):
         message = choice["message"] if isinstance(choice, dict) else choice.message
         # Capture token usage for telemetry.
         self.record_usage(response)
-        return message["content"] if isinstance(message, dict) else message.content
+        content = message["content"] if isinstance(message, dict) else message.content
+        return str(content or "")
+
+    async def async_generate(
+        self,
+        *,
+        system_prompt: str,
+        conversation: Sequence[ConversationTurn] = (),
+        context: Sequence[str] = (),
+        question: str,
+        image_paths: list[str] | None = None,
+        session_history: list[dict] | None = None,
+    ) -> str:
+        """Generate a final answer with LiteLLM's native async client."""
+        messages = self.build_messages(
+            system_prompt=system_prompt,
+            conversation=conversation,
+            context=context,
+            question=question,
+            image_paths=image_paths,
+            session_history=session_history,
+        )
+        self.require_litellm()
+        options = {
+            "model": self.model_name,
+            "messages": messages,
+            "temperature": self.temperature,
+            "api_key": self.api_key,
+            "api_base": self.api_base,
+        }
+        if self.timeout_seconds is not None:
+            options["timeout"] = self.timeout_seconds
+        try:
+            response = await litellm.acompletion(**options)
+        except Exception as exc:
+            raise LLMError(f"LiteLLM async completion failed: {exc}") from exc
+        choice = response["choices"][0] if isinstance(response, dict) else response.choices[0]
+        message = choice["message"] if isinstance(choice, dict) else choice.message
+        self.record_usage(response)
+        content = message["content"] if isinstance(message, dict) else message.content
+        return str(content or "")
 
     def record_usage(self, response: Any) -> None:
         """Populate ``self.last_usage`` from a LiteLLM response.
@@ -235,10 +284,17 @@ class LiteLLMProvider(BaseLLMProvider):
     ) -> AsyncIterator[str]:
         """Async-stream the answer token-by-token.
 
-        Token usage is captured by either asking LiteLLM to include
-        it in the final chunk (``stream_options={"include_usage": True}``)
-        or by computing it from the request as a fallback.
+        Token usage is captured by asking LiteLLM to include it in
+        the final chunk (``stream_options={"include_usage": True}``).
+        The streaming loop honours :pyattr:`timeout_seconds` by
+        racing the chunk iterator against :func:`asyncio.wait_for` so
+        a slow LLM does not block indefinitely. The implementation
+        reads each chunk's ``delta.content`` when present and
+        tolerates the dict / object shapes that LiteLLM emits
+        across versions.
         """
+        import asyncio
+
         messages = self.build_messages(
             system_prompt=system_prompt,
             conversation=conversation,
@@ -248,45 +304,62 @@ class LiteLLMProvider(BaseLLMProvider):
             session_history=session_history,
         )
         self.require_litellm()
+        options = {
+            "model": self.model_name,
+            "messages": messages,
+            "temperature": self.temperature,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+            "api_key": self.api_key,
+            "api_base": self.api_base,
+        }
+        if self.timeout_seconds is not None:
+            options["timeout"] = self.timeout_seconds
         try:
-            response = await litellm.acompletion(
-                model=self.model_name,
-                messages=messages,
-                temperature=self.temperature,
-                stream=True,
-                stream_options={"include_usage": True},
-                api_key=self.api_key,
-                api_base=self.api_base,
-            )
+            response = await litellm.acompletion(**options)
         except Exception as exc:
             raise LLMError(f"LiteLLM streaming failed: {exc}") from exc
 
         prompt_tokens = 0
         completion_tokens = 0
-        async for chunk in response:
-            # Some chunks carry a final usage object; capture it for
-            # telemetry even when streaming.
-            usage = chunk.get("usage") if isinstance(chunk, dict) else getattr(chunk, "usage", None)
-            if usage:
-                if isinstance(usage, dict):
-                    prompt_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
-                    completion_tokens = (
-                        usage.get("completion_tokens") or usage.get("output_tokens") or 0
-                    )
-                else:
-                    prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
-                    completion_tokens = (
-                        getattr(usage, "completion_tokens", 0) or 0
-                    )
-            if not isinstance(chunk, dict):
-                continue
-            choices = chunk.get("choices") or []
-            if not choices:
-                continue
-            delta = choices[0].get("delta") or {}
-            content = delta.get("content")
-            if content:
-                yield content
+        try:
+            iterator = response.__aiter__()
+            while True:
+                try:
+                    if self.timeout_seconds is not None:
+                        chunk = await asyncio.wait_for(
+                            iterator.__anext__(),
+                            timeout=self.timeout_seconds,
+                        )
+                    else:
+                        chunk = await iterator.__anext__()
+                except StopAsyncIteration:
+                    break
+                # Some chunks carry a final usage object; capture it for
+                # telemetry even when streaming.
+                usage = (
+                    chunk.get("usage") if isinstance(chunk, dict) else getattr(chunk, "usage", None)
+                )
+                if usage:
+                    if isinstance(usage, dict):
+                        prompt_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
+                        completion_tokens = (
+                            usage.get("completion_tokens") or usage.get("output_tokens") or 0
+                        )
+                    else:
+                        prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+                        completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+                if not isinstance(chunk, dict):
+                    continue
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
+                delta = choices[0].get("delta") or {}
+                content = delta.get("content")
+                if content:
+                    yield content
+        except TimeoutError as exc:
+            raise LLMError("LiteLLM streaming timed out") from exc
 
         if prompt_tokens or completion_tokens:
             self.last_usage = {

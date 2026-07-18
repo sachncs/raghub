@@ -101,8 +101,8 @@ rag = RAG(telemetry=RedactingTelemetry(LangfuseTelemetryProvider()))
 
 ## Legacy surface observability
 
-The legacy FastAPI surface (`raghub.api.app:app`) continues to
-expose:
+The legacy FastAPI surface (`raghub.api.app:get_app`, served via
+Uvicorn's `--factory`) continues to expose:
 
 - `raghub_query_duration_ms` (Histogram) — query execution duration
 - `raghub_ingestion_duration_ms` (Histogram) — ingestion duration
@@ -118,6 +118,18 @@ These are wired through
 The legacy surface is the only place Prometheus + OTel are
 mounted; the new `RAG` facade does not register a Prometheus
 collector or an OTel exporter itself.
+
+## Container-level observability
+
+The production compose stack attaches a JSON-file log driver with
+rotation (10 MiB × 5 files) to every service. Tail with
+`docker compose logs -f <service>`; inspect the rotation policy
+with `docker inspect <container>`.
+
+Each service has a `healthcheck` block; the API depends on Qdrant
+(`condition: service_healthy`) and the UI depends on the API. The
+`docker compose ps` view reports the live state for every
+container.
 
 ## Structured logging
 
@@ -168,3 +180,6 @@ returns whatever `DynamicRagApplication.health()` reports.
   pair via `PluginRegistry.register_telemetry(name, logger, metrics)`.
 - [ADR-0005: telemetry scrubbing](../architecture/decisions.md#adr-0005-telemetry-scrubbing-is-the-default)
   — ADR-0005 (default scrubbing) and ADR-0007 (Langfuse v3+ spans).
+- [`runbook.md`](runbook.md) — first-line triage for failing
+  services; covers health, logs, restarts, and the canonical
+  reset path.

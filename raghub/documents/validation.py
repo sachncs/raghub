@@ -23,7 +23,6 @@ from pathlib import Path
 
 from raghub.exceptions import DocumentError
 
-
 #: Extension → MIME-type mapping used as the first stage of detection.
 MIME_TYPES_BY_EXTENSION: dict[str, str] = {
     ".pdf": "application/pdf",
@@ -91,9 +90,7 @@ def detect_mime_type(filename: str, content: bytes) -> str:
         # The MIME was inferred from the extension, but the content's
         # magic bytes disagree. Reject to prevent MIME-confusion
         # attacks (e.g. renaming ``evil.exe`` to ``evil.pdf``).
-        raise DocumentError(
-            f"File {filename} claims to be {mime} but magic bytes do not match"
-        )
+        raise DocumentError(f"File {filename} claims to be {mime} but magic bytes do not match")
 
     return mime
 

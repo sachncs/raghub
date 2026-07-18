@@ -13,7 +13,7 @@ format for the FastAPI surface (when serialised via
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import uuid4
@@ -104,10 +104,10 @@ class SessionRecord(BaseModel):
     session_id: str = Field(default_factory=lambda: str(uuid4()))
     user_id: str
     token: str = Field(default_factory=lambda: str(uuid4()))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime
     last_seen_at: datetime
-    history: list["ConversationTurn"] = Field(default_factory=list)
+    history: list[ConversationTurn] = Field(default_factory=list)
 
 
 class DocumentRecord(BaseModel):
@@ -137,8 +137,8 @@ class DocumentRecord(BaseModel):
     document_id: str = Field(default_factory=lambda: str(uuid4()))
     version: int = 1
     checksum: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     owner: str
     organization: str
     department: str = ""
@@ -188,7 +188,7 @@ class ChunkRecord(BaseModel):
     owner: str
     department: str = ""
     classification: Classification = Classification.INTERNAL
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     embedding_model: str = ""
     hash: str = ""
     text: str
@@ -207,7 +207,7 @@ class ConversationTurn(BaseModel):
 
     question: str
     answer: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

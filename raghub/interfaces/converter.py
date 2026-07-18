@@ -44,4 +44,3 @@ class DocumentConverter(Protocol):
         Returns:
             The canonical :class:`KnowledgeBundle`.
         """
-

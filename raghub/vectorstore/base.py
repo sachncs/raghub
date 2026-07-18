@@ -37,7 +37,9 @@ class BaseVectorStore(ABC):
         """Delete one version."""
 
     @abstractmethod
-    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
+    def search(
+        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
+    ) -> list[dict[str, Any]]:
         """Search by vector with a metadata filter."""
 
     @abstractmethod

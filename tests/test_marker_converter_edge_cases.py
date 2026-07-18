@@ -47,7 +47,11 @@ class TestMarkerConverterEdge:
         )
         assert isinstance(bundle, KnowledgeBundle)
         assert bundle.mime_type == "text/plain"
-        assert any("hello" in (block.content or "") for section in bundle.sections for block in section.blocks)
+        assert any(
+            "hello" in (block.content or "")
+            for section in bundle.sections
+            for block in section.blocks
+        )
 
     def test_convert_empty_bytes_raises_config(self) -> None:
         converter = MarkerConverter()

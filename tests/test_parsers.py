@@ -79,21 +79,33 @@ class TestOfficeParser:
     def test_docx_returns_sections(self):
         parser = OfficeParser()
         docx_bytes = _make_minimal_docx()
-        sections = parser.parse(docx_bytes, "test.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        sections = parser.parse(
+            docx_bytes,
+            "test.docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
         assert len(sections) >= 1
         assert sections[0].source_location == "document"
 
     def test_xlsx_returns_worksheets(self):
         parser = OfficeParser()
         xlsx_bytes = _make_minimal_xlsx()
-        sections = parser.parse(xlsx_bytes, "test.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        sections = parser.parse(
+            xlsx_bytes,
+            "test.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
         assert len(sections) >= 1
         assert "worksheet" in sections[0].source_location
 
     def test_pptx_returns_slides(self):
         parser = OfficeParser()
         pptx_bytes = _make_minimal_pptx()
-        sections = parser.parse(pptx_bytes, "test.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+        sections = parser.parse(
+            pptx_bytes,
+            "test.pptx",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        )
         assert len(sections) >= 1
         assert "slide" in sections[0].source_location
 
@@ -125,6 +137,7 @@ class TestParserRegistry:
 def _make_minimal_pdf() -> bytes:
     from io import BytesIO
     from pypdf import PdfWriter
+
     w = PdfWriter()
     w.add_blank_page(612, 792)
     buf = BytesIO()
@@ -138,7 +151,9 @@ def _make_minimal_png() -> bytes:
 
     def make_chunk(chunk_type: bytes, data: bytes) -> bytes:
         chunk = chunk_type + data
-        return struct.pack(">I", len(data)) + chunk + struct.pack(">I", zlib.crc32(chunk) & 0xFFFFFFFF)
+        return (
+            struct.pack(">I", len(data)) + chunk + struct.pack(">I", zlib.crc32(chunk) & 0xFFFFFFFF)
+        )
 
     signature = b"\x89PNG\r\n\x1a\n"
     ihdr_data = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
@@ -152,6 +167,7 @@ def _make_minimal_png() -> bytes:
 def _make_minimal_docx() -> bytes:
     from docx import Document
     from io import BytesIO
+
     doc = Document()
     doc.add_paragraph("Hello World")
     buf = BytesIO()
@@ -162,6 +178,7 @@ def _make_minimal_docx() -> bytes:
 def _make_minimal_xlsx() -> bytes:
     from openpyxl import Workbook
     from io import BytesIO
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Sheet1"
@@ -174,6 +191,7 @@ def _make_minimal_xlsx() -> bytes:
 def _make_minimal_pptx() -> bytes:
     from pptx import Presentation
     from io import BytesIO
+
     prs = Presentation()
     slide_layout = prs.slide_layouts[0]
     slide = prs.slides.add_slide(slide_layout)

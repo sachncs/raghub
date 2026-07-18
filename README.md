@@ -37,6 +37,7 @@ RAGHub is a layered retrieval-augmented generation stack with a single replace-e
 - **Plugin system** — Register custom converters, chunkers, vector stores, evaluators, and telemetry providers.
 - **Observability** — Langfuse, OpenTelemetry, Prometheus metrics, and structlog logging out of the box.
 - **Evaluation** — FinanceBench evaluator with Recall@K, Precision@K, MRR, Faithfulness, Context Recall, Context Precision, and Answer Correctness.
+- **Production safety** — `CORS_ORIGINS` rejects wildcard+credentials at startup; oversize uploads are rejected with `413` before the body is buffered; admin endpoints redact `password_hash`; the demo-user seed is suppressed in production.
 
 ## Installation
 
@@ -52,17 +53,17 @@ pip install "raghub[api,ui,zvec]"   # optional extras
 ```bash
 git clone https://github.com/sachncs/raghub.git
 cd raghub
-pip install -e ".[dev,api,ui,zvec]"
+pip install -e ".[dev,api,ui]"
 ```
 
 | Extra | Includes |
 |---|---|
-| `dev` | pytest, ruff, mypy, hypothesis, types-PyYAML |
+| `dev` | pytest, ruff, mypy, hypothesis, types-PyYAML, interrogate, mkdocs, build, bandit, pip-audit |
 | `api` | FastAPI, uvicorn, python-multipart |
 | `ui` | Streamlit |
-| `zvec` | [ZVec](https://github.com/zilliztech/zvec) vector store |
+| `zvec` | [ZVec](https://github.com/zilliztech/zvec) vector store (opt-in) |
 
-All spec libraries (Marker, Chonkie, LiteLLM, Instructor, Qdrant, Langfuse, datasets) are installed by default. For a minimal environment use `pip install -e ".[dev]"`.
+All spec libraries (Marker, Chonkie, LiteLLM, Instructor, Qdrant, Langfuse, datasets) are installed by default. For a minimal environment use `pip install -e ".[dev]"`. The `zvec` extra pulls a native extension and is no longer part of the default install.
 
 ## Quick Start
 
@@ -103,14 +104,56 @@ The UI pre-seeds five demo users with different `allowed_companies`: `alice@acme
 ### FastAPI
 
 ```bash
-uvicorn raghub.api.app:app --host 0.0.0.0 --port 8000
+uvicorn raghub.api.app:get_app --factory --host 0.0.0.0 --port 8000
 ```
 
-The legacy `DynamicRagApplication` is still reachable at `/auth/login`, `/documents/upload`, `/query`, etc. The new `RAG` facade is the recommended path for new integrations.
+The legacy `DynamicRagApplication` is still reachable at `/auth/login`, `/documents/upload`, `/query`, etc. The new `RAG` facade is the recommended path for new integrations. The `--factory` flag tells Uvicorn to call `get_app()` on each worker, which is the correct way to use the app factory without falling back to a module-level singleton.
+
+## Deployment (Docker)
+
+```bash
+cp .env.example .env
+# Edit .env: set JWT_SECRET, an LLM API key, and CORS_ORIGINS.
+openssl rand -base64 48   # generate JWT_SECRET
+
+docker compose -f docker-compose.yml build
+docker compose -f docker-compose.yml --profile production up -d
+
+# Verify health
+docker compose -f docker-compose.yml --profile production ps
+curl -fsS http://127.0.0.1:8000/health
+curl -fsS http://127.0.0.1:8501/_stcore/health
+curl -fsS http://127.0.0.1:6333/healthz
+```
+
+The production stack runs three services (`api`, `ui`, `qdrant`)
+with hardened defaults: read-only root, `cap_drop: [ALL]`,
+`no-new-privileges`, JSON-file log rotation, named volumes for
+SQLite + Qdrant, service-aware healthchecks, and
+`depends_on: condition: service_healthy`. The `env_file` is
+declared with `required: true`, so the stack fails closed if
+`.env` is missing.
+
+For local development:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml \
+    --profile dev up
+```
+
+`docker-compose.dev.yml` is an explicit override; the dev
+mounts, `--reload`, and relaxed security live there so the
+production target stays clean.
+
+See [`docs/guide/deployment.md`](docs/guide/deployment.md),
+[`docs/operations/backup.md`](docs/operations/backup.md),
+[`docs/operations/runbook.md`](docs/operations/runbook.md), and
+[`docs/operations/scaling.md`](docs/operations/scaling.md) for
+the full operations story.
 
 ## Multi-User & RBAC
 
-Every public query method accepts a `UserPrincipal`. The retrieval layer is filtered to the user's `allowed_companies`; admins see everything. The LLM never receives unauthorised context.
+Every public query method accepts a `UserPrincipal`. The retrieval layer is filtered to the user's `allowed_companies`; admins see everything. The LLM is given only the authorised context — there is no path by which unauthorised content can leak into the prompt.
 
 ```python
 alice = UserPrincipal(user_id="alice", email="alice@x", allowed_companies=["Apple"])
@@ -156,7 +199,7 @@ Precedence (highest first): constructor arguments → env vars → TOML config �
 | `raghub.RAG` | class | Single facade; lazy-imports every collaborator |
 | `raghub.build_application` | function | Legacy application builder |
 | `raghub.models.UserPrincipal` | model | Per-user identity with `allowed_companies` and `is_admin` |
-| `raghub.api.app:app` | ASGI | FastAPI app, mounts RBAC-aware endpoints |
+| `raghub.api.app:get_app` | factory | FastAPI app factory (use `uvicorn raghub.api.app:get_app --factory`) |
 | `raghub.plugins.registry.PluginRegistry` | class | Register converters, chunkers, vector stores, etc. |
 | `raghub.evaluation.FinanceBenchEvaluator` | class | Recall@K, Precision@K, MRR, Faithfulness, Context Recall/Precision, Answer Correctness |
 | `raghub.cli.main` | CLI | `raghub init / ingest / query / health / version` |
@@ -216,7 +259,7 @@ raghub/
 │   ├── evaluation/         # FinanceBenchEvaluator, retrieval metrics
 │   ├── plugins/            # PluginRegistry, entry-point discovery
 │   └── cli/                # CLI commands (health, ingest, query, init, eval)
-├── tests/                  # 1171 tests across RBAC, streaming, ingestion, plugins, etc.
+├── tests/                  # Run `pytest --collect-only` for the current count
 ├── bench/                  # Performance benchmark harness (startup, QPS, RSS)
 ├── streamlit_app.py        # Demo Streamlit UI
 ├── pyproject.toml
@@ -229,7 +272,7 @@ raghub/
 ./setup.sh
 # or:
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev,api,ui,zvec]"
+pip install -e ".[dev,api,ui]"
 ```
 
 Linting and formatting:
@@ -238,32 +281,57 @@ Linting and formatting:
 ruff check raghub/
 ruff format raghub/
 mypy raghub/
+interrogate -v \
+    raghub/api/rag.py raghub/api/defaults.py raghub/api/response.py \
+    raghub/evaluation/ raghub/knowledge/ \
+    raghub/conversation/ raghub/cli/ -f 80
+bandit -r raghub/ -q -ll -i
+pip-audit
 ```
 
 ## Testing
 
 ```bash
-python -m pytest tests/ -q         # 1171 tests
-python -m pytest tests/ -q -k rbac # just the RBAC suite
+python -m pytest tests/ -q                       # full suite
+python -m pytest tests/ -q -k rbac               # just the RBAC suite
 python -m pytest tests/ --cov=raghub --cov-report=term-missing
+RAGHUB_RUN_PLATFORM_TESTS=1 python -m pytest tests/test_platform.py
 ```
 
-The suite covers ingestion pipelines, vector store operations, LiteLLM providers (mocked), multi-user RBAC isolation (10 concurrent users), session-scoped conversation history, streaming and token-usage tracking, JWT auth and unauthorised-access isolation, FinanceBench evaluation metrics, the plugin registry and entry-point discovery, all CLI commands, persistence (JSON registry, SQLite stores), query-cache TTL/invalidation, tracing exporters and OTel span guards, document lifecycle state machines, and the lazy-import facade.
+The current collection size is reported by
+`pytest tests/ --collect-only` (no hard-coded count). The suite
+covers ingestion pipelines, vector store operations, LiteLLM
+providers (mocked), multi-user RBAC isolation (10 concurrent
+users), session-scoped conversation history, streaming and
+token-usage tracking, JWT auth and unauthorised-access
+isolation, FinanceBench evaluation metrics, the plugin registry
+and entry-point discovery, all CLI commands, persistence (JSON
+registry, SQLite stores), query-cache TTL/invalidation, tracing
+exporters and OTel span guards, document lifecycle state
+machines, and the lazy-import facade.
 
 ## Build
 
 ```bash
-pip install build
 python -m build
 ```
 
 ## Release
 
+Releases are tag-driven. Bump the version in `pyproject.toml`,
+push a `vX.Y.Z` tag, and the release workflow builds the
+sdist/wheel, re-runs the test/lint/type gates, and publishes to
+PyPI via OIDC trusted publishing (no API token secret required).
+
 ```bash
-# Bump version in pyproject.toml, then:
-pytest && ruff check raghub/ && mypy raghub/
+# Local pre-release gates
+pytest -q --ignore=tests/test_financebench.py \
+    --cov=raghub --cov-report=term-missing --cov-fail-under=90
+ruff check raghub/ tests/ examples/ bench/
+mypy raghub/
+
+# Tag and push (publishing is automated).
 git tag vX.Y.Z && git push origin vX.Y.Z
-# .github/workflows/release.yml publishes to PyPI via trusted publishing
 ```
 
 ## Benchmarking
@@ -313,7 +381,10 @@ This project follows the [Contributor Covenant v2.1](CODE_OF_CONDUCT.md).
 
 ## Security
 
-Report vulnerabilities to **sachncs@gmail.com** — see [SECURITY.md](SECURITY.md).
+Vulnerability reporting, supported versions, and the disclosure
+timeline live in [SECURITY.md](SECURITY.md). The CI pipeline
+runs `bandit` over `raghub/` and `pip-audit --strict` against the
+declared dependency set on every push.
 
 ## License
 

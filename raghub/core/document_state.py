@@ -47,7 +47,7 @@ class DocumentState:
 
     status: DocumentLifecycleStatus
 
-    def transition(self, target: DocumentLifecycleStatus) -> "DocumentState":
+    def transition(self, target: DocumentLifecycleStatus) -> DocumentState:
         """Return a new :class:`DocumentState` with ``target`` as the status.
 
         This is a low-level constructor; **callers are responsible for
@@ -78,7 +78,10 @@ class DocumentStateMachine:
     """
 
     allowed: dict[DocumentLifecycleStatus, set[DocumentLifecycleStatus]] = {
-        DocumentLifecycleStatus.NEW: {DocumentLifecycleStatus.VALIDATING, DocumentLifecycleStatus.FAILED},
+        DocumentLifecycleStatus.NEW: {
+            DocumentLifecycleStatus.VALIDATING,
+            DocumentLifecycleStatus.FAILED,
+        },
         DocumentLifecycleStatus.VALIDATING: {
             DocumentLifecycleStatus.PROCESSING,
             DocumentLifecycleStatus.FAILED,
@@ -109,12 +112,17 @@ class DocumentStateMachine:
             DocumentLifecycleStatus.INDEXING,
             DocumentLifecycleStatus.FAILED,
         },
-        DocumentLifecycleStatus.DELETING: {DocumentLifecycleStatus.ARCHIVED, DocumentLifecycleStatus.FAILED},
+        DocumentLifecycleStatus.DELETING: {
+            DocumentLifecycleStatus.ARCHIVED,
+            DocumentLifecycleStatus.FAILED,
+        },
         DocumentLifecycleStatus.ARCHIVED: set(),
         DocumentLifecycleStatus.FAILED: set(),
     }
 
-    def can_transition(self, current: DocumentLifecycleStatus, target: DocumentLifecycleStatus) -> bool:
+    def can_transition(
+        self, current: DocumentLifecycleStatus, target: DocumentLifecycleStatus
+    ) -> bool:
         """Return whether a transition is valid.
 
         Args:
@@ -132,4 +140,3 @@ class DocumentStateMachine:
         # layers may hydrate legacy rows with statuses that have since been
         # removed from the enum.
         return target in self.allowed.get(current, set())
-

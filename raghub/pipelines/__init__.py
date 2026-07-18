@@ -13,4 +13,3 @@ Public re-exports:
 from raghub.pipelines.rag import IngestPipeline, QueryPipeline
 
 __all__ = ["IngestPipeline", "QueryPipeline"]
-

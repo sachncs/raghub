@@ -31,6 +31,7 @@ class TestJwtAuthenticator:
     async def test_authenticate_and_validate(self, tmp_db):
         from raghub.auth.user_store import SqliteUserStore
         from raghub.auth.service import JwtAuthenticator
+
         user_store = SqliteUserStore(tmp_db)
         await user_store.initialize()
         await user_store.create_user("alice@test.com", "secret123", companies=["acme"])
@@ -46,6 +47,7 @@ class TestJwtAuthenticator:
     async def test_wrong_password_raises(self, tmp_db):
         from raghub.auth.user_store import SqliteUserStore
         from raghub.auth.service import JwtAuthenticator
+
         user_store = SqliteUserStore(tmp_db)
         await user_store.initialize()
         await user_store.create_user("bob@test.com", "secret")
@@ -57,6 +59,7 @@ class TestJwtAuthenticator:
     async def test_invalid_token_raises(self, tmp_db):
         from raghub.auth.user_store import SqliteUserStore
         from raghub.auth.service import JwtAuthenticator
+
         user_store = SqliteUserStore(tmp_db)
         await user_store.initialize()
         auth = JwtAuthenticator("test-secret-must-be-32-bytes-or-longer-for-sha256", user_store)
@@ -69,6 +72,7 @@ class TestRBACAuthorizationService:
     async def test_check_access_allowed(self, tmp_db):
         from raghub.auth.user_store import SqliteUserStore
         from raghub.auth.service import RBACAuthorizationService
+
         user_store = SqliteUserStore(tmp_db)
         await user_store.initialize()
         rbac = RBACAuthorizationService(user_store)
@@ -80,6 +84,7 @@ class TestRBACAuthorizationService:
     async def test_require_admin(self, tmp_db):
         from raghub.auth.user_store import SqliteUserStore
         from raghub.auth.service import RBACAuthorizationService
+
         user_store = SqliteUserStore(tmp_db)
         await user_store.initialize()
         rbac = RBACAuthorizationService(user_store)
@@ -96,6 +101,7 @@ class TestJwtSessionManager:
         from raghub.auth.user_store import SqliteUserStore
         from raghub.auth.service import JwtAuthenticator, JwtSessionManager
         from raghub.storage.sqlite_session_store import SqliteSessionStore
+
         user_store = SqliteUserStore(tmp_db)
         await user_store.initialize()
         await user_store.create_user("alice@test.com", "secret", companies=["acme"])

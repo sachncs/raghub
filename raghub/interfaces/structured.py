@@ -6,8 +6,8 @@ via Instructor or similar libraries.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from typing import Protocol, Sequence, Type, TypeVar
+from collections.abc import AsyncIterator, Sequence
+from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
 
@@ -22,7 +22,7 @@ class StructuredOutputProvider(Protocol):
     async def generate(
         self,
         *,
-        response_model: Type[T],
+        response_model: type[T],
         question: str,
         context: Sequence[RetrievalHit],
     ) -> T:
@@ -40,7 +40,7 @@ class StructuredOutputProvider(Protocol):
     async def astream(
         self,
         *,
-        response_model: Type[T],
+        response_model: type[T],
         question: str,
         context: Sequence[RetrievalHit],
     ) -> AsyncIterator[T]:

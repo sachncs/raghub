@@ -51,9 +51,7 @@ def test_persistent_job_store_yields_all(tmp_path) -> None:
 
 def test_resumable_service_submits_job(tmp_path) -> None:
     """``submit`` returns a job id; the job runs to completion."""
-    service = ResumableBackgroundIngestionService(
-        db_path=tmp_path / "jobs.db", max_workers=1
-    )
+    service = ResumableBackgroundIngestionService(db_path=tmp_path / "jobs.db", max_workers=1)
     try:
 
         def fn() -> str:

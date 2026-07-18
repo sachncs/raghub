@@ -286,7 +286,9 @@ class TestConvertPath:
         bundle = convert_path(p)
         assert bundle.mime_type == "application/pdf"
 
-    def test_pdf_fallback_to_plaintext(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_pdf_fallback_to_plaintext(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from raghub.converters import directory as directory_module
         from raghub.exceptions import ConfigurationError
 

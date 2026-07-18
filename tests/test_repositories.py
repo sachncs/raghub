@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiosqlite
 import pytest
 
-from raghub.domain import ChunkRepository, SessionRepository, UnitOfWork as BaseUnitOfWork
+from raghub.domain import ChunkRepository, SessionRepository
+from raghub.domain import UnitOfWork as BaseUnitOfWork
 from raghub.models import ChunkRecord, SessionRecord
 from raghub.repositories.sqlite_chunk_repo import SqliteChunkRepository
 from raghub.repositories.sqlite_session_repo import SqliteSessionRepository
@@ -144,7 +145,9 @@ class TestSqliteSessionRepository:
     def tmp_db(self, tmp_path: Path) -> str:
         return str(tmp_path / "test_sessions.db")
 
-    async def test_initialize_with_db_manager(self, tmp_db: str, mock_db_manager: MagicMock) -> None:
+    async def test_initialize_with_db_manager(
+        self, tmp_db: str, mock_db_manager: MagicMock
+    ) -> None:
         mock_db_manager.connection.executescript = AsyncMock()
         repo = SqliteSessionRepository(tmp_db, db_manager=mock_db_manager)
         await repo.initialize()
@@ -163,9 +166,9 @@ class TestSqliteSessionRepository:
             session_id="sid-1",
             user_id="user1",
             token="tok-1",
-            created_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
-            expires_at=datetime(2026, 6, 1, 13, 0, 0, tzinfo=timezone.utc),
-            last_seen_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC),
+            expires_at=datetime(2026, 6, 1, 13, 0, 0, tzinfo=UTC),
+            last_seen_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC),
         )
         await repo.create(record)
         mock_conn.execute.assert_awaited_once()
@@ -183,9 +186,9 @@ class TestSqliteSessionRepository:
             session_id="sid-2",
             user_id="user2",
             token="tok-2",
-            created_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
-            expires_at=datetime(2026, 6, 1, 13, 0, 0, tzinfo=timezone.utc),
-            last_seen_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC),
+            expires_at=datetime(2026, 6, 1, 13, 0, 0, tzinfo=UTC),
+            last_seen_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC),
         )
         await repo.create(record)
         loaded = await repo.get("sid-2")
@@ -199,9 +202,9 @@ class TestSqliteSessionRepository:
                 session_id="sid-3",
                 user_id="user3",
                 token="tok-3",
-                created_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
-                expires_at=datetime(2026, 6, 1, 13, 0, 0, tzinfo=timezone.utc),
-                last_seen_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
+                created_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC),
+                expires_at=datetime(2026, 6, 1, 13, 0, 0, tzinfo=UTC),
+                last_seen_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC),
             )
             await repo.save(record)
             mock_update.assert_awaited_once_with(record)
@@ -263,9 +266,9 @@ class TestSqliteSessionRepository:
             session_id="rt-1",
             user_id="rt-user",
             token="rt-tok",
-            created_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
-            expires_at=datetime(2026, 6, 1, 14, 0, 0, tzinfo=timezone.utc),
-            last_seen_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC),
+            expires_at=datetime(2026, 6, 1, 14, 0, 0, tzinfo=UTC),
+            last_seen_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC),
         )
         await repo.create(record)
         loaded = await repo.get("rt-1")
@@ -281,7 +284,9 @@ class TestSqliteSessionRepository:
 
 
 class TestUnitOfWork:
-    async def test_initialization_sets_up_repos(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_initialization_sets_up_repos(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         assert uow.db_path == db_path
@@ -294,42 +299,54 @@ class TestUnitOfWork:
         assert uow.db_manager is not None
         assert isinstance(uow, BaseUnitOfWork)
 
-    async def test_initialize_connects_and_inits_all_repos(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_initialize_connects_and_inits_all_repos(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow2.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         await uow.initialize()
         assert uow.initialized is True
         assert uow.db_manager.conn is not None
 
-    async def test_initialize_is_idempotent(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_initialize_is_idempotent(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow3.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         await uow.initialize()
         await uow.initialize()
         assert uow.initialized is True
 
-    async def test_initialize_inits_document_repo(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_initialize_inits_document_repo(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow4.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         with patch.object(uow.document_repo, "initialize", new=AsyncMock()) as mock_doc_init:
             await uow.initialize()
             mock_doc_init.assert_awaited_once()
 
-    async def test_initialize_inits_chunk_repo(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_initialize_inits_chunk_repo(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow5.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         with patch.object(uow.chunk_repo, "initialize", new=AsyncMock()) as mock_chunk_init:
             await uow.initialize()
             mock_chunk_init.assert_awaited_once()
 
-    async def test_initialize_inits_session_repo(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_initialize_inits_session_repo(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow6.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         with patch.object(uow.session_repo, "initialize", new=AsyncMock()) as mock_sess_init:
             await uow.initialize()
             mock_sess_init.assert_awaited_once()
 
-    async def test_commit_when_in_transaction(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_commit_when_in_transaction(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow7.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         await uow.initialize()
@@ -339,7 +356,9 @@ class TestUnitOfWork:
             mock_commit.assert_awaited_once()
             assert uow.in_transaction is False
 
-    async def test_commit_when_not_in_transaction(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_commit_when_not_in_transaction(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow8.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         await uow.initialize()
@@ -348,7 +367,9 @@ class TestUnitOfWork:
             await uow.commit()
             mock_commit.assert_not_awaited()
 
-    async def test_rollback_when_in_transaction(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_rollback_when_in_transaction(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow9.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         await uow.initialize()
@@ -358,7 +379,9 @@ class TestUnitOfWork:
             mock_rollback.assert_awaited_once()
             assert uow.in_transaction is False
 
-    async def test_rollback_when_not_in_transaction(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_rollback_when_not_in_transaction(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow10.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         await uow.initialize()
@@ -367,7 +390,9 @@ class TestUnitOfWork:
             await uow.rollback()
             mock_rollback.assert_not_awaited()
 
-    async def test_async_context_manager_begins_and_commits(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_async_context_manager_begins_and_commits(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow11.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         await uow.initialize()
@@ -375,12 +400,16 @@ class TestUnitOfWork:
             assert uow.in_transaction is True
         assert uow.in_transaction is False
 
-    async def test_async_context_manager_rollback_on_error(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_async_context_manager_rollback_on_error(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow12.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         await uow.initialize()
-        with patch.object(uow, "rollback", new=AsyncMock()) as mock_rollback, \
-             patch.object(uow, "commit", new=AsyncMock()) as mock_commit:
+        with (
+            patch.object(uow, "rollback", new=AsyncMock()) as mock_rollback,
+            patch.object(uow, "commit", new=AsyncMock()) as mock_commit,
+        ):
             try:
                 async with uow:
                     raise ValueError("test error")
@@ -389,14 +418,18 @@ class TestUnitOfWork:
             mock_rollback.assert_awaited_once()
             mock_commit.assert_not_awaited()
 
-    async def test_db_manager_is_passed_to_repos(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_db_manager_is_passed_to_repos(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow13.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         assert uow.document_repo.db_manager is uow.db_manager
         assert uow.session_repo.db_manager is uow.db_manager
         # chunk repo doesn't take a db_manager
 
-    async def test_db_manager_connect_called_on_initialize(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_db_manager_connect_called_on_initialize(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow14.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         mock_conn = AsyncMock(spec=aiosqlite.Connection)
@@ -413,14 +446,35 @@ class TestUnitOfWork:
         finally:
             DatabaseManager.connection = original_connection
 
-    async def test_health_via_chunk_repo(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_health_via_chunk_repo(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow15.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         result = await uow.chunk_repo.health()
         assert result == {"status": "ok"}
 
-    async def test_vector_store_creates_collection(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+    async def test_vector_store_creates_collection(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
         db_path = str(tmp_path / "test_uow16.db")
         uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
         await uow.chunk_repo.initialize()
         mock_vector_store.create_collection.assert_called_once_with()
+
+    async def test_close_releases_db_manager(
+        self, tmp_path: Path, mock_vector_store: MagicMock
+    ) -> None:
+        db_path = str(tmp_path / "test_uow_close.db")
+        uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
+        await uow.initialize()
+        with patch.object(uow.db_manager, "close", new=AsyncMock()) as mock_close:
+            await uow.close()
+            mock_close.assert_awaited_once()
+
+    async def test_close_is_idempotent(self, tmp_path: Path, mock_vector_store: MagicMock) -> None:
+        db_path = str(tmp_path / "test_uow_close_idem.db")
+        uow = UnitOfWork(db_path, mock_vector_store, session_timeout=3600)
+        await uow.initialize()
+        await uow.close()
+        await uow.close()

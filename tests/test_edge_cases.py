@@ -138,9 +138,7 @@ class TestUnicodeFilenamesAndContent:
     def test_unicode_content_decoded(self) -> None:
         """Non-ASCII content must survive a round-trip through extract_text."""
         text = "Hëllö Wörld ⛳ 你好"
-        result = extract_text_from_content(
-            text.encode("utf-8"), "unicode.txt", "text/plain"
-        )
+        result = extract_text_from_content(text.encode("utf-8"), "unicode.txt", "text/plain")
         assert len(result) == 1
         assert result[0][2] == text
 
@@ -482,9 +480,7 @@ class TestTokenCountEdgeCases:
             reserved_output_tokens=20,
         )
         builder = PromptBuilder(config=config)
-        history = [
-            ConversationTurn(question="previous q?", answer="previous a!")
-        ]
+        history = [ConversationTurn(question="previous q?", answer="previous a!")]
         context = [{"text": "big chunk " * 20}] * 5
         result = builder.build_messages(
             question="final q?",

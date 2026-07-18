@@ -1,19 +1,183 @@
+name: raghub
+
+# Production-shaped compose file.
+#
+# This file is the canonical deployment target for the API and UI
+# services. It assumes:
+#   * A working `.env` next to this file (sourced by every service
+#     via `env_file`; the file is *required* so the stack fails
+#     closed if it is missing).
+#   * The `production` profile is the default; `docker compose up`
+#     starts the qdrant vector store, the API, and the UI with
+#     hardened security settings.
+#
+# For local development, use `docker compose -f docker-compose.yml
+# -f docker-compose.dev.yml up` (see `Makefile` target `compose-dev`).
+
+x-raghub-common: &raghub-common
+  restart: unless-stopped
+  read_only: true
+  init: true
+  security_opt:
+    - "no-new-privileges:true"
+  cap_drop:
+    - ALL
+  cap_add:
+    - CHOWN
+    - SETUID
+    - SETGID
+  tmpfs:
+    - /tmp:size=128m,mode=1777
+    - /run:size=16m,mode=755
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+      labels: "service,profile"
+  pids_limit: 256
+  cgroup_parent: ""
+
 services:
-  api:
-    build: .
-    command: uvicorn raghub.api.app:app --host 0.0.0.0 --port 8000
-    ports:
-      - "8000:8000"
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: raghub-qdrant
+    profiles: ["production", "staging", "dev"]
+    restart: unless-stopped
+    init: true
+    read_only: false  # qdrant writes to its storage volume
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+      - NET_BIND_SERVICE
     volumes:
-      - ./data:/app/data
-      - ./config:/app/config
+      - qdrant_data:/qdrant/storage
+      - qdrant_snapshots:/qdrant/snapshots
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:6333/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    stop_grace_period: 30s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: api
+    image: raghub/api:local
+    container_name: raghub-api
+    profiles: ["production", "staging", "dev"]
+    <<: *raghub-common
+    env_file:
+      - path: ./.env
+        required: true
+    environment:
+      RAG_PROFILE: ${RAG_PROFILE:-production}
+      RAG_DATA_DIR: /app/data
+      RAG_REGISTRY_PATH: /app/data/registry.db
+      RAG_SESSIONS_PATH: /app/data/sessions.db
+      RAG_LOG_LEVEL: ${RAG_LOG_LEVEL:-INFO}
+      RAG_ALLOW_PASSWORDLESS: "false"
+      QDRANT_URL: http://qdrant:6333
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - raghub_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    stop_grace_period: 30s
 
   ui:
-    build: .
-    command: streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port 8501
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: ui
+    image: raghub/ui:local
+    container_name: raghub-ui
+    profiles: ["production", "staging", "dev"]
+    <<: *raghub-common
+    env_file:
+      - path: ./.env
+        required: true
+    environment:
+      RAG_PROFILE: ${RAG_PROFILE:-production}
+      RAG_DATA_DIR: /app/data
+      RAG_LOG_LEVEL: ${RAG_LOG_LEVEL:-INFO}
+      RAGHUB_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
     volumes:
-      - ./data:/app/data
-      - ./config:/app/config
+      - raghub_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8501/_stcore/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    stop_grace_period: 30s
 
+volumes:
+  qdrant_data:
+    name: raghub_qdrant_data
+  qdrant_snapshots:
+    name: raghub_qdrant_snapshots
+  raghub_data:
+    name: raghub_data
+
+networks:
+  default:
+    name: raghub_net
+    driver: bridge

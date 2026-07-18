@@ -13,7 +13,7 @@ migration compatibility and for tiny single-process installs.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import RLock
 from uuid import uuid4
@@ -54,7 +54,12 @@ class JsonSessionStore:
         """Atomically persist the in-memory sessions map to disk."""
         atomic_write_json(
             self.path,
-            {"sessions": {token: session.model_dump(mode="json") for token, session in self.sessions.items()}},
+            {
+                "sessions": {
+                    token: session.model_dump(mode="json")
+                    for token, session in self.sessions.items()
+                }
+            },
         )
 
     def create(self, user_id: str) -> SessionRecord:
@@ -66,7 +71,7 @@ class JsonSessionStore:
         Returns:
             The newly created :class:`SessionRecord`.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         session = SessionRecord(
             session_id=str(uuid4()),
             user_id=user_id,
@@ -95,7 +100,7 @@ class JsonSessionStore:
             session = self.sessions.get(token)
             if session is None:
                 return None
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             if now > session.expires_at:
                 # Lazy expiry: we delete the row here so the next call
                 # doesn't pay the same comparison cost.

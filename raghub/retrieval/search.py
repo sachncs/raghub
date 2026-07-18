@@ -21,6 +21,7 @@ class SearchFilters:
         date_to: Upper bound for document date (inclusive).
         file_types: Allowed file extensions (e.g. ``["pdf"]``).
     """
+
     companies: list[str] = field(default_factory=list)
     departments: list[str] = field(default_factory=list)
     classifications: list[Classification] = field(default_factory=list)

@@ -40,9 +40,7 @@ class HtmlParser(FileParser):
                 source_location="full file",
                 text=text,
                 metadata={
-                    "headings": [
-                        h.get_text(strip=True) for h in soup.find_all(["h1", "h2", "h3"])
-                    ],
+                    "headings": [h.get_text(strip=True) for h in soup.find_all(["h1", "h2", "h3"])],
                 },
             )
         ]

@@ -62,12 +62,8 @@ class TestBuildApplication:
                 uow=object(),
             )
 
-        monkeypatch.setattr(
-            "raghub.services.application.build_container", mock_build_container
-        )
-        monkeypatch.setattr(
-            "raghub.core.container.load_settings", lambda *a, **kw: settings
-        )
+        monkeypatch.setattr("raghub.services.application.build_container", mock_build_container)
+        monkeypatch.setattr("raghub.core.container.load_settings", lambda *a, **kw: settings)
 
         await build_application()
         assert builder_called

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
@@ -48,3 +49,24 @@ class BaseLLMProvider(ABC):
         Returns:
             The provider-generated answer as a plain string.
         """
+
+    async def async_generate(
+        self,
+        *,
+        system_prompt: str,
+        conversation: Sequence[ConversationTurn] = (),
+        context: Sequence[str] = (),
+        question: str,
+        image_paths: list[str] | None = None,
+        session_history: list[dict] | None = None,
+    ) -> str:
+        """Generate without blocking the event loop."""
+        return await asyncio.to_thread(
+            self.generate,
+            system_prompt=system_prompt,
+            conversation=conversation,
+            context=context,
+            question=question,
+            image_paths=image_paths,
+            session_history=session_history,
+        )

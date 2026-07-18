@@ -96,7 +96,9 @@ class RetrievalPipeline:
         """
         metadata_filter = allowed_company_filter(user)
         vector = self.embedding_provider.embed_text(question)
-        raw_hits = self.vector_store.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
+        raw_hits = self.vector_store.search(
+            vector=vector, top_k=top_k, metadata_filter=metadata_filter
+        )
         hits: list[RetrievalHit] = []
         seen: set[str] = set()
         for raw in raw_hits:
@@ -106,7 +108,9 @@ class RetrievalPipeline:
             if chunk.chunk_id in seen:
                 continue
             seen.add(chunk.chunk_id)
-            hits.append(RetrievalHit(chunk_id=chunk.chunk_id, score=float(raw["score"]), chunk=chunk))
+            hits.append(
+                RetrievalHit(chunk_id=chunk.chunk_id, score=float(raw["score"]), chunk=chunk)
+            )
         return self.reranker.rerank(question=question, hits=hits)
 
     def retrieve_keyword(self, query: str, top_k: int = 5) -> list[RetrievalHit]:
@@ -184,7 +188,9 @@ class RetrievalPipeline:
         # normalisation. ``1.0`` is the safe default when the channel is
         # empty (so the divisor never becomes zero).
         kw_max = max(keyword_by_id.values()) if keyword_by_id else 1.0
-        vec_max = max(vector_by_id.values()) if vector_by_id and max(vector_by_id.values()) > 0 else 1.0
+        vec_max = (
+            max(vector_by_id.values()) if vector_by_id and max(vector_by_id.values()) > 0 else 1.0
+        )
         # Build an id -> ChunkRecord map so we can attach content to the
         # fused hits. Vector results take precedence on key collision
         # because they typically carry richer metadata.
@@ -204,7 +210,9 @@ class RetrievalPipeline:
         fused.sort(key=lambda h: h.score, reverse=True)
         return fused
 
-    def hybrid_search(self, *, user: UserPrincipal, question: str, top_k: int) -> list[RetrievalHit]:
+    def hybrid_search(
+        self, *, user: UserPrincipal, question: str, top_k: int
+    ) -> list[RetrievalHit]:
         """Authoritative entry point: vector search + keyword fusion.
 
         Convenience wrapper that calls :meth:`retrieve` to get RBAC-filtered

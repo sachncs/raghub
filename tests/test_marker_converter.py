@@ -47,4 +47,6 @@ def test_marker_converter_delegates_non_pdf_to_plaintext() -> None:
     assert isinstance(bundle, KnowledgeBundle)
     assert bundle.mime_type == "text/plain"
     # The bundle's content is round-tripped through the plain-text path.
-    assert any("hello" in (block.content or "") for section in bundle.sections for block in section.blocks)
+    assert any(
+        "hello" in (block.content or "") for section in bundle.sections for block in section.blocks
+    )

@@ -13,6 +13,7 @@ from raghub.plugins.registry import PluginRegistry
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _reg() -> PluginRegistry:
     return PluginRegistry()
 
@@ -20,6 +21,7 @@ def _reg() -> PluginRegistry:
 # ---------------------------------------------------------------------------
 # register_* / get_* round-trips
 # ---------------------------------------------------------------------------
+
 
 def test_register_and_get_converter() -> None:
     r = _reg()
@@ -98,6 +100,7 @@ def test_register_and_get_factory() -> None:
 # get_* raises KeyError for unknown names
 # ---------------------------------------------------------------------------
 
+
 class TestGetRaisesKeyError:
     def test_converter(self) -> None:
         with pytest.raises(KeyError):
@@ -140,6 +143,7 @@ class TestGetRaisesKeyError:
 # discover_entrypoints
 # ---------------------------------------------------------------------------
 
+
 def _make_entry(name: str, load_return: object = None, *, load_side_effect=None):
     """Build a minimal EntryPoint-like object."""
     ep = MagicMock()
@@ -151,7 +155,6 @@ def _make_entry(name: str, load_return: object = None, *, load_side_effect=None)
 
 
 class TestDiscoverEntrypoints:
-
     def test_successful_discovery(self) -> None:
         """Plugin with a register() method counts as loaded."""
         plugin = MagicMock()
@@ -223,6 +226,7 @@ class TestDiscoverEntrypoints:
 # Factories dict access
 # ---------------------------------------------------------------------------
 
+
 def test_factories_dict_direct_access() -> None:
     r = _reg()
     fn = lambda s: s.upper()  # noqa: E731
@@ -238,6 +242,7 @@ def test_factories_key_error() -> None:
 # ---------------------------------------------------------------------------
 # Multiple registrations (overwrite)
 # ---------------------------------------------------------------------------
+
 
 def test_register_overwrites() -> None:
     r = _reg()

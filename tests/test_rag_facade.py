@@ -58,6 +58,31 @@ def test_rag_ingest_rejects_empty_bytes() -> None:
         asyncio.run(rag.aingest(b"", source_uri="mem://empty"))
 
 
+def test_rag_ingestion_failure_raises_typed_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import asyncio
+
+    from raghub.exceptions import IngestionError
+    from raghub.models import PipelineResult
+
+    rag = RAG()
+
+    async def fail_run(*args: object, **kwargs: object) -> PipelineResult:
+        return PipelineResult(
+            pipeline_id="i",
+            pipeline_name="ingest",
+            success=False,
+            error="vector store unavailable",
+        )
+
+    monkeypatch.setattr(rag.ingest_pipeline, "run", fail_run)
+    with pytest.raises(IngestionError, match="vector store unavailable"):
+        rag.ingest(b"data", source_uri="mem://failed")
+    with pytest.raises(IngestionError, match="vector store unavailable"):
+        asyncio.run(rag.aingest(b"data", source_uri="mem://failed"))
+
+
 def test_rag_evaluate_calls_evaluator() -> None:
     """The evaluate() helper returns a list of EvaluationResult."""
     rag = RAG()
@@ -187,7 +212,9 @@ def test_rag_aquery_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     rag = RAG()
 
     async def _mock_run(*args: object, **kwargs: object) -> PipelineResult:
-        return PipelineResult(pipeline_id="q", pipeline_name="query", success=False, error="LLM timeout")
+        return PipelineResult(
+            pipeline_id="q", pipeline_name="query", success=False, error="LLM timeout"
+        )
 
     monkeypatch.setattr(rag.query_pipeline, "run", _mock_run)
 
@@ -241,6 +268,71 @@ def test_rag_sync_index_not_directory(tmp_path: Path) -> None:
         rag.sync_index(f)
 
 
+def test_sync_index_does_not_record_failed_ingest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from raghub.exceptions import IngestionError
+    from raghub.knowledge.manifest import SourceManifest
+    from raghub.models import PipelineResult
+
+    directory = tmp_path / "documents"
+    directory.mkdir()
+    document = directory / "failed.txt"
+    document.write_text("data", encoding="utf-8")
+    manifest = SourceManifest(tmp_path / "state" / "manifest.json")
+    rag = RAG(manifest=manifest)
+    monkeypatch.setattr(
+        rag,
+        "ingest",
+        lambda *args, **kwargs: PipelineResult(
+            pipeline_id="i",
+            pipeline_name="ingest",
+            success=False,
+            error="failed",
+        ),
+    )
+
+    with pytest.raises(IngestionError, match="failed"):
+        rag.sync_index(directory)
+
+    assert str(document.resolve()) not in manifest
+    assert not manifest.path.exists()
+
+
+def test_sync_index_replaces_modified_vectors(tmp_path: Path) -> None:
+    from raghub.converters.plaintext import PlainTextConverter
+    from raghub.ingestion.chunkers.word_window import WordWindowChunker
+    from raghub.knowledge.manifest import SourceManifest
+    from raghub.vectorstore.memory import InMemoryVectorStore
+
+    directory = tmp_path / "documents"
+    directory.mkdir()
+    document = directory / "document.txt"
+    document.write_text("old content", encoding="utf-8")
+    manifest = SourceManifest(tmp_path / "state" / "manifest.json")
+    vector_store = InMemoryVectorStore()
+    rag = RAG(
+        converter=PlainTextConverter(),
+        chunker=WordWindowChunker(chunk_size=10, chunk_overlap=0),
+        vector_store=vector_store,
+        manifest=manifest,
+    )
+
+    rag.sync_index(directory)
+    uri = str(document.resolve())
+    old_bundle_id = manifest[uri]["bundle_id"]
+    document.write_text("new content", encoding="utf-8")
+
+    summary = rag.sync_index(directory)
+
+    new_bundle_id = manifest[uri]["bundle_id"]
+    document_ids = {record.chunk.document_id for record in vector_store.records.values()}
+    assert summary["modified"] == [uri]
+    assert new_bundle_id != old_bundle_id
+    assert old_bundle_id not in document_ids
+    assert new_bundle_id in document_ids
+
+
 def test_rag_sync_index_skips_non_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """sync_index() skips subdirectories in the rglob loop."""
     rag = RAG()
@@ -270,33 +362,35 @@ def test_rag_sync_index_skips_non_files(tmp_path: Path, monkeypatch: pytest.Monk
     assert "added" in summary
 
 
-def test_rag_sync_index_skips_external_uris(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rag_sync_index_skips_external_uris(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """sync_index() skips manifest URIs outside the target directory."""
     rag = RAG()
     (tmp_path / "doc.txt").write_text("data")
 
     class _MockManifest:
-            def __contains__(self, uri: object) -> bool:
-                return True
+        def __contains__(self, uri: object) -> bool:
+            return True
 
-            @staticmethod
-            def sources() -> list[str]:
-                return ["/outside/doc.txt", "/other/path.pdf"]
+        @staticmethod
+        def sources() -> list[str]:
+            return ["/outside/doc.txt", "/other/path.pdf"]
 
-            @staticmethod
-            def save() -> None:
-                return None
+        @staticmethod
+        def save() -> None:
+            return None
 
-            @staticmethod
-            def remove(uri: str) -> None:
-                return None
+        @staticmethod
+        def remove(uri: str) -> None:
+            return None
 
-            @staticmethod
-            def record(uri: str, bundle_id: str, checksum: str) -> None:
-                return None
+        @staticmethod
+        def record(uri: str, bundle_id: str, checksum: str) -> None:
+            return None
 
-            def __getitem__(self, uri: str) -> dict:
-                return {"bundle_id": "old", "checksum": "old"}
+        def __getitem__(self, uri: str) -> dict:
+            return {"bundle_id": "old", "checksum": "old"}
 
     rag.manifest = _MockManifest()
     monkeypatch.setattr(rag, "ingest", lambda *a, **kw: None)
@@ -308,6 +402,7 @@ def test_rag_sync_index_skips_external_uris(tmp_path: Path, monkeypatch: pytest.
 
 def test_rag_ingest_async_with_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
     """ingest_async() works with raw bytes and creates background service on demand."""
+
     class _MockBgService:
         def __init__(self, **kwargs: object) -> None:
             pass

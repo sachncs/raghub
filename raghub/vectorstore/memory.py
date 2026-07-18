@@ -17,10 +17,9 @@ Concurrency:
 
 Security:
     The metadata filter parser understands only the ``company IN (...)``
-    and ``document_id = '...'`` shapes emitted by
-    :func:`raghub.core.rbac.allowed_company_filter` and the application
-    code. Unknown filter fragments are silently ignored (treated as no
-    constraint) rather than raising — see :meth:`matches_filter`.
+    and ``document_id = '...'`` shapes emitted by legacy callers. Unknown
+    string filters fail closed. Canonical dict filters match
+    :class:`ChunkRecord` fields directly.
 """
 
 from __future__ import annotations
@@ -37,7 +36,7 @@ from raghub.models import ChunkRecord
 from raghub.vectorstore.base import BaseVectorStore
 
 
-def matches_metadata_dict(record: "MemoryVectorRecord", filters: dict[str, Any]) -> bool:
+def matches_metadata_dict(record: MemoryVectorRecord, filters: dict[str, Any]) -> bool:
     """Return whether ``record`` matches every key/value in ``filters``."""
     for key, expected in filters.items():
         if not hasattr(record.chunk, key):
@@ -124,7 +123,11 @@ class InMemoryVectorStore(BaseVectorStore):
             document_id: The parent document whose chunks should be purged.
         """
         with self.lock:
-            chunk_ids = [chunk_id for chunk_id, record in self.records.items() if record.chunk.document_id == document_id]
+            chunk_ids = [
+                chunk_id
+                for chunk_id, record in self.records.items()
+                if record.chunk.document_id == document_id
+            ]
             for chunk_id in chunk_ids:
                 self.records.pop(chunk_id, None)
 
@@ -152,32 +155,29 @@ class InMemoryVectorStore(BaseVectorStore):
         * ``company IN ('a', 'b')`` — checks ``record.chunk.company``.
         * ``document_id = 'abc'`` — checks ``record.chunk.document_id``.
 
-        Anything else is treated as **no constraint** (returns ``True``).
-        This permissive behaviour makes the store forgiving of feature
-        gaps during development; tighten it once the broader filter DSL is
-        wired through.
+        Anything else fails closed.
 
         Args:
             record: The candidate record.
             metadata_filter: A filter expression or empty string.
 
         Returns:
-            ``True`` if the record passes the filter (or there is none).
+            ``True`` if the record passes the filter.
         """
         if not metadata_filter:
             return True
-        # ``company IN (...)``: extract the comma-separated list, strip
-        # whitespace and either kind of quote, and test membership.
-        company_match = re.search(r"company\s+IN\s+\((.+)\)", metadata_filter, flags=re.IGNORECASE)
+        company_match = re.fullmatch(
+            r"\s*company\s+IN\s+\((.+)\)\s*", metadata_filter, flags=re.IGNORECASE
+        )
         if company_match:
             allowed = [item.strip().strip("'\"") for item in company_match.group(1).split(",")]
             return record.chunk.company in allowed
-        # ``document_id = '...'``: simple equality on the literal.
-        document_match = re.search(r"document_id\s*=\s*'([^']+)'", metadata_filter, flags=re.IGNORECASE)
+        document_match = re.fullmatch(
+            r"\s*document_id\s*=\s*'([^']+)'\s*", metadata_filter, flags=re.IGNORECASE
+        )
         if document_match:
             return record.chunk.document_id == document_match.group(1)
-        # Unknown filter fragment — fail open. See class docstring note.
-        return True
+        return False
 
     def compute_score(self, left: Sequence[float], right: Sequence[float]) -> float:
         """Compute cosine similarity in ``[0, 1]`` (clamped to zero for orthogonal vectors).
@@ -200,7 +200,9 @@ class InMemoryVectorStore(BaseVectorStore):
             return 0.0
         return float(np.dot(lhs, rhs) / denom)
 
-    def search(self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = "") -> list[dict[str, Any]]:
+    def search(
+        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
+    ) -> list[dict[str, Any]]:
         """Cosine-similarity search with metadata pre-filtering.
 
         Args:
@@ -305,10 +307,7 @@ class InMemoryVectorStore(BaseVectorStore):
             if score > 0:
                 scored.append((rec.chunk.chunk_id, score, rec.chunk))
         scored.sort(key=lambda x: x[1], reverse=True)
-        return [
-            {"chunk_id": cid, "score": s, "chunk": c}
-            for cid, s, c in scored[:top_k]
-        ]
+        return [{"chunk_id": cid, "score": s, "chunk": c} for cid, s, c in scored[:top_k]]
 
     def optimize(self) -> None:
         """No-op: the in-memory backend has no on-disk structures to optimise."""
