@@ -214,7 +214,11 @@ def main() -> int:
     parser.add_argument("--words-per-document", type=int, default=500)
     parser.add_argument("--queries", type=int, default=50)
     parser.add_argument("--concurrency", type=int, default=4)
-    parser.add_argument("--realistic", action="store_true", help="Use FinanceBench questions for realistic benchmarking")
+    parser.add_argument(
+        "--realistic",
+        action="store_true",
+        help="Use FinanceBench questions for realistic benchmarking",
+    )
     parser.add_argument("--output", type=str, default="bench/report.json")
     args = parser.parse_args()
 

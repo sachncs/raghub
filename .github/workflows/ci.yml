@@ -32,6 +32,8 @@ jobs:
         run: pip install -e ".[api,ui,dev]"
       - name: Install locked production dependencies
         run: pip install -r requirements-lock.txt
+      - name: Install lock-build tooling
+        run: pip install 'pip-tools>=7.4,<8'
       - name: Validate lock file
         run: |
           python scripts/build_requirements_lock.py
@@ -113,4 +115,6 @@ jobs:
           sleep 8
           curl -fsS http://127.0.0.1:8000/v1/health || (docker logs raghub-ci; exit 1)
           curl -fsS http://127.0.0.1:8000/metrics | head -3 || (docker logs raghub-ci; exit 1)
-          docker stop raghub-ci
+      - name: Stop api container
+        if: always()
+        run: docker stop raghub-ci 2>/dev/null || true

@@ -76,6 +76,7 @@ dev = [
     "build>=1.0,<2",
     "bandit>=1.7,<2",
     "pip-audit>=2.7,<3",
+    "pip-tools>=7.4,<8",
 ]
 
 [project.scripts]
