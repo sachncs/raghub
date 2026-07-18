@@ -7,17 +7,9 @@ made beyond the one-time model download performed by ``SentenceTransformer``.
 
 from __future__ import annotations
 
+from sentence_transformers import SentenceTransformer
+
 from raghub.embeddings.base import BaseEmbeddingProvider
-
-SentenceTransformerClass: type | None
-
-try:
-    from sentence_transformers import SentenceTransformer as SentenceTransformerClass
-
-    ST_AVAILABLE = True
-except Exception:  # pragma: no cover - optional dep
-    SentenceTransformerClass = None
-    ST_AVAILABLE = False
 
 
 class SentenceTransformerEmbeddingProvider(BaseEmbeddingProvider):
@@ -30,14 +22,8 @@ class SentenceTransformerEmbeddingProvider(BaseEmbeddingProvider):
             model_name: HuggingFace model id. The default
                 ``all-MiniLM-L6-v2`` produces 384-dim embeddings.
         """
-        if SentenceTransformerClass is None:
-            from raghub.exceptions import ConfigurationError
-
-            raise ConfigurationError(
-                "sentence-transformers is not installed; run `pip install sentence-transformers`."
-            )
         self.model_name = model_name
-        self.model = SentenceTransformerClass(model_name)
+        self.model = SentenceTransformer(model_name)
 
     def embed_text(self, text: str) -> list[float]:
         """Embed a single text via SentenceTransformer's batched API.
