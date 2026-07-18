@@ -11,6 +11,54 @@ from raghub.vectorstore.base import BaseVectorStore
 from raghub.vectorstore.memory import InMemoryVectorStore
 
 
+def native_filter(metadata_filter: str | dict) -> str | None:
+    """Translate a canonical dict filter into a Zvec SQL fragment.
+
+    Returns ``"false"`` for filters that must match nothing (empty
+    list), ``None`` for empty filters (no constraint), and a SQL
+    fragment for recognised shapes. ``str`` filters are passed
+    through verbatim when supported.
+
+    Args:
+        metadata_filter: Canonical dict, legacy string, or ``None``.
+
+    Returns:
+        The Zvec SQL fragment, ``None`` for no constraint, or
+        ``"false"`` for empty RBAC scopes.
+
+    Raises:
+        ValueError: When ``metadata_filter`` contains an unsupported
+            field or value type.
+    """
+    if metadata_filter in ("", None):
+        return None
+    if isinstance(metadata_filter, dict):
+        if not metadata_filter:
+            return None
+        if set(metadata_filter.keys()) - {"company", "document_id"}:
+            raise ValueError(
+                f"Unsupported Zvec metadata filter fields: {sorted(metadata_filter.keys())}"
+            )
+        clauses: list[str] = []
+        for key, value in metadata_filter.items():
+            if isinstance(value, list):
+                if not value:
+                    return "false"
+                literals = ", ".join(
+                    f"'{str(item).replace(chr(39), chr(39) * 2)}'" for item in value
+                )
+                clauses.append(f"{key} IN ({literals})")
+            elif isinstance(value, str):
+                escaped = value.replace("'", "''")
+                clauses.append(f"{key} = '{escaped}'")
+            else:
+                raise ValueError(f"Unsupported Zvec metadata filter value for {key}")
+        return " AND ".join(clauses)
+    if isinstance(metadata_filter, str):
+        return metadata_filter
+    raise ValueError(f"Unsupported Zvec metadata filter type: {type(metadata_filter).__name__}")
+
+
 class RealZvecBackend(BaseVectorStore):
     """Adapter around the Alibaba Zvec Python API."""
 
@@ -124,7 +172,15 @@ class RealZvecBackend(BaseVectorStore):
 
     @staticmethod
     def _native_filter(metadata_filter: str | dict) -> str | None:
-        """Translate a canonical dict filter into a Zvec SQL fragment."""
+        """Translate a canonical dict filter into a Zvec SQL fragment.
+
+        Args:
+            metadata_filter: Canonical dict, legacy string, or ``None``.
+
+        Returns:
+            The Zvec SQL fragment, ``None`` for no constraint, or
+            ``"false"`` for empty RBAC scopes.
+        """
         return native_filter(metadata_filter)
 
     def hybrid_search(
