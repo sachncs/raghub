@@ -1,0 +1,112 @@
+name: raghub
+
+# Explicit development override.
+#
+# This file is NOT auto-loaded by Compose (it would have to be named
+# `docker-compose.override.yml` for that). It must be merged on the
+# command line so production stays the default target:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# The Makefile wraps that as `make compose-dev`. This file is the
+# only place that enables source mounts, `--reload`, and relaxed
+# security settings; the base `docker-compose.yml` is the
+# production-shaped contract.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: api
+    command: ["uvicorn", "raghub.api.app:get_app", "--factory",
+              "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    env_file:
+      - path: ./.env
+        required: false
+    environment:
+      RAG_PROFILE: development
+      RAG_DATA_DIR: /app/data
+      RAG_REGISTRY_PATH: /app/data/registry.db
+      RAG_SESSIONS_PATH: /app/data/sessions.db
+      RAG_LOG_LEVEL: ${RAG_LOG_LEVEL:-DEBUG}
+      RAG_ALLOW_PASSWORDLESS: "true"
+      QDRANT_URL: http://qdrant:6333
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    read_only: false  # dev needs write access for /app/raghub (volume mount) and pyc
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+    volumes:
+      - raghub_data:/app/data
+      - ./raghub:/app/raghub
+      - ./config:/app/config
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: ui
+    command: ["streamlit", "run", "streamlit_app.py",
+              "--server.address", "0.0.0.0",
+              "--server.port", "8501",
+              "--server.runOnSave", "true",
+              "--server.headless", "true"]
+    env_file:
+      - path: ./.env
+        required: false
+    environment:
+      RAG_PROFILE: development
+      RAG_DATA_DIR: /app/data
+      RAG_LOG_LEVEL: ${RAG_LOG_LEVEL:-DEBUG}
+      RAGHUB_API_URL: http://api:8000
+    read_only: false
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+    volumes:
+      - raghub_data:/app/data
+      - ./raghub:/app/raghub
+      - ./config:/app/config
+      - ./streamlit_app.py:/app/streamlit_app.py
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8501/_stcore/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  qdrant:
+    read_only: false  # dev needs write access for the storage volume
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
