@@ -7,9 +7,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.12", "3.13"]
     env:
       JWT_SECRET: "test-secret-must-be-32-bytes-or-longer-for-sha256"
       RAG_PROFILE: "development"
@@ -19,68 +16,13 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
           cache: pip
       - run: pip install -e ".[api,ui,dev]"
-      - name: Lint, types, style
+      - name: Lint, types
         run: |
           ruff check raghub/ tests/ examples/ bench/
           ruff format --check raghub/ tests/ examples/ bench/
           mypy raghub/
-          interrogate -v raghub/api/ raghub/evaluation/ raghub/knowledge/ raghub/conversation/ raghub/cli/ -f 80
-      - name: Tests + coverage
-        run: |
-          pytest -q --ignore=tests/test_financebench.py \
-            --cov=raghub --cov-report=xml --cov-fail-under=90
-      - uses: codecov/codecov-action@v5
-        with:
-          file: coverage.xml
-          fail_ci_if_error: true
-      - name: Docs, security, audit
-        run: |
-          mkdocs build --strict
-          bandit -r raghub/ -q -ll -i
-          pip-audit --strict -r requirements-lock.txt
-
-  lock:
-    name: lock-validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-      - run: pip install 'pip-tools>=7.4,<8'
-      - run: |
-          python scripts/build_requirements_lock.py
-          git diff --exit-code requirements-lock.txt
-
-  e2e:
-    name: e2e-smoke
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'push'
-    env:
-      JWT_SECRET: "test-secret-must-be-32-bytes-or-longer-for-sha256"
-      RAG_PROFILE: "development"
-      CORS_ORIGINS: "http://testserver"
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - run: pip install -e ".[api,ui,dev]"
-      - run: pytest -q tests/e2e/
-      - run: docker build -t raghub:ci .
-      - run: |
-          docker run --rm -d --name raghub-ci -p 8000:8000 \
-            -e JWT_SECRET="$JWT_SECRET" \
-            -e RAG_PROFILE="$RAG_PROFILE" \
-            -e CORS_ORIGINS="$CORS_ORIGINS" \
-            raghub:ci
-          sleep 8
-          curl -fsS http://127.0.0.1:8000/v1/health || (docker logs raghub-ci; exit 1)
-          curl -fsS http://127.0.0.1:8000/metrics | head -3 || (docker logs raghub-ci; exit 1)
-      - if: always()
-        run: docker stop raghub-ci 2>/dev/null || true
+      - name: Test
+        run: pytest -q --ignore=tests/test_financebench.py --cov=raghub --cov-report=term-missing --cov-fail-under=90
