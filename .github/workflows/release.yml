@@ -5,8 +5,14 @@ on:
     tags:
       - "v*"
 
+env:
+  JWT_SECRET: "test-secret-must-be-32-bytes-or-longer-for-sha256"
+  RAG_PROFILE: "development"
+  CORS_ORIGINS: "http://testserver"
+  RAGHUB_RUN_PLATFORM_TESTS: "1"
+
 jobs:
-  build:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -18,6 +24,8 @@ jobs:
         run: pip install -e ".[api,ui,dev]"
       - name: Lint (ruff)
         run: ruff check raghub/ tests/ examples/ bench/
+      - name: Format check (ruff)
+        run: ruff format --check raghub/ tests/ examples/ bench/
       - name: Type-check (mypy)
         run: mypy raghub/
       - name: Unit tests
@@ -29,7 +37,7 @@ jobs:
         run: python -m build
 
   publish:
-    needs: build
+    needs: quality
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

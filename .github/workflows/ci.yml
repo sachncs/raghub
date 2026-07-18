@@ -10,6 +10,11 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.12", "3.13"]
+    env:
+      JWT_SECRET: "test-secret-must-be-32-bytes-or-longer-for-sha256"
+      RAG_PROFILE: "development"
+      CORS_ORIGINS: "http://testserver"
+      RAGHUB_RUN_PLATFORM_TESTS: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
@@ -27,13 +32,14 @@ jobs:
         run: pip install -e ".[api,ui,dev]"
       - name: Lint (ruff)
         run: ruff check raghub/ tests/ examples/ bench/
+      - name: Format check (ruff)
+        run: ruff format --check raghub/ tests/ examples/ bench/
       - name: Type-check (mypy)
         run: mypy raghub/
       - name: Docstring coverage (interrogate)
         run: |
           interrogate -v \
-            raghub/api/rag.py raghub/api/defaults.py raghub/api/response.py \
-            raghub/evaluation/ raghub/knowledge/ \
+            raghub/api/ raghub/evaluation/ raghub/knowledge/ \
             raghub/conversation/ raghub/cli/ \
             -f 80
       - name: Unit tests with coverage gate
@@ -41,11 +47,6 @@ jobs:
           pytest -q --ignore=tests/test_financebench.py \
             --cov=raghub --cov-report=term-missing \
             --cov-fail-under=90
-      - name: Integration tests (platform)
-        env:
-          RAGHUB_RUN_PLATFORM_TESTS: "1"
-        run: |
-          pytest -q tests/test_platform.py
       - name: Build docs (mkdocs)
         run: mkdocs build --strict
       - name: Security scan (bandit)
@@ -64,3 +65,46 @@ jobs:
           assert spec.get('components', {}).get('schemas'), 'Missing schemas'
           print('OpenAPI schema validated:', spec['openapi'], 'paths:', len(spec['paths']))
           "
+      - name: Build sdist and wheel
+        run: python -m build --sdist --wheel
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          file: coverage.xml
+          fail_ci_if_error: true
+        continue-on-error: false
+
+  e2e:
+    name: e2e-smoke
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+    env:
+      JWT_SECRET: "test-secret-must-be-32-bytes-or-longer-for-sha256"
+      RAG_PROFILE: "development"
+      CORS_ORIGINS: "http://testserver"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install declared dependencies
+        run: pip install -e ".[api,ui,dev]"
+      - name: Qualify e2e
+        run: |
+          pytest -q tests/e2e/
+      - name: Build Docker images
+        run: |
+          docker build -t raghub:ci .
+      - name: Smoke api container
+        run: |
+          docker run --rm -d --name raghub-ci \
+            -p 8000:8000 \
+            -e JWT_SECRET="$JWT_SECRET" \
+            -e RAG_PROFILE="$RAG_PROFILE" \
+            -e CORS_ORIGINS="$CORS_ORIGINS" \
+            raghub:ci
+          sleep 8
+          curl -fsS http://127.0.0.1:8000/v1/health || (docker logs raghub-ci; exit 1)
+          curl -fsS http://127.0.0.1:8000/metrics | head -3 || (docker logs raghub-ci; exit 1)
+          docker stop raghub-ci
