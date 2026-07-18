@@ -44,3 +44,45 @@ def test_embedding_and_vectorstore_filter() -> None:
 def test_rbac_filter_builder() -> None:
     user = UserPrincipal(email="alice@email.com", allowed_companies=["Apple"])
     assert allowed_company_filter(user) == {"company": ["Apple"]}
+
+
+def test_rbac_filter_empty_allow_list_fails_closed() -> None:
+    """A non-admin with no allow-list must never see any document.
+
+    The canonical dict ``{"company": []}`` matches zero records across
+    every supported vector store (Qdrant, Zvec, in-memory).
+    """
+    user = UserPrincipal(email="eve@evil.com", allowed_companies=[])
+    assert user.is_admin is False
+    assert allowed_company_filter(user) == {"company": []}
+
+
+def test_rbac_filter_admin_returns_empty_dict() -> None:
+    """Admins receive an empty filter (no constraint) so they see everything."""
+    admin = UserPrincipal(email="root@raghub.com", is_admin=True, allowed_companies=[])
+    assert allowed_company_filter(admin) == {}
+
+
+def test_in_memory_store_fails_closed_on_empty_allow_list() -> None:
+    """The in-memory store matches no records for an empty company list."""
+    from raghub.models import ChunkRecord, Classification
+
+    embedder = HashingEmbeddingProvider()
+    store = InMemoryVectorStore()
+    chunk = ChunkRecord(
+        document_id="doc-1",
+        version=1,
+        page=1,
+        company="Apple",
+        owner="alice@email.com",
+        classification=Classification.INTERNAL,
+        embedding_model=embedder.model_name,
+        text="apple revenue",
+    )
+    store.insert([chunk], [embedder.embed_text("apple revenue")])
+    hits = store.search(
+        vector=embedder.embed_text("apple"),
+        top_k=5,
+        metadata_filter={"company": []},
+    )
+    assert hits == []
