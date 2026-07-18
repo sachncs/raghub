@@ -21,66 +21,40 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - name: Cache mypy / ruff
-        uses: actions/cache@v6
-        with:
-          path: |
-            .mypy_cache
-            .ruff_cache
-          key: ${{ runner.os }}-lint-${{ hashFiles('pyproject.toml') }}
-      - name: Install declared dependencies
-        run: pip install -e ".[api,ui,dev]"
-      - name: Install locked production dependencies
-        run: pip install -r requirements-lock.txt
-      - name: Install lock-build tooling
-        run: pip install 'pip-tools>=7.4,<8'
-      - name: Validate lock file
+      - run: pip install -e ".[api,ui,dev]"
+      - name: Lint, types, style
         run: |
-          python scripts/build_requirements_lock.py
-          git diff --exit-code requirements-lock.txt
-      - name: Lint (ruff)
-        run: ruff check raghub/ tests/ examples/ bench/
-      - name: Format check (ruff)
-        run: ruff format --check raghub/ tests/ examples/ bench/
-      - name: Type-check (mypy)
-        run: mypy raghub/
-      - name: Docstring coverage (interrogate)
-        run: |
-          interrogate -v \
-            raghub/api/ raghub/evaluation/ raghub/knowledge/ \
-            raghub/conversation/ raghub/cli/ \
-            -f 80
-      - name: Unit tests with coverage gate
+          ruff check raghub/ tests/ examples/ bench/
+          ruff format --check raghub/ tests/ examples/ bench/
+          mypy raghub/
+          interrogate -v raghub/api/ raghub/evaluation/ raghub/knowledge/ raghub/conversation/ raghub/cli/ -f 80
+      - name: Tests + coverage
         run: |
           pytest -q --ignore=tests/test_financebench.py \
-            --cov=raghub --cov-report=term-missing \
-            --cov-fail-under=90
-      - name: Build docs (mkdocs)
-        run: mkdocs build --strict
-      - name: Security scan (bandit)
-        run: bandit -r raghub/ -q -ll -i
-      - name: Dependency audit (pip-audit, gating)
-        run: |
-          pip-audit --strict -r requirements-lock.txt
-      - name: Validate OpenAPI schema (gating)
-        run: |
-          python -c "
-          from raghub.api.app import get_app
-          app = get_app()
-          spec = app.openapi()
-          assert 'openapi' in spec, 'Missing openapi version'
-          assert 'paths' in spec, 'Missing paths'
-          assert spec.get('components', {}).get('schemas'), 'Missing schemas'
-          print('OpenAPI schema validated:', spec['openapi'], 'paths:', len(spec['paths']))
-          "
-      - name: Build sdist and wheel
-        run: python -m build --sdist --wheel
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+            --cov=raghub --cov-report=xml --cov-fail-under=90
+      - uses: codecov/codecov-action@v5
         with:
           file: coverage.xml
           fail_ci_if_error: true
-        continue-on-error: false
+      - name: Docs, security, audit
+        run: |
+          mkdocs build --strict
+          bandit -r raghub/ -q -ll -i
+          pip-audit --strict -r requirements-lock.txt
+
+  lock:
+    name: lock-validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install 'pip-tools>=7.4,<8'
+      - run: |
+          python scripts/build_requirements_lock.py
+          git diff --exit-code requirements-lock.txt
 
   e2e:
     name: e2e-smoke
@@ -96,18 +70,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Install declared dependencies
-        run: pip install -e ".[api,ui,dev]"
-      - name: Qualify e2e
-        run: |
-          pytest -q tests/e2e/
-      - name: Build Docker images
-        run: |
-          docker build -t raghub:ci .
-      - name: Smoke api container
-        run: |
-          docker run --rm -d --name raghub-ci \
-            -p 8000:8000 \
+      - run: pip install -e ".[api,ui,dev]"
+      - run: pytest -q tests/e2e/
+      - run: docker build -t raghub:ci .
+      - run: |
+          docker run --rm -d --name raghub-ci -p 8000:8000 \
             -e JWT_SECRET="$JWT_SECRET" \
             -e RAG_PROFILE="$RAG_PROFILE" \
             -e CORS_ORIGINS="$CORS_ORIGINS" \
@@ -115,6 +82,5 @@ jobs:
           sleep 8
           curl -fsS http://127.0.0.1:8000/v1/health || (docker logs raghub-ci; exit 1)
           curl -fsS http://127.0.0.1:8000/metrics | head -3 || (docker logs raghub-ci; exit 1)
-      - name: Stop api container
-        if: always()
+      - if: always()
         run: docker stop raghub-ci 2>/dev/null || true

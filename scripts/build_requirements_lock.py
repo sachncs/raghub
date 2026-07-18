@@ -29,6 +29,8 @@ def main() -> int:
         "--quiet",
         "--upgrade",
         "--resolver=backtracking",
+        "--no-header",
+        "--no-annotate",
         "--output-file",
         str(output),
         str(repo_root / "pyproject.toml"),
