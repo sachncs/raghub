@@ -63,7 +63,7 @@ ui = ["streamlit>=1.37,<2"]
 zvec = ["zvec>=0.5,<1"]
 pdf = ["marker-pdf>=1.0,<3"]
 dev = [
-    "pytest>=8.0,<9",
+    "pytest>=8.0,<10",
     "pytest-asyncio>=0.23,<1",
     "pytest-cov>=4,<7",
     "hypothesis>=6,<7",
