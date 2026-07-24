@@ -9,4 +9,4 @@
 # the marker-pdf transitive coupling; the base image ships Pillow>=12
 # directly via the explicit pyproject dependency.
 transformers>=5.0.0
-markdownify>=0.14.1
+markdownify>=1.2.3
