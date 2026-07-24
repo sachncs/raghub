@@ -16,7 +16,7 @@ chonkie==1.7.0
 chonkie-core==0.10.2
 click==8.4.2
 datasets==3.6.0
-dill==0.3.8
+dill==0.4.1
 distro==1.9.0
 docstring-parser==0.18.0
 et-xmlfile==2.0.0
