@@ -231,6 +231,34 @@ class ChonkieChunker(Chunker):
                 raise
         return _apply_refinery(pieces, self.refinery)
 
+    def chonkie_batch_chunks(self, texts: list[str]) -> list[list[Any]]:
+        """Chunk multiple texts at once via chonkie.Pipeline when available."""
+        if not texts:
+            return []
+        Pipeline = getattr(CHONKIE_MODULE, "Pipeline", None) if CHONKIE_MODULE else None
+        if Pipeline is None:
+            return [self.chonkie_text_chunks(t) for t in texts]
+        try:
+            p = Pipeline()
+            # Configure the pipeline's chunker to match our inner chunker's class
+            chunker_cls_name = type(self.inner).__name__
+            p.chunk_with(chunker_cls_name, **{
+                k: v for k, v in getattr(self.inner, "__dict__", {}).items()
+                if not k.startswith("_")
+            })
+            if self.refinery is not None:
+                p.refine_with(
+                    type(self.refinery).__name__,
+                    context_size=getattr(self.refinery, "context_size", 0.25),
+                )
+            docs = p.run(texts)
+            if not isinstance(docs, list):
+                docs = [docs]
+            return [doc.chunks if hasattr(doc, "chunks") else [] for doc in docs]
+        except Exception:
+            # Pipeline config failed or API drift; fall back to per-text
+            return [self.chonkie_text_chunks(t) for t in texts]
+
     def chunk(self, bundle: Any) -> list[Chunk]:
         """Chunk a bundle via Chonkie."""
         chunks: list[Chunk] = []
