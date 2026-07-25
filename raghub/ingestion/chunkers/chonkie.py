@@ -42,6 +42,29 @@ except Exception as exc:  # pragma: no cover - optional dep
     OptionalImportError = exc
 
 
+def _build_refinery(context_size: int = 128, tokenizer: str = "character") -> Any:
+    """Build an OverlapRefinery if available, else return None."""
+    if CHONKIE_MODULE is None:
+        return None
+    cls = getattr(CHONKIE_MODULE, "OverlapRefinery", None)
+    if cls is None:
+        return None
+    try:
+        return cls(context_size=context_size, tokenizer=tokenizer, merge_context=True)
+    except TypeError:
+        return None
+
+
+def _apply_refinery(pieces: list[Any], refinery: Any) -> list[Any]:
+    """Apply refinery to chonkie chunks if refinery is available."""
+    if refinery is None or not pieces:
+        return pieces
+    try:
+        return refinery(pieces)
+    except Exception:
+        return pieces
+
+
 def build_chonkie_inner(
     *,
     chunk_size: int,
@@ -151,18 +174,21 @@ class ChonkieChunker(Chunker):
             chunk_overlap=chunk_overlap,
             tokenizer=tokenizer,
         )
+        self.refinery = _build_refinery(context_size=chunk_overlap, tokenizer=tokenizer)
 
     def chonkie_text_chunks(self, text: str) -> list[Any]:
         """Invoke the underlying Chonkie chunker; tolerate API drift."""
         try:
-            return self.inner(text)  # type: ignore[no-any-return]
+            pieces = self.inner(text)  # type: ignore[no-any-return]
         except TypeError:
             # Older Chonkie takes a string directly via ``.chunk()`` or
             # ``.split_text()``.
             chunk = getattr(self.inner, "chunk", None) or getattr(self.inner, "split_text", None)
             if chunk is not None:
-                return chunk(text)  # type: ignore[no-any-return]
-            raise
+                pieces = chunk(text)  # type: ignore[no-any-return]
+            else:
+                raise
+        return _apply_refinery(pieces, self.refinery)
 
     def chunk(self, bundle: Any) -> list[Chunk]:
         """Chunk a bundle via Chonkie.
