@@ -5,6 +5,8 @@ sessions_path: ./data/sessions.json
 zvec_dir: ./data/zvec
 chunk_size_words: 800
 chunk_overlap_words: 100
+chunker_strategy: recursive
+embedding_model_chunker: minishlab/potion-base-8M
 top_k: 5
 embedding_dim: 384
 session_timeout_seconds: 3600

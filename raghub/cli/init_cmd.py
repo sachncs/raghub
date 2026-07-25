@@ -11,6 +11,8 @@ environment: development
 data_dir: ./data
 chunk_size_words: 800
 chunk_overlap_words: 100
+chunker_strategy: recursive
+embedding_model_chunker: minishlab/potion-base-8M
 embedding_dim: 384
 embedding_model: hashing-bge
 llm_model: heuristic-llm
