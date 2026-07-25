@@ -156,3 +156,19 @@ def test_chonkie_chunker_has_refinery() -> None:
     """ChonkieChunker builds an OverlapRefinery."""
     chunker = ChonkieChunker(chunk_size=50, chunk_overlap=5)
     assert hasattr(chunker, "refinery")
+
+
+def test_chonkie_batch_chunks() -> None:
+    """chonkie_batch_chunks processes multiple texts."""
+    chunker = ChonkieChunker(chunk_size=50, chunk_overlap=5, chunker_name="token")
+    texts = ["Hello world. " * 30, "Another document. " * 20]
+    results = chunker.chonkie_batch_chunks(texts)
+    assert len(results) == 2
+    assert all(isinstance(groups, list) for groups in results)
+    assert all(len(groups) > 0 for groups in results)
+
+
+def test_chonkie_batch_chunks_empty() -> None:
+    """chonkie_batch_chunks with empty input returns empty."""
+    chunker = ChonkieChunker(chunk_size=50, chunk_overlap=5)
+    assert chunker.chonkie_batch_chunks([]) == []
