@@ -348,7 +348,7 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
     Args:
         name: Chunker strategy (``"auto"``, ``"recursive"``, ``"token"``,
             ``"sentence"``, ``"semantic"``, ``"late"``, ``"table"``,
-            ``"code"``, ``"word"``, ``"slumber"``, ``"neural"``,
+            ``"code"``, ``"slumber"``, ``"neural"``,
             ``"word_window"``).
         **kwargs: Forwarded to the underlying constructor.
 
@@ -361,7 +361,7 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
     """
     _CHONKIE_NAMES = {
         "auto", "recursive", "token", "sentence",
-        "semantic", "late", "table", "code", "word",
+        "semantic", "late", "table", "code",
         "slumber", "neural",
     }
     if name in _CHONKIE_NAMES:
