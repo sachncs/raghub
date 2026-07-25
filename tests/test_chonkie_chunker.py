@@ -109,12 +109,12 @@ def test_chonkie_chunker_token_strategy() -> None:
     assert chunks
 
 
-def test_chonkie_chunker_word_strategy() -> None:
-    """Word chunker produces chunks."""
-    chunker = ChonkieChunker(chunk_size=50, chunk_overlap=5, chunker_name="word")
-    text = "Hello world. " * 30
-    chunks = chunker.chunk_text(text, document_id="doc1")
-    assert chunks
+def test_chonkie_chunker_word_strategy_raises() -> None:
+    """Word chunker raises unknown strategy error (removed in chonkie v1.7)."""
+    from raghub.exceptions import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match="Unknown"):
+        ChonkieChunker(chunk_size=50, chunk_overlap=5, chunker_name="word")
 
 
 def test_chonkie_chunker_sentence_strategy() -> None:
@@ -134,9 +134,9 @@ def test_build_chonkie_chunker_recursive() -> None:
     assert chunks
 
 
-def test_build_chonkie_chunker_word() -> None:
-    """build_chonkie_chunker('word') returns ChonkieChunker."""
-    chunker = build_chonkie_chunker("word", chunk_size=50, chunk_overlap=5)
+def test_build_chonkie_chunker_table() -> None:
+    """build_chonkie_chunker('table') returns ChonkieChunker."""
+    chunker = build_chonkie_chunker("table", chunk_size=100, chunk_overlap=5)
     assert isinstance(chunker, ChonkieChunker)
 
 

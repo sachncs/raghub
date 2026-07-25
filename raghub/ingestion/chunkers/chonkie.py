@@ -8,14 +8,8 @@ The import of ``chonkie`` is deferred to keep the base import graph
 small. If Chonkie is not installed, :class:`ChonkieChunker.__init__`
 raises :class:`raghub.exceptions.ConfigurationError`.
 
-**API note:** Chonkie's public entry point has changed across major
-versions. The adapter tries the documented classes
-(:class:`chonkie.TokenChunker`, :class:`chonkie.SentenceChunker`,
-:class:`chonkie.RecursiveChunker`) in order and falls back to the
-first one that accepts the configured ``chunk_size`` and
-``chunk_overlap``. If none of the documented chunkers match, the
-adapter raises :class:`raghub.exceptions.ConfigurationError` with a
-message that names the supported versions.
+Supported chunker strategies: recursive, token, sentence, word,
+semantic, late, table, code, slumber, neural.
 """
 
 from __future__ import annotations
@@ -42,6 +36,28 @@ except Exception as exc:  # pragma: no cover - optional dep
     OptionalImportError = exc
 
 
+class RAGHubGenie:
+    """Adapter bridging raghub's LLMProvider to chonkie's Genie interface.
+
+    Chonkie's SlumberChunker expects a ``Genie`` with a ``generate(prompt) -> str``
+    method. This thin wrapper delegates to whatever raghub LLM provider is configured.
+    """
+
+    def __init__(self, llm_provider: Any) -> None:
+        self._llm = llm_provider
+
+    def generate(self, prompt: str) -> str:
+        return str(self._llm.generate(
+            system_prompt="You are a text chunking assistant. Split the text at natural boundaries.",
+            conversation=[],
+            context=[],
+            question=prompt,
+        ))
+
+    async def agenerate(self, prompt: str) -> str:
+        return str(self.generate(prompt))
+
+
 def _build_refinery(context_size: int = 128, tokenizer: str = "character") -> Any:
     """Build an OverlapRefinery if available, else return None."""
     if CHONKIE_MODULE is None:
@@ -50,7 +66,7 @@ def _build_refinery(context_size: int = 128, tokenizer: str = "character") -> An
     if cls is None:
         return None
     try:
-        return cls(context_size=context_size, tokenizer=tokenizer, merge_context=True)
+        return cls(tokenizer=tokenizer, context_size=context_size, merge=True, inplace=True)
     except TypeError:
         return None
 
@@ -74,6 +90,7 @@ def build_chonkie_inner(
     chunker_name: str = "recursive",
     embedding_model: str = "minishlab/potion-base-8M",
     language: str = "auto",
+    genie: Any = None,
 ) -> Any:
     """Build the best available Chonkie chunker for the configuration."""
     if not CHONKIE_AVAILABLE or CHONKIE_MODULE is None:
@@ -84,16 +101,17 @@ def build_chonkie_inner(
 
     _CHUNKER_BUILDERS: dict[str, tuple[str, dict[str, Any]]] = {
         "token": ("TokenChunker", {"tokenizer": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}),
-        "sentence": ("SentenceChunker", {"tokenizer_or_token_counter": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}),
-        "recursive": ("RecursiveChunker", {"tokenizer_or_token_counter": tokenizer, "chunk_size": chunk_size}),
-        "word": ("WordChunker", {"tokenizer_or_token_counter": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}),
-        "semantic": ("SemanticChunker", {"embedding_model": embedding_model, "chunk_size": chunk_size, "threshold": "auto"}),
+        "sentence": ("SentenceChunker", {"tokenizer": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}),
+        "recursive": ("RecursiveChunker", {"tokenizer": tokenizer, "chunk_size": chunk_size}),
+        "semantic": ("SemanticChunker", {"embedding_model": embedding_model, "chunk_size": chunk_size, "threshold": 0.8}),
         "late": ("LateChunker", {"embedding_model": embedding_model, "chunk_size": chunk_size}),
         "table": ("TableChunker", {"tokenizer": "row", "chunk_size": max(1, chunk_size // 100)}),
         "code": ("CodeChunker", {"language": language, "chunk_size": chunk_size}),
+        "neural": ("NeuralChunker", {"min_characters_per_chunk": 24}),
+        "slumber": ("SlumberChunker", {"genie": genie, "chunk_size": chunk_size, "candidate_size": 128}),
     }
 
-    _AUTO_PROBE = ("RecursiveChunker", "TokenChunker", "SentenceChunker", "WordChunker")
+    _AUTO_PROBE = ("RecursiveChunker", "TokenChunker", "SentenceChunker")
 
     if chunker_name == "auto":
         for cls_name in _AUTO_PROBE:
@@ -137,14 +155,14 @@ def build_chonkie_inner(
         )
     try:
         return cls(**kwargs)
-    except (TypeError, ImportError) as exc:
+    except (TypeError, ImportError, ValueError) as exc:
         raise ConfigurationError(
             f"chonkie {cls_name} failed to initialize: {exc}"
         ) from exc
 
 
 class ChonkieChunker(Chunker):
-    """Chonkie-backed chunker supporting token, semantic, late, and other strategies."""
+    """Chonkie-backed chunker supporting all strategies."""
 
     chunk_size: int
     chunk_overlap: int
@@ -158,6 +176,7 @@ class ChonkieChunker(Chunker):
         chunker_name: str = "recursive",
         embedding_model: str = "minishlab/potion-base-8M",
         language: str = "auto",
+        llm_provider: Any = None,
     ) -> None:
         """Initialise the Chonkie chunker.
 
@@ -167,9 +186,11 @@ class ChonkieChunker(Chunker):
             tokenizer: Tokenizer name (``"character"``, ``"gpt2"``, …).
             chunker_name: Chunking strategy (``"recursive"``, ``"token"``,
                 ``"sentence"``, ``"semantic"``, ``"late"``, ``"table"``,
-                ``"code"``, ``"word"``, ``"auto"``).
+                ``"code"``, ``"word"``, ``"slumber"``, ``"neural"``,
+                ``"auto"``).
             embedding_model: Model for semantic/late chunkers.
             language: Language for CodeChunker.
+            llm_provider: raghub LLM provider for SlumberChunker.
         """
         if not CHONKIE_AVAILABLE:
             raise ConfigurationError(
@@ -178,6 +199,15 @@ class ChonkieChunker(Chunker):
             )
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+
+        genie = None
+        if chunker_name == "slumber":
+            if llm_provider is None:
+                raise ConfigurationError(
+                    "SlumberChunker requires an LLM provider; pass llm_provider="
+                )
+            genie = RAGHubGenie(llm_provider)
+
         self.inner = build_chonkie_inner(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
@@ -185,6 +215,7 @@ class ChonkieChunker(Chunker):
             chunker_name=chunker_name,
             embedding_model=embedding_model,
             language=language,
+            genie=genie,
         )
         self.refinery = _build_refinery(context_size=chunk_overlap, tokenizer=tokenizer)
 
@@ -193,8 +224,6 @@ class ChonkieChunker(Chunker):
         try:
             pieces = self.inner(text)
         except TypeError:
-            # Older Chonkie takes a string directly via ``.chunk()`` or
-            # ``.split_text()``.
             chunk = getattr(self.inner, "chunk", None) or getattr(self.inner, "split_text", None)
             if chunk is not None:
                 pieces = chunk(text)
@@ -203,14 +232,7 @@ class ChonkieChunker(Chunker):
         return _apply_refinery(pieces, self.refinery)
 
     def chunk(self, bundle: Any) -> list[Chunk]:
-        """Chunk a bundle via Chonkie.
-
-        Args:
-            bundle: The source bundle.
-
-        Returns:
-            The list of :class:`Chunk` records.
-        """
+        """Chunk a bundle via Chonkie."""
         chunks: list[Chunk] = []
         for section in bundle.sections:
             for block in section.blocks:
@@ -244,6 +266,7 @@ class ChonkieChunker(Chunker):
                             text=text,
                             metadata={
                                 "chunker": "chonkie",
+                                "strategy": getattr(self.inner, "__class__", type(None)).__name__,
                                 "section_index": section.index,
                                 "block_id": block.block_id,
                             },
@@ -260,18 +283,7 @@ class ChonkieChunker(Chunker):
         company: str = "",
         owner: str = "",
     ) -> list[Chunk]:
-        """Chunk raw ``text`` via Chonkie.
-
-        Args:
-            text: The raw text.
-            document_id: Document id to install on each chunk.
-            version: Document version.
-            company: Tenant (company) tag; required by :class:`Chunk`.
-            owner: Owning user email; required by :class:`Chunk`.
-
-        Returns:
-            The list of :class:`Chunk` records.
-        """
+        """Chunk raw ``text`` via Chonkie."""
         pieces = self.chonkie_text_chunks(text)
         chunks: list[Chunk] = []
         for i, piece in enumerate(pieces):
@@ -293,7 +305,10 @@ class ChonkieChunker(Chunker):
                     company=company,
                     owner=owner,
                     text=text_value,
-                    metadata={"chunker": "chonkie"},
+                    metadata={
+                        "chunker": "chonkie",
+                        "strategy": getattr(self.inner, "__class__", type(None)).__name__,
+                    },
                 )
             )
         return chunks
@@ -305,7 +320,8 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
     Args:
         name: Chunker strategy (``"auto"``, ``"recursive"``, ``"token"``,
             ``"sentence"``, ``"semantic"``, ``"late"``, ``"table"``,
-            ``"code"``, ``"word"``, ``"word_window"``).
+            ``"code"``, ``"word"``, ``"slumber"``, ``"neural"``,
+            ``"word_window"``).
         **kwargs: Forwarded to the underlying constructor.
 
     Returns:
@@ -318,6 +334,7 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
     _CHONKIE_NAMES = {
         "auto", "recursive", "token", "sentence",
         "semantic", "late", "table", "code", "word",
+        "slumber", "neural",
     }
     if name in _CHONKIE_NAMES:
         if CHONKIE_AVAILABLE:
@@ -333,4 +350,4 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
     raise ConfigurationError(f"Unknown chunker: {name!r}")
 
 
-__all__ = ["ChonkieChunker", "build_chonkie_chunker"]
+__all__ = ["ChonkieChunker", "RAGHubGenie", "build_chonkie_chunker"]

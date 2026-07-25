@@ -795,13 +795,15 @@ class TestBuildChonkieInner:
         )
         assert inner is not None
 
-    def test_word_chunker(self) -> None:
+    def test_word_chunker_raises_unknown(self) -> None:
         if not CHONKIE_AVAILABLE:
             pytest.skip("chonkie not installed")
-        inner = build_chonkie_inner(
-            chunk_size=100, chunk_overlap=10, chunker_name="word"
-        )
-        assert inner is not None
+        from raghub.exceptions import ConfigurationError
+
+        with pytest.raises(ConfigurationError, match="Unknown"):
+            build_chonkie_inner(
+                chunk_size=100, chunk_overlap=10, chunker_name="word"
+            )
 
     def test_sentence_chunker(self) -> None:
         if not CHONKIE_AVAILABLE:
@@ -869,10 +871,10 @@ class TestChonkieChunker:
         assert chunker.chunk_size == 100
         assert chunker.chunk_overlap == 10
 
-    def test_init_with_word_strategy(self) -> None:
+    def test_init_with_table_strategy(self) -> None:
         if not CHONKIE_AVAILABLE:
             pytest.skip("chonkie not installed")
-        chunker = ChonkieChunker(chunk_size=100, chunk_overlap=10, chunker_name="word")
+        chunker = ChonkieChunker(chunk_size=100, chunk_overlap=10, chunker_name="table")
         assert chunker.chunk_size == 100
 
     def test_init_with_token_strategy(self) -> None:
@@ -1125,10 +1127,10 @@ class TestBuildChonkieChunker:
         chunker = build_chonkie_chunker("token", chunk_size=100, chunk_overlap=10)
         assert isinstance(chunker, ChonkieChunker)
 
-    def test_explicit_word(self) -> None:
+    def test_explicit_table(self) -> None:
         if not CHONKIE_AVAILABLE:
             pytest.skip("chonkie not installed")
-        chunker = build_chonkie_chunker("word", chunk_size=100, chunk_overlap=10)
+        chunker = build_chonkie_chunker("table", chunk_size=100, chunk_overlap=10)
         assert isinstance(chunker, ChonkieChunker)
 
     def test_explicit_sentence(self) -> None:
