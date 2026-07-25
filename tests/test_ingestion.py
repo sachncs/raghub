@@ -771,6 +771,88 @@ class TestBuildChonkieInner:
             with pytest.raises(ConfigurationError, match="not installed"):
                 build_chonkie_inner(chunk_size=10, chunk_overlap=2, tokenizer="character")
 
+    def test_unknown_chunker_name_raises(self) -> None:
+        from raghub.exceptions import ConfigurationError
+
+        with pytest.raises(ConfigurationError, match="Unknown chonkie chunker strategy"):
+            build_chonkie_inner(
+                chunk_size=10, chunk_overlap=2, chunker_name="nonexistent"
+            )
+
+    def test_recursive_chunker(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        inner = build_chonkie_inner(
+            chunk_size=100, chunk_overlap=10, chunker_name="recursive"
+        )
+        assert inner is not None
+
+    def test_token_chunker(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        inner = build_chonkie_inner(
+            chunk_size=100, chunk_overlap=10, chunker_name="token"
+        )
+        assert inner is not None
+
+    def test_word_chunker(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        inner = build_chonkie_inner(
+            chunk_size=100, chunk_overlap=10, chunker_name="word"
+        )
+        assert inner is not None
+
+    def test_sentence_chunker(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        inner = build_chonkie_inner(
+            chunk_size=100, chunk_overlap=10, chunker_name="sentence"
+        )
+        assert inner is not None
+
+    def test_auto_probe(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        inner = build_chonkie_inner(
+            chunk_size=100, chunk_overlap=10, chunker_name="auto"
+        )
+        assert inner is not None
+
+
+class TestRefinery:
+    def test_build_refinery_returns_none_when_unavailable(self) -> None:
+        from raghub.ingestion.chunkers.chonkie import _build_refinery
+
+        with patch("raghub.ingestion.chunkers.chonkie.CHONKIE_MODULE", None):
+            assert _build_refinery() is None
+
+    def test_build_refinery_returns_refinery_when_available(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        from raghub.ingestion.chunkers.chonkie import _build_refinery
+
+        refinery = _build_refinery(context_size=50, tokenizer="character")
+        assert refinery is not None
+
+    def test_apply_refinery_returns_none_when_no_refinery(self) -> None:
+        from raghub.ingestion.chunkers.chonkie import _apply_refinery
+
+        assert _apply_refinery(["a", "b"], None) == ["a", "b"]
+
+    def test_apply_refinery_returns_empty_when_empty(self) -> None:
+        from raghub.ingestion.chunkers.chonkie import _apply_refinery
+
+        assert _apply_refinery([], None) == []
+
+    def test_apply_refinery_calls_refinery(self) -> None:
+        from raghub.ingestion.chunkers.chonkie import _apply_refinery
+
+        mock_refinery = MagicMock(return_value=["refined"])
+        result = _apply_refinery(["original"], mock_refinery)
+        assert result == ["refined"]
+        mock_refinery.assert_called_once_with(["original"])
+
 
 class TestChonkieChunker:
     def test_init_raises_when_chonkie_unavailable(self) -> None:
@@ -779,6 +861,37 @@ class TestChonkieChunker:
 
             with pytest.raises(ConfigurationError, match="not installed"):
                 ChonkieChunker(chunk_size=10, chunk_overlap=2)
+
+    def test_init_with_chunker_name(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        chunker = ChonkieChunker(chunk_size=100, chunk_overlap=10, chunker_name="recursive")
+        assert chunker.chunk_size == 100
+        assert chunker.chunk_overlap == 10
+
+    def test_init_with_word_strategy(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        chunker = ChonkieChunker(chunk_size=100, chunk_overlap=10, chunker_name="word")
+        assert chunker.chunk_size == 100
+
+    def test_init_with_token_strategy(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        chunker = ChonkieChunker(chunk_size=100, chunk_overlap=10, chunker_name="token")
+        assert chunker.chunk_size == 100
+
+    def test_init_with_sentence_strategy(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        chunker = ChonkieChunker(chunk_size=100, chunk_overlap=10, chunker_name="sentence")
+        assert chunker.chunk_size == 100
+
+    def test_init_builds_refinery(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        chunker = ChonkieChunker(chunk_size=100, chunk_overlap=10)
+        assert hasattr(chunker, "refinery")
 
     def test_chonkie_text_chunks_type_error_fallback(self) -> None:
         """When inner(text) raises TypeError, fallback to .chunk()"""
@@ -790,6 +903,7 @@ class TestChonkieChunker:
         chunker.chunk_size = 10
         chunker.chunk_overlap = 2
         chunker.inner = inner
+        chunker.refinery = None
 
         result = chunker.chonkie_text_chunks("some text")
         assert result == ["piece1", "piece2"]
@@ -805,6 +919,7 @@ class TestChonkieChunker:
         chunker.chunk_size = 10
         chunker.chunk_overlap = 2
         chunker.inner = inner
+        chunker.refinery = None
 
         result = chunker.chonkie_text_chunks("some text")
         assert result == ["a", "b"]
@@ -820,6 +935,7 @@ class TestChonkieChunker:
         chunker.chunk_size = 10
         chunker.chunk_overlap = 2
         chunker.inner = inner
+        chunker.refinery = None
 
         with pytest.raises(TypeError):
             chunker.chonkie_text_chunks("some text")
@@ -995,6 +1111,46 @@ class TestBuildChonkieChunker:
         chunker = build_chonkie_chunker("auto", chunk_size=100, chunk_overlap=10)
         assert chunker.chunk_size == 100
         assert chunker.chunk_overlap == 10
+
+    def test_explicit_recursive(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        chunker = build_chonkie_chunker("recursive", chunk_size=100, chunk_overlap=10)
+        assert isinstance(chunker, ChonkieChunker)
+        assert chunker.chunk_size == 100
+
+    def test_explicit_token(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        chunker = build_chonkie_chunker("token", chunk_size=100, chunk_overlap=10)
+        assert isinstance(chunker, ChonkieChunker)
+
+    def test_explicit_word(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        chunker = build_chonkie_chunker("word", chunk_size=100, chunk_overlap=10)
+        assert isinstance(chunker, ChonkieChunker)
+
+    def test_explicit_sentence(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        chunker = build_chonkie_chunker("sentence", chunk_size=100, chunk_overlap=10)
+        assert isinstance(chunker, ChonkieChunker)
+
+    def test_explicit_semantic_unavailable(self) -> None:
+        if not CHONKIE_AVAILABLE:
+            pytest.skip("chonkie not installed")
+        from raghub.exceptions import ConfigurationError
+
+        with pytest.raises(ConfigurationError, match="failed to initialize"):
+            build_chonkie_chunker("semantic", chunk_size=100, chunk_overlap=10)
+
+    def test_explicit_chonkie_strategy_unavailable(self) -> None:
+        with patch("raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False):
+            from raghub.exceptions import ConfigurationError
+
+            with pytest.raises(ConfigurationError, match="not installed"):
+                build_chonkie_chunker("recursive")
 
 
 # =========================================================================

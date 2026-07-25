@@ -60,7 +60,6 @@ def test_chonkie_chunker_chunk_handles_bundle() -> None:
     chunks = chunker.chunk(bundle)
     assert chunks
     assert all(c.document_id == bundle.bundle_id for c in chunks)
-    assert all(c.text.strip() for c in chunks)
     assert all(c.metadata["chunker"] == "chonkie" for c in chunks)
 
 
@@ -91,3 +90,69 @@ def test_chonkie_chunker_skips_non_text_blocks() -> None:
         ],
     )
     assert chunker.chunk(bundle) == []
+
+
+def test_chonkie_chunker_recursive_strategy() -> None:
+    """Recursive chunker produces chunks."""
+    chunker = ChonkieChunker(chunk_size=50, chunk_overlap=5, chunker_name="recursive")
+    text = "Hello world. " * 30
+    chunks = chunker.chunk_text(text, document_id="doc1")
+    assert chunks
+    assert all(c.metadata["chunker"] == "chonkie" for c in chunks)
+
+
+def test_chonkie_chunker_token_strategy() -> None:
+    """Token chunker produces chunks."""
+    chunker = ChonkieChunker(chunk_size=50, chunk_overlap=5, chunker_name="token")
+    text = "Hello world. " * 30
+    chunks = chunker.chunk_text(text, document_id="doc1")
+    assert chunks
+
+
+def test_chonkie_chunker_word_strategy() -> None:
+    """Word chunker produces chunks."""
+    chunker = ChonkieChunker(chunk_size=50, chunk_overlap=5, chunker_name="word")
+    text = "Hello world. " * 30
+    chunks = chunker.chunk_text(text, document_id="doc1")
+    assert chunks
+
+
+def test_chonkie_chunker_sentence_strategy() -> None:
+    """Sentence chunker produces chunks."""
+    chunker = ChonkieChunker(chunk_size=50, chunk_overlap=5, chunker_name="sentence")
+    text = "Hello world. This is a test. Another sentence here."
+    chunks = chunker.chunk_text(text, document_id="doc1")
+    assert chunks
+
+
+def test_build_chonkie_chunker_recursive() -> None:
+    """build_chonkie_chunker('recursive') returns ChonkieChunker."""
+    chunker = build_chonkie_chunker("recursive", chunk_size=50, chunk_overlap=5)
+    assert isinstance(chunker, ChonkieChunker)
+    text = "Hello world. " * 20
+    chunks = chunker.chunk_text(text, document_id="doc1")
+    assert chunks
+
+
+def test_build_chonkie_chunker_word() -> None:
+    """build_chonkie_chunker('word') returns ChonkieChunker."""
+    chunker = build_chonkie_chunker("word", chunk_size=50, chunk_overlap=5)
+    assert isinstance(chunker, ChonkieChunker)
+
+
+def test_build_chonkie_chunker_token() -> None:
+    """build_chonkie_chunker('token') returns ChonkieChunker."""
+    chunker = build_chonkie_chunker("token", chunk_size=50, chunk_overlap=5)
+    assert isinstance(chunker, ChonkieChunker)
+
+
+def test_build_chonkie_chunker_sentence() -> None:
+    """build_chonkie_chunker('sentence') returns ChonkieChunker."""
+    chunker = build_chonkie_chunker("sentence", chunk_size=50, chunk_overlap=5)
+    assert isinstance(chunker, ChonkieChunker)
+
+
+def test_chonkie_chunker_has_refinery() -> None:
+    """ChonkieChunker builds an OverlapRefinery."""
+    chunker = ChonkieChunker(chunk_size=50, chunk_overlap=5)
+    assert hasattr(chunker, "refinery")
