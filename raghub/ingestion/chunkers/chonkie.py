@@ -136,14 +136,14 @@ def build_chonkie_inner(
         )
     try:
         return cls(**kwargs)
-    except TypeError as exc:
+    except (TypeError, ImportError) as exc:
         raise ConfigurationError(
             f"chonkie {cls_name} failed to initialize: {exc}"
         ) from exc
 
 
 class ChonkieChunker(Chunker):
-    """Token chunker backed by Chonkie."""
+    """Chonkie-backed chunker supporting token, semantic, late, and other strategies."""
 
     chunk_size: int
     chunk_overlap: int
@@ -154,6 +154,9 @@ class ChonkieChunker(Chunker):
         chunk_size: int = 512,
         chunk_overlap: int = 64,
         tokenizer: str = "character",
+        chunker_name: str = "recursive",
+        embedding_model: str = "minishlab/potion-base-8M",
+        language: str = "auto",
     ) -> None:
         """Initialise the Chonkie chunker.
 
@@ -161,6 +164,11 @@ class ChonkieChunker(Chunker):
             chunk_size: Tokens per chunk.
             chunk_overlap: Token overlap.
             tokenizer: Tokenizer name (``"character"``, ``"gpt2"``, …).
+            chunker_name: Chunking strategy (``"recursive"``, ``"token"``,
+                ``"sentence"``, ``"semantic"``, ``"late"``, ``"table"``,
+                ``"code"``, ``"word"``, ``"auto"``).
+            embedding_model: Model for semantic/late chunkers.
+            language: Language for CodeChunker.
         """
         if not CHONKIE_AVAILABLE:
             raise ConfigurationError(
@@ -173,6 +181,9 @@ class ChonkieChunker(Chunker):
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             tokenizer=tokenizer,
+            chunker_name=chunker_name,
+            embedding_model=embedding_model,
+            language=language,
         )
         self.refinery = _build_refinery(context_size=chunk_overlap, tokenizer=tokenizer)
 
@@ -291,7 +302,9 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
     """Pick a chunker by name.
 
     Args:
-        name: ``"chonkie"`` / ``"word_window"`` / ``"auto"``.
+        name: Chunker strategy (``"auto"``, ``"recursive"``, ``"token"``,
+            ``"sentence"``, ``"semantic"``, ``"late"``, ``"table"``,
+            ``"code"``, ``"word"``, ``"word_window"``).
         **kwargs: Forwarded to the underlying constructor.
 
     Returns:
@@ -301,12 +314,20 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
         ConfigurationError: When ``name`` is unknown or chonkie is
             explicitly requested but unavailable.
     """
-    if name in ("chonkie", "auto"):
+    _CHONKIE_NAMES = {
+        "auto", "recursive", "token", "sentence",
+        "semantic", "late", "table", "code", "word",
+    }
+    if name in _CHONKIE_NAMES:
         if CHONKIE_AVAILABLE:
-            return ChonkieChunker(**kwargs)
-        if name == "chonkie":
+            return ChonkieChunker(chunker_name=name, **kwargs)
+        if name != "auto":
             raise ConfigurationError("chonkie is not installed")
-    if name in ("word_window", "auto"):
+    if name in ("chonkie", "word_window", "auto"):
+        if name == "chonkie":
+            if CHONKIE_AVAILABLE:
+                return ChonkieChunker(**kwargs)
+            raise ConfigurationError("chonkie is not installed")
         return WordWindowChunker(**kwargs)
     raise ConfigurationError(f"Unknown chunker: {name!r}")
 
