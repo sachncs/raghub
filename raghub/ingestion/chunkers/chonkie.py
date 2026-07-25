@@ -42,7 +42,15 @@ except Exception as exc:  # pragma: no cover - optional dep
     OptionalImportError = exc
 
 
-def build_chonkie_inner(*, chunk_size: int, chunk_overlap: int, tokenizer: str) -> Any:
+def build_chonkie_inner(
+    *,
+    chunk_size: int,
+    chunk_overlap: int,
+    tokenizer: str = "character",
+    chunker_name: str = "recursive",
+    embedding_model: str = "minishlab/potion-base-8M",
+    language: str = "auto",
+) -> Any:
     """Build the best available Chonkie chunker for the configuration."""
     if not CHONKIE_AVAILABLE or CHONKIE_MODULE is None:
         raise ConfigurationError(
@@ -50,35 +58,65 @@ def build_chonkie_inner(*, chunk_size: int, chunk_overlap: int, tokenizer: str) 
             "or use WordWindowChunker."
         )
 
-    candidate_names = ("TokenChunker", "SentenceChunker", "RecursiveChunker", "Chunker")
-    for name in candidate_names:
-        cls = getattr(CHONKIE_MODULE, name, None)
-        if cls is None:
-            continue
-        try:
-            sig = inspect.signature(cls)
-        except (TypeError, ValueError):
-            sig = None
-        kwargs: dict[str, Any] = {}
-        if sig is not None:
-            params = sig.parameters
-            for key, value in (
-                ("tokenizer", tokenizer),
-                ("chunk_size", chunk_size),
-                ("chunk_overlap", chunk_overlap),
-                ("chunk_overlap_tokens", chunk_overlap),
-                ("return_type", "chunks"),
-            ):
-                if key in params:
-                    kwargs[key] = value
-        try:
-            return cls(**kwargs)
-        except TypeError:
-            continue
-    raise ConfigurationError(
-        "chonkie is installed but no documented chunker accepted the "
-        "configuration; please check the installed chonkie version."
-    )
+    _CHUNKER_BUILDERS: dict[str, tuple[str, dict[str, Any]]] = {
+        "token": ("TokenChunker", {"tokenizer": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}),
+        "sentence": ("SentenceChunker", {"tokenizer_or_token_counter": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}),
+        "recursive": ("RecursiveChunker", {"tokenizer_or_token_counter": tokenizer, "chunk_size": chunk_size}),
+        "word": ("WordChunker", {"tokenizer_or_token_counter": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}),
+        "semantic": ("SemanticChunker", {"embedding_model": embedding_model, "chunk_size": chunk_size, "threshold": "auto"}),
+        "late": ("LateChunker", {"embedding_model": embedding_model, "chunk_size": chunk_size}),
+        "table": ("TableChunker", {"tokenizer": "row", "chunk_size": max(1, chunk_size // 100)}),
+        "code": ("CodeChunker", {"language": language, "chunk_size": chunk_size}),
+    }
+
+    _AUTO_PROBE = ("RecursiveChunker", "TokenChunker", "SentenceChunker", "WordChunker")
+
+    if chunker_name == "auto":
+        for cls_name in _AUTO_PROBE:
+            cls = getattr(CHONKIE_MODULE, cls_name, None)
+            if cls is None:
+                continue
+            try:
+                sig = inspect.signature(cls)
+            except (TypeError, ValueError):
+                sig = None
+            kwargs: dict[str, Any] = {}
+            if sig is not None:
+                params = sig.parameters
+                for key, value in (
+                    ("tokenizer", tokenizer),
+                    ("tokenizer_or_token_counter", tokenizer),
+                    ("chunk_size", chunk_size),
+                    ("chunk_overlap", chunk_overlap),
+                    ("return_type", "chunks"),
+                ):
+                    if key in params:
+                        kwargs[key] = value
+            try:
+                return cls(**kwargs)
+            except TypeError:
+                continue
+        raise ConfigurationError(
+            "chonkie is installed but no documented chunker accepted the "
+            "configuration; please check the installed chonkie version."
+        )
+
+    if chunker_name not in _CHUNKER_BUILDERS:
+        raise ConfigurationError(f"Unknown chonkie chunker strategy: {chunker_name!r}")
+
+    cls_name, kwargs = _CHUNKER_BUILDERS[chunker_name]
+    cls = getattr(CHONKIE_MODULE, cls_name, None)
+    if cls is None:
+        raise ConfigurationError(
+            f"chonkie chunker {cls_name!r} not available; "
+            "install the required extra (e.g. `pip install chonkie[semantic]`)"
+        )
+    try:
+        return cls(**kwargs)
+    except TypeError as exc:
+        raise ConfigurationError(
+            f"chonkie {cls_name} failed to initialize: {exc}"
+        ) from exc
 
 
 class ChonkieChunker(Chunker):
