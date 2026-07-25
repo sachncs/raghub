@@ -179,9 +179,13 @@ class MarkerConverter(DocumentConverter):
         # Use marker's official text_from_rendered to extract text,
         # format, and images properly across all output types.
         if marker_text_from_rendered is not None:
-            text_content, _fmt, images = marker_text_from_rendered(rendered)
+            try:
+                text_content, _fmt, images = marker_text_from_rendered(rendered)
+            except (ValueError, TypeError):
+                # Fallback for unexpected rendered types
+                text_content = getattr(rendered, "markdown", None) or getattr(rendered, "html", None) or str(rendered)
+                images = {}
         else:
-            # Fallback for edge case where output module didn't import
             text_content = getattr(rendered, "markdown", None) or str(rendered)
             images = {}
 
