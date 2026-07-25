@@ -4,79 +4,79 @@ Marker converts PDFs and other formats to Markdown. The Markdown is
 then normalised into a canonical :class:`KnowledgeBundle` via
 :func:`raghub.converters.markdown.normalise_markdown`.
 
-The import of ``marker`` is deferred to keep the base import graph
-lightweight. If Marker is unavailable, :class:`MarkerConverter.convert`
-will raise :class:`raghub.exceptions.ConfigurationError` with a clear
-message.
+The standard Marker API is::
 
-**API note:** Marker's public entry point has changed across major
-versions. The adapter tries the documented
-``marker.converters.pdf.PdfConverter`` first and falls back to the
-``from lints`` / single-shot builder when the document version is
-older. The current Marker API is
-``PdfConverter(artifact_dict=...)``; the adapter supports that
-shape and the legacy ``PdfConverter(config=..., artifact_dict=..., ...)``
-shape.
+    from marker.converters.pdf import PdfConverter
+    from marker.models import create_model_dict
+    from marker.output import text_from_rendered
+
+    converter = PdfConverter(artifact_dict=create_model_dict())
+    rendered = converter(filepath)
+    text, _, images = text_from_rendered(rendered)
+
+This adapter wraps that flow, deferring imports to keep the base
+import graph lightweight.  If Marker is unavailable,
+:class:`MarkerConverter.convert` will raise
+:class:`raghub.exceptions.ConfigurationError`.
 """
 
 from __future__ import annotations
 
 import contextlib
-import inspect
 from typing import Any
 
 from raghub.exceptions import ConfigurationError, ConversionError
 from raghub.interfaces.converter import DocumentConverter
 from raghub.models import KnowledgeBundle
 
+# Deferred marker imports — only resolved when marker is installed.
 MarkerPdfConverter: Any
 marker_create_model_dict: Any
+marker_text_from_rendered: Any
 
 try:
-    marker_module = __import__("marker.converters.pdf", fromlist=["PdfConverter"])
-    MarkerPdfConverter = marker_module.PdfConverter
+    _pdf_mod = __import__("marker.converters.pdf", fromlist=["PdfConverter"])
+    MarkerPdfConverter = _pdf_mod.PdfConverter
 
-    try:
-        marker_models_module = __import__("marker.models", fromlist=["create_model_dict"])
-        marker_create_model_dict = marker_models_module.create_model_dict
-    except Exception:  # pragma: no cover - older marker
-        marker_create_model_dict = None
+    _models_mod = __import__("marker.models", fromlist=["create_model_dict"])
+    marker_create_model_dict = _models_mod.create_model_dict
+
+    _output_mod = __import__("marker.output", fromlist=["text_from_rendered"])
+    marker_text_from_rendered = _output_mod.text_from_rendered
 
     MARKER_AVAILABLE = True
     MarkerImportError: Exception | None = None
 except Exception as exc:  # pragma: no cover - optional dep
     MarkerPdfConverter = None
     marker_create_model_dict = None
+    marker_text_from_rendered = None
     MARKER_AVAILABLE = False
     MarkerImportError = exc
 
 
-def build_marker_converter() -> Any:
-    """Construct a Marker ``PdfConverter`` regardless of API version."""
+def build_marker_converter(*, device: str | None = None) -> Any:
+    """Construct a Marker ``PdfConverter`` using the current API.
+
+    Args:
+        device: Optional device hint forwarded to ``create_model_dict``
+            (``"cpu"``, ``"cuda"``, ``"mps"``).  ``None`` lets Marker
+            choose.
+
+    Returns:
+        A configured ``PdfConverter`` instance.
+
+    Raises:
+        ConfigurationError: When ``marker-pdf`` is not installed.
+    """
     if not MARKER_AVAILABLE or MarkerPdfConverter is None:
         raise ConfigurationError(
             "marker-pdf is not installed; install it via "
             "`pip install 'raghub[pdf]'` or set a custom converter."
         )
-    sig = inspect.signature(MarkerPdfConverter)
-    params = sig.parameters
     kwargs: dict[str, Any] = {}
-    if "artifact_dict" in params and marker_create_model_dict is not None:
-        kwargs["artifact_dict"] = marker_create_model_dict()
-    try:
-        return MarkerPdfConverter(**kwargs)
-    except TypeError:
-        # Older API: ``PdfConverter(config=..., artifact_dict=...)``.
-        marker_parser_module = __import__("marker.config.parser", fromlist=["ConfigParser"])
-        ConfigParser = marker_parser_module.ConfigParser
-
-        parser = ConfigParser({})
-        return MarkerPdfConverter(
-            config=parser.generate_config_dict(),
-            artifact_dict=marker_create_model_dict() if marker_create_model_dict else None,
-            processor_list=parser.get_processors(),
-            renderer=parser.get_renderer(),
-        )
+    if marker_create_model_dict is not None:
+        kwargs["artifact_dict"] = marker_create_model_dict(device=device)
+    return MarkerPdfConverter(**kwargs)
 
 
 class MarkerConverter(DocumentConverter):
@@ -87,7 +87,7 @@ class MarkerConverter(DocumentConverter):
 
         Args:
             device: Optional device hint for Marker (``"cpu"``,
-                ``"cuda"``). ``None`` lets Marker choose.
+                ``"cuda"``, ``"mps"``).  ``None`` lets Marker choose.
 
         Raises:
             ConfigurationError: When ``marker-pdf`` is not installed.
@@ -97,16 +97,13 @@ class MarkerConverter(DocumentConverter):
                 "marker-pdf is not installed; install it via "
                 "`pip install 'raghub[pdf]'` or set a custom converter."
             )
+        self._device = device
         self.converter: Any | None = None
 
     def marker_converter_instance(self) -> Any:
-        """Lazy-initialise and return the Marker ``PdfConverter``.
-
-        Returns:
-            A configured Marker converter instance.
-        """
+        """Lazy-initialise and return the Marker ``PdfConverter``."""
         if self.converter is None:
-            self.converter = build_marker_converter()
+            self.converter = build_marker_converter(device=self._device)
         return self.converter
 
     def convert(
@@ -120,9 +117,8 @@ class MarkerConverter(DocumentConverter):
     ) -> KnowledgeBundle:
         """Convert ``file_bytes`` (typically a PDF) to a bundle.
 
-        The current Marker API requires a file path. We write the
-        bytes to a temporary file, invoke the converter, and clean
-        up on exit.
+        Uses Marker's ``text_from_rendered`` to properly extract text
+        and images from the rendered output.
 
         Args:
             source_uri: Stable source identifier.
@@ -149,12 +145,6 @@ class MarkerConverter(DocumentConverter):
                 "MarkerConverter.convert received empty bytes; nothing to convert."
             )
         if not looks_like_pdf(file_bytes):
-            # The Marker converter is PDF-only. When a caller hands us
-            # plain text / Markdown / HTML we transparently delegate to
-            # :class:`PlainTextConverter` so the default RAG facade
-            # can ingest any supported input without a configuration
-            # step. The caller can still opt out by passing a custom
-            # converter.
             from raghub.converters.plaintext import PlainTextConverter
 
             return PlainTextConverter().convert(
@@ -186,25 +176,32 @@ class MarkerConverter(DocumentConverter):
                     os.unlink(tmp_path)
             raise ConversionError(f"Marker conversion failed: {exc}") from exc
 
-        markdown = getattr(rendered, "markdown", None) or str(rendered)
+        # Use marker's official text_from_rendered to extract text,
+        # format, and images properly across all output types.
+        if marker_text_from_rendered is not None:
+            text_content, _fmt, images = marker_text_from_rendered(rendered)
+        else:
+            # Fallback for edge case where output module didn't import
+            text_content = getattr(rendered, "markdown", None) or str(rendered)
+            images = {}
+
+        merged_metadata = dict(metadata or {})
+        if images:
+            merged_metadata["marker_images"] = {
+                name: getattr(img, "size", None) for name, img in images.items()
+            }
+
         return normalise(
-            markdown,
+            text_content,
             source_uri=source_uri,
             mime_type=mime_type or "application/pdf",
             language=language,
-            metadata=metadata or {},
+            metadata=merged_metadata,
         )
 
 
 def looks_like_pdf(file_bytes: bytes) -> bool:
-    """Return whether ``file_bytes`` starts with the PDF magic number.
-
-    Args:
-        file_bytes: The bytes to inspect.
-
-    Returns:
-        ``True`` if the first five bytes are ``b"%PDF-"``.
-    """
+    """Return whether ``file_bytes`` starts with the PDF magic number."""
     return file_bytes[:5] == b"%PDF-"
 
 
