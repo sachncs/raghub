@@ -34,12 +34,20 @@ def default_converter() -> DocumentConverter:
         return PlainTextConverter()
 
 
-def default_chunker(chunk_size: int, chunk_overlap: int) -> Chunker:
+def default_chunker(
+    chunk_size: int,
+    chunk_overlap: int,
+    *,
+    chunker_strategy: str = "recursive",
+    embedding_model_chunker: str = "minishlab/potion-base-8M",
+) -> Chunker:
     """Return the default chunker.
 
     Args:
         chunk_size: Number of words per chunk.
         chunk_overlap: Number of overlapping words.
+        chunker_strategy: Chunking strategy name.
+        embedding_model_chunker: Embedding model for semantic/late chunkers.
 
     Returns:
         :class:`ChonkieChunker` when Chonkie is available;
@@ -47,7 +55,12 @@ def default_chunker(chunk_size: int, chunk_overlap: int) -> Chunker:
     """
     from raghub.ingestion.chunkers.chonkie import build_chonkie_chunker
 
-    return build_chonkie_chunker("auto", chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    return build_chonkie_chunker(
+        chunker_strategy,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        embedding_model=embedding_model_chunker,
+    )
 
 
 def default_embedder(embedding_model: str, embedding_dim: int) -> EmbeddingProvider:
