@@ -155,7 +155,9 @@ def build_chonkie_inner(
         )
     try:
         return cls(**kwargs)
-    except (TypeError, ImportError, ValueError) as exc:
+    except Exception as exc:
+        if isinstance(exc, ConfigurationError):
+            raise
         raise ConfigurationError(
             f"chonkie {cls_name} failed to initialize: {exc}"
         ) from exc

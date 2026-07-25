@@ -1139,13 +1139,26 @@ class TestBuildChonkieChunker:
         chunker = build_chonkie_chunker("sentence", chunk_size=100, chunk_overlap=10)
         assert isinstance(chunker, ChonkieChunker)
 
-    def test_explicit_semantic_unavailable(self) -> None:
+    def test_explicit_semantic_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
         if not CHONKIE_AVAILABLE:
             pytest.skip("chonkie not installed")
         from raghub.exceptions import ConfigurationError
 
-        with pytest.raises(ConfigurationError, match="failed to initialize"):
-            build_chonkie_chunker("semantic", chunk_size=100, chunk_overlap=10)
+        # Force SemanticChunker to fail by monkeypatching it to raise
+        import chonkie
+
+        _orig = chonkie.SemanticChunker
+
+        class _Broken:
+            def __init__(self, **kw):
+                raise RuntimeError("embeddings not available")
+
+        monkeypatch.setattr(chonkie, "SemanticChunker", _Broken)
+        try:
+            with pytest.raises(ConfigurationError, match="failed to initialize"):
+                build_chonkie_chunker("semantic", chunk_size=100, chunk_overlap=10)
+        finally:
+            monkeypatch.setattr(chonkie, "SemanticChunker", _orig)
 
     def test_explicit_chonkie_strategy_unavailable(self) -> None:
         with patch("raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False):
