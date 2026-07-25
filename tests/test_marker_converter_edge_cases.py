@@ -13,7 +13,8 @@ class TestMarkerConverterEdge:
             MarkerConverter()
 
     def test_marker_converter_instance_lazy_init(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("raghub.converters.marker.build_marker_converter", lambda: object())
+        monkeypatch.setattr("raghub.converters.marker.MARKER_AVAILABLE", True)
+        monkeypatch.setattr("raghub.converters.marker.build_marker_converter", lambda **kw: object())
         converter = MarkerConverter()
         assert converter.converter is None
         instance = converter.marker_converter_instance()
@@ -21,6 +22,7 @@ class TestMarkerConverterEdge:
         assert converter.converter is instance
 
     def test_convert_raises_conversion_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("raghub.converters.marker.MARKER_AVAILABLE", True)
         converter = MarkerConverter()
 
         class _BrokenConverter:
@@ -36,9 +38,10 @@ class TestMarkerConverterEdge:
                 mime_type="application/pdf",
             )
 
-    def test_convert_delegates_non_pdf_to_plaintext(self) -> None:
+    def test_convert_delegates_non_pdf_to_plaintext(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from raghub.models import KnowledgeBundle
 
+        monkeypatch.setattr("raghub.converters.marker.MARKER_AVAILABLE", True)
         converter = MarkerConverter()
         bundle = converter.convert(
             source_uri="file://notes.txt",
@@ -53,7 +56,8 @@ class TestMarkerConverterEdge:
             for block in section.blocks
         )
 
-    def test_convert_empty_bytes_raises_config(self) -> None:
+    def test_convert_empty_bytes_raises_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("raghub.converters.marker.MARKER_AVAILABLE", True)
         converter = MarkerConverter()
         with pytest.raises(ConfigurationError, match="empty bytes"):
             converter.convert(
@@ -62,6 +66,7 @@ class TestMarkerConverterEdge:
             )
 
     def test_convert_re_raises_configuration_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("raghub.converters.marker.MARKER_AVAILABLE", True)
         converter = MarkerConverter()
 
         class _ConfigRaiser:
