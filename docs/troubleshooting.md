@@ -47,7 +47,7 @@ pip install "chonkie[code]"       # CodeChunker
 Set the chunking strategy in your config:
 
 ```yaml
-chunker_strategy: recursive       # or token, sentence, semantic, late, table, code, word
+chunker_strategy: recursive       # or token, sentence, semantic, late, table, code, slumber, neural
 embedding_model_chunker: minishlab/potion-base-8M  # for semantic/late
 ```
 

@@ -35,7 +35,8 @@ class AppSettings(BaseModel):
         chunk_overlap_words: Default overlap used by the chunker.
         chunker_strategy: Chunking strategy name (``"recursive"``,
             ``"token"``, ``"sentence"``, ``"semantic"``, ``"late"``,
-            ``"table"``, ``"code"``, ``"word"``, ``"auto"``).
+            ``"table"``, ``"code"``, ``"slumber"``, ``"neural"``,
+            ``"auto"``).
         embedding_model_chunker: Embedding model for semantic/late
             chunkers (chonkie's built-in model name).
         top_k: Default top-k for retrieval.
