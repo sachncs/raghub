@@ -176,7 +176,10 @@ class RAG:
         self.llm = llm or default_llm(self.settings.llm_model)
         self.converter = converter or default_converter()
         self.chunker = chunker or default_chunker(
-            self.settings.chunk_size_words, self.settings.chunk_overlap_words
+            self.settings.chunk_size_words,
+            self.settings.chunk_overlap_words,
+            chunker_strategy=self.settings.chunker_strategy,
+            embedding_model_chunker=self.settings.embedding_model_chunker,
         )
         self.reranker = reranker or IdentityReranker()
         self.generator = cast(
