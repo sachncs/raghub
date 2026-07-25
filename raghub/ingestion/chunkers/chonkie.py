@@ -60,7 +60,8 @@ def _apply_refinery(pieces: list[Any], refinery: Any) -> list[Any]:
     if refinery is None or not pieces:
         return pieces
     try:
-        return refinery(pieces)
+        result = refinery(pieces)
+        return result  # type: ignore[no-any-return]
     except Exception:
         return pieces
 
@@ -190,13 +191,13 @@ class ChonkieChunker(Chunker):
     def chonkie_text_chunks(self, text: str) -> list[Any]:
         """Invoke the underlying Chonkie chunker; tolerate API drift."""
         try:
-            pieces = self.inner(text)  # type: ignore[no-any-return]
+            pieces = self.inner(text)
         except TypeError:
             # Older Chonkie takes a string directly via ``.chunk()`` or
             # ``.split_text()``.
             chunk = getattr(self.inner, "chunk", None) or getattr(self.inner, "split_text", None)
             if chunk is not None:
-                pieces = chunk(text)  # type: ignore[no-any-return]
+                pieces = chunk(text)
             else:
                 raise
         return _apply_refinery(pieces, self.refinery)
