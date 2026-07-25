@@ -36,6 +36,21 @@ chunking:
 pip install chonkie
 ```
 
+For semantic or late chunking strategies, install the relevant extra:
+
+```bash
+pip install "chonkie[semantic]"   # SemanticChunker
+pip install "chonkie[st]"         # LateChunker (sentence-transformers)
+pip install "chonkie[code]"       # CodeChunker
+```
+
+Set the chunking strategy in your config:
+
+```yaml
+chunker_strategy: recursive       # or token, sentence, semantic, late, table, code, word
+embedding_model_chunker: minishlab/potion-base-8M  # for semantic/late
+```
+
 ## `ConfigurationError: qdrant-client is not installed`
 
 The facade tries Qdrant first; when `qdrant-client` is missing or
