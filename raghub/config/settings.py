@@ -33,6 +33,11 @@ class AppSettings(BaseModel):
         zvec_dir: Directory used by the zvec vector store.
         chunk_size_words: Default chunk size used by the chunker.
         chunk_overlap_words: Default overlap used by the chunker.
+        chunker_strategy: Chunking strategy name (``"recursive"``,
+            ``"token"``, ``"sentence"``, ``"semantic"``, ``"late"``,
+            ``"table"``, ``"code"``, ``"word"``, ``"auto"``).
+        embedding_model_chunker: Embedding model for semantic/late
+            chunkers (chonkie's built-in model name).
         top_k: Default top-k for retrieval.
         embedding_dim: Embedding dimensionality.
         session_timeout_seconds: Session inactivity timeout.
@@ -63,6 +68,8 @@ class AppSettings(BaseModel):
     zvec_dir: Path = Path("./data/zvec")
     chunk_size_words: int = 800
     chunk_overlap_words: int = 100
+    chunker_strategy: str = "recursive"
+    embedding_model_chunker: str = "minishlab/potion-base-8M"
     top_k: int = 5
     embedding_dim: int = 384
     session_timeout_seconds: int = 3600
@@ -189,6 +196,13 @@ def load_settings(profile: str | None = None) -> AppSettings:
         ),
         "chunk_overlap_words": int(
             os.getenv("RAG_CHUNK_OVERLAP_WORDS", str(payload.get("chunk_overlap_words", 100)))
+        ),
+        "chunker_strategy": os.getenv(
+            "RAG_CHUNKER_STRATEGY", payload.get("chunker_strategy", "recursive")
+        ),
+        "embedding_model_chunker": os.getenv(
+            "RAG_EMBEDDING_MODEL_CHUNKER",
+            payload.get("embedding_model_chunker", "minishlab/potion-base-8M"),
         ),
         "top_k": int(os.getenv("RAG_TOP_K", str(payload.get("top_k", 5)))),
         "embedding_dim": int(
