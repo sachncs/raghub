@@ -23,8 +23,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-import raghub.repositories.sqlite_document_repo as sqlite_document_repo
-import raghub.repositories.sqlite_session_repo as sqlite_session_repo
+import raghub.repositories as repositories
 import raghub.storage.json_registry as json_registry
 import raghub.storage.session_store as session_store
 
@@ -55,7 +54,7 @@ async def migrate_from_json(
         Any exception raised by the underlying :class:`SqliteDocumentRepository`
         or :class:`SqliteSessionRepository` propagates to the caller.
     """
-    registry = sqlite_document_repo.SqliteDocumentRepository(db_path)
+    registry = repositories.SqliteDocumentRepository(db_path)
     await registry.initialize()
 
     json_registry_instance = json_registry.JsonDocumentRegistry(Path(registry_path))
@@ -65,7 +64,7 @@ async def migrate_from_json(
     ):
         await registry.save(doc)
 
-    session_repo = sqlite_session_repo.SqliteSessionRepository(db_path)
+    session_repo = repositories.SqliteSessionRepository(db_path)
     await session_repo.initialize()
 
     json_sessions = session_store.JsonSessionStore(Path(sessions_path), timeout_seconds=3600)

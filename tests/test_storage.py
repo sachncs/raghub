@@ -27,7 +27,7 @@ def tmp_db():
 class TestSqliteDocumentRepository:
     @pytest.mark.asyncio
     async def test_save_and_get(self, tmp_db):
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -46,7 +46,7 @@ class TestSqliteDocumentRepository:
 
     @pytest.mark.asyncio
     async def test_get_by_checksum(self, tmp_db):
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -58,7 +58,7 @@ class TestSqliteDocumentRepository:
 
     @pytest.mark.asyncio
     async def test_delete(self, tmp_db):
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -70,7 +70,7 @@ class TestSqliteDocumentRepository:
 
     @pytest.mark.asyncio
     async def test_update_status(self, tmp_db):
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -83,7 +83,7 @@ class TestSqliteDocumentRepository:
 
     @pytest.mark.asyncio
     async def test_list_by_organization(self, tmp_db):
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -221,7 +221,7 @@ def make_doc(document_id: str, version: int, checksum: str, **overrides) -> Docu
 class TestDocumentVersioning:
     @pytest.mark.asyncio
     async def test_save_supports_multiple_versions(self, tmp_db: str) -> None:
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -233,7 +233,7 @@ class TestDocumentVersioning:
 
     @pytest.mark.asyncio
     async def test_get_returns_latest_version(self, tmp_db: str) -> None:
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -246,7 +246,7 @@ class TestDocumentVersioning:
 
     @pytest.mark.asyncio
     async def test_get_version_returns_specific_version(self, tmp_db: str) -> None:
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -260,7 +260,7 @@ class TestDocumentVersioning:
 
     @pytest.mark.asyncio
     async def test_save_upsert_replaces_same_version(self, tmp_db: str) -> None:
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -272,7 +272,7 @@ class TestDocumentVersioning:
 
     @pytest.mark.asyncio
     async def test_delete_removes_all_versions(self, tmp_db: str) -> None:
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -283,7 +283,7 @@ class TestDocumentVersioning:
 
     @pytest.mark.asyncio
     async def test_delete_version_removes_only_that_version(self, tmp_db: str) -> None:
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -295,7 +295,7 @@ class TestDocumentVersioning:
 
     @pytest.mark.asyncio
     async def test_update_status_only_touches_latest(self, tmp_db: str) -> None:
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -310,7 +310,7 @@ class TestDocumentVersioning:
 
     @pytest.mark.asyncio
     async def test_list_by_organization_returns_latest_per_doc(self, tmp_db: str) -> None:
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -328,7 +328,7 @@ class TestConcurrentChecksumDedup:
     async def test_try_insert_detects_duplicate_checksum(self, tmp_db: str) -> None:
         import aiosqlite
 
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -341,7 +341,7 @@ class TestConcurrentChecksumDedup:
     async def test_try_insert_detects_duplicate_primary_key(self, tmp_db: str) -> None:
         import aiosqlite
 
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -353,7 +353,7 @@ class TestConcurrentChecksumDedup:
     async def test_concurrent_try_insert_only_one_wins(self, tmp_db: str) -> None:
         import aiosqlite
 
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -375,7 +375,7 @@ class TestConcurrentChecksumDedup:
         # Simulates an upload that fails mid-flight: v1 is written,
         # the upload fails and the caller retries as v2 with corrected
         # fields. Both versions must coexist.
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -426,7 +426,7 @@ class TestDocumentSchemaMigration:
             """)
             await conn.commit()
 
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -486,7 +486,7 @@ class TestDocumentSchemaMigration:
             """)
             await conn.commit()
 
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()
@@ -497,7 +497,7 @@ class TestDocumentSchemaMigration:
 
     @pytest.mark.asyncio
     async def test_idempotent_initialize_does_not_lose_data(self, tmp_db: str) -> None:
-        from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+        from raghub.repositories import SqliteDocumentRepository
 
         repo = SqliteDocumentRepository(tmp_db)
         await repo.initialize()

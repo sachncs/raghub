@@ -1,27 +1,16 @@
-"""SQLite document repository.
+"""SQLite-backed repository implementations.
 
-Implements :class:`raghub.domain.repositories.DocumentRepository`
-against a SQLite database. Part of the legacy persistence layer.
+Concrete implementations of the legacy repository protocols
+defined in :mod:`raghub.domain`. The four classes ship in a single
+file because they share the SQLite persistence concern and are
+always wired together by :class:`UnitOfWork`:
 
-Schema:
-    The ``documents`` table uses a composite primary key
-    ``(document_id, version)`` so the same document can have many
-    historical versions stored side-by-side. A ``UNIQUE(checksum)``
-    index makes checksum-based dedup race-detectable: two concurrent
-    writers racing to insert the same content collide on the index
-    and one of them gets :class:`aiosqlite.IntegrityError`.
-
-Migration:
-    Pre-existing databases created with the legacy single-column PK
-    ``(document_id)`` are rebuilt transparently on first
-    :meth:`initialize`. Rows are copied 1:1 (the ``version`` column
-    already existed; if it was 0 on legacy data it is normalised to 1).
-
-Concurrency:
-    :meth:`save` is an upsert (replace by primary key). :meth:`try_insert`
-    is a plain ``INSERT`` that surfaces :class:`aiosqlite.IntegrityError`
-    so callers can detect concurrent duplicate writes by checksum or
-    primary key.
+* :class:`SqliteChunkRepository` — chunk + embedding persistence
+  through a vector store.
+* :class:`SqliteDocumentRepository` — versioned document rows.
+* :class:`SqliteSessionRepository` — session rows.
+* :class:`UnitOfWork` — the transaction coordinator that ties them
+  to a single :class:`DatabaseManager`.
 """
 
 from __future__ import annotations
@@ -33,11 +22,21 @@ from typing import Any
 
 import aiosqlite
 
-from raghub.domain import DocumentRepository
-from raghub.models import DocumentLifecycleStatus, DocumentRecord
+from raghub.domain import (
+    ChunkRepository,
+    DocumentRepository,
+    SessionRepository,
+    UnitOfWork as BaseUnitOfWork,
+)
+from raghub.models import (
+    ChunkRecord,
+    DocumentLifecycleStatus,
+    DocumentRecord,
+    SessionRecord,
+)
 from raghub.storage.database import DatabaseManager
-
-__all__ = ["SqliteDocumentRepository"]
+from raghub.storage.sqlite_session_store import SqliteSessionStore
+from raghub.vectorstore.base import BaseVectorStore
 
 MAX_INSERT_RETRIES = 3
 RETRY_BASE_DELAY = 0.05
@@ -80,8 +79,57 @@ INSERT {mode} INTO documents (
 """
 
 
+class SqliteChunkRepository(ChunkRepository):
+    """Store chunk records and embeddings in a vector store."""
+
+    def __init__(self, vector_store: BaseVectorStore) -> None:
+        self.store = vector_store
+
+    async def initialize(self) -> None:
+        self.store.create_collection()
+
+    async def insert(self, record: ChunkRecord, embedding: list[float]) -> None:
+        self.store.insert([record], [embedding])
+
+    async def upsert(
+        self, records: list[ChunkRecord], embeddings: list[list[float]] | None = None
+    ) -> None:
+        if embeddings is None:
+            raise ValueError("embeddings required for upsert")
+        self.store.upsert(records, embeddings)
+
+    async def delete_by_id(self, chunk_id: str) -> None:
+        self.store.delete([chunk_id])
+
+    async def delete_by_document(self, document_id: str) -> None:
+        self.store.delete_document(document_id)
+
+    async def search(
+        self, vector: list[float], top_k: int, metadata_filter: str = ""
+    ) -> list[dict]:
+        return self.store.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
+
+    async def optimize(self) -> None:
+        self.store.optimize()
+
+    async def health(self) -> dict:
+        return self.store.health()
+
+
 class SqliteDocumentRepository(DocumentRepository):
-    """Persist versioned documents in SQLite."""
+    """Persist versioned documents in SQLite.
+
+    Schema:
+        The ``documents`` table uses a composite primary key
+        ``(document_id, version)`` so the same document can have many
+        historical versions stored side-by-side. A ``UNIQUE(checksum)``
+        index makes checksum-based dedup race-detectable.
+
+    Migration:
+        Pre-existing databases created with the legacy single-column PK
+        ``(document_id)`` are rebuilt transparently on first
+        :meth:`initialize`.
+    """
 
     def __init__(self, db_path: str | Path, db_manager: DatabaseManager | None = None) -> None:
         self.db_path = str(db_path)
@@ -90,10 +138,6 @@ class SqliteDocumentRepository(DocumentRepository):
     async def conn(self) -> aiosqlite.Connection:
         if self.db_manager is not None:
             return self.db_manager.connection
-        # ponytail: ad-hoc connections get WAL + a 5s busy timeout so
-        # back-to-back calls on the same file don't surface "database is
-        # locked" when the prior call's connection hasn't fully released
-        # its exclusive rollback-journal.
         conn = await aiosqlite.connect(self.db_path)
         conn.row_factory = aiosqlite.Row
         await conn.execute("PRAGMA journal_mode=WAL")
@@ -101,10 +145,6 @@ class SqliteDocumentRepository(DocumentRepository):
         return conn
 
     async def maybe_commit_close(self, conn: aiosqlite.Connection) -> None:
-        # Only commit+close when we own the connection. With the shared
-        # DatabaseManager the connection runs in autocommit mode so each
-        # statement is already durable; the UnitOfWork still wraps
-        # multi-statement work in BEGIN/COMMIT explicitly.
         if self.db_manager is None:
             await conn.commit()
             await conn.close()
@@ -117,9 +157,6 @@ class SqliteDocumentRepository(DocumentRepository):
         await self.maybe_commit_close(conn)
 
     async def migrate_legacy_schema(self, conn: aiosqlite.Connection) -> None:
-        # ponytail: legacy DBs created before this migration had a single-column
-        # PRIMARY KEY (document_id). Rebuild transparently so existing data
-        # survives without manual SQL.
         cursor = await conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='documents'"
         )
@@ -129,8 +166,6 @@ class SqliteDocumentRepository(DocumentRepository):
         ddl = row[0] or ""
         if "PRIMARY KEY (document_id, version)" in ddl:
             return
-        # Copy every column except the old PK constraint, normalise
-        # NULL/0 versions to 1 to satisfy the new NOT NULL semantics.
         await conn.executescript("""
             CREATE TABLE IF NOT EXISTS documents_new (
                 document_id TEXT NOT NULL,
@@ -260,8 +295,6 @@ class SqliteDocumentRepository(DocumentRepository):
         return self.row_to_record(row)
 
     async def delete(self, document_id: str) -> None:
-        # Delete every version: the public API is "remove this document".
-        # Callers that need version-scoped deletes use ``delete_version``.
         conn = await self.conn()
         await conn.execute("DELETE FROM documents WHERE document_id = ?", (document_id,))
         await self.maybe_commit_close(conn)
@@ -275,9 +308,6 @@ class SqliteDocumentRepository(DocumentRepository):
         await self.maybe_commit_close(conn)
 
     async def list_by_organization(self, organization: str) -> list[DocumentRecord]:
-        # Latest version per (document_id) only — matches the legacy
-        # single-row-per-document listing semantics. The inner GROUP BY
-        # picks the max version; the outer ORDER BY applies to it.
         conn = await self.conn()
         cursor = await conn.execute(
             """
@@ -318,8 +348,6 @@ class SqliteDocumentRepository(DocumentRepository):
         return [self.row_to_record(row) for row in rows]
 
     async def update_status(self, document_id: str, status: DocumentLifecycleStatus) -> None:
-        # Mutate only the latest version — historical records stay
-        # frozen at the status they had when they were superseded.
         conn = await self.conn()
         now = datetime.now(UTC).isoformat()
         await conn.execute(
@@ -339,3 +367,112 @@ class SqliteDocumentRepository(DocumentRepository):
         data["tags"] = json.loads(data.get("tags", "[]"))
         data["chunk_ids"] = json.loads(data.get("chunk_ids", "[]"))
         return DocumentRecord(**data)
+
+
+class SqliteSessionRepository(SessionRepository):
+    """Adapt the SQLite session store to the session repository interface."""
+
+    def __init__(
+        self,
+        db_path: str | Path,
+        timeout_seconds: int = 3600,
+        db_manager: DatabaseManager | None = None,
+    ) -> None:
+        self.inner = SqliteSessionStore(db_path, timeout_seconds, db_manager=db_manager)
+        self.db_manager = db_manager
+
+    async def initialize(self) -> None:
+        await self.inner.initialize()
+
+    async def create(self, record: SessionRecord) -> None:
+        conn = await self.conn()
+        await conn.execute(
+            """
+            INSERT INTO sessions (session_id, user_id, token, created_at, expires_at, last_seen_at, history)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                record.session_id,
+                record.user_id,
+                record.token,
+                record.created_at.isoformat(),
+                record.expires_at.isoformat(),
+                record.last_seen_at.isoformat(),
+                "[]",
+            ),
+        )
+        if self.db_manager is None:
+            await conn.commit()
+            await conn.close()
+
+    async def save(self, record: SessionRecord) -> None:
+        await self.inner.update_session(record)
+
+    async def get(self, session_id: str) -> SessionRecord | None:
+        return await self.inner.get_session(session_id)
+
+    async def get_by_token(self, token: str) -> SessionRecord | None:
+        return await self.inner.get_by_token(token)
+
+    async def delete(self, session_id: str) -> None:
+        await self.inner.delete_session(session_id)
+
+    async def conn(self) -> aiosqlite.Connection:
+        if self.db_manager is not None:
+            return self.db_manager.connection
+        conn = await aiosqlite.connect(self.inner.db_path)
+        conn.row_factory = aiosqlite.Row
+        return conn
+
+
+class UnitOfWork(BaseUnitOfWork):
+    """Coordinate repositories over a shared SQLite transaction."""
+
+    def __init__(
+        self, db_path: str, vector_store: BaseVectorStore, session_timeout: int = 3600
+    ) -> None:
+        self.db_path = db_path
+        self.vector_store = vector_store
+        self.session_timeout = session_timeout
+        self.initialized = False
+        self.db_manager = DatabaseManager(db_path)
+
+        doc_repo = SqliteDocumentRepository(db_path, db_manager=self.db_manager)
+        chunk_repo = SqliteChunkRepository(vector_store)
+        sess_repo = SqliteSessionRepository(db_path, session_timeout, db_manager=self.db_manager)
+        super().__init__(
+            document_repo=doc_repo,
+            chunk_repo=chunk_repo,
+            session_repo=sess_repo,
+            db_manager=self.db_manager,
+        )
+
+    async def initialize(self) -> None:
+        if not self.initialized:
+            assert self.db_manager is not None
+            await self.db_manager.connect()
+            await self.document_repo.initialize()
+            await self.chunk_repo.initialize()
+            await self.session_repo.initialize()
+            self.initialized = True
+
+    async def close(self) -> None:
+        """Close the underlying :class:`DatabaseManager`.
+
+        Idempotent: a second call is a no-op.
+        """
+        if not self.initialized:
+            return
+        db_manager = self.db_manager
+        if db_manager is not None:
+            await db_manager.close()
+        self.initialized = False
+
+    async def __aenter__(self) -> UnitOfWork:
+        await self.initialize()
+        await super().__aenter__()
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        await super().__aexit__(*args)
+        await self.close()

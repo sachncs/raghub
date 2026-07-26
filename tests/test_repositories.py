@@ -12,9 +12,9 @@ import pytest
 from raghub.domain import ChunkRepository, SessionRepository
 from raghub.domain import UnitOfWork as BaseUnitOfWork
 from raghub.models import ChunkRecord, SessionRecord
-from raghub.repositories.sqlite_chunk_repo import SqliteChunkRepository
-from raghub.repositories.sqlite_session_repo import SqliteSessionRepository
-from raghub.repositories.unit_of_work import UnitOfWork
+from raghub.repositories import SqliteChunkRepository
+from raghub.repositories import SqliteSessionRepository
+from raghub.repositories import UnitOfWork
 from raghub.storage.database import DatabaseManager
 from raghub.vectorstore.base import BaseVectorStore
 
