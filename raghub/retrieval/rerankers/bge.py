@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from sentence_transformers import CrossEncoder
 
 from raghub.models import RetrievalHit
-from raghub.observability.metrics import record_rerank_latency
+from raghub.observability import record_rerank_latency
 
 
 def record_latency(provider: str, seconds: float) -> None:

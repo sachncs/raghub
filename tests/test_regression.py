@@ -16,8 +16,8 @@ from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.interfaces.observability import TelemetryProvider
 from raghub.knowledge.manifest import SourceManifest
 from raghub.llm.heuristic import HeuristicLLMProvider
-from raghub.observability.noop import NoOpTelemetry
-from raghub.observability.redact import RedactingTelemetry
+from raghub.observability import NoOpTelemetry
+from raghub.observability import RedactingTelemetry
 from raghub.pipelines.rag import IngestPipeline, QueryPipeline
 from raghub.vectorstore.memory import InMemoryVectorStore
 
@@ -134,7 +134,7 @@ def test_redacting_telemetry_filters_secrets() -> None:
     """Secret-looking kwargs are masked before being forwarded."""
 
     from raghub.interfaces.observability import TelemetryProvider
-    from raghub.telemetry.langfuse import NoopSpan
+    from raghub.observability import NoopSpan
 
     class Capture(TelemetryProvider):
         def __init__(self) -> None:
@@ -422,7 +422,7 @@ class _Capture(TelemetryProvider):
         self.events.append(("counter", {"name": name, **labels}))
 
     def start_span(self, name, **attrs):
-        from raghub.telemetry.langfuse import NoopSpan
+        from raghub.observability import NoopSpan
 
         s = NoopSpan(name)
         for k, v in attrs.items():

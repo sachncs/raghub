@@ -8,8 +8,8 @@ for the tracer.
 
 from __future__ import annotations
 
-from raghub.observability.logging import LoguruLogger, build_logger
-from raghub.observability.metrics import PrometheusMetrics
+from raghub.observability import LoguruLogger, build_logger
+from raghub.observability import PrometheusMetrics
 
 
 class TestBuildLogger:
@@ -84,7 +84,7 @@ class TestPrometheusMetricsRegistration:
 class TestTracer:
     def test_shutdown_without_spans_is_safe(self):
         """Tracer.shutdown completes without error when no spans were created."""
-        from raghub.observability.tracing import Tracer
+        from raghub.observability import Tracer
 
         tracer = Tracer("raghub-test")
         tracer.shutdown()

@@ -44,8 +44,8 @@ from raghub.embeddings import BaseEmbeddingProvider, build_embedding_provider
 from raghub.ingestion.service import DocumentIngestionService
 from raghub.llm import BaseLLMProvider, build_llm_provider
 from raghub.models import ConversationTurn
-from raghub.observability.logging import build_logger
-from raghub.observability.metrics import PrometheusMetrics
+from raghub.observability import build_logger
+from raghub.observability import PrometheusMetrics
 from raghub.prompts import PromptBuilder
 from raghub.repositories import UnitOfWork
 from raghub.retrieval.pipeline import RetrievalPipeline
@@ -116,7 +116,7 @@ class DynamicRagContainer:
 
     Attributes:
         settings: Application configuration.
-        logger: Loguru logger (see :mod:`raghub.observability.logging`).
+        logger: Loguru logger (see :mod:`raghub.observability`).
         metrics: Prometheus metrics sink.
         authorization: RBAC service.
         registry: Backward-compat alias for ``user_store``.

@@ -28,7 +28,7 @@ from typing import Any
 
 from raghub.config import LongContextConfig
 from raghub.models import RankedList, RetrievalHit
-from raghub.observability.metrics import record_long_context
+from raghub.observability import record_long_context
 
 SYSTEM_PROMPT = (
     "You re-rank retrieved passages. For every candidate, produce a "

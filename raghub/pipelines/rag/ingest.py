@@ -170,7 +170,7 @@ class IngestPipeline(Pipeline):
         from raghub.converters.plaintext import PlainTextConverter
         from raghub.ingestion.chunkers.word_window import WordWindowChunker
         from raghub.knowledge.repository import InMemoryKnowledgeRepository
-        from raghub.observability.noop import NoOpTelemetry
+        from raghub.observability import NoOpTelemetry
 
         if embedder is None or vector_store is None:
             raise PipelineError("IngestPipeline requires embedder and vector_store")

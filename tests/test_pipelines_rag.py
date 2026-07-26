@@ -343,7 +343,7 @@ class TestIngestPipelineInit:
         from raghub.converters.plaintext import PlainTextConverter
         from raghub.ingestion.chunkers.word_window import WordWindowChunker
         from raghub.knowledge.repository import InMemoryKnowledgeRepository
-        from raghub.observability.noop import NoOpTelemetry
+        from raghub.observability import NoOpTelemetry
 
         assert isinstance(pipe.converter, PlainTextConverter)
         assert isinstance(pipe.chunker, WordWindowChunker)
@@ -652,7 +652,7 @@ class TestQueryPipelineInit:
             vector_store=mock_vector_store,
             generator=mock_generator,
         )
-        from raghub.observability.noop import NoOpTelemetry
+        from raghub.observability import NoOpTelemetry
 
         assert isinstance(pipe.telemetry, NoOpTelemetry)
         from raghub.conversation.memory import InMemoryConversationStore

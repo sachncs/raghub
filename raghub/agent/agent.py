@@ -44,7 +44,7 @@ from raghub.agent.tools.registry import ToolRegistry
 from raghub.config import AgentConfig
 from raghub.exceptions import AgentBudgetExceeded, ToolError
 from raghub.models import ConversationTurn, UserPrincipal
-from raghub.observability.noop import NoOpTelemetry
+from raghub.observability import NoOpTelemetry
 
 
 @dataclass
