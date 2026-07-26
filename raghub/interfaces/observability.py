@@ -2,9 +2,9 @@
 
 Protocols that describe the surface area of the project's logger,
 metrics recorder, and tracing/telemetry layer. Concrete
-implementations are :class:`raghub.observability.logging.LoguruLogger`,
-:class:`raghub.observability.metrics.PrometheusMetrics`, and
-:class:`raghub.telemetry.langfuse.LangfuseTelemetryProvider`.
+implementations are :class:`raghub.observability.LoguruLogger`,
+:class:`raghub.observability.PrometheusMetrics`, and
+:class:`raghub.observability.LangfuseTelemetryProvider`.
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from opentelemetry.sdk.trace.export import SpanExportResult
 
-from raghub.observability.tracing_exporters import SafeConsoleSpanExporter
+from raghub.observability import SafeConsoleSpanExporter
 
 
 def _stub_span() -> MagicMock:

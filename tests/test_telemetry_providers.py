@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from raghub.observability.noop import NoOpTelemetry
-from raghub.telemetry.langfuse import LangfuseTelemetryProvider, NoopSpan
+from raghub.observability import NoOpTelemetry
+from raghub.observability import LangfuseTelemetryProvider, NoopSpan
 
 
 def test_noop_telemetry_satisfies_protocol() -> None:

@@ -76,8 +76,8 @@ from raghub.models import (
     RetrievalHit,
     deterministic_id,
 )
-from raghub.observability.metrics import MetricsRegistry, PrometheusMetrics
-from raghub.observability.redact import RedactingTelemetry
+from raghub.observability import MetricsRegistry, PrometheusMetrics
+from raghub.observability import RedactingTelemetry
 from raghub.pipelines.agentic import AgenticQueryPipeline
 from raghub.pipelines.cache import QueryCache
 from raghub.pipelines.rag import IngestPipeline, QueryPipeline

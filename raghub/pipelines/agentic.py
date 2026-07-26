@@ -36,7 +36,7 @@ from raghub.models import (
     RetrievalHit,
     UserPrincipal,
 )
-from raghub.observability.noop import NoOpTelemetry
+from raghub.observability import NoOpTelemetry
 from raghub.pipelines._timing import DurationTimer
 
 

@@ -32,7 +32,7 @@ from raghub.models import (
     PipelineResult,
     RetrievalHit,
 )
-from raghub.observability.noop import NoOpTelemetry
+from raghub.observability import NoOpTelemetry
 from raghub.pipelines._timing import DurationTimer
 from raghub.pipelines.rag.conversation import ConversationRouter
 

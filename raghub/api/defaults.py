@@ -27,7 +27,7 @@ from raghub.interfaces.converter import DocumentConverter
 from raghub.interfaces.embeddings import EmbeddingProvider
 from raghub.llm.heuristic import HeuristicLLMProvider
 from raghub.llm.litellm import LiteLLMProvider
-from raghub.observability.noop import NoOpTelemetry
+from raghub.observability import NoOpTelemetry
 from raghub.retrieval.transforms import (
     ComposeTransformer,
     DecomposeTransformer,
@@ -36,7 +36,7 @@ from raghub.retrieval.transforms import (
     StepBackTransformer,
 )
 from raghub.generation import InstructorStructuredOutputProvider
-from raghub.telemetry import LangfuseTelemetryProvider
+from raghub.observability import LangfuseTelemetryProvider
 from raghub.vectorstore.memory import InMemoryVectorStore
 from raghub.vectorstore.qdrant import QdrantVectorStore
 

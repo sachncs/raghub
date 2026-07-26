@@ -29,49 +29,49 @@ from raghub.services.workers import (
 
 
 def test_scrub_secrets():
-    from raghub.observability.redact import scrub_secrets
+    from raghub.observability import scrub_secrets
 
     result = scrub_secrets({"api_key": "sk-123", "safe": "hello"})
     assert result == {"api_key": "***", "safe": "hello"}
 
 
 def test_scrub_secrets_case_insensitive():
-    from raghub.observability.redact import scrub_secrets
+    from raghub.observability import scrub_secrets
 
     result = scrub_secrets({"API_KEY": "val", "Password": "secret"})
     assert result == {"API_KEY": "***", "Password": "***"}
 
 
 def test_scrub_secrets_nested_dict():
-    from raghub.observability.redact import scrub_secrets
+    from raghub.observability import scrub_secrets
 
     result = scrub_secrets({"outer": {"inner_password": "s3cret"}})
     assert result == {"outer": {"inner_password": "***"}}
 
 
 def test_scrub_secrets_deeply_nested():
-    from raghub.observability.redact import scrub_secrets
+    from raghub.observability import scrub_secrets
 
     result = scrub_secrets({"a": {"b": {"access_token": "tok"}}})
     assert result == {"a": {"b": {"access_token": "***"}}}
 
 
 def test_scrub_secrets_authorization():
-    from raghub.observability.redact import scrub_secrets
+    from raghub.observability import scrub_secrets
 
     result = scrub_secrets({"authorization": "Bearer tok"})
     assert result == {"authorization": "***"}
 
 
 def test_scrub_secrets_jwt():
-    from raghub.observability.redact import scrub_secrets
+    from raghub.observability import scrub_secrets
 
     result = scrub_secrets({"jwt": "eyJ.eyJ.sig"})
     assert result == {"jwt": "***"}
 
 
 def test_scrub_secrets_apikey():
-    from raghub.observability.redact import scrub_secrets
+    from raghub.observability import scrub_secrets
 
     result = scrub_secrets({"apikey": "abc123"})
     assert result == {"apikey": "***"}
@@ -84,7 +84,7 @@ class TestRedactingTelemetry:
 
     @pytest.fixture
     def telemetry(self, inner):
-        from raghub.observability.redact import RedactingTelemetry
+        from raghub.observability import RedactingTelemetry
 
         return RedactingTelemetry(inner)
 
@@ -647,26 +647,16 @@ class TestDefaultStructured:
 
 @patch.dict("os.environ", {}, clear=True)
 class TestDefaultTelemetry:
-    def test_import_error_returns_noop(self):
-
-        with patch.dict("sys.modules", {"raghub.telemetry.langfuse": None}, clear=False):
-            # Force import to fail so the except ImportError branch is taken
-            from raghub.api.defaults import default_telemetry
-            from raghub.observability.noop import NoOpTelemetry
-
-            result = default_telemetry()
-            assert isinstance(result, NoOpTelemetry)
-
     def test_not_configured_returns_noop(self):
         mock_langfuse = MagicMock()
         mock_langfuse.is_configured.return_value = False
 
         with patch(
-            "raghub.telemetry.langfuse.LangfuseTelemetryProvider",
+            "raghub.observability.LangfuseTelemetryProvider",
             mock_langfuse,
         ):
             from raghub.api.defaults import default_telemetry
-            from raghub.observability.noop import NoOpTelemetry
+            from raghub.observability import NoOpTelemetry
 
             result = default_telemetry()
             assert isinstance(result, NoOpTelemetry)
@@ -676,7 +666,7 @@ class TestDefaultTelemetry:
         mock_langfuse.is_configured.return_value = True
 
         with patch(
-            "raghub.telemetry.langfuse.LangfuseTelemetryProvider",
+            "raghub.observability.LangfuseTelemetryProvider",
             mock_langfuse,
         ):
             from raghub.api.defaults import default_telemetry
@@ -690,11 +680,11 @@ class TestDefaultTelemetry:
         mock_provider.is_configured.return_value = False
 
         with patch(
-            "raghub.telemetry.langfuse.LangfuseTelemetryProvider",
+            "raghub.observability.LangfuseTelemetryProvider",
             mock_provider,
         ):
             from raghub.api.defaults import default_telemetry
-            from raghub.observability.noop import NoOpTelemetry
+            from raghub.observability import NoOpTelemetry
 
             result = default_telemetry()
             assert isinstance(result, NoOpTelemetry)

@@ -13,7 +13,7 @@ wires in:
   ``AuthorizationError`` (403), ``DocumentError`` (400), and
   ``StorageError`` (500).
 * A ``/metrics`` Prometheus endpoint registered via the
-  :class:`raghub.observability.metrics.PrometheusMetrics` instance
+  :class:`raghub.observability.PrometheusMetrics` instance
   shared with the application container.
 * A shared :class:`BackgroundIngestionService` placed on
   ``app.state.background_ingestion`` for the ``/ingest/async`` endpoint.

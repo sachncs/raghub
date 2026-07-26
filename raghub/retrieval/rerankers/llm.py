@@ -21,7 +21,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from raghub.models import RetrievalHit
-from raghub.observability.metrics import record_rerank_latency
+from raghub.observability import record_rerank_latency
 
 LISTWISE_MAX = 10
 

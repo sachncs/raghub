@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from prometheus_client import REGISTRY
 from starlette.testclient import TestClient
 
-from raghub.observability.metrics import PrometheusMetrics
+from raghub.observability import PrometheusMetrics
 
 
 def test_prometheus_metrics_public_counters_exposed() -> None:
