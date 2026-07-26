@@ -21,19 +21,16 @@ context as the synchronous path.
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from raghub.models import QueryResponse
 from raghub.services import ServiceMixin
-
-if TYPE_CHECKING:
-    from raghub.services.application import DynamicRagContainer
 
 
 class QueryService(ServiceMixin):
     """High-level retrieval-augmented Q/A handler."""
 
-    def __init__(self, container: DynamicRagContainer) -> None:
+    def __init__(self, container: Any) -> None:
         """Store the container reference.
 
         Args:

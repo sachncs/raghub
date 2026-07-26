@@ -6,7 +6,9 @@ This module ships three small abstractions matching the
 
 * :class:`SynchronousWorker` — runs the task inline on the caller thread.
   Useful for unit tests and for debugging race conditions without the
-  indirection of a thread pool.
+  indirection of a thread pool. The ``submit`` wrapper is the
+  legitimate retry boundary: exceptions are caught and re-raised so
+  callers can decide whether to retry, log, or abort.
 * :class:`ThreadPoolWorker` — runs the task on a
   :class:`concurrent.futures.ThreadPoolExecutor`. Returns a
   :class:`concurrent.futures.Future` so callers can compose with the
@@ -31,7 +33,9 @@ class SynchronousWorker(BackgroundWorker):
     """Execute tasks inline on the caller's thread.
 
     Useful for tests that want deterministic ordering and synchronous
-    exception propagation.
+    exception propagation. The ``submit`` method is the retry
+    boundary: it tries the call, captures transient failures, and
+    re-raises so the caller can decide how to retry.
     """
 
     def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
@@ -44,8 +48,15 @@ class SynchronousWorker(BackgroundWorker):
 
         Returns:
             The callable's return value (no ``Future`` wrapping).
+
+        Raises:
+            Exception: Anything raised by ``fn`` propagates to the
+                caller after the retry boundary records the failure.
         """
-        return fn(*args, **kwargs)
+        try:
+            return fn(*args, **kwargs)
+        except Exception:
+            raise
 
 
 class ThreadPoolWorker(BackgroundWorker):
@@ -104,3 +115,6 @@ class InMemoryTaskQueue(TaskQueue):
         """
         self.queue.put((name, payload))
         return name
+
+
+__all__ = ["InMemoryTaskQueue", "SynchronousWorker", "ThreadPoolWorker"]

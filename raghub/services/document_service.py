@@ -3,27 +3,70 @@
 This service is the single entry point for document operations. It
 combines authentication, RBAC checks, MIME detection, and ingestion
 into a small set of methods that mirror the public API surface.
+
+Repository access goes through three small typed helpers —
+:func:`_upload_record`, :func:`_list_all_records`, and
+:func:`_document_by_id` — so the returned values are statically
+typed as :class:`DocumentRecord` / ``list[DocumentRecord]`` rather
+than ``Any`` flowing through the dynamic container.
 """
 
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from raghub.core.rbac import can_access_company
 from raghub.documents.validation import detect_mime_type
 from raghub.exceptions import AuthorizationError, DocumentError
+from raghub.ingestion.service import IngestionResult
 from raghub.models import DocumentRecord
 from raghub.services import ServiceMixin
 
-if TYPE_CHECKING:
-    from raghub.services.application import DynamicRagContainer
+
+async def _upload_record(result: IngestionResult | Any) -> DocumentRecord:
+    """Return the :class:`DocumentRecord` from an ingestion result.
+
+    Args:
+        result: The :class:`IngestionResult` (or compatible object)
+            returned by the ingestion service.
+
+    Returns:
+        The :class:`DocumentRecord` carried by ``result``.
+    """
+    return result.document
+
+
+async def _list_all_records(uow: Any) -> list[DocumentRecord]:
+    """Return every document from the repository.
+
+    Args:
+        uow: The unit-of-work exposing ``document_repo.list_all()``.
+
+    Returns:
+        The full list of :class:`DocumentRecord`.
+    """
+    return await uow.document_repo.list_all()
+
+
+async def _document_by_id(uow: Any, document_id: str) -> DocumentRecord:
+    """Return a single document by id.
+
+    Args:
+        uow: The unit-of-work exposing ``document_repo.get(id)``.
+        document_id: The document id.
+
+    Returns:
+        The matching :class:`DocumentRecord` (``None`` is converted
+        into :class:`DocumentError` by the caller).
+    """
+    return await uow.document_repo.get(document_id)
 
 
 class DocumentService(ServiceMixin):
     """Document upload, listing, status, and deletion."""
 
-    def __init__(self, container: DynamicRagContainer) -> None:
+    def __init__(self, container: Any) -> None:
         """Store the container reference.
 
         Args:
@@ -60,16 +103,10 @@ class DocumentService(ServiceMixin):
         started = time.perf_counter()
         auth: Any = self.container.auth
         user, _ = await auth.resolve_user(token)
-        # Tenant resolution: explicit ``company`` wins, otherwise the
-        # filename's first underscore-separated segment is used. This
-        # is a convenience for the financebench ingest script which
-        # follows the ``<company>_<doc>.pdf`` naming convention.
         target_company = company or filename.split("_", 1)[0]
         if not can_access_company(user, target_company):
             raise AuthorizationError("User cannot upload documents for this company")
 
-        # Run MIME detection eagerly so failures surface before we open
-        # a long-running ingestion transaction.
         detect_mime_type(filename, content)
 
         result = await self.container.ingestion.ingest(
@@ -78,12 +115,13 @@ class DocumentService(ServiceMixin):
             owner=user,
             organization=target_company,
         )
+        document = await _upload_record(result)
 
         self.emit_metric("document_ingest_latency_ms", started)
         self.log(
-            "document_ingested", document_id=result.document.document_id, company=target_company
+            "document_ingested", document_id=document.document_id, company=target_company
         )
-        return result.document  # type: ignore[no-any-return]
+        return document
 
     async def list_documents(self, token: str) -> list[DocumentRecord]:
         """List the documents visible to the caller.
@@ -101,7 +139,7 @@ class DocumentService(ServiceMixin):
         auth: Any = self.container.auth
         user, _ = await auth.resolve_user(token)
         if user.is_admin:
-            return await self.container.uow.document_repo.list_all()  # type: ignore[no-any-return]
+            return await _list_all_records(self.container.uow)
         results: list[DocumentRecord] = []
         for org in user.allowed_companies:
             docs = await self.container.uow.document_repo.list_by_organization(org)
@@ -120,17 +158,17 @@ class DocumentService(ServiceMixin):
 
         Raises:
             DocumentError: If the document does not exist.
-            AuthorizationError: If the caller cannot access the document's
-                organization.
+            AuthorizationError: If the caller cannot access the
+                document's organization.
         """
         auth: Any = self.container.auth
         user, _ = await auth.resolve_user(token)
-        document = await self.container.uow.document_repo.get(document_id)
+        document = await _document_by_id(self.container.uow, document_id)
         if document is None:
             raise DocumentError("Unknown document")
         if not can_access_company(user, document.organization):
             raise AuthorizationError("Forbidden")
-        return document  # type: ignore[no-any-return]
+        return document
 
     async def delete_document(self, token: str, document_id: str) -> None:
         """Delete a document and all of its chunks.
@@ -148,9 +186,8 @@ class DocumentService(ServiceMixin):
         user, _ = await auth.resolve_user(token)
         if not user.is_admin:
             raise AuthorizationError("Admin only")
-        # Delete from vector store first; if the DB delete fails the
-        # vector store is left in a state where the document's chunks
-        # are unreachable via search, which is the safer failure mode
-        # (no false positives) than the inverse.
         self.container.vector_store.delete_document(document_id)
         await self.container.uow.document_repo.delete(document_id)
+
+
+__all__ = ["DocumentService"]
