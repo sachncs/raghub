@@ -18,7 +18,20 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 
-__all__ = ["atomic_write_json", "load_json"]
+__all__ = ["atomic_write_json", "load_json", "typed_json_loads"]
+
+
+def typed_json_loads(raw: str | bytes, default: object = None) -> object:
+    """Parse JSON and return the decoded value.
+
+    Args:
+        raw: JSON text or bytes.
+        default: Unused compatibility default.
+
+    Returns:
+        The decoded JSON value.
+    """
+    return json.loads(raw)
 
 
 def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -57,4 +70,7 @@ def load_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, An
     """
     if not path.exists():
         return {} if default is None else default
-    return json.loads(path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+    decoded = typed_json_loads(path.read_text(encoding="utf-8"))
+    if not isinstance(decoded, dict):
+        raise TypeError("JSON root must be an object")
+    return decoded

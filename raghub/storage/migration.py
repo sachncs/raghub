@@ -23,6 +23,14 @@ from pathlib import Path
 
 from tqdm import tqdm
 
+import raghub.repositories.sqlite_document_repo as sqlite_document_repo
+import raghub.repositories.sqlite_session_repo as sqlite_session_repo
+import raghub.storage.json_registry as json_registry
+import raghub.storage.session_store as session_store
+
+__all__ = ["migrate_from_json"]
+
+
 
 async def migrate_from_json(
     db_path: str | Path,
@@ -47,25 +55,20 @@ async def migrate_from_json(
         Any exception raised by the underlying :class:`SqliteDocumentRepository`
         or :class:`SqliteSessionRepository` propagates to the caller.
     """
-    from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
-    from raghub.repositories.sqlite_session_repo import SqliteSessionRepository
-    from raghub.storage.json_registry import JsonDocumentRegistry
-    from raghub.storage.session_store import JsonSessionStore
-
-    registry = SqliteDocumentRepository(db_path)
+    registry = sqlite_document_repo.SqliteDocumentRepository(db_path)
     await registry.initialize()
 
-    json_registry = JsonDocumentRegistry(Path(registry_path))
-    all_versions = [doc for versions in json_registry.documents.values() for doc in versions]
+    json_registry_instance = json_registry.JsonDocumentRegistry(Path(registry_path))
+    all_versions = [doc for versions in json_registry_instance.documents.values() for doc in versions]
     for doc in tqdm(
         all_versions, desc="Migrating documents", disable=not show_progress, unit="doc"
     ):
         await registry.save(doc)
 
-    session_repo = SqliteSessionRepository(db_path)
+    session_repo = sqlite_session_repo.SqliteSessionRepository(db_path)
     await session_repo.initialize()
 
-    json_sessions = JsonSessionStore(Path(sessions_path), timeout_seconds=3600)
+    json_sessions = session_store.JsonSessionStore(Path(sessions_path), timeout_seconds=3600)
     for session in tqdm(
         list(json_sessions.sessions.values()),
         desc="Migrating sessions",
