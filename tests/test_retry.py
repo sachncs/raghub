@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from raghub.utils.retry import retry
+from raghub.utils import retry
 
 
 def test_retry_returns_first_success() -> None:
