@@ -59,11 +59,11 @@ sys.modules.setdefault("raghub.documents.directory", sys.modules[__name__])
 sys.modules.setdefault("raghub.documents.marker", sys.modules[__name__])
 sys.modules.setdefault("raghub.documents.markdown", sys.modules[__name__])
 sys.modules.setdefault("raghub.documents.plaintext", sys.modules[__name__])
-_self_module = sys.modules[__name__]
-directory: Any = _self_module
-marker: Any = _self_module
-markdown: Any = _self_module
-plaintext: Any = _self_module
+self_module = sys.modules[__name__]
+directory: Any = self_module
+marker: Any = self_module
+markdown: Any = self_module
+plaintext: Any = self_module
 
 
 # ---------------------------------------------------------------------------

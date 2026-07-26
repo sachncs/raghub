@@ -5,8 +5,8 @@ combines authentication, RBAC checks, MIME detection, and ingestion
 into a small set of methods that mirror the public API surface.
 
 Repository access goes through three small typed helpers —
-:func:`_upload_record`, :func:`_list_all_records`, and
-:func:`_document_by_id` — so the returned values are statically
+:func:`upload_record_helper`, :func:`list_all_records_helper`, and
+:func:`document_by_id_helper` — so the returned values are statically
 typed as :class:`DocumentRecord` / ``list[DocumentRecord]`` rather
 than ``Any`` flowing through the dynamic container.
 """
@@ -24,7 +24,7 @@ from raghub.models import DocumentRecord
 from raghub.services import ServiceMixin
 
 
-async def _upload_record(result: IngestionResult | Any) -> DocumentRecord:
+async def upload_record_helper(result: IngestionResult | Any) -> DocumentRecord:
     """Return the :class:`DocumentRecord` from an ingestion result.
 
     Args:
@@ -37,7 +37,7 @@ async def _upload_record(result: IngestionResult | Any) -> DocumentRecord:
     return result.document
 
 
-async def _list_all_records(uow: Any) -> list[DocumentRecord]:
+async def list_all_records_helper(uow: Any) -> list[DocumentRecord]:
     """Return every document from the repository.
 
     Args:
@@ -49,7 +49,7 @@ async def _list_all_records(uow: Any) -> list[DocumentRecord]:
     return await uow.document_repo.list_all()
 
 
-async def _document_by_id(uow: Any, document_id: str) -> DocumentRecord:
+async def document_by_id_helper(uow: Any, document_id: str) -> DocumentRecord:
     """Return a single document by id.
 
     Args:
@@ -115,7 +115,7 @@ class DocumentService(ServiceMixin):
             owner=user,
             organization=target_company,
         )
-        document = await _upload_record(result)
+        document = await upload_record_helper(result)
 
         self.emit_metric("document_ingest_latency_ms", started)
         self.log(
@@ -139,7 +139,7 @@ class DocumentService(ServiceMixin):
         auth: Any = self.container.auth
         user, _ = await auth.resolve_user(token)
         if user.is_admin:
-            return await _list_all_records(self.container.uow)
+            return await list_all_records_helper(self.container.uow)
         results: list[DocumentRecord] = []
         for org in user.allowed_companies:
             docs = await self.container.uow.document_repo.list_by_organization(org)
@@ -163,7 +163,7 @@ class DocumentService(ServiceMixin):
         """
         auth: Any = self.container.auth
         user, _ = await auth.resolve_user(token)
-        document = await _document_by_id(self.container.uow, document_id)
+        document = await document_by_id_helper(self.container.uow, document_id)
         if document is None:
             raise DocumentError("Unknown document")
         if not can_access_company(user, document.organization):

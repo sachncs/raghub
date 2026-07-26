@@ -8,7 +8,7 @@ from raghub.exceptions import TransformError
 from raghub.models import ConversationTurn
 from raghub.retrieval.transforms.base import QueryTransformer, QueryVariant
 
-_ORIGINAL_WEIGHT = 1.5
+ORIGINAL_WEIGHT = 1.5
 
 
 class ComposeTransformer:
@@ -53,7 +53,7 @@ class ComposeTransformer:
             contributes nothing.
         """
         variants: list[QueryVariant] = [
-            QueryVariant(text=question, kind="original", weight=_ORIGINAL_WEIGHT)
+            QueryVariant(text=question, kind="original", weight=ORIGINAL_WEIGHT)
         ]
         for t in self.transformers:
             produced = await t.transform(question=question, history=history)

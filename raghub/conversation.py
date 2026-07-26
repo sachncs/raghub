@@ -27,7 +27,7 @@ from raghub.models import ConversationTurn, SessionRecord
 from raghub.repositories import UnitOfWork
 
 
-def _try_load_tiktoken() -> Any:
+def try_load_tiktoken() -> Any:
     """Return the ``cl100k_base`` encoder, or ``None`` if unavailable."""
     try:
         import tiktoken
@@ -73,7 +73,7 @@ class SlidingWindowManager:
             attribute if they need to log a warning.
         """
         self.max_tokens = max_tokens
-        self.enc: Any = _try_load_tiktoken()
+        self.enc: Any = try_load_tiktoken()
 
     def counttokenize(self, text: str) -> int:
         """Count tokens in a single string.

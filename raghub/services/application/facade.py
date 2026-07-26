@@ -33,7 +33,7 @@ from raghub.services.document import DocumentService
 from raghub.services.health import HealthService
 from raghub.services.query_service import QueryService
 
-_RAG_FACADE_AVAILABLE: bool = importlib.util.find_spec("raghub.api.rag") is not None
+RAG_FACADE_AVAILABLE: bool = importlib.util.find_spec("raghub.api.rag") is not None
 
 
 class AuthCoordinator:
@@ -286,7 +286,7 @@ class ApplicationFacade:
             :mod:`raghub.api.rag` module is unavailable (e.g. the
             optional web dependencies are not installed).
         """
-        if not _RAG_FACADE_AVAILABLE:
+        if not RAG_FACADE_AVAILABLE:
             return None
         import importlib as _importlib
 

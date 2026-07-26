@@ -328,7 +328,7 @@ class PrometheusMetrics:
                 )
 
 
-def _try_import_submodule(module_name: str, target_name: str) -> Any:
+def try_import_submodule(module_name: str, target_name: str) -> Any:
     """Import ``target_name`` from ``module_name``; return ``None`` on failure."""
     import importlib
 
@@ -1035,10 +1035,10 @@ class Tracer:
         """
         import importlib
 
-        ot_trace = _try_import_submodule("opentelemetry", "trace")
-        ot_resources = _try_import_submodule("opentelemetry.sdk.resources", "Resource")
-        ot_trace_mod = _try_import_submodule("opentelemetry.sdk.trace", "TracerProvider")
-        ot_export = _try_import_submodule(
+        ot_trace = try_import_submodule("opentelemetry", "trace")
+        ot_resources = try_import_submodule("opentelemetry.sdk.resources", "Resource")
+        ot_trace_mod = try_import_submodule("opentelemetry.sdk.trace", "TracerProvider")
+        ot_export = try_import_submodule(
             "opentelemetry.sdk.trace.export", "BatchSpanProcessor"
         )
         if ot_trace is None or ot_resources is None or ot_trace_mod is None or ot_export is None:
