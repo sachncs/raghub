@@ -34,6 +34,7 @@ from raghub.models import (
     KnowledgeBundle,
     RetrievalHit,
 )
+from raghub.utils import capture
 
 OKF_SCHEMA_VERSION = "0.1"
 
@@ -97,10 +98,10 @@ def from_okf(payload: dict[str, Any] | str) -> KnowledgeBundle:
         KnowledgeError: When the payload is structurally invalid.
     """
     if isinstance(payload, str):
-        try:
-            payload = json.loads(payload)
-        except json.JSONDecodeError as exc:
-            raise KnowledgeError(f"Invalid OKF JSON: {exc}") from exc
+        parsed, _ = capture(json.loads, payload)
+        if not isinstance(parsed, dict):
+            raise KnowledgeError(f"Invalid OKF JSON: expected dict, got {type(parsed).__name__}")
+        payload = parsed
     if not isinstance(payload, dict):
         raise KnowledgeError("OKF payload must be a dict")
 
@@ -112,10 +113,12 @@ def from_okf(payload: dict[str, Any] | str) -> KnowledgeBundle:
         for raw_block in raw_section.get("blocks", []) or []:
             if not isinstance(raw_block, dict):
                 raise KnowledgeError("OKF blocks must be dicts")
-            try:
-                kind = BlockKind(raw_block.get("kind", "text"))
-            except ValueError as exc:
-                raise KnowledgeError(f"Unknown OKF block kind: {raw_block.get('kind')!r}") from exc
+            kind_raw = raw_block.get("kind", "text")
+            kind, kind_error = capture(BlockKind, kind_raw)
+            if kind_error is not None:
+                raise KnowledgeError(
+                    f"Unknown OKF block kind: {kind_raw!r}"
+                ) from kind_error
             blocks.append(
                 DocumentBlock(
                     block_id=raw_block.get("block_id", ""),
@@ -172,10 +175,9 @@ def loads(payload: str) -> KnowledgeBundle:
     Returns:
         The reconstructed bundle.
     """
-    try:
-        data = json.loads(payload)
-    except json.JSONDecodeError as exc:
-        raise KnowledgeError(f"Invalid OKF JSON: {exc}") from exc
+    data, error = capture(json.loads, payload)
+    if error is not None or not isinstance(data, dict):
+        raise KnowledgeError(f"Invalid OKF JSON: {error}")
     return from_okf(data)
 
 
@@ -234,11 +236,11 @@ class SourceManifest:
     def load(self) -> None:
         if not self.path.exists():
             return
-        try:
-            payload = json.loads(self.path.read_text(encoding="utf-8"))
-            if isinstance(payload, dict):
+        text, text_error = capture(self.path.read_text, encoding="utf-8")
+        if text_error is None:
+            payload, json_error = capture(json.loads, text or "{}")
+            if json_error is None and isinstance(payload, dict):
                 self.records = {str(k): v for k, v in payload.items() if isinstance(v, dict)}
-        except json.JSONDecodeError:
             self.records = {}
 
     def save(self) -> None:
@@ -393,9 +395,8 @@ class RaptorIndex(KnowledgeIndex):
         """Return hits across every level, sorted by cosine similarity."""
         if not self.levels or self.embedder is None:
             return []
-        try:
-            query_vec = self.embedder.embed_text(query)
-        except Exception:
+        query_vec, _ = capture(self.embedder.embed_text, query)
+        if not isinstance(query_vec, list):
             return []
         hits: list[RetrievalHit] = []
         for level in self.levels:
@@ -437,9 +438,8 @@ class RaptorIndex(KnowledgeIndex):
                 if not summary_text:
                     continue
                 summary_id = summary_id_for(summary_text)
-                try:
-                    vec = self.embedder.embed_text(summary_text)
-                except Exception:
+                vec, _ = capture(self.embedder.embed_text, summary_text)
+                if not isinstance(vec, list):
                     vec = []
                 summaries.append(
                     ChunkRecord(
@@ -483,10 +483,10 @@ def cluster(
     if n_clusters <= 1:
         return [items]
     matrix = np.vstack(vectors)
-    try:
-        kmeans = KMeans(n_clusters=n_clusters, n_init=3, random_state=0)
-        labels = kmeans.fit_predict(matrix)
-    except ValueError:
+    kmeans, fit_error = capture(KMeans, n_clusters=n_clusters, n_init=3, random_state=0)
+    if fit_error is None:
+        labels, fit_error = capture(kmeans.fit_predict, matrix)
+    if fit_error is not None:
         return [
             items[i : i + cluster_size]
             for i in range(0, len(items), cluster_size)
@@ -527,11 +527,8 @@ def summarise(
         """Thin async shim that calls :func:`summarise_async`."""
         return await summarise_async(cluster_items, llm, max_chars)
 
-    try:
-        asyncio.get_running_loop()
-        running = True
-    except RuntimeError:
-        running = False
+    _, error = capture(asyncio.get_running_loop)
+    running = error is None
     if running:
         import threading
 
@@ -629,10 +626,8 @@ def extract_json_object(raw: str) -> dict[str, Any] | None:
                 break
     if end == -1:
         return None
-    try:
-        return json.loads(candidate[start:end])
-    except ValueError:
-        return None
+    parsed, _ = capture(json.loads, candidate[start:end])
+    return parsed if isinstance(parsed, dict) else None
 
 
 def tokenise(text: str) -> set[str]:
@@ -806,11 +801,8 @@ class GraphRagIndex(KnowledgeIndex):
     @staticmethod
     def running_loop_present() -> bool:
         """Return ``True`` when an asyncio loop is running in this thread."""
-        try:
-            asyncio.get_running_loop()
-            return True
-        except RuntimeError:
-            return False
+        _, error = capture(asyncio.get_running_loop)
+        return error is None
 
     def run_in_thread(self, chunks: list[Chunk]) -> None:
         """Execute :meth:`drive_extraction` on a daemon thread and join."""
@@ -879,13 +871,17 @@ class GraphRagIndex(KnowledgeIndex):
         if not edges:
             self.communities = [{e} for e in entities]
             return
-        try:
-            g = ig.Graph(n=len(entities), edges=edges, directed=False)
-            partition = la.find_partition(g, la.ModularityVertexPartition)
+        g, graph_error = capture(ig.Graph, n=len(entities), edges=edges, directed=False)
+        partition, partition_error = (
+            capture(la.find_partition, g, la.ModularityVertexPartition)
+            if graph_error is None
+            else (None, graph_error)
+        )
+        if graph_error is None and partition_error is None and partition is not None:
             self.communities = [
                 {entities[v] for v in community} for community in partition
             ]
-        except (ValueError, RuntimeError):
+        else:
             self.communities = list(connected_components(self))
 
     def summarise_communities(self) -> None:
@@ -1002,11 +998,8 @@ def connected_components(graph_like: GraphRagIndex) -> list[set[str]]:
 
 def running_loop_present() -> bool:
     """Return ``True`` when an asyncio loop is running in this thread."""
-    try:
-        asyncio.get_running_loop()
-        return True
-    except RuntimeError:
-        return False
+    _, error = capture(asyncio.get_running_loop)
+    return error is None
 
 
 def run_in_thread(graph_like: GraphRagIndex, chunks: list[Chunk]) -> None:

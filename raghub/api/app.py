@@ -79,6 +79,7 @@ from raghub.models import (
     QueryResponse,
 )
 from raghub.services.application import DynamicRagApplication
+from raghub.utils import capture
 
 # ---------------------------------------------------------------------------
 # CORS
@@ -163,10 +164,8 @@ def upload_content_length(request: Request) -> int | None:
     declared = request.headers.get("content-length")
     if declared is None:
         return None
-    try:
-        return int(declared)
-    except ValueError:
-        return None
+    value, _ = capture(int, declared)
+    return value if isinstance(value, int) else None
 
 
 def enforce_upload_limit(
@@ -716,9 +715,8 @@ def package_metadata() -> tuple[str, str, str]:
     Returns:
         A 3-tuple of ``(title, version, description)``.
     """
-    try:
-        pkg = importlib.metadata.metadata("raghub")
-    except Exception:
+    pkg, error = capture(importlib.metadata.metadata, "raghub")
+    if error is not None or not isinstance(pkg, dict):
         return (
             "RAGHub",
             "0.3.3",

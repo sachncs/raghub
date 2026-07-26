@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from raghub.evaluation.harness import score_string
+from raghub.utils import capture
 from raghub.evaluation.metrics import evaluate_example
 from raghub.exceptions import EvaluationError
 from raghub.interfaces.evaluation import Evaluator
@@ -86,10 +87,11 @@ def load_huggingface_dataset(dataset_name: str, split: str) -> list[dict]:
             "place a JSONL/JSON file at "
             f"{CACHE_DIR / 'financebench.jsonl'}."
         )
-    try:
-        ds = hf_load_dataset(dataset_name, split=split)
-    except Exception as exc:
-        raise EvaluationError(f"Failed to load FinanceBench from {dataset_name!r}: {exc}") from exc
+    ds, error = capture(hf_load_dataset, dataset_name, split=split)
+    if error is not None or ds is None:
+        raise EvaluationError(
+            f"Failed to load FinanceBench from {dataset_name!r}: {error}"
+        ) from error
     return [dict(record) for record in ds]
 
 
@@ -242,10 +244,12 @@ class FinanceBenchEvaluator(Evaluator):
         Returns:
             ``1.0`` when within tolerance, ``0.0`` otherwise.
         """
-        try:
-            p, g = float(first_number(predicted)), float(first_number(gold))
-        except (TypeError, ValueError):
+        p_raw, g_raw = first_number(predicted), first_number(gold)
+        p_str, _ = capture(float, p_raw) if p_raw else (None, None)
+        g_str, _ = capture(float, g_raw) if g_raw else (None, None)
+        if not isinstance(p_str, (int, float)) or not isinstance(g_str, (int, float)):
             return 0.0
+        p, g = p_str, g_str
         if g == 0:
             return 1.0 if p == 0 else 0.0
         return 1.0 if abs(p - g) / max(abs(g), 1.0) <= self.tolerance else 0.0
@@ -261,11 +265,8 @@ def first_number(text: str) -> str:
         The first numeric token as a string. Empty if none.
     """
     for token in text.replace(",", "").split():
-        try:
-            float(token)
-        except ValueError:
-            continue
-        return token
+        if isinstance(capture(float, token)[0], float):
+            return token
     return ""
 
 

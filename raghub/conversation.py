@@ -25,6 +25,13 @@ from typing import Any, Protocol
 from raghub.domain import Session
 from raghub.models import ConversationTurn, SessionRecord
 from raghub.repositories import UnitOfWork
+from raghub.utils import capture
+
+
+TIKTOKEN_ENCODING: Any = None
+_tiktoken_module, _tiktoken_error = capture(__import__, "tiktoken")
+if _tiktoken_error is None and _tiktoken_module is not None:
+    TIKTOKEN_ENCODING = _tiktoken_module.get_encoding("cl100k_base")
 
 
 class SlidingWindowManager:
@@ -64,15 +71,7 @@ class SlidingWindowManager:
             attribute if they need to log a warning.
         """
         self.max_tokens = max_tokens
-        self.enc: Any = None
-        try:
-            import tiktoken
-
-            self.enc = tiktoken.get_encoding("cl100k_base")
-        except Exception:
-            # Fall back to word-count approximation. The trim still works,
-            # it just over-estimates token counts by ~1.3x on average.
-            pass
+        self.enc: Any = TIKTOKEN_ENCODING
 
     def counttokenize(self, text: str) -> int:
         """Count tokens in a single string.

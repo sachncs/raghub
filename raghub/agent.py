@@ -32,6 +32,7 @@ from raghub.exceptions import AgentBudgetExceeded, ToolError
 from raghub.models import ConversationTurn, UserPrincipal
 from raghub.observability import NoOpTelemetry
 from raghub.tools.base import ToolContext, ToolResult
+from raghub.utils import capture
 from raghub.tools.date_today import DateTodayTool
 from raghub.tools.graph_search import GraphSearchTool
 from raghub.tools.hybrid_search import HybridSearchTool
@@ -119,6 +120,12 @@ class PlannerParseError:
     raw: str = ""
 
 
+def json_loads_or_none(s: str) -> Any:
+    """Parse ``s`` as JSON, returning ``None`` on failure."""
+    parsed, _ = capture(json.loads, s)
+    return parsed
+
+
 def extract_json_object(raw: str) -> dict[str, Any] | None:
     """Pull the first balanced JSON object out of a string."""
     if not raw:
@@ -141,10 +148,8 @@ def extract_json_object(raw: str) -> dict[str, Any] | None:
                 break
     if end == -1:
         return None
-    try:
-        return json.loads(candidate[start:end])
-    except ValueError:
-        return None
+    parsed = json_loads_or_none(candidate[start:end])
+    return parsed if isinstance(parsed, dict) else None
 
 
 def parse_turn(raw: str) -> PlannerAction | PlannerFinal | PlannerParseError:
@@ -263,11 +268,14 @@ def coerce_reranker(value: Any) -> str:
 
 def coerce_max_steps(value: Any, fallback: int) -> int:
     """Return ``value`` as an int clamped to ``[1, 64]``; fallback on bad input."""
-    try:
-        n = int(value)
-    except (TypeError, ValueError):
-        return fallback
-    return max(1, min(n, 64))
+    coerced = cast_or_none_int(value)
+    return fallback if coerced is None else max(1, min(coerced, 64))
+
+
+def cast_or_none_int(value: Any) -> int | None:
+    """Coerce ``value`` to ``int``; return ``None`` when conversion fails."""
+    coerced, _ = capture(int, value)
+    return coerced if isinstance(coerced, int) and not isinstance(coerced, bool) else None
 
 
 def pick_value(layers: tuple[dict[str, Any] | None, ...], key: str) -> Any:
