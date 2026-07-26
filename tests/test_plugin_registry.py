@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from raghub.plugins.registry import PluginRegistry
+from raghub.plugins import PluginRegistry
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -160,7 +160,7 @@ class TestDiscoverEntrypoints:
         factory = MagicMock(return_value=plugin)
         entries = [_make_entry("p1", factory)]
 
-        with patch("raghub.plugins.registry.metadata.entry_points", return_value=entries):
+        with patch("raghub.plugins.metadata.entry_points", return_value=entries):
             r = _reg()
             assert r.discover_entrypoints() == 1
             factory.assert_called_once()
@@ -170,7 +170,7 @@ class TestDiscoverEntrypoints:
         """An entry whose load() raises is skipped silently."""
         entries = [_make_entry("bad", load_side_effect=RuntimeError("fail"))]
 
-        with patch("raghub.plugins.registry.metadata.entry_points", return_value=entries):
+        with patch("raghub.plugins.metadata.entry_points", return_value=entries):
             r = _reg()
             assert r.discover_entrypoints() == 0
 
@@ -179,7 +179,7 @@ class TestDiscoverEntrypoints:
         factory = MagicMock(return_value=object())
         entries = [_make_entry("noreg", factory)]
 
-        with patch("raghub.plugins.registry.metadata.entry_points", return_value=entries):
+        with patch("raghub.plugins.metadata.entry_points", return_value=entries):
             r = _reg()
             assert r.discover_entrypoints() == 0
             factory.assert_called_once()
@@ -191,14 +191,14 @@ class TestDiscoverEntrypoints:
         factory = MagicMock(return_value=plugin)
         entries = [_make_entry("fail", factory)]
 
-        with patch("raghub.plugins.registry.metadata.entry_points", return_value=entries):
+        with patch("raghub.plugins.metadata.entry_points", return_value=entries):
             r = _reg()
             assert r.discover_entrypoints() == 0
 
     def test_metadata_entry_points_raises(self) -> None:
         """If metadata.entry_points itself raises, we return 0."""
         with patch(
-            "raghub.plugins.registry.metadata.entry_points",
+            "raghub.plugins.metadata.entry_points",
             side_effect=Exception("no metadata"),
         ):
             r = _reg()
@@ -206,7 +206,7 @@ class TestDiscoverEntrypoints:
 
     def test_empty_entries(self) -> None:
         """No entry points yields zero loaded."""
-        with patch("raghub.plugins.registry.metadata.entry_points", return_value=[]):
+        with patch("raghub.plugins.metadata.entry_points", return_value=[]):
             r = _reg()
             assert r.discover_entrypoints() == 0
 
@@ -214,7 +214,7 @@ class TestDiscoverEntrypoints:
         """The group parameter is forwarded to metadata.entry_points."""
         entries = []
         with patch(
-            "raghub.plugins.registry.metadata.entry_points", return_value=entries
+            "raghub.plugins.metadata.entry_points", return_value=entries
         ) as mock_ep:
             r = _reg()
             r.discover_entrypoints(group="my.group")
