@@ -30,7 +30,7 @@ from __future__ import annotations
 from typing import Any
 
 from raghub.config import HybridConfig
-from raghub.core.rbac import allowed_company_filter
+from raghub.core import allowed_company_filter
 from raghub.embeddings.base import BaseEmbeddingProvider
 from raghub.interfaces.vectorstore import VectorStore
 from raghub.models import ChunkRecord, RetrievalHit, UserPrincipal

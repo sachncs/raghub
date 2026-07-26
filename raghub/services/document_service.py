@@ -16,7 +16,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from raghub.core.rbac import can_access_company
+from raghub.core import can_access_company
 from raghub.documents.validation import detect_mime_type
 from raghub.exceptions import AuthorizationError, DocumentError
 from raghub.ingestion.service import IngestionResult

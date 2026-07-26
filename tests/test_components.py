@@ -7,8 +7,8 @@ and verifies that the building blocks compose correctly.
 
 from __future__ import annotations
 
-from raghub.core.document_state import DocumentStateMachine
-from raghub.core.rbac import allowed_company_filter
+from raghub.core import DocumentStateMachine
+from raghub.core import allowed_company_filter
 from raghub.embeddings.hashing import HashingEmbeddingProvider
 from raghub.models import DocumentLifecycleStatus, UserPrincipal
 from raghub.vectorstore.memory import InMemoryVectorStore

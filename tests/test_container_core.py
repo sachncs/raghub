@@ -2,25 +2,20 @@ from __future__ import annotations
 
 import pytest
 
-from raghub.core.container import build_application
+from raghub.core import build_application
 
 
-class TestGetAttr:
-    def test_getattr_known_names(self) -> None:
-        import raghub.core.container as ctr
+class TestContainerCore:
+    def test_known_names_importable(self) -> None:
+        from raghub.services.application import (
+            DynamicRagApplication,
+            DynamicRagContainer,
+            build_container,
+        )
 
-        app_cls = ctr.DynamicRagApplication
-        ctr_cls = ctr.DynamicRagContainer
-        builder = ctr.build_container
-        assert callable(app_cls)
-        assert callable(ctr_cls)
-        assert callable(builder)
-
-    def test_getattr_unknown_name_raises(self) -> None:
-        import raghub.core.container as ctr
-
-        with pytest.raises(AttributeError, match="no attribute 'Nonsense'"):
-            _ = ctr.Nonsense
+        assert callable(DynamicRagApplication)
+        assert callable(DynamicRagContainer)
+        assert callable(build_container)
 
 
 class TestBuildApplication:

@@ -677,7 +677,7 @@ class TestGetApp:
         async def mock_build(*args: object, **kwargs: object) -> StubApp:
             return StubApp()
 
-        monkeypatch.setattr("raghub.core.container.build_application", mock_build)
+        monkeypatch.setattr("raghub.core.build_application", mock_build)
 
         from raghub.api.app import get_app
 

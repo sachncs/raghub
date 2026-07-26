@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from raghub.core.rbac import allowed_company_filter
+from raghub.core import allowed_company_filter
 from raghub.models import ChunkRecord, Classification, UserPrincipal
 from raghub.retrieval.search import (
     FacetedSearchEngine,

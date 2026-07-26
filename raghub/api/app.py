@@ -815,11 +815,11 @@ def get_app() -> FastAPI:
     """
     import asyncio
 
-    from raghub.core import container as container_module
+    from raghub.core import build_application
 
     global app_singleton
     if app_singleton is None:
-        application = asyncio.run(container_module.build_application())
+        application = asyncio.run(build_application())
         app_singleton = create_app(application)
     return app_singleton
 
