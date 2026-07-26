@@ -810,7 +810,7 @@ class AppFactory:
     :meth:`reset` to force a rebuild.
     """
 
-    _instance: ClassVar[AppFactory | None] = None
+    instance: ClassVar[AppFactory | None] = None
 
     def __init__(self) -> None:
         """Store an empty cache."""
@@ -823,22 +823,22 @@ class AppFactory:
         Returns:
             The cached :class:`FastAPI` instance.
         """
-        if cls._instance is None:
-            cls._instance = cls()
-        if cls._instance.cached is None:
+        if cls.instance is None:
+            cls.instance = cls()
+        if cls.instance.cached is None:
             import asyncio
 
             from raghub.core import build_application
 
             application = asyncio.run(build_application())
-            cls._instance.cached = create_app(application)
-        return cls._instance.cached
+            cls.instance.cached = create_app(application)
+        return cls.instance.cached
 
     @classmethod
     def reset(cls) -> None:
         """Drop the cached :class:`FastAPI` so the next build is fresh."""
-        if cls._instance is not None:
-            cls._instance.cached = None
+        if cls.instance is not None:
+            cls.instance.cached = None
 
 
 app_singleton = AppFactory()
