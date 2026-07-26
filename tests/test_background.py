@@ -8,6 +8,17 @@ import time
 from raghub.ingestion.background import BackgroundIngestionService
 
 
+def _poll_until(func, timeout=5.0, step=0.01):
+    """Poll *func* until it returns a truthy value or *timeout* expires."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        result = func()
+        if result:
+            return result
+        time.sleep(step)
+    raise TimeoutError(f"Condition not met within {timeout}s")
+
+
 def test_submit_sync_function() -> None:
     svc = BackgroundIngestionService(max_workers=1)
 
@@ -15,8 +26,7 @@ def test_submit_sync_function() -> None:
         return x * 2
 
     job_id = svc.submit(sync_fn, 21)
-    time.sleep(0.2)
-    assert svc.get_status(job_id) == "completed"
+    _poll_until(lambda: svc.get_status(job_id) == "completed")
     assert svc.get_result(job_id) == 42
 
 
@@ -28,8 +38,7 @@ def test_submit_async_function() -> None:
         return x * 3
 
     job_id = svc.submit(async_fn, 14)
-    time.sleep(0.5)
-    assert svc.get_status(job_id) == "completed"
+    _poll_until(lambda: svc.get_status(job_id) == "completed")
     assert svc.get_result(job_id) == 42
 
 
@@ -42,8 +51,7 @@ def test_submit_async_function_failure() -> None:
         raise ValueError(msg)
 
     job_id = svc.submit(failing_fn)
-    time.sleep(0.5)
-    assert svc.get_status(job_id) == "failed"
+    _poll_until(lambda: svc.get_status(job_id) == "failed")
     assert "simulated failure" in str(svc.get_result(job_id))
 
 
@@ -56,9 +64,8 @@ def test_submit_multiple_jobs() -> None:
         return n
 
     ids = [svc.submit(slow_sync, i) for i in range(5)]
-    time.sleep(1.0)
     for i, job_id in enumerate(ids):
-        assert svc.get_status(job_id) == "completed", f"Job {i} failed"
+        _poll_until(lambda jid=job_id: svc.get_status(jid) == "completed")
         results[job_id] = svc.get_result(job_id)
     assert len(results) == 5
 

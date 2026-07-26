@@ -9,6 +9,17 @@ from raghub.ingestion.jobs import PersistentJobStore
 from raghub.ingestion.resumable import ResumableBackgroundIngestionService
 
 
+def _poll_until(func, timeout=5.0, step=0.01):
+    """Poll *func* until it returns a truthy value or *timeout* expires."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        result = func()
+        if result:
+            return result
+        time.sleep(step)
+    raise TimeoutError(f"Condition not met within {timeout}s")
+
+
 def test_persistent_job_store_upsert_and_get(tmp_path) -> None:
     """Upsert and get round-trip."""
     store = PersistentJobStore(tmp_path / "jobs.db")
@@ -57,12 +68,7 @@ def test_resumable_service_submits_job(tmp_path) -> None:
             return "ok"
 
         job_id = service.submit(fn)
-        # Wait for the job to complete.
-        for _ in range(50):
-            if service.get_status(job_id) == "completed":
-                break
-            time.sleep(0.05)
-        assert service.get_status(job_id) == "completed"
+        _poll_until(lambda: service.get_status(job_id) == "completed")
         assert service.get_result(job_id) == "ok"
     finally:
         service.shutdown()
@@ -79,10 +85,7 @@ def test_resumable_service_persists_status(tmp_path) -> None:
             return "ok"
 
         job_id = service.submit(fn)
-        for _ in range(50):
-            if service.get_status(job_id) == "completed":
-                break
-            time.sleep(0.05)
+        _poll_until(lambda: service.get_status(job_id) == "completed")
     finally:
         service.shutdown()
 
