@@ -23,7 +23,7 @@ from raghub.models import (
     RetrievalHit,
     UserPrincipal,
 )
-from raghub.pipelines.rag import QueryPipeline
+from raghub.pipeline import QueryPipeline
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.retrieval.transforms import (
     ComposeTransformer,

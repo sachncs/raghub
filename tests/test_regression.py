@@ -18,7 +18,7 @@ from raghub.knowledge import SourceManifest
 from raghub.llm import HeuristicLLMProvider
 from raghub.observability import NoOpTelemetry
 from raghub.observability import RedactingTelemetry
-from raghub.pipelines.rag import IngestPipeline, QueryPipeline
+from raghub.pipeline import IngestPipeline, QueryPipeline
 from raghub.vectorstore import InMemoryVectorStore
 
 # ---------------------------------------------------------------------------

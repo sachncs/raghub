@@ -24,7 +24,7 @@ from raghub.models import (
     PipelineContext,
     UserPrincipal,
 )
-from raghub.pipelines.rag import QueryPipeline
+from raghub.pipeline import QueryPipeline
 from raghub.retrieval.long_context import LongContextRerankPass
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.retrieval.reranker import IdentityReranker
@@ -156,7 +156,7 @@ async def test_pipeline_long_context_no_op_when_model_not_in_allowlist() -> None
 
 def test_query_pipeline_accepts_long_context_pass() -> None:
     """Passing a long_context_pass through the pipeline runs it after rerank."""
-    from raghub.pipelines.rag import QueryPipeline
+    from raghub.pipeline import QueryPipeline
 
     # Wiring is the important behaviour; the constructor accepts the kwarg
     # and the pass is invoked during run() when configured. The full happy

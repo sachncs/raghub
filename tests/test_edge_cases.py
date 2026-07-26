@@ -474,7 +474,7 @@ class TestTokenCountEdgeCases:
     ) -> None:
         """QueryPipeline must handle empty context gracefully (no crash)."""
         from raghub.models import PipelineContext
-        from raghub.pipelines.rag import QueryPipeline
+        from raghub.pipeline import QueryPipeline
 
         embedder = MagicMock()
         embedder.embed_text.return_value = [0.1] * 10

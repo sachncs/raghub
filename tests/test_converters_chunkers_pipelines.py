@@ -16,7 +16,7 @@ from raghub.models import (
     KnowledgeBundle,
     PipelineContext,
 )
-from raghub.pipelines.rag import IngestPipeline, QueryPipeline
+from raghub.pipeline import IngestPipeline, QueryPipeline
 from raghub.vectorstore import InMemoryVectorStore
 
 

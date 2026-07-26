@@ -506,7 +506,7 @@ class TestQueryCacheRBACScoping:
 
     def test_admin_and_user_get_separate_entries(self) -> None:
         from raghub.models import PipelineResult
-        from raghub.pipelines.cache import QueryCache
+        from raghub.pipeline import QueryCache
 
         cache = QueryCache(ttl_seconds=300)
         UserPrincipal(email="admin@acme.com", is_admin=True, allowed_companies=[])
@@ -592,7 +592,7 @@ class TestQueryPipelineHistoryPropagation:
 
     async def test_history_passed_to_generator(self) -> None:
         from raghub.models import PipelineContext
-        from raghub.pipelines.rag import QueryPipeline
+        from raghub.pipeline import QueryPipeline
 
         embedder = MagicMock()
         embedder.embed_text = MagicMock(return_value=[0.1, 0.2, 0.3])

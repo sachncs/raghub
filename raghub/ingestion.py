@@ -61,7 +61,7 @@ from raghub.models import (
     UserPrincipal,
     deterministic_id,
 )
-from raghub.pipelines.rag import IngestPipeline
+from raghub.pipeline import IngestPipeline
 from raghub.repositories import UnitOfWork
 from raghub.utils import capture
 

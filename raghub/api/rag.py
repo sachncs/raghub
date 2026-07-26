@@ -78,9 +78,9 @@ from raghub.models import (
 )
 from raghub.observability import MetricsRegistry, PrometheusMetrics
 from raghub.observability import RedactingTelemetry
-from raghub.pipelines.agentic import AgenticQueryPipeline
-from raghub.pipelines.cache import QueryCache
-from raghub.pipelines.rag import IngestPipeline, QueryPipeline
+from raghub.pipeline import AgenticQueryPipeline
+from raghub.pipeline import QueryCache
+from raghub.pipeline import IngestPipeline, QueryPipeline
 from raghub.plugins import PluginRegistry
 from raghub.retrieval.colbert import ColbertLateInteraction
 from raghub.retrieval.long_context import LongContextRerankPass

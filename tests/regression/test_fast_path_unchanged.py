@@ -28,7 +28,7 @@ from raghub.config import Settings
 from raghub.generation import DefaultGenerator
 from raghub.llm import HeuristicLLMProvider
 from raghub.models import PipelineContext, UserPrincipal
-from raghub.pipelines.rag import QueryPipeline
+from raghub.pipeline import QueryPipeline
 
 
 def build_pipeline() -> tuple[QueryPipeline, Any, Any, Any, Any]:
