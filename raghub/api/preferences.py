@@ -61,7 +61,7 @@ class PreferencesPatch(BaseModel):
     prefs: dict[str, Any] = Field(default_factory=dict)
 
 
-def get_user_store(app_service: DynamicRagApplication):
+def get_user_store(app_service: DynamicRagApplication) -> Any:
     """Return the configured user store or raise 503.
 
     Args:
@@ -158,7 +158,6 @@ async def patch_preferences(
 @router.delete(
     "/users/me/preferences/{key}",
     status_code=204,
-    response_class=None,
 )
 async def delete_preference(
     key: str,

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Durable storage adapters."""
 
 from .image_store import FilesystemImageStore

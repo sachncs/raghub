@@ -22,6 +22,7 @@ import tempfile
 from dataclasses import dataclass, field
 from hashlib import sha256
 from importlib import import_module
+import sys
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,11 @@ from uuid import uuid4
 from pypdf import PdfReader
 
 from raghub.core import DocumentStateMachine
+from raghub.documents.parsers import (
+    FileParser,
+    ParsedSection,
+    ParserRegistry,
+)
 from raghub.exceptions import ConfigurationError, ConversionError, DocumentError
 from raghub.interfaces.converter import DocumentConverter
 from raghub.models import (
@@ -45,29 +51,19 @@ from raghub.models import (
 )
 from raghub.utils import capture
 
-# Re-export ParserRegistry from the parsers subpackage so callers can
-# do ``from raghub.documents import ParserRegistry`` even though the
-# concrete parsers live in :mod:`raghub.documents.parsers`.
-from raghub.documents.parsers import (  # noqa: E402
-    FileParser,
-    ParsedSection,
-    ParserRegistry,
-)
-
 # Aliases so legacy ``from raghub.documents import directory as
 # directory_module`` / ``marker as marker_module`` imports still work
 # after the flatten. The patches in tests/test_converters.py rely on
 # these aliases resolving to the same module.
-import sys as _sys  # noqa: E402
-
-_sys.modules.setdefault("raghub.documents.directory", _sys.modules[__name__])
-_sys.modules.setdefault("raghub.documents.marker", _sys.modules[__name__])
-_sys.modules.setdefault("raghub.documents.markdown", _sys.modules[__name__])
-_sys.modules.setdefault("raghub.documents.plaintext", _sys.modules[__name__])
-directory = _sys.modules[__name__]  # type: ignore[attr-defined]
-marker = _sys.modules[__name__]  # type: ignore[attr-defined]
-markdown = _sys.modules[__name__]  # type: ignore[attr-defined]
-plaintext = _sys.modules[__name__]  # type: ignore[attr-defined]
+sys.modules.setdefault("raghub.documents.directory", sys.modules[__name__])
+sys.modules.setdefault("raghub.documents.marker", sys.modules[__name__])
+sys.modules.setdefault("raghub.documents.markdown", sys.modules[__name__])
+sys.modules.setdefault("raghub.documents.plaintext", sys.modules[__name__])
+_self_module = sys.modules[__name__]
+directory: Any = _self_module
+marker: Any = _self_module
+markdown: Any = _self_module
+plaintext: Any = _self_module
 
 
 # ---------------------------------------------------------------------------

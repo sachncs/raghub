@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Retrieval pipeline and reranking."""
 
 from .pipeline import RetrievalPipeline

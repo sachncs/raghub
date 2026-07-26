@@ -179,8 +179,8 @@ async def maybe_await(value: T | Awaitable[T]) -> T:
         The awaited-or-direct result.
     """
     if inspect.isawaitable(value):
-        return await value  # type: ignore[return-value]
-    return value  # type: ignore[return-value]
+        return await value
+    return value
 
 
 def maybe_await_sync(awaitable: Any) -> Any:

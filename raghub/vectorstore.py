@@ -21,18 +21,23 @@ from threading import RLock
 from typing import Any, cast
 
 import numpy as np
+from qdrant_client import QdrantClient
+from qdrant_client.http import models as qmodels
 from rank_bm25 import BM25Okapi
 
 from raghub.exceptions import VectorStoreError
 from raghub.interfaces.vectorstore import VectorStore
 from raghub.models import ChunkRecord
 
-# Module-level qdrant_client / qdrant_client.http.models so tests
-# that patch ``raghub.vectorstore.qdrant.QdrantClient`` (or
-# ``raghub.vectorstore.qdrant.qmodels``) keep resolving to the same
-# symbols after the flatten.
-from qdrant_client import QdrantClient  # noqa: E402
-from qdrant_client.http import models as qmodels  # noqa: E402
+
+# Module aliases so tests that patch ``raghub.vectorstore.qdrant.X``
+# (or .memory / .zvec / .base) after the flatten still resolve.
+import sys
+
+sys.modules.setdefault("raghub.vectorstore.base", sys.modules[__name__])
+sys.modules.setdefault("raghub.vectorstore.memory", sys.modules[__name__])
+sys.modules.setdefault("raghub.vectorstore.qdrant", sys.modules[__name__])
+sys.modules.setdefault("raghub.vectorstore.zvec", sys.modules[__name__])
 
 
 class BaseVectorStore(ABC):
@@ -795,13 +800,3 @@ class ZvecVectorStore(BaseVectorStore):
     def health(self) -> dict[str, Any]:
         """Report which backend is active."""
         return {"status": "ok", "backend": "zvec" if self.zvec_module is not None else "memory"}
-
-
-# Module aliases so tests that patch ``raghub.vectorstore.qdrant.X``
-# (or .memory / .zvec / .base) after the flatten still resolve.
-import sys as _sys  # noqa: E402
-
-_sys.modules.setdefault("raghub.vectorstore.base", _sys.modules[__name__])
-_sys.modules.setdefault("raghub.vectorstore.memory", _sys.modules[__name__])
-_sys.modules.setdefault("raghub.vectorstore.qdrant", _sys.modules[__name__])
-_sys.modules.setdefault("raghub.vectorstore.zvec", _sys.modules[__name__])

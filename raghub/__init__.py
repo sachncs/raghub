@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Retrieval-augmented generation framework.
 
 The package exposes a high-level :class:`RAG` facade (the spec entry

@@ -617,7 +617,7 @@ class RouteGroup:
                 set(payload.tools_enabled) if payload.tools_enabled else set()
             )
 
-            async def gen() -> Iterable[bytes]:
+            async def gen() -> AsyncIterator[bytes]:
                 yield sse_comment("raghub-query-stream")
                 user, _ = await app_service.auth_svc.resolve_user(token)
                 rag = app_service.container.rag_facade

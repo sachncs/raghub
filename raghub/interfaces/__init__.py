@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Interface-first contracts for replaceable dependencies.
 
 The :mod:`raghub.interfaces` package defines :class:`typing.Protocol`

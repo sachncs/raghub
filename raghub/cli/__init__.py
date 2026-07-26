@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """RAGHub CLI.
 
 Single Typer-based CLI with all commands attached as sub-apps or
