@@ -68,21 +68,15 @@ class HybridSearchTool(BaseTool):
         text = (query or context.question or "").strip()
         if not text:
             return ToolResult(ok=False, error="hybrid_search: empty query")
-        try:
-            dense = self.pipeline.retrieve(
-                user=as_admin_user(context.user),
-                question=text,
-                top_k=int(top_k),
-            )
-        except Exception as exc:
-            return ToolResult(ok=False, error=f"hybrid_search (dense) failed: {exc}")
+        dense = self.pipeline.retrieve(
+            user=as_admin_user(context.user),
+            question=text,
+            top_k=int(top_k),
+        )
         sparse_raw: list[dict[str, Any]] = []
         keyword_search = getattr(self.vector_store, "keyword_search", None)
         if callable(keyword_search):
-            try:
-                sparse_raw = keyword_search(text, int(top_k) * 2)
-            except Exception:
-                sparse_raw = []
+            sparse_raw = keyword_search(text, int(top_k) * 2)  
         fused = rrf(
             [
                 [h.chunk.chunk_id for h in dense],

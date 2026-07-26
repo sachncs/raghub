@@ -76,10 +76,7 @@ class GraphSearchTool(BaseTool):
             return ToolResult(
                 ok=False, error=f"graph_search: mode {mode!r} not supported by index"
             )
-        try:
-            hits = fn(query, top_k=int(top_k))
-        except Exception as exc:
-            return ToolResult(ok=False, error=f"graph_search failed: {exc}")
+        hits = fn(query, top_k=int(top_k))
         if not hits:
             return ToolResult(content="(no graph matches)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)
