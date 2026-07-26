@@ -33,6 +33,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from uuid import uuid4
 
+from raghub.utils.execution import capture
+
 
 class IngestionJob:
     """Lightweight value object tracking a single ingestion task.
@@ -122,28 +124,18 @@ class BackgroundIngestionService:
         """
         job = self.jobs[job_id]
         job.status = "processing"
-        try:
-            result = fn(*args, **kwargs)
-            if asyncio.iscoroutine(result):
-                # Worker threads do not inherit an asyncio loop, so we
-                # spin up a fresh one, install it as the thread-local
-                # loop, run the coroutine, and close it on the way out.
-                # Reusing the calling thread's loop here would either
-                # raise or hang because the worker is not that thread.
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    result = loop.run_until_complete(result)
-                finally:
-                    loop.close()
-            job.status = "completed"
-            job.result = result
-        except Exception as e:
-            # Swallow the exception; the failure is communicated through
-            # the job's status and stringified result. Callers must
-            # ``get_status`` before trusting ``get_result``.
+        result, error = capture(fn, *args, **kwargs)
+        if error is None and asyncio.iscoroutine(result):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result, error = capture(loop.run_until_complete, result)
+            loop.close()
+        if error is not None:
             job.status = "failed"
-            job.result = str(e)
+            job.result = str(error)
+            return
+        job.status = "completed"
+        job.result = result
 
     def get_status(self, job_id: str) -> str | None:
         """Return the current status for ``job_id``, or ``None`` if unknown.
@@ -189,3 +181,6 @@ class BackgroundIngestionService:
             return
         self.closed = True
         self.executor.shutdown(wait=wait)
+
+
+__all__ = ["BackgroundIngestionService", "IngestionJob"]

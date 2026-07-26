@@ -53,3 +53,6 @@ class PdfParser(FileParser):
                 )
             )
         return sections
+
+
+__all__ = ["PdfParser"]

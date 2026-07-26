@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from collections.abc import Iterable
 from contextlib import suppress
 from pathlib import Path
@@ -52,8 +53,6 @@ class PersistentJobStore:
             status: Current status.
             result: Optional result payload (JSON-serialised when not ``None``).
         """
-        import time
-
         encoded = (
             json.dumps(result) if result is not None and not isinstance(result, str) else result
         )

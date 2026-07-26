@@ -54,3 +54,6 @@ class FileParser(ABC):
             A list of :class:`ParsedSection` objects. Empty when the
             parser finds no extractable text.
         """
+
+
+__all__ = ["FileParser", "ParsedSection"]

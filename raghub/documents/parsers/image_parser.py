@@ -11,9 +11,12 @@ metadata still useful for retrieval.
 
 from __future__ import annotations
 
+from importlib import import_module
 from io import BytesIO
 
 from PIL import Image
+
+from raghub.utils.execution import capture
 
 from .base import FileParser, ParsedSection
 
@@ -38,20 +41,12 @@ class ImageParser(FileParser):
             :mod:`pytesseract` is unavailable or fails.
         """
         image = Image.open(BytesIO(file_bytes))
+        pytesseract_module, import_error = capture(import_module, "pytesseract")
         text = ""
-        try:
-            # ``pytesseract`` is an optional dependency: importing it
-            # only here keeps the parser importable when OCR is not
-            # needed, and the ``try/except`` below tolerates missing
-            # system binaries.
-            import importlib
-
-            pytesseract_module = importlib.import_module("pytesseract")
-            text = pytesseract_module.image_to_string(image)
-        except Exception:
-            # Silent fallback: the metadata alone is still useful
-            # for retrieval, so a missing OCR stack is not a failure.
-            text = ""
+        if import_error is None:
+            ocr_text, ocr_error = capture(pytesseract_module.image_to_string, image)
+            if ocr_error is None:
+                text = ocr_text
         exif_data = image.getexif() if hasattr(image, "getexif") else {}
         metadata = {
             "format": image.format,
@@ -67,3 +62,6 @@ class ImageParser(FileParser):
                 metadata=metadata,
             )
         ]
+
+
+__all__ = ["ImageParser"]

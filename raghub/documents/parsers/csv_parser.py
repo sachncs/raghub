@@ -36,3 +36,6 @@ class CsvParser(FileParser):
                 metadata={},
             )
         ]
+
+
+__all__ = ["CsvParser"]

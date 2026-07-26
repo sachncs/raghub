@@ -15,6 +15,7 @@ from raghub.converters.marker import MarkerConverter
 from raghub.converters.plaintext import PlainTextConverter
 from raghub.interfaces.converter import DocumentConverter
 from raghub.models import KnowledgeBundle
+from raghub.utils.execution import capture
 
 
 def select_converter_for_path(path: Path) -> DocumentConverter:
@@ -30,10 +31,8 @@ def select_converter_for_path(path: Path) -> DocumentConverter:
         installed.
     """
     if path.suffix.lower() == ".pdf":
-        try:
-            return MarkerConverter()
-        except Exception:
-            return PlainTextConverter()
+        converter, error = capture(MarkerConverter)
+        return PlainTextConverter() if error is not None else converter
     return PlainTextConverter()
 
 
@@ -64,4 +63,4 @@ def convert_path(
     )
 
 
-__all__ = ["convert_path"]
+__all__ = ["convert_path", "select_converter_for_path"]

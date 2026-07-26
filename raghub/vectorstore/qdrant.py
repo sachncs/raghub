@@ -1,35 +1,21 @@
-"""Qdrant vector-store adapter.
+"""Qdrant adapter for dense vector search and metadata filtering.
 
-Implements the :class:`raghub.interfaces.vectorstore.VectorStore`
-contract against a Qdrant server. Falls back gracefully when the
-``qdrant-client`` package is not installed.
+Qdrant client and transport errors intentionally propagate to the application
+boundary, which owns logging and domain-level error translation.
 """
 
 from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from contextlib import suppress
 from typing import Any
 
-from raghub.exceptions import ConfigurationError, VectorStoreError
+from qdrant_client import QdrantClient
+from qdrant_client.http import models as qmodels
+
+from raghub.exceptions import VectorStoreError
 from raghub.interfaces.vectorstore import VectorStore
 from raghub.models import ChunkRecord
-
-QdrantClient: Any
-qmodels: Any
-
-try:
-    from qdrant_client import QdrantClient
-    from qdrant_client.http import models as qmodels
-
-    QDRANT_AVAILABLE = True
-    OptionalImportError: Exception | None = None
-except Exception as exc:  # pragma: no cover - optional dep
-    QdrantClient = None
-    qmodels = None
-    QDRANT_AVAILABLE = False
-    OptionalImportError = exc
 
 
 class QdrantVectorStore(VectorStore):
@@ -64,14 +50,7 @@ class QdrantVectorStore(VectorStore):
             embedding_dim: Expected embedding dimension.
             prefer_grpc: Use gRPC transport when available (see class
                 docstring for trade-offs).
-
-        Raises:
-            ConfigurationError: When ``qdrant-client`` is not installed.
         """
-        if not QDRANT_AVAILABLE:
-            raise ConfigurationError(
-                "qdrant-client is not installed; run `pip install qdrant-client`."
-            )
         self.collection = collection
         self.embedding_dim = embedding_dim
         self.client = QdrantClient(url=url, api_key=api_key, prefer_grpc=prefer_grpc)
@@ -81,14 +60,8 @@ class QdrantVectorStore(VectorStore):
     # ------------------------------------------------------------------
 
     def create_collection(self) -> None:
-        """Create the Qdrant collection if it does not already exist."""
-        try:
-            self.client.get_collection(self.collection)
-            return
-        except Exception as exc:
-            if getattr(exc, "status_code", None) != 404:
-                raise VectorStoreError(f"Qdrant collection lookup failed: {exc}") from exc
-        try:
+        """Create the Qdrant collection when it is absent."""
+        if not self.client.collection_exists(collection_name=self.collection):
             self.client.create_collection(
                 collection_name=self.collection,
                 vectors_config=qmodels.VectorParams(
@@ -96,47 +69,38 @@ class QdrantVectorStore(VectorStore):
                     distance=qmodels.Distance.COSINE,
                 ),
             )
-        except Exception as exc:
-            raise VectorStoreError(f"Qdrant collection creation failed: {exc}") from exc
 
     def optimize(self) -> None:
-        """Qdrant has no separate optimisation step; flush in-memory state."""
-        with suppress(Exception):
-            self.client.update_collection_aliases(change_aliases_operations=[])
+        """Flush Qdrant state through its collection-alias update endpoint."""
+        self.client.update_collection_aliases(change_aliases_operations=[])
 
     def delete_version(self, document_id: str, version: int) -> None:
-        """Delete a specific version of a document.
+        """Delete chunks for one document version.
 
         Args:
             document_id: The document id.
             version: The version number.
         """
-        try:
-            self.client.delete(
-                collection_name=self.collection,
-                points_selector=qmodels.FilterSelector(
-                    filter=qmodels.Filter(
-                        must=[
-                            qmodels.FieldCondition(
-                                key="document_id", match=qmodels.MatchValue(value=document_id)
-                            ),
-                            qmodels.FieldCondition(
-                                key="version", match=qmodels.MatchValue(value=version)
-                            ),
-                        ]
-                    )
-                ),
-            )
-        except Exception as exc:
-            raise VectorStoreError(f"Qdrant delete_version failed: {exc}") from exc
+        self.client.delete(
+            collection_name=self.collection,
+            points_selector=qmodels.FilterSelector(
+                filter=qmodels.Filter(
+                    must=[
+                        qmodels.FieldCondition(
+                            key="document_id", match=qmodels.MatchValue(value=document_id)
+                        ),
+                        qmodels.FieldCondition(
+                            key="version", match=qmodels.MatchValue(value=version)
+                        ),
+                    ]
+                )
+            ),
+        )
 
     def health(self) -> dict[str, Any]:
-        """Return Qdrant cluster health."""
-        try:
-            info = self.client.get_collections()
-            return {"status": "ok", "collections": [c.name for c in info.collections]}
-        except Exception as exc:
-            return {"status": "degraded", "error": str(exc)}
+        """Return the names of collections reported by Qdrant."""
+        info = self.client.get_collections()
+        return {"status": "ok", "collections": [collection.name for collection in info.collections]}
 
     # ------------------------------------------------------------------
     # CRUD
@@ -156,50 +120,41 @@ class QdrantVectorStore(VectorStore):
             raise VectorStoreError("chunks and vectors length mismatch")
         if not chunks:
             return
-        try:
-            self.client.upsert(
-                collection_name=self.collection,
-                points=[
-                    qmodels.PointStruct(
-                        id=self.qdrant_point_id(chunk.chunk_id),
-                        vector=list(vector),
-                        payload=chunk.model_dump(mode="json"),
-                    )
-                    for chunk, vector in zip(chunks, vectors, strict=True)
-                ],
-            )
-        except Exception as exc:
-            raise VectorStoreError(f"Qdrant upsert failed: {exc}") from exc
+        self.client.upsert(
+            collection_name=self.collection,
+            points=[
+                qmodels.PointStruct(
+                    id=self.qdrant_point_id(chunk.chunk_id),
+                    vector=list(vector),
+                    payload=chunk.model_dump(mode="json"),
+                )
+                for chunk, vector in zip(chunks, vectors, strict=True)
+            ],
+        )
 
     def delete(self, chunk_ids: Sequence[str]) -> None:
-        """Delete by chunk id."""
-        try:
-            self.client.delete(
-                collection_name=self.collection,
-                points_selector=qmodels.PointIdsList(
-                    points=[self.qdrant_point_id(cid) for cid in chunk_ids]
-                ),
-            )
-        except Exception as exc:
-            raise VectorStoreError(f"Qdrant delete failed: {exc}") from exc
+        """Delete chunks by their stable Qdrant point ids."""
+        self.client.delete(
+            collection_name=self.collection,
+            points_selector=qmodels.PointIdsList(
+                points=[self.qdrant_point_id(chunk_id) for chunk_id in chunk_ids]
+            ),
+        )
 
     def delete_document(self, document_id: str) -> None:
         """Delete every chunk for ``document_id``."""
-        try:
-            self.client.delete(
-                collection_name=self.collection,
-                points_selector=qmodels.FilterSelector(
-                    filter=qmodels.Filter(
-                        must=[
-                            qmodels.FieldCondition(
-                                key="document_id", match=qmodels.MatchValue(value=document_id)
-                            )
-                        ]
-                    )
-                ),
-            )
-        except Exception as exc:
-            raise VectorStoreError(f"Qdrant delete_document failed: {exc}") from exc
+        self.client.delete(
+            collection_name=self.collection,
+            points_selector=qmodels.FilterSelector(
+                filter=qmodels.Filter(
+                    must=[
+                        qmodels.FieldCondition(
+                            key="document_id", match=qmodels.MatchValue(value=document_id)
+                        )
+                    ]
+                )
+            ),
+        )
 
     # ------------------------------------------------------------------
     # Search
@@ -218,50 +173,45 @@ class QdrantVectorStore(VectorStore):
         elif not isinstance(metadata_filter, dict):
             raise VectorStoreError("Qdrant metadata_filter must be a dict or empty string")
         else:
-            conditions = []
+            conditions: list[Any] = []
             for key, value in metadata_filter.items():
                 if key not in {"company", "document_id"}:
                     raise VectorStoreError(f"Unsupported Qdrant metadata filter field: {key}")
                 if isinstance(value, str):
-                    match = qmodels.MatchValue(value=value)
+                    conditions.append(
+                        qmodels.FieldCondition(key=key, match=qmodels.MatchValue(value=value))
+                    )
                 elif isinstance(value, list) and all(isinstance(item, str) for item in value):
-                    match = qmodels.MatchAny(any=value)
+                    conditions.append(
+                        qmodels.FieldCondition(key=key, match=qmodels.MatchAny(any=value))
+                    )
                 else:
                     raise VectorStoreError(f"Unsupported Qdrant metadata filter value for {key}")
-                conditions.append(qmodels.FieldCondition(key=key, match=match))
             query_filter = qmodels.Filter(must=conditions) if conditions else None
 
-        try:
-            query_points = getattr(self.client, "query_points", None)
-            if query_points is None:
-                response = self.client.search(
-                    collection_name=self.collection,
-                    query_vector=list(vector),
-                    query_filter=query_filter,
-                    limit=top_k,
-                    with_payload=True,
-                )
-                hits = response
-            else:
-                response = query_points(
-                    collection_name=self.collection,
-                    query=list(vector),
-                    query_filter=query_filter,
-                    limit=top_k,
-                    with_payload=True,
-                )
-                hits = getattr(response, "points", response)
-        except Exception as exc:
-            raise VectorStoreError(f"Qdrant search failed: {exc}") from exc
+        client: Any = self.client
+        query_points = getattr(client, "query_points", None)
+        if query_points is None:
+            hits = client.search(
+                collection_name=self.collection,
+                query_vector=list(vector),
+                query_filter=query_filter,
+                limit=top_k,
+                with_payload=True,
+            )
+        else:
+            response = query_points(
+                collection_name=self.collection,
+                query=list(vector),
+                query_filter=query_filter,
+                limit=top_k,
+                with_payload=True,
+            )
+            hits = getattr(response, "points", response)
 
         results: list[dict[str, Any]] = []
         for hit in hits:
-            try:
-                chunk = ChunkRecord.model_validate(hit.payload)
-            except Exception as exc:
-                raise VectorStoreError(
-                    f"Qdrant search returned invalid payload for point {hit.id}"
-                ) from exc
+            chunk = ChunkRecord.model_validate(hit.payload)
             results.append(
                 {
                     "chunk_id": chunk.chunk_id,

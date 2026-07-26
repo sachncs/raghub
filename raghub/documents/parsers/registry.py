@@ -32,7 +32,7 @@ from .pdf_parser import PdfParser
 from .txt_parser import TxtParser
 
 
-class ParserRegistry:
+class ParserCatalog:
     """Two-tier (MIME then extension) parser lookup with a UTF-8 fallback."""
 
     def __init__(self) -> None:
@@ -161,3 +161,9 @@ class ParserRegistry:
                 )
             ]
         return parser.parse(file_bytes, file_name, mime_type)
+
+
+ParserRegistry = ParserCatalog
+
+
+__all__ = ["ParserCatalog", "ParserRegistry"]

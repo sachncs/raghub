@@ -16,6 +16,10 @@ from __future__ import annotations
 
 import io
 
+from docx import Document
+from openpyxl import load_workbook
+from pptx import Presentation
+
 from .base import FileParser, ParsedSection
 
 
@@ -49,8 +53,6 @@ class OfficeParser(FileParser):
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/msword",
         ) or ext in ("docx", "doc"):
-            from docx import Document
-
             doc = Document(io.BytesIO(file_bytes))
             text_parts = [para.text for para in doc.paragraphs]
             sections.append(
@@ -66,11 +68,6 @@ class OfficeParser(FileParser):
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/vnd.ms-excel",
         ) or ext in ("xlsx", "xls"):
-            # ``openpyxl`` is the standard read-only XLSX driver; the
-            # ``data_only=True`` flag resolves formula cells to their
-            # cached values instead of returning the formula strings.
-            from openpyxl import load_workbook
-
             wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
             for i, ws_name in enumerate(wb.sheetnames, start=1):
                 ws = wb[ws_name]
@@ -92,8 +89,6 @@ class OfficeParser(FileParser):
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "application/vnd.ms-powerpoint",
         ) or ext in ("pptx", "ppt"):
-            from pptx import Presentation
-
             prs = Presentation(io.BytesIO(file_bytes))
             for i, slide in enumerate(prs.slides, start=1):
                 texts = [shape.text for shape in slide.shapes if hasattr(shape, "text")]
@@ -107,3 +102,6 @@ class OfficeParser(FileParser):
                 )
 
         return sections
+
+
+__all__ = ["OfficeParser"]

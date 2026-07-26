@@ -1,4 +1,4 @@
-"""Vector store base and utility types."""
+"""Abstract contract shared by all RAGHub vector-store adapters."""
 
 from __future__ import annotations
 
@@ -64,3 +64,6 @@ class BaseVectorStore(ABC):
     def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
         """Keyword-based search. Default implementation returns empty."""
         return []
+
+
+__all__ = ["BaseVectorStore"]

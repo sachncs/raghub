@@ -1,44 +1,46 @@
-"""Alibaba Zvec adapter."""
+"""Zvec vector-store adapter with a thread-safe in-memory fallback.
+
+The module translates canonical metadata filters to Zvec expressions, wraps
+the native collection API, and delegates to the in-memory backend when Zvec
+is unavailable and production mode does not require it.
+"""
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from importlib import import_module
+from importlib.util import find_spec
 from typing import Any
 
 from raghub.models import ChunkRecord
 from raghub.vectorstore.base import BaseVectorStore
 from raghub.vectorstore.memory import InMemoryVectorStore
 
+zvec_module = import_module("zvec") if find_spec("zvec") is not None else None
+
 
 def native_filter(metadata_filter: str | dict) -> str | None:
-    """Translate a canonical dict filter into a Zvec SQL fragment.
-
-    Returns ``"false"`` for filters that must match nothing (empty
-    list), ``None`` for empty filters (no constraint), and a SQL
-    fragment for recognised shapes. ``str`` filters are passed
-    through verbatim when supported.
+    """Translate a canonical metadata filter into a Zvec SQL fragment.
 
     Args:
-        metadata_filter: Canonical dict, legacy string, or ``None``.
+        metadata_filter: Canonical dict, legacy string, or empty string.
 
     Returns:
-        The Zvec SQL fragment, ``None`` for no constraint, or
-        ``"false"`` for empty RBAC scopes.
+        A SQL fragment, ``None`` for no constraint, or ``"false"`` for an
+        empty list that must match no records.
 
     Raises:
-        ValueError: When ``metadata_filter`` contains an unsupported
-            field or value type.
+        ValueError: If a field, value, or filter type is unsupported.
     """
     if metadata_filter in ("", None):
         return None
     if isinstance(metadata_filter, dict):
         if not metadata_filter:
             return None
-        if set(metadata_filter.keys()) - {"company", "document_id"}:
-            raise ValueError(
-                f"Unsupported Zvec metadata filter fields: {sorted(metadata_filter.keys())}"
-            )
+        if set(metadata_filter) - {"company", "document_id"}:
+            raise ValueError(f"Unsupported Zvec metadata filter fields: {sorted(metadata_filter)}")
         clauses: list[str] = []
         for key, value in metadata_filter.items():
             if isinstance(value, list):
@@ -60,17 +62,17 @@ def native_filter(metadata_filter: str | dict) -> str | None:
 
 
 class RealZvecBackend(BaseVectorStore):
-    """Adapter around the Alibaba Zvec Python API."""
+    """Vector-store adapter around the native Alibaba Zvec collection API."""
 
     def __init__(self, zvec_module: Any, path: str, embedding_dim: int) -> None:
+        """Open or create a Zvec collection at ``path``."""
         self.zvec = zvec_module
         self.path = path
         self.embedding_dim = embedding_dim
         self.collection = self.open_collection()
 
     def open_collection(self) -> Any:
-        import os
-
+        """Open an existing collection or create one with the RAGHub schema."""
         lock_path = os.path.join(self.path, "LOCK")
         if os.path.exists(lock_path):
             return self.zvec.open(path=self.path)
@@ -105,9 +107,11 @@ class RealZvecBackend(BaseVectorStore):
         return self.zvec.create_and_open(path=self.path, schema=schema)
 
     def create_collection(self) -> None:
+        """No-op because construction already opens or creates the collection."""
         return None
 
     def insert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> None:
+        """Insert chunks and their vectors into the native collection."""
         for chunk, vector in zip(chunks, vectors, strict=True):
             self.collection.insert(
                 self.zvec.Doc(
@@ -133,20 +137,27 @@ class RealZvecBackend(BaseVectorStore):
             )
 
     def upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> None:
+        """Insert or replace chunks using the native insertion operation."""
         self.insert(chunks, vectors)
 
     def delete(self, chunk_ids: Sequence[str]) -> None:
+        """Delete chunks by id."""
         for chunk_id in chunk_ids:
             self.collection.delete(ids=chunk_id)
 
     def sanitize_id(self, value: str) -> str:
-        return "".join(c for c in value if c.isalnum() or c in "-_.")
+        """Return an identifier containing only safe filter characters."""
+        return "".join(
+            character for character in value if character.isalnum() or character in "-_."
+        )
 
     def delete_document(self, document_id: str) -> None:
+        """Delete every chunk belonging to a document."""
         safe_id = self.sanitize_id(document_id)
         self.collection.delete_by_filter(filter=f"document_id = '{safe_id}'")
 
     def delete_version(self, document_id: str, version: int) -> None:
+        """Delete all chunks for one document version."""
         safe_id = self.sanitize_id(document_id)
         self.collection.delete_by_filter(
             filter=f"document_id = '{safe_id}' AND version = {version}"
@@ -155,8 +166,8 @@ class RealZvecBackend(BaseVectorStore):
     def search(
         self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
     ) -> list[dict[str, Any]]:
-        """Search the collection, honouring the canonical RBAC filter."""
-        filter_clause = self._native_filter(metadata_filter)
+        """Search the collection with an optional canonical metadata filter."""
+        filter_clause = self.native_filter(metadata_filter)
         if filter_clause is None:
             result = self.collection.query(
                 queries=self.zvec.Query(field_name="embedding", vector=vector),
@@ -171,16 +182,8 @@ class RealZvecBackend(BaseVectorStore):
         return self.normalize_search_result(result)
 
     @staticmethod
-    def _native_filter(metadata_filter: str | dict) -> str | None:
-        """Translate a canonical dict filter into a Zvec SQL fragment.
-
-        Args:
-            metadata_filter: Canonical dict, legacy string, or ``None``.
-
-        Returns:
-            The Zvec SQL fragment, ``None`` for no constraint, or
-            ``"false"`` for empty RBAC scopes.
-        """
+    def native_filter(metadata_filter: str | dict) -> str | None:
+        """Translate a canonical metadata filter into a Zvec SQL fragment."""
         return native_filter(metadata_filter)
 
     def hybrid_search(
@@ -191,26 +194,33 @@ class RealZvecBackend(BaseVectorStore):
         top_k: int,
         metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
+        """Run dense search because this backend has no keyword channel."""
         return self.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     def matches_metadata(self, metadata_filter: str | dict) -> bool:
-        """Return whether ``metadata_filter`` can be translated into a Zvec query."""
-        try:
-            self._native_filter(metadata_filter)
-        except ValueError:
+        """Return whether a metadata filter is supported by the Zvec adapter."""
+        if metadata_filter in ("", None) or isinstance(metadata_filter, str):
+            return True
+        if not isinstance(metadata_filter, dict):
             return False
-        return True
+        return not set(metadata_filter) - {"company", "document_id"} and all(
+            isinstance(value, (str, list)) for value in metadata_filter.values()
+        )
 
     def optimize(self) -> None:
+        """Optimize the native collection indexes."""
         self.collection.optimize()
 
     def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
+        """Return no hits because the native backend has no keyword index."""
         return []
 
     def health(self) -> dict[str, Any]:
+        """Return native collection health and statistics."""
         return {"status": "ok", "backend": "zvec", "stats": getattr(self.collection, "stats", {})}
 
     def normalize_search_result(self, result: Any) -> list[dict[str, Any]]:
+        """Convert native query results into the shared vector-store hit shape."""
         normalized: list[dict[str, Any]] = []
         if result is None:
             return normalized
@@ -250,50 +260,53 @@ class RealZvecBackend(BaseVectorStore):
 
 
 class ZvecVectorStore(BaseVectorStore):
-    """Zvec adapter with in-memory fallback when the dependency is unavailable."""
+    """Zvec adapter with an in-memory fallback when Zvec is unavailable."""
 
     def __init__(self, path: str, embedding_dim: int, require_zvec: bool = False) -> None:
+        """Select the native or fallback backend for ``path``."""
         self.path = path
         self.embedding_dim = embedding_dim
         self.require_zvec = require_zvec
-        self.backend: BaseVectorStore
         self.zvec_module: Any = None
         self.backend = self.create_backend()
 
     def create_backend(self) -> BaseVectorStore:
-        try:
-            import zvec
-
-            self.zvec_module = zvec
-            return RealZvecBackend(zvec, self.path, self.embedding_dim)
-        except ImportError as exc:
-            if self.require_zvec:
-                raise RuntimeError(
-                    "ZVec is required in production mode but could not be imported"
-                ) from exc
-            return InMemoryVectorStore()
+        """Create a native backend, or an in-memory fallback when permitted."""
+        if zvec_module is not None:
+            self.zvec_module = zvec_module
+            return RealZvecBackend(zvec_module, self.path, self.embedding_dim)
+        if self.require_zvec:
+            raise RuntimeError("ZVec is required in production mode but could not be imported")
+        return InMemoryVectorStore()
 
     def create_collection(self) -> None:
+        """Create or open the selected backend collection."""
         self.backend.create_collection()
 
     def insert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> None:
+        """Insert chunks through the selected backend."""
         self.backend.insert(chunks, vectors)
 
     def upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> None:
+        """Upsert chunks through the selected backend."""
         self.backend.upsert(chunks, vectors)
 
     def delete(self, chunk_ids: Sequence[str]) -> None:
+        """Delete chunks through the selected backend."""
         self.backend.delete(chunk_ids)
 
     def delete_document(self, document_id: str) -> None:
+        """Delete a document through the selected backend."""
         self.backend.delete_document(document_id)
 
     def delete_version(self, document_id: str, version: int) -> None:
+        """Delete a document version through the selected backend."""
         self.backend.delete_version(document_id, version)
 
     def search(
         self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
     ) -> list[dict[str, Any]]:
+        """Run vector search through the selected backend."""
         return self.backend.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     def hybrid_search(
@@ -304,15 +317,22 @@ class ZvecVectorStore(BaseVectorStore):
         top_k: int,
         metadata_filter: str | dict = "",
     ) -> list[dict[str, Any]]:
+        """Run hybrid search through the selected backend."""
         return self.backend.hybrid_search(
             query=query, vector=vector, top_k=top_k, metadata_filter=metadata_filter
         )
 
     def optimize(self) -> None:
+        """Optimize the selected backend."""
         self.backend.optimize()
 
     def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
+        """Run keyword search through the selected backend."""
         return self.backend.keyword_search(query, top_k)
 
     def health(self) -> dict[str, Any]:
+        """Report which backend is active."""
         return {"status": "ok", "backend": "zvec" if self.zvec_module is not None else "memory"}
+
+
+__all__ = ["RealZvecBackend", "ZvecVectorStore", "native_filter"]

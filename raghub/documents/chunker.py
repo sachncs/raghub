@@ -34,6 +34,7 @@ from uuid import uuid4
 from pypdf import PdfReader
 
 from raghub.models import ChunkRecord, Classification
+from raghub.utils.execution import capture
 
 
 @dataclass(frozen=True)
@@ -220,20 +221,17 @@ def extract_pdf_metadata(pdf_bytes: bytes) -> dict[str, str]:
         ``creator`` keys (empty strings when missing). An empty dict
         is returned on any parse failure rather than raising.
     """
-    try:
-        reader = PdfReader(BytesIO(pdf_bytes))
-        meta = reader.metadata
-        if meta:
-            return {
-                "title": meta.get("/Title", ""),
-                "author": meta.get("/Author", ""),
-                "producer": meta.get("/Producer", ""),
-                "creator": meta.get("/Creator", ""),
-            }
-    except Exception:
-        # Defensive: malformed PDFs should never block ingestion; the
-        # empty dict is harmless and the chunks still extract.
-        pass
+    reader, error = capture(PdfReader, BytesIO(pdf_bytes))
+    if error is not None:
+        return {}
+    meta = reader.metadata
+    if meta:
+        return {
+            "title": meta.get("/Title", ""),
+            "author": meta.get("/Author", ""),
+            "producer": meta.get("/Producer", ""),
+            "creator": meta.get("/Creator", ""),
+        }
     return {}
 
 
@@ -311,3 +309,15 @@ def build_chunk_records(
                 )
             )
     return records
+
+
+__all__ = [
+    "ChunkingPlan",
+    "build_chunk_records",
+    "chunk_words",
+    "extract_pdf_metadata",
+    "extract_pdf_pages",
+    "extract_pdf_text",
+    "extract_text_from_content",
+    "normalize_text",
+]

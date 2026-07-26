@@ -49,3 +49,6 @@ def new_version(previous: DocumentVersion | None, **overrides: Any) -> DocumentV
         payload.setdefault("document_id", previous.document_id)
         payload.setdefault("created_at", previous.created_at)
     return DocumentVersion.model_validate(payload)
+
+
+__all__ = ["new_version"]
