@@ -10,8 +10,8 @@ from raghub.api.app import create_app
 from raghub.api.dependencies import get_application
 from raghub.auth.user_store import UserRecord
 from raghub.exceptions import AuthenticationError, AuthorizationError, DocumentError, StorageError
-from raghub.models.api import AuthLoginResponse, QueryResponse
-from raghub.models.domain import ConversationTurn, DocumentRecord, UserPrincipal
+from raghub.models import AuthLoginResponse, QueryResponse
+from raghub.models import ConversationTurn, DocumentRecord, UserPrincipal
 
 
 def _doc(

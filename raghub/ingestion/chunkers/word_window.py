@@ -14,7 +14,7 @@ from raghub.documents.chunker import chunk_words as legacy_chunk_words
 from raghub.documents.chunker import normalize_text as normalize_text
 from raghub.interfaces.chunker import Chunker
 from raghub.models import Chunk
-from raghub.models.canonical import deterministic_id
+from raghub.models import deterministic_id
 
 
 class WordWindowChunker(Chunker):

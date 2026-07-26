@@ -16,10 +16,11 @@ from raghub.models import (
     KnowledgeBundle,
     PipelineContext,
     PipelineResult,
-    canonical,
+    Query,
+    Response,
+    SearchResult,
+    deterministic_id,
 )
-from raghub.models.canonical import Query, Response, SearchResult, deterministic_id
-from raghub.models.canonical import deterministic_id
 
 
 def test_deterministic_id_is_stable() -> None:
