@@ -85,6 +85,36 @@ class EvaluationError(RagHubError):
     """Raised when an evaluator cannot score a model output."""
 
 
+class ToolError(RagHubError):
+    """Raised when an agent tool cannot complete or returns malformed output."""
+
+
+class AgentBudgetExceeded(RagHubError):
+    """Raised when the agent loop exhausts its step / wall-clock / token budget.
+
+    The exception carries the partial planner trace so callers can surface
+    progress to the user even though no final answer was produced.
+    """
+
+
+class WebSearchError(RagHubError):
+    """Raised when a web search tool fails (network, missing dep, parse error)."""
+
+
+class RerankerError(RagHubError):
+    """Raised when a reranker cannot score or rank the candidate list."""
+
+
+class GraphUnavailableError(RagHubError):
+    """Raised when a graph-backed feature (RAPTOR / GraphRAG) is requested
+    but the required dependency (sklearn / igraph / leidenalg) is missing.
+    """
+
+
+class TransformError(RagHubError):
+    """Raised when a query transform (HyDE / multi-query / decompose) fails."""
+
+
 # ---------------------------------------------------------------------------
 # Legacy / compatibility names (kept for existing API consumers).
 # They are subclasses of :class:`RagHubError` so a single
@@ -143,6 +173,7 @@ class RateLimitError(DynamicRagError):
 
 
 __all__ = [
+    "AgentBudgetExceeded",
     "AuthenticationError",
     "AuthorizationError",
     "ConfigurationError",
@@ -152,6 +183,7 @@ __all__ = [
     "EmbeddingError",
     "EvaluationError",
     "GenerationError",
+    "GraphUnavailableError",
     "IndexingError",
     "IngestionError",
     "KnowledgeError",
@@ -160,8 +192,12 @@ __all__ = [
     "PromptError",
     "RagHubError",
     "RateLimitError",
+    "RerankerError",
     "RetrievalError",
     "StorageError",
+    "ToolError",
+    "TransformError",
     "ValidationError",
     "VectorStoreError",
+    "WebSearchError",
 ]

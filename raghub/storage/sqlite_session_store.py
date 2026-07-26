@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 import aiosqlite
@@ -83,7 +84,12 @@ class SqliteSessionStore:
             await conn.close()
 
     async def initialize(self) -> None:
-        """Create the ``sessions`` table if it does not exist."""
+        """Create the ``sessions`` table if it does not exist.
+
+        Also adds the ``overrides`` column (Phase 1.12) to legacy
+        databases via ``ALTER TABLE``; the operation is wrapped in a
+        try/except so re-runs are no-ops.
+        """
         conn = await self.conn()
         await conn.executescript("""
             CREATE TABLE IF NOT EXISTS sessions (
@@ -96,6 +102,15 @@ class SqliteSessionStore:
                 history TEXT DEFAULT '[]'
             );
         """)
+        # Phase 1.12 migration: add ``overrides`` JSON column for
+        # session-scoped tool/agent settings. SQLite raises on duplicate
+        # column, which is the expected "already migrated" signal.
+        try:
+            await conn.execute(
+                "ALTER TABLE sessions ADD COLUMN overrides TEXT DEFAULT '{}'"
+            )
+        except Exception:
+            pass
         if self.db_manager is None:
             await conn.commit()
             await conn.close()
@@ -121,8 +136,8 @@ class SqliteSessionStore:
         conn = await self.conn()
         await conn.execute(
             """
-            INSERT INTO sessions (session_id, user_id, token, created_at, expires_at, last_seen_at, history)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO sessions (session_id, user_id, token, created_at, expires_at, last_seen_at, history, overrides)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session.session_id,
@@ -132,6 +147,7 @@ class SqliteSessionStore:
                 session.expires_at.isoformat(),
                 session.last_seen_at.isoformat(),
                 json.dumps([]),
+                json.dumps(session.overrides or {}),
             ),
         )
         await self.maybe_commit_close(conn)
@@ -186,13 +202,14 @@ class SqliteSessionStore:
         await conn.execute(
             """
             UPDATE sessions
-            SET last_seen_at = ?, expires_at = ?, history = ?
+            SET last_seen_at = ?, expires_at = ?, history = ?, overrides = ?
             WHERE session_id = ?
             """,
             (
                 session.last_seen_at.isoformat(),
                 session.expires_at.isoformat(),
                 json.dumps([t.model_dump(mode="json") for t in session.history]),
+                json.dumps(session.overrides or {}),
                 session.session_id,
             ),
         )
@@ -210,7 +227,7 @@ class SqliteSessionStore:
             """
             UPDATE sessions
             SET user_id = ?, token = ?, created_at = ?, expires_at = ?,
-                last_seen_at = ?, history = ?
+                last_seen_at = ?, history = ?, overrides = ?
             WHERE session_id = ?
             """,
             (
@@ -220,6 +237,7 @@ class SqliteSessionStore:
                 session.expires_at.isoformat(),
                 session.last_seen_at.isoformat(),
                 json.dumps([t.model_dump(mode="json") for t in session.history]),
+                json.dumps(session.overrides or {}),
                 session.session_id,
             ),
         )
@@ -233,6 +251,53 @@ class SqliteSessionStore:
         """
         conn = await self.conn()
         await conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+        await self.maybe_commit_close(conn)
+
+    async def get_overrides(self, session_id: str) -> dict[str, Any]:
+        """Return the session's ``overrides`` mapping (Phase 1.12).
+
+        Args:
+            session_id: Session id.
+
+        Returns:
+            The overrides dict, or ``{}`` when unset / unknown.
+        """
+        conn = await self.conn()
+        cursor = await conn.execute(
+            "SELECT overrides FROM sessions WHERE session_id = ?", (session_id,)
+        )
+        row = await cursor.fetchone()
+        await self.maybe_commit_close(conn)
+        if row is None:
+            return {}
+        raw = row[0] if not isinstance(row, aiosqlite.Row) else row["overrides"]
+        if not raw:
+            return {}
+        try:
+            decoded = json.loads(raw)
+        except (TypeError, ValueError):
+            return {}
+        return decoded if isinstance(decoded, dict) else {}
+
+    async def set_overrides(self, session_id: str, overrides: dict[str, Any]) -> None:
+        """Replace the session's ``overrides`` mapping (Phase 1.12).
+
+        Args:
+            session_id: Session id. No-op when the session is unknown.
+            overrides: Replacement mapping; ``{}`` clears the column.
+        """
+        conn = await self.conn()
+        cursor = await conn.execute(
+            "SELECT 1 FROM sessions WHERE session_id = ?", (session_id,)
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            await self.maybe_commit_close(conn)
+            return
+        await conn.execute(
+            "UPDATE sessions SET overrides = ? WHERE session_id = ?",
+            (json.dumps(overrides or {}), session_id),
+        )
         await self.maybe_commit_close(conn)
 
     async def append_history(self, session_id: str, turn: ConversationTurn) -> None:
@@ -311,6 +376,16 @@ class SqliteSessionStore:
         Returns:
             The fully-typed :class:`SessionRecord`.
         """
+        history_raw = row["history"] if "history" in row.keys() else "[]"  # noqa: SIM118
+        overrides_raw = row["overrides"] if "overrides" in row.keys() else "{}"  # noqa: SIM118
+        try:
+            history = json.loads(history_raw) if history_raw else []
+        except (TypeError, ValueError):
+            history = []
+        try:
+            overrides = json.loads(overrides_raw) if overrides_raw else {}
+        except (TypeError, ValueError):
+            overrides = {}
         return SessionRecord(
             session_id=row["session_id"],
             user_id=row["user_id"],
@@ -318,5 +393,6 @@ class SqliteSessionStore:
             created_at=datetime.fromisoformat(row["created_at"]),
             expires_at=datetime.fromisoformat(row["expires_at"]),
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]),
-            history=[ConversationTurn.model_validate(t) for t in json.loads(row["history"])],
+            history=[ConversationTurn.model_validate(t) for t in history],
+            overrides=overrides if isinstance(overrides, dict) else {},
         )

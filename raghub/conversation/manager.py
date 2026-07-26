@@ -13,6 +13,7 @@ or no-op) so callers can treat unknown tokens uniformly.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from raghub.conversation.sliding_window import SlidingWindowManager
 from raghub.domain import Session
@@ -184,3 +185,40 @@ class ConversationManager:
         record.last_seen_at = datetime.now(UTC)
         await self.uow.session_repo.save(record)
         return trimmed
+
+    # ------------------------------------------------------------------
+    # Session overrides (Phase 1.12)
+    # ------------------------------------------------------------------
+
+    async def get_overrides(self, session_id: str) -> dict[str, Any]:
+        """Return the session's tool/agent overrides.
+
+        Args:
+            session_id: Session database id.
+
+        Returns:
+            A shallow copy of the overrides mapping; ``{}`` when unset
+            or the session is unknown.
+        """
+        record = await self.uow.session_repo.get(session_id)
+        if record is None:
+            return {}
+        return dict(record.overrides or {})
+
+    async def set_overrides(
+        self,
+        session_id: str,
+        overrides: dict[str, Any],
+    ) -> None:
+        """Replace the session's tool/agent overrides.
+
+        Args:
+            session_id: Session database id. No-op when unknown.
+            overrides: Replacement mapping. ``{}`` or ``None`` clears.
+        """
+        record = await self.uow.session_repo.get(session_id)
+        if record is None:
+            return
+        record.overrides = dict(overrides or {})
+        record.last_seen_at = datetime.now(UTC)
+        await self.uow.session_repo.save(record)

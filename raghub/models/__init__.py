@@ -55,6 +55,7 @@ from .domain import (
     UserPrincipal,
     Visibility,
 )
+from .long_context import RankedItem, RankedList
 
 __all__ = [
     "AuthLoginRequest",
@@ -81,6 +82,8 @@ __all__ = [
     "PipelineResult",
     "QueryRequest",
     "QueryResponse",
+    "RankedItem",
+    "RankedList",
     "RetrievalHit",
     "SearchRequest",
     "SearchResponse",

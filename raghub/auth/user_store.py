@@ -84,6 +84,9 @@ class SqliteUserStore:
     async def initialize(self) -> None:
         """Create the ``users`` table if it does not already exist.
 
+        Also creates the ``user_preferences`` table (Phase 1.9) used
+        for per-user tool/agent settings.
+
         Safe to call multiple times; uses ``CREATE TABLE IF NOT EXISTS``.
         """
         async with aiosqlite.connect(self.db_path) as db:
@@ -97,6 +100,16 @@ class SqliteUserStore:
                     is_admin INTEGER DEFAULT 0,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    user_id TEXT NOT NULL,
+                    key TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    PRIMARY KEY (user_id, key),
+                    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_user_prefs_user
+                    ON user_preferences(user_id);
             """)
             await db.commit()
 
@@ -240,3 +253,110 @@ class SqliteUserStore:
         data["is_admin"] = bool(data["is_admin"])
         data["created_at"] = datetime.fromisoformat(data["created_at"])
         return UserRecord.model_validate(data)
+
+    # ------------------------------------------------------------------
+    # Per-user preferences (Phase 1.10)
+    # ------------------------------------------------------------------
+
+    async def get_prefs(self, user_id: str) -> dict[str, Any]:
+        """Return every stored preference for ``user_id`` as a dict.
+
+        The values are stored as JSON text; this method decodes each
+        value back into its native Python type (``dict``, ``list``,
+        ``str``, ``int``, ``float``, ``bool``, ``None``).
+
+        Args:
+            user_id: Owning user id.
+
+        Returns:
+            Mapping of preference key → decoded value. Empty when the
+            user has no preferences or does not exist.
+        """
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT key, value FROM user_preferences WHERE user_id = ?",
+                (user_id,),
+            )
+            rows = await cursor.fetchall()
+        out: dict[str, Any] = {}
+        for row in rows:
+            try:
+                out[str(row["key"])] = json.loads(row["value"])
+            except (TypeError, ValueError):
+                # Malformed JSON shouldn't crash a query — skip with
+                # the raw text so callers can spot the corruption.
+                out[str(row["key"])] = row["value"]
+        return out
+
+    async def get_pref(self, user_id: str, key: str) -> Any:
+        """Return one preference value or ``None`` when absent."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT value FROM user_preferences WHERE user_id = ? AND key = ?",
+                (user_id, key),
+            )
+            row = await cursor.fetchone()
+        if row is None:
+            return None
+        try:
+            return json.loads(row[0])
+        except (TypeError, ValueError):
+            return row[0]
+
+    async def set_pref(self, user_id: str, key: str, value: Any) -> None:
+        """Upsert a single preference.
+
+        Args:
+            user_id: Owning user id. A foreign-key violation (unknown
+                user) raises :class:`aiosqlite.IntegrityError`.
+            key: Preference key. Namespaced by caller (e.g.
+                ``"tool_settings"``).
+            value: Any JSON-serialisable value. ``None`` is stored as
+                JSON ``null``.
+        """
+        encoded = json.dumps(value)
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO user_preferences (user_id, key, value, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id, key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at
+                """,
+                (user_id, key, encoded, datetime.now(UTC).isoformat()),
+            )
+            await db.commit()
+
+    async def set_prefs(self, user_id: str, prefs: dict[str, Any]) -> None:
+        """Upsert multiple preferences in a single transaction.
+
+        Args:
+            user_id: Owning user id.
+            prefs: Key → value mapping; values must be JSON-serialisable.
+        """
+        if not prefs:
+            return
+        now = datetime.now(UTC).isoformat()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.executemany(
+                """
+                INSERT INTO user_preferences (user_id, key, value, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id, key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at
+                """,
+                [(user_id, k, json.dumps(v), now) for k, v in prefs.items()],
+            )
+            await db.commit()
+
+    async def delete_pref(self, user_id: str, key: str) -> None:
+        """Delete one preference. No-op when the key is absent."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "DELETE FROM user_preferences WHERE user_id = ? AND key = ?",
+                (user_id, key),
+            )
+            await db.commit()

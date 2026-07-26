@@ -78,6 +78,13 @@ class UserPrincipal(BaseModel):
             (admins bypass the company filter).
         allowed_groups: Group memberships for finer-grained RBAC.
         is_admin: ``True`` for platform-wide admins.
+        tool_settings: Per-user tool/agent defaults loaded from the
+            ``user_preferences`` table (Phase 1.11). The keys mirror
+            the kwargs on :meth:`RAG.aquery` (``agent_enabled``,
+            ``tools_enabled``, ``reranker``, ``long_context_pass``,
+            ``query_transforms``, ``max_steps``). Empty dict disables
+            per-user defaults — the resolver falls through to the
+            global :class:`AppSettings` defaults.
     """
 
     user_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -85,6 +92,7 @@ class UserPrincipal(BaseModel):
     allowed_companies: list[str] = Field(default_factory=list)
     allowed_groups: list[str] = Field(default_factory=list)
     is_admin: bool = False
+    tool_settings: dict[str, Any] = Field(default_factory=dict)
 
 
 class SessionRecord(BaseModel):
@@ -99,6 +107,9 @@ class SessionRecord(BaseModel):
         last_seen_at: Last activity timestamp; used for sliding-window
             session extensions.
         history: Conversation turns persisted for the session.
+        overrides: Session-scoped tool/agent settings (Phase 1.12).
+            The resolver reads these between per-request overrides and
+            per-user prefs. Empty dict == no session-level overrides.
     """
 
     session_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -108,6 +119,7 @@ class SessionRecord(BaseModel):
     expires_at: datetime
     last_seen_at: datetime
     history: list[ConversationTurn] = Field(default_factory=list)
+    overrides: dict[str, Any] = Field(default_factory=dict)
 
 
 class DocumentRecord(BaseModel):
