@@ -46,12 +46,25 @@ def build_response(result: PipelineResult) -> Response:
         except Exception:
             answer = str(structured)
 
+    metadata: dict[str, Any] = {
+        "pipeline_id": result.pipeline_id,
+        "structured": structured is not None,
+    }
+    # Phase 8.7: surface the resolved advanced-RAG config that the
+    # facade attached to the pipeline outputs via the context.
+    resolved_config = outputs.get("resolved_config")
+    if resolved_config:
+        metadata["resolved_config"] = resolved_config
+
     return Response(
         answer=answer,
         citations=citations,
         source_chunks=[
             SearchResult(chunk_id=h.chunk_id, score=h.score, chunk=h.chunk) for h in hits
         ],
-        metadata={"pipeline_id": result.pipeline_id, "structured": structured is not None},
+        metadata=metadata,
         structured=structured_payload,
+        transforms_applied=list(outputs.get("transforms_applied", []) or []),
+        planner_trace=list(outputs.get("planner_trace") or []) or None,
+        tools_invoked=list(outputs.get("tools_invoked") or []),
     )
