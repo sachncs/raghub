@@ -6,35 +6,35 @@ Tracking convention: `[x]` = done, `[ ]` = pending. Update the box as each atomi
 
 ## Stage A — File moves (folders → flat files, rename dirs)
 
-- [ ] A.1 `raghub/exceptions/` → `raghub/exceptions.py`
-- [ ] A.2 `raghub/utils/` → `raghub/utils.py`
-- [ ] A.3 `raghub/prompts/` → `raghub/prompts.py`
-- [ ] A.4 `raghub/plugins/` → `raghub/plugins.py`
-- [ ] A.5 `raghub/generation/` + `raghub/structured/` → `raghub/generation.py`
-- [ ] A.6 `raghub/telemetry/` + `raghub/observability/` → `raghub/observability.py`
-- [ ] A.7 `raghub/conversation/` → `raghub/conversation.py`
-- [ ] A.8 `raghub/core/` → `raghub/core.py`
-- [ ] A.9 `raghub/llm/` → `raghub/llm.py`
-- [ ] A.10 `raghub/embeddings/` → `raghub/embeddings.py`
-- [ ] A.11 `raghub/domain/` → `raghub/domain.py`
-- [ ] A.12 `raghub/models/` → `raghub/models.py`
-- [ ] A.13 `raghub/repositories/` → `raghub/repositories.py`
-- [ ] A.14 `raghub/auth/` + `services/auth_service.py` → `raghub/auth.py`
-- [ ] A.15 `raghub/converters/` + `raghub/documents/{chunker,lifecycle,validation,versioning}.py` → `raghub/documents.py`
-- [ ] A.16 `raghub/vectorstore/` → `raghub/vectorstore.py`
-- [ ] A.17 `raghub/ingestion/` + `raghub/ingestion/chunkers/` → `raghub/ingestion.py`
-- [ ] A.18 `raghub/knowledge/` + `raghub/knowledge/structures/` → `raghub/knowledge.py`
-- [ ] A.19 `raghub/pipelines/` + `raghub/pipelines/rag/` → `raghub/pipeline.py`
-- [ ] A.20 `raghub/services/{document_service,health_service,workers}.py` → `raghub/services/{document,health,workers}.py` (rename, folder kept)
-- [ ] A.21 `raghub/services/application/{facade,shutdown,preferences}.py` keep; AuthCoordinator folds into facade
-- [ ] A.22 `raghub/services/auth_service.py` deleted (folded into auth.py via A.14)
-- [ ] A.23 `raghub/services/query_service.py` deleted (folded into pipeline.py via A.19)
-- [ ] A.24 `raghub/services/application/auth.py` deleted (folded into facade.py)
-- [ ] A.25 `raghub/api/rag.py` → `raghub/rag.py` (extract RAG class)
-- [ ] A.26 `raghub/api/defaults.py` deleted (folded into rag.py)
-- [ ] A.27 `raghub/api/async_runner.py` deleted (folded into utils.py)
-- [ ] A.28 `raghub/agent/{agent,builder,events,resolver,prompts}.py` → `raghub/agent.py`
-- [ ] A.29 `raghub/agent/tools/` → `raghub/tools/` (rename directory)
+- [x] A.1 `raghub/exceptions/` → `raghub/exceptions.py`
+- [x] A.2 `raghub/utils/` → `raghub/utils.py`
+- [x] A.3 `raghub/prompts/` → `raghub/prompts.py`
+- [x] A.4 `raghub/plugins/` → `raghub/plugins.py`
+- [x] A.5 `raghub/generation/` + `raghub/structured/` → `raghub/generation.py`
+- [x] A.6 `raghub/telemetry/` + `raghub/observability/` → `raghub/observability.py`
+- [x] A.7 `raghub/conversation/` → `raghub/conversation.py`
+- [x] A.8 `raghub/core/` → `raghub/core.py`
+- [x] A.9 `raghub/llm/` → `raghub/llm.py`
+- [x] A.10 `raghub/embeddings/` → `raghub/embeddings.py`
+- [x] A.11 `raghub/domain/` → `raghub/domain.py`
+- [x] A.12 `raghub/models/` → `raghub/models.py`
+- [x] A.13 `raghub/repositories/` → `raghub/repositories.py`
+- [x] A.14 `raghub/auth/` + `services/auth_service.py` → `raghub/auth.py`
+- [x] A.15 `raghub/converters/` + `raghub/documents/{chunker,lifecycle,validation,versioning}.py` → `raghub/documents.py`
+- [x] A.16 `raghub/vectorstore/` → `raghub/vectorstore.py`
+- [x] A.17 `raghub/ingestion/` + `raghub/ingestion/chunkers/` → `raghub/ingestion.py`
+- [x] A.18 `raghub/knowledge/` + `raghub/knowledge/structures/` → `raghub/knowledge.py`
+- [x] A.19 `raghub/pipelines/` + `raghub/pipelines/rag/` → `raghub/pipeline.py`
+- [x] A.20 `raghub/services/{document_service,health_service,workers}.py` → `raghub/services/{document,health,workers}.py` (rename, folder kept)
+- [x] A.21 `raghub/services/application/{facade,shutdown,preferences}.py` keep; AuthCoordinator folds into facade
+- [x] A.22 `raghub/services/auth_service.py` deleted (folded into auth.py via A.14)
+- [x] A.23 `raghub/services/query_service.py` deleted (folded into pipeline.py via A.19)
+- [x] A.24 `raghub/services/application/auth.py` deleted (folded into facade.py)
+- [x] A.25 `raghub/api/rag.py` → `raghub/rag.py` (extract RAG class)
+- [x] A.26 `raghub/api/defaults.py` deleted (folded into rag.py)
+- [x] A.27 `raghub/api/async_runner.py` deleted (folded into utils.py)
+- [x] A.28 `raghub/agent/{agent,builder,events,resolver,prompts}.py` → `raghub/agent.py`
+- [x] A.29 `raghub/agent/tools/` → `raghub/tools/` (rename directory)
 
 Folders that KEEP (justified by file count + distinct concepts):
 - `raghub/cli/` (8 commands)
