@@ -37,7 +37,7 @@ from typing import Any
 
 from raghub.auth import RBACAuthorizationService, SqliteUserStore
 from raghub.config import Settings
-from raghub.conversation.manager import ConversationManager
+from raghub.conversation import ConversationManager
 from raghub.documents.lifecycle import DocumentLifecycleManager
 from raghub.documents.parsers import ParserRegistry
 from raghub.embeddings import BaseEmbeddingProvider, build_embedding_provider
