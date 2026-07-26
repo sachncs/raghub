@@ -340,11 +340,8 @@ python -m pytest tests/ --cov=raghub --cov-report=term-missing
 python -m pytest tests/e2e/                     # qualitative CLI / RAG facade
 ```
 
-`RAGHUB_RUN_PLATFORM_TESTS` is set to ``1`` by ``tests/conftest.py``,
-so platform and dynamic-application tests run as part of the normal
-test run. Set the env var to ``0`` locally to opt out.
-
-The current collection size is reported by
+Platform and dynamic-application tests run as part of the normal test
+run. The current collection size is reported by
 `pytest tests/ --collect-only` (no hard-coded count). The suite
 covers ingestion pipelines, vector store operations, LiteLLM
 providers (mocked), multi-user RBAC isolation (10 concurrent
