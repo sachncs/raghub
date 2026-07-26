@@ -1,9 +1,10 @@
 """Comprehensive tests for the LLM modules.
 
-Covers uncovered lines in:
-- ``raghub/llm/__init__.py``  (lines 55, 60--64, 92--99)
-- ``raghub/llm/litellm.py``   (lines 82, 127, 141, 190--191,
-  215--216, 261--262, 269--289, 292)
+Covers:
+- ``raghub.llm.__init__`` — env-var detection, lazy imports, and
+  ``build_llm_provider`` factory.
+- ``raghub.llm.litellm`` — provider error wrapping, usage accounting,
+  message construction, and chunk streaming.
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ from raghub.llm import (
 
 
 class TestAnyLlmApiKeyPresent:
-    """Cover line 55 of __init__.py — any_llm_api_key_present()."""
+    """any_llm_api_key_present() detects configured provider credentials."""
 
     def test_returns_true_when_env_var_is_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         for var in LLM_API_KEY_ENV_VARS:
@@ -49,7 +50,7 @@ class TestAnyLlmApiKeyPresent:
 
 
 class TestGetAttr:
-    """Cover lines 60–64 of __init__.py — module __getattr__."""
+    """Module-level __getattr__ lazily resolves LiteLLMProvider."""
 
     def test_lazy_loads_litellm_provider(self) -> None:
         from raghub.llm import LiteLLMProvider as LazyLiteLLM
@@ -65,7 +66,7 @@ class TestGetAttr:
 
 
 class TestBuildLlmProvider:
-    """Cover lines 92–99 of __init__.py — build_llm_provider()."""
+    """build_llm_provider() selects the right provider based on name and env."""
 
     def test_empty_string_returns_heuristic(self) -> None:
         provider = build_llm_provider("")
@@ -138,7 +139,7 @@ class TestBuildLlmProvider:
 
 
 class TestRequireLitellm:
-    """Cover line 82 of litellm.py — require_litellm()."""
+    """require_litellm() raises when the library is unavailable."""
 
     def test_raises_when_litellm_not_available(self) -> None:
         import raghub.llm.litellm as litellm_mod
@@ -161,10 +162,10 @@ class TestRequireLitellm:
 
 
 class TestBuildMessages:
-    """Cover lines 127 and 141 of litellm.py — edge cases in build_messages."""
+    """Edge cases in build_messages: invalid roles, missing mime types."""
 
     def test_session_history_invalid_role_falls_back_to_user(self) -> None:
-        """Cover line 127: role not in {user, assistant, system} → 'user'."""
+        """Unknown role in session history becomes 'user'."""
         from raghub.llm.litellm import LiteLLMProvider
 
         provider = LiteLLMProvider(api_key="test")
@@ -180,7 +181,7 @@ class TestBuildMessages:
         assert messages[2] == {"role": "user", "content": "q"}
 
     def test_image_unknown_extension_defaults_to_png(self) -> None:
-        """Cover line 141: mimetypes.guess_type returns None → 'image/png'."""
+        """Unrecognized image extension defaults to image/png data URL."""
         from raghub.llm.litellm import LiteLLMProvider
 
         provider = LiteLLMProvider(api_key="test")
@@ -204,7 +205,7 @@ class TestBuildMessages:
         assert content[1]["image_url"]["url"].startswith("data:image/png;base64,")
 
     def test_image_with_no_mime_type_still_works(self) -> None:
-        """Cover line 141 when mime_type is None."""
+        """Image file with no extension still produces a data URL."""
         from raghub.llm.litellm import LiteLLMProvider
 
         provider = LiteLLMProvider(api_key="test")
@@ -224,7 +225,7 @@ class TestBuildMessages:
 
 
 class TestGenerateErrorHandling:
-    """Cover lines 190–191 of litellm.py — generate() error wrapping."""
+    """generate() wraps provider exceptions as LLMError."""
 
     def test_litellm_error_is_wrapped(self) -> None:
         import raghub.llm.litellm as litellm_mod
@@ -246,7 +247,7 @@ class TestGenerateErrorHandling:
 
 
 class TestRecordUsage:
-    """Cover lines 215–216 of litellm.py — record_usage edge cases."""
+    """record_usage() handles dict and object usage metadata."""
 
     def test_dict_with_input_output_tokens(self) -> None:
         """When 'input_tokens' and 'output_tokens' are used instead of
@@ -321,7 +322,7 @@ class TestRecordUsage:
 
 
 class TestAstreamErrorHandling:
-    """Cover lines 261–262 of litellm.py — astream() error wrapping."""
+    """astream() wraps provider streaming errors as LLMError."""
 
     @pytest.mark.asyncio
     async def test_litellm_error_is_wrapped(self) -> None:
@@ -348,7 +349,7 @@ class TestAstreamErrorHandling:
 
 
 class TestAstreamChunks:
-    """Cover lines 269–289 and 292 of litellm.py — astream chunk processing."""
+    """astream() processes dict and object chunks, extracting content and usage."""
 
     @staticmethod
     def make_async_iter(items):
@@ -370,7 +371,7 @@ class TestAstreamChunks:
 
     @pytest.mark.asyncio
     async def test_dict_chunks_with_content_and_usage(self) -> None:
-        """Cover dict-path chunk processing (lines 269–275, 281–289, 292)."""
+        """Dict chunks with content and usage are assembled correctly."""
         import raghub.llm.litellm as litellm_mod
 
         saved = litellm_mod.litellm
@@ -398,7 +399,7 @@ class TestAstreamChunks:
 
     @pytest.mark.asyncio
     async def test_dict_chunks_with_input_output_tokens(self) -> None:
-        """Cover dict-path usage with 'input_tokens' / 'output_tokens' keys."""
+        """Dict usage with 'input_tokens' / 'output_tokens' keys is captured."""
         import raghub.llm.litellm as litellm_mod
 
         saved = litellm_mod.litellm
@@ -420,7 +421,7 @@ class TestAstreamChunks:
 
     @pytest.mark.asyncio
     async def test_dict_chunk_no_choices_skipped(self) -> None:
-        """Dict chunk lacking 'choices' is skipped (line 283–284)."""
+        """Dict chunk lacking 'choices' is skipped without error."""
         import raghub.llm.litellm as litellm_mod
 
         saved = litellm_mod.litellm
@@ -444,7 +445,7 @@ class TestAstreamChunks:
 
     @pytest.mark.asyncio
     async def test_object_chunks_skipped(self) -> None:
-        """Cover line 281: non-dict chunks are skipped."""
+        """Non-dict chunks are skipped without error."""
         import raghub.llm.litellm as litellm_mod
 
         saved = litellm_mod.litellm
@@ -473,11 +474,7 @@ class TestAstreamChunks:
 
     @pytest.mark.asyncio
     async def test_object_chunk_with_usage(self) -> None:
-        """Cover object-path usage in astream (lines 276–280).
-
-        Non-dict chunk carries usage data (object path for ``getattr``);
-        dict chunk carries content.
-        """
+        """Non-dict chunk with usage attribute is captured via getattr."""
         import raghub.llm.litellm as litellm_mod
 
         saved = litellm_mod.litellm
@@ -488,7 +485,7 @@ class TestAstreamChunks:
                 prompt_tokens = 3
                 completion_tokens = 7
 
-            # Non-dict chunk with usage → hits object-path (lines 269, 276-280)
+            # Non-dict chunk with usage → object-path usage extraction
             class FakeUsageChunk:
                 usage = FakeUsage()
 
@@ -533,7 +530,7 @@ class TestAstreamChunks:
 
     @pytest.mark.asyncio
     async def test_astream_usage_captured_at_end(self) -> None:
-        """Cover line 292: usage snapshot written after loop."""
+        """Usage snapshot is finalized after the streaming loop ends."""
         import raghub.llm.litellm as litellm_mod
 
         saved = litellm_mod.litellm
@@ -594,7 +591,7 @@ class TestLiteLLMProviderInit:
         assert provider.api_base is None
 
     def test_raises_configuration_error_when_litellm_not_installed(self) -> None:
-        """Cover line 67: __init__ raises ConfigurationError."""
+        """__init__ raises ConfigurationError when litellm is unavailable."""
         import raghub.llm.litellm as litellm_mod
 
         saved_available = litellm_mod.LITELLM_AVAILABLE
@@ -610,7 +607,7 @@ class TestLiteLLMProviderInit:
 
 
 class TestBuildMessagesContext:
-    """Cover lines 131–132 of litellm.py — context formatting."""
+    """Context chunks are formatted into a system message for the LLM."""
 
     def test_context_is_formatted_and_appended(self) -> None:
         from raghub.llm.litellm import LiteLLMProvider
