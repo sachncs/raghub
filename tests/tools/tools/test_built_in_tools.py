@@ -307,7 +307,7 @@ async def test_web_search_tool_missing_dep_raises(monkeypatch: pytest.MonkeyPatc
 
 
 def test_base_tool_run_wraps_exceptions() -> None:
-    """``run`` converts raised exceptions into ``ToolResult(ok=False)``."""
+    """``run`` propagates exceptions to the caller (agent loop catches them)."""
 
     class Raiser(BaseTool):
         name = "raiser"
@@ -318,7 +318,5 @@ def test_base_tool_run_wraps_exceptions() -> None:
             raise RuntimeError("nope")
 
     tool = Raiser()
-    result = asyncio.run(tool.run({}, make_ctx()))
-    assert result.ok is False
-    assert "nope" in result.error
-    assert result.latency_ms >= 0
+    with pytest.raises(RuntimeError, match="nope"):
+        asyncio.run(tool.run({}, make_ctx()))
