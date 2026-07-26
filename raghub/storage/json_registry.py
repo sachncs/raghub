@@ -31,7 +31,7 @@ from threading import RLock
 
 from raghub.exceptions import StorageError
 from raghub.models import DocumentLifecycleStatus, DocumentVersion
-from raghub.utils import atomic_write_json, load_json
+from raghub.utils import atomic_write_json, capture, load_json
 
 __all__ = ["JsonDocumentRegistry", "RegistrySnapshot"]
 
@@ -106,21 +106,20 @@ class JsonDocumentRegistry:
             StorageError: If the atomic write fails for any reason
                 (disk full, permission denied, etc.).
         """
-        try:
-            atomic_write_json(
-                self.path,
-                {
-                    "documents": {
-                        document_id: [version.model_dump(mode="json") for version in versions]
-                        for document_id, versions in self.documents.items()
-                    },
-                    "checksum_index": {
-                        checksum: list(value) for checksum, value in self.checksum_index.items()
-                    },
+        _, error = capture(atomic_write_json,
+            self.path,
+            {
+                "documents": {
+                    document_id: [version.model_dump(mode="json") for version in versions]
+                    for document_id, versions in self.documents.items()
                 },
-            )
-        except OSError as exc:
-            raise StorageError(str(exc)) from exc
+                "checksum_index": {
+                    checksum: list(value) for checksum, value in self.checksum_index.items()
+                },
+            },
+        )
+        if error is not None:
+            raise StorageError(str(error)) from error
 
     def save_version(self, document: DocumentVersion) -> DocumentVersion:
         """Persist a new or updated :class:`DocumentVersion`.

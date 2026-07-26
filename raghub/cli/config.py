@@ -80,10 +80,9 @@ def set_cmd(
     ),
 ) -> None:
     """Merge the JSON ``--json`` payload into the user's tool_settings (unknown keys dropped)."""
-    try:
-        patch = json.loads(payload)
-    except json.JSONDecodeError as exc:
-        raise typer.BadParameter(f"invalid JSON: {exc}") from exc
+    patch, json_error = capture(json.loads, payload)
+    if json_error is not None:
+        raise typer.BadParameter(f"invalid JSON: {json_error}") from json_error
     if not isinstance(patch, dict):
         raise typer.BadParameter("--json must be a JSON object")
 

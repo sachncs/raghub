@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from raghub.exceptions import TransformError
 from raghub.models import ConversationTurn
 from raghub.retrieval.transforms.base import QueryVariant
+from raghub.utils import capture
 
 SYSTEM_PROMPT = (
     "You decompose compound questions into independent sub-questions "
@@ -56,9 +57,8 @@ def extract_json_array(raw: str) -> list[str]:
                 break
     if end == -1:
         return []
-    try:
-        parsed = json.loads(candidate[start:end])
-    except ValueError:
+    parsed, _ = capture(json.loads, candidate[start:end])
+    if not isinstance(parsed, list):
         return []
     return [str(item).strip() for item in parsed if str(item).strip()]
 

@@ -22,6 +22,7 @@ from typing import Any
 
 from raghub.models import RetrievalHit
 from raghub.observability import record_rerank_latency
+from raghub.utils import capture
 
 LISTWISE_MAX = 10
 
@@ -56,9 +57,8 @@ def extract_json_array(raw: str) -> list[dict[str, Any]]:
                 break
     if end == -1:
         return []
-    try:
-        parsed = json.loads(candidate[start:end])
-    except ValueError:
+    parsed, _ = capture(json.loads, candidate[start:end])
+    if not isinstance(parsed, list):
         return []
     return [item for item in parsed if isinstance(item, dict)]
 

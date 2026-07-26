@@ -24,6 +24,8 @@ import importlib.util
 
 import typer
 
+from raghub.utils import capture
+
 app = typer.Typer(
     name="raghub",
     help="RAGHub — production-grade multi-user retrieval-augmented generation.",
@@ -60,10 +62,10 @@ def health() -> None:
 @app.command(name="version")
 def version() -> None:
     """Print the installed ``raghub`` package version."""
-    try:
-        typer.echo(importlib.metadata.version("raghub"))
-    except importlib.metadata.PackageNotFoundError:
-        typer.echo("unknown")
+    version_str, error = capture(
+        importlib.metadata.version, "raghub"
+    )
+    typer.echo(version_str if error is None else "unknown")
 
 
 def main() -> None:

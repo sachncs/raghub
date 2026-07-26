@@ -58,6 +58,7 @@ from raghub.interfaces.observability import (
     Span,
     TelemetryProvider,
 )
+from raghub.utils import capture
 
 T = TypeVar("T")
 
@@ -327,6 +328,17 @@ class PrometheusMetrics:
                 )
 
 
+def _try_import_submodule(module_name: str, target_name: str) -> Any:
+    """Import ``target_name`` from ``module_name``; return ``None`` on failure."""
+    import importlib
+
+    try:
+        module = importlib.import_module(module_name)
+    except Exception:
+        return None
+    return getattr(module, target_name, None)
+
+
 def set_active_metrics(instance: PrometheusMetrics | None) -> None:
     """Register the process-wide :class:`PrometheusMetrics` instance.
 
@@ -354,12 +366,10 @@ def record_rerank_latency(provider: str, seconds: float) -> None:
     metrics = DEFAULT_METRICS_REGISTRY.current()
     if metrics is None:
         return
-    try:
-        metrics.rerank_latency.labels(provider=provider).observe(seconds)
-    except ValueError:
-        # Prometheus validates label values; unknown providers are
-        # silently dropped so the caller never crashes on metrics.
-        pass
+    histogram, error = capture(metrics.rerank_latency.labels, provider=provider)
+    if error is not None:
+        return
+    histogram.observe(seconds)
 
 
 def record_long_context(*, outcome: str, seconds: float) -> None:
@@ -370,16 +380,16 @@ def record_long_context(*, outcome: str, seconds: float) -> None:
             ``"error"``. Unknown values still increment the counter
             under that label so the operator sees them.
         seconds: Observed wall-clock latency (recorded only for
-            informational purposes; the metric is a counter, not
-            a histogram).
+            informational purposes; the metric is a counter, not a
+            histogram).
     """
     metrics = DEFAULT_METRICS_REGISTRY.current()
     if metrics is None:
         return
-    try:
-        metrics.long_context_pass.labels(outcome=outcome).inc()
-    except ValueError:
-        pass
+    counter, error = capture(metrics.long_context_pass.labels, outcome=outcome)
+    if error is not None:
+        return
+    counter.inc()
 
 
 def scrub_secrets(kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -990,12 +1000,12 @@ class SafeConsoleSpanExporter(ConsoleSpanExporter):
             on success) or :class:`SpanExportResult.FAILURE` on a
             closed-stdout error.
         """
-        try:
-            return super().export(spans)
-        except ValueError as exc:
-            if "closed file" in str(exc):
-                return self.failed_export_result()
-            raise
+        result, error = capture(super().export, spans)
+        if error is None:
+            return result
+        if "closed file" in str(error):
+            return self.failed_export_result()
+        raise error
 
     def failed_export_result(self) -> Any:
         """Return :class:`SpanExportResult.FAILURE` without importing OTel types."""
@@ -1023,13 +1033,21 @@ class Tracer:
             ConfigurationError: When OpenTelemetry SDK packages are
                 not installed.
         """
-        try:
-            from opentelemetry import trace
-            from opentelemetry.sdk.resources import Resource
-            from opentelemetry.sdk.trace import TracerProvider
-            from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        except ImportError as exc:
-            raise ConfigurationError("OpenTelemetry tracing requires opentelemetry-sdk") from exc
+        import importlib
+
+        ot_trace = _try_import_submodule("opentelemetry", "trace")
+        ot_resources = _try_import_submodule("opentelemetry.sdk.resources", "Resource")
+        ot_trace_mod = _try_import_submodule("opentelemetry.sdk.trace", "TracerProvider")
+        ot_export = _try_import_submodule(
+            "opentelemetry.sdk.trace.export", "BatchSpanProcessor"
+        )
+        if ot_trace is None or ot_resources is None or ot_trace_mod is None or ot_export is None:
+            raise ConfigurationError("OpenTelemetry tracing requires opentelemetry-sdk")
+
+        trace = ot_trace
+        Resource = ot_resources
+        TracerProvider = ot_trace_mod
+        BatchSpanProcessor = ot_export
 
         resource = Resource.create({"service.name": service_name})
         provider = TracerProvider(resource=resource)
@@ -1082,9 +1100,4 @@ class Tracer:
 
         Safe to call multiple times.
         """
-        try:
-            self.provider.shutdown()
-        except Exception:
-            # Shutdown is best-effort; an already-shut-down provider
-            # would otherwise raise a confusing error during tests.
-            return
+        capture(self.provider.shutdown)

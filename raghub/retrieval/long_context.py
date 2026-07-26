@@ -29,6 +29,7 @@ from typing import Any
 from raghub.config import LongContextConfig
 from raghub.models import RankedList, RetrievalHit
 from raghub.observability import record_long_context
+from raghub.utils import capture
 
 SYSTEM_PROMPT = (
     "You re-rank retrieved passages. For every candidate, produce a "
@@ -99,10 +100,8 @@ def extract_json_object(raw: str) -> dict[str, Any] | None:
                 break
     if end == -1:
         return None
-    try:
-        return json.loads(candidate[start:end])
-    except ValueError:
-        return None
+    parsed, _ = capture(json.loads, candidate[start:end])
+    return parsed if isinstance(parsed, dict) else None
 
 
 def reorder_candidates(

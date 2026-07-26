@@ -143,14 +143,7 @@ class BaseTool(Tool, ABC):
 
         ctx = context or ToolContext()
         started = time.perf_counter()
-        try:
-            result = await self.execute(ctx, **args)
-        except Exception as exc:
-            return ToolResult(
-                ok=False,
-                error=f"{type(exc).__name__}: {exc}",
-                latency_ms=(time.perf_counter() - started) * 1000.0,
-            )
+        result = await self.execute(ctx, **args)
         result.latency_ms = (time.perf_counter() - started) * 1000.0
         return result
 
