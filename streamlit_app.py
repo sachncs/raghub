@@ -17,10 +17,8 @@ demonstrates:
    document scoped to the user's primary company.
 5. **Multi-session isolation** — each user has their own session
    and conversation history.
-
-Run::
-
-    streamlit run streamlit_app.py
+6. **Tool/agent preferences** — a sidebar panel of toggles
+   (Phase 8.5) that writes to the ``user_preferences`` table.
 
 The app auto-seeds a few demo users on first run; the default
 password is ``"password"``. Override by setting
@@ -47,7 +45,6 @@ except Exception as exc:
 from raghub import RAG
 from raghub.models import UserPrincipal
 
-
 # ---------------------------------------------------------------------------
 # Demo user directory
 # ---------------------------------------------------------------------------
@@ -61,7 +58,7 @@ DEFAULT_USERS: dict[str, dict[str, Any]] = {
 }
 
 
-def _load_users() -> dict[str, dict[str, Any]]:
+def load_users() -> dict[str, dict[str, Any]]:
     """Load the user directory from ``RAGHUB_USERS`` env var or defaults.
 
     Returns:
@@ -77,30 +74,194 @@ def _load_users() -> dict[str, dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Per-user tool/agent preferences (Phase 8.5)
+# ---------------------------------------------------------------------------
+
+# Keys persisted to the user_preferences table under the
+# ``tool_settings`` key. The UI exposes a checkbox/slider for each.
+TOOL_SETTINGS_KEYS = (
+    "agent_enabled",
+    "tools_enabled",
+    "web",
+    "graph",
+    "summaries",
+    "reranker",
+    "long_context_pass",
+    "query_transforms",
+    "max_steps",
+)
+
+RERANKER_OPTIONS = ["none", "bge", "cohere", "llm", "cascade"]
+TRANSFORM_OPTIONS = ["hyde", "multi_query", "step_back", "decompose"]
+
+
+async def user_store():
+    """Build the user store wired to the active profile's data dir.
+
+    Returns:
+        An initialised :class:`SqliteUserStore`.
+    """
+    from pathlib import Path
+
+    from raghub.auth.user_store import SqliteUserStore
+    from raghub.config.settings import load_settings
+
+    settings = load_settings()
+    store = SqliteUserStore(Path(settings.data_dir) / "users.db")
+    await store.initialize()
+    return store
+
+
+async def user_id_for(email: str) -> str:
+    """Resolve an email to a user_id.
+
+    Args:
+        email: The user's email.
+
+    Returns:
+        The owning user id.
+
+    Raises:
+        RuntimeError: When no user with that email exists.
+    """
+    store = await user_store()
+    record = await store.get_by_email(email)
+    if record is None:
+        raise RuntimeError(f"no user with email {email!r}")
+    return record.user_id
+
+
+async def load_tool_settings(email: str) -> dict[str, Any]:
+    """Return the persisted ``tool_settings`` for ``email``.
+
+    Args:
+        email: The user's email.
+
+    Returns:
+        The stored dict, or ``{}`` when nothing is persisted or the
+        stored value is the wrong type.
+    """
+    store = await user_store()
+    user_id = await user_id_for(email)
+    blob = await store.get_pref(user_id, "tool_settings")
+    return blob if isinstance(blob, dict) else {}
+
+
+async def save_tool_settings(email: str, prefs: dict[str, Any]) -> None:
+    """Persist ``prefs`` to the ``tool_settings`` key for ``email``.
+
+    Args:
+        email: The user's email.
+        prefs: The values to persist. Keys outside
+            :data:`TOOL_SETTINGS_KEYS` are silently dropped.
+    """
+    cleaned = {k: v for k, v in prefs.items() if k in TOOL_SETTINGS_KEYS}
+    store = await user_store()
+    user_id = await user_id_for(email)
+    await store.set_pref(user_id, "tool_settings", cleaned)
+
+
+def render_tools_panel(state: UserState) -> None:
+    """Render the per-user tool/agent toggles sidebar (Phase 8.5).
+
+    Args:
+        state: The current signed-in user state.
+    """
+    st.subheader("Tools")
+    prefs = asyncio.run(load_tool_settings(state.email))
+
+    agent = st.toggle("Agent mode", value=bool(prefs.get("agent_enabled", False)))
+    web = st.toggle("Web search", value=bool(prefs.get("web", False)))
+    graph = st.toggle("Graph search", value=bool(prefs.get("graph", False)))
+    summaries = st.toggle(
+        "Summary search", value=bool(prefs.get("summaries", False))
+    )
+    reranker = st.selectbox(
+        "Reranker",
+        options=RERANKER_OPTIONS,
+        index=RERANKER_OPTIONS.index(prefs.get("reranker", "none"))
+        if prefs.get("reranker", "none") in RERANKER_OPTIONS
+        else 0,
+    )
+    long_context_pass = st.toggle(
+        "Long-context rerank", value=bool(prefs.get("long_context_pass", False))
+    )
+    transforms = st.multiselect(
+        "Query transforms",
+        options=TRANSFORM_OPTIONS,
+        default=[t for t in prefs.get("query_transforms", []) if t in TRANSFORM_OPTIONS],
+    )
+    max_steps = st.slider(
+        "Max planner steps",
+        min_value=1,
+        max_value=16,
+        value=int(prefs.get("max_steps", 8)),
+    )
+
+    new_prefs = {
+        "agent_enabled": agent,
+        "web": web,
+        "graph": graph,
+        "summaries": summaries,
+        "reranker": reranker,
+        "long_context_pass": long_context_pass,
+        "query_transforms": transforms,
+        "max_steps": max_steps,
+    }
+    if new_prefs != prefs:
+        if st.button("Save tool defaults", use_container_width=True):
+            asyncio.run(save_tool_settings(state.email, new_prefs))
+            st.success("Saved")
+            st.rerun()
+    else:
+        st.caption("No unsaved changes.")
+
+
+# ---------------------------------------------------------------------------
 # App state
 # ---------------------------------------------------------------------------
 
 
 @dataclass
-class _UserState:
+class UserState:
+    """Per-session UI state for a signed-in user.
+
+    Attributes:
+        email: The signed-in user's email.
+        principal: The :class:`UserPrincipal` used for RBAC.
+        session_id: The scoped session id used by the agent loop.
+    """
+
     email: str
     principal: UserPrincipal
     session_id: str
 
 
 @st.cache_resource(show_spinner=False)
-def _get_rag() -> RAG:
-    """Build a single :class:`RAG` instance per Streamlit session."""
+def get_rag() -> RAG:
+    """Build a single :class:`RAG` instance per Streamlit session.
+
+    Returns:
+        A configured :class:`RAG` facade.
+    """
     return RAG()
 
 
-def _get_user_state() -> _UserState | None:
-    """Return the signed-in user's state from Streamlit's session."""
+def get_user_state() -> UserState | None:
+    """Return the signed-in user's state from Streamlit's session.
+
+    Returns:
+        The :class:`UserState`, or ``None`` when the user is signed out.
+    """
     return st.session_state.get("user_state")
 
 
-def _set_user_state(state: _UserState | None) -> None:
-    """Store the user state in the Streamlit session."""
+def set_user_state(state: UserState | None) -> None:
+    """Store the user state in the Streamlit session.
+
+    Args:
+        state: The new state, or ``None`` to sign out.
+    """
     st.session_state["user_state"] = state
     if state is not None:
         st.session_state["messages"] = []
@@ -112,28 +273,38 @@ def _set_user_state(state: _UserState | None) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _render_sidebar(rag: RAG) -> None:
-    """Render the login + ingestion sidebar."""
+def render_sidebar(rag: RAG) -> None:
+    """Render the login + ingestion sidebar.
+
+    Args:
+        rag: The cached :class:`RAG` facade.
+    """
     with st.sidebar:
         st.title("RAGHub")
-        state = _get_user_state()
+        state = get_user_state()
         if state is None:
-            _render_login(rag)
+            render_login(rag)
         else:
-            _render_ingest(rag, state)
+            render_ingest(rag, state)
             st.divider()
-            _render_history_controls(rag, state)
+            render_history_controls(rag, state)
+            st.divider()
+            render_tools_panel(state)
             st.divider()
             if st.button("Sign out"):
                 rag.clear_conversation(state.session_id, user=state.principal)
-                _set_user_state(None)
+                set_user_state(None)
                 st.rerun()
 
 
-def _render_login(rag: RAG) -> None:
-    """Render the login form."""
+def render_login(rag: RAG) -> None:
+    """Render the login form.
+
+    Args:
+        rag: The cached :class:`RAG` facade.
+    """
     st.subheader("Sign in")
-    users = _load_users()
+    users = load_users()
     email = st.selectbox(
         "User",
         options=sorted(users.keys()),
@@ -152,7 +323,9 @@ def _render_login(rag: RAG) -> None:
             is_admin=cfg.get("is_admin", False),
         )
         session_id = f"{email}::{os.urandom(8).hex()}"
-        _set_user_state(_UserState(email=email, principal=principal, session_id=session_id))
+        set_user_state(
+            UserState(email=email, principal=principal, session_id=session_id)
+        )
         # Pre-seed: a welcome message
         st.session_state["messages"] = [
             {
@@ -167,8 +340,13 @@ def _render_login(rag: RAG) -> None:
         st.rerun()
 
 
-def _render_ingest(rag: RAG, state: _UserState) -> None:
-    """Render the document upload widget."""
+def render_ingest(rag: RAG, state: UserState) -> None:
+    """Render the document upload widget.
+
+    Args:
+        rag: The cached :class:`RAG` facade.
+        state: The current signed-in user state.
+    """
     st.subheader("Upload document")
     company = st.text_input(
         "Company (tenant)",
@@ -202,8 +380,13 @@ def _render_ingest(rag: RAG, state: _UserState) -> None:
             st.error(f"Ingest failed: {result.error}")
 
 
-def _render_history_controls(rag: RAG, state: _UserState) -> None:
-    """Render the conversation-history controls."""
+def render_history_controls(rag: RAG, state: UserState) -> None:
+    """Render the conversation-history controls.
+
+    Args:
+        rag: The cached :class:`RAG` facade.
+        state: The current signed-in user state.
+    """
     st.subheader("Conversation")
     n = len(rag.conversation_history(state.session_id, user=state.principal))
     st.caption(f"{n} turn(s) in history")
@@ -218,8 +401,13 @@ def _render_history_controls(rag: RAG, state: _UserState) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _render_chat(rag: RAG, state: _UserState) -> None:
-    """Render the chat history and the chat input."""
+def render_chat(rag: RAG, state: UserState) -> None:
+    """Render the chat history and the chat input.
+
+    Args:
+        rag: The cached :class:`RAG` facade.
+        state: The current signed-in user state.
+    """
     st.title("Chat")
     for msg in st.session_state.get("messages", []):
         with st.chat_message(msg["role"]):
@@ -293,9 +481,9 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="expanded",
     )
-    rag = _get_rag()
-    _render_sidebar(rag)
-    state = _get_user_state()
+    rag = get_rag()
+    render_sidebar(rag)
+    state = get_user_state()
     if state is None:
         st.title("RAGHub")
         st.markdown(
@@ -304,7 +492,7 @@ def main() -> None:
             "`password`."
         )
         return
-    _render_chat(rag, state)
+    render_chat(rag, state)
 
 
 if __name__ == "__main__":  # pragma: no cover
