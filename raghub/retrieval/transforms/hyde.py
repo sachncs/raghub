@@ -45,7 +45,7 @@ class HydeTransformer:
         Args:
             llm: Any object with an ``async_generate`` method matching
                 :class:`raghub.interfaces.llm.LLMProvider` (a
-                :class:`raghub.llm.base.BaseLLMProvider` works).
+                :class:`raghub.llm.BaseLLMProvider` works).
             n: Number of hypothetical passages to generate. ``1`` is
                 the literature default; >1 wastes tokens for marginal
                 recall gains.

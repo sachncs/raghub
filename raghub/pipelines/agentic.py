@@ -27,7 +27,7 @@ from raghub.embeddings.base import BaseEmbeddingProvider
 from raghub.interfaces.generator import Generator
 from raghub.interfaces.observability import TelemetryProvider
 from raghub.interfaces.vectorstore import VectorStore
-from raghub.llm.base import BaseLLMProvider
+from raghub.llm import BaseLLMProvider
 from raghub.models import (
     ChunkRecord,
     ConversationTurn,

@@ -30,7 +30,7 @@ from pydantic import BaseModel
 
 from raghub.exceptions import ConfigurationError
 from raghub.interfaces.structured import StructuredOutputProvider
-from raghub.llm.base import BaseLLMProvider
+from raghub.llm import BaseLLMProvider
 from raghub.models import (
     Citation,
     ConversationTurn,

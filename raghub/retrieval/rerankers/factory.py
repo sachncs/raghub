@@ -7,7 +7,7 @@ from typing import Any
 
 from raghub.config import Settings
 from raghub.exceptions import RerankerError
-from raghub.llm.heuristic import HeuristicLLMProvider
+from raghub.llm import HeuristicLLMProvider
 from raghub.retrieval.reranker import IdentityReranker, Reranker
 from raghub.retrieval.rerankers.bge import BgeReranker
 from raghub.retrieval.rerankers.cascade import CascadeReranker

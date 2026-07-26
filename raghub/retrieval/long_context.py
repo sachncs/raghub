@@ -162,7 +162,7 @@ class LongContextRerankPass:
 
         Args:
             llm: Any object with ``async_generate`` matching the
-                :class:`raghub.llm.base.BaseLLMProvider` interface.
+                :class:`raghub.llm.BaseLLMProvider` interface.
                 The LLM's ``model_name`` is checked against
                 ``settings.allowlist_models`` before the pass runs.
             settings: The :class:`LongContextConfig` block.

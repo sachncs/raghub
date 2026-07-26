@@ -1,15 +1,18 @@
-"""LiteLLM-backed LLM provider.
+"""LLM provider implementations.
 
-Works with OpenAI, NVIDIA, Azure, Anthropic, Bedrock, and any other
-provider supported by LiteLLM.
+This module ships:
 
-Streaming is exposed via the :meth:`astream` coroutine.
+* :class:`BaseLLMProvider` — abstract base class.
+* :class:`LiteLLMProvider` — production LLM, backed by LiteLLM (any
+  provider: OpenAI, NVIDIA, Anthropic, Bedrock, …).
+* :class:`HeuristicLLMProvider` — deterministic offline fallback.
+* :func:`build_llm_provider` — selects an implementation by model
+  name and credential availability.
 
-The :meth:`build_messages` helper assembles the OpenAI-style message
-list from a system prompt, retrieved context, optional image paths, and
-optional session history. It is exposed publicly so test code (and
-callers that want to drive the LLM themselves) can construct the same
-shape that :meth:`generate` and :meth:`astream` would produce.
+:func:`build_llm_provider` resolves to :class:`HeuristicLLMProvider`
+when the model name is empty / ``"heuristic"`` *or* when no LLM API
+key is present in the environment, so the framework always runs
+offline.
 """
 
 from __future__ import annotations
@@ -17,6 +20,8 @@ from __future__ import annotations
 import asyncio
 import base64
 import mimetypes
+import os
+from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Sequence
 from types import TracebackType
 from typing import Any, Literal, Self
@@ -24,11 +29,146 @@ from typing import Any, Literal, Self
 import litellm
 
 from raghub.exceptions import ConfigurationError, LLMError
-from raghub.llm.base import BaseLLMProvider
 from raghub.models import ConversationTurn
 
+
+# Module-level flag retained so existing tests that patch
+# ``raghub.llm.LITELLM_AVAILABLE = False`` can simulate a missing
+# optional dependency even though the package is now required.
 LITELLM_AVAILABLE = True
-OptionalImportError: Exception | None = None
+
+
+LLM_API_KEY_ENV_VARS: tuple[str, ...] = (
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "NVIDIA_API_KEY",
+    "GROQ_API_KEY",
+    "LITELLM_API_KEY",
+    "COHERE_API_KEY",
+    "VOYAGE_API_KEY",
+    "AZURE_API_KEY",
+    "AWS_ACCESS_KEY_ID",
+)
+
+
+def any_llm_api_key_present() -> bool:
+    """Return ``True`` when at least one LLM credential env var is set.
+
+    Returns:
+        ``True`` if any of the recognised LLM API-key environment
+        variables is set in the process environment; ``False``
+        otherwise.
+    """
+    return any(os.getenv(name) for name in LLM_API_KEY_ENV_VARS)
+
+
+class BaseLLMProvider(ABC):
+    """Abstract LLM provider.
+
+    All concrete providers (NVIDIA, heuristic, …) implement
+    :meth:`generate`. The interface is intentionally narrow: the
+    caller assembles the prompt and passes the components in. The
+    provider's job is to call its backing SDK and return a string.
+    """
+
+    model_name: str
+
+    @abstractmethod
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        conversation: Sequence[ConversationTurn],
+        context: Sequence[str],
+        question: str,
+        image_paths: list[str] | None = None,
+        session_history: list[dict] | None = None,
+    ) -> str:
+        """Generate an answer from a fully-constructed prompt.
+
+        Args:
+            system_prompt: The system-level instructions, including
+                tenant-specific formatting guidance.
+            conversation: Recent in-window turns from the conversation
+                manager.
+            context: Retrieved source chunks (already RBAC-filtered).
+            question: The user's most recent question.
+            image_paths: Optional list of on-disk image paths to attach
+                to the final user message (vision-capable providers only).
+            session_history: Optional prior turns from the persistent
+                session store. Format mirrors
+                :class:`raghub.models.ConversationTurn` dicts.
+
+        Returns:
+            The provider-generated answer as a plain string.
+        """
+
+    async def async_generate(
+        self,
+        *,
+        system_prompt: str,
+        conversation: Sequence[ConversationTurn] = (),
+        context: Sequence[str] = (),
+        question: str,
+        image_paths: list[str] | None = None,
+        session_history: list[dict] | None = None,
+    ) -> str:
+        """Generate without blocking the event loop."""
+        return await asyncio.to_thread(
+            self.generate,
+            system_prompt=system_prompt,
+            conversation=conversation,
+            context=context,
+            question=question,
+            image_paths=image_paths,
+            session_history=session_history,
+        )
+
+
+class HeuristicLLMProvider(BaseLLMProvider):
+    """Composes an answer from retrieved context without any model call."""
+
+    def __init__(self, model_name: str = "heuristic-llm") -> None:
+        """Initialise the heuristic provider.
+
+        Args:
+            model_name: Stable identifier surfaced as
+                :pyattr:`model_name`. Defaults to ``"heuristic-llm"``.
+        """
+        self.model_name = model_name
+
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        conversation: Sequence[ConversationTurn],
+        context: Sequence[str],
+        question: str,
+        image_paths: list[str] | None = None,
+        session_history: list[dict] | None = None,
+    ) -> str:
+        """Return a fixed prefix built from the top context fragments.
+
+        Args:
+            system_prompt: Ignored; kept for interface symmetry.
+            conversation: Ignored; kept for interface symmetry.
+            context: The retrieved chunks to summarise. At most the
+                first three non-empty fragments are consulted.
+            question: Ignored; kept for interface symmetry.
+            image_paths: Ignored; the heuristic does not handle images.
+            session_history: Ignored; the heuristic does not use
+                history.
+
+        Returns:
+            A ``"<fragment1> <fragment2> <fragment3>"``-style prefix,
+            truncated to 1000 characters. The literal string
+            ``"No accessible source chunks were found for this question."``
+            is returned when ``context`` is empty.
+        """
+        if not context:
+            return "No accessible source chunks were found for this question."
+        prefix = " ".join(fragment.strip() for fragment in context[:3] if fragment.strip())
+        return prefix[:1000]
 
 
 class LLMValueErrorBoundary:
@@ -93,19 +233,12 @@ class LiteLLMProvider(BaseLLMProvider):
         self.api_base = api_base
         self.temperature = temperature
         self.timeout_seconds = timeout_seconds
-        # Most recent token-usage record, populated by :meth:`generate`
-        # and :meth:`astream`. Read by :class:`DefaultGenerator` to
-        # forward to telemetry.
         self.last_usage: dict[str, Any] | None = None
 
     def require_litellm(self) -> None:
         """Raise a clear error if LiteLLM is not installed."""
         if not LITELLM_AVAILABLE:
             raise ConfigurationError("litellm is not installed; run `pip install litellm`.")
-
-    # ------------------------------------------------------------------
-    # Message building (OpenAI-style dicts)
-    # ------------------------------------------------------------------
 
     def build_messages(
         self,
@@ -175,10 +308,6 @@ class LiteLLMProvider(BaseLLMProvider):
 
         return messages
 
-    # ------------------------------------------------------------------
-    # Generation
-    # ------------------------------------------------------------------
-
     def generate(
         self,
         *,
@@ -217,7 +346,6 @@ class LiteLLMProvider(BaseLLMProvider):
 
         choice = response["choices"][0] if isinstance(response, dict) else response.choices[0]
         message = choice["message"] if isinstance(choice, dict) else choice.message
-        # Capture token usage for telemetry.
         self.record_usage(response)
         content = message["content"] if isinstance(message, dict) else message.content
         return str(content or "")
@@ -265,8 +393,6 @@ class LiteLLMProvider(BaseLLMProvider):
         Args:
             response: The raw LiteLLM response.
         """
-        # LiteLLM v0 returns usage as a dict under ``"usage"``; v1+
-        # returns a Usage object with the same fields.
         usage: Any = None
         if isinstance(response, dict):
             usage = response.get("usage")
@@ -302,9 +428,6 @@ class LiteLLMProvider(BaseLLMProvider):
         the final chunk (``stream_options={"include_usage": True}``).
         The streaming loop honours :pyattr:`timeout_seconds` with
         :func:`asyncio.timeout` so a slow LLM does not block indefinitely.
-        The implementation reads each chunk's ``delta.content`` when present and
-        tolerates the dict / object shapes that LiteLLM emits
-        across versions.
         """
         messages = self.build_messages(
             system_prompt=system_prompt,
@@ -363,4 +486,34 @@ class LiteLLMProvider(BaseLLMProvider):
             }
 
 
-__all__ = ["LiteLLMProvider"]
+def build_llm_provider(
+    model_name: str,
+    api_key: str | None = None,
+) -> BaseLLMProvider:
+    """Construct the appropriate LLM provider for ``model_name``.
+
+    Selection rules (highest priority first):
+
+    1. If ``model_name`` is empty, ``"heuristic"``, or
+       ``"heuristic-llm"`` → :class:`HeuristicLLMProvider`.
+    2. If no LLM API key is present in the environment *and* no
+       ``api_key`` was passed in → :class:`HeuristicLLMProvider`
+       (so the framework remains usable offline).
+    3. Otherwise → :class:`LiteLLMProvider`.
+
+    Args:
+        model_name: The model identifier. Empty / ``"heuristic"`` /
+            unknown names resolve to :class:`HeuristicLLMProvider`.
+        api_key: Optional API key passed through to
+            :class:`LiteLLMProvider`. When provided, the key counts
+            as a present credential even if the env vars are unset.
+
+    Returns:
+        A ready-to-use provider instance.
+    """
+    name = (model_name or "").lower().strip()
+    if not name or name == "heuristic-llm" or name == "heuristic":
+        return HeuristicLLMProvider(model_name=model_name or "heuristic-llm")
+    if not api_key and not any_llm_api_key_present():
+        return HeuristicLLMProvider(model_name=model_name)
+    return LiteLLMProvider(model=model_name, api_key=api_key)

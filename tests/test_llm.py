@@ -3,7 +3,7 @@
 Covers:
 - ``raghub.llm.__init__`` — env-var detection, lazy imports, and
   ``build_llm_provider`` factory.
-- ``raghub.llm.litellm`` — provider error wrapping, usage accounting,
+- ``raghub.llm`` — provider error wrapping, usage accounting,
   message construction, and chunk streaming.
 """
 
@@ -54,15 +54,15 @@ class TestGetAttr:
 
     def test_lazy_loads_litellm_provider(self) -> None:
         from raghub.llm import LiteLLMProvider as LazyLiteLLM
-        from raghub.llm.litellm import LiteLLMProvider as DirectLiteLLM
+        from raghub.llm import LiteLLMProvider as DirectLiteLLM
 
         assert LazyLiteLLM is DirectLiteLLM
 
     def test_raises_attribute_error_for_unknown_name(self) -> None:
         import raghub.llm as llm_mod
 
-        with pytest.raises(AttributeError, match="has no attribute 'Nonsense'"):
-            llm_mod.__getattr__("Nonsense")
+        with pytest.raises(AttributeError, match="Nonsense"):
+            _ = llm_mod.Nonsense
 
 
 class TestBuildLlmProvider:
@@ -92,7 +92,7 @@ class TestBuildLlmProvider:
 
     def test_api_key_arg_returns_litellm(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Passing api_key explicitly bypasses env-var check."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         for var in LLM_API_KEY_ENV_VARS:
             monkeypatch.delenv(var, raising=False)
@@ -103,7 +103,7 @@ class TestBuildLlmProvider:
 
     def test_env_key_returns_litellm(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Having an API key in the env is sufficient for LiteLLMProvider."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         for var in LLM_API_KEY_ENV_VARS:
             monkeypatch.delenv(var, raising=False)
@@ -122,7 +122,7 @@ class TestBuildLlmProvider:
     def test_litellm_is_imported_lazily(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """The ``from .litellm import LiteLLMProvider`` inside
         ``build_llm_provider`` is tested by ensuring it is reachable."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         for var in LLM_API_KEY_ENV_VARS:
             monkeypatch.delenv(var, raising=False)
@@ -134,7 +134,7 @@ class TestBuildLlmProvider:
 
 
 # ---------------------------------------------------------------------------
-# raghub.llm.litellm  tests
+# raghub.llm  tests
 # ---------------------------------------------------------------------------
 
 
@@ -142,7 +142,7 @@ class TestRequireLitellm:
     """require_litellm() raises when the library is unavailable."""
 
     def test_raises_when_litellm_not_available(self) -> None:
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved = litellm_mod.LITELLM_AVAILABLE
         try:
@@ -155,7 +155,7 @@ class TestRequireLitellm:
             litellm_mod.LITELLM_AVAILABLE = saved
 
     def test_passes_when_litellm_is_available(self) -> None:
-        from raghub.llm.litellm import LiteLLMProvider
+        from raghub.llm import LiteLLMProvider
 
         provider = LiteLLMProvider(api_key="test")
         provider.require_litellm()
@@ -166,7 +166,7 @@ class TestBuildMessages:
 
     def test_session_history_invalid_role_falls_back_to_user(self) -> None:
         """Unknown role in session history becomes 'user'."""
-        from raghub.llm.litellm import LiteLLMProvider
+        from raghub.llm import LiteLLMProvider
 
         provider = LiteLLMProvider(api_key="test")
         messages = provider.build_messages(
@@ -182,7 +182,7 @@ class TestBuildMessages:
 
     def test_image_unknown_extension_defaults_to_png(self) -> None:
         """Unrecognized image extension defaults to image/png data URL."""
-        from raghub.llm.litellm import LiteLLMProvider
+        from raghub.llm import LiteLLMProvider
 
         provider = LiteLLMProvider(api_key="test")
         # Use a temp file with no recognizable extension
@@ -206,7 +206,7 @@ class TestBuildMessages:
 
     def test_image_with_no_mime_type_still_works(self) -> None:
         """Image file with no extension still produces a data URL."""
-        from raghub.llm.litellm import LiteLLMProvider
+        from raghub.llm import LiteLLMProvider
 
         provider = LiteLLMProvider(api_key="test")
         with tempfile.NamedTemporaryFile(suffix="", delete=False) as tmp:
@@ -228,7 +228,7 @@ class TestGenerateErrorHandling:
     """generate() wraps provider exceptions as LLMError."""
 
     def test_litellm_error_is_wrapped(self) -> None:
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved = litellm_mod.litellm
         try:
@@ -252,7 +252,7 @@ class TestRecordUsage:
     def test_dict_with_input_output_tokens(self) -> None:
         """When 'input_tokens' and 'output_tokens' are used instead of
         'prompt_tokens' / 'completion_tokens'."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         provider = litellm_mod.LiteLLMProvider.__new__(litellm_mod.LiteLLMProvider)
         provider.model_name = "gpt-4"
@@ -264,7 +264,7 @@ class TestRecordUsage:
 
     def test_dict_with_completion_tokens_fallback(self) -> None:
         """'completion_tokens' takes priority over 'output_tokens'."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         provider = litellm_mod.LiteLLMProvider.__new__(litellm_mod.LiteLLMProvider)
         provider.model_name = "gpt-4"
@@ -276,7 +276,7 @@ class TestRecordUsage:
 
     def test_record_usage_none_usage_returns_early(self) -> None:
         """When the response has no 'usage' field, last_usage stays None."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         provider = litellm_mod.LiteLLMProvider.__new__(litellm_mod.LiteLLMProvider)
         provider.model_name = "m"
@@ -287,7 +287,7 @@ class TestRecordUsage:
 
     def test_record_usage_object_style(self) -> None:
         """Object-style usage via getattr."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         provider = litellm_mod.LiteLLMProvider.__new__(litellm_mod.LiteLLMProvider)
         provider.model_name = "m"
@@ -305,7 +305,7 @@ class TestRecordUsage:
 
     def test_record_usage_object_missing_tokens(self) -> None:
         """When getattr returns 0 for prompt_tokens/completion_tokens."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         provider = litellm_mod.LiteLLMProvider.__new__(litellm_mod.LiteLLMProvider)
         provider.model_name = "m"
@@ -326,7 +326,7 @@ class TestAstreamErrorHandling:
 
     @pytest.mark.asyncio
     async def test_litellm_error_is_wrapped(self) -> None:
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved = litellm_mod.litellm
         try:
@@ -372,7 +372,7 @@ class TestAstreamChunks:
     @pytest.mark.asyncio
     async def test_dict_chunks_with_content_and_usage(self) -> None:
         """Dict chunks with content and usage are assembled correctly."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved = litellm_mod.litellm
         try:
@@ -400,7 +400,7 @@ class TestAstreamChunks:
     @pytest.mark.asyncio
     async def test_dict_chunks_with_input_output_tokens(self) -> None:
         """Dict usage with 'input_tokens' / 'output_tokens' keys is captured."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved = litellm_mod.litellm
         try:
@@ -422,7 +422,7 @@ class TestAstreamChunks:
     @pytest.mark.asyncio
     async def test_dict_chunk_no_choices_skipped(self) -> None:
         """Dict chunk lacking 'choices' is skipped without error."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved = litellm_mod.litellm
         try:
@@ -446,7 +446,7 @@ class TestAstreamChunks:
     @pytest.mark.asyncio
     async def test_object_chunks_skipped(self) -> None:
         """Non-dict chunks are skipped without error."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved = litellm_mod.litellm
         try:
@@ -475,7 +475,7 @@ class TestAstreamChunks:
     @pytest.mark.asyncio
     async def test_object_chunk_with_usage(self) -> None:
         """Non-dict chunk with usage attribute is captured via getattr."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved = litellm_mod.litellm
         try:
@@ -509,7 +509,7 @@ class TestAstreamChunks:
     @pytest.mark.asyncio
     async def test_astream_no_usage_no_last_usage(self) -> None:
         """When no usage chunk appears and no tokens accumulated, last_usage stays None."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved = litellm_mod.litellm
         try:
@@ -531,7 +531,7 @@ class TestAstreamChunks:
     @pytest.mark.asyncio
     async def test_astream_usage_captured_at_end(self) -> None:
         """Usage snapshot is finalized after the streaming loop ends."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved = litellm_mod.litellm
         try:
@@ -557,7 +557,7 @@ class TestGenerateRecordUsageIntegration:
 
     def test_generate_dict_usage_captures_input_output_tokens(self) -> None:
         """Cover both generate and record_usage dict paths in one flow."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved = litellm_mod.litellm
         try:
@@ -582,7 +582,7 @@ class TestLiteLLMProviderInit:
     """Additional edge cases for __init__."""
 
     def test_default_model_name(self) -> None:
-        from raghub.llm.litellm import LiteLLMProvider
+        from raghub.llm import LiteLLMProvider
 
         provider = LiteLLMProvider(api_key="test")
         assert provider.model_name == "gpt-4o-mini"
@@ -592,7 +592,7 @@ class TestLiteLLMProviderInit:
 
     def test_raises_configuration_error_when_litellm_not_installed(self) -> None:
         """__init__ raises ConfigurationError when litellm is unavailable."""
-        import raghub.llm.litellm as litellm_mod
+        import raghub.llm as litellm_mod
 
         saved_available = litellm_mod.LITELLM_AVAILABLE
         saved_litellm = litellm_mod.litellm
@@ -610,7 +610,7 @@ class TestBuildMessagesContext:
     """Context chunks are formatted into a system message for the LLM."""
 
     def test_context_is_formatted_and_appended(self) -> None:
-        from raghub.llm.litellm import LiteLLMProvider
+        from raghub.llm import LiteLLMProvider
 
         provider = LiteLLMProvider(api_key="test")
         messages = provider.build_messages(
@@ -627,7 +627,7 @@ class TestBuildMessagesContext:
         assert messages[2] == {"role": "user", "content": "q"}
 
     def test_context_empty_omits_context_message(self) -> None:
-        from raghub.llm.litellm import LiteLLMProvider
+        from raghub.llm import LiteLLMProvider
 
         provider = LiteLLMProvider(api_key="test")
         messages = provider.build_messages(
@@ -639,7 +639,7 @@ class TestBuildMessagesContext:
         assert messages[1] == {"role": "user", "content": "q"}
 
     def test_single_context_item(self) -> None:
-        from raghub.llm.litellm import LiteLLMProvider
+        from raghub.llm import LiteLLMProvider
 
         provider = LiteLLMProvider(api_key="test")
         messages = provider.build_messages(

@@ -511,28 +511,28 @@ class TestDefaultEmbedder:
 class TestDefaultLLM:
     def test_heuristic_model_returns_heuristic(self):
         from raghub.api.defaults import default_llm
-        from raghub.llm.heuristic import HeuristicLLMProvider
+        from raghub.llm import HeuristicLLMProvider
 
         result = default_llm("heuristic")
         assert isinstance(result, HeuristicLLMProvider)
 
     def test_empty_model_returns_heuristic(self):
         from raghub.api.defaults import default_llm
-        from raghub.llm.heuristic import HeuristicLLMProvider
+        from raghub.llm import HeuristicLLMProvider
 
         result = default_llm("")
         assert isinstance(result, HeuristicLLMProvider)
 
     def test_no_api_key_returns_heuristic(self):
         from raghub.api.defaults import default_llm
-        from raghub.llm.heuristic import HeuristicLLMProvider
+        from raghub.llm import HeuristicLLMProvider
 
         result = default_llm("gpt-4")
         assert isinstance(result, HeuristicLLMProvider)
 
     def test_with_api_key_returns_litellm(self):
         with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True):
-            with patch("raghub.llm.litellm.LiteLLMProvider") as mock_llm:
+            with patch("raghub.llm.LiteLLMProvider") as mock_llm:
                 from raghub.api.defaults import default_llm
 
                 result = default_llm("gpt-4")
@@ -544,12 +544,12 @@ class TestDefaultLLM:
         with (
             patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
             patch(
-                "raghub.llm.litellm.LiteLLMProvider",
+                "raghub.llm.LiteLLMProvider",
                 side_effect=ConfigurationError("fail"),
             ),
         ):
             from raghub.api.defaults import default_llm
-            from raghub.llm.heuristic import HeuristicLLMProvider
+            from raghub.llm import HeuristicLLMProvider
 
             result = default_llm("gpt-4")
             assert isinstance(result, HeuristicLLMProvider)

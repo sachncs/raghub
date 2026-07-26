@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from raghub.generation.generator import DefaultGenerator
-from raghub.llm.base import BaseLLMProvider
+from raghub.llm import BaseLLMProvider
 from raghub.models import ConversationTurn
 
 
@@ -174,7 +174,7 @@ def test_default_generator_enforces_configurable_timeout() -> None:
 
 def test_litellm_provider_passes_stream_options() -> None:
     """``LiteLLMProvider.astream`` asks LiteLLM to include usage in the stream."""
-    import raghub.llm.litellm as litellm_mod
+    import raghub.llm as litellm_mod
 
     captured: dict[str, Any] = {}
 

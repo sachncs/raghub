@@ -30,7 +30,7 @@ from typing import Any
 
 from raghub.embeddings.base import BaseEmbeddingProvider
 from raghub.knowledge.structures.base import KnowledgeIndex
-from raghub.llm.base import BaseLLMProvider
+from raghub.llm import BaseLLMProvider
 from raghub.models import Chunk, ChunkRecord, RetrievalHit
 
 SUMMARY_PROMPT = (
