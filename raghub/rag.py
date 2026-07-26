@@ -66,7 +66,7 @@ from raghub.models import (
     RetrievalHit,
     deterministic_id,
 )
-from raghub.observability import MetricsRegistry, PrometheusMetrics
+from raghub.observability import DEFAULT_METRICS_REGISTRY, PrometheusMetrics
 from raghub.observability import RedactingTelemetry
 from raghub.pipeline import AgenticQueryPipeline
 from raghub.pipeline import QueryCache
@@ -428,7 +428,9 @@ class RAG:
         # Phase 4.8: register the Prometheus metrics instance so
         # rerankers (and future hot-path components) can record
         # observations without coupling to the telemetry provider.
-        MetricsRegistry.set(PrometheusMetrics())
+        metrics = PrometheusMetrics()
+        self.metrics = metrics
+        DEFAULT_METRICS_REGISTRY.set(metrics)
 
         self.ingest_pipeline = IngestPipeline(
             converter=self.converter,
