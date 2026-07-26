@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
+from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 import pytest
 
@@ -35,12 +36,18 @@ async def test_create_and_get_by_token(tmp_db: str) -> None:
 
 
 async def test_get_by_token_expired(tmp_db: str) -> None:
-    store = SqliteSessionStore(tmp_db, timeout_seconds=0)
+    """An expired session is treated as missing and deleted lazily."""
+    store = SqliteSessionStore(tmp_db, timeout_seconds=60)
     await store.initialize()
     session = await store.create_session("user1")
-    await asyncio.sleep(0.01)
-    loaded = await store.get_by_token(session.token)
+
+    # Advance simulated clock past expiry without relying on wall-clock sleep.
+    future = datetime.now(UTC) + timedelta(seconds=120)
+    with patch("raghub.storage.sqlite_session_store.datetime") as fake_dt:
+        fake_dt.now.return_value = future
+        loaded = await store.get_by_token(session.token)
     assert loaded is None
+    assert await store.get_session(session.session_id) is None
 
 
 async def test_get_by_token_nonexistent(tmp_db: str) -> None:
