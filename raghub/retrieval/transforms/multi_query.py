@@ -99,15 +99,12 @@ class MultiQueryTransformer:
             ``kind="multi_query"``. On parse failure the empty list is
             returned and the caller falls back to the original.
         """
-        try:
-            raw = await self.llm.async_generate(
-                system_prompt=SYSTEM_PROMPT,
-                conversation=list(history),
-                context=[],
-                question=build_prompt(question, self.n),
-            )
-        except Exception as exc:
-            raise TransformError(f"multi-query generation failed: {exc}") from exc
+        raw = await self.llm.async_generate(
+            system_prompt=SYSTEM_PROMPT,
+            conversation=list(history),
+            context=[],
+            question=build_prompt(question, self.n),
+        )
         phrasings = extract_json_array(raw or "")
         variants: list[QueryVariant] = []
         for phrase in phrasings[: self.n]:

@@ -28,6 +28,7 @@ from typing import Any
 
 from raghub.config.settings import LongContextConfig
 from raghub.models import RankedList, RetrievalHit
+from raghub.observability.metrics import record_long_context
 
 SYSTEM_PROMPT = (
     "You re-rank retrieved passages. For every candidate, produce a "
@@ -144,12 +145,7 @@ def record_latency(outcome: str, seconds: float) -> None:
             ``"error"``.
         seconds: Observed wall-clock duration.
     """
-    try:
-        from raghub.observability.metrics import record_long_context
-
-        record_long_context(outcome=outcome, seconds=seconds)
-    except Exception:
-        pass
+    record_long_context(outcome=outcome, seconds=seconds)
 
 
 class LongContextRerankPass:
@@ -201,45 +197,36 @@ class LongContextRerankPass:
                 to :attr:`settings.candidate_k` before sending.
 
         Returns:
-            The same hits in the long-context order. When the pass
-            is ineligible, fails, or returns unparseable JSON, the
-            original ``hits`` are returned unchanged.
+            The same hits in the long-context order.
+
+        Raises:
+            ValueError: When the LLM response cannot be parsed or
+                validated.
+            RuntimeError: When the underlying LLM call fails.
         """
         if not self.is_eligible() or not hits:
             return list(hits)
         candidates = list(hits[: max(1, self.settings.candidate_k)])
         started = time.perf_counter()
-        try:
-            raw = await self.llm.async_generate(
-                system_prompt=SYSTEM_PROMPT,
-                conversation=[],
-                context=[],
-                question=build_prompt(question, candidates),
-            )
-        except Exception:
-            record_latency(
-                outcome="error", seconds=time.perf_counter() - started
-            )
-            return list(hits)
+        raw = await self.llm.async_generate(
+            system_prompt=SYSTEM_PROMPT,
+            conversation=[],
+            context=[],
+            question=build_prompt(question, candidates),
+        )
         parsed = extract_json_object(raw or "")
         if parsed is None:
             record_latency(
                 outcome="bad_json", seconds=time.perf_counter() - started
             )
-            return list(hits)
-        try:
-            ranked = RankedList.model_validate(parsed)
-        except Exception:
-            record_latency(
-                outcome="bad_json", seconds=time.perf_counter() - started
-            )
-            return list(hits)
+            raise ValueError("long-context rerank produced unparseable JSON")
+        ranked = RankedList.model_validate(parsed)
         reordered = reorder_candidates(candidates, ranked)
         if reordered is None:
             record_latency(
                 outcome="bad_json", seconds=time.perf_counter() - started
             )
-            return list(hits)
+            raise ValueError("long-context rerank omitted every candidate id")
         record_latency(outcome="ran", seconds=time.perf_counter() - started)
         return reordered
 

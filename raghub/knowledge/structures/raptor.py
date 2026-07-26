@@ -263,14 +263,9 @@ def cluster(
     """
     if len(items) <= cluster_size:
         return [items]
-    try:
-        import numpy as np
-        from sklearn.cluster import KMeans  # type: ignore[import-not-found]
-    except ImportError:
-        return [
-            items[i : i + cluster_size]
-            for i in range(0, len(items), cluster_size)
-        ]
+    import numpy as np
+    from sklearn.cluster import KMeans
+
     vectors = [
         np.asarray(item.metadata.get("vector") or [0.0], dtype=float)
         for item in items
@@ -283,7 +278,7 @@ def cluster(
     try:
         kmeans = KMeans(n_clusters=n_clusters, n_init=3, random_state=0)
         labels = kmeans.fit_predict(matrix)
-    except Exception:
+    except ValueError:
         return [
             items[i : i + cluster_size]
             for i in range(0, len(items), cluster_size)
@@ -313,15 +308,12 @@ async def summarise_async(
     if not joined:
         return ""
     joined = joined[:max_chars]
-    try:
-        return await llm.async_generate(
-            system_prompt="You summarise passages.",
-            conversation=[],
-            context=[],
-            question=SUMMARY_PROMPT.format(passages=joined),
-        )
-    except Exception:
-        return ""
+    return await llm.async_generate(
+        system_prompt="You summarise passages.",
+        conversation=[],
+        context=[],
+        question=SUMMARY_PROMPT.format(passages=joined),
+    )
 
 
 def summarise(

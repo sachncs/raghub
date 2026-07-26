@@ -96,15 +96,12 @@ class DecomposeTransformer:
             One :class:`QueryVariant` per sub-question, all with
             ``kind="sub"``. Empty list on parse failure.
         """
-        try:
-            raw = await self.llm.async_generate(
-                system_prompt=SYSTEM_PROMPT,
-                conversation=list(history),
-                context=[],
-                question=build_prompt(question),
-            )
-        except Exception as exc:
-            raise TransformError(f"decompose generation failed: {exc}") from exc
+        raw = await self.llm.async_generate(
+            system_prompt=SYSTEM_PROMPT,
+            conversation=list(history),
+            context=[],
+            question=build_prompt(question),
+        )
         sub_questions = extract_json_array(raw or "")
         return [QueryVariant(text=q, kind="sub") for q in sub_questions]
 

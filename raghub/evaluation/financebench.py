@@ -62,7 +62,8 @@ def load_jsonl_file(path: Path) -> list[dict]:
             for line in path.read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
-    return json.loads(path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    return [raw] if isinstance(raw, dict) else raw
 
 
 def load_huggingface_dataset(dataset_name: str, split: str) -> list[dict]:

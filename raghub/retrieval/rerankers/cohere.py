@@ -1,7 +1,7 @@
 """Cohere cross-encoder reranker.
 
-Optional dependency (``cohere``). Imported lazily so the package
-remains usable when Cohere is not installed.
+Uses the Cohere SDK; ``cohere`` is a required runtime dependency.
+The client is constructed on first use.
 """
 
 from __future__ import annotations
@@ -10,10 +10,12 @@ import os
 import time
 from collections.abc import Sequence
 
+import cohere
 from pydantic import SecretStr
 
 from raghub.exceptions import RerankerError
 from raghub.models import RetrievalHit
+from raghub.observability.metrics import record_rerank_latency
 
 
 def record_latency(provider: str, seconds: float) -> None:
@@ -23,12 +25,7 @@ def record_latency(provider: str, seconds: float) -> None:
         provider: The reranker provider label (``"cohere"`` here).
         seconds: Observed wall-clock latency.
     """
-    try:
-        from raghub.observability.metrics import record_rerank_latency
-
-        record_rerank_latency(provider, seconds)
-    except Exception:
-        pass
+    record_rerank_latency(provider, seconds)
 
 
 class CohereReranker:
@@ -75,25 +72,14 @@ class CohereReranker:
         self.top_k = top_k
         self.client = client
 
-    def ensure_client(self) -> object:
-        """Return the underlying Cohere client, building it lazily.
+    def ensure_client(self) -> cohere.Client:
+        """Return the underlying Cohere client, building it on first use.
 
         Returns:
             The :class:`cohere.Client` instance.
-
-        Raises:
-            RerankerError: When the optional ``cohere`` package is
-                not installed.
         """
-        if self.client is not None:
-            return self.client
-        try:
-            import cohere  # type: ignore[import-not-found]
-        except ImportError as exc:
-            raise RerankerError(
-                "cohere package not installed; pip install 'raghub[rerank]' to enable CohereReranker"
-            ) from exc
-        self.client = cohere.Client(api_key=self.api_key.get_secret_value())
+        if self.client is None:
+            self.client = cohere.Client(api_key=self.api_key.get_secret_value())
         return self.client
 
     def rerank(
@@ -135,15 +121,12 @@ class CohereReranker:
         """
         client = self.ensure_client()
         documents = [hit.chunk.text for hit in hits]
-        try:
-            response = client.rerank(
-                model=self.model,
-                query=question,
-                documents=documents,
-                top_n=min(self.top_k, len(documents)),
-            )
-        except Exception as exc:
-            raise RerankerError(f"Cohere rerank failed: {exc}") from exc
+        response = client.rerank(
+            model=self.model,
+            query=question,
+            documents=documents,
+            top_n=min(self.top_k, len(documents)),
+        )
         ordered: list[RetrievalHit] = []
         for result in getattr(response, "results", []):
             idx = getattr(result, "index", None)
