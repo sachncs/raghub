@@ -169,7 +169,7 @@ def test_migrate_from_json_preserves_document_versions(tmp_path: Path) -> None:
 
     asyncio.run(migrate_from_json(str(db_path), str(registry_path), str(sessions_path)))
 
-    from raghub.repositories.sqlite_document_repo import SqliteDocumentRepository
+    from raghub.repositories import SqliteDocumentRepository
 
     repo = SqliteDocumentRepository(db_path)
     asyncio.run(repo.initialize())
