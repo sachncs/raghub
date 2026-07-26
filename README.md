@@ -55,6 +55,17 @@ indexed every chunk.
 - **Observability** — Langfuse, OpenTelemetry, Prometheus metrics, and structlog logging out of the box.
 - **Evaluation** — FinanceBench evaluator with Recall@K, Precision@K, MRR, Faithfulness, Context Recall, Context Precision, and Answer Correctness.
 - **Production safety** — `CORS_ORIGINS` rejects wildcard+credentials at startup; oversize uploads are rejected with `413` before the body is buffered; admin endpoints redact `password_hash`; the demo-user seed is suppressed in production.
+- **Query transforms** — HyDE, multi-query, step-back, decomposition. Composable per-query or via `settings.query_transforms.enabled`.
+- **Hybrid retrieval** — Dense + BM25 fused by Reciprocal Rank Fusion (k=60). Optional ColBERT late-interaction channel.
+- **Rerankers** — Cohere, BGE, LLM-as-judge, cascade. Wired via `settings.reranker.provider`.
+- **Long-context second pass** — Reorders the top-K with a long-context LLM (Claude 3.5/3.7, Gemini 1.5/2.0, Command-R+, GPT-4.1).
+- **RAPTOR** — Recursive summary tree at ingest time; flat-tree search across every level.
+- **GraphRAG** — Entity / community graph with LLM-driven triple extraction + summarisation.
+- **Agentic retrieval** — ReAct planner with streaming `PlannerEvent` (thought / tool_call / tool_result / answer_chunk / final). Seven built-in tools; subclass `BaseTool` for more. Per-tool RBAC, error isolation, strict budgets.
+- **Per-user tool preferences** — Three layers of override (request > session > user > global); persisted via API, CLI, and Streamlit sidebar.
+- **Streaming endpoints** — `POST /v1/query/stream` (Server-Sent Events), `POST /v1/agent/run`, and `RAG.astream_agent`.
+
+See [`docs/ADVANCED_RAG.md`](docs/ADVANCED_RAG.md) for the full reference.
 
 ## Installation
 

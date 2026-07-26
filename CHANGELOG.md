@@ -8,6 +8,66 @@ Each entry below lists the originating Git commit (short SHA) and its
 ISO 8601 timestamp with timezone. Entries are ordered from newest to
 oldest.
 
+## [0.5.0] - 2026-07-26
+
+### Added
+- **Query transforms** (Phase 2): HyDE, multi-query, step-back,
+  decomposition, plus a `ComposeTransformer` that fuses them. Each
+  transform is a duck-typed async callable with its own JSON schema.
+- **Hybrid retrieval v2** (Phase 3): `rank_bm25.BM25Okapi` with a TF
+  fallback; Reciprocal Rank Fusion (k=60) as the default fusion;
+  optional ColBERT late-interaction channel via ragatouille.
+- **Rerankers** (Phase 4): Cohere API, BGE local (sentence-transformers),
+  LLM-as-judge (listwise + windowed-RRF), and a `CascadeReranker`
+  that runs cheap → expensive. Factory wired into `RAG.__init__`.
+- **Long-context second-pass rerank** (Phase 5): real
+  `LongContextRerankPass` that re-orders the top-K with an LLM
+  call. Strict eligibility (allowlist + enabled) + silent
+  fallbacks (bad JSON, LLM error, unknown chunk ids).
+- **RAPTOR** (Phase 6.2): `RaptorIndex` builds a recursive summary
+  tree over the chunks. KMeans clustering with a windowed fallback;
+  cosine search across every level in one pass.
+- **GraphRAG** (Phase 6.3): entity / community graph with LLM-driven
+  triple extraction and summarisation. Connected-components fallback
+  when leidenalg isn't installed; local + global + combined search.
+- **Agentic retrieval** (Phase 7): full ReAct loop with budget
+  enforcement, streaming `PlannerEvent` (thought / tool_call /
+  tool_result / answer_chunk / final), error isolation per tool,
+  and 7 built-in tools (vector / keyword / hybrid / web /
+  date / summary / graph). Subclass `BaseTool` to add more.
+- **Per-user tool preferences** (Phase 8): `user_preferences` SQLite
+  table; `GET / PATCH / DELETE /v1/users/me/preferences`;
+  `raghub config tools list/set/unset` CLI; Streamlit "Tools" sidebar
+  panel. Resolution: request > session > user > global.
+- **Streaming endpoints** (Phase 10): `POST /v1/query/stream`
+  (Server-Sent Events over `PlannerEvent`), `POST /v1/agent/run`
+  (one-shot full response), `RAG.astream_agent`. `RAG.astream` is
+  also exposed.
+- **Phase 10.6 regression**: `tests/regression/test_fast_path_unchanged.py`
+  pins the byte-equivalent fast-path invariant — when no advanced
+  flags are configured, embed / search / rerank / generate are
+  called exactly once each with the same args as the pre-Phase-1
+  codebase.
+
+### Changed
+- `RAG.__init__` now wires the long-context pass, RAPTOR + GraphRAG
+  indexes, the agent, and the tool registry when their respective
+  settings are enabled. Default config (everything off) preserves
+  the fast-path regression invariant.
+- `QueryPipeline.run` dispatches to `AgenticQueryPipeline` when the
+  resolved config requires tools or the agent loop. The legacy
+  path stays intact for the fast path.
+- `build_response` surfaces `planner_trace`, `tools_invoked`, and
+  `transforms_applied` on the `Response` and `QueryResponse` shapes.
+
+### Performance
+- `InMemoryVectorStore.keyword_search` is now O(N) per query (BM25
+  index build + `get_scores`); the TF fallback path is unchanged.
+- The long-context pass is gated by an allowlist so ineligible
+  models add zero LLM calls.
+- The agent enforces wall-clock before every LLM call, so an
+  over-eager tool cannot exhaust the budget mid-loop.
+
 ## [0.4.0] - 2026-07-18
 
 ### Added
