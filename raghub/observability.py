@@ -179,7 +179,7 @@ class PrometheusMetrics:
             return any(metric.name == public_name for metric in REGISTRY.collect())
 
         def safe_histogram(name: str, desc: str, buckets: list[float]) -> Histogram:
-            existing: Any = known_collectors.get(name)
+            existing = known_collectors.get(name)
             if existing is not None and collector_registered(name):
                 return existing
             collector = Histogram(name, desc, buckets=buckets, registry=REGISTRY)
@@ -187,7 +187,7 @@ class PrometheusMetrics:
             return collector
 
         def safe_counter(name: str, desc: str, labels: list[str] | None = None) -> Counter:
-            existing: Any = known_collectors.get(name)
+            existing = known_collectors.get(name)
             if existing is not None and collector_registered(name):
                 return existing
             collector = Counter(name, desc, labels or [], registry=REGISTRY)

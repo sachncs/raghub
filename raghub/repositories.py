@@ -83,12 +83,15 @@ class SqliteChunkRepository(ChunkRepository):
     """Store chunk records and embeddings in a vector store."""
 
     def __init__(self, vector_store: BaseVectorStore) -> None:
+        """Store ``vector_store`` for chunk persistence."""
         self.store = vector_store
 
     async def initialize(self) -> None:
+        """Bring the underlying vector collection online."""
         self.store.create_collection()
 
     async def insert(self, record: ChunkRecord, embedding: list[float]) -> None:
+        """Insert ``record`` with ``embedding`` into the vector store."""
         self.store.insert([record], [embedding])
 
     async def upsert(
@@ -99,9 +102,11 @@ class SqliteChunkRepository(ChunkRepository):
         self.store.upsert(records, embeddings)
 
     async def delete_by_id(self, chunk_id: str) -> None:
+        """Delete the chunk with ``chunk_id``."""
         self.store.delete([chunk_id])
 
     async def delete_by_document(self, document_id: str) -> None:
+        """Delete every chunk associated with ``document_id``."""
         self.store.delete_document(document_id)
 
     async def search(
@@ -110,9 +115,11 @@ class SqliteChunkRepository(ChunkRepository):
         return self.store.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     async def optimize(self) -> None:
+        """Trigger an optimisation pass on the underlying vector store."""
         self.store.optimize()
 
     async def health(self) -> dict:
+        """Return the health snapshot of the underlying vector store."""
         return self.store.health()
 
 
@@ -132,10 +139,12 @@ class SqliteDocumentRepository(DocumentRepository):
     """
 
     def __init__(self, db_path: str | Path, db_manager: DatabaseManager | None = None) -> None:
+        """Store ``db_path`` for the SQLite database."""
         self.db_path = str(db_path)
         self.db_manager = db_manager
 
     async def conn(self) -> aiosqlite.Connection:
+        """Return a configured aiosqlite connection."""
         if self.db_manager is not None:
             return self.db_manager.connection
         conn = await aiosqlite.connect(self.db_path)
@@ -145,11 +154,13 @@ class SqliteDocumentRepository(DocumentRepository):
         return conn
 
     async def maybe_commit_close(self, conn: aiosqlite.Connection) -> None:
+        """Commit and close ``conn`` when not managed by ``db_manager``."""
         if self.db_manager is None:
             await conn.commit()
             await conn.close()
 
     async def initialize(self) -> None:
+        """Create the schema, indexes, and apply any pending migrations."""
         conn = await self.conn()
         await conn.executescript(SCHEMA_SQL)
         await conn.execute(UNIQUE_CHECKSUM_INDEX)
@@ -157,6 +168,7 @@ class SqliteDocumentRepository(DocumentRepository):
         await self.maybe_commit_close(conn)
 
     async def migrate_legacy_schema(self, conn: aiosqlite.Connection) -> None:
+        """Rebuild the legacy single-column documents table in place."""
         cursor = await conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='documents'"
         )
@@ -208,6 +220,7 @@ class SqliteDocumentRepository(DocumentRepository):
         """)
 
     def record_params(self, record: DocumentRecord) -> tuple[Any, ...]:
+        """Serialise ``record`` to the SQL bind-tuple shape."""
         return (
             record.document_id,
             record.version,
@@ -234,6 +247,7 @@ class SqliteDocumentRepository(DocumentRepository):
         )
 
     async def save(self, record: DocumentRecord) -> None:
+        """Insert or update ``record`` in the documents table."""
         conn = await self.conn()
         await conn.execute(INSERT_SQL.format(mode="OR REPLACE"), self.record_params(record))
         await self.maybe_commit_close(conn)
@@ -243,12 +257,14 @@ class SqliteDocumentRepository(DocumentRepository):
         record: DocumentRecord,
         max_retries: int = MAX_INSERT_RETRIES,
     ) -> bool:
+        """Insert ``record`` without raising on conflicts."""
         conn = await self.conn()
         await conn.execute(INSERT_SQL.format(mode=""), self.record_params(record))
         await self.maybe_commit_close(conn)
         return True
 
     async def get(self, document_id: str) -> DocumentRecord | None:
+        """Return the latest version record for ``document_id``."""
         return await self.get_version(document_id)
 
     async def get_version(
@@ -273,6 +289,7 @@ class SqliteDocumentRepository(DocumentRepository):
         return self.row_to_record(row)
 
     async def list_versions(self, document_id: str) -> list[DocumentRecord]:
+        """Return every historical version of ``document_id``."""
         conn = await self.conn()
         cursor = await conn.execute(
             "SELECT * FROM documents WHERE document_id = ? ORDER BY version ASC",
@@ -283,6 +300,7 @@ class SqliteDocumentRepository(DocumentRepository):
         return [self.row_to_record(row) for row in rows]
 
     async def get_by_checksum(self, checksum: str) -> DocumentRecord | None:
+        """Return the latest record matching ``checksum``."""
         conn = await self.conn()
         cursor = await conn.execute(
             "SELECT * FROM documents WHERE checksum = ? ORDER BY version DESC LIMIT 1",
@@ -295,11 +313,13 @@ class SqliteDocumentRepository(DocumentRepository):
         return self.row_to_record(row)
 
     async def delete(self, document_id: str) -> None:
+        """Delete every version of ``document_id``."""
         conn = await self.conn()
         await conn.execute("DELETE FROM documents WHERE document_id = ?", (document_id,))
         await self.maybe_commit_close(conn)
 
     async def delete_version(self, document_id: str, version: int) -> None:
+        """Delete the specific version of ``document_id``."""
         conn = await self.conn()
         await conn.execute(
             "DELETE FROM documents WHERE document_id = ? AND version = ?",
@@ -308,6 +328,7 @@ class SqliteDocumentRepository(DocumentRepository):
         await self.maybe_commit_close(conn)
 
     async def list_by_organization(self, organization: str) -> list[DocumentRecord]:
+        """Return the latest version of every document in ``organization``."""
         conn = await self.conn()
         cursor = await conn.execute(
             """
@@ -329,6 +350,7 @@ class SqliteDocumentRepository(DocumentRepository):
         return [self.row_to_record(row) for row in rows]
 
     async def list_all(self) -> list[DocumentRecord]:
+        """Return the latest version of every document."""
         conn = await self.conn()
         cursor = await conn.execute(
             """
@@ -348,6 +370,7 @@ class SqliteDocumentRepository(DocumentRepository):
         return [self.row_to_record(row) for row in rows]
 
     async def update_status(self, document_id: str, status: DocumentLifecycleStatus) -> None:
+        """Update the lifecycle status of the latest version."""
         conn = await self.conn()
         now = datetime.now(UTC).isoformat()
         await conn.execute(
@@ -361,6 +384,7 @@ class SqliteDocumentRepository(DocumentRepository):
         await self.maybe_commit_close(conn)
 
     def row_to_record(self, row: aiosqlite.Row) -> DocumentRecord:
+        """Convert an aiosqlite row into a :class:`DocumentRecord`."""
         data: dict[str, Any] = dict(row)
         data["created_at"] = datetime.fromisoformat(data["created_at"])
         data["updated_at"] = datetime.fromisoformat(data["updated_at"])
@@ -382,9 +406,11 @@ class SqliteSessionRepository(SessionRepository):
         self.db_manager = db_manager
 
     async def initialize(self) -> None:
+        """Initialise the underlying session store."""
         await self.inner.initialize()
 
     async def create(self, record: SessionRecord) -> None:
+        """Insert a new session record."""
         conn = await self.conn()
         await conn.execute(
             """
@@ -406,18 +432,23 @@ class SqliteSessionRepository(SessionRepository):
             await conn.close()
 
     async def save(self, record: SessionRecord) -> None:
+        """Persist updates for an existing session."""
         await self.inner.update_session(record)
 
     async def get(self, session_id: str) -> SessionRecord | None:
+        """Return the session with ``session_id`` or ``None``."""
         return await self.inner.get_session(session_id)
 
     async def get_by_token(self, token: str) -> SessionRecord | None:
+        """Return the session holding ``token`` or ``None``."""
         return await self.inner.get_by_token(token)
 
     async def delete(self, session_id: str) -> None:
+        """Delete the session with ``session_id``."""
         await self.inner.delete_session(session_id)
 
     async def conn(self) -> aiosqlite.Connection:
+        """Return a configured aiosqlite connection for sessions."""
         if self.db_manager is not None:
             return self.db_manager.connection
         conn = await aiosqlite.connect(self.inner.db_path)
@@ -448,6 +479,7 @@ class UnitOfWork(BaseUnitOfWork):
         )
 
     async def initialize(self) -> None:
+        """Open the database connection and initialise all repositories."""
         if not self.initialized:
             assert self.db_manager is not None
             await self.db_manager.connect()
@@ -469,10 +501,12 @@ class UnitOfWork(BaseUnitOfWork):
         self.initialized = False
 
     async def __aenter__(self) -> UnitOfWork:
+        """Enter the unit-of-work as an async context manager."""
         await self.initialize()
         await super().__aenter__()
         return self
 
     async def __aexit__(self, *args: object) -> None:
+        """Exit the unit-of-work as an async context manager."""
         await super().__aexit__(*args)
         await self.close()
