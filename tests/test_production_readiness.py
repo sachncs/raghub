@@ -50,7 +50,7 @@ from raghub.models import (
     DocumentRecord,
     UserPrincipal,
 )
-from raghub.services.health_service import (
+from raghub.services.health import (
     HealthService,
     aggregate_status,
     probe_embedder,
