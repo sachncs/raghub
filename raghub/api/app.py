@@ -219,6 +219,7 @@ class Lifespan:
     """
 
     def __init__(self, application: DynamicRagApplication) -> None:
+        """Store the application facade for the lifespan handlers."""
         self.application = application
 
     @asynccontextmanager
@@ -325,6 +326,7 @@ class RouteGroup:
     """
 
     def __init__(self) -> None:
+        """Create the underlying :class:`APIRouter`."""
         self.router = APIRouter()
 
     # ----- auth / session ----------------------------------------------
@@ -333,7 +335,10 @@ class RouteGroup:
         """Liveness probe; delegates to :meth:`DynamicRagApplication.health`."""
 
         @self.router.get("/health")
-        def handler(app_service: DynamicRagApplication = Depends(get_application)) -> dict[str, Any]:
+        def handler(
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> dict[str, Any]:
+            """Report liveness."""
             return app_service.health()
 
         return handler
