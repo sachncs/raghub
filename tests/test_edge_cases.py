@@ -31,7 +31,7 @@ from raghub.models import (
     DocumentRecord,
     UserPrincipal,
 )
-from raghub.prompts.builder import PromptBuilder, PromptConfig, TokenCounter
+from raghub.prompts import PromptBuilder, PromptConfig, TokenCounter
 
 # =========================================================================
 # 1. Empty document ingestion
