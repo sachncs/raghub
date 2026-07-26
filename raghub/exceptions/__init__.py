@@ -172,10 +172,77 @@ class RateLimitError(DynamicRagError):
     """Raised when a per-caller rate limit is exceeded."""
 
 
+class TelemetryError(RagHubError):
+    """Raised when a telemetry provider fails.
+
+    Production code should catch this at the boundary and continue
+    without telemetry; the framework treats telemetry as non-essential.
+    """
+
+
+class OptionalDependencyMissing(ImportError):
+    """Raised when an optional runtime dependency is not installed.
+
+    Subclasses :class:`ImportError` so existing handlers that catch
+    ``ImportError`` continue to work, but adds a structured ``hint``
+    field that tells callers how to install the missing package.
+    """
+
+    def __init__(self, package: str, hint: str) -> None:
+        """Build a structured import error.
+
+        Args:
+            package: The distribution name that was not found
+                (e.g. ``"qdrant-client"``).
+            hint: A user-friendly install command
+                (e.g. ``"pip install qdrant-client"``).
+        """
+        super().__init__(f"{hint}; the {package!r} distribution is not installed")
+        self.package = package
+        self.hint = hint
+
+
+class PipelineFailed(RagHubError):
+    """Raised by an orchestration pipeline when a step fails irrecoverably.
+
+    Carries the offending step name and partial result so callers can
+    resume or surface a useful error to the user.
+    """
+
+    def __init__(self, step: str, message: str, partial: object | None = None) -> None:
+        """Build a structured pipeline failure.
+
+        Args:
+            step: The pipeline step that failed.
+            message: Human-readable failure description.
+            partial: Optional partial result captured before the failure.
+        """
+        super().__init__(f"pipeline step {step!r} failed: {message}")
+        self.step = step
+        self.partial = partial
+
+
+class TokenBudgetExceeded(RagHubError):
+    """Raised when an operation consumes more tokens than its budget allows."""
+
+
+class StreamingFormatError(GenerationError):
+    """Raised when SSE stream formatting fails (invalid event payload)."""
+
+
+class CacheMiss(KeyError):
+    """Raised by ``cache.get_or_raise()`` when the key is absent.
+
+    Subclasses :class:`KeyError` for compatibility with
+    ``__contains__`` checks while carrying a richer message.
+    """
+
+
 __all__ = [
     "AgentBudgetExceeded",
     "AuthenticationError",
     "AuthorizationError",
+    "CacheMiss",
     "ConfigurationError",
     "ConversionError",
     "DocumentError",
@@ -188,13 +255,18 @@ __all__ = [
     "IngestionError",
     "KnowledgeError",
     "LLMError",
+    "OptionalDependencyMissing",
     "PipelineError",
+    "PipelineFailed",
     "PromptError",
     "RagHubError",
     "RateLimitError",
     "RerankerError",
     "RetrievalError",
     "StorageError",
+    "StreamingFormatError",
+    "TelemetryError",
+    "TokenBudgetExceeded",
     "ToolError",
     "TransformError",
     "ValidationError",
