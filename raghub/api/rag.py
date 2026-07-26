@@ -50,6 +50,7 @@ from raghub.api.defaults import (
     default_llm,
     default_structured,
     default_telemetry,
+    default_transforms,
     default_vector_store,
 )
 from raghub.api.response import build_response
@@ -74,7 +75,7 @@ from raghub.models import (
 from raghub.observability.redact import RedactingTelemetry
 from raghub.pipelines.rag import IngestPipeline, QueryPipeline
 from raghub.plugins.registry import PluginRegistry
-from raghub.retrieval.reranker import IdentityReranker
+from raghub.retrieval.rerankers.factory import build_reranker
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -117,11 +118,12 @@ class RAG:
         generator: Any = None,
         reranker: Any = None,
         knowledge_repo: Any = None,
-        structured: Any = None,
+        structured: Any | None = None,
         telemetry: Any = None,
         registry: Any = None,
         background_service: Any = None,
         manifest: Any = None,
+        transformer: Any = None,
     ) -> None:
         """Initialise the facade.
 
@@ -164,6 +166,11 @@ class RAG:
                 :meth:`ingest_async`.
             manifest: Optional source manifest. Defaults to a
                 ``manifest.json`` next to the data directory.
+            transformer: Optional pre-built query-transform composer.
+                Defaults to :func:`raghub.api.defaults.default_transforms`
+                built from ``settings.query_transforms.enabled`` and
+                ``self.llm``. Pass an empty :class:`ComposeTransformer`
+                to disable transforms explicitly.
         """
         self.settings = settings or load_settings()
         self.registry = registry or PluginRegistry()
@@ -181,7 +188,7 @@ class RAG:
             chunker_strategy=self.settings.chunker_strategy,
             embedding_model_chunker=self.settings.embedding_model_chunker,
         )
-        self.reranker = reranker or IdentityReranker()
+        self.reranker = reranker or build_reranker(self.settings, llm=self.llm)
         self.generator = cast(
             Generator,
             generator or DefaultGenerator(llm=self.llm, timeout_seconds=llm_timeout_seconds),
@@ -193,6 +200,18 @@ class RAG:
             self.telemetry: Any = RedactingTelemetry(inner)
         else:
             self.telemetry = telemetry
+        # Phase 4.8: register the Prometheus metrics instance so
+        # rerankers (and future hot-path components) can record
+        # observations without coupling to the telemetry provider.
+        try:
+            from raghub.observability.metrics import (
+                PrometheusMetrics,
+                set_active_metrics,
+            )
+
+            set_active_metrics(PrometheusMetrics())
+        except Exception:
+            set_active_metrics(None)  # type: ignore[arg-type]
 
         self.ingest_pipeline = IngestPipeline(
             converter=self.converter,
@@ -201,6 +220,8 @@ class RAG:
             vector_store=self.vector_store,
             knowledge_repo=self.knowledge_repo,
             telemetry=self.telemetry,
+            raptor=getattr(self, "raptor", None),
+            graph=getattr(self, "graph", None),
         )
         self.conversation_store: Any = InMemoryConversationStore()
         from raghub.pipelines.cache import QueryCache
@@ -210,6 +231,90 @@ class RAG:
             if self.settings.enable_query_cache
             else None
         )
+        self.transformer = transformer if transformer is not None else default_transforms(
+            self.llm,
+            enabled=list(self.settings.query_transforms.enabled),
+            hyde_n=self.settings.query_transforms.hyde_n,
+            multi_query_n=self.settings.query_transforms.multi_query_n,
+        )
+        # Phase 2.8: build a RetrievalPipeline so multi-variant
+        # retrieval can delegate to ``retrieve_variants``. Identity
+        # reranker is fine — the transformer adds variants but
+        # doesn't replace reranking.
+        from raghub.retrieval.colbert import ColbertLateInteraction
+        from raghub.retrieval.pipeline import RetrievalPipeline
+
+        self.colbert = ColbertLateInteraction(self.settings.hybrid)
+        self.retrieval_pipeline = RetrievalPipeline(
+            embedding_provider=self.embedder,
+            vector_store=self.vector_store,
+            reranker=self.reranker,
+            hybrid=self.settings.hybrid,
+        )
+        # Phase 5.3: build the long-context pass when the config
+        # says so. The pass is a no-op when the configured LLM is
+        # not in the allowlist, so building it eagerly is cheap.
+        from raghub.retrieval.long_context import LongContextRerankPass
+
+        self.long_context_pass = LongContextRerankPass(
+            llm=self.llm, settings=self.settings.long_context_pass
+        )
+        # Phase 6.6: build the structured knowledge indexes when
+        # the operator opted in. Both default to None so the
+        # fast path stays byte-equivalent (Phase 10.6).
+        self.raptor = None
+        self.graph = None
+        if self.settings.summary_search_enabled:
+            from raghub.knowledge.structures.raptor import RaptorIndex
+
+            self.raptor = RaptorIndex(
+                llm=self.llm,
+                embedder=self.embedder,
+                depth=2,
+            )
+        if self.settings.graph_search_enabled:
+            from raghub.knowledge.structures.graphrag import GraphRagIndex
+
+            self.graph = GraphRagIndex(llm=self.llm, embedder=self.embedder)
+
+        # Phase 7.8 + 7.11: build the agent + tool registry + the
+        # agentic pipeline. The agent is wired only when the
+        # settings say so; the legacy fast path is preserved when
+        # ``settings.agent.enabled`` is ``False`` AND no tool is
+        # explicitly requested.
+        from raghub.agent.builder import build_tool_registry
+        from raghub.pipelines.agentic import AgenticQueryPipeline
+
+        self.tool_registry = build_tool_registry(
+            self.settings,
+            retrieval_pipeline=self.retrieval_pipeline,
+            vector_store=self.vector_store,
+            raptor=self.raptor,
+            graph=self.graph,
+        )
+        self.agent: Any | None = None
+        self.agentic_pipeline: Any | None = None
+        if self.settings.agent.enabled or self.settings.web_search.enabled or (
+            self.settings.summary_search_enabled and self.raptor is not None
+        ) or (self.settings.graph_search_enabled and self.graph is not None):
+            from raghub.agent.agent import Agent
+
+            self.agent = Agent(
+                llm=self.llm,
+                tool_registry=self.tool_registry,
+                settings=self.settings.agent,
+                telemetry=self.telemetry,
+            )
+            self.agentic_pipeline = AgenticQueryPipeline(
+                agent=self.agent,
+                embedder=self.embedder,
+                vector_store=self.vector_store,
+                generator=self.generator,
+                llm=self.llm,
+                telemetry=self.telemetry,
+                long_context_pass=self.long_context_pass,
+            )
+
         self.query_pipeline = QueryPipeline(
             embedder=self.embedder,
             vector_store=self.vector_store,
@@ -219,6 +324,10 @@ class RAG:
             telemetry=self.telemetry,
             conversation_store=self.conversation_store,
             cache=self.query_cache,
+            transformer=self.transformer,
+            retrieval_pipeline=self.retrieval_pipeline,
+            long_context_pass=self.long_context_pass,
+            agentic_pipeline=self.agentic_pipeline,
         )
 
         self.manifest: SourceManifest = manifest or SourceManifest(
@@ -515,6 +624,13 @@ class RAG:
                 self.vector_store.delete_document(tid)
             if hasattr(self.knowledge_repo, "delete"):
                 self.knowledge_repo.delete(tid)
+            # Phase 6.8: walk the structured indexes too.
+            for index in (getattr(self, "raptor", None), getattr(self, "graph", None)):
+                if index is not None and hasattr(index, "delete_for_document"):
+                    try:
+                        index.delete_for_document(tid)
+                    except Exception:
+                        pass
 
     # ------------------------------------------------------------------
     # Querying
@@ -570,6 +686,33 @@ class RAG:
         uid = getattr(user, "user_id", None) or getattr(user, "email", None) or "anonymous"
         return f"{uid}::{session_id}"
 
+    def session_overrides(
+        self, scoped_session_id: str | None, user: Any | None = None
+    ) -> dict[str, Any] | None:
+        """Return the session's tool/agent overrides (Phase 1.12).
+
+        Args:
+            scoped_session_id: The namespaced session id produced by
+                :meth:`scoped_session_id`.
+            user: Optional user principal. The conversation store is
+                keyed by the scoped id, so the caller must pass the
+                user that was used to build that scoped id.
+
+        Returns:
+            The overrides dict, or ``None`` when the session has none
+            stored. Sessions without a key resolve to the global
+            default in the resolver.
+        """
+        if scoped_session_id is None:
+            return None
+        get_overrides = getattr(self.conversation_store, "get_overrides", None)
+        if not callable(get_overrides):
+            return None
+        try:
+            return get_overrides(scoped_session_id)
+        except Exception:
+            return None
+
     async def aquery(
         self,
         question: str,
@@ -579,12 +722,84 @@ class RAG:
         top_k: int = 5,
         metadata_filter: dict[str, Any] | None = None,
         response_model: type | None = None,
+        tools_enabled: list[str] | None = None,
+        agent: bool | None = None,
+        web: bool | None = None,
+        graph: bool | None = None,
+        summaries: bool | None = None,
+        reranker: str | None = None,
+        long_context_pass: bool | None = None,
+        query_transforms: list[str] | None = None,
+        max_steps: int | None = None,
     ) -> Response:
-        """Async version of :meth:`query`."""
+        """Async version of :meth:`query`.
+
+        All the ``agent / web / graph / reranker / ...`` kwargs are
+        advanced-RAG flags (Phase 8.7). When any are set the facade
+        resolves them against per-session overrides and per-user
+        preferences via :func:`raghub.agent.resolve`. The resolved
+        config is reflected in the returned :class:`Response`'s
+        ``transforms_applied`` and ``metadata`` fields.
+
+        Args:
+            question: The user's question.
+            user: Optional :class:`UserPrincipal` for RBAC and per-user
+                tool defaults.
+            session_id: Optional session id; conversation history is
+                loaded from the conversation store.
+            top_k: Override of the default retrieval depth.
+            metadata_filter: Optional metadata filter applied on top
+                of the RBAC filter.
+            response_model: Optional Pydantic model for structured
+                output.
+            tools_enabled: Tool allow-list override. ``None`` defers
+                to session/user/global defaults.
+            agent: When ``True``, force the agent loop on (Phase 7).
+            web: Shortcut for ``"web_search" in tools_enabled``.
+            graph: Shortcut for ``"graph_search" in tools_enabled``.
+            summaries: Shortcut for ``"summary_search" in tools_enabled``.
+            reranker: Per-request reranker override.
+            long_context_pass: Per-request toggle for the second-pass
+                long-context rerank.
+            query_transforms: Per-request list of transform names.
+            max_steps: Per-request cap on planner steps.
+
+        Returns:
+            A typed :class:`Response`.
+        """
         scoped = self.scoped_session_id(user, session_id)
         context = PipelineContext(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
+        )
+        # Phase 8.7: resolve the effective config so downstream code
+        # (Phase 7 agent) can consume it. The current QueryPipeline
+        # already honours `top_k` and the transformer wired in
+        # ``__init__``; everything else flows through Phase 5 / 7.
+        from raghub.agent.resolver import resolve
+
+        resolved = resolve(
+            request_overrides={
+                "tools_enabled": tools_enabled,
+                "agent": agent,
+                "web": web,
+                "graph": graph,
+                "summaries": summaries,
+                "reranker": reranker,
+                "long_context_pass": long_context_pass,
+                "query_transforms": query_transforms,
+                "max_steps": max_steps,
+            },
+            session_overrides=self.session_overrides(scoped, user),
+            user_prefs=getattr(user, "tool_settings", None) if user else None,
+            settings=self.settings,
+        )
+        context.metadata["resolved_config"] = resolved.to_dict()
+        # Phase 7.11: forward the resolved ``tools_enabled`` set
+        # into the pipeline so the dispatcher routes through the
+        # agentic path when any tool is on.
+        resolved_tools = (
+            set(resolved.tools_enabled) if resolved.tools_enabled else None
         )
         result = await self.query_pipeline.run(
             context,
@@ -594,6 +809,8 @@ class RAG:
             response_model=response_model,
             user=user,
             session_id=scoped,
+            tools_enabled=resolved_tools,
+            resolved_config=resolved.to_dict(),
         )
         if not result.success:
             raise RagHubError(result.error or "query failed")
@@ -607,13 +824,47 @@ class RAG:
         session_id: str | None = None,
         top_k: int = 5,
         metadata_filter: dict[str, Any] | None = None,
+        tools_enabled: list[str] | None = None,
+        agent: bool | None = None,
+        web: bool | None = None,
+        graph: bool | None = None,
+        summaries: bool | None = None,
+        reranker: str | None = None,
+        long_context_pass: bool | None = None,
+        query_transforms: list[str] | None = None,
+        max_steps: int | None = None,
     ) -> AsyncIterator[str]:
-        """Stream the answer token-by-token via the LLM's ``astream``."""
+        """Stream the answer token-by-token via the LLM's ``astream``.
+
+        Accepts the same advanced-RAG flags as :meth:`aquery`; they
+        are resolved through :func:`raghub.agent.resolve` and the
+        resolved config is attached to the streaming span for
+        observability.
+        """
         scoped = self.scoped_session_id(user, session_id)
         context = PipelineContext(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
         )
+        from raghub.agent.resolver import resolve
+
+        resolved = resolve(
+            request_overrides={
+                "tools_enabled": tools_enabled,
+                "agent": agent,
+                "web": web,
+                "graph": graph,
+                "summaries": summaries,
+                "reranker": reranker,
+                "long_context_pass": long_context_pass,
+                "query_transforms": query_transforms,
+                "max_steps": max_steps,
+            },
+            session_overrides=self.session_overrides(scoped, user),
+            user_prefs=getattr(user, "tool_settings", None) if user else None,
+            settings=self.settings,
+        )
+        context.metadata["resolved_config"] = resolved.to_dict()
         async for piece in self.query_pipeline.stream(
             context,
             question=question,
@@ -621,8 +872,96 @@ class RAG:
             metadata_filter=metadata_filter or {},
             user=user,
             session_id=scoped,
+            tools_enabled=(
+                set(resolved.tools_enabled) if resolved.tools_enabled else None
+            ),
         ):
             yield piece
+
+    async def astream_agent(
+        self,
+        question: str,
+        *,
+        user: Any | None = None,
+        session_id: str | None = None,
+        tools_enabled: list[str] | None = None,
+        agent: bool | None = None,
+        web: bool | None = None,
+        graph: bool | None = None,
+        summaries: bool | None = None,
+        reranker: str | None = None,
+        long_context_pass: bool | None = None,
+        query_transforms: list[str] | None = None,
+        max_steps: int | None = None,
+    ) -> AsyncIterator[Any]:
+        """Stream :class:`PlannerEvent` instances from the agent loop.
+
+        Args:
+            question: The user's question.
+            user: Optional :class:`UserPrincipal` for RBAC.
+            session_id: Optional session id.
+            tools_enabled, agent, web, graph, summaries, reranker,
+            long_context_pass, query_transforms, max_steps: Same
+                semantics as :meth:`aquery`.
+
+        Yields:
+            :class:`PlannerEvent` instances. SSE encoding is the
+            caller's responsibility — the FastAPI route uses
+            :func:`raghub.api.streaming.sse_format`.
+        """
+        from raghub.agent.events import PlannerEvent
+        from raghub.agent.resolver import resolve
+
+        scoped = self.scoped_session_id(user, session_id)
+        resolved = resolve(
+            request_overrides={
+                "tools_enabled": tools_enabled,
+                "agent": agent,
+                "web": web,
+                "graph": graph,
+                "summaries": summaries,
+                "reranker": reranker,
+                "long_context_pass": long_context_pass,
+                "query_transforms": query_transforms,
+                "max_steps": max_steps,
+            },
+            session_overrides=self.session_overrides(scoped, user),
+            user_prefs=getattr(user, "tool_settings", None) if user else None,
+            settings=self.settings,
+        )
+        if self.agentic_pipeline is None:
+            # No agent configured — wrap legacy tokens as events.
+            async for piece in self.astream(
+                question,
+                user=user,
+                session_id=session_id,
+                top_k=5,
+                metadata_filter=None,
+            ):
+                yield PlannerEvent(
+                    kind="answer_chunk",
+                    step=0,
+                    payload={"text": piece},
+                )
+            return
+        context = PipelineContext(
+            pipeline_name="query_agent",
+            metadata={
+                "session_id": scoped or "",
+                "resolved_config": resolved.to_dict(),
+            },
+        )
+        async for event in self.agentic_pipeline.astream(
+            context,
+            question=question,
+            user=user,
+            session_id=scoped,
+            tools_enabled=(
+                set(resolved.tools_enabled) if resolved.tools_enabled else None
+            ),
+            history=[],
+        ):
+            yield event
 
     # ------------------------------------------------------------------
     # Evaluation
