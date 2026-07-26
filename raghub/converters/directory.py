@@ -15,7 +15,7 @@ from raghub.converters.marker import MarkerConverter
 from raghub.converters.plaintext import PlainTextConverter
 from raghub.interfaces.converter import DocumentConverter
 from raghub.models import KnowledgeBundle
-from raghub.utils.execution import capture
+from raghub.utils import capture
 
 
 def select_converter_for_path(path: Path) -> DocumentConverter:

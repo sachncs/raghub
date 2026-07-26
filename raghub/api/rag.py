@@ -56,11 +56,11 @@ from raghub.api.defaults import (
     default_vector_store,
 )
 from raghub.api.response import build_response
-from raghub.config.settings import AppSettings, load_settings
+from raghub.config import Settings
 from raghub.conversation.memory import InMemoryConversationStore
 from raghub.evaluation.financebench import FinanceBenchEvaluator
 from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
-from raghub.generation.generator import DefaultGenerator
+from raghub.generation import DefaultGenerator
 from raghub.ingestion.resumable import ResumableBackgroundIngestionService
 from raghub.interfaces.generator import Generator
 from raghub.knowledge.manifest import SourceManifest, sha256_bytes
@@ -81,7 +81,7 @@ from raghub.observability.redact import RedactingTelemetry
 from raghub.pipelines.agentic import AgenticQueryPipeline
 from raghub.pipelines.cache import QueryCache
 from raghub.pipelines.rag import IngestPipeline, QueryPipeline
-from raghub.plugins.registry import PluginRegistry
+from raghub.plugins import PluginRegistry
 from raghub.retrieval.colbert import ColbertLateInteraction
 from raghub.retrieval.long_context import LongContextRerankPass
 from raghub.retrieval.pipeline import RetrievalPipeline
@@ -120,7 +120,7 @@ class RAG:
     def __init__(
         self,
         *,
-        settings: AppSettings | None = None,
+        settings: Settings | None = None,
         converter: Any = None,
         chunker: Any = None,
         embedder: Any = None,
@@ -184,7 +184,7 @@ class RAG:
                 ``self.llm``. Pass an empty :class:`ComposeTransformer`
                 to disable transforms explicitly.
         """
-        self.settings = settings or load_settings()
+        self.settings = settings or Settings.load()
         self.registry = registry or PluginRegistry()
 
         self.knowledge_repo = knowledge_repo or InMemoryKnowledgeRepository()
@@ -340,7 +340,7 @@ class RAG:
 
         Args:
             path: Path to a YAML or TOML file compatible with
-                :class:`AppSettings`.
+                :class:`Settings`.
 
         Returns:
             A configured :class:`RAG` instance.
@@ -354,8 +354,8 @@ class RAG:
 
             payload = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
 
-        settings = AppSettings(
-            **{k: v for k, v in payload.items() if k in AppSettings.model_fields}
+        settings = Settings(
+            **{k: v for k, v in payload.items() if k in Settings.model_fields}
         )
         settings.ensure_dirs()
         return cls(settings=settings)

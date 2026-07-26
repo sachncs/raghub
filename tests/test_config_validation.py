@@ -8,14 +8,12 @@ from unittest.mock import patch
 
 import pytest
 
-from raghub.config.settings import (
-    AppSettings,
+from raghub.config import (
+    Settings,
     csv_to_transforms,
     env_bool,
     load_settings,
 )
-
-
 class TestEnvBool:
     def test_returns_default_when_unset(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
@@ -77,23 +75,23 @@ class TestCsvToTransforms:
 
 class TestAppSettingsOverride:
     def test_override_returns_new_instance(self) -> None:
-        original = AppSettings()
+        original = Settings()
         overridden = original.override(chunk_size_words=999)
         assert original.chunk_size_words != 999
         assert overridden.chunk_size_words == 999
 
     def test_override_preserves_other_fields(self) -> None:
-        original = AppSettings(llm_model="test-model")
+        original = Settings(llm_model="test-model")
         overridden = original.override(chunk_size_words=999)
         assert overridden.llm_model == "test-model"
 
     def test_override_unknown_keys_go_to_extra(self) -> None:
-        original = AppSettings()
+        original = Settings()
         overridden = original.override(custom_key="custom_value")
         assert overridden.extra.get("custom_key") == "custom_value"
 
     def test_override_multiple_fields(self) -> None:
-        original = AppSettings()
+        original = Settings()
         overridden = original.override(chunk_size_words=100, top_k=5)
         assert overridden.chunk_size_words == 100
         assert overridden.top_k == 5
@@ -101,14 +99,14 @@ class TestAppSettingsOverride:
 
 class TestAppSettingsValidation:
     def test_default_values_are_sane(self) -> None:
-        settings = AppSettings()
+        settings = Settings()
         assert settings.chunk_size_words > 0
         assert settings.top_k > 0
         assert settings.max_upload_bytes > 0
         assert settings.embedding_dim > 0
 
     def test_environment_default_is_development(self) -> None:
-        settings = AppSettings()
+        settings = Settings()
         assert settings.environment == "development"
 
 
@@ -123,7 +121,7 @@ class TestProductionValidation:
         )
         with patch.dict(os.environ, {"JWT_SECRET": ""}, clear=False):
             with pytest.raises(RuntimeError, match="JWT_SECRET"):
-                load_settings("production")
+                Settings.load("production")
 
     def test_production_rejects_short_jwt_secret(self, tmp_path: Path) -> None:
         config = tmp_path / "rag.yaml"
@@ -134,7 +132,7 @@ class TestProductionValidation:
         )
         with patch.dict(os.environ, {"JWT_SECRET": "short"}, clear=False):
             with pytest.raises(RuntimeError, match="32 bytes"):
-                load_settings("production")
+                Settings.load("production")
 
     def test_production_rejects_passwordless_login(self, tmp_path: Path) -> None:
         config = tmp_path / "rag.yaml"
@@ -146,4 +144,4 @@ class TestProductionValidation:
         env = {"JWT_SECRET": "a" * 32, "RAG_ALLOW_PASSWORDLESS": "1"}
         with patch.dict(os.environ, env, clear=False):
             with pytest.raises(RuntimeError, match="Passwordless login"):
-                load_settings("production")
+                Settings.load("production")

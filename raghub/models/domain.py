@@ -84,7 +84,7 @@ class UserPrincipal(BaseModel):
             ``tools_enabled``, ``reranker``, ``long_context_pass``,
             ``query_transforms``, ``max_steps``). Empty dict disables
             per-user defaults — the resolver falls through to the
-            global :class:`AppSettings` defaults.
+            global :class:`Settings` defaults.
     """
 
     user_id: str = Field(default_factory=lambda: str(uuid4()))

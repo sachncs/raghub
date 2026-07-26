@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from raghub.config.settings import AppSettings
+from raghub.config import Settings
 from raghub.exceptions import RerankerError
 from raghub.llm.heuristic import HeuristicLLMProvider
 from raghub.retrieval.reranker import IdentityReranker, Reranker
@@ -18,7 +18,7 @@ from raghub.retrieval.rerankers.llm import LLMReranker
 class RerankerFactory:
     """Create rerankers from application settings."""
 
-    def __init__(self, settings: AppSettings, *, llm: Any | None = None, cohere_api_key: str | None = None) -> None:
+    def __init__(self, settings: Settings, *, llm: Any | None = None, cohere_api_key: str | None = None) -> None:
         """Initialise the factory dependencies."""
         self.settings = settings
         self.llm = llm
@@ -47,7 +47,7 @@ class RerankerFactory:
         raise RerankerError(f"Unknown reranker provider: {provider!r}")
 
 
-def build_reranker(settings: AppSettings, *, llm: Any | None = None, cohere_api_key: str | None = None) -> Reranker:
+def build_reranker(settings: Settings, *, llm: Any | None = None, cohere_api_key: str | None = None) -> Reranker:
     """Backward-compatible reranker builder."""
     return RerankerFactory(settings, llm=llm, cohere_api_key=cohere_api_key).create()
 

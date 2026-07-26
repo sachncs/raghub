@@ -33,7 +33,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from uuid import uuid4
 
-from raghub.utils.execution import capture
+from raghub.utils import capture
 
 
 class IngestionJob:

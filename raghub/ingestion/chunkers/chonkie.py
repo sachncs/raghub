@@ -21,7 +21,7 @@ from raghub.exceptions import ConfigurationError
 from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.interfaces.chunker import Chunker
 from raghub.models import Chunk
-from raghub.utils.execution import capture
+from raghub.utils import capture
 
 chonkie, OptionalImportError = capture(__import__, "chonkie")
 CHONKIE_AVAILABLE = OptionalImportError is None

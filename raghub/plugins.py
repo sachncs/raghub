@@ -1,3 +1,11 @@
+"""Plugin system.
+
+Plugins can register converters, chunkers, embedders, vector stores,
+retrievers, rerankers, generators, telemetry providers, and
+evaluators. The framework discovers plugins via entry points
+(``group="raghub.plugins"``) and via explicit registration through
+:class:`PluginRegistry`.
+"""
 """Plugin registry with type-keyed registration helpers.
 
 Plugins register their contributions through this registry; the

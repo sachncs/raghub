@@ -1,3 +1,8 @@
+"""Prompt templates and builders.
+
+Exposes :class:`PromptBuilder`, :class:`PromptConfig`,
+:class:`TokenCounter`, and the canonical :data:`SYSTEM_PROMPT_TEMPLATE`.
+"""
 """Prompt assembly with token-aware truncation and multimodal support.
 
 The :class:`PromptBuilder` greedily fills a fixed-size token budget with

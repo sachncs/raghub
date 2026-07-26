@@ -13,21 +13,21 @@ import os
 
 import pytest
 
-from raghub.config.settings import AppSettings, load_settings
+from raghub.config import Settings
 from raghub.core.container import build_application
 
 
 def test_load_settings_default_profile() -> None:
-    """``load_settings()`` returns a populated :class:`AppSettings`."""
-    settings = load_settings()
-    assert isinstance(settings, AppSettings)
+    """``Settings.load()`` returns a populated :class:`Settings`."""
+    settings = Settings.load()
+    assert isinstance(settings, Settings)
     assert settings.environment == "development"
 
 
 def test_load_settings_with_profile() -> None:
-    """``load_settings("production")`` selects the production profile."""
+    """``Settings.load("production")`` selects the production profile."""
     os.environ.setdefault("JWT_SECRET", "test-secret")
-    settings = load_settings("production")
+    settings = Settings.load("production")
     assert settings.environment == "production"
     assert settings.allow_passwordless_login is False
 
@@ -43,7 +43,7 @@ def test_build_container_raises_when_jwt_secret_missing() -> None:
     """``build_container`` raises when ``settings.jwt_secret`` is empty."""
     from raghub.services.application import build_container
 
-    settings = AppSettings(jwt_secret="", environment="production")
+    settings = Settings(jwt_secret="", environment="production")
     with pytest.raises(RuntimeError):
         import asyncio
 

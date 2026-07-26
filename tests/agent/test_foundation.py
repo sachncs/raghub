@@ -12,7 +12,7 @@ from raghub.agent import (
     ToolResult,
     resolve,
 )
-from raghub.config.settings import AgentConfig, AppSettings
+from raghub.config import AgentConfig, Settings
 from raghub.exceptions import ConfigurationError
 
 
@@ -86,7 +86,7 @@ def test_registry_unregister_is_idempotent() -> None:
 
 def test_resolve_precedence_request_over_user_over_global() -> None:
     """Request wins over user prefs over global defaults."""
-    settings = AppSettings(agent=AgentConfig(enabled=True))
+    settings = Settings(agent=AgentConfig(enabled=True))
     cfg = resolve(
         request_overrides={"agent": False, "tools_enabled": ["web_search"], "max_steps": 2},
         session_overrides=None,
@@ -104,7 +104,7 @@ def test_resolve_shortcuts_expand_to_tools() -> None:
         request_overrides={"web": True, "graph": True, "summaries": True},
         session_overrides=None,
         user_prefs=None,
-        settings=AppSettings(),
+        settings=Settings(),
     )
     assert cfg.tools_enabled == frozenset({"web_search", "graph_search", "summary_search"})
 
@@ -115,7 +115,7 @@ def test_resolve_rejects_unknown_tool_names() -> None:
         request_overrides={"tools_enabled": ["web_search", "BOGUS"]},
         session_overrides=None,
         user_prefs=None,
-        settings=AppSettings(),
+        settings=Settings(),
     )
     assert cfg.tools_enabled == frozenset({"web_search"})
 
@@ -126,7 +126,7 @@ def test_resolve_user_prefs_advance_over_global() -> None:
         request_overrides={},
         session_overrides=None,
         user_prefs={"agent_enabled": True},
-        settings=AppSettings(),
+        settings=Settings(),
     )
     assert cfg.agent_enabled is True
 
@@ -141,6 +141,6 @@ def test_resolve_session_overrides_user_prefs() -> None:
         request_overrides={},
         session_overrides={"agent_enabled": False},
         user_prefs={"agent_enabled": True},
-        settings=AppSettings(),
+        settings=Settings(),
     )
     assert cfg.agent_enabled is False

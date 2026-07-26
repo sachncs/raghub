@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from raghub import RAG
-from raghub.config.settings import AppSettings
+from raghub.config import Settings
 from raghub.embeddings.hashing import HashingEmbeddingProvider
 from raghub.generation.generator import DefaultGenerator
 from raghub.ingestion.chunkers.word_window import WordWindowChunker
@@ -282,8 +282,8 @@ def test_sync_index_detects_add_modify_delete(tmp_path: Path) -> None:
 
 
 def test_runtime_override() -> None:
-    """``AppSettings.override`` returns a new instance with the change."""
-    settings = AppSettings()
+    """``Settings.override`` returns a new instance with the change."""
+    settings = Settings()
     updated = settings.override(chunk_size_words=200, embedding_dim=64)
     assert updated.chunk_size_words == 200
     assert updated.embedding_dim == 64
@@ -304,9 +304,9 @@ def test_toml_loaded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     cwd = Path.cwd()
     monkeypatch.chdir(tmp_path)
     try:
-        from raghub.config.settings import load_settings
+        from raghub.config import Settings
 
-        settings = load_settings("development")
+        settings = Settings.load("development")
     finally:
         monkeypatch.chdir(cwd)
     # The TOML is loaded as the profile overlay.

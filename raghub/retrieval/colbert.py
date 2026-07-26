@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 from raghub.exceptions import GraphUnavailableError
 
 if TYPE_CHECKING:
-    from raghub.config.settings import HybridConfig
+    from raghub.config import HybridConfig
 
 
 class ColbertLateInteraction:

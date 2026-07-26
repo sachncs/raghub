@@ -15,18 +15,16 @@ from raghub.agent.resolver import (
     pick_value,
     resolve,
 )
-from raghub.config.settings import (
+from raghub.config import (
     AgentConfig,
-    AppSettings,
+    Settings,
     LongContextConfig,
     QueryTransformsConfig,
     RerankerConfig,
 )
-
-
-def _settings(**overrides: object) -> AppSettings:
-    """Build an ``AppSettings`` instance with optional overrides."""
-    return AppSettings(**overrides)  # type: ignore[arg-type]
+def _settings(**overrides: object) -> Settings:
+    """Build an ``Settings`` instance with optional overrides."""
+    return Settings(**overrides)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------

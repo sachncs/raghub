@@ -7,7 +7,7 @@ Public surface:
 * :class:`LLMReranker` — listwise / pairwise LLM-as-judge via the
   project's existing LLM provider interface.
 * :class:`CascadeReranker` — cheap → expensive (e.g. BGE then Cohere).
-* :func:`build_reranker` — factory driven by :class:`AppSettings`.
+* :func:`build_reranker` — factory driven by :class:`Settings`.
 """
 
 from raghub.retrieval.rerankers.cascade import CascadeReranker

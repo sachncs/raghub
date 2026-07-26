@@ -23,7 +23,8 @@ from raghub.api.app import (
     create_app,
     validate_cors_for_credentials,
 )
-from raghub.config.settings import load_settings
+from raghub.config import Settings
+from raghub.config import Settings
 from raghub.services.application import DynamicRagApplication, build_container
 
 
@@ -80,7 +81,7 @@ def _build_app(tmp_path: os.PathLike[str]) -> TestClient:
     os.environ["RAG_PROFILE"] = "development"
     os.environ["JWT_SECRET"] = "test-secret-must-be-32-bytes-or-longer-for-sha256"
     os.environ["CORS_ORIGINS"] = "http://localhost:8501"
-    container = asyncio.run(build_container(load_settings()))
+    container = asyncio.run(build_container(Settings.load()))
     application = DynamicRagApplication(container)
     return TestClient(create_app(application))
 

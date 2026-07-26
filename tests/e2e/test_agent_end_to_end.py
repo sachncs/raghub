@@ -10,13 +10,11 @@ from typing import Any
 import pytest
 
 from raghub.api.rag import RAG
-from raghub.config.settings import (
+from raghub.config import (
     AgentConfig,
-    AppSettings,
+    Settings,
     WebSearchConfig,
 )
-
-
 class ScriptedLlm:
     """Two-turn LLM that calls vector_search once then finalises."""
 
@@ -46,7 +44,7 @@ class ScriptedLlm:
 async def test_rag_aquery_agent_runs_end_to_end() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         llm = ScriptedLlm()
-        settings = AppSettings(
+        settings = Settings(
             data_dir=Path(tmp),
             agent=AgentConfig(enabled=True, max_steps=4),
             web_search=WebSearchConfig(enabled=False),

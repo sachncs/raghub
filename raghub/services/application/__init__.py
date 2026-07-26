@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from raghub.auth import RBACAuthorizationService, SqliteUserStore
-from raghub.config.settings import AppSettings
+from raghub.config import Settings
 from raghub.conversation.manager import ConversationManager
 from raghub.documents.lifecycle import DocumentLifecycleManager
 from raghub.documents.parsers import ParserRegistry
@@ -46,7 +46,7 @@ from raghub.llm import BaseLLMProvider, build_llm_provider
 from raghub.models import ConversationTurn
 from raghub.observability.logging import build_logger
 from raghub.observability.metrics import PrometheusMetrics
-from raghub.prompts.builder import PromptBuilder
+from raghub.prompts import PromptBuilder
 from raghub.repositories import UnitOfWork
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.retrieval.reranker import IdentityReranker
@@ -66,7 +66,7 @@ __all__ = [
 ]
 
 
-def seed_blocked(settings: AppSettings) -> bool:
+def seed_blocked(settings: Settings) -> bool:
     """Return ``True`` when the demo-user seed must be skipped.
 
     The seed is suppressed when either signal of a production deploy
@@ -140,7 +140,7 @@ class DynamicRagContainer:
         rag_facade: Optional :class:`raghub.RAG` instance.
     """
 
-    settings: AppSettings
+    settings: Settings
     logger: object
     metrics: object
     authorization: RBACAuthorizationService
@@ -172,7 +172,7 @@ class DynamicRagContainer:
 DynamicRagApplication = ApplicationFacade
 
 
-async def build_container(settings: AppSettings) -> DynamicRagContainer:
+async def build_container(settings: Settings) -> DynamicRagContainer:
     """Construct a fully-wired :class:`DynamicRagContainer`.
 
     The build is ordered so that every collaborator's dependencies are

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from raghub.config.settings import AppSettings, load_settings
+from raghub.config import Settings
 
 _LAZY_EXPORTS: dict[str, str] = {
     "DynamicRagApplication": "DynamicRagApplication",
@@ -71,7 +71,7 @@ class ContainerBuilder:
 
     def __init__(
         self,
-        settings: AppSettings | None = None,
+        settings: Settings | None = None,
         *,
         profile: str | None = None,
     ) -> None:
@@ -88,7 +88,7 @@ class ContainerBuilder:
         import importlib
 
         app_module = importlib.import_module("raghub.services.application")
-        settings = self.settings or load_settings(self.profile)
+        settings = self.settings or Settings.load(self.profile)
         container = await app_module.build_container(settings)
         return app_module.DynamicRagApplication(container)
 
@@ -112,7 +112,7 @@ async def build_application(profile: str | None = None) -> Any:
 
 
 __all__ = [
-    "AppSettings",
+    "Settings",
     "ContainerBuilder",
     "DynamicRagApplication",
     "DynamicRagContainer",

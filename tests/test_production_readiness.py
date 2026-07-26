@@ -664,25 +664,25 @@ class TestUnitOfWorkClose:
 
 class TestProductionSeedBlock:
     def test_seed_blocked_in_production(self) -> None:
-        from raghub.config.settings import AppSettings
+        from raghub.config import Settings
         from raghub.services.application import seed_blocked
 
         original = os.environ.pop("CORS_ORIGINS", None)
         try:
-            settings = AppSettings(environment="production")
+            settings = Settings(environment="production")
             assert seed_blocked(settings) is True
         finally:
             if original is not None:
                 os.environ["CORS_ORIGINS"] = original
 
     def test_seed_blocked_when_cors_wildcard(self) -> None:
-        from raghub.config.settings import AppSettings
+        from raghub.config import Settings
         from raghub.services.application import seed_blocked
 
         original = os.environ.get("CORS_ORIGINS")
         os.environ["CORS_ORIGINS"] = "*"
         try:
-            settings = AppSettings(environment="development")
+            settings = Settings(environment="development")
             assert seed_blocked(settings) is True
         finally:
             if original is not None:
@@ -691,13 +691,13 @@ class TestProductionSeedBlock:
                 os.environ.pop("CORS_ORIGINS", None)
 
     def test_seed_allowed_in_development_with_explicit_origins(self) -> None:
-        from raghub.config.settings import AppSettings
+        from raghub.config import Settings
         from raghub.services.application import seed_blocked
 
         original = os.environ.get("CORS_ORIGINS")
         os.environ["CORS_ORIGINS"] = "https://app.example.com"
         try:
-            settings = AppSettings(environment="development")
+            settings = Settings(environment="development")
             assert seed_blocked(settings) is False
         finally:
             if original is not None:

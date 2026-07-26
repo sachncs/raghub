@@ -12,7 +12,7 @@ from raghub.converters.plaintext import PlainTextConverter
 from raghub.exceptions import ConfigurationError, ConversionError
 from raghub.interfaces.converter import DocumentConverter
 from raghub.models import KnowledgeBundle
-from raghub.utils.execution import capture
+from raghub.utils import capture
 
 pdf_module, pdf_error = capture(import_module, "marker.converters.pdf")
 models_module, models_error = capture(import_module, "marker.models")

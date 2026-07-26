@@ -104,9 +104,10 @@ async def user_store():
     from pathlib import Path
 
     from raghub.auth.user_store import SqliteUserStore
-    from raghub.config.settings import load_settings
+    from raghub.config import Settings; _settings_legacy = Settings  # noop back-compat
+from raghub.config import Settings
 
-    settings = load_settings()
+    settings = Settings.load()
     store = SqliteUserStore(Path(settings.data_dir) / "users.db")
     await store.initialize()
     return store

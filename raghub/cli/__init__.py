@@ -1,16 +1,11 @@
 """RAGHub CLI.
 
-A small `argparse`-based CLI that exposes the most common framework
-operations:
+Single Typer-based CLI with all commands attached as sub-apps or
+top-level commands in :mod:`raghub.cli.main`.
 
-* ``raghub init`` — emit a sample ``raghub.yaml`` to stdout.
-* ``raghub ingest PATH`` — convert + chunk + embed + index a file.
-* ``raghub query "..."`` — ask a question.
-* ``raghub eval financebench`` — run the FinanceBench benchmark.
-* ``raghub health`` — liveness probe.
-* ``raghub version`` — print the package version.
-
-All commands route through the public :class:`raghub.RAG` facade.
+Public surface: ``from raghub.cli import app, main``.
 """
 
-__all__: list[str] = []
+from raghub.cli.main import app, main
+
+__all__ = ["app", "main"]

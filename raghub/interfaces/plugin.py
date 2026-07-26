@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from raghub.plugins.registry import PluginRegistry
+from raghub.plugins import PluginRegistry
 
 
 class Plugin(Protocol):
