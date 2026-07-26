@@ -40,3 +40,6 @@ class BaseEmbeddingProvider(ABC):
             A list of embeddings, one per input string.
         """
         return [self.embed_text(text) for text in texts]
+
+
+__all__ = ["BaseEmbeddingProvider"]

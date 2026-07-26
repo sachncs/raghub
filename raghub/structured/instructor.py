@@ -6,16 +6,17 @@ The provider is constructed via the documented
 uses the documented ``client.create(messages=..., response_model=...)``
 API for both sync and async generation.
 
-When ``instructor`` is not installed the constructor raises
-:class:`raghub.exceptions.ConfigurationError`; the RAG facade catches
-that and falls back to a non-structured generator.
+Instructor is a required dependency of the structured-output tier.
 """
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
-from typing import Any, TypeVar
+from typing import TypeVar, cast
 
+import instructor
+from instructor.core.client import AsyncInstructor, Instructor
+from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 
 from raghub.exceptions import ConfigurationError
@@ -24,17 +25,8 @@ from raghub.models import RetrievalHit
 
 T = TypeVar("T", bound=BaseModel)
 
-instructor: Any
-
-try:
-    import instructor
-
-    INSTRUCTOR_AVAILABLE = True
-    OptionalImportError: Exception | None = None
-except Exception as exc:  # pragma: no cover - optional dep
-    instructor = None
-    INSTRUCTOR_AVAILABLE = False
-    OptionalImportError = exc
+INSTRUCTOR_AVAILABLE = True
+OptionalImportError: Exception | None = None
 
 
 class InstructorStructuredOutputProvider(StructuredOutputProvider):
@@ -68,24 +60,30 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
         self.model = model
         self.api_key = api_key
         self.async_client = async_client
-        self.client: Any = None
-        self.client_async: Any = None
+        self.client: Instructor | None = None
+        self.client_async: AsyncInstructor | None = None
 
-    def sync_instructor_client(self) -> Any:
+    def sync_instructor_client(self) -> Instructor:
         """Lazy sync client."""
         if self.client is None:
-            self.client = instructor.from_provider(
-                f"litellm/{self.model}",
-                async_client=False,
+            self.client = cast(
+                Instructor,
+                instructor.from_provider(
+                    f"litellm/{self.model}",
+                    async_client=False,
+                ),
             )
         return self.client
 
-    def async_instructor_client(self) -> Any:
+    def async_instructor_client(self) -> AsyncInstructor:
         """Lazy async client."""
         if self.client_async is None:
-            self.client_async = instructor.from_provider(
-                f"litellm/{self.model}",
-                async_client=True,
+            self.client_async = cast(
+                AsyncInstructor,
+                instructor.from_provider(
+                    f"litellm/{self.model}",
+                    async_client=True,
+                ),
             )
         return self.client_async
 
@@ -107,7 +105,7 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
             A populated ``response_model`` instance.
         """
         context_text = "\n\n".join(f"[{i + 1}] {hit.chunk.text}" for i, hit in enumerate(context))
-        messages: list[dict] = [
+        messages: list[ChatCompletionMessageParam] = [
             {
                 "role": "system",
                 "content": "Use the supplied context to answer the question.",
@@ -117,17 +115,20 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
                 "content": f"Context:\n{context_text}\n\nQuestion: {question}",
             },
         ]
+        response: T
         if self.async_client:
             client = self.async_instructor_client()
-            return await client.create(  # type: ignore[no-any-return]
+            response = await client.create(
                 messages=messages,
                 response_model=response_model,
             )
-        client = self.sync_instructor_client()
-        return client.create(  # type: ignore[no-any-return]
-            messages=messages,
-            response_model=response_model,
-        )
+        else:
+            client = self.sync_instructor_client()
+            response = client.create(
+                messages=messages,
+                response_model=response_model,
+            )
+        return response
 
     async def astream(
         self,

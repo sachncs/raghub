@@ -5,6 +5,12 @@ ingestion, and authentication latencies plus counters for auth
 attempts, errors, and LLM tokens. Callers that want the metrics surface but don't
 want Prometheus client-side effects can use :class:`NullMetrics`
 which silently drops every call.
+
+The process-wide instance is held by :class:`MetricsRegistry`, a
+small holder replacing the previous module-level singleton. Hot-path
+callers (:func:`record_rerank_latency`, :func:`record_long_context`)
+read from this registry; the facade registers one instance per
+process via :meth:`MetricsRegistry.set`.
 """
 
 from __future__ import annotations
@@ -15,6 +21,38 @@ from prometheus_client import REGISTRY, Counter, Histogram
 from prometheus_client.openmetrics.exposition import generate_latest
 
 known_collectors: dict[str, Counter | Histogram] = {}
+
+
+class MetricsRegistry:
+    """Process-wide holder for the active :class:`PrometheusMetrics`.
+
+    Replaces the previous module-level ``_active_metrics`` global.
+    Hot-path helpers (:func:`record_rerank_latency`,
+    :func:`record_long_context`) delegate to :meth:`current`; the
+    facade calls :meth:`set` once during construction.
+    """
+
+    instance: PrometheusMetrics | None = None
+
+    @classmethod
+    def set(cls, value: PrometheusMetrics | None) -> None:
+        """Register the active metrics instance for this process.
+
+        Args:
+            value: The :class:`PrometheusMetrics` to expose to
+                hot-path callers, or ``None`` to clear the registry.
+        """
+        cls.instance = value
+
+    @classmethod
+    def current(cls) -> PrometheusMetrics | None:
+        """Return the currently-registered instance, or ``None``."""
+        return cls.instance
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """Return ``True`` when an instance is registered."""
+        return cls.instance is not None
 
 
 class NullMetrics:
@@ -222,7 +260,7 @@ class PrometheusMetrics:
                 )
 
 
-_active_metrics: PrometheusMetrics | None = None
+active_metrics: PrometheusMetrics | None = None
 
 
 def set_active_metrics(instance: PrometheusMetrics | None) -> None:
@@ -231,9 +269,15 @@ def set_active_metrics(instance: PrometheusMetrics | None) -> None:
     Rerankers and other hot-path components call :func:`record_rerank_latency`
     which needs a back-reference to the active Prometheus registry. The
     facade calls this once during construction; rerankers read it lazily.
+
+    This is a back-compat shim; new code should use
+    :meth:`MetricsRegistry.set` directly.
+
+    Args:
+        instance: The :class:`PrometheusMetrics` to expose to hot-path
+            callers, or ``None`` to clear the registry.
     """
-    global _active_metrics
-    _active_metrics = instance
+    MetricsRegistry.set(instance)
 
 
 def record_rerank_latency(provider: str, seconds: float) -> None:
@@ -241,14 +285,19 @@ def record_rerank_latency(provider: str, seconds: float) -> None:
 
     No-op when no :class:`PrometheusMetrics` is registered yet (e.g. in
     unit tests). ``provider`` becomes the ``provider`` label.
+
+    Args:
+        provider: Provider label (e.g. ``"cohere"``).
+        seconds: Latency in seconds.
     """
-    if _active_metrics is None:
+    metrics = MetricsRegistry.current()
+    if metrics is None:
         return
     try:
-        _active_metrics.rerank_latency.labels(provider=provider).observe(seconds)
-    except Exception:
-        # Metrics must never crash the caller — Prometheus labels are
-        # validated; an unknown provider label would raise.
+        metrics.rerank_latency.labels(provider=provider).observe(seconds)
+    except ValueError:
+        # Prometheus validates label values; unknown providers are
+        # silently dropped so the caller never crashes on metrics.
         pass
 
 
@@ -263,9 +312,10 @@ def record_long_context(*, outcome: str, seconds: float) -> None:
             informational purposes; the metric is a counter, not
             a histogram).
     """
-    if _active_metrics is None:
+    metrics = MetricsRegistry.current()
+    if metrics is None:
         return
     try:
-        _active_metrics.long_context_pass.labels(outcome=outcome).inc()
-    except Exception:
+        metrics.long_context_pass.labels(outcome=outcome).inc()
+    except ValueError:
         pass

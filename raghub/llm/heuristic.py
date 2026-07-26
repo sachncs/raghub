@@ -59,3 +59,6 @@ class HeuristicLLMProvider(BaseLLMProvider):
             return "No accessible source chunks were found for this question."
         prefix = " ".join(fragment.strip() for fragment in context[:3] if fragment.strip())
         return prefix[:1000]
+
+
+__all__ = ["HeuristicLLMProvider"]

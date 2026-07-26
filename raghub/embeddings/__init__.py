@@ -13,35 +13,21 @@ This package ships:
 :func:`build_embedding_provider` chooses the implementation from the
 model name: substring ``"hashing"`` → hashing, ``"litellm"`` /
 provider-prefixed names → LiteLLM, otherwise SentenceTransformers.
-
-``LiteLLMEmbeddingProvider`` and ``SentenceTransformerEmbeddingProvider``
-are imported lazily so the base package does not require the
-optional SDKs at import time.
 """
 
-from typing import TYPE_CHECKING, Any
+import os
 
 from .base import BaseEmbeddingProvider
 from .hashing import HashingEmbeddingProvider
-
-if TYPE_CHECKING:
-    from .litellm import LiteLLMEmbeddingProvider as LiteLLMEmbeddingProvider
-    from .sentence_transformer import (
-        SentenceTransformerEmbeddingProvider as SentenceTransformerEmbeddingProvider,
-    )
+from .litellm import LiteLLMEmbeddingProvider
+from .sentence_transformer import SentenceTransformerEmbeddingProvider
 
 
-def __getattr__(name: str) -> Any:
-    """Lazily expose providers whose SDKs may not be installed."""
+def __getattr__(name: str) -> object:
+    """Return hoisted provider exports for legacy dynamic access."""
     if name == "LiteLLMEmbeddingProvider":
-        from .litellm import LiteLLMEmbeddingProvider
-
         return LiteLLMEmbeddingProvider
     if name == "SentenceTransformerEmbeddingProvider":
-        from .sentence_transformer import (
-            SentenceTransformerEmbeddingProvider,
-        )
-
         return SentenceTransformerEmbeddingProvider
     raise AttributeError(f"module 'raghub.embeddings' has no attribute {name!r}")
 
@@ -50,7 +36,7 @@ def build_embedding_provider(
     model_name: str,
     dimension: int,
     api_key: str | None = None,
-) -> Any:
+) -> BaseEmbeddingProvider:
     """Construct the appropriate embedding provider for ``model_name``.
 
     Args:
@@ -67,8 +53,6 @@ def build_embedding_provider(
     Returns:
         A ready-to-use embedding provider instance.
     """
-    import os
-
     name = (model_name or "").lower().strip()
     if "hashing" in name:
         return HashingEmbeddingProvider(dimension=dimension, model_name=model_name)
@@ -99,12 +83,8 @@ def build_embedding_provider(
             )
         )
         if creds_present:
-            from .litellm import LiteLLMEmbeddingProvider
-
             return LiteLLMEmbeddingProvider(model=model_name, api_key=api_key)
         return HashingEmbeddingProvider(dimension=dimension, model_name=model_name)
-    from .sentence_transformer import SentenceTransformerEmbeddingProvider
-
     return SentenceTransformerEmbeddingProvider(model_name=model_name)
 
 

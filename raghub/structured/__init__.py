@@ -1,9 +1,7 @@
 """Structured-output adapters.
 
 The default provider uses Instructor to coerce LLM output into typed
-Pydantic models. The provider is optional; when Instructor isn't
-installed, :class:`InstructorStructuredOutputProvider` raises
-:class:`ConfigurationError` on construction.
+Pydantic models.
 
 Public re-exports:
 

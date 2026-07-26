@@ -11,11 +11,10 @@ Uses the Langfuse v3 SDK (``get_client()`` and
 import time, the provider falls back to the legacy v2 API while
 remaining syntactically compatible with the new contract.
 
-Every public method is wrapped in :meth:`_safe`, a small helper that
-swallows exceptions. Telemetry must never break the host application,
-so any failure inside Langfuse is dropped silently. Operators who
-need to debug telemetry failures should enable the ``LANGFUSE_DEBUG``
-environment variable; the provider logs the failure in that case.
+Every public method invokes the Langfuse SDK directly; any SDK
+failure propagates to the caller. Operators who need to debug
+telemetry failures should enable the ``LANGFUSE_DEBUG`` environment
+variable and inspect the resulting traceback.
 """
 
 from __future__ import annotations
@@ -100,13 +99,7 @@ class LangfuseSpan(Span):
         update = getattr(self.ctx, "update", None)
         if update is None:
             return
-        try:
-            update(**{key: value})
-        except Exception:
-            try:
-                update(metadata={key: value})
-            except Exception:
-                pass
+        update(**{key: value})
 
 
 class LangfuseTelemetryProvider(TelemetryProvider):
@@ -142,12 +135,8 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         self.flush_interval = flush_interval
         self.client: Any = None
         if LANGFUSE_AVAILABLE and public_key and secret_key:
-            self.client = self.safe_call(
-                self.build_langfuse_client,
-                host,
-                public_key,
-                secret_key,
-                flush_interval,
+            self.client = self.build_langfuse_client(
+                host, public_key, secret_key, flush_interval
             )
 
     @staticmethod
@@ -166,11 +155,8 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         )
 
     @staticmethod
-    def safe_call(fn: Callable[..., T], *args: Any, **kwargs: Any) -> T | None:
-        """Run ``fn``; swallow exceptions and log them when ``LANGFUSE_DEBUG`` is set.
-
-        Telemetry must never crash the host application. Every public
-        method of this provider routes through this helper.
+    def try_call(fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+        """Invoke ``fn`` and return its value; errors propagate.
 
         Args:
             fn: The callable to invoke.
@@ -178,14 +164,9 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             **kwargs: Keyword arguments.
 
         Returns:
-            The callable's return value, or ``None`` if it raised.
+            The callable's return value.
         """
-        try:
-            return fn(*args, **kwargs)
-        except Exception as exc:
-            if os.getenv("LANGFUSE_DEBUG"):
-                LOGGER.warning("langfuse telemetry failure: %s", exc)
-            return None
+        return fn(*args, **kwargs)
 
     def build_langfuse_client(
         self, host: str | None, public_key: str, secret_key: str, flush_interval: float
@@ -203,18 +184,13 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             nor v2 SDKs are available.
         """
         if langfuse_get_client is not None:
-            try:
-                return langfuse_get_client()
-            except Exception:
-                pass
-        if LangfuseLegacy is not None:
-            return LangfuseLegacy(
-                public_key=public_key,
-                secret_key=secret_key,
-                host=host or "https://cloud.langfuse.com",
-                flush_interval=flush_interval,
-            )
-        return None
+            return langfuse_get_client()
+        return LangfuseLegacy(
+            public_key=public_key,
+            secret_key=secret_key,
+            host=host or "https://cloud.langfuse.com",
+            flush_interval=flush_interval,
+        )
 
     # ------------------------------------------------------------------
     # Logger
@@ -295,16 +271,13 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         """
         if self.client is None:
             return NoopSpan(name)
-        # Propagate user/session attributes to child observations.
         propagate = {k: v for k, v in attrs.items() if k in ("user_id", "session_id") and v}
         if propagate:
-            self.safe_call(self.propagate_to_langfuse, **propagate)
+            self.propagate_to_langfuse(**propagate)
         start_obs = getattr(self.client, "start_as_current_observation", None)
         if start_obs is None:
             return NoopSpan(name)
-        ctx = self.safe_call(start_obs, as_type="span", name=name, **{"input": attrs})
-        if ctx is None:
-            return NoopSpan(name)
+        ctx = start_obs(as_type="span", name=name, **{"input": attrs})
         return LangfuseSpan(ctx, name)
 
     def propagate_to_langfuse(self, **attrs: Any) -> None:
@@ -326,7 +299,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         """
         if isinstance(span, NoopSpan):
             return
-        self.safe_call(span.end)
+        span.end()
 
     def record_tokens(
         self,
@@ -348,29 +321,16 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         start_obs = getattr(self.client, "start_as_current_observation", None)
         if start_obs is None:
             return
-        gen = self.safe_call(start_obs, as_type="generation", name=name, model=model)
+        gen = start_obs(as_type="generation", name=name, model=model)
         if gen is None:
             return
-
-        @contextmanager
-        def ctx() -> Iterator[Any]:
-            try:
-                with gen:
-                    yield gen
-            except Exception:
-                pass
-
-        with ctx() as cm:
-            if cm is not None:
-                try:
-                    cm.update(
-                        usage_details={
-                            "input": prompt_tokens,
-                            "output": completion_tokens,
-                        }
-                    )
-                except Exception:
-                    pass
+        with gen:
+            gen.update(
+                usage_details={
+                    "input": prompt_tokens,
+                    "output": completion_tokens,
+                }
+            )
 
     @contextmanager
     def span(self, name: str, **attrs: Any) -> Iterator[Span]:
@@ -400,7 +360,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         flush = getattr(self.client, "flush", None)
         if flush is None:
             return
-        self.safe_call(flush)
+        flush()
 
 
 __all__ = ["LangfuseSpan", "LangfuseTelemetryProvider", "NoopSpan"]

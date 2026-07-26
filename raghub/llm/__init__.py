@@ -18,13 +18,12 @@ heuristic provider so the framework always runs offline.
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any
 
+from . import litellm as litellm_provider
 from .base import BaseLLMProvider
 from .heuristic import HeuristicLLMProvider
 
-if TYPE_CHECKING:
-    from .litellm import LiteLLMProvider as LiteLLMProvider
+LiteLLMProvider = litellm_provider.LiteLLMProvider
 
 
 # Environment variable names whose presence indicates the operator
@@ -55,19 +54,17 @@ def any_llm_api_key_present() -> bool:
     return any(os.getenv(name) for name in LLM_API_KEY_ENV_VARS)
 
 
-def __getattr__(name: str) -> Any:
-    """Lazily expose :class:`LiteLLMProvider`."""
+def __getattr__(name: str) -> object:
+    """Return the hoisted provider export for legacy dynamic access."""
     if name == "LiteLLMProvider":
-        from .litellm import LiteLLMProvider as LiteLLM_import
-
-        return LiteLLM_import
+        return LiteLLMProvider
     raise AttributeError(f"module 'raghub.llm' has no attribute {name!r}")
 
 
 def build_llm_provider(
     model_name: str,
     api_key: str | None = None,
-) -> Any:
+) -> BaseLLMProvider:
     """Construct the appropriate LLM provider for ``model_name``.
 
     Selection rules (highest priority first):
@@ -94,12 +91,11 @@ def build_llm_provider(
         return HeuristicLLMProvider(model_name=model_name or "heuristic-llm")
     if not api_key and not any_llm_api_key_present():
         return HeuristicLLMProvider(model_name=model_name)
-    from .litellm import LiteLLMProvider
-
-    return LiteLLMProvider(model=model_name, api_key=api_key)
+    return litellm_provider.LiteLLMProvider(model=model_name, api_key=api_key)
 
 
 __all__ = [
+    "LLM_API_KEY_ENV_VARS",
     "BaseLLMProvider",
     "HeuristicLLMProvider",
     "LiteLLMProvider",

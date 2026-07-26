@@ -30,6 +30,7 @@ from __future__ import annotations
 from hashlib import sha256
 
 import numpy as np
+from numpy.typing import NDArray
 
 from raghub.embeddings.base import BaseEmbeddingProvider
 
@@ -82,13 +83,13 @@ class HashingEmbeddingProvider(BaseEmbeddingProvider):
             overlap" by inspecting the norm).
         """
         # Allocate the accumulator once and mutate in place for speed.
-        vector = np.zeros(self.dimension, dtype=np.float32)
+        vector: NDArray[np.float32] = np.zeros(self.dimension, dtype=np.float32)
         tokens = text.lower().split()
         if not tokens:
             # No tokens => no signal. Returning the zero vector (rather
             # than a random one) keeps the result deterministic and lets
             # downstream code short-circuit empty-text edge cases.
-            return vector.tolist()
+            return [float(value) for value in vector]
         for token in tokens:
             digest = sha256(token.encode("utf-8")).digest()
             # First 4 bytes => 32-bit unsigned int, interpreted little-endian.
@@ -105,4 +106,7 @@ class HashingEmbeddingProvider(BaseEmbeddingProvider):
         norm = float(np.linalg.norm(vector))
         if norm:
             vector /= norm
-        return vector.tolist()
+        return [float(value) for value in vector]
+
+
+__all__ = ["HashingEmbeddingProvider"]

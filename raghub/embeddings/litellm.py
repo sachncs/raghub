@@ -8,20 +8,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import litellm
+
 from raghub.embeddings.base import BaseEmbeddingProvider
 from raghub.exceptions import ConfigurationError
 
-litellm: Any
-
-try:
-    import litellm
-
-    LITELLM_AVAILABLE = True
-    OptionalImportError: Exception | None = None
-except Exception as exc:  # pragma: no cover - optional dep
-    litellm = None
-    LITELLM_AVAILABLE = False
-    OptionalImportError = exc
+LITELLM_AVAILABLE = True
+OptionalImportError: Exception | None = None
 
 
 class LiteLLMEmbeddingProvider(BaseEmbeddingProvider):
