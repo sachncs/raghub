@@ -5,15 +5,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from raghub.domain.chunk import Chunk
-from raghub.domain.document import Document
-from raghub.domain.repositories import (
+from raghub.domain import Chunk
+from raghub.domain import Document
+from raghub.domain import (
     ChunkRepository,
     DocumentRepository,
     SessionRepository,
     UnitOfWork,
 )
-from raghub.domain.session import Session
+from raghub.domain import Session
 from raghub.models import (
     ChunkRecord,
     ConversationTurn,
