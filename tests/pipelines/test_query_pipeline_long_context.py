@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from raghub.config.settings import AppSettings, LongContextConfig
+from raghub.config import Settings, LongContextConfig
 from raghub.embeddings.hashing import HashingEmbeddingProvider
 from raghub.generation.generator import DefaultGenerator
 from raghub.llm.heuristic import HeuristicLLMProvider
@@ -169,7 +169,7 @@ def test_facade_wires_long_context_pass_through() -> None:
     """`RAG.__init__` instantiates and exposes a LongContextRerankPass."""
     with tempfile.TemporaryDirectory() as tmp:
         rag = __import__("raghub.api.rag", fromlist=["RAG"]).RAG(
-            settings=AppSettings(
+            settings=Settings(
                 data_dir=Path(tmp),
                 long_context_pass=LongContextConfig(enabled=True),
             )

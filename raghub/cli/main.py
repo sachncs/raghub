@@ -1,72 +1,73 @@
-"""Top-level CLI entrypoint."""
+"""Top-level ``raghub`` CLI — Typer app composition + entry point.
+
+Single Typer app that pulls in every command via the ``register(app)``
+pattern. Each command lives in its own module under
+:mod:`raghub.cli.<command>` so the structure mirrors the public
+surface one-to-one.
+
+Usage (after install)::
+
+    raghub --help
+    raghub query "what is revenue?"
+    raghub ingest ./docs/report.pdf
+    raghub init -o raghub.yaml
+    raghub run --port 8000
+    raghub health
+    raghub config tools list --email alice@acme.com
+    raghub eval financebench --examples 5
+"""
 
 from __future__ import annotations
 
-import argparse
+import importlib.metadata
+import importlib.util
 
-from loguru import logger as loguru_logger
+import typer
 
-from raghub.cli import (
-    config_cmd,
-    eval_cmd,
-    ingest_cmd,
-    init_cmd,
-    query_cmd,
-    run_cmd,
-    system,
+app = typer.Typer(
+    name="raghub",
+    help="RAGHub — production-grade multi-user retrieval-augmented generation.",
+    no_args_is_help=True,
 )
-from raghub.cli.rate_limiter import CLIRateLimiter, RateLimitExceeded
 
-CLI_LIMITER = CLIRateLimiter()
+# Sub-trees — these are the only Typer-group attachments. Each gets its own
+# help subtree under the main app.
+from raghub.cli.config import app as config_app
+from raghub.evaluation.cli import app as eval_app
+app.add_typer(config_app, name="config")
+app.add_typer(eval_app, name="eval")
 
-RATE_LIMIT_EXEMPT_COMMANDS = frozenset({"health", "version", "run"})
-
-
-def build_parser() -> argparse.ArgumentParser:
-    """Build the top-level argument parser.
-
-    Returns:
-        The configured :class:`argparse.ArgumentParser`.
-    """
-    parser = argparse.ArgumentParser(prog="raghub", description="RAGHub CLI")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    init_cmd.add_parser(subparsers)
-    ingest_cmd.add_parser(subparsers)
-    query_cmd.add_parser(subparsers)
-    eval_cmd.add_parser(subparsers)
-    run_cmd.add_parser(subparsers)
-    system.add_parser(subparsers)
-    config_cmd.add_parser(subparsers)
-    return parser
+# Flat commands — registered as `@app.command(name="...")` directly on `app`.
+from raghub.cli.ingest import register as register_ingest
+from raghub.cli.init import register as register_init
+from raghub.cli.query import register as register_query
+from raghub.cli.server import register as register_run
+register_query(app)
+register_ingest(app)
+register_init(app)
+register_run(app)
 
 
-def main() -> int:
-    """Entry point for ``python -m raghub.cli``.
+@app.command(name="health")
+def health() -> None:
+    """Print the framework liveness status as JSON."""
+    from raghub.cli.format import make_rag, write_json
 
-    Returns:
-        Process exit code; ``0`` on success and a non-zero value
-        on rate-limit failure.
-    """
-    parser = build_parser()
-    args = parser.parse_args()
-    handler = getattr(args, "handler", None)
-    if handler is None:
-        parser.print_help()
-        return 0
-
-    command = getattr(args, "command", None)
-    if command is not None and command not in RATE_LIMIT_EXEMPT_COMMANDS:
-        try:
-            CLI_LIMITER.check(command)
-        except RateLimitExceeded as exc:
-            loguru_logger.error("cli.rate_limit_exceeded", command=command, error=str(exc))
-            return 1
-
-    return int(handler(args))
+    write_json(make_rag(None).health())
 
 
-if __name__ == "__main__":
-    main()
+@app.command(name="version")
+def version() -> None:
+    """Print the installed ``raghub`` package version."""
+    try:
+        typer.echo(importlib.metadata.version("raghub"))
+    except importlib.metadata.PackageNotFoundError:
+        typer.echo("unknown")
 
 
-__all__ = ["CLI_LIMITER", "RATE_LIMIT_EXEMPT_COMMANDS", "build_parser", "main"]
+def main() -> None:
+    """Entry point for the ``raghub`` console script."""
+    raise typer.Exit(app())
+
+
+__all__ = ["app", "health", "main", "version"]

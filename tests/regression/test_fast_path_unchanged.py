@@ -24,7 +24,7 @@ from unittest.mock import patch
 
 import pytest
 
-from raghub.config.settings import AppSettings
+from raghub.config import Settings
 from raghub.generation.generator import DefaultGenerator
 from raghub.llm.heuristic import HeuristicLLMProvider
 from raghub.models import PipelineContext, UserPrincipal
@@ -152,7 +152,7 @@ async def test_fast_path_through_rag_facade() -> None:
     from raghub.api.rag import RAG
 
     with tempfile.TemporaryDirectory() as tmp:
-        settings = AppSettings(data_dir=Path(tmp))
+        settings = Settings(data_dir=Path(tmp))
         rag = RAG(settings=settings)
         user = UserPrincipal(email="a@b.c", allowed_companies=[])
         embedder = rag.embedder

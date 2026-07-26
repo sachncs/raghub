@@ -17,11 +17,11 @@ from raghub.agent.tools.registry import ToolRegistry
 from raghub.agent.tools.summary_search import SummarySearchTool
 from raghub.agent.tools.vector_search import VectorSearchTool
 from raghub.agent.tools.web_search import WebSearchTool
-from raghub.config.settings import AppSettings
+from raghub.config import Settings
 
 
 def build_tool_registry(
-    settings: AppSettings,
+    settings: Settings,
     *,
     retrieval_pipeline: Any,
     vector_store: Any,

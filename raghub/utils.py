@@ -1,3 +1,34 @@
+"""Utility helpers.
+
+This package ships small, dependency-free helpers used across the
+codebase:
+
+* :func:`atomic_write_json` — atomic disk write via a temporary file
+  and ``os.replace``.
+* :func:`load_json` — JSON loader with a sensible default.
+* :func:`retry` (in :mod:`.retry`) — exponential-backoff retry for
+  transient upstream errors.
+"""
+"""Exception-aware callable execution helpers."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
+
+
+def capture(call: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, Exception | None]:
+    """Return a callable result and any raised exception."""
+    try:
+        return call(*args, **kwargs), None
+    except Exception as error:
+        return None, error
+
+
+__all__ = ["capture"]
+
+
+
 """Exponential-backoff retry helper for transient failure recovery.
 
 This module provides a single function, :func:`retry`, that runs a

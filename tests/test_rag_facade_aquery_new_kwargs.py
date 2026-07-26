@@ -9,12 +9,12 @@ from typing import Any
 import pytest
 
 from raghub.api.rag import RAG
-from raghub.config.settings import AppSettings
+from raghub.config import Settings
 from raghub.models import UserPrincipal
 
 
 def build_rag(tmp: Path) -> RAG:
-    s = AppSettings(data_dir=tmp)
+    s = Settings(data_dir=tmp)
     return RAG(settings=s)
 
 

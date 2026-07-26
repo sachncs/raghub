@@ -1,0 +1,58 @@
+"""``raghub eval ...`` — evaluation harnesses for RAGHub.
+
+Exposes the Typer ``app`` so :mod:`raghub.cli.main` can attach it as
+a sub-typer (``raghub eval financebench``).
+"""
+
+from __future__ import annotations
+
+import statistics
+
+import typer
+
+from raghub.cli.format import write_json
+
+app = typer.Typer(help="Evaluation harnesses.", no_args_is_help=True)
+
+
+@app.command(name="financebench")
+def financebench(
+    examples: int = typer.Option(10, "--examples", "-n", help="Number of examples (0 = all)."),
+) -> None:
+    """Run the FinanceBench evaluator and print a JSON summary."""
+    import asyncio
+    from raghub.evaluation.financebench import FinanceBenchEvaluator
+
+    async def runner() -> None:
+        evaluator = FinanceBenchEvaluator()
+        examples_list: list = []
+        if examples:
+            rows = await asyncio.to_thread(evaluator.ensure_examples)
+            examples_list.extend(rows[:examples])
+
+        async def factory(_example: object) -> str:
+            return ""
+
+        results = await evaluator.evaluate(examples_list, response_factory=factory)
+        summary = {
+            "benchmark": evaluator.benchmark,
+            "count": len(results),
+            "pass_rate": statistics.mean(1.0 if r.passed else 0.0 for r in results)
+            if results
+            else 0.0,
+            "metrics": {
+                name: statistics.mean(r.metrics.get(name, 0.0) for r in results)
+                for name in {k for r in results for k in r.metrics}
+            },
+        }
+        write_json(
+            {
+                "summary": summary,
+                "results": [r.model_dump(mode="json") for r in results],
+            }
+        )
+
+    asyncio.run(runner())
+
+
+__all__ = ["app", "financebench"]

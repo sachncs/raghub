@@ -12,7 +12,7 @@ import pytest
 from raghub.api.app import create_app
 from raghub.api.dependencies import get_application
 from raghub.auth.user_store import SqliteUserStore
-from raghub.config.settings import AppSettings
+from raghub.config import Settings
 from raghub.services.application import DynamicRagApplication
 
 
@@ -24,7 +24,7 @@ def _build_app(tmp: Path) -> tuple[Any, SqliteUserStore]:
     from raghub.storage.database import DatabaseManager
     from raghub.storage.sqlite_session_store import SqliteSessionStore
 
-    s = AppSettings(data_dir=tmp, environment="development")
+    s = Settings(data_dir=tmp, environment="development")
     store = SqliteUserStore(tmp / "users.db")
     asyncio.run(store.initialize())
     asyncio.run(store.create_user("alice@acme.com", "password"))

@@ -14,10 +14,11 @@ def _make_app(tmp_path: Path):
     os.environ["JWT_SECRET"] = "x" * 64
     from pydantic import SecretStr
 
-    from raghub.config.settings import load_settings
+    from raghub.config import Settings
     from raghub.services.application import DynamicRagApplication, build_container
 
-    settings = load_settings()
+    from raghub.config import Settings as _Settings
+    settings = _Settings.load()
     settings.data_dir = tmp_path
     settings.registry_path = tmp_path / "registry.db"
     settings.sessions_path = tmp_path / "sessions.db"
@@ -139,10 +140,10 @@ def test_dynamic_app_raghub_users_invalid_json_raises(
     monkeypatch.setenv("RAGHUB_USERS", "{not json")
     import asyncio
 
-    from raghub.config.settings import load_settings
     from raghub.services.application import build_container
+    from raghub.config import Settings
 
-    settings = load_settings()
+    settings = Settings.load()
     settings.data_dir = tmp_path
     settings.registry_path = tmp_path / "registry.db"
     settings.sessions_path = tmp_path / "sessions.db"
@@ -158,12 +159,13 @@ def test_dynamic_app_build_container_raises_without_jwt_secret(
 ) -> None:
     """``build_container`` refuses to start when ``JWT_SECRET`` is empty."""
     from pydantic import SecretStr
+    from raghub.config import Settings
 
     monkeypatch.delenv("JWT_SECRET", raising=False)
-    from raghub.config.settings import AppSettings
     from raghub.services.application import build_container
 
-    settings = AppSettings(environment="development")
+    from raghub.config import Settings
+    settings = Settings(environment="development")
     settings.jwt_secret = SecretStr("")
     with pytest.raises(RuntimeError, match="JWT_SECRET"):
         asyncio.run(build_container(settings))

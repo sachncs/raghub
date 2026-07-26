@@ -16,7 +16,7 @@ from io import BytesIO
 
 from PIL import Image
 
-from raghub.utils.execution import capture
+from raghub.utils import capture
 
 from .base import FileParser, ParsedSection
 

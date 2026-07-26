@@ -25,16 +25,16 @@ class TestGetAttr:
 
 class TestBuildApplication:
     async def test_build_application_requires_settings(self, monkeypatch) -> None:
-        from raghub.config.settings import AppSettings
+        from raghub.config import Settings
 
-        settings = AppSettings(
+        settings = Settings(
             environment="test",
             jwt_secret="test-secret",
             data_dir="/tmp/raghub_test",
         )
         builder_called = False
 
-        async def mock_build_container(s: AppSettings) -> object:
+        async def mock_build_container(s: Settings) -> object:
             nonlocal builder_called
             builder_called = True
             assert s is settings
@@ -61,7 +61,7 @@ class TestBuildApplication:
             )
 
         monkeypatch.setattr("raghub.services.application.build_container", mock_build_container)
-        monkeypatch.setattr("raghub.core.container.load_settings", lambda *a, **kw: settings)
+        monkeypatch.setattr("raghub.config.Settings.load", classmethod(lambda cls, *a, **kw: settings))
 
         await build_application()
         assert builder_called

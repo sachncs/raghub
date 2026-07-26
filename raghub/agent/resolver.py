@@ -5,7 +5,7 @@ Precedence (highest wins):
 1. Request-level overrides (``QueryRequest.tools_enabled`` etc.)
 2. Session-level overrides (Phase 1.12 — conversation metadata)
 3. User preferences (``UserPrincipal.tool_settings``)
-4. Global defaults from :class:`AppSettings`
+4. Global defaults from :class:`Settings`
 
 The resolver is pure: it never reads a database or calls the LLM. All
 callers feed it the three override layers they already loaded.
@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from raghub.config.settings import AppSettings
+from raghub.config import Settings
 
 ALLOWED_TOOLS = frozenset(
     {
@@ -162,7 +162,7 @@ def resolve(
     request_overrides: dict[str, Any] | None,
     session_overrides: dict[str, Any] | None,
     user_prefs: dict[str, Any] | None,
-    settings: AppSettings,
+    settings: Settings,
 ) -> ResolvedConfig:
     """Compute the effective config for one query.
 

@@ -26,7 +26,7 @@ import time
 from collections.abc import Sequence
 from typing import Any
 
-from raghub.config.settings import LongContextConfig
+from raghub.config import LongContextConfig
 from raghub.models import RankedList, RetrievalHit
 from raghub.observability.metrics import record_long_context
 

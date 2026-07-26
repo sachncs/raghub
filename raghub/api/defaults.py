@@ -35,8 +35,8 @@ from raghub.retrieval.transforms import (
     MultiQueryTransformer,
     StepBackTransformer,
 )
-from raghub.structured.instructor import InstructorStructuredOutputProvider
-from raghub.telemetry.langfuse import LangfuseTelemetryProvider
+from raghub.structured import InstructorStructuredOutputProvider
+from raghub.telemetry import LangfuseTelemetryProvider
 from raghub.vectorstore.memory import InMemoryVectorStore
 from raghub.vectorstore.qdrant import QdrantVectorStore
 

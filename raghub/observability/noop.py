@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from raghub.interfaces.observability import Span, TelemetryProvider
-from raghub.telemetry.langfuse import NoopSpan
+from raghub.telemetry import NoopSpan
 
 __all__ = ["NoOpTelemetry", "NoopSpan"]
 

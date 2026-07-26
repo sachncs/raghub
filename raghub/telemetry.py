@@ -1,3 +1,15 @@
+"""Telemetry / observability adapters.
+
+The default adapter is Langfuse (spec requirement). The previous
+in-process stack (loguru + Prometheus + OpenTelemetry) is kept
+under :mod:`raghub.observability` for users who prefer not to send
+data to a third-party service.
+
+Public re-exports:
+
+* :class:`LangfuseTelemetryProvider` — the v3 Langfuse adapter.
+* :class:`LangfuseSpan` / :class:`NoopSpan` — concrete span types.
+"""
 """Langfuse v3 telemetry provider.
 
 A drop-in :class:`raghub.interfaces.observability.TelemetryProvider`

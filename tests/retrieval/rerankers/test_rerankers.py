@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from raghub.config.settings import AppSettings, RerankerConfig
+from raghub.config import Settings, RerankerConfig
 from raghub.exceptions import RerankerError
 from raghub.models import ChunkRecord, RetrievalHit
 from raghub.retrieval.rerankers.cascade import CascadeReranker
@@ -218,13 +218,13 @@ def test_factory_default_is_identity() -> None:
     """Provider ``"none"`` (the default) returns the no-op reranker."""
     from raghub.retrieval.reranker import IdentityReranker
 
-    s = AppSettings()
+    s = Settings()
     r = build_reranker(s)
     assert isinstance(r, IdentityReranker)
 
 
 def test_factory_llm_uses_heuristic_when_no_llm_provided() -> None:
-    s = AppSettings(reranker=RerankerConfig(provider="llm"))
+    s = Settings(reranker=RerankerConfig(provider="llm"))
     r = build_reranker(s)
     assert isinstance(r, LLMReranker)
 
@@ -232,7 +232,7 @@ def test_factory_llm_uses_heuristic_when_no_llm_provided() -> None:
 def test_factory_bge_returns_bge_reranker() -> None:
     from raghub.retrieval.rerankers.bge import BgeReranker
 
-    s = AppSettings(reranker=RerankerConfig(provider="bge"))
+    s = Settings(reranker=RerankerConfig(provider="bge"))
     r = build_reranker(s)
     assert isinstance(r, BgeReranker)
 
@@ -242,7 +242,7 @@ def test_factory_cascade_falls_back_to_bge_when_no_cohere_key() -> None:
     import os
 
     os.environ.pop("COHERE_API_KEY", None)
-    s = AppSettings(reranker=RerankerConfig(provider="cascade"))
+    s = Settings(reranker=RerankerConfig(provider="cascade"))
     r = build_reranker(s)
     assert isinstance(r, CascadeReranker)
     from raghub.retrieval.rerankers.bge import BgeReranker
@@ -256,7 +256,7 @@ def test_factory_unknown_provider_raises_at_validation() -> None:
     import pydantic
 
     with pytest.raises(pydantic.ValidationError):
-        AppSettings(reranker=RerankerConfig(provider="bogus"))
+        Settings(reranker=RerankerConfig(provider="bogus"))
 
 
 # --- CohereReranker construction ------------------------------------------

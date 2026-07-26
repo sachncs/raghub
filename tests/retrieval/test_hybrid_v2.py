@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from raghub.config.settings import HybridConfig
+from raghub.config import HybridConfig
 from raghub.embeddings.hashing import HashingEmbeddingProvider
 from raghub.exceptions import GraphUnavailableError
 from raghub.models import ChunkRecord, UserPrincipal

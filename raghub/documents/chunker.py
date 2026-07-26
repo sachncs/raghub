@@ -34,7 +34,7 @@ from uuid import uuid4
 from pypdf import PdfReader
 
 from raghub.models import ChunkRecord, Classification
-from raghub.utils.execution import capture
+from raghub.utils import capture
 
 
 @dataclass(frozen=True)

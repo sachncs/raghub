@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from raghub.config.settings import LongContextConfig
+from raghub.config import LongContextConfig
 from raghub.models import ChunkRecord, RetrievalHit
 from raghub.retrieval.long_context import LongContextRerankPass
 

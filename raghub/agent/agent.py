@@ -41,7 +41,7 @@ from raghub.agent.prompts import (
 )
 from raghub.agent.tools.base import ToolContext, ToolResult
 from raghub.agent.tools.registry import ToolRegistry
-from raghub.config.settings import AgentConfig
+from raghub.config import AgentConfig
 from raghub.exceptions import AgentBudgetExceeded, ToolError
 from raghub.models import ConversationTurn, UserPrincipal
 from raghub.observability.noop import NoOpTelemetry

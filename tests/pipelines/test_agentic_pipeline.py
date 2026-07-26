@@ -11,7 +11,7 @@ from raghub.agent.agent import Agent
 from raghub.agent.tools.base import BaseTool, ToolContext, ToolResult
 from raghub.agent.tools.date_today import DateTodayTool
 from raghub.agent.tools.registry import ToolRegistry
-from raghub.config.settings import AgentConfig
+from raghub.config import AgentConfig
 from raghub.embeddings.hashing import HashingEmbeddingProvider
 from raghub.generation.generator import DefaultGenerator
 from raghub.llm.heuristic import HeuristicLLMProvider

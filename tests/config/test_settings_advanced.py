@@ -1,12 +1,12 @@
-"""Phase 1.6 — AppSettings advanced-RAG blocks + env-var plumbing."""
+"""Phase 1.6 — Settings advanced-RAG blocks + env-var plumbing."""
 
 from __future__ import annotations
 
 import pytest
 
-from raghub.config.settings import (
+from raghub.config import (
     AgentConfig,
-    AppSettings,
+    Settings,
     HybridConfig,
     LongContextConfig,
     QueryTransformsConfig,
@@ -14,11 +14,9 @@ from raghub.config.settings import (
     WebSearchConfig,
     load_settings,
 )
-
-
 def test_app_settings_has_advanced_blocks() -> None:
     """Every new block exists with the documented defaults."""
-    s = AppSettings()
+    s = Settings()
     assert isinstance(s.agent, AgentConfig)
     assert isinstance(s.web_search, WebSearchConfig)
     assert isinstance(s.reranker, RerankerConfig)
@@ -50,7 +48,7 @@ def test_load_settings_default_resolves_advanced_blocks(monkeypatch: pytest.Monk
         "RAG_TRANSFORMS_ENABLED",
     ):
         monkeypatch.delenv(var, raising=False)
-    s = load_settings()
+    s = Settings.load()
     assert s.agent.enabled is False
     assert s.web_search.enabled is False
     assert s.reranker.provider == "none"
@@ -66,7 +64,7 @@ def test_load_settings_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RAG_HYBRID_FUSION", "rrf")
     monkeypatch.setenv("RAG_TRANSFORMS_ENABLED", "hyde,multi_query")
     monkeypatch.setenv("RAG_WEB_ENABLED", "true")
-    s = load_settings()
+    s = Settings.load()
     assert s.agent.enabled is True
     assert s.reranker.provider == "bge"
     assert s.hybrid.fusion == "rrf"
@@ -77,5 +75,5 @@ def test_load_settings_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_load_settings_filters_unknown_transforms(monkeypatch: pytest.MonkeyPatch) -> None:
     """Unknown transform names in the env var are dropped silently."""
     monkeypatch.setenv("RAG_TRANSFORMS_ENABLED", "hyde,BOGUS,multi_query")
-    s = load_settings()
+    s = Settings.load()
     assert s.query_transforms.enabled == ["hyde", "multi_query"]
