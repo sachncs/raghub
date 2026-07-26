@@ -17,8 +17,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from raghub.converters.marker import MarkerConverter
-from raghub.converters.plaintext import PlainTextConverter
+from raghub.documents import MarkerConverter
+from raghub.documents import PlainTextConverter
 from raghub.embeddings import HashingEmbeddingProvider
 from raghub.embeddings import LiteLLMEmbeddingProvider
 from raghub.exceptions import ConfigurationError

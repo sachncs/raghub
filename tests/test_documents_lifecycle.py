@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from raghub.documents.lifecycle import DocumentLifecycleManager
+from raghub.documents import DocumentLifecycleManager
 from raghub.models import Classification, DocumentLifecycleStatus, DocumentVersion, Visibility
 
 

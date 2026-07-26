@@ -6,18 +6,18 @@ from pathlib import Path
 
 import pytest
 
-from raghub.converters.directory import convert_path, select_converter_for_path
-from raghub.converters.markdown import (
+from raghub.documents import convert_path, select_converter_for_path
+from raghub.documents import (
     markdown_to_document_blocks,
     normalise_markdown,
 )
-from raghub.converters.marker import (
+from raghub.documents import (
     MARKER_AVAILABLE,
     MarkerConverter,
     build_marker_converter,
     looks_like_pdf,
 )
-from raghub.converters.plaintext import PlainTextConverter
+from raghub.documents import PlainTextConverter
 from raghub.exceptions import ConfigurationError, ConversionError
 from raghub.models import BlockKind, KnowledgeBundle
 
@@ -45,7 +45,7 @@ class TestLooksLikePdf:
 
 class TestMarkerConverterInit:
     def test_init_when_marker_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("raghub.converters.marker.MARKER_AVAILABLE", False)
+        monkeypatch.setattr("raghub.documents.MARKER_AVAILABLE", False)
         with pytest.raises(ConfigurationError, match="marker-pdf is not installed"):
             MarkerConverter()
 
@@ -185,8 +185,8 @@ class TestMarkerConverterConvert:
 
 class TestBuildMarkerConverter:
     def test_raises_when_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("raghub.converters.marker.MARKER_AVAILABLE", False)
-        monkeypatch.setattr("raghub.converters.marker.MarkerPdfConverter", None)
+        monkeypatch.setattr("raghub.documents.MARKER_AVAILABLE", False)
+        monkeypatch.setattr("raghub.documents.MarkerPdfConverter", None)
         with pytest.raises(ConfigurationError, match="marker-pdf is not installed"):
             build_marker_converter()
 
@@ -200,7 +200,7 @@ class TestSelectConverterForPath:
     def test_pdf_returns_marker_or_plaintext(self) -> None:
         converter = select_converter_for_path(Path("doc.pdf"))
         if MARKER_AVAILABLE:
-            from raghub.converters.marker import MarkerConverter
+            from raghub.documents import MarkerConverter
 
             assert isinstance(converter, MarkerConverter)
         else:
@@ -209,7 +209,7 @@ class TestSelectConverterForPath:
     def test_pdf_uppercase(self) -> None:
         converter = select_converter_for_path(Path("doc.PDF"))
         if MARKER_AVAILABLE:
-            from raghub.converters.marker import MarkerConverter
+            from raghub.documents import MarkerConverter
 
             assert isinstance(converter, MarkerConverter)
         else:
@@ -228,7 +228,7 @@ class TestSelectConverterForPath:
         assert isinstance(converter, PlainTextConverter)
 
     def test_pdf_fallback_on_marker_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from raghub.converters import directory as directory_module
+        from raghub.documents import directory as directory_module
 
         class _BrokenMarker:
             def __init__(self, *args, **kwargs):
@@ -255,8 +255,8 @@ class TestConvertPath:
 
     def test_pdf_routes_to_marker(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """For a .pdf path convert_path picks MarkerConverter."""
-        from raghub.converters import directory as directory_module
-        from raghub.converters import marker as marker_module
+        from raghub.documents import directory as directory_module
+        from raghub.documents import marker as marker_module
 
         recorded_source: list[str] = []
 
@@ -288,7 +288,7 @@ class TestConvertPath:
     def test_pdf_fallback_to_plaintext(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from raghub.converters import directory as directory_module
+        from raghub.documents import directory as directory_module
         from raghub.exceptions import ConfigurationError
 
         class _BrokenMarker:

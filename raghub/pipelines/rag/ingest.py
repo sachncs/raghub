@@ -167,7 +167,7 @@ class IngestPipeline(Pipeline):
             graph: Optional :class:`GraphRagIndex` (Phase 6.3).
                 Entity / community graph over the corpus.
         """
-        from raghub.converters.plaintext import PlainTextConverter
+        from raghub.documents import PlainTextConverter
         from raghub.ingestion.chunkers.word_window import WordWindowChunker
         from raghub.knowledge.repository import InMemoryKnowledgeRepository
         from raghub.observability import NoOpTelemetry

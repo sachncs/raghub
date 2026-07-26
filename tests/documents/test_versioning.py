@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from raghub.documents.versioning import new_version
+from raghub.documents import new_version
 from raghub.models import (
     ChunkRecord,
     DocumentLifecycleStatus,

@@ -396,7 +396,7 @@ class TestHealthServiceProbes:
 
 
 class TestDocumentIngestionServiceWrapper:
-    @patch("raghub.documents.validation.validate_upload")
+    @patch("raghub.documents.validate_upload")
     async def test_wrapper_routes_to_pipeline(self, mock_validate: MagicMock) -> None:
         """The wrapper must call the underlying pipeline exactly once."""
         from raghub.models import PipelineResult, UserPrincipal
@@ -442,7 +442,7 @@ class TestDocumentIngestionServiceWrapper:
         assert result.document.document_id == "doc-1"
         assert result.chunk_ids == []
 
-    @patch("raghub.documents.validation.validate_upload")
+    @patch("raghub.documents.validate_upload")
     async def test_failed_document_can_be_retried(self, mock_validate: MagicMock) -> None:
         """A FAILED record must be re-ingested (not short-circuited)."""
         from raghub.models import PipelineResult, UserPrincipal

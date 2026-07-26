@@ -30,7 +30,7 @@ def test_rag_from_config(tmp_path: Path) -> None:
 
 def test_rag_ingest_query_smoke() -> None:
     """Smoke: ingest plain text and ask a question."""
-    from raghub.converters.plaintext import PlainTextConverter
+    from raghub.documents import PlainTextConverter
     from raghub.ingestion.chunkers.word_window import WordWindowChunker
 
     rag = RAG()
@@ -301,7 +301,7 @@ def test_sync_index_does_not_record_failed_ingest(
 
 
 def test_sync_index_replaces_modified_vectors(tmp_path: Path) -> None:
-    from raghub.converters.plaintext import PlainTextConverter
+    from raghub.documents import PlainTextConverter
     from raghub.ingestion.chunkers.word_window import WordWindowChunker
     from raghub.knowledge.manifest import SourceManifest
     from raghub.vectorstore.memory import InMemoryVectorStore

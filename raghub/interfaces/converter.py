@@ -2,8 +2,8 @@
 
 The contract normalisation layer between source documents and the
 canonical :class:`raghub.models.KnowledgeBundle`. Concrete
-implementations include :class:`raghub.converters.marker.MarkerConverter`
-(default) and :class:`raghub.converters.directory.DirectoryConverter`.
+implementations include :class:`raghub.documents.MarkerConverter`
+(default) and :class:`raghub.documents.DirectoryConverter`.
 """
 
 from __future__ import annotations

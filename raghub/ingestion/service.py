@@ -36,8 +36,8 @@ from dataclasses import dataclass
 from hashlib import sha256
 
 from raghub.api.defaults import default_converter
-from raghub.documents import validation as validation_module
-from raghub.documents.lifecycle import DocumentLifecycleManager
+from raghub.documents import validate_upload
+from raghub.documents import DocumentLifecycleManager
 from raghub.embeddings import BaseEmbeddingProvider
 from raghub.exceptions import DocumentError
 from raghub.ingestion.background import BackgroundIngestionService
@@ -176,7 +176,7 @@ class DocumentIngestionService:
                 embedding provider and the application's vector store
                 pulled from ``uow``.
             plan: Backwards-compatibility shim. Older callers pass a
-                :class:`raghub.documents.chunker.ChunkingPlan` here; the
+                :class:`raghub.documents.ChunkingPlan` here; the
                 new ingest pipeline reads chunk size from
                 ``settings.chunk_size_words`` instead, so this argument
                 is accepted and ignored.
@@ -271,7 +271,7 @@ class DocumentIngestionService:
         Steps:
 
         1. Validate file name, MIME, and size via
-           :func:`raghub.documents.validation.validate_upload`.
+           :func:`raghub.documents.validate_upload`.
         2. Run the optional virus scan hook.
         3. Compute the SHA-256 checksum and look up an existing record.
            If a ``READY`` duplicate exists, return it unchanged.
@@ -299,7 +299,7 @@ class DocumentIngestionService:
                 is left in ``FAILED`` state with the error message
                 persisted.
         """
-        mime_type = validation_module.validate_upload(file_name, file_bytes, self.max_upload_bytes)
+        mime_type = validate_upload(file_name, file_bytes, self.max_upload_bytes)
         self.virus_scan_hook(file_bytes)
         checksum = sha256(file_bytes).hexdigest()
 

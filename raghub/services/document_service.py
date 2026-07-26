@@ -17,7 +17,7 @@ import time
 from typing import Any
 
 from raghub.core import can_access_company
-from raghub.documents.validation import detect_mime_type
+from raghub.documents import detect_mime_type
 from raghub.exceptions import AuthorizationError, DocumentError
 from raghub.ingestion.service import IngestionResult
 from raghub.models import DocumentRecord

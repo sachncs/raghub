@@ -8,7 +8,7 @@ pytest.importorskip("hypothesis")
 from hypothesis import given
 from hypothesis import strategies as st
 
-from raghub.documents.chunker import ChunkingPlan, chunk_words, normalize_text
+from raghub.documents import ChunkingPlan, chunk_words, normalize_text
 from raghub.evaluation.metrics import (
     answer_correctness,
     context_precision,

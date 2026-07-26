@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from raghub.generation.generator import DefaultGenerator
+from raghub.generation import DefaultGenerator
 from raghub.llm import BaseLLMProvider
 from raghub.models import ConversationTurn
 
