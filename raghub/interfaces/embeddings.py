@@ -39,3 +39,6 @@ class EmbeddingProvider(Protocol):
         Returns:
             A list of fixed-dimensional float vectors, one per input.
         """
+
+
+__all__ = ["EmbeddingProvider"]

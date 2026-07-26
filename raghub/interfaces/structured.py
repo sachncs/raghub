@@ -54,3 +54,6 @@ class StructuredOutputProvider(Protocol):
         Yields:
             Partial or fully-typed instances.
         """
+
+
+__all__ = ["StructuredOutputProvider"]

@@ -53,3 +53,6 @@ class KnowledgeRepository(Protocol):
         Args:
             bundle_id: The bundle id.
         """
+
+
+__all__ = ["KnowledgeRepository"]

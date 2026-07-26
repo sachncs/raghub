@@ -44,3 +44,6 @@ class Chunker(Protocol):
         Returns:
             A list of :class:`Chunk` records.
         """
+
+
+__all__ = ["Chunker"]

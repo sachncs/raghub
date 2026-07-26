@@ -26,3 +26,6 @@ class Plugin(Protocol):
             registry: The active registry. Use its ``register_*``
                 helpers rather than mutating globals.
         """
+
+
+__all__ = ["Plugin"]

@@ -41,3 +41,6 @@ class PromptBuilder(Protocol):
             to feed into an LLM that accepts the OpenAI ChatML
             message format.
         """
+
+
+__all__ = ["PromptBuilder"]

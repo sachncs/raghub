@@ -10,9 +10,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from raghub.models import (
-    KnowledgeBundle,
-)
+from raghub.models import KnowledgeBundle
 
 
 class DocumentConverter(Protocol):
@@ -44,3 +42,6 @@ class DocumentConverter(Protocol):
         Returns:
             The canonical :class:`KnowledgeBundle`.
         """
+
+
+__all__ = ["DocumentConverter"]

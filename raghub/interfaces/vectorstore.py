@@ -116,3 +116,6 @@ class VectorStore(Protocol):
         Returns:
             A list of hit dicts in backend-native shape.
         """
+
+
+__all__ = ["VectorStore"]

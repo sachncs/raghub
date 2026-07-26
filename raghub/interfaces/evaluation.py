@@ -35,3 +35,6 @@ class Evaluator(Protocol):
         Returns:
             One :class:`EvaluationResult` per example.
         """
+
+
+__all__ = ["Evaluator"]

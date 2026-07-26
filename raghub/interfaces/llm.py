@@ -45,3 +45,6 @@ class LLMProvider(Protocol):
         Returns:
             The provider's reply as a string.
         """
+
+
+__all__ = ["LLMProvider"]
