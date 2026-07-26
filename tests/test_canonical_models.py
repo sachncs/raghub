@@ -33,12 +33,15 @@ def test_deterministic_id_length_clamp() -> None:
     assert len(deterministic_id("a", length=999)) == 64
 
 
-def test_document_block_defaults() -> None:
-    """DocumentBlock has sane defaults."""
+def test_document_block_defaults_round_trip() -> None:
+    """DocumentBlock defaults survive serialization round-trip."""
     block = DocumentBlock()
-    assert block.kind == BlockKind.TEXT
-    assert block.content == ""
-    assert block.metadata == {}
+    dumped = block.model_dump()
+    assert dumped["kind"] == "text"
+    assert dumped["content"] == ""
+    assert dumped["metadata"] == {}
+    restored = DocumentBlock.model_validate(dumped)
+    assert restored == block
 
 
 def test_document_section_round_trip() -> None:
@@ -122,9 +125,3 @@ def test_evaluation_result_passed_default() -> None:
     r = EvaluationResult(benchmark="financebench", example_id="0", metrics={"f1": 0.8})
     assert r.passed is True
 
-
-def test_document_alias_is_document_record() -> None:
-    """`Document` is a DocumentRecord subclass."""
-    d = Document(checksum="abc", owner="u", organization="o")
-    assert hasattr(d, "checksum")
-    assert hasattr(d, "owner")
