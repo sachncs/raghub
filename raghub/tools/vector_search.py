@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from raghub.agent.tools.base import BaseTool, ToolContext, ToolResult
+from raghub.tools.base import BaseTool, ToolContext, ToolResult
 from raghub.models import UserPrincipal
 
 

@@ -38,7 +38,7 @@ from typing import Any
 
 from tqdm import tqdm
 
-from raghub.agent.agent import Agent, AgentTrace
+from raghub.agent import Agent, AgentTrace
 from raghub.embeddings import BaseEmbeddingProvider
 from raghub.exceptions import PipelineError
 from raghub.interfaces.chunker import Chunker

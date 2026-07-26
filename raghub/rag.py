@@ -42,8 +42,8 @@ import yaml
 from pydantic import BaseModel
 from tqdm import tqdm
 
-from raghub.agent.agent import Agent
-from raghub.agent.builder import build_tool_registry
+from raghub.agent import Agent
+from raghub.agent import build_tool_registry
 from raghub.utils import maybe_await_sync as maybe_await
 from raghub.api.response import build_response
 from raghub.config import Settings
@@ -76,8 +76,8 @@ from raghub.retrieval.colbert import ColbertLateInteraction
 from raghub.retrieval.long_context import LongContextRerankPass
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.retrieval.rerankers.factory import build_reranker
-from raghub.agent.events import PlannerEvent
-from raghub.agent.resolver import resolve
+from raghub.agent import PlannerEvent
+from raghub.agent import resolve
 
 T = TypeVar("T", bound=BaseModel)
 

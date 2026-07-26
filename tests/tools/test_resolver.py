@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from raghub.agent.resolver import (
+from raghub.agent import (
     ALLOWED_RERANKERS,
     ALLOWED_TOOLS,
     ALLOWED_TRANSFORMS,

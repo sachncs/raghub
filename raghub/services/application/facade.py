@@ -20,7 +20,7 @@ import asyncio
 import importlib.util
 from typing import Any
 
-from raghub.agent.resolver import resolve
+from raghub.agent import resolve
 from raghub.auth import AuthService
 from raghub.models import (
     AuthLoginResponse,

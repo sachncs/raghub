@@ -8,13 +8,13 @@ import pytest
 
 import asyncio
 
-from raghub.agent.tools.base import BaseTool, ToolContext, ToolResult
-from raghub.agent.tools.date_today import DateTodayTool
-from raghub.agent.tools.hybrid_search import HybridSearchTool
-from raghub.agent.tools.keyword_search import KeywordSearchTool
-from raghub.agent.tools.summary_search import SummarySearchTool
-from raghub.agent.tools.vector_search import VectorSearchTool
-from raghub.agent.tools.web_search import WebSearchTool
+from raghub.tools.base import BaseTool, ToolContext, ToolResult
+from raghub.tools.date_today import DateTodayTool
+from raghub.tools.hybrid_search import HybridSearchTool
+from raghub.tools.keyword_search import KeywordSearchTool
+from raghub.tools.summary_search import SummarySearchTool
+from raghub.tools.vector_search import VectorSearchTool
+from raghub.tools.web_search import WebSearchTool
 from raghub.embeddings import HashingEmbeddingProvider
 from raghub.models import ChunkRecord, UserPrincipal
 from raghub.retrieval.pipeline import RetrievalPipeline
