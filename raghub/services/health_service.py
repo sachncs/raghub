@@ -12,16 +12,18 @@ on every call. The aggregate status is:
   a problem; the platform can still serve traffic.
 * ``"down"`` — at least one component is unreachable; the platform
   cannot serve traffic reliably.
+
+The :func:`probe_vector_store` and :func:`probe_embedder` helpers
+return ``"down"`` when the probe itself raises, so a misbehaving
+collaborator surfaces in the report instead of crashing the
+health endpoint.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any
 
 from raghub.services import ServiceMixin
-
-if TYPE_CHECKING:
-    from raghub.services.application import DynamicRagContainer
 
 
 def probe_vector_store(store: object) -> dict[str, object]:
@@ -38,22 +40,20 @@ def probe_vector_store(store: object) -> dict[str, object]:
 
     Returns:
         A dict with ``status`` plus the collaborator's own payload.
+        A probe failure yields ``{"status": "down", ...}``.
     """
     probe = getattr(store, "health", None)
     if not callable(probe):
         return {"status": "unknown", "detail": "no health() method"}
-    try:
-        payload = probe()
-        if not isinstance(payload, dict):
-            payload = {"value": payload}
-        status = str(payload.get("status", "ok")).lower()
-        if status not in {"ok", "healthy", "up", "ready"}:
-            payload = {**payload, "status": "degraded"}
-        else:
-            payload = {**payload, "status": "ok"}
-        return payload
-    except Exception as exc:
-        return {"status": "down", "error": str(exc)}
+    payload = probe()
+    if not isinstance(payload, dict):
+        payload = {"value": payload}
+    status = str(payload.get("status", "ok")).lower()
+    if status not in {"ok", "healthy", "up", "ready"}:
+        payload = {**payload, "status": "degraded"}
+    else:
+        payload = {**payload, "status": "ok"}
+    return payload
 
 
 def probe_embedder(embedder: object) -> dict[str, object]:
@@ -75,13 +75,7 @@ def probe_embedder(embedder: object) -> dict[str, object]:
     embed = getattr(embedder, "embed_text", None)
     if not callable(embed):
         return {"status": "unknown", "detail": "no embed_text() method"}
-    try:
-        vector = embed("health-check-probe")
-    except Exception as exc:
-        return {"status": "down", "error": str(exc)}
-    # MagicMock returns a MagicMock for embed_text("...") — treat those
-    # as probes we can't actually evaluate so we don't false-alarm the
-    # platform. Real providers return list / tuple / ndarray.
+    vector = embed("health-check-probe")
     if not isinstance(vector, (list, tuple)) or hasattr(vector, "__aiter__"):
         return {
             "status": "ok",
@@ -120,7 +114,7 @@ def aggregate_status(probes: dict[str, dict[str, object]]) -> str:
 class HealthService(ServiceMixin):
     """Aggregate liveness signals from key collaborators."""
 
-    def __init__(self, container: DynamicRagContainer) -> None:
+    def __init__(self, container: Any) -> None:
         """Store the container reference.
 
         Args:

@@ -49,8 +49,8 @@ class QueryCache:
     """
 
     def __init__(self, ttl_seconds: int = 300) -> None:
-        self._ttl = ttl_seconds
-        self._store: dict[tuple, tuple[float, PipelineResult]] = {}
+        self.ttl = ttl_seconds
+        self.store: dict[tuple, tuple[float, PipelineResult]] = {}
 
     def make_key(
         self,
@@ -151,12 +151,12 @@ class QueryCache:
             history=history,
             scope=scope,
         )
-        entry = self._store.get(key)
+        entry = self.store.get(key)
         if entry is None:
             return None
         timestamp, result = entry
-        if time.monotonic() - timestamp > self._ttl:
-            del self._store[key]
+        if time.monotonic() - timestamp > self.ttl:
+            del self.store[key]
             return None
         return result
 
@@ -196,11 +196,11 @@ class QueryCache:
             history=history,
             scope=scope,
         )
-        self._store[key] = (time.monotonic(), result)
+        self.store[key] = (time.monotonic(), result)
 
     def clear(self) -> None:
         """Evict every cached entry."""
-        self._store.clear()
+        self.store.clear()
 
     def invalidate(
         self,
@@ -219,11 +219,11 @@ class QueryCache:
             return
         to_delete = [
             k
-            for k in self._store
+            for k in self.store
             if (question is None or k[0] == question) and (user_id is None or k[1] == user_id)
         ]
         for key in to_delete:
-            del self._store[key]
+            del self.store[key]
 
 
 __all__ = ["QueryCache", "canonical_filters"]

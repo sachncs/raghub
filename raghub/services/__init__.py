@@ -10,15 +10,18 @@ all get a uniform ``log()`` and ``emit_metric()`` API. The mixin tolerates
 collaborators that don't implement the optional ``info`` /
 ``record_latency`` methods, which keeps services usable in tests where
 the container holds lightweight stubs.
+
+Importing the package alone does **not** eagerly import the
+application facade or the workers — those are exposed via
+``__getattr__`` so a service module that imports :class:`ServiceMixin`
+does not pull in the application package (and the cycle it would
+trigger).
 """
 
-from __future__ import annotations  # isort: skip
+from __future__ import annotations
 
 import time
 from typing import Any
-
-from .application import DynamicRagApplication, DynamicRagContainer, build_container
-from .workers import InMemoryTaskQueue, SynchronousWorker, ThreadPoolWorker
 
 
 class ServiceMixin:
@@ -50,13 +53,7 @@ class ServiceMixin:
         logger = getattr(self.container, "logger", None)
         log_method = getattr(logger, "info", None) if logger else None
         if callable(log_method):
-            try:
-                log_method(message, extra=payload)
-            except TypeError:
-                # Some logger implementations don't accept ``extra``;
-                # degrade to a plain formatted message so we never lose
-                # the event entirely.
-                log_method(f"{message} {payload}")
+            log_method(message, extra=payload)
 
     def emit_metric(self, name: str, started_at: float) -> None:
         """Record a latency metric given a ``perf_counter`` start time.
@@ -69,9 +66,41 @@ class ServiceMixin:
         metrics = getattr(self.container, "metrics", None)
         recorder = getattr(metrics, "record_latency", None) if metrics else None
         if callable(recorder):
-            # ``perf_counter`` returns fractional seconds; we want ms to
-            # match the histogram buckets configured in metrics.
             recorder(name, (time.perf_counter() - started_at) * 1000.0)
+
+
+_LAZY_EXPORTS: dict[str, tuple[str, str]] = {
+    "DynamicRagApplication": ("raghub.services.application", "DynamicRagApplication"),
+    "DynamicRagContainer": ("raghub.services.application", "DynamicRagContainer"),
+    "build_container": ("raghub.services.application", "build_container"),
+    "InMemoryTaskQueue": ("raghub.services.workers", "InMemoryTaskQueue"),
+    "SynchronousWorker": ("raghub.services.workers", "SynchronousWorker"),
+    "ThreadPoolWorker": ("raghub.services.workers", "ThreadPoolWorker"),
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Lazily expose the application facade and worker primitives.
+
+    Args:
+        name: One of ``DynamicRagApplication``, ``DynamicRagContainer``,
+            ``build_container``, ``InMemoryTaskQueue``,
+            ``SynchronousWorker``, or ``ThreadPoolWorker``.
+
+    Returns:
+        The corresponding object from the :mod:`raghub.services.application`
+        or :mod:`raghub.services.workers` submodule.
+
+    Raises:
+        AttributeError: When ``name`` is not a known lazy attribute.
+    """
+    target = _LAZY_EXPORTS.get(name)
+    if target is None:
+        raise AttributeError(f"module 'raghub.services' has no attribute {name!r}")
+    import importlib
+
+    module = importlib.import_module(target[0])
+    return getattr(module, target[1])
 
 
 __all__ = [

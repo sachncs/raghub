@@ -12,14 +12,11 @@ JWT library is involved.
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from raghub.exceptions import AuthenticationError
 from raghub.models import AuthLoginResponse, ConversationTurn, UserPrincipal
 from raghub.services import ServiceMixin
-
-if TYPE_CHECKING:
-    from raghub.services.application import DynamicRagContainer
 
 
 class AuthService(ServiceMixin):
@@ -29,7 +26,7 @@ class AuthService(ServiceMixin):
         container: The application container.
     """
 
-    def __init__(self, container: DynamicRagContainer) -> None:
+    def __init__(self, container: Any) -> None:
         """Store the container reference.
 
         Args:
@@ -131,14 +128,12 @@ class AuthService(ServiceMixin):
             The stored ``tool_settings`` dict, or ``{}`` when the
             store lacks the method (e.g. a custom in-memory store
             used by tests) so the principal is always well-formed.
+            Store-level exceptions propagate to the caller.
         """
         store = getattr(self.container, "user_store", None)
         if store is None or not hasattr(store, "get_pref"):
             return {}
-        try:
-            value = await store.get_pref(user_id, "tool_settings")
-        except Exception:
-            return {}
+        value = await store.get_pref(user_id, "tool_settings")
         return value if isinstance(value, dict) else {}
 
 

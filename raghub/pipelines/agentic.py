@@ -8,8 +8,8 @@ Differences from the legacy path:
   web / date / summary / graph).
 * The final answer is whatever the agent's ``final_answer`` turn
   produced; when the agent exhausts its budget, the pipeline
-  raises :class:`AgentBudgetExceeded` and the result carries
-  ``success=False``.
+  raises :class:`AgentBudgetExceeded` so callers can surface the
+  failure explicitly.
 * The agent's full trace is exposed via ``outputs["planner_trace"]``
   so the FastAPI surface can stream it via SSE (Phase 10).
 
@@ -19,13 +19,11 @@ the existing generator rather than reimplementing them.
 
 from __future__ import annotations
 
-import time
 from collections.abc import Sequence
 from typing import Any
 
 from raghub.agent.agent import Agent, AgentTrace
 from raghub.embeddings.base import BaseEmbeddingProvider
-from raghub.exceptions import AgentBudgetExceeded
 from raghub.interfaces.generator import Generator
 from raghub.interfaces.observability import TelemetryProvider
 from raghub.interfaces.vectorstore import VectorStore
@@ -35,9 +33,11 @@ from raghub.models import (
     ConversationTurn,
     PipelineContext,
     PipelineResult,
+    RetrievalHit,
     UserPrincipal,
 )
 from raghub.observability.noop import NoOpTelemetry
+from raghub.pipelines._timing import DurationTimer
 
 
 class AgenticQueryPipeline:
@@ -110,9 +110,10 @@ class AgenticQueryPipeline:
         Returns:
             A :class:`PipelineResult` carrying the agent's
             ``final_answer`` and the captured :class:`AgentTrace`.
+            When the agent exhausts its budget, the underlying
+            :class:`AgentBudgetExceeded` propagates to the caller.
         """
-        started = time.perf_counter()
-        try:
+        with DurationTimer(context):
             question: str = inputs["question"]
             user: UserPrincipal | None = inputs.get("user")
             session_id: str | None = inputs.get("session_id")
@@ -134,13 +135,9 @@ class AgenticQueryPipeline:
                     session_id=session_id,
                 )
 
-                # Synthesise citations from the captured observations
-                # (the agent stores every ToolResult it ran; the hit
-                # list lives inside ``observations[i].data["hits"]``).
                 citations = citations_from_trace(trace)
                 hits = hits_from_trace(trace, top_k)
 
-                # Optional second-pass rerank.
                 if (
                     self.long_context_pass is not None
                     and hits
@@ -151,21 +148,12 @@ class AgenticQueryPipeline:
                             question=question, hits=hits
                         )
 
-                # The agent's final_answer is the answer the user sees.
-                # The generator is consulted only for citation
-                # enrichment — its own textual answer is dropped in
-                # favour of the agent's (the heuristic / LiteLLM
-                # generator would otherwise overwrite the agent's
-                # carefully synthesised reply).
                 agent_answer = trace.final_answer
-                try:
-                    _generator_text, generator_citations = await self.generator.generate(
-                        question=question,
-                        context=hits,
-                        conversation=history,
-                    )
-                except Exception:
-                    generator_citations = []
+                _generator_text, generator_citations = await self.generator.generate(
+                    question=question,
+                    context=hits,
+                    conversation=history,
+                )
                 if not generator_citations:
                     generator_citations = citations
                 answer = agent_answer
@@ -187,26 +175,6 @@ class AgenticQueryPipeline:
                     "agent_trace": trace.to_dict(),
                 },
             )
-        except AgentBudgetExceeded as exc:
-            return PipelineResult(
-                pipeline_id=context.pipeline_id,
-                pipeline_name=self.name,
-                success=False,
-                error=str(exc),
-                outputs={
-                    "resolved_config": context.metadata.get("resolved_config"),
-                    "planner_trace": [],
-                },
-            )
-        except Exception as exc:
-            return PipelineResult(
-                pipeline_id=context.pipeline_id,
-                pipeline_name=self.name,
-                success=False,
-                error=f"agentic pipeline failed: {exc}",
-            )
-        finally:
-            context.metadata["duration_ms"] = (time.perf_counter() - started) * 1000.0
 
     async def astream(
         self,
@@ -279,8 +247,6 @@ def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
     Returns:
         A deduplicated, score-sorted list of :class:`RetrievalHit`.
     """
-    from raghub.models import RetrievalHit
-
     hits: list[RetrievalHit] = []
     for observation in trace.observations:
         name = observation.get("name", "")
