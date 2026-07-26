@@ -1,4 +1,4 @@
-"""Tests for raghub.structured.instructor."""
+"""Tests for raghub.generation.InstructorStructuredOutputProvider."""
 from __future__ import annotations
 
 from typing import Any
@@ -6,11 +6,8 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
+from raghub.generation import InstructorStructuredOutputProvider
 from raghub.models import ChunkRecord, Classification, RetrievalHit
-from raghub.structured.instructor import (
-    INSTRUCTOR_AVAILABLE,
-    InstructorStructuredOutputProvider,
-)
 from raghub.vectorstore.memory import InMemoryVectorStore
 
 
@@ -31,11 +28,6 @@ def _hit(text: str = "hello") -> RetrievalHit:
         classification=Classification.INTERNAL,
     )
     return RetrievalHit(chunk_id=chunk.chunk_id, score=1.0, chunk=chunk)
-
-
-def test_instructor_is_marked_available() -> None:
-    """The module-level flag reflects whether ``instructor`` imported."""
-    assert INSTRUCTOR_AVAILABLE is True
 
 
 def test_provider_initialises_with_default_client() -> None:

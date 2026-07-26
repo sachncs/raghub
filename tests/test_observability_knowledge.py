@@ -609,7 +609,7 @@ class TestDefaultStructured:
     def test_with_api_key_returns_instructor(self):
         with (
             patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
-            patch("raghub.structured.instructor.InstructorStructuredOutputProvider") as mock_inst,
+            patch("raghub.generation.InstructorStructuredOutputProvider") as mock_inst,
         ):
             from raghub.api.defaults import default_structured
 
@@ -620,7 +620,7 @@ class TestDefaultStructured:
         with (
             patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
             patch(
-                "raghub.structured.instructor.InstructorStructuredOutputProvider",
+                "raghub.generation.InstructorStructuredOutputProvider",
                 side_effect=ImportError("not installed"),
             ),
         ):
@@ -635,7 +635,7 @@ class TestDefaultStructured:
         with (
             patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
             patch(
-                "raghub.structured.instructor.InstructorStructuredOutputProvider",
+                "raghub.generation.InstructorStructuredOutputProvider",
                 side_effect=ConfigurationError("fail"),
             ),
         ):
