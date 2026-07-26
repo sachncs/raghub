@@ -1,19 +1,18 @@
-"""Generation pipeline.
+"""Generation pipeline and structured-output provider.
 
-Orchestrates prompt construction, LLM invocation, and citation
-attachment. The default is :class:`DefaultGenerator` which wraps any
-:class:`raghub.llm.BaseLLMProvider`.
-"""
-"""Default generator — wraps an LLM provider with citation handling.
+This module groups the two pieces of code that sit between the
+retrieval layer and the response surface:
 
-The default :class:`Generator` implementation used by the RAG
-facade. It assembles an LLM call from the prompt builder + retrieval
-hits and returns the answer plus typed :class:`Citation` records.
+* :class:`DefaultGenerator` — orchestrates prompt construction,
+  LLM invocation, and citation attachment. Wraps any
+  :class:`raghub.llm.BaseLLMProvider` and returns ``(answer,
+  citations)`` tuples.
+* :class:`InstructorStructuredOutputProvider` — coerces LLM
+  output into typed Pydantic models via Instructor v1+.
 
-When the underlying :class:`BaseLLMProvider` exposes a token
-counter (via the optional ``token_usage`` / ``last_usage``
-attribute), the generator records token usage back to the caller
-so observability pipelines can attribute cost.
+Both classes are domain-coupled (their entire purpose is
+"what the LLM emits"), so co-locating them avoids the
+single-class-per-folder pattern that the framework is collapsing.
 """
 
 from __future__ import annotations
@@ -22,13 +21,23 @@ import asyncio
 import inspect
 import os
 from collections.abc import AsyncIterator, Sequence
+from typing import TypeVar, cast
 
+import instructor
+from instructor.core.client import AsyncInstructor, Instructor
+from openai.types.chat import ChatCompletionMessageParam
+from pydantic import BaseModel
+
+from raghub.exceptions import ConfigurationError
+from raghub.interfaces.structured import StructuredOutputProvider
 from raghub.llm.base import BaseLLMProvider
 from raghub.models import (
     Citation,
     ConversationTurn,
     RetrievalHit,
 )
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class DefaultGenerator:
@@ -38,6 +47,11 @@ class DefaultGenerator:
     :class:`raghub.interfaces.generator.Generator`-conforming object.
     For more sophisticated flows (multi-hop, routing, agent loops)
     construct your own :class:`Generator` implementation.
+
+    When the underlying :class:`BaseLLMProvider` exposes a token
+    counter (via the optional ``token_usage`` / ``last_usage``
+    attribute), the generator records token usage back to the caller
+    so observability pipelines can attribute cost.
     """
 
     def __init__(
@@ -126,26 +140,7 @@ class DefaultGenerator:
                     source_uri=hit.chunk.source_location,
                 )
             )
-        # Capture token usage if the LLM provider exposes it.
-        usage = getattr(self.llm, "last_usage", None) or getattr(self.llm, "token_usage", None)
-        if isinstance(usage, dict):
-            self.last_usage = {
-                "prompt": int(
-                    usage.get(
-                        "prompt_tokens",
-                        usage.get("prompt", usage.get("input", 0)),
-                    )
-                    or 0
-                ),
-                "completion": int(
-                    usage.get(
-                        "completion_tokens",
-                        usage.get("completion", usage.get("output", 0)),
-                    )
-                    or 0
-                ),
-                "model": str(usage.get("model", getattr(self.llm, "model_name", "")) or ""),
-            }
+        self.capture_last_usage()
         return answer, citations
 
     def record_tokens(self) -> dict[str, int | str] | None:
@@ -180,10 +175,8 @@ class DefaultGenerator:
             ):
                 if piece:
                     yield piece
-            # Capture token usage if the LLM provider exposed it.
             self.capture_last_usage()
             return
-        # Fallback: full answer, yielded as one piece.
         answer, _ = await self.generate(
             question=question, context=context, conversation=conversation
         )
@@ -214,4 +207,119 @@ class DefaultGenerator:
             }
 
 
-__all__ = ["DefaultGenerator"]
+class InstructorStructuredOutputProvider(StructuredOutputProvider):
+    """Generate typed Pydantic outputs via Instructor.
+
+    Backed by LiteLLM through Instructor's ``from_provider`` factory
+    (Instructor v1+ required). The provider is constructed via the
+    documented ``instructor.from_provider('litellm/<model>')`` entry
+    point and uses the documented
+    ``client.create(messages=..., response_model=...)`` API for both
+    sync and async generation.
+
+    Instructor is a required dependency of the structured-output tier.
+    """
+
+    def __init__(
+        self,
+        *,
+        model: str = "gpt-4o-mini",
+        api_key: str | None = None,
+        async_client: bool = True,
+    ) -> None:
+        """Initialise the provider.
+
+        Args:
+            model: LiteLLM model name; the provider string is
+                ``"litellm/<model>"``.
+            api_key: Optional API key override.
+            async_client: When ``True`` (default) build an async
+                client for :meth:`generate`. When ``False`` the
+                provider works synchronously.
+        """
+        self.model = model
+        self.api_key = api_key
+        self.async_client = async_client
+        self.client: Instructor | None = None
+        self.client_async: AsyncInstructor | None = None
+
+    def sync_instructor_client(self) -> Instructor:
+        """Lazy sync client."""
+        if self.client is None:
+            self.client = cast(
+                Instructor,
+                instructor.from_provider(
+                    f"litellm/{self.model}",
+                    async_client=False,
+                ),
+            )
+        return self.client
+
+    def async_instructor_client(self) -> AsyncInstructor:
+        """Lazy async client."""
+        if self.client_async is None:
+            self.client_async = cast(
+                AsyncInstructor,
+                instructor.from_provider(
+                    f"litellm/{self.model}",
+                    async_client=True,
+                ),
+            )
+        return self.client_async
+
+    async def generate(
+        self,
+        *,
+        response_model: type[T],
+        question: str,
+        context: Sequence[RetrievalHit],
+    ) -> T:
+        """Generate a typed response.
+
+        Args:
+            response_model: Target schema.
+            question: The user question.
+            context: Retrieved chunks.
+
+        Returns:
+            A populated ``response_model`` instance.
+        """
+        context_text = "\n\n".join(f"[{i + 1}] {hit.chunk.text}" for i, hit in enumerate(context))
+        messages: list[ChatCompletionMessageParam] = [
+            {
+                "role": "system",
+                "content": "Use the supplied context to answer the question.",
+            },
+            {
+                "role": "user",
+                "content": f"Context:\n{context_text}\n\nQuestion: {question}",
+            },
+        ]
+        if self.async_client:
+            client = self.async_instructor_client()
+            return await client.create(
+                messages=messages,
+                response_model=response_model,
+            )
+        client = self.sync_instructor_client()
+        return client.create(
+            messages=messages,
+            response_model=response_model,
+        )
+
+    async def astream(
+        self,
+        *,
+        response_model: type[T],
+        question: str,
+        context: Sequence[RetrievalHit],
+    ) -> AsyncIterator[T]:
+        """Stream a typed response (yields once when the model is final)."""
+        result = await self.generate(
+            response_model=response_model, question=question, context=context
+        )
+
+        async def stream() -> AsyncIterator[T]:
+            yield result
+
+        return stream()
