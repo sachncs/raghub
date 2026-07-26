@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from raghub.knowledge.structures.base import KnowledgeIndex
+from raghub.knowledge import KnowledgeIndex
 from raghub.models import Chunk, RetrievalHit
 
 

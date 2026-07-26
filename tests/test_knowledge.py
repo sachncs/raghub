@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from raghub.knowledge.okf import dumps, from_okf, loads, to_okf
-from raghub.knowledge.repository import InMemoryKnowledgeRepository
+from raghub.knowledge import dumps, from_okf, loads, to_okf
+from raghub.knowledge import InMemoryKnowledgeRepository
 from raghub.models import (
     BlockKind,
     DocumentBlock,

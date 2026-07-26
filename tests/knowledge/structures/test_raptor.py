@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from raghub.embeddings import HashingEmbeddingProvider
-from raghub.knowledge.structures.raptor import RaptorIndex
+from raghub.knowledge import RaptorIndex
 from raghub.models import Chunk
 
 

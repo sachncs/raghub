@@ -14,7 +14,7 @@ from raghub.embeddings import HashingEmbeddingProvider
 from raghub.generation import DefaultGenerator
 from raghub.ingestion import WordWindowChunker
 from raghub.interfaces.observability import TelemetryProvider
-from raghub.knowledge.manifest import SourceManifest
+from raghub.knowledge import SourceManifest
 from raghub.llm import HeuristicLLMProvider
 from raghub.observability import NoOpTelemetry
 from raghub.observability import RedactingTelemetry
