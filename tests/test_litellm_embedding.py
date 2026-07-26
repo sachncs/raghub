@@ -9,7 +9,7 @@ import pytest
 
 def test_litellm_embedder_requires_litellm() -> None:
     """When litellm is missing, the provider raises ConfigurationError."""
-    import raghub.embeddings.litellm as litellm_mod
+    import raghub.embeddings as litellm_mod
 
     saved = litellm_mod.litellm
     try:
@@ -26,7 +26,7 @@ def test_litellm_embedder_requires_litellm() -> None:
 
 def test_litellm_embedder_uses_litellm_when_available() -> None:
     """When litellm is mocked, the provider forwards calls and returns vectors."""
-    import raghub.embeddings.litellm as litellm_mod
+    import raghub.embeddings as litellm_mod
 
     class _FakeUsage:
         def __init__(self) -> None:
@@ -58,7 +58,7 @@ def test_litellm_embedder_uses_litellm_when_available() -> None:
 
 def test_litellm_embedder_handles_dict_response() -> None:
     """The provider accepts the dict-style response too."""
-    import raghub.embeddings.litellm as litellm_mod
+    import raghub.embeddings as litellm_mod
 
     def _fake_embedding(model: str, input: list[str], **kwargs: object) -> dict:
         return {"data": [{"embedding": [0.5]}]}
@@ -76,7 +76,7 @@ def test_litellm_embedder_handles_dict_response() -> None:
 
 def test_litellm_embedder_passes_api_base() -> None:
     """The api_base kwarg is forwarded to litellm when supplied."""
-    import raghub.embeddings.litellm as litellm_mod
+    import raghub.embeddings as litellm_mod
 
     captured: dict[str, object] = {}
 
