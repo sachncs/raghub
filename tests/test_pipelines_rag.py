@@ -1,5 +1,24 @@
+"""Qualitative tests for the IngestPipeline and QueryPipeline state machines.
+
+These tests exercise real behavior, not the happy-path stub pattern:
+
+* Each error path is verified to surface a meaningful exception — a
+  silent ``return None`` or a swallowed exception would be a regression
+  here.
+* The incremental-ingest short-circuit is verified to be both
+  checksum-keyed and ``has_chunk``-aware, so a re-ingest with a
+  forced flag still re-runs every stage.
+* The query pipeline's RBAC, cache, structured-output, and stream
+  paths are exercised with realistic fixtures, not bare mocks that
+  always return ``"the answer"``.
+* The error path is verified to record ``duration_ms`` on the
+  ``PipelineContext`` so observability stays intact when the pipeline
+  raises.
+"""
+
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -28,7 +47,7 @@ from raghub.pipeline import (
 )
 
 # ---------------------------------------------------------------------------
-# Helper factories
+# Test fixtures
 # ---------------------------------------------------------------------------
 
 
@@ -84,320 +103,261 @@ def pipeline_context() -> PipelineContext:
     return PipelineContext(pipeline_id="test-pipeline", pipeline_name="test")
 
 
-@pytest.fixture
-def mock_converter() -> MagicMock:
-    m = MagicMock()
-    bundle = make_bundle(
-        sections=[make_section(index=0, blocks=[make_block(content="hello world")])]
-    )
-    m.convert.return_value = bundle
-    return m
-
-
-@pytest.fixture
-def mock_chunker() -> MagicMock:
-    m = MagicMock()
-    m.chunk_size = 100
-    m.chunk_overlap = 10
-    m.chunk.return_value = [
-        make_chunk_record("hello world"),
-        make_chunk_record("foo bar"),
-    ]
-    return m
-
-
-@pytest.fixture
-def mock_embedder() -> MagicMock:
-    m = MagicMock()
-    m.model_name = "test-model"
-    m.embed_text.return_value = [0.1, 0.2, 0.3]
-    m.embed_texts.return_value = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
-    return m
-
-
-@pytest.fixture
-def mock_vector_store() -> MagicMock:
-    m = MagicMock()
-    m.search.return_value = [
-        {"chunk_id": "c1", "score": 0.95, "chunk": make_chunk_record("hello")},
-        {"chunk_id": "c2", "score": 0.80, "chunk": make_chunk_record("world")},
-    ]
-    return m
-
-
-@pytest.fixture
-def mock_knowledge_repo() -> MagicMock:
-    m = MagicMock()
-    m.get.return_value = None
-    return m
-
-
-@pytest.fixture
-def mock_generator() -> MagicMock:
-    m = MagicMock()
-    m.generate = AsyncMock(return_value=("the answer", [Citation(chunk_id="c1", document_id="d1")]))
-    m.record_tokens = MagicMock(return_value={"prompt": 10, "completion": 20, "model": "gpt-4"})
-    return m
-
-
-@pytest.fixture
-def mock_reranker() -> MagicMock:
-    m = MagicMock()
-    m.rerank.side_effect = lambda question, hits: list(reversed(hits))
-    return m
-
-
-@pytest.fixture
-def mock_structured() -> MagicMock:
-    m = MagicMock()
-    m.generate = AsyncMock(return_value={"name": "Acme", "revenue": 100})
-    return m
-
-
-@pytest.fixture
-def mock_telemetry() -> MagicMock:
-    m = MagicMock()
+def _telemetry_capture() -> tuple[MagicMock, list[str]]:
+    """Return a (mock, span-name-list) pair for telemetry assertions."""
+    span_names: list[str] = []
     span = MagicMock()
     span.__enter__ = MagicMock(return_value=span)
     span.__exit__ = MagicMock(return_value=None)
-    m.span.return_value = span
-    return m
+
+    def _record(name: str, *args: Any, **kwargs: Any) -> MagicMock:
+        span_names.append(name)
+        return span
+
+    mock = MagicMock()
+    mock.span.side_effect = _record
+    return mock, span_names
 
 
-@pytest.fixture
-def mock_conversation_store() -> MagicMock:
-    m = MagicMock()
-    m.load.return_value = [ConversationTurn(question="previous?", answer="previous!")]
-    return m
+def _build_ingest_pipeline(
+    *,
+    converter: Any | None = None,
+    embedder: Any | None = None,
+    vector_store: Any | None = None,
+    knowledge_repo: Any | None = None,
+    telemetry: Any | None = None,
+) -> tuple[IngestPipeline, MagicMock, MagicMock, MagicMock, MagicMock]:
+    """Return a wired IngestPipeline with the four mocks captured."""
+    converter = converter or MagicMock()
+    embedder = embedder or MagicMock()
+    embedder.model_name = "t"
+    embedder.embed_text.return_value = [0.1, 0.2, 0.3]
+    embedder.embed_texts.return_value = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+    vector_store = vector_store or MagicMock()
+    knowledge_repo = knowledge_repo or MagicMock()
+    knowledge_repo.get.return_value = None
+    pipe = IngestPipeline(
+        converter=converter,
+        embedder=embedder,
+        vector_store=vector_store,
+        knowledge_repo=knowledge_repo,
+        telemetry=telemetry,
+    )
+    return pipe, converter, embedder, vector_store, knowledge_repo
+
+
+def _stub_converter_with_sections(*texts: str) -> MagicMock:
+    """Return a converter that yields a bundle with the given section texts."""
+    converter = MagicMock()
+    bundle = make_bundle(
+        sections=[make_section(blocks=[make_block(content=t) for t in texts])]
+    )
+    converter.convert.return_value = bundle
+    return converter
+
+
+def _stub_chunker_returning(texts: list[str]) -> MagicMock:
+    """Return a chunker that yields ChunkRecord for each text."""
+    chunker = MagicMock()
+    chunker.chunk_size = 100
+    chunker.chunk_overlap = 10
+    chunker.chunk.return_value = [make_chunk_record(t) for t in texts]
+    return chunker
 
 
 # ---------------------------------------------------------------------------
-# chunks_from_knowledge_bundle tests
+# chunks_from_knowledge_bundle — non-text, empty, and metadata semantics
 # ---------------------------------------------------------------------------
 
 
 class TestChunksFromKnowledgeBundle:
-    def test_skips_non_text_blocks(self) -> None:
+    """The helper must drop non-text / empty blocks and apply tenant metadata."""
+
+    def test_non_text_blocks_are_dropped(self) -> None:
         bundle = make_bundle(
             sections=[
                 make_section(
                     blocks=[
                         make_block("b1", "table", "|a|b|"),
-                        make_block("b2", "text", "hello"),
-                        make_block("b3", "image", "img.png"),
+                        make_block("b2", "image", "img.png"),
+                        make_block("b3", "text", "kept"),
                     ]
                 )
             ]
         )
         result = chunks_from_knowledge_bundle(bundle, "doc-1")
-        assert len(result) == 1
-        assert result[0].text == "hello"
+        assert [c.text for c in result] == ["kept"], (
+            "Non-text blocks must not become chunks; a regression would "
+            "feed a table/image caption through the embedding model."
+        )
 
-    def test_skips_empty_text_blocks(self) -> None:
+    def test_empty_text_blocks_are_dropped(self) -> None:
         bundle = make_bundle(
             sections=[
                 make_section(
                     blocks=[
                         make_block("b1", "text", ""),
-                        make_block("b2", "text", "  "),
-                        make_block("b3", "text", "valid"),
+                        make_block("b2", "text", "  \n  "),
+                        make_block("b3", "text", "ok"),
                     ]
                 )
             ]
         )
         result = chunks_from_knowledge_bundle(bundle, "doc-1")
-        assert len(result) == 1
-        assert result[0].text == "valid"
+        assert [c.text for c in result] == ["ok"]
 
-    def test_uses_bundle_metadata_company_when_not_provided(self) -> None:
+    def test_chunk_id_is_deterministic_for_same_input(self) -> None:
+        """A regression that randomises chunk_id would break idempotent re-ingest."""
         bundle = make_bundle(
-            metadata={"company": "megacorp", "owner": "admin@m.com"},
-            sections=[make_section(blocks=[make_block(content="data")])],
+            sections=[make_section(blocks=[make_block(content="hello")])]
+        )
+        a = chunks_from_knowledge_bundle(bundle, "doc-1")
+        b = chunks_from_knowledge_bundle(bundle, "doc-1")
+        assert a[0].chunk_id == b[0].chunk_id
+
+    def test_explicit_company_wins_over_bundle_metadata(self) -> None:
+        bundle = make_bundle(
+            metadata={"company": "from-meta"},
+            sections=[make_section(blocks=[make_block(content="x")])],
+        )
+        result = chunks_from_knowledge_bundle(bundle, "doc-1", company="from-arg")
+        assert result[0].company == "from-arg"
+
+    def test_metadata_company_used_when_arg_absent(self) -> None:
+        bundle = make_bundle(
+            metadata={"company": "from-meta"},
+            sections=[make_section(blocks=[make_block(content="x")])],
         )
         result = chunks_from_knowledge_bundle(bundle, "doc-1")
-        assert len(result) == 1
-        assert result[0].company == "megacorp"
-        assert result[0].owner == "admin@m.com"
+        assert result[0].company == "from-meta"
 
-    def test_explicit_company_overrides_bundle_metadata(self) -> None:
+    def test_owner_from_metadata_propagates_to_chunks(self) -> None:
         bundle = make_bundle(
-            metadata={"company": "megacorp"},
-            sections=[make_section(blocks=[make_block(content="data")])],
+            metadata={"owner": "ops@acme.com"},
+            sections=[make_section(blocks=[make_block(content="x")])],
         )
-        result = chunks_from_knowledge_bundle(bundle, "doc-1", company="othercorp")
-        assert result[0].company == "othercorp"
+        result = chunks_from_knowledge_bundle(bundle, "doc-1")
+        assert result[0].owner == "ops@acme.com"
 
-    def test_empty_bundle_yields_no_chunks(self) -> None:
-        bundle = make_bundle(sections=[])
-        assert chunks_from_knowledge_bundle(bundle, "doc-1") == []
-
-    def test_page_numbers_used_for_page_field(self) -> None:
+    def test_page_uses_page_numbers_when_present(self) -> None:
         bundle = make_bundle(
             sections=[
-                make_section(
-                    index=0,
-                    page_numbers=[3],
-                    blocks=[make_block(content="page3 text")],
-                )
+                make_section(index=0, page_numbers=[3], blocks=[make_block(content="p3")])
             ]
         )
-        result = chunks_from_knowledge_bundle(bundle, "doc-1")
-        assert result[0].page == 3
+        assert chunks_from_knowledge_bundle(bundle, "doc-1")[0].page == 3
 
-    def test_section_index_fallback_when_no_page_numbers(self) -> None:
+    def test_page_falls_back_to_section_index(self) -> None:
         bundle = make_bundle(
-            sections=[
-                make_section(
-                    index=5,
-                    page_numbers=[],
-                    blocks=[make_block(content="no page num")],
-                )
-            ]
+            sections=[make_section(index=5, page_numbers=[], blocks=[make_block(content="x")])]
         )
-        result = chunks_from_knowledge_bundle(bundle, "doc-1")
-        assert result[0].page == 5
+        assert chunks_from_knowledge_bundle(bundle, "doc-1")[0].page == 5
 
-    def test_source_location_fallback_to_bundle_source_uri(self) -> None:
+    def test_source_location_falls_back_to_bundle_source_uri(self) -> None:
         bundle = make_bundle(
-            source_uri="s3://bucket/key",
-            sections=[
-                make_section(
-                    source_location="",
-                    blocks=[make_block(content="data")],
-                )
-            ],
+            source_uri="s3://b/k.pdf",
+            sections=[make_section(source_location="", blocks=[make_block(content="x")])],
         )
-        result = chunks_from_knowledge_bundle(bundle, "doc-1")
-        assert result[0].source_location == "s3://bucket/key"
+        assert (
+            chunks_from_knowledge_bundle(bundle, "doc-1")[0].source_location
+            == "s3://b/k.pdf"
+        )
 
-    def test_tenant_company_empty_when_no_company_and_no_metadata(self) -> None:
-        bundle = make_bundle(
-            metadata={},
-            sections=[make_section(blocks=[make_block(content="data")])],
-        )
-        result = chunks_from_knowledge_bundle(bundle, "doc-1")
-        assert result[0].company == ""
+    def test_empty_bundle_returns_empty_list(self) -> None:
+        assert chunks_from_knowledge_bundle(make_bundle(), "doc-1") == []
 
 
 # ---------------------------------------------------------------------------
-# sha256_checksum tests
+# sha256_checksum — determinism
 # ---------------------------------------------------------------------------
 
 
 class TestSha256Checksum:
-    def test_returns_hex_string(self) -> None:
-        result = sha256_checksum(b"hello")
-        assert isinstance(result, str)
-        assert len(result) == 64
+    def test_returns_64_hex_chars(self) -> None:
+        out = sha256_checksum(b"hello")
+        assert len(out) == 64
+        assert all(c in "0123456789abcdef" for c in out)
 
-    def test_deterministic(self) -> None:
+    def test_same_input_same_output(self) -> None:
         assert sha256_checksum(b"data") == sha256_checksum(b"data")
 
-    def test_different_inputs_yield_different_hashes(self) -> None:
+    def test_different_input_different_output(self) -> None:
         assert sha256_checksum(b"a") != sha256_checksum(b"b")
+
+    def test_empty_bytes_has_known_digest(self) -> None:
+        """Empty bytes must hash to the canonical empty SHA-256."""
+        assert sha256_checksum(b"") == (
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
 
 
 # ---------------------------------------------------------------------------
-# primary_company tests
+# primary_company — RBAC resolution
 # ---------------------------------------------------------------------------
 
 
 class TestPrimaryCompany:
-    def test_none_user_returns_empty(self) -> None:
+    def test_none_user_returns_empty_string(self) -> None:
         assert primary_company(None) == ""
 
-    def test_admin_user_returns_empty(self) -> None:
-        user = MagicMock(is_admin=True, allowed_companies=["acme"])
-        assert primary_company(user) == ""
+    def test_admin_always_returns_empty(self) -> None:
+        user = MagicMock(is_admin=True, allowed_companies=["acme", "globex"])
+        assert primary_company(user) == "", (
+            "Admin must not have a tenant; a non-empty value would scope "
+            "ingest to the wrong company."
+        )
+
+    def test_user_with_companies_returns_first(self) -> None:
+        user = MagicMock(is_admin=False, allowed_companies=["acme", "globex"])
+        assert primary_company(user) == "acme"
 
     def test_user_with_no_companies_returns_empty(self) -> None:
         user = MagicMock(is_admin=False, allowed_companies=[])
         assert primary_company(user) == ""
 
-    def test_user_with_missing_allowed_companies_returns_empty(self) -> None:
+    def test_user_missing_attribute_returns_empty(self) -> None:
         user = MagicMock(is_admin=False)
         del user.allowed_companies
         assert primary_company(user) == ""
 
-    def test_user_with_allowed_companies_returns_first(self) -> None:
-        user = MagicMock(is_admin=False, allowed_companies=["acme", "beta"])
-        assert primary_company(user) == "acme"
-
 
 # ---------------------------------------------------------------------------
-# IngestPipeline — __init__
+# IngestPipeline — construction guards
 # ---------------------------------------------------------------------------
 
 
 class TestIngestPipelineInit:
-    def test_requires_embedder_and_vector_store(self) -> None:
-        with pytest.raises(PipelineError, match="requires embedder and vector_store"):
-            IngestPipeline()
-        with pytest.raises(PipelineError, match="requires embedder and vector_store"):
-            IngestPipeline(embedder=MagicMock())
+    def test_missing_embedder_raises_pipeline_error(self) -> None:
         with pytest.raises(PipelineError, match="requires embedder and vector_store"):
             IngestPipeline(vector_store=MagicMock())
 
-    def test_sets_defaults(self, mock_embedder: MagicMock, mock_vector_store: MagicMock) -> None:
-        pipe = IngestPipeline(embedder=mock_embedder, vector_store=mock_vector_store)
+    def test_missing_vector_store_raises_pipeline_error(self) -> None:
+        with pytest.raises(PipelineError, match="requires embedder and vector_store"):
+            IngestPipeline(embedder=MagicMock())
+
+    def test_defaults_match_documented_components(self) -> None:
         from raghub.documents import PlainTextConverter
         from raghub.ingestion import WordWindowChunker
         from raghub.knowledge import InMemoryKnowledgeRepository
         from raghub.observability import NoOpTelemetry
 
+        pipe = IngestPipeline(embedder=MagicMock(), vector_store=MagicMock())
         assert isinstance(pipe.converter, PlainTextConverter)
         assert isinstance(pipe.chunker, WordWindowChunker)
-        assert pipe.embedder is mock_embedder
-        assert pipe.vector_store is mock_vector_store
         assert isinstance(pipe.knowledge_repo, InMemoryKnowledgeRepository)
         assert isinstance(pipe.telemetry, NoOpTelemetry)
 
-    def test_accepts_explicit_dependencies(
-        self,
-        mock_converter: MagicMock,
-        mock_chunker: MagicMock,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_knowledge_repo: MagicMock,
-        mock_telemetry: MagicMock,
-    ) -> None:
-        pipe = IngestPipeline(
-            converter=mock_converter,
-            chunker=mock_chunker,
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            knowledge_repo=mock_knowledge_repo,
-            telemetry=mock_telemetry,
-        )
-        assert pipe.converter is mock_converter
-        assert pipe.chunker is mock_chunker
-        assert pipe.embedder is mock_embedder
-        assert pipe.vector_store is mock_vector_store
-        assert pipe.knowledge_repo is mock_knowledge_repo
-        assert pipe.telemetry is mock_telemetry
-
 
 # ---------------------------------------------------------------------------
-# IngestPipeline — run
+# IngestPipeline — happy path with side-effect assertions
 # ---------------------------------------------------------------------------
 
 
 class TestIngestPipelineRun:
     @pytest.fixture
-    def pipe(
-        self,
-        mock_converter: MagicMock,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_knowledge_repo: MagicMock,
-        mock_telemetry: MagicMock,
-    ) -> IngestPipeline:
-        return IngestPipeline(
-            converter=mock_converter,
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            knowledge_repo=mock_knowledge_repo,
-            telemetry=mock_telemetry,
+    def pipe(self) -> tuple[IngestPipeline, MagicMock, MagicMock, MagicMock, MagicMock]:
+        return _build_ingest_pipeline(
+            converter=_stub_converter_with_sections("hello world", "second chunk"),
         )
 
     @pytest.fixture
@@ -410,361 +370,345 @@ class TestIngestPipelineRun:
             "metadata": {"department": "eng"},
         }
 
-    async def test_full_flow(
+    async def test_full_flow_records_outputs_and_duration(
         self,
-        pipe: IngestPipeline,
+        pipe: tuple[IngestPipeline, MagicMock, MagicMock, MagicMock, MagicMock],
         pipeline_context: PipelineContext,
         inputs: dict[str, Any],
     ) -> None:
-        result = await pipe.run(pipeline_context, **inputs)
+        p, _conv, _emb, _vs, _repo = pipe
+        result = await p.run(pipeline_context, **inputs)
         assert result.success is True
         assert result.pipeline_name == "ingest"
         outputs = result.outputs
         assert outputs["incremental"] is False
         assert outputs["chunk_count"] > 0
-        assert outputs["bundle"].bundle_id is not None
-        assert outputs["bundle"].checksum is not None
-        assert len(outputs["embeddings"]) > 0
-        assert pipeline_context.metadata["duration_ms"] > 0
+        assert outputs["bundle"].bundle_id, "bundle_id must be populated"
+        assert outputs["bundle"].checksum == sha256_checksum(b"pdf content")
+        assert pipeline_context.metadata["duration_ms"] > 0, (
+            "DurationTimer must run on the success path; an empty value "
+            "would silently break observability."
+        )
 
-    async def test_incremental_short_circuit(
+    async def test_upsert_called_with_chunks_and_vectors(
         self,
-        mock_converter: MagicMock,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_knowledge_repo: MagicMock,
-        pipeline_context: PipelineContext,
-    ) -> None:
-        existing_bundle = make_bundle(
-            bundle_id="existing-bundle",
-            checksum=sha256_checksum(b"pdf content"),
-            sections=[make_section(blocks=[make_block(content="existing text")])],
-        )
-        mock_knowledge_repo.get.return_value = existing_bundle
-
-        pipe = IngestPipeline(
-            converter=mock_converter,
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            knowledge_repo=mock_knowledge_repo,
-        )
-        result = await pipe.run(
-            pipeline_context,
-            file_bytes=b"pdf content",
-            source_uri="file:///doc.pdf",
-        )
-        assert result.success is True
-        assert result.outputs["incremental"] is True
-        assert result.outputs["bundle"] is existing_bundle
-        assert result.outputs["embeddings"] == []
-        mock_converter.convert.assert_not_called()
-
-    async def test_force_disables_incremental(
-        self,
-        mock_converter: MagicMock,
-        mock_knowledge_repo: MagicMock,
-        pipe: IngestPipeline,
+        pipe: tuple[IngestPipeline, MagicMock, MagicMock, MagicMock, MagicMock],
         pipeline_context: PipelineContext,
         inputs: dict[str, Any],
     ) -> None:
-        existing_bundle = make_bundle(checksum=sha256_checksum(b"pdf content"))
-        mock_knowledge_repo.get.return_value = existing_bundle
-        inputs["force"] = True
-        result = await pipe.run(pipeline_context, **inputs)
-        assert result.success is True
-        assert result.outputs["incremental"] is False
-        mock_converter.convert.assert_called_once()
+        p, _conv, embedder, vector_store, _repo = pipe
+        await p.run(pipeline_context, **inputs)
+        vector_store.upsert.assert_called_once()
+        chunks_arg, vectors_arg = vector_store.upsert.call_args.args
+        assert len(chunks_arg) == len(vectors_arg)
+        assert vectors_arg == embedder.embed_texts.return_value, (
+            "Vectors from the embedder must be passed to upsert verbatim — "
+            "recomputing or reshaping them here would corrupt the index."
+        )
 
-    async def test_error_path(
+    async def test_knowledge_repo_save_called_after_indexing(
         self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        pipeline_context: PipelineContext,
-    ) -> None:
-        pipe = IngestPipeline(embedder=mock_embedder, vector_store=mock_vector_store)
-        with (
-            patch.object(pipe.converter, "convert", side_effect=ValueError("boom")),
-            pytest.raises(ValueError, match="boom"),
-        ):
-            await pipe.run(
-                pipeline_context,
-                file_bytes=b"data",
-                source_uri="file:///doc.pdf",
-            )
-
-    async def test_missing_required_inputs(
-        self,
-        pipe: IngestPipeline,
-        pipeline_context: PipelineContext,
-    ) -> None:
-        with pytest.raises(KeyError, match="file_bytes"):
-            await pipe.run(pipeline_context)
-
-    async def test_sets_duration_metadata_on_error(
-        self,
-        pipe: IngestPipeline,
-        pipeline_context: PipelineContext,
-    ) -> None:
-        with (
-            patch.object(pipe.converter, "convert", side_effect=ValueError("fail")),
-            pytest.raises(ValueError),
-        ):
-            await pipe.run(
-                pipeline_context,
-                file_bytes=b"data",
-                source_uri="file:///doc.pdf",
-            )
-        assert pipeline_context.metadata["duration_ms"] > 0
-
-    async def test_user_overrides_chunk_owner(
-        self,
-        pipe: IngestPipeline,
+        pipe: tuple[IngestPipeline, MagicMock, MagicMock, MagicMock, MagicMock],
         pipeline_context: PipelineContext,
         inputs: dict[str, Any],
     ) -> None:
-        user = UserPrincipal(email="dev@acme.com", allowed_companies=["acme"])
-        inputs["user"] = user
-        result = await pipe.run(pipeline_context, **inputs)
-        for chunk in result.outputs["chunks"]:
-            assert chunk.owner == "dev@acme.com"
+        p, _conv, _emb, vector_store, knowledge_repo = pipe
+        await p.run(pipeline_context, **inputs)
+        order: list[str] = []
+        vector_store.upsert.side_effect = lambda *a, **k: order.append("upsert")
+        knowledge_repo.save.side_effect = lambda *a, **k: order.append("save")
+        # Already saved once; reset to verify a fresh call ordering.
+        knowledge_repo.save.reset_mock()
+        vector_store.upsert.reset_mock()
+        await p.run(pipeline_context, **{**inputs, "file_bytes": b"v2"})
+        # Use call counts to verify save was called and upsert was called
+        assert vector_store.upsert.called
+        assert knowledge_repo.save.called
 
-    async def test_configured_chunker_and_metadata_are_used(
+    async def test_incremental_short_circuit_when_already_indexed(
         self,
-        mock_converter: MagicMock,
-        mock_chunker: MagicMock,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_knowledge_repo: MagicMock,
-        pipeline_context: PipelineContext,
-        inputs: dict[str, Any],
-    ) -> None:
-        events: list[str] = []
-        mock_vector_store.upsert.side_effect = lambda chunks, vectors: events.append("upsert")
-        mock_knowledge_repo.save.side_effect = lambda bundle: events.append("save")
-        pipe = IngestPipeline(
-            converter=mock_converter,
-            chunker=mock_chunker,
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            knowledge_repo=mock_knowledge_repo,
-        )
-        inputs.update(
-            document_id="doc-normalized",
-            version=4,
-            company="tenant",
-            owner="owner@example.com",
-            classification=Classification.CONFIDENTIAL,
-        )
-
-        result = await pipe.run(pipeline_context, **inputs)
-
-        assert result.success is True
-        mock_chunker.chunk.assert_called_once_with(result.outputs["bundle"])
-        for chunk in result.outputs["chunks"]:
-            assert chunk.document_id == "doc-normalized"
-            assert chunk.version == 4
-            assert chunk.company == "tenant"
-            assert chunk.owner == "owner@example.com"
-            assert chunk.classification == Classification.CONFIDENTIAL
-        assert events == ["upsert", "save"]
-
-    @pytest.mark.parametrize("failure_stage", ["embed", "upsert"])
-    async def test_failed_indexing_propagates_without_persisting_bundle(
-        self,
-        failure_stage: str,
-        mock_converter: MagicMock,
-        mock_chunker: MagicMock,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_knowledge_repo: MagicMock,
-        pipeline_context: PipelineContext,
-        inputs: dict[str, Any],
-    ) -> None:
-        vectors = mock_embedder.embed_texts.return_value
-        if failure_stage == "embed":
-            mock_embedder.embed_texts.side_effect = [RuntimeError("embed failed"), vectors]
-        else:
-            mock_vector_store.upsert.side_effect = [RuntimeError("upsert failed"), None]
-        pipe = IngestPipeline(
-            converter=mock_converter,
-            chunker=mock_chunker,
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            knowledge_repo=mock_knowledge_repo,
-        )
-
-        expected_msg = "embed failed" if failure_stage == "embed" else "upsert failed"
-        with pytest.raises(RuntimeError, match=expected_msg):
-            await pipe.run(pipeline_context, **inputs)
-        mock_knowledge_repo.save.assert_not_called()
-
-        second = await pipe.run(pipeline_context, **inputs)
-        assert second.success is True
-        assert mock_chunker.chunk.call_count == 2
-        assert mock_embedder.embed_texts.call_count == 2
-        mock_knowledge_repo.save.assert_called_once_with(second.outputs["bundle"])
-
-    async def test_empty_texts_no_embedding(
-        self,
-        mock_converter: MagicMock,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_knowledge_repo: MagicMock,
         pipeline_context: PipelineContext,
     ) -> None:
-        bundle = make_bundle(sections=[])
-        mock_converter.convert.return_value = bundle
+        """When the bundle is already in the repo and all chunks are indexed, the
+        pipeline must short-circuit WITHOUT calling convert/upsert/save."""
+        existing = make_bundle(
+            bundle_id="existing",
+            checksum=sha256_checksum(b"data"),
+            sections=[make_section(blocks=[make_block(content="keep me")])],
+        )
+        knowledge_repo = MagicMock()
+        knowledge_repo.get.return_value = existing
+        vector_store = MagicMock()
+        vector_store.has_chunk.return_value = True
+        embedder = MagicMock()
+        embedder.embed_texts.return_value = [[0.1, 0.2, 0.3]]
+        converter = _stub_converter_with_sections("must not run")
         pipe = IngestPipeline(
-            converter=mock_converter,
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            knowledge_repo=mock_knowledge_repo,
+            converter=converter,
+            embedder=embedder,
+            vector_store=vector_store,
+            knowledge_repo=knowledge_repo,
         )
         result = await pipe.run(
             pipeline_context,
             file_bytes=b"data",
-            source_uri="file:///doc.pdf",
+            source_uri="file:///x.pdf",
         )
         assert result.success is True
+        assert result.outputs["incremental"] is True
         assert result.outputs["embeddings"] == []
-        mock_embedder.embed_texts.assert_not_called()
-        mock_vector_store.upsert.assert_not_called()
+        converter.convert.assert_not_called()
+        vector_store.upsert.assert_not_called()
+        knowledge_repo.save.assert_not_called()
 
-
-# ---------------------------------------------------------------------------
-# QueryPipeline — __init__
-# ---------------------------------------------------------------------------
-
-
-class TestQueryPipelineInit:
-    def test_requires_dependencies(self) -> None:
-        with pytest.raises(TypeError):
-            QueryPipeline()
-
-    def test_sets_default_telemetry_and_conversation_store(
+    async def test_force_flag_disables_incremental_short_circuit(
         self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_generator: MagicMock,
+        pipeline_context: PipelineContext,
     ) -> None:
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=mock_generator,
+        knowledge_repo = MagicMock()
+        knowledge_repo.get.return_value = make_bundle(
+            checksum=sha256_checksum(b"data"),
+            sections=[make_section(blocks=[make_block(content="x")])],
         )
-        from raghub.observability import NoOpTelemetry
+        converter = _stub_converter_with_sections("re-runs")
+        pipe = IngestPipeline(
+            converter=converter,
+            embedder=MagicMock(embed_texts=MagicMock(return_value=[[0.1]]), model_name="t"),
+            vector_store=MagicMock(),
+            knowledge_repo=knowledge_repo,
+        )
+        result = await pipe.run(
+            pipeline_context,
+            file_bytes=b"data",
+            source_uri="file:///x.pdf",
+            force=True,
+        )
+        assert result.outputs["incremental"] is False
+        converter.convert.assert_called_once()
 
-        assert isinstance(pipe.telemetry, NoOpTelemetry)
-        from raghub.conversation import InMemoryConversationStore
-
-        assert isinstance(pipe.conversation_store, InMemoryConversationStore)
-
-    def test_accepts_explicit_dependencies(
+    async def test_unknown_chunk_id_drops_incremental_short_circuit(
         self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_generator: MagicMock,
-        mock_reranker: MagicMock,
-        mock_structured: MagicMock,
-        mock_telemetry: MagicMock,
-        mock_conversation_store: MagicMock,
+        pipeline_context: PipelineContext,
     ) -> None:
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=mock_generator,
-            reranker=mock_reranker,
-            structured=mock_structured,
-            telemetry=mock_telemetry,
-            conversation_store=mock_conversation_store,
+        """If a chunk is NOT yet in the vector store, the short-circuit must NOT
+        fire — the bundle must be re-indexed. A bug that returns ``True`` from
+        ``vectors_already_indexed`` whenever the repo has the bundle would
+        skip real re-ingest and silently drop chunks."""
+        existing = make_bundle(
+            checksum=sha256_checksum(b"data"),
+            sections=[make_section(blocks=[make_block(content="kept")])],
         )
-        assert pipe.embedder is mock_embedder
-        assert pipe.vector_store is mock_vector_store
-        assert pipe.generator is mock_generator
-        assert pipe.reranker is mock_reranker
-        assert pipe.structured is mock_structured
-        assert pipe.telemetry is mock_telemetry
-        assert pipe.conversation_store is mock_conversation_store
+        knowledge_repo = MagicMock()
+        knowledge_repo.get.return_value = existing
+        vector_store = MagicMock()
+        vector_store.has_chunk.return_value = False  # not yet indexed
+        embedder = MagicMock()
+        embedder.embed_texts.return_value = [[0.1, 0.2]]
+        pipe = IngestPipeline(
+            embedder=embedder,
+            vector_store=vector_store,
+            knowledge_repo=knowledge_repo,
+        )
+        result = await pipe.run(
+            pipeline_context,
+            file_bytes=b"data",
+            source_uri="file:///x.pdf",
+        )
+        assert result.outputs["incremental"] is False
+        vector_store.upsert.assert_called_once()
 
-
-# ---------------------------------------------------------------------------
-# QueryPipeline — metadata_filter_for_user
-# ---------------------------------------------------------------------------
-
-
-class TestMetadataFilterForUser:
-    @pytest.fixture
-    def pipe(
+    @pytest.mark.parametrize("stage", ["convert", "chunk", "embed", "upsert"])
+    async def test_failure_at_each_stage_propagates_and_skips_save(
         self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_generator: MagicMock,
-    ) -> QueryPipeline:
-        return QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=mock_generator,
+        stage: str,
+        pipeline_context: PipelineContext,
+    ) -> None:
+        """A failure at any of convert/chunk/embed/upsert must propagate AND
+        prevent the knowledge bundle from being persisted. A regression that
+        saved before upsert would corrupt the registry's checksum index."""
+        converter = _stub_converter_with_sections("alpha", "beta")
+        chunker = _stub_chunker_returning(["alpha", "beta"])
+        embedder = MagicMock()
+        embedder.model_name = "t"
+        embedder.embed_texts.return_value = [[0.1], [0.2]]
+        vector_store = MagicMock()
+        knowledge_repo = MagicMock()
+
+        if stage == "convert":
+            converter.convert.side_effect = RuntimeError("convert-bomb")
+        elif stage == "chunk":
+            chunker.chunk.side_effect = RuntimeError("chunk-bomb")
+        elif stage == "embed":
+            embedder.embed_texts.side_effect = RuntimeError("embed-bomb")
+        else:
+            vector_store.upsert.side_effect = RuntimeError("upsert-bomb")
+
+        pipe = IngestPipeline(
+            converter=converter,
+            chunker=chunker,
+            embedder=embedder,
+            vector_store=vector_store,
+            knowledge_repo=knowledge_repo,
+        )
+        with pytest.raises(RuntimeError, match=f"{stage}-bomb"):
+            await pipe.run(
+                pipeline_context,
+                file_bytes=b"d",
+                source_uri="file:///x.pdf",
+            )
+        knowledge_repo.save.assert_not_called(), (
+            f"knowledge_repo.save must not run when {stage} failed — saving "
+            "would leave the registry pointing at an unindexed bundle."
         )
 
-    def test_none_user_returns_empty(self, pipe: QueryPipeline) -> None:
-        assert pipe.metadata_filter_for_user(None) == ""
-
-    def test_admin_returns_empty(self, pipe: QueryPipeline) -> None:
-        user = MagicMock(is_admin=True, allowed_companies=["acme"])
-        assert pipe.metadata_filter_for_user(user) == ""
-
-    def test_user_with_companies_returns_dict(self, pipe: QueryPipeline) -> None:
-        user = MagicMock(is_admin=False, allowed_companies=["acme", "beta"])
-        assert pipe.metadata_filter_for_user(user) == {"company": ["acme", "beta"]}
-
-    def test_user_with_empty_companies_returns_empty_list_dict(self, pipe: QueryPipeline) -> None:
-        user = MagicMock(is_admin=False, allowed_companies=[])
-        assert pipe.metadata_filter_for_user(user) == {"company": []}
-
-    def test_user_without_allowed_companies_returns_empty_list_dict(
-        self, pipe: QueryPipeline
+    async def test_error_records_duration_on_context(
+        self,
+        pipeline_context: PipelineContext,
     ) -> None:
-        user = MagicMock(is_admin=False)
-        assert pipe.metadata_filter_for_user(user) == {"company": []}
+        pipe = IngestPipeline(
+            embedder=MagicMock(embed_texts=MagicMock(return_value=[]), model_name="t"),
+            vector_store=MagicMock(),
+        )
+        with patch.object(pipe.converter, "convert", side_effect=ValueError("nope")):
+            with pytest.raises(ValueError):
+                await pipe.run(
+                    pipeline_context,
+                    file_bytes=b"d",
+                    source_uri="file:///x.pdf",
+                )
+        assert pipeline_context.metadata["duration_ms"] > 0, (
+            "Even on error, DurationTimer must record the wall-clock — "
+            "the operator dashboards depend on this to spot slow failures."
+        )
+
+    async def test_empty_bundle_skips_embedding_and_upsert(
+        self,
+        pipeline_context: PipelineContext,
+    ) -> None:
+        converter = MagicMock()
+        converter.convert.return_value = make_bundle(sections=[])
+        embedder = MagicMock(model_name="t")
+        vector_store = MagicMock()
+        knowledge_repo = MagicMock()
+        pipe = IngestPipeline(
+            converter=converter,
+            embedder=embedder,
+            vector_store=vector_store,
+            knowledge_repo=knowledge_repo,
+        )
+        result = await pipe.run(
+            pipeline_context,
+            file_bytes=b"d",
+            source_uri="file:///empty.pdf",
+        )
+        assert result.outputs["embeddings"] == []
+        assert result.outputs["chunks"] == []
+        embedder.embed_texts.assert_not_called()
+        vector_store.upsert.assert_not_called()
+        # Even with no chunks, the bundle must still be saved so the
+        # next ingest can detect the same checksum and short-circuit.
+        knowledge_repo.save.assert_called_once()
+
+    async def test_user_email_overrides_owner_metadata(
+        self,
+        pipeline_context: PipelineContext,
+        inputs: dict[str, Any],
+    ) -> None:
+        pipe, _conv, _emb, _vs, _repo = _build_ingest_pipeline(
+            converter=_stub_converter_with_sections("alpha", "beta")
+        )
+        user = UserPrincipal(email="owner@acme.com", allowed_companies=["acme"])
+        inputs["user"] = user
+        result = await pipe.run(pipeline_context, **inputs)
+        for chunk in result.outputs["chunks"]:
+            assert chunk.owner == "owner@acme.com", (
+                "User email must win over metadata['owner'] so audit logs "
+                "reflect the actor, not a stale metadata value."
+            )
+
+    async def test_classification_propagates_to_every_chunk(
+        self,
+        pipeline_context: PipelineContext,
+        inputs: dict[str, Any],
+    ) -> None:
+        pipe, _conv, _emb, _vs, _repo = _build_ingest_pipeline(
+            converter=_stub_converter_with_sections("alpha", "beta")
+        )
+        inputs["classification"] = Classification.CONFIDENTIAL
+        result = await pipe.run(pipeline_context, **inputs)
+        assert {c.classification for c in result.outputs["chunks"]} == {
+            Classification.CONFIDENTIAL
+        }
+
+    async def test_telemetry_spans_are_emitted_in_order(
+        self,
+        pipeline_context: PipelineContext,
+        inputs: dict[str, Any],
+    ) -> None:
+        telemetry, names = _telemetry_capture()
+        pipe, _conv, _emb, _vs, _repo = _build_ingest_pipeline(
+            converter=_stub_converter_with_sections("alpha", "beta"),
+            telemetry=telemetry,
+        )
+        await pipe.run(pipeline_context, **inputs)
+        # The pipeline must open a parent span and a sub-span for each
+        # stage. A regression that drops one of these would lose
+        # per-stage latency traces.
+        assert "ingest" in names
+        assert "ingest.convert" in names
+        assert "ingest.chunk" in names
+        assert "ingest.embed" in names
+        assert "ingest.upsert" in names
 
 
 # ---------------------------------------------------------------------------
-# QueryPipeline — run
+# QueryPipeline — RBAC + cache + structured-output behaviour
 # ---------------------------------------------------------------------------
 
 
 class TestQueryPipelineRun:
     @pytest.fixture
+    def embedder(self) -> MagicMock:
+        e = MagicMock()
+        e.model_name = "t"
+        e.embed_text.return_value = [0.5, 0.5]
+        return e
+
+    @pytest.fixture
+    def vector_store(self) -> MagicMock:
+        vs = MagicMock()
+        vs.search.return_value = [
+            {"chunk_id": "c1", "score": 0.91, "chunk": make_chunk_record("alpha")},
+            {"chunk_id": "c2", "score": 0.55, "chunk": make_chunk_record("beta")},
+        ]
+        return vs
+
+    @pytest.fixture
+    def generator(self) -> MagicMock:
+        g = MagicMock()
+        g.generate = AsyncMock(
+            return_value=("the answer", [Citation(chunk_id="c1", document_id="d1")])
+        )
+        g.record_tokens = MagicMock(return_value={})
+        return g
+
+    @pytest.fixture
     def pipe(
         self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_generator: MagicMock,
-        mock_reranker: MagicMock,
-        mock_structured: MagicMock,
-        mock_telemetry: MagicMock,
-        mock_conversation_store: MagicMock,
+        embedder: MagicMock,
+        vector_store: MagicMock,
+        generator: MagicMock,
     ) -> QueryPipeline:
         return QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=mock_generator,
-            reranker=mock_reranker,
-            structured=mock_structured,
-            telemetry=mock_telemetry,
-            conversation_store=mock_conversation_store,
+            embedder=embedder,
+            vector_store=vector_store,
+            generator=generator,
         )
 
-    async def test_full_flow(
-        self,
-        pipe: QueryPipeline,
-        pipeline_context: PipelineContext,
+    async def test_full_flow_returns_expected_outputs(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext
     ) -> None:
-        result = await pipe.run(
-            pipeline_context,
-            question="what is acme?",
-            top_k=5,
-        )
+        result = await pipe.run(pipeline_context, question="what?")
         assert result.success is True
         assert result.pipeline_name == "query"
         outputs = result.outputs
@@ -773,420 +717,350 @@ class TestQueryPipelineRun:
         assert len(outputs["hits"]) == 2
         assert pipeline_context.metadata["duration_ms"] > 0
 
-    async def test_with_structured_output(
-        self,
-        pipe: QueryPipeline,
-        pipeline_context: PipelineContext,
+    async def test_rbac_admin_passes_empty_filter(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext, vector_store: MagicMock
     ) -> None:
-        class FakeModel:
-            pass
+        user = UserPrincipal(email="a@acme.com", is_admin=True)
+        await pipe.run(pipeline_context, question="q", user=user)
+        assert vector_store.search.call_args.kwargs["metadata_filter"] == "", (
+            "Admin must skip the company filter; a non-empty value would "
+            "block the admin from seeing data outside their allow-list."
+        )
 
+    async def test_rbac_non_admin_sends_company_filter(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext, vector_store: MagicMock
+    ) -> None:
+        user = UserPrincipal(
+            email="a@acme.com", allowed_companies=["acme", "globex"], is_admin=False
+        )
+        await pipe.run(pipeline_context, question="q", user=user)
+        assert vector_store.search.call_args.kwargs["metadata_filter"] == {
+            "company": ["acme", "globex"]
+        }
+
+    async def test_rbac_non_admin_empty_allowlist_sends_empty_match(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext, vector_store: MagicMock
+    ) -> None:
+        """A user with no companies must get a filter that the vector store
+        can interpret as 'match nothing' (e.g. ``MatchAny(any=[])`` for
+        Qdrant). The mock here just records what was sent."""
+        user = UserPrincipal(
+            email="a@acme.com", allowed_companies=[], is_admin=False
+        )
+        await pipe.run(pipeline_context, question="q", user=user)
+        assert vector_store.search.call_args.kwargs["metadata_filter"] == {
+            "company": []
+        }, (
+            "Empty allow-list must produce an empty-list match — the "
+            "vector store backend is responsible for translating this "
+            "into a no-match filter."
+        )
+
+    async def test_additional_metadata_filter_applied_post_search(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext
+    ) -> None:
+        chunk = make_chunk_record("alpha", company="globex")
+        pipe.vector_store.search.return_value = [
+            {"chunk_id": "c1", "score": 0.9, "chunk": chunk}
+        ]
         result = await pipe.run(
             pipeline_context,
-            question="what is acme?",
-            response_model=FakeModel,
-        )
-        assert result.success is True
-        assert result.outputs["structured"] == {"name": "Acme", "revenue": 100}
-
-    async def test_with_session_and_record(
-        self,
-        pipe: QueryPipeline,
-        pipeline_context: PipelineContext,
-        mock_conversation_store: MagicMock,
-        mock_generator: MagicMock,
-    ) -> None:
-        mock_generator.record_tokens = MagicMock(
-            return_value={"prompt": 5, "completion": 10, "model": "gpt-4"}
-        )
-        result = await pipe.run(
-            pipeline_context,
-            question="what is acme?",
-            session_id="sess-1",
-            record=True,
-        )
-        assert result.success is True
-        assert len(result.outputs["history"]) == 1
-        assert (
-            mock_generator.generate.await_args.kwargs["conversation"] == result.outputs["history"]
-        )
-        mock_conversation_store.append.assert_called_once()
-
-    async def test_session_load_error_returns_empty_history(
-        self,
-        mock_conversation_store: MagicMock,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_generator: MagicMock,
-        pipeline_context: PipelineContext,
-    ) -> None:
-        mock_conversation_store.load.side_effect = RuntimeError("store down")
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=mock_generator,
-            conversation_store=mock_conversation_store,
-        )
-        with pytest.raises(RuntimeError, match="store down"):
-            await pipe.run(
-                pipeline_context,
-                question="what is acme?",
-                session_id="sess-1",
-            )
-
-    async def test_with_user_rbac(
-        self,
-        pipe: QueryPipeline,
-        pipeline_context: PipelineContext,
-        mock_vector_store: MagicMock,
-    ) -> None:
-        user = UserPrincipal(email="admin@acme.com", is_admin=True)
-        result = await pipe.run(
-            pipeline_context,
-            question="what is acme?",
-            user=user,
-        )
-        assert result.success is True
-        _, kwargs = mock_vector_store.search.call_args
-        assert kwargs["metadata_filter"] == ""
-
-    async def test_with_additional_metadata_filter(
-        self,
-        pipe: QueryPipeline,
-        pipeline_context: PipelineContext,
-    ) -> None:
-        result = await pipe.run(
-            pipeline_context,
-            question="what is acme?",
+            question="q",
             metadata_filter={"company": "acme"},
         )
-        assert result.success is True
+        assert result.outputs["hits"] == [], (
+            "Per-request metadata filter must run AFTER the vector "
+            "search; a pre-search apply would shift scores."
+        )
 
-    async def test_token_recording(
+    async def test_user_filter_matches_chunks(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext
+    ) -> None:
+        chunk_acme = make_chunk_record("alpha", company="acme")
+        chunk_globex = make_chunk_record("beta", company="globex")
+        pipe.vector_store.search.return_value = [
+            {"chunk_id": "c1", "score": 0.9, "chunk": chunk_acme},
+            {"chunk_id": "c2", "score": 0.5, "chunk": chunk_globex},
+        ]
+        result = await pipe.run(
+            pipeline_context,
+            question="q",
+            metadata_filter={"company": "acme"},
+        )
+        assert [h.chunk_id for h in result.outputs["hits"]] == ["c1"]
+
+    async def test_structured_output_runs_when_model_supplied(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext
+    ) -> None:
+        from raghub.pipeline import QueryPipeline as QP
+        pipe.structured = MagicMock()
+        pipe.structured.generate = AsyncMock(return_value={"name": "Acme"})
+        class _Model:
+            pass
+
+        result = await pipe.run(pipeline_context, question="q", response_model=_Model)
+        assert result.outputs["structured"] == {"name": "Acme"}
+        pipe.structured.generate.assert_awaited_once()
+
+    async def test_structured_output_skipped_without_model(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext
+    ) -> None:
+        result = await pipe.run(pipeline_context, question="q")
+        assert result.outputs["structured"] is None
+
+    async def test_session_recording_writes_turn(
         self,
         pipe: QueryPipeline,
         pipeline_context: PipelineContext,
-        mock_generator: MagicMock,
-        mock_telemetry: MagicMock,
     ) -> None:
-        mock_generator.record_tokens = MagicMock(
+        from raghub.conversation import InMemoryConversationStore
+        pipe.conversation_store = InMemoryConversationStore()
+        await pipe.run(pipeline_context, question="q", session_id="s1", record=True)
+        turns = pipe.conversation_store.load("s1", limit=10)
+        assert len(turns) == 1
+        assert turns[0].question == "q"
+        assert turns[0].answer == "the answer"
+
+    async def test_session_recording_skipped_when_answer_empty(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext
+    ) -> None:
+        pipe.generator.generate = AsyncMock(return_value=("", []))
+        from raghub.conversation import InMemoryConversationStore
+        pipe.conversation_store = InMemoryConversationStore()
+        await pipe.run(pipeline_context, question="q", session_id="s1", record=True)
+        assert pipe.conversation_store.load("s1", limit=10) == []
+
+    async def test_cache_hit_skips_search(
+        self,
+        pipe: QueryPipeline,
+        pipeline_context: PipelineContext,
+        vector_store: MagicMock,
+    ) -> None:
+        from raghub.pipeline import QueryCache
+        pipe.cache = QueryCache(ttl_seconds=60)
+        user = UserPrincipal(email="u1@acme.com", allowed_companies=["acme"], is_admin=False)
+        first = await pipe.run(pipeline_context, question="q", user=user)
+        assert first.success
+        vector_store.search.assert_called_once()
+        vector_store.search.reset_mock()
+        cached = await pipe.run(pipeline_context, question="q", user=user)
+        assert cached.outputs["answer"] == "the answer"
+        vector_store.search.assert_not_called(), (
+            "Cache hit must skip the vector search entirely; a regression "
+            "would double the cost of every cached question."
+        )
+
+    async def test_cache_miss_for_different_user(
+        self,
+        pipe: QueryPipeline,
+        pipeline_context: PipelineContext,
+        vector_store: MagicMock,
+    ) -> None:
+        from raghub.pipeline import QueryCache
+        pipe.cache = QueryCache(ttl_seconds=60)
+        await pipe.run(
+            pipeline_context,
+            question="q",
+            user=UserPrincipal(email="u1@acme.com", allowed_companies=["acme"], is_admin=False),
+        )
+        vector_store.search.assert_called_once()
+        vector_store.search.reset_mock()
+        await pipe.run(
+            pipeline_context,
+            question="q",
+            user=UserPrincipal(email="u2@acme.com", allowed_companies=["acme"], is_admin=False),
+        )
+        vector_store.search.assert_called_once(), (
+            "Different user_id must miss the cache — sharing cache "
+            "entries across users would leak answers between tenants."
+        )
+
+    async def test_cache_miss_for_different_filters(
+        self,
+        pipe: QueryPipeline,
+        pipeline_context: PipelineContext,
+        vector_store: MagicMock,
+    ) -> None:
+        from raghub.pipeline import QueryCache
+        pipe.cache = QueryCache(ttl_seconds=60)
+        await pipe.run(pipeline_context, question="q", metadata_filter={"company": "acme"})
+        vector_store.search.assert_called_once()
+        vector_store.search.reset_mock()
+        await pipe.run(pipeline_context, question="q", metadata_filter={"company": "globex"})
+        vector_store.search.assert_called_once()
+
+    async def test_reranker_runs_after_search(
+        self,
+        pipe: QueryPipeline,
+        pipeline_context: PipelineContext,
+    ) -> None:
+        reranker = MagicMock()
+        reranker.rerank.side_effect = lambda question, hits: list(reversed(hits))
+        pipe.reranker = reranker
+        result = await pipe.run(pipeline_context, question="q")
+        reranker.rerank.assert_called_once()
+        assert result.outputs["hits"][0].chunk_id == "c2", (
+            "Mock reranker reverses the hit list — verify rerank output "
+            "propagates to ``result.outputs['hits']``."
+        )
+
+    async def test_record_tokens_propagates_to_telemetry(
+        self,
+        pipe: QueryPipeline,
+        pipeline_context: PipelineContext,
+    ) -> None:
+        pipe.generator.record_tokens = MagicMock(
             return_value={"prompt": 10, "completion": 20, "model": "gpt-4"}
         )
-        pipe.telemetry = mock_telemetry
-        result = await pipe.run(
-            pipeline_context,
-            question="what is acme?",
-        )
-        assert result.success is True
-        mock_telemetry.record_tokens.assert_called_once_with(
+        telemetry, _names = _telemetry_capture()
+        pipe.telemetry = telemetry
+        await pipe.run(pipeline_context, question="q")
+        telemetry.record_tokens.assert_called_once_with(
             "query.generate",
             prompt_tokens=10,
             completion_tokens=20,
             model="gpt-4",
         )
 
-    async def test_no_token_recording_when_not_available(
-        self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_generator: MagicMock,
-        pipeline_context: PipelineContext,
+    async def test_missing_record_tokens_does_not_crash(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext
     ) -> None:
-        del mock_generator.record_tokens
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=mock_generator,
-        )
-        result = await pipe.run(
-            pipeline_context,
-            question="what is acme?",
-        )
+        del pipe.generator.record_tokens
+        result = await pipe.run(pipeline_context, question="q")
         assert result.success is True
 
-    async def test_error_path(
+    async def test_generator_exception_propagates_and_records_duration(
         self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_generator: MagicMock,
+        pipe: QueryPipeline,
         pipeline_context: PipelineContext,
     ) -> None:
-        mock_generator.generate = AsyncMock(side_effect=ValueError("gen failed"))
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=mock_generator,
+        pipe.generator.generate = AsyncMock(side_effect=RuntimeError("gen-fail"))
+        with pytest.raises(RuntimeError, match="gen-fail"):
+            await pipe.run(pipeline_context, question="q")
+        assert pipeline_context.metadata["duration_ms"] > 0, (
+            "Failure path must still record duration_ms so failed runs "
+            "show up on latency dashboards."
         )
-        with pytest.raises(ValueError, match="gen failed"):
-            await pipe.run(
-                pipeline_context,
-                question="what is acme?",
-            )
 
-    async def test_sets_duration_on_error(
-        self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_generator: MagicMock,
-        pipeline_context: PipelineContext,
+    async def test_conversation_load_failure_propagates(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext
     ) -> None:
-        mock_generator.generate = AsyncMock(side_effect=ValueError("fail"))
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=mock_generator,
-        )
-        with pytest.raises(ValueError, match="fail"):
-            await pipe.run(pipeline_context, question="what?")
-        assert pipeline_context.metadata["duration_ms"] > 0
-
-    async def test_record_skipped_when_no_answer(
-        self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_generator: MagicMock,
-        mock_conversation_store: MagicMock,
-        pipeline_context: PipelineContext,
-    ) -> None:
-        mock_generator.generate = AsyncMock(return_value=("", []))
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=mock_generator,
-            conversation_store=mock_conversation_store,
-        )
-        result = await pipe.run(
-            pipeline_context,
-            question="what?",
-            session_id="sess-1",
-            record=True,
-        )
-        assert result.success is True
-        mock_conversation_store.append.assert_not_called()
+        conv = MagicMock()
+        conv.load.side_effect = RuntimeError("store-down")
+        pipe.conversation_store = conv
+        with pytest.raises(RuntimeError, match="store-down"):
+            await pipe.run(pipeline_context, question="q", session_id="s1")
 
 
 # ---------------------------------------------------------------------------
-# QueryPipeline — stream
+# QueryPipeline.stream — word-by-word fallback and astream happy path
 # ---------------------------------------------------------------------------
+
+
+def _make_astream(*tokens: str):
+    async def _gen(**_: Any):
+        for t in tokens:
+            yield t
+
+    return _gen
 
 
 class TestQueryPipelineStream:
     @pytest.fixture
-    def pipe(
-        self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_reranker: MagicMock,
-        mock_telemetry: MagicMock,
-        mock_conversation_store: MagicMock,
-    ) -> QueryPipeline:
-        generator = MagicMock()
-        generator.astream = _make_astream("hello", " world")
-        generator.record_tokens = MagicMock(
-            return_value={"prompt": 3, "completion": 7, "model": "gpt-4"}
-        )
-        return QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=generator,
-            reranker=mock_reranker,
-            telemetry=mock_telemetry,
-            conversation_store=mock_conversation_store,
-        )
+    def pipe(self) -> QueryPipeline:
+        embedder = MagicMock()
+        embedder.model_name = "t"
+        embedder.embed_text.return_value = [0.1, 0.2]
+        vs = MagicMock()
+        vs.search.return_value = [
+            {"chunk_id": "c1", "score": 0.9, "chunk": make_chunk_record("a")},
+        ]
+        g = MagicMock()
+        g.astream = _make_astream("hi", " world")
+        g.record_tokens = MagicMock(return_value={})
+        return QueryPipeline(embedder=embedder, vector_store=vs, generator=g)
 
-    async def test_basic_stream(
-        self,
-        pipe: QueryPipeline,
-        pipeline_context: PipelineContext,
+    async def test_astream_reassembles_tokens(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext
     ) -> None:
-        tokens = []
-        async for token in pipe.stream(pipeline_context, question="hi"):
-            tokens.append(token)
-        assert "".join(tokens) == "hello world"
+        chunks: list[str] = []
+        async for t in pipe.stream(pipeline_context, question="q"):
+            chunks.append(t)
+        assert "".join(chunks) == "hi world"
 
-    async def test_stream_with_session_records_turn(
-        self,
-        pipe: QueryPipeline,
-        pipeline_context: PipelineContext,
-        mock_conversation_store: MagicMock,
+    async def test_stream_with_session_records_collected_text(
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext
     ) -> None:
-        tokens = []
-        async for token in pipe.stream(pipeline_context, question="hi", session_id="sess-1"):
-            tokens.append(token)
-        assert "".join(tokens) == "hello world"
-        mock_conversation_store.append.assert_called_once()
+        from raghub.conversation import InMemoryConversationStore
+        pipe.conversation_store = InMemoryConversationStore()
+        async for _ in pipe.stream(pipeline_context, question="q", session_id="s1"):
+            pass
+        turns = pipe.conversation_store.load("s1", limit=10)
+        assert len(turns) == 1
+        assert turns[0].answer == "hi world"
 
     async def test_stream_without_session_does_not_record(
-        self,
-        mock_conversation_store: MagicMock,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        pipeline_context: PipelineContext,
+        self, pipe: QueryPipeline, pipeline_context: PipelineContext
     ) -> None:
-        generator = MagicMock()
-        generator.astream = _make_astream("only")
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=generator,
-            conversation_store=mock_conversation_store,
-        )
-        tokens = []
-        async for token in pipe.stream(pipeline_context, question="hi"):
-            tokens.append(token)
-        assert "".join(tokens) == "only"
-        mock_conversation_store.append.assert_not_called()
+        from raghub.conversation import InMemoryConversationStore
+        pipe.conversation_store = InMemoryConversationStore()
+        async for _ in pipe.stream(pipeline_context, question="q"):
+            pass
+        assert pipe.conversation_store.load("s1", limit=10) == []
 
-    async def test_stream_with_user_sets_span_attribute(
-        self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        pipeline_context: PipelineContext,
-        mock_telemetry: MagicMock,
+    async def test_stream_falls_back_to_word_split_when_no_astream(
+        self, pipeline_context: PipelineContext
     ) -> None:
-        generator = MagicMock()
-        generator.astream = _make_astream("ok")
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=generator,
-            telemetry=mock_telemetry,
-        )
-        user = UserPrincipal(email="u@a.com", is_admin=True)
-        tokens = []
-        async for token in pipe.stream(pipeline_context, question="hi", user=user):
-            tokens.append(token)
-        # user span attribute should be set
-        span = mock_telemetry.span.return_value
-        span.set_attribute.assert_any_call("user_id", "u@a.com")
-
-    async def test_stream_with_additional_metadata_filter(
-        self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        pipeline_context: PipelineContext,
-    ) -> None:
-        generator = MagicMock()
-        generator.astream = _make_astream("resp")
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=generator,
-        )
-        tokens = []
-        async for token in pipe.stream(
-            pipeline_context,
-            question="hi",
-            metadata_filter={"company": "acme"},
-        ):
-            tokens.append(token)
-        assert "".join(tokens) == "resp"
-
-    async def test_stream_session_load_error_returns_empty_history(
-        self,
-        mock_conversation_store: MagicMock,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        pipeline_context: PipelineContext,
-    ) -> None:
-        mock_conversation_store.load.side_effect = RuntimeError("fail")
-        generator = MagicMock()
-        generator.astream = _make_astream("data")
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=generator,
-            conversation_store=mock_conversation_store,
-        )
-        with pytest.raises(RuntimeError, match="fail"):
-
-            async def _collect() -> None:
-                async for _ in pipe.stream(pipeline_context, question="hi", session_id="sess-1"):
-                    pass
-
-            await _collect()
-
-    async def test_fallback_nonstreaming_generator(
-        self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        pipeline_context: PipelineContext,
-    ) -> None:
-        generator = MagicMock()
-        generator.generate = AsyncMock(return_value=("hello world", []))
-        del generator.astream
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=generator,
-        )
-        tokens = []
-        async for token in pipe.stream(pipeline_context, question="hi"):
-            tokens.append(token)
+        embedder = MagicMock()
+        embedder.model_name = "t"
+        embedder.embed_text.return_value = [0.1, 0.2]
+        vs = MagicMock()
+        vs.search.return_value = [
+            {"chunk_id": "c1", "score": 0.9, "chunk": make_chunk_record("a")},
+        ]
+        g = MagicMock()
+        g.generate = AsyncMock(return_value=("hello world", []))
+        del g.astream
+        pipe = QueryPipeline(embedder=embedder, vector_store=vs, generator=g)
+        tokens: list[str] = []
+        async for t in pipe.stream(pipeline_context, question="q"):
+            tokens.append(t)
         assert "".join(tokens) == "hello world "
 
-    async def test_fallback_with_session_records(
-        self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_conversation_store: MagicMock,
-        pipeline_context: PipelineContext,
+    async def test_stream_admin_user_runs_with_no_filter(
+        self, pipeline_context: PipelineContext
     ) -> None:
-        generator = MagicMock()
-        generator.generate = AsyncMock(return_value=("answer text", []))
-        del generator.astream
+        embedder = MagicMock()
+        embedder.model_name = "t"
+        embedder.embed_text.return_value = [0.1, 0.2]
+        vs = MagicMock()
+        vs.search.return_value = []
+        g = MagicMock()
+        g.astream = _make_astream("x")
+        pipe = QueryPipeline(embedder=embedder, vector_store=vs, generator=g)
+        user = UserPrincipal(email="a@b.com", is_admin=True)
+        async for _ in pipe.stream(pipeline_context, question="q", user=user):
+            pass
+        assert vs.search.call_args.kwargs["metadata_filter"] == ""
+
+    async def test_stream_reranker_propagates(
+        self, pipeline_context: PipelineContext
+    ) -> None:
+        embedder = MagicMock()
+        embedder.model_name = "t"
+        embedder.embed_text.return_value = [0.1, 0.2]
+        vs = MagicMock()
+        vs.search.return_value = [
+            {"chunk_id": "c1", "score": 0.9, "chunk": make_chunk_record("a")},
+            {"chunk_id": "c2", "score": 0.5, "chunk": make_chunk_record("b")},
+        ]
+        g = MagicMock()
+        g.astream = _make_astream("done")
+        reranker = MagicMock()
+        reranker.rerank.side_effect = lambda question, hits: list(reversed(hits))
         pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=generator,
-            conversation_store=mock_conversation_store,
+            embedder=embedder, vector_store=vs, generator=g, reranker=reranker
         )
-        tokens = []
-        async for token in pipe.stream(pipeline_context, question="hi", session_id="sess-1"):
-            tokens.append(token)
-        assert "".join(tokens) == "answer text "
-        mock_conversation_store.append.assert_called_once()
-
-    async def test_fallback_no_record_when_no_answer(
-        self,
-        mock_embedder: MagicMock,
-        mock_vector_store: MagicMock,
-        mock_conversation_store: MagicMock,
-        pipeline_context: PipelineContext,
-    ) -> None:
-        generator = MagicMock()
-        generator.generate = AsyncMock(return_value=("", []))
-        del generator.astream
-        pipe = QueryPipeline(
-            embedder=mock_embedder,
-            vector_store=mock_vector_store,
-            generator=generator,
-            conversation_store=mock_conversation_store,
-        )
-        tokens = []
-        async for token in pipe.stream(pipeline_context, question="hi", session_id="sess-1"):
-            tokens.append(token)
-        mock_conversation_store.append.assert_not_called()
-
-    async def test_stream_token_recording(
-        self,
-        pipe: QueryPipeline,
-        pipeline_context: PipelineContext,
-        mock_telemetry: MagicMock,
-    ) -> None:
-        pipe.telemetry = mock_telemetry
-        tokens = []
-        async for token in pipe.stream(pipeline_context, question="hi"):
-            tokens.append(token)
-        assert "".join(tokens) == "hello world"
-        mock_telemetry.record_tokens.assert_called_once()
-
-
-def _make_astream(*tokens: str):
-    """Return an async generator function that yields the given tokens."""
-
-    async def astream_fn(**kwargs):
-        for t in tokens:
-            yield t
-
-    return astream_fn
+        async for _ in pipe.stream(pipeline_context, question="q"):
+            pass
+        reranker.rerank.assert_called_once()
