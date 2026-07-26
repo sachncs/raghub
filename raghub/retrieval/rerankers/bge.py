@@ -1,7 +1,8 @@
 """BGE / sentence-transformers cross-encoder reranker.
 
 Local model; no API key required but downloads ~2 GB on first use.
-Optional dependency (``sentence-transformers``); imported lazily.
+The :mod:`sentence_transformers` package is a required runtime
+dependency; the encoder is loaded on first use.
 """
 
 from __future__ import annotations
@@ -9,8 +10,10 @@ from __future__ import annotations
 import time
 from collections.abc import Sequence
 
-from raghub.exceptions import RerankerError
+from sentence_transformers import CrossEncoder
+
 from raghub.models import RetrievalHit
+from raghub.observability.metrics import record_rerank_latency
 
 
 def record_latency(provider: str, seconds: float) -> None:
@@ -20,12 +23,7 @@ def record_latency(provider: str, seconds: float) -> None:
         provider: The reranker provider label (``"bge"`` here).
         seconds: Observed wall-clock latency.
     """
-    try:
-        from raghub.observability.metrics import record_rerank_latency
-
-        record_rerank_latency(provider, seconds)
-    except Exception:
-        pass
+    record_rerank_latency(provider, seconds)
 
 
 class BgeReranker:
@@ -42,7 +40,7 @@ class BgeReranker:
         *,
         model: str = "BAAI/bge-reranker-v2-m3",
         top_k: int = 20,
-        encoder: object | None = None,
+        encoder: CrossEncoder | None = None,
     ) -> None:
         """Initialise the reranker.
 
@@ -57,25 +55,14 @@ class BgeReranker:
         self.top_k = top_k
         self.encoder = encoder
 
-    def ensure_encoder(self) -> object:
-        """Return the underlying ``CrossEncoder``, loading it lazily.
+    def ensure_encoder(self) -> CrossEncoder:
+        """Return the underlying ``CrossEncoder``, loading it on first use.
 
         Returns:
             The :class:`sentence_transformers.CrossEncoder` instance.
-
-        Raises:
-            RerankerError: When the optional ``sentence-transformers``
-                package is not installed.
         """
-        if self.encoder is not None:
-            return self.encoder
-        try:
-            from sentence_transformers import CrossEncoder  # type: ignore[import-not-found]
-        except ImportError as exc:
-            raise RerankerError(
-                "sentence-transformers not installed; pip install 'raghub[rerank]'"
-            ) from exc
-        self.encoder = CrossEncoder(self.model)
+        if self.encoder is None:
+            self.encoder = CrossEncoder(self.model)
         return self.encoder
 
     def rerank(
@@ -114,10 +101,7 @@ class BgeReranker:
         """
         encoder = self.ensure_encoder()
         pairs = [(question, hit.chunk.text) for hit in hits]
-        try:
-            scores = list(encoder.predict(pairs))
-        except Exception as exc:
-            raise RerankerError(f"BGE rerank failed: {exc}") from exc
+        scores = list(encoder.predict(pairs))
         ordered = sorted(
             zip(scores, hits, strict=True),
             key=lambda pair: pair[0],

@@ -56,12 +56,7 @@ class ComposeTransformer:
             QueryVariant(text=question, kind="original", weight=_ORIGINAL_WEIGHT)
         ]
         for t in self.transformers:
-            try:
-                produced = await t.transform(question=question, history=history)
-            except TransformError:
-                # A single failing transform must not blow up the
-                # whole composition — drop its output and continue.
-                continue
+            produced = await t.transform(question=question, history=history)
             variants.extend(produced)
         return variants
 

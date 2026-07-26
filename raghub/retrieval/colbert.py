@@ -1,10 +1,10 @@
 """ColBERT late-interaction adapter (Phase 3.4).
 
-Optional dependency on :mod:`ragatouille`; the adapter imports it
-lazily so the rest of the package stays usable when ColBERT is not
-installed. The adapter exposes :meth:`is_available` and
-:meth:`score`; the surrounding retrieval pipeline consults both
-before adding ColBERT to the hybrid fusion.
+Adapter over the optional :mod:`ragatouille` package — at runtime
+the ``ragatouille`` import is guarded so the rest of the package
+stays usable when ColBERT is not installed. The adapter exposes
+:meth:`is_available` and :meth:`score`; the surrounding retrieval
+pipeline consults both before adding ColBERT to the hybrid fusion.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ class ColbertLateInteraction:
 
     name = "colbert"
 
-    def __init__(self, config: HybridConfig | None = None) -> None:
+    def __init__(self, config: "HybridConfig | None" = None) -> None:
         """Initialise the adapter.
 
         Args:
@@ -47,11 +47,9 @@ class ColbertLateInteraction:
         """
         if not self.enabled:
             return False
-        try:
-            import ragatouille  # noqa: F401  # type: ignore[import-not-found]
-        except ImportError:
-            return False
-        return True
+        import importlib.util
+
+        return importlib.util.find_spec("ragatouille") is not None
 
     def score(self, query: str, doc_texts: list[str]) -> list[float]:
         """Return ColBERT relevance scores for each document.
@@ -80,17 +78,11 @@ class ColbertLateInteraction:
                     "pip install 'raghub[colbert]' to enable ColBERT late-interaction"
                 )
             return []
-        try:
-            from ragatouille import RAGPretrainedModel  # type: ignore[import-not-found]
-        except ImportError as exc:  # pragma: no cover — guarded above
-            raise GraphUnavailableError("ragatouille import failed at runtime") from exc
+        from ragatouille import RAGPretrainedModel
+
         if self.index is None:
-            # Default to the standard 70M ColBERTv2 checkpoint; the
-            # operator can subclass to override.
             self.index = RAGPretrainedModel.from_pretrained("colbert-ir/colbertv2.0")
-        try:
-            return list(self.index.rerank(query=query, documents=doc_texts))
-        except Exception as exc:
-            raise GraphUnavailableError(f"ColBERT rerank failed: {exc}") from exc
+        return list(self.index.rerank(query=query, documents=doc_texts))
+
 
 __all__ = ["ColbertLateInteraction"]

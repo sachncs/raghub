@@ -13,14 +13,15 @@ extra dependencies. Two strategies:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
 from collections.abc import Sequence
 from typing import Any
 
-from raghub.exceptions import RerankerError
 from raghub.models import RetrievalHit
+from raghub.observability.metrics import record_rerank_latency
 
 LISTWISE_MAX = 10
 
@@ -69,12 +70,7 @@ def record_latency(provider: str, seconds: float) -> None:
         provider: The reranker provider label (``"llm"`` here).
         seconds: Observed wall-clock latency.
     """
-    try:
-        from raghub.observability.metrics import record_rerank_latency
-
-        record_rerank_latency(provider, seconds)
-    except Exception:
-        pass
+    record_rerank_latency(provider, seconds)
 
 
 def merge_with_rrf(
@@ -163,8 +159,6 @@ class LLMReranker:
         shim is only used by callers that treat the reranker as a
         regular sync :class:`Reranker`.
         """
-        import asyncio
-
         return asyncio.run(self.arerank(question=question, hits=hits))
 
     async def do_rerank(
@@ -214,15 +208,12 @@ class LLMReranker:
             + "\n\nReturn a JSON array of objects [{\"index\": <int>, \"score\": <0..1>}] "
             "sorted by descending score. No prose, no markdown."
         )
-        try:
-            raw = await self.llm.async_generate(
-                system_prompt="You rank passages for retrieval relevance.",
-                conversation=[],
-                context=[],
-                question=prompt,
-            )
-        except Exception as exc:
-            raise RerankerError(f"LLM rerank failed: {exc}") from exc
+        raw = await self.llm.async_generate(
+            system_prompt="You rank passages for retrieval relevance.",
+            conversation=[],
+            context=[],
+            question=prompt,
+        )
         parsed = extract_json_array(raw or "")
         ordered: list[RetrievalHit] = []
         seen: set[int] = set()

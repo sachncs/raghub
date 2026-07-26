@@ -337,32 +337,33 @@ class GraphRagIndex(KnowledgeIndex):
         # from a running event loop (e.g. inside pytest-asyncio's
         # auto mode), drive the driver on a private thread so we
         # don't re-enter the loop. Otherwise run a fresh loop.
+
+        if self.running_loop_present():
+            self.run_in_thread(chunks)
+        else:
+            asyncio.run(self.drive_extraction(chunks))
+
+    @staticmethod
+    def running_loop_present() -> bool:
+        """Return ``True`` when an asyncio loop is running in this thread."""
         try:
             asyncio.get_running_loop()
-            running = True
+            return True
         except RuntimeError:
-            running = False
+            return False
 
-        if running:
-            import threading
+    def run_in_thread(self, chunks: list[Chunk]) -> None:
+        """Execute :meth:`drive_extraction` on a daemon thread and join."""
+        import threading
 
-            error: list[BaseException | None] = [None]
+        thread = threading.Thread(
+            target=lambda: asyncio.run(self.drive_extraction(chunks)),
+            daemon=True,
+        )
+        thread.start()
+        thread.join()
 
-            def runner() -> None:
-                try:
-                    asyncio.run(self._drive_extraction(chunks))
-                except BaseException as exc:
-                    error[0] = exc
-
-            thread = threading.Thread(target=runner, daemon=True)
-            thread.start()
-            thread.join()
-            if error[0] is not None:
-                raise error[0]
-        else:
-            asyncio.run(self._drive_extraction(chunks))
-
-    async def _drive_extraction(self, chunks: list[Chunk]) -> None:
+    async def drive_extraction(self, chunks: list[Chunk]) -> None:
         """Async body of :meth:`extract_and_link`."""
         for chunk in chunks:
             parsed = await self.extract_async(chunk.text)
@@ -399,15 +400,12 @@ class GraphRagIndex(KnowledgeIndex):
         """
         if self.llm is None or not text:
             return None
-        try:
-            raw = await self.llm.async_generate(
-                system_prompt="You extract entities and relations.",
-                conversation=[],
-                context=[],
-                question=EXTRACT_PROMPT.format(passage=text[:3000]),
-            )
-        except Exception:
-            return None
+        raw = await self.llm.async_generate(
+            system_prompt="You extract entities and relations.",
+            conversation=[],
+            context=[],
+            question=EXTRACT_PROMPT.format(passage=text[:3000]),
+        )
         return extract_json_object(raw or "")
 
     def partition_communities(self) -> None:
@@ -417,16 +415,12 @@ class GraphRagIndex(KnowledgeIndex):
         communities; falls back to a connected-components
         decomposition on the underlying graph.
         """
+        import igraph as ig
+        import leidenalg as la
+
         entities = list(self.graph.keys())
         self.communities = []
         if not entities:
-            return
-        try:
-            import igraph as ig  # type: ignore[import-not-found]
-            import leidenalg as la  # type: ignore[import-not-found]
-        except ImportError:
-            # Fallback: connected components.
-            self.communities = list(connected_components(self))
             return
         edges: list[tuple[int, int]] = []
         index = {entity: i for i, entity in enumerate(entities)}
@@ -440,13 +434,13 @@ class GraphRagIndex(KnowledgeIndex):
         if not edges:
             self.communities = [{e} for e in entities]
             return
-        g = ig.Graph(n=len(entities), edges=edges, directed=False)
         try:
+            g = ig.Graph(n=len(entities), edges=edges, directed=False)
             partition = la.find_partition(g, la.ModularityVertexPartition)
             self.communities = [
                 {entities[v] for v in community} for community in partition
             ]
-        except Exception:
+        except (ValueError, RuntimeError):
             self.communities = list(connected_components(self))
 
     def summarise_communities(self) -> None:
@@ -454,33 +448,19 @@ class GraphRagIndex(KnowledgeIndex):
         self.community_summaries = {}
         if self.llm is None or not self.communities:
             return
-        # Reuse a running event loop when present; otherwise drive
-        # the summariser on a private loop.
-        try:
-            asyncio.get_running_loop()
-            running = True
-        except RuntimeError:
-            running = False
-        if running:
+        if self.running_loop_present():
             import threading
 
-            error: list[BaseException | None] = [None]
-
-            def runner() -> None:
-                try:
-                    asyncio.run(self._drive_summarisation())
-                except BaseException as exc:
-                    error[0] = exc
-
-            thread = threading.Thread(target=runner, daemon=True)
+            thread = threading.Thread(
+                target=lambda: asyncio.run(self.drive_summarisation()),
+                daemon=True,
+            )
             thread.start()
             thread.join()
-            if error[0] is not None:
-                raise error[0]
         else:
-            asyncio.run(self._drive_summarisation())
+            asyncio.run(self.drive_summarisation())
 
-    async def _drive_summarisation(self) -> None:
+    async def drive_summarisation(self) -> None:
         """Async body of :meth:`summarise_communities`."""
         for idx, community in enumerate(self.communities):
             entities = sorted(community)
@@ -493,17 +473,14 @@ class GraphRagIndex(KnowledgeIndex):
                 entities=", ".join(entities[:30]),
                 relations="; ".join(relations[:30]) or "(no relations)",
             )
-            try:
-                raw = await self.llm.async_generate(
-                    system_prompt="You summarise communities.",
-                    conversation=[],
-                    context=[],
-                    question=prompt,
-                )
-            except Exception:
-                raw = ""
+            raw = await self.llm.async_generate(
+                system_prompt="You summarise communities.",
+                conversation=[],
+                context=[],
+                question=prompt,
+            )
             summary = (raw or "").strip() or f"Community of {len(community)} entities."
-            self.community_summaries[idx] = summary[:600]
+            self.community_summaries[idx] = summary[:600]  
 
     def entities_in_query(self, query: str) -> set[str]:
         """Find entities mentioned in the query (case-insensitive substring).

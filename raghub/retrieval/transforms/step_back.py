@@ -61,15 +61,12 @@ class StepBackTransformer:
             A single-element list (abstract variant with
             ``weight=1.2``) on success; empty list on LLM failure.
         """
-        try:
-            abstract = await self.llm.async_generate(
-                system_prompt=SYSTEM_PROMPT,
-                conversation=list(history),
-                context=[],
-                question=build_prompt(question),
-            )
-        except Exception as exc:
-            raise TransformError(f"step-back generation failed: {exc}") from exc
+        abstract = await self.llm.async_generate(
+            system_prompt=SYSTEM_PROMPT,
+            conversation=list(history),
+            context=[],
+            question=build_prompt(question),
+        )
         text = (abstract or "").strip()
         if not text:
             return []

@@ -75,15 +75,12 @@ class HydeTransformer:
         prompt = build_prompt(question)
         variants: list[QueryVariant] = []
         for _ in range(self.n):
-            try:
-                text = await self.llm.async_generate(
-                    system_prompt=SYSTEM_PROMPT,
-                    conversation=list(history),
-                    context=[],
-                    question=prompt,
-                )
-            except Exception as exc:
-                raise TransformError(f"HyDE generation failed: {exc}") from exc
+            text = await self.llm.async_generate(
+                system_prompt=SYSTEM_PROMPT,
+                conversation=list(history),
+                context=[],
+                question=prompt,
+            )
             text = (text or "").strip()
             if text:
                 variants.append(QueryVariant(text=text, kind="hyde"))

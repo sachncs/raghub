@@ -402,27 +402,21 @@ class RetrievalPipeline:
         """
         dense = self.retrieve(user=user, question=question, top_k=top_k)
         sparse: list[RetrievalHit] = []
-        try:
-            sparse = self.retrieve_keyword(question, top_k=top_k)
-        except Exception:
-            sparse = []
+        sparse = self.retrieve_keyword(question, top_k=top_k)
         # ColBERT scores the dense candidates (the RRF pool). This
         # keeps ColBERT's expensive late-interaction work bounded.
         colbert_hits: list[RetrievalHit] = []
         if colbert is not None and getattr(colbert, "is_available", lambda: False)():
-            try:
-                colbert_scores = colbert.score(question, [h.chunk.text for h in dense])
-                if colbert_scores and len(colbert_scores) == len(dense):
-                    colbert_hits = [
-                        RetrievalHit(
-                            chunk_id=h.chunk_id,
-                            score=float(score),
-                            chunk=h.chunk,
-                        )
-                        for h, score in zip(dense, colbert_scores, strict=True)
-                    ]
-            except Exception:
-                colbert_hits = []
+            colbert_scores = colbert.score(question, [h.chunk.text for h in dense])
+            if colbert_scores and len(colbert_scores) == len(dense):
+                colbert_hits = [
+                    RetrievalHit(
+                        chunk_id=h.chunk_id,
+                        score=float(score),
+                        chunk=h.chunk,
+                    )
+                    for h, score in zip(dense, colbert_scores, strict=True)
+                ]
         rankings = [
             [h.chunk_id for h in dense],
             [h.chunk_id for h in sparse],
