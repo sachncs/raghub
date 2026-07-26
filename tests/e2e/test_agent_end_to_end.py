@@ -55,8 +55,8 @@ async def test_rag_aquery_agent_runs_end_to_end() -> None:
         # Override the LLM with our scripted stub.
         rag.llm = llm
         # Re-wire the agent with the scripted LLM so the loop uses it.
-        from raghub.agent.agent import Agent
-        from raghub.agent.builder import build_tool_registry
+        from raghub.agent import Agent
+        from raghub.agent import build_tool_registry
         from raghub.pipeline import AgenticQueryPipeline
 
         rag.tool_registry = build_tool_registry(

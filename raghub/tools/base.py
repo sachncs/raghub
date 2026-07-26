@@ -12,7 +12,7 @@ This module owns the entire tool surface:
 The ABC lives in this module (not :mod:`raghub.agent.base`) because
 the tool subclasses in :mod:`raghub.agent.tools` import it; lifting
 it into the parent package triggers a circular import at the
-``raghub.agent.tools.__init__`` boundary.
+``raghub.tools.__init__`` boundary.
 """
 
 from __future__ import annotations

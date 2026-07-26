@@ -7,10 +7,10 @@ from typing import Any
 
 import pytest
 
-from raghub.agent.agent import Agent
-from raghub.agent.tools.base import BaseTool, ToolContext, ToolResult
-from raghub.agent.tools.date_today import DateTodayTool
-from raghub.agent.tools.registry import ToolRegistry
+from raghub.agent import Agent
+from raghub.tools.base import BaseTool, ToolContext, ToolResult
+from raghub.tools.date_today import DateTodayTool
+from raghub.tools.registry import ToolRegistry
 from raghub.config import AgentConfig
 from raghub.embeddings import HashingEmbeddingProvider
 from raghub.generation import DefaultGenerator

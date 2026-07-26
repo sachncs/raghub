@@ -9,11 +9,11 @@ from typing import Any
 
 import pytest
 
-from raghub.agent.agent import Agent, AgentTrace
-from raghub.agent.events import PlannerEvent
-from raghub.agent.tools.base import BaseTool, ToolContext, ToolResult
-from raghub.agent.tools.date_today import DateTodayTool
-from raghub.agent.tools.registry import ToolRegistry
+from raghub.agent import Agent, AgentTrace
+from raghub.agent import PlannerEvent
+from raghub.tools.base import BaseTool, ToolContext, ToolResult
+from raghub.tools.date_today import DateTodayTool
+from raghub.tools.registry import ToolRegistry
 from raghub.config import AgentConfig
 from raghub.models import UserPrincipal
 

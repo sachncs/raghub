@@ -7,10 +7,12 @@ import pytest
 from raghub.agent import (
     PlannerEvent,
     ResolvedConfig,
+    resolve,
+)
+from raghub.tools import (
     Tool,
     ToolRegistry,
     ToolResult,
-    resolve,
 )
 from raghub.config import AgentConfig, Settings
 from raghub.exceptions import ConfigurationError

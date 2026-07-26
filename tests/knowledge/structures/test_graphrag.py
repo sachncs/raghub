@@ -266,7 +266,7 @@ def test_graphrag_search_empty_index_returns_empty() -> None:
 
 def test_graphrag_unknown_mode_in_tool_returns_error() -> None:
     """The graph_search tool surfaces an unknown mode as a ToolResult error."""
-    from raghub.agent.tools.graph_search import GraphSearchTool
+    from raghub.tools.graph_search import GraphSearchTool
 
     tool = GraphSearchTool(GraphRagIndex(llm=StubLlm(), embedder=HashingEmbeddingProvider(dimension=8)))
     import asyncio
