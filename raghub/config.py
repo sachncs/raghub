@@ -157,7 +157,7 @@ class Settings(BaseModel):
                 operator has not set ``JWT_SECRET`` or has left
                 ``allow_passwordless_login`` enabled.
         """
-        return _load_from_env(profile)
+        return __load_from_env(profile)
 
 
 # ---------------------------------------------------------------------------
@@ -345,7 +345,7 @@ def read_toml_file(path: Path) -> dict[str, Any]:
     return tomllib.loads(path.read_text(encoding="utf-8")) or {}
 
 
-def _load_from_env(profile: str | None = None) -> "Settings":
+def __load_from_env(profile: str | None = None) -> "Settings":
     """Read YAML/TOML profile + env vars, then return a configured :class:`Settings`."""
     base_dir = Path.cwd() / "config"
     selected_profile = profile or os.getenv("RAG_PROFILE", "development")

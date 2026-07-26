@@ -94,7 +94,7 @@ class ShutdownCoordinator:
             will be released.
     """
 
-    _SHUTDOWN_TARGETS: tuple[str, ...] = (
+    SHUTDOWN_TARGETS: tuple[str, ...] = (
         "background_ingestion",
         "ingestion",
         "image_store",
@@ -109,7 +109,7 @@ class ShutdownCoordinator:
 
     async def release(self) -> None:
         """Close every owned collaborator in order."""
-        for attr in self._SHUTDOWN_TARGETS:
+        for attr in self.SHUTDOWN_TARGETS:
             collaborator = getattr(self.container, attr, None)
             if collaborator is None:
                 continue

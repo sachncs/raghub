@@ -51,7 +51,7 @@ async def load_store() -> Any:
     return store
 
 
-def _run(coro: Any) -> Any:
+def __run(coro: Any) -> Any:
     """Run an awaitable in a fresh event loop."""
     return asyncio.run(coro)
 
@@ -68,7 +68,7 @@ def list_cmd(email: str = typer.Option(..., "--email", help="User email.")) -> N
         prefs = await store.get_prefs(user.user_id)
         write_json({"email": email, "tool_settings": prefs.get("tool_settings", {})})
 
-    _run(runner())
+    __run(runner())
 
 
 @tools.command(name="set")
@@ -100,7 +100,7 @@ def set_cmd(
         await store.set_pref(user.user_id, "tool_settings", merged)
         write_json({"email": email, "tool_settings": merged})
 
-    _run(runner())
+    __run(runner())
 
 
 @tools.command(name="unset")
@@ -115,7 +115,7 @@ def unset_cmd(email: str = typer.Option(..., "--email", help="User email.")) -> 
         await store.delete_pref(user.user_id, "tool_settings")
         write_json({"email": email, "tool_settings": None})
 
-    _run(runner())
+    __run(runner())
 
 
 __all__ = ["TOOL_KEYS", "app", "load_store", "tools"]
