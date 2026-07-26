@@ -124,6 +124,16 @@ class PrometheusMetrics:
             "Total completion tokens",
             ["model"],
         )
+        self.rerank_latency: Histogram = safe_histogram(
+            "raghub_rerank_latency_seconds",
+            "Reranker wall-clock latency in seconds",
+            [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+        )
+        self.long_context_pass: Counter = safe_counter(
+            "raghub_long_context_pass_used_total",
+            "Long-context second-pass rerank invocations",
+            ["outcome"],
+        )
         if app is not None:
             self.register_app(app)
 
@@ -210,3 +220,52 @@ class PrometheusMetrics:
                     content=generate_latest(REGISTRY),
                     media_type="text/plain",
                 )
+
+
+_active_metrics: PrometheusMetrics | None = None
+
+
+def set_active_metrics(instance: PrometheusMetrics | None) -> None:
+    """Register the process-wide :class:`PrometheusMetrics` instance.
+
+    Rerankers and other hot-path components call :func:`record_rerank_latency`
+    which needs a back-reference to the active Prometheus registry. The
+    facade calls this once during construction; rerankers read it lazily.
+    """
+    global _active_metrics
+    _active_metrics = instance
+
+
+def record_rerank_latency(provider: str, seconds: float) -> None:
+    """Observe a rerank latency into the active Prometheus histogram.
+
+    No-op when no :class:`PrometheusMetrics` is registered yet (e.g. in
+    unit tests). ``provider`` becomes the ``provider`` label.
+    """
+    if _active_metrics is None:
+        return
+    try:
+        _active_metrics.rerank_latency.labels(provider=provider).observe(seconds)
+    except Exception:
+        # Metrics must never crash the caller — Prometheus labels are
+        # validated; an unknown provider label would raise.
+        pass
+
+
+def record_long_context(*, outcome: str, seconds: float) -> None:
+    """Increment the long-context pass counter (Phase 5.4).
+
+    Args:
+        outcome: One of ``"ran"``, ``"skipped"``, ``"bad_json"``,
+            ``"error"``. Unknown values still increment the counter
+            under that label so the operator sees them.
+        seconds: Observed wall-clock latency (recorded only for
+            informational purposes; the metric is a counter, not
+            a histogram).
+    """
+    if _active_metrics is None:
+        return
+    try:
+        _active_metrics.long_context_pass.labels(outcome=outcome).inc()
+    except Exception:
+        pass

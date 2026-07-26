@@ -63,9 +63,36 @@ class QueryRequest(BaseModel):
 
     Attributes:
         question: The user's question. Must be non-empty.
+        tools_enabled: Explicit allow-list of tool names to enable for
+            this request. ``None`` defers to the resolver (request >
+            session > user > global). Phase 7/8 wiring.
+        agent: When ``True``, route through the agentic planner even
+            if no specific tools are named.
+        web: Shortcut to enable the :class:`WebSearchTool` for this
+            request. Equivalent to ``"web_search" in tools_enabled``.
+        graph: Shortcut for the GraphRAG summary tool.
+        summaries: Shortcut for the RAPTOR summary tool.
+        reranker: Per-request reranker override (``"none"|"cohere"|
+            "bge"|"llm"|"cascade"``). ``None`` defers to resolver.
+        long_context_pass: Per-request toggle for the long-context
+            second-pass rerank.
+        query_transforms: Per-request list of transform names
+            (``"hyde"|"multi_query"|"step_back"|"decompose"``).
+        max_steps: Per-request cap on planner steps.
+        top_k: Per-request override of the default retrieval depth.
     """
 
     question: str = Field(min_length=1)
+    tools_enabled: list[str] | None = None
+    agent: bool | None = None
+    web: bool | None = None
+    graph: bool | None = None
+    summaries: bool | None = None
+    reranker: str | None = None
+    long_context_pass: bool | None = None
+    query_transforms: list[str] | None = None
+    max_steps: int | None = None
+    top_k: int | None = None
 
 
 class QueryResponse(BaseModel):
@@ -75,11 +102,21 @@ class QueryResponse(BaseModel):
         answer: The provider-generated answer.
         citations: Citation metadata keyed by source location.
         source_chunks: The retrieved chunks that informed the answer.
+        planner_trace: Optional per-step trace of the agent loop
+            (``None`` on the fast path). Each entry is the JSON
+            payload of a :class:`PlannerEvent`.
+        tools_invoked: Names of tools the agent invoked. Empty on the
+            fast path.
+        transforms_applied: Names of query transforms that ran before
+            retrieval. Empty when the resolver disabled them.
     """
 
     answer: str
     citations: list[dict] = Field(default_factory=list)
     source_chunks: list[dict] = Field(default_factory=list)
+    planner_trace: list[dict] | None = None
+    tools_invoked: list[str] = Field(default_factory=list)
+    transforms_applied: list[str] = Field(default_factory=list)
 
 
 class BatchIngestItem(BaseModel):

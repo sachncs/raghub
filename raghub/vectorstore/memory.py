@@ -267,18 +267,25 @@ class InMemoryVectorStore(BaseVectorStore):
         return self.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
-        """Naive term-frequency keyword search.
+        """BM25 keyword search (Phase 3.1) with TF fallback.
 
-        The score for a chunk is ``sum(token_count_in_chunk) /
-        len(chunk_text_tokens)`` across all query tokens present in the
-        chunk. **This is not BM25/TF-IDF**: there is no IDF weighting, no
-        length saturation, and no per-token inverse document frequency.
-        The score therefore favours very short chunks that happen to
+        Uses :class:`rank_bm25.BM25Okapi` when the optional ``rank_bm25``
+        dependency is importable; otherwise falls back to a naive
+        term-frequency / chunk-length score (the historical default
+        the docstring below describes).
+
+        BM25 is rebuilt from the current record snapshot on every call.
+        The in-memory store is small enough that this is cheaper than
+        maintaining a delta log; for larger backends a proper inverted
+        index would be the next step.
+
+        The score for a chunk under the TF fallback is
+        ``sum(token_count_in_chunk) / len(chunk_text_tokens)`` across
+        all query tokens present in the chunk. **This is not
+        BM25/TF-IDF**: there is no IDF weighting, no length
+        saturation, and no per-token inverse document frequency. The
+        score therefore favours very short chunks that happen to
         contain query terms.
-
-        NOTE: replace with BM25 (or delegate to a real inverted index) when
-        persistence and recall-quality requirements demand proper IDF
-        weighting.
 
         Args:
             query: Raw query string.
@@ -295,17 +302,36 @@ class InMemoryVectorStore(BaseVectorStore):
         # inserts/deletes.
         with self.lock:
             records = list(self.records.values())
-        scored: list[tuple[str, float, ChunkRecord]] = []
-        for rec in records:
-            text = rec.chunk.text.lower()
-            text_terms = text.split()
-            if not text_terms:
-                continue
-            # Raw TF / chunk-length: over-counts for short chunks because
-            # every query term is divided by the same denominator.
-            score = sum(text_terms.count(q) for q in query_terms) / len(text_terms)
-            if score > 0:
-                scored.append((rec.chunk.chunk_id, score, rec.chunk))
+        # Phase 3.1: try BM25 first; fall back to TF on ImportError.
+        try:
+            from rank_bm25 import BM25Okapi  # type: ignore[import-not-found]
+        except ImportError:
+            BM25Okapi = None  # type: ignore[assignment]
+        if BM25Okapi is not None:
+            tokenised_corpus = [
+                (rec.chunk.text or "").lower().split() for rec in records
+            ]
+            if not any(tokenised_corpus):
+                return []
+            bm25 = BM25Okapi(tokenised_corpus)
+            scores = bm25.get_scores(query_terms)
+            scored: list[tuple[str, float, ChunkRecord]] = [
+                (rec.chunk.chunk_id, float(score), rec.chunk)
+                for rec, score in zip(records, scores, strict=True)
+                if score > 0
+            ]
+        else:
+            scored = []
+            for rec in records:
+                text = (rec.chunk.text or "").lower()
+                text_terms = text.split()
+                if not text_terms:
+                    continue
+                # Raw TF / chunk-length: over-counts for short chunks because
+                # every query term is divided by the same denominator.
+                score = sum(text_terms.count(q) for q in query_terms) / len(text_terms)
+                if score > 0:
+                    scored.append((rec.chunk.chunk_id, score, rec.chunk))
         scored.sort(key=lambda x: x[1], reverse=True)
         return [{"chunk_id": cid, "score": s, "chunk": c} for cid, s, c in scored[:top_k]]
 
