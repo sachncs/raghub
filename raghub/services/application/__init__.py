@@ -44,8 +44,7 @@ from raghub.embeddings import BaseEmbeddingProvider, build_embedding_provider
 from raghub.ingestion import DocumentIngestionService
 from raghub.llm import BaseLLMProvider, build_llm_provider
 from raghub.models import ConversationTurn
-from raghub.observability import build_logger
-from raghub.observability import PrometheusMetrics
+from raghub.observability import PrometheusMetrics, build_logger
 from raghub.prompts import PromptBuilder
 from raghub.repositories import UnitOfWork
 from raghub.retrieval.pipeline import RetrievalPipeline
@@ -53,8 +52,7 @@ from raghub.retrieval.reranker import IdentityReranker
 from raghub.services.application.facade import ApplicationFacade
 from raghub.storage.image_store import FilesystemImageStore
 from raghub.storage.sqlite_session_store import SqliteSessionStore
-from raghub.vectorstore import BaseVectorStore
-from raghub.vectorstore import ZvecVectorStore
+from raghub.vectorstore import BaseVectorStore, ZvecVectorStore
 
 __all__ = [
     "ApplicationFacade",

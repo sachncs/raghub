@@ -10,6 +10,10 @@ from __future__ import annotations
 
 import os
 import re
+
+# Module aliases so tests that patch ``raghub.vectorstore.qdrant.X``
+# (or .memory / .zvec / .base) after the flatten still resolve.
+import sys
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -28,11 +32,6 @@ from rank_bm25 import BM25Okapi
 from raghub.exceptions import VectorStoreError
 from raghub.interfaces.vectorstore import VectorStore
 from raghub.models import ChunkRecord
-
-
-# Module aliases so tests that patch ``raghub.vectorstore.qdrant.X``
-# (or .memory / .zvec / .base) after the flatten still resolve.
-import sys
 
 sys.modules.setdefault("raghub.vectorstore.base", sys.modules[__name__])
 sys.modules.setdefault("raghub.vectorstore.memory", sys.modules[__name__])

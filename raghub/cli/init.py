@@ -9,7 +9,6 @@ from pathlib import Path
 
 import typer
 
-
 SAMPLE_CONFIG = """# RAGHub configuration — adjust to your environment.
 environment: development
 data_dir: ./data

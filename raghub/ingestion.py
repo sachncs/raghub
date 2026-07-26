@@ -39,7 +39,6 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from raghub.documents import PlainTextConverter as default_converter
 from raghub.documents import (
     ChunkingPlan,
     DocumentLifecycleManager,
@@ -47,6 +46,7 @@ from raghub.documents import (
     normalize_text,
     validate_upload,
 )
+from raghub.documents import PlainTextConverter as default_converter
 from raghub.embeddings import BaseEmbeddingProvider
 from raghub.exceptions import (
     ConfigurationError,
@@ -67,7 +67,6 @@ from raghub.models import (
 from raghub.pipeline import IngestPipeline
 from raghub.repositories import UnitOfWork
 from raghub.utils import capture
-
 
 # ---------------------------------------------------------------------------
 # Chunker adapters (formerly raghub.ingestion.chunkers)

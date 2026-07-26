@@ -69,7 +69,6 @@ from raghub.models import (
 )
 from raghub.observability import NoOpTelemetry
 
-
 # ---------------------------------------------------------------------------
 # DurationTimer (formerly raghub.pipelines._timing)
 # ---------------------------------------------------------------------------

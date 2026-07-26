@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
+from raghub.retrieval.fusion import rrf
 from raghub.tools.base import BaseTool, ToolContext, ToolResult
 from raghub.tools.vector_search import as_admin_user
-from raghub.retrieval.fusion import rrf
 
 
 class HybridSearchTool(BaseTool):
