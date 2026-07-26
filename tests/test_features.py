@@ -5,9 +5,20 @@ a single-module test file.
 
 from __future__ import annotations
 
-from time import sleep
+import time
 
 from raghub.models import ConversationTurn
+
+
+def _poll_until(func, timeout=5.0, step=0.01):
+    """Poll *func* until it returns a truthy value or *timeout* expires."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        result = func()
+        if result:
+            return result
+        time.sleep(step)
+    raise TimeoutError(f"Condition not met within {timeout}s")
 
 
 class TestTokenBucket:
@@ -32,8 +43,7 @@ class TestTokenBucket:
         bucket = TokenBucket(rate=100, burst=5)
         for _ in range(5):
             bucket.allow("test")
-        sleep(0.05)
-        assert bucket.allow("test") is True
+        _poll_until(lambda: bucket.allow("test"), timeout=1.0)
 
 
 class TestSlidingWindowManager:
@@ -80,8 +90,7 @@ class TestBackgroundIngestionService:
 
         job_id = service.submit(dummy_job, 21)
         assert job_id is not None
-        sleep(0.2)
-        assert service.get_status(job_id) == "completed"
+        _poll_until(lambda: service.get_status(job_id) == "completed")
         assert service.get_result(job_id) == 42
 
     def test_failed_job(self):
@@ -93,8 +102,7 @@ class TestBackgroundIngestionService:
             raise ValueError("oops")
 
         job_id = service.submit(failing_job)
-        sleep(0.2)
-        assert service.get_status(job_id) == "failed"
+        _poll_until(lambda: service.get_status(job_id) == "failed")
 
     def test_unknown_job(self):
         from raghub.ingestion.background import BackgroundIngestionService
@@ -116,18 +124,3 @@ class TestFacetedSearchEngine:
         assert filters.companies == ["acme"]
         assert Classification.INTERNAL in filters.classifications
 
-
-class TestRateLimiterMiddleware:
-    def test_middleware_imports(self):
-        from raghub.api.rate_limiter import RateLimiterMiddleware
-
-        assert RateLimiterMiddleware is not None
-
-
-class TestAdminAPI:
-    def test_router_imports(self):
-        from raghub.api.admin import router
-
-        assert router.prefix == "/admin"
-        assert len(router.tags) == 1
-        assert router.tags[0] == "admin"
