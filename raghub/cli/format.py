@@ -52,7 +52,7 @@ def make_rag(config: str | None) -> Any:
     Returns:
         A configured :class:`raghub.RAG` instance.
     """
-    from raghub.api.rag import RAG
+    from raghub.rag import RAG
 
     return RAG.from_config(config) if config else RAG()
 

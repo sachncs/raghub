@@ -13,7 +13,7 @@ can be imported without the optional web dependencies installed.
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from raghub.api.rag import RAG as RAG
+    from raghub.rag import RAG as RAG
     from raghub.core import build_application
     from raghub.services.application import DynamicRagApplication, DynamicRagContainer
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 def __getattr__(name: str) -> Any:
     """Lazily import :class:`RAG` and the legacy builders."""
     if name == "RAG":
-        from raghub.api.rag import RAG as rag_import
+        from raghub.rag import RAG as rag_import
 
         return rag_import
     if name == "build_application":

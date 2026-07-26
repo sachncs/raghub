@@ -149,7 +149,7 @@ async def test_fast_path_with_compose_transformer_empty() -> None:
 @pytest.mark.asyncio
 async def test_fast_path_through_rag_facade() -> None:
     """The fast-path invariant also holds via the RAG facade."""
-    from raghub.api.rag import RAG
+    from raghub.rag import RAG
 
     with tempfile.TemporaryDirectory() as tmp:
         settings = Settings(data_dir=Path(tmp))

@@ -547,7 +547,7 @@ class TestQueryCacheRBACScoping:
 class TestRagDeletePriorBundle:
     def test_delete_walks_manifest_for_prior_bundle(self, tmp_path: object) -> None:
         """RAG.delete must retire prior bundle ids tracked by the manifest."""
-        from raghub.api.rag import RAG
+        from raghub.rag import RAG
 
         rag = RAG()
         rag.manifest = type(

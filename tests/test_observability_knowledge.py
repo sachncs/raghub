@@ -452,7 +452,7 @@ class TestBuildResponseWithStructured:
 class TestDefaultConverter:
     def test_returns_marker_converter_when_importable(self):
         with patch("raghub.documents.MarkerConverter") as mock_mc:
-            from raghub.api.defaults import default_converter
+            from raghub.rag import default_converter
 
             result = default_converter()
             assert result is mock_mc.return_value
@@ -464,7 +464,7 @@ class TestDefaultConverter:
             "raghub.documents.MarkerConverter",
             side_effect=ConfigurationError("not configured"),
         ):
-            from raghub.api.defaults import default_converter
+            from raghub.rag import default_converter
             from raghub.documents import PlainTextConverter
 
             result = default_converter()
@@ -474,7 +474,7 @@ class TestDefaultConverter:
 @patch.dict("os.environ", {}, clear=True)
 class TestDefaultEmbedder:
     def test_no_api_key_uses_hashing(self):
-        from raghub.api.defaults import default_embedder
+        from raghub.rag import default_embedder
         from raghub.embeddings import HashingEmbeddingProvider
 
         result = default_embedder("test-model", 128)
@@ -484,7 +484,7 @@ class TestDefaultEmbedder:
     def test_with_litellm_api_key(self):
         with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True):
             with patch("raghub.embeddings.LiteLLMEmbeddingProvider") as mock_llm:
-                from raghub.api.defaults import default_embedder
+                from raghub.rag import default_embedder
 
                 result = default_embedder("gpt-4", 256)
                 assert result is mock_llm.return_value
@@ -499,7 +499,7 @@ class TestDefaultEmbedder:
                 side_effect=ConfigurationError("fail"),
             ),
         ):
-            from raghub.api.defaults import default_embedder
+            from raghub.rag import default_embedder
             from raghub.embeddings import HashingEmbeddingProvider
 
             result = default_embedder("gpt-4", 256)
@@ -510,21 +510,21 @@ class TestDefaultEmbedder:
 @patch.dict("os.environ", {}, clear=True)
 class TestDefaultLLM:
     def test_heuristic_model_returns_heuristic(self):
-        from raghub.api.defaults import default_llm
+        from raghub.rag import default_llm
         from raghub.llm import HeuristicLLMProvider
 
         result = default_llm("heuristic")
         assert isinstance(result, HeuristicLLMProvider)
 
     def test_empty_model_returns_heuristic(self):
-        from raghub.api.defaults import default_llm
+        from raghub.rag import default_llm
         from raghub.llm import HeuristicLLMProvider
 
         result = default_llm("")
         assert isinstance(result, HeuristicLLMProvider)
 
     def test_no_api_key_returns_heuristic(self):
-        from raghub.api.defaults import default_llm
+        from raghub.rag import default_llm
         from raghub.llm import HeuristicLLMProvider
 
         result = default_llm("gpt-4")
@@ -533,7 +533,7 @@ class TestDefaultLLM:
     def test_with_api_key_returns_litellm(self):
         with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True):
             with patch("raghub.llm.LiteLLMProvider") as mock_llm:
-                from raghub.api.defaults import default_llm
+                from raghub.rag import default_llm
 
                 result = default_llm("gpt-4")
                 assert result is mock_llm.return_value
@@ -548,7 +548,7 @@ class TestDefaultLLM:
                 side_effect=ConfigurationError("fail"),
             ),
         ):
-            from raghub.api.defaults import default_llm
+            from raghub.rag import default_llm
             from raghub.llm import HeuristicLLMProvider
 
             result = default_llm("gpt-4")
@@ -558,7 +558,7 @@ class TestDefaultLLM:
 @patch.dict("os.environ", {}, clear=True)
 class TestDefaultVectorStore:
     def test_no_qdrant_url_uses_memory(self):
-        from raghub.api.defaults import default_vector_store
+        from raghub.rag import default_vector_store
         from raghub.vectorstore import InMemoryVectorStore
 
         result = default_vector_store(384)
@@ -573,7 +573,7 @@ class TestDefaultVectorStore:
             ),
             patch("raghub.vectorstore.qdrant.QdrantVectorStore") as mock_qdrant,
         ):
-            from raghub.api.defaults import default_vector_store
+            from raghub.rag import default_vector_store
 
             result = default_vector_store(384)
             mock_qdrant.assert_called_once_with(
@@ -591,7 +591,7 @@ class TestDefaultVectorStore:
                 "raghub.vectorstore.qdrant.QdrantVectorStore",
                 side_effect=ConfigurationError("fail"),
             ):
-                from raghub.api.defaults import default_vector_store
+                from raghub.rag import default_vector_store
                 from raghub.vectorstore import InMemoryVectorStore
 
                 result = default_vector_store(384)
@@ -601,7 +601,7 @@ class TestDefaultVectorStore:
 @patch.dict("os.environ", {}, clear=True)
 class TestDefaultStructured:
     def test_no_api_key_returns_none(self):
-        from raghub.api.defaults import default_structured
+        from raghub.rag import default_structured
 
         result = default_structured()
         assert result is None
@@ -611,7 +611,7 @@ class TestDefaultStructured:
             patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
             patch("raghub.generation.InstructorStructuredOutputProvider") as mock_inst,
         ):
-            from raghub.api.defaults import default_structured
+            from raghub.rag import default_structured
 
             result = default_structured()
             assert result is mock_inst.return_value
@@ -624,7 +624,7 @@ class TestDefaultStructured:
                 side_effect=ImportError("not installed"),
             ),
         ):
-            from raghub.api.defaults import default_structured
+            from raghub.rag import default_structured
 
             result = default_structured()
             assert result is None
@@ -639,7 +639,7 @@ class TestDefaultStructured:
                 side_effect=ConfigurationError("fail"),
             ),
         ):
-            from raghub.api.defaults import default_structured
+            from raghub.rag import default_structured
 
             result = default_structured()
             assert result is None
@@ -655,7 +655,7 @@ class TestDefaultTelemetry:
             "raghub.observability.LangfuseTelemetryProvider",
             mock_langfuse,
         ):
-            from raghub.api.defaults import default_telemetry
+            from raghub.rag import default_telemetry
             from raghub.observability import NoOpTelemetry
 
             result = default_telemetry()
@@ -669,7 +669,7 @@ class TestDefaultTelemetry:
             "raghub.observability.LangfuseTelemetryProvider",
             mock_langfuse,
         ):
-            from raghub.api.defaults import default_telemetry
+            from raghub.rag import default_telemetry
 
             result = default_telemetry()
             assert result is mock_langfuse.return_value
@@ -683,7 +683,7 @@ class TestDefaultTelemetry:
             "raghub.observability.LangfuseTelemetryProvider",
             mock_provider,
         ):
-            from raghub.api.defaults import default_telemetry
+            from raghub.rag import default_telemetry
             from raghub.observability import NoOpTelemetry
 
             result = default_telemetry()
