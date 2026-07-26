@@ -13,8 +13,11 @@ from raghub.repositories.sqlite_session_repo import SqliteSessionRepository
 from raghub.storage.database import DatabaseManager
 from raghub.vectorstore.base import BaseVectorStore
 
+__all__ = ["UnitOfWork"]
+
 
 class UnitOfWork(BaseUnitOfWork):
+    """Coordinate repositories over a shared SQLite transaction."""
     def __init__(
         self, db_path: str, vector_store: BaseVectorStore, session_timeout: int = 3600
     ) -> None:
@@ -52,12 +55,10 @@ class UnitOfWork(BaseUnitOfWork):
         """
         if not self.initialized:
             return
-        try:
-            db_manager = self.db_manager
-            if db_manager is not None:
-                await db_manager.close()
-        finally:
-            self.initialized = False
+        db_manager = self.db_manager
+        if db_manager is not None:
+            await db_manager.close()
+        self.initialized = False
 
     async def __aenter__(self) -> UnitOfWork:
         await self.initialize()
@@ -67,7 +68,5 @@ class UnitOfWork(BaseUnitOfWork):
         return self
 
     async def __aexit__(self, *args: object) -> None:
-        try:
-            await super().__aexit__(*args)
-        finally:
-            await self.close()
+        await super().__aexit__(*args)
+        await self.close()

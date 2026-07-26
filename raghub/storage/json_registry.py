@@ -33,6 +33,8 @@ from raghub.exceptions import StorageError
 from raghub.models import DocumentLifecycleStatus, DocumentVersion
 from raghub.utils import atomic_write_json, load_json
 
+__all__ = ["JsonDocumentRegistry", "RegistrySnapshot"]
+
 
 @dataclass
 class RegistrySnapshot:
@@ -79,28 +81,23 @@ class JsonDocumentRegistry:
         Tolerates a missing or malformed file by resetting to empty
         state; this is the behaviour we want for first-run startup.
         """
-        try:
-            payload = load_json(self.path, default={"documents": {}, "checksum_index": {}})
-            documents = payload.get("documents", {})
-            checksum_index = payload.get("checksum_index", {})
-            # Defensive parsing: ignore entries whose shape is wrong.
-            # Future schema changes should land here as drop-points so
-            # we never crash on partially-migrated files.
-            self.documents = {
-                document_id: [DocumentVersion.model_validate(item) for item in versions]
-                for document_id, versions in documents.items()
-                if isinstance(versions, list)
-            }
-            self.checksum_index = {
-                checksum: tuple(value)
-                for checksum, value in checksum_index.items()
-                if isinstance(value, list)
-            }
-        except Exception:
-            # Bad JSON or schema mismatch — start fresh. This is
-            # acceptable because the canonical store is the SQLite one.
+        if self.path.exists() and not self.path.read_text(encoding="utf-8").lstrip().startswith("{"):
             self.documents = {}
             self.checksum_index = {}
+            return
+        payload = load_json(self.path, default={"documents": {}, "checksum_index": {}})
+        documents = payload.get("documents", {})
+        checksum_index = payload.get("checksum_index", {})
+        self.documents = {
+            document_id: [DocumentVersion.model_validate(item) for item in versions]
+            for document_id, versions in documents.items()
+            if isinstance(versions, list)
+        }
+        self.checksum_index = {
+            checksum: tuple(value)
+            for checksum, value in checksum_index.items()
+            if isinstance(value, list)
+        }
 
     def save(self) -> None:
         """Persist in-memory state to disk atomically.
@@ -122,7 +119,7 @@ class JsonDocumentRegistry:
                     },
                 },
             )
-        except Exception as exc:  # pragma: no cover - persistence error path
+        except OSError as exc:
             raise StorageError(str(exc)) from exc
 
     def save_version(self, document: DocumentVersion) -> DocumentVersion:

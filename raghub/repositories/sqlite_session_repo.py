@@ -15,8 +15,11 @@ from raghub.models import SessionRecord
 from raghub.storage.database import DatabaseManager
 from raghub.storage.sqlite_session_store import SqliteSessionStore
 
+__all__ = ["SqliteSessionRepository"]
+
 
 class SqliteSessionRepository(SessionRepository):
+    """Adapt the SQLite session store to the session repository interface."""
     def __init__(
         self,
         db_path: str | Path,

@@ -10,8 +10,11 @@ from raghub.domain import ChunkRepository
 from raghub.models import ChunkRecord
 from raghub.vectorstore.base import BaseVectorStore
 
+__all__ = ["SqliteChunkRepository"]
+
 
 class SqliteChunkRepository(ChunkRepository):
+    """Store chunk records and embeddings in a vector store."""
     def __init__(self, vector_store: BaseVectorStore) -> None:
         self.store = vector_store
 

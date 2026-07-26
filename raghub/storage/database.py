@@ -25,10 +25,11 @@ driver serialises access internally.
 
 from __future__ import annotations
 
-import contextlib
 from pathlib import Path
 
 import aiosqlite
+
+__all__ = ["DatabaseManager"]
 
 
 class DatabaseManager:
@@ -66,16 +67,9 @@ class DatabaseManager:
         """
         if self.conn is not None:
             conn = self.conn
-            try:
-                # ponytail: best-effort WAL checkpoint before close pushes any
-                # straggling -wal frames back into the main file so a subsequent
-                # cold start sees a clean database. Silently ignored on
-                # in-memory or already-checkpointed DBs.
-                with contextlib.suppress(Exception):
-                    await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-                await conn.close()
-            finally:
-                self.conn = None
+            await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            await conn.close()
+            self.conn = None
 
     @property
     def connection(self) -> aiosqlite.Connection:

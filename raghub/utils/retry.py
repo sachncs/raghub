@@ -32,6 +32,8 @@ import time
 from collections.abc import Callable
 from typing import TypeVar
 
+__all__ = ["retry"]
+
 T = TypeVar("T")
 
 

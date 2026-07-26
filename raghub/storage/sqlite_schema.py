@@ -14,6 +14,8 @@ volume should add indexes on the hot columns (e.g. ``chunks.document_id``,
 
 from __future__ import annotations
 
+__all__ = ["SQLITE_SCHEMA"]
+
 SQLITE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
     document_id TEXT PRIMARY KEY,

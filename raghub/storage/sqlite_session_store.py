@@ -27,6 +27,8 @@ import aiosqlite
 from raghub.models import ConversationTurn, SessionRecord
 from raghub.storage.database import DatabaseManager
 
+__all__ = ["SqliteSessionStore"]
+
 
 class SqliteSessionStore:
     """Async CRUD for the ``sessions`` table.
@@ -87,8 +89,7 @@ class SqliteSessionStore:
         """Create the ``sessions`` table if it does not exist.
 
         Also adds the ``overrides`` column (Phase 1.12) to legacy
-        databases via ``ALTER TABLE``; the operation is wrapped in a
-        try/except so re-runs are no-ops.
+        databases via ``ALTER TABLE`` when the column is absent.
         """
         conn = await self.conn()
         await conn.executescript("""
@@ -102,15 +103,10 @@ class SqliteSessionStore:
                 history TEXT DEFAULT '[]'
             );
         """)
-        # Phase 1.12 migration: add ``overrides`` JSON column for
-        # session-scoped tool/agent settings. SQLite raises on duplicate
-        # column, which is the expected "already migrated" signal.
-        try:
-            await conn.execute(
-                "ALTER TABLE sessions ADD COLUMN overrides TEXT DEFAULT '{}'"
-            )
-        except Exception:
-            pass
+        cursor = await conn.execute("PRAGMA table_info(sessions)")
+        columns = await cursor.fetchall()
+        if not any(column[1] == "overrides" for column in columns):
+            await conn.execute("ALTER TABLE sessions ADD COLUMN overrides TEXT DEFAULT '{}'" )
         if self.db_manager is None:
             await conn.commit()
             await conn.close()
@@ -273,10 +269,7 @@ class SqliteSessionStore:
         raw = row[0] if not isinstance(row, aiosqlite.Row) else row["overrides"]
         if not raw:
             return {}
-        try:
-            decoded = json.loads(raw)
-        except (TypeError, ValueError):
-            return {}
+        decoded = json.loads(raw)
         return decoded if isinstance(decoded, dict) else {}
 
     async def set_overrides(self, session_id: str, overrides: dict[str, Any]) -> None:
@@ -376,16 +369,11 @@ class SqliteSessionStore:
         Returns:
             The fully-typed :class:`SessionRecord`.
         """
-        history_raw = row["history"] if "history" in row.keys() else "[]"  # noqa: SIM118
-        overrides_raw = row["overrides"] if "overrides" in row.keys() else "{}"  # noqa: SIM118
-        try:
-            history = json.loads(history_raw) if history_raw else []
-        except (TypeError, ValueError):
-            history = []
-        try:
-            overrides = json.loads(overrides_raw) if overrides_raw else {}
-        except (TypeError, ValueError):
-            overrides = {}
+        row_keys = row.keys() if hasattr(row, "keys") else row
+        history_raw = row["history"] if "history" in row_keys else "[]"
+        overrides_raw = row["overrides"] if "overrides" in row_keys else "{}"
+        history = json.loads(history_raw) if history_raw else []
+        overrides = json.loads(overrides_raw) if overrides_raw else {}
         return SessionRecord(
             session_id=row["session_id"],
             user_id=row["user_id"],

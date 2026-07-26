@@ -26,8 +26,6 @@ Concurrency:
 
 from __future__ import annotations
 
-import asyncio
-import contextlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,6 +36,8 @@ import aiosqlite
 from raghub.domain import DocumentRepository
 from raghub.models import DocumentLifecycleStatus, DocumentRecord
 from raghub.storage.database import DatabaseManager
+
+__all__ = ["SqliteDocumentRepository"]
 
 MAX_INSERT_RETRIES = 3
 RETRY_BASE_DELAY = 0.05
@@ -81,6 +81,8 @@ INSERT {mode} INTO documents (
 
 
 class SqliteDocumentRepository(DocumentRepository):
+    """Persist versioned documents in SQLite."""
+
     def __init__(self, db_path: str | Path, db_manager: DatabaseManager | None = None) -> None:
         self.db_path = str(db_path)
         self.db_manager = db_manager
@@ -206,26 +208,10 @@ class SqliteDocumentRepository(DocumentRepository):
         record: DocumentRecord,
         max_retries: int = MAX_INSERT_RETRIES,
     ) -> bool:
-        last_exc: Exception | None = None
-        for attempt in range(max_retries):
-            conn = await self.conn()
-            try:
-                await conn.execute(INSERT_SQL.format(mode=""), self.record_params(record))
-                await self.maybe_commit_close(conn)
-                return True
-            except aiosqlite.IntegrityError as exc:
-                last_exc = exc
-                # ponytail: rollback before close so the leaked implicit
-                # transaction's write lock is released for the next retry.
-                with contextlib.suppress(Exception):
-                    await conn.rollback()
-                if self.db_manager is None:
-                    with contextlib.suppress(Exception):
-                        await conn.close()
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(RETRY_BASE_DELAY * (2**attempt))
-                continue
-        raise last_exc  # type: ignore[misc]
+        conn = await self.conn()
+        await conn.execute(INSERT_SQL.format(mode=""), self.record_params(record))
+        await self.maybe_commit_close(conn)
+        return True
 
     async def get(self, document_id: str) -> DocumentRecord | None:
         return await self.get_version(document_id)

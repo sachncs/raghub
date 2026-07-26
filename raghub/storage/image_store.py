@@ -15,6 +15,10 @@ from __future__ import annotations
 from hashlib import sha256
 from pathlib import Path
 
+__all__ = ["FilesystemImageStore"]
+
+__all__ = ["FilesystemImageStore"]
+
 
 class FilesystemImageStore:
     """Filesystem-backed image store keyed by content hash."""
