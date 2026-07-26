@@ -19,7 +19,7 @@ from raghub.models import (
     UserPrincipal,
     deterministic_id,
 )
-from raghub.pipelines.rag import (
+from raghub.pipeline import (
     IngestPipeline,
     QueryPipeline,
     chunks_from_knowledge_bundle,

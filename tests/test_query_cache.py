@@ -7,7 +7,7 @@ import time
 import pytest
 
 from raghub.models import ConversationTurn, PipelineResult
-from raghub.pipelines.cache import QueryCache
+from raghub.pipeline import QueryCache
 
 
 def _make_result(answer: str = "hello") -> PipelineResult:

@@ -20,7 +20,7 @@ from raghub.evaluation.metrics import (
 )
 from raghub.knowledge import dumps, from_okf, to_okf
 from raghub.models import deterministic_id
-from raghub.pipelines.cache import canonical_filters
+from raghub.pipeline import canonical_filters
 
 
 @given(

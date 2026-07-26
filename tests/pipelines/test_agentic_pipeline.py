@@ -20,7 +20,7 @@ from raghub.models import (
     PipelineContext,
     UserPrincipal,
 )
-from raghub.pipelines.agentic import AgenticQueryPipeline
+from raghub.pipeline import AgenticQueryPipeline
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.vectorstore import InMemoryVectorStore
 
