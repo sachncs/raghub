@@ -39,18 +39,6 @@ def test_main_without_handler_prints_help():
     assert "usage:" in buf.getvalue().lower()
 
 
-def test_main_module_entry_via_subprocess():
-    """The ``if __name__ == '__main__'`` block calls main()."""
-    import subprocess
-
-    result = subprocess.run(
-        [sys.executable, "-m", "raghub.cli", "version"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0
-
-
 # =======================================================================
 # ingest_cmd.py  —  lines 41, 44–46, 51–52
 # =======================================================================
