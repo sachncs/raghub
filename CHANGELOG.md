@@ -8,6 +8,57 @@ Each entry below lists the originating Git commit (short SHA) and its
 ISO 8601 timestamp with timezone. Entries are ordered from newest to
 oldest.
 
+## [0.6.0] - 2026-07-26
+
+### Changed (BREAKING)
+- **Required dependencies promoted**: the optional-dependency
+  extras `zvec` and `pdf` are removed; the following packages are
+  now required runtime dependencies: `qdrant-client`, `langfuse`,
+  `chonkie`, `litellm`, `instructor`, `sentence-transformers`,
+  `cohere`, `duckduckgo-search`, `scikit-learn`, `python-igraph`,
+  `leidenalg`, `rank-bm25`, `ragatouille`, `marker-pdf`, `zvec`.
+- **Exception swallowing removed**: `try` / `except` blocks inside
+  function bodies are eliminated everywhere except the eight
+  pipeline / CLI / worker boundary entry points. Operations now
+  raise their native exceptions (`VectorStoreError`, `LLMError`,
+  `RerankerError`, `ValueError`, `JSONDecodeError`, `RuntimeError`,
+  etc.); callers handle them.
+- **Lazy imports removed**: every `from X import Y` statement now
+  lives at the top of its module. Optional dependencies still load
+  via top-level `importlib.util.find_spec` checks in dedicated
+  capability-detection helpers (`ColbertLateInteraction.is_available`,
+  `ZvecVectorStore` constructor).
+- **Suppressions removed**: every `# type: ignore` and `# noqa` in
+  `raghub/` is replaced with proper typing, typed wrappers, or
+  typed signatures.
+- **Semi-private naming removed**: every `_single_leading_underscore`
+  identifier in `raghub/` is renamed to public Python convention;
+  only Python-language dunders (`__init__`, `__repr__`, etc.) remain.
+
+### Added
+- **Exception taxonomy**: `OptionalDependencyMissing`,
+  `TelemetryError`, `PipelineFailed`, `TokenBudgetExceeded`,
+  `StreamingFormatError`, `CacheMiss` join the existing
+  `raghub.exceptions` taxonomy.
+- **`MetricsRegistry`**: process-wide `PrometheusMetrics` holder
+  replaces the previous module-level `_active_metrics` global.
+- **New test suites (316 cases, 18 files)** for previously
+  uncovered modules: `tests/structured/`, `tests/interfaces/`,
+  `tests/vectorstore/test_zvec.py`, `tests/auth/`,
+  `tests/documents/`, `tests/knowledge/structures/`,
+  `tests/retrieval/transforms/`, `tests/agent/test_resolver.py`,
+  `tests/cli/test_main.py`, `tests/api/test_schemas.py`,
+  `tests/api/test_async_runner.py`, `tests/api/test_streaming.py`.
+
+### Removed
+- **Module-level singletons**: `_active_metrics` (replaced by
+  `MetricsRegistry`), `_pdf_mod` / `_models_mod` / `_output_mod`
+  (renamed public), `_device` / `_llm` / `_store` / `_ttl`
+  (renamed public), `_env_bool` / `_csv_to_transforms` / `_native_filter`
+  (renamed public), `_build_refinery` / `_apply_refinery`
+  (renamed public), `_drive_extraction` / `_drive_summarisation`
+  (renamed public).
+
 ## [0.5.0] - 2026-07-26
 
 ### Added
