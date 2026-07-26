@@ -8,7 +8,7 @@ module is the single place that knows how to fish it back out.
 
 from __future__ import annotations
 
-from fastapi import Request
+from fastapi import FastAPI, Request
 
 from raghub.services.application import DynamicRagApplication
 
@@ -24,4 +24,8 @@ def get_application(request: Request) -> DynamicRagApplication:
     Returns:
         The shared application instance.
     """
-    return request.app.state.application  # type: ignore[no-any-return]
+    app: FastAPI = request.app
+    return app.state.application
+
+
+__all__ = ["get_application"]

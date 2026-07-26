@@ -135,8 +135,6 @@ class SqliteUserStore:
         Raises:
             aiosqlite.IntegrityError: If ``email`` already exists.
         """
-        # Default bcrypt cost (12) is the modern recommendation; the
-        # call is sync but cheap relative to network IO.
         password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
         record = UserRecord(
             email=email,
@@ -173,8 +171,6 @@ class SqliteUserStore:
             The :class:`UserRecord`, or ``None`` if no such user exists.
         """
         async with aiosqlite.connect(self.db_path) as db:
-            # ``Row`` enables attribute-style access; we cast to dict
-            # before validation so Pydantic gets plain types.
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("SELECT * FROM users WHERE email = ?", (email,))
             row = await cursor.fetchone()
@@ -215,9 +211,6 @@ class SqliteUserStore:
         user = await self.get_by_email(email)
         if user is None:
             return None
-        # ``bcrypt.checkpw`` is constant-time relative to the hash,
-        # but its cost is dominated by the hashing work (intentionally
-        # expensive on the success path).
         if bcrypt.checkpw(password.encode("utf-8"), user.password_hash.encode("utf-8")):
             return user
         return None
@@ -245,11 +238,8 @@ class SqliteUserStore:
             A fully-typed :class:`UserRecord`.
         """
         data: dict[str, Any] = dict(row)
-        # JSON columns need explicit decoding; defaults keep the call
-        # safe for legacy rows written before the column existed.
         data["allowed_companies"] = json.loads(data.get("allowed_companies", "[]"))
         data["allowed_groups"] = json.loads(data.get("allowed_groups", "[]"))
-        # SQLite stores booleans as 0/1 integers.
         data["is_admin"] = bool(data["is_admin"])
         data["created_at"] = datetime.fromisoformat(data["created_at"])
         return UserRecord.model_validate(data)
@@ -279,15 +269,10 @@ class SqliteUserStore:
                 (user_id,),
             )
             rows = await cursor.fetchall()
-        out: dict[str, Any] = {}
-        for row in rows:
-            try:
-                out[str(row["key"])] = json.loads(row["value"])
-            except (TypeError, ValueError):
-                # Malformed JSON shouldn't crash a query — skip with
-                # the raw text so callers can spot the corruption.
-                out[str(row["key"])] = row["value"]
-        return out
+        return {
+            str(row["key"]): json.loads(row["value"])
+            for row in rows
+        }
 
     async def get_pref(self, user_id: str, key: str) -> Any:
         """Return one preference value or ``None`` when absent."""
@@ -299,10 +284,7 @@ class SqliteUserStore:
             row = await cursor.fetchone()
         if row is None:
             return None
-        try:
-            return json.loads(row[0])
-        except (TypeError, ValueError):
-            return row[0]
+        return json.loads(row[0])
 
     async def set_pref(self, user_id: str, key: str, value: Any) -> None:
         """Upsert a single preference.
@@ -360,3 +342,6 @@ class SqliteUserStore:
                 (user_id, key),
             )
             await db.commit()
+
+
+__all__ = ["SqliteUserStore", "UserRecord"]

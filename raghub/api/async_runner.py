@@ -9,9 +9,8 @@ class free of asyncio plumbing.
 from __future__ import annotations
 
 import asyncio
-import collections.abc
 from collections.abc import Awaitable
-from typing import Any, cast
+from typing import Any
 
 
 def maybe_await(awaitable: Awaitable[Any]) -> Any:
@@ -31,5 +30,8 @@ def maybe_await(awaitable: Awaitable[Any]) -> Any:
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(cast(collections.abc.Coroutine[Any, Any, Any], awaitable))
+        return asyncio.run(awaitable)
     return awaitable
+
+
+__all__ = ["maybe_await"]

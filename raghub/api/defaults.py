@@ -4,6 +4,12 @@ Each ``default_*`` method is a thin wrapper that picks the best
 available implementation based on what's installed and which
 environment variables are set. The public :class:`raghub.RAG`
 delegates to these so the class body itself stays small.
+
+All optional dependencies (``Marker``, ``LiteLLM``, ``Qdrant``,
+``Instructor``, ``Langfuse``, ``Chonkie``) are imported at module
+top. The factories rely on the SDK constructors to raise
+:class:`ConfigurationError` when their respective backends are
+unusable.
 """
 
 from __future__ import annotations
@@ -11,10 +17,41 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from raghub.converters.marker import MarkerConverter
+from raghub.converters.plaintext import PlainTextConverter
+from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.embeddings.litellm import LiteLLMEmbeddingProvider
 from raghub.exceptions import ConfigurationError
 from raghub.interfaces.chunker import Chunker
 from raghub.interfaces.converter import DocumentConverter
 from raghub.interfaces.embeddings import EmbeddingProvider
+from raghub.llm.heuristic import HeuristicLLMProvider
+from raghub.llm.litellm import LiteLLMProvider
+from raghub.observability.noop import NoOpTelemetry
+from raghub.retrieval.transforms import (
+    ComposeTransformer,
+    DecomposeTransformer,
+    HydeTransformer,
+    MultiQueryTransformer,
+    StepBackTransformer,
+)
+from raghub.structured.instructor import InstructorStructuredOutputProvider
+from raghub.telemetry.langfuse import LangfuseTelemetryProvider
+from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore.qdrant import QdrantVectorStore
+
+LLM_API_KEY_ENV_VARS = (
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "NVIDIA_API_KEY",
+    "GROQ_API_KEY",
+    "LITELLM_API_KEY",
+)
+
+
+def has_llm_api_key() -> bool:
+    """Return ``True`` when any provider API key env var is set."""
+    return any(os.getenv(k) for k in LLM_API_KEY_ENV_VARS)
 
 
 def default_converter() -> DocumentConverter:
@@ -24,14 +61,7 @@ def default_converter() -> DocumentConverter:
         :class:`MarkerConverter` when Marker is importable;
         :class:`PlainTextConverter` otherwise.
     """
-    try:
-        from raghub.converters.marker import MarkerConverter
-
-        return MarkerConverter()
-    except ConfigurationError:
-        from raghub.converters.plaintext import PlainTextConverter
-
-        return PlainTextConverter()
+    return MarkerConverter()
 
 
 def default_chunker(
@@ -53,6 +83,10 @@ def default_chunker(
         :class:`ChonkieChunker` when Chonkie is available;
         :class:`WordWindowChunker` otherwise.
     """
+    # Lazy import: ``raghub.ingestion.chunkers.chonkie`` re-exports the
+    # ``raghub.ingestion`` package, which transitively imports
+    # :func:`default_converter` from this module. The hop would be a
+    # circular import at module-load time.
     from raghub.ingestion.chunkers.chonkie import build_chonkie_chunker
 
     return build_chonkie_chunker(
@@ -75,26 +109,9 @@ def default_embedder(embedding_model: str, embedding_dim: int) -> EmbeddingProvi
         installed and an API key is configured; otherwise
         :class:`HashingEmbeddingProvider` for offline operation.
     """
-    if not any(
-        os.getenv(k)
-        for k in (
-            "OPENAI_API_KEY",
-            "ANTHROPIC_API_KEY",
-            "NVIDIA_API_KEY",
-            "LITELLM_API_KEY",
-        )
-    ):
-        from raghub.embeddings.hashing import HashingEmbeddingProvider
-
+    if not has_llm_api_key():
         return HashingEmbeddingProvider(dimension=embedding_dim, model_name=embedding_model)
-    try:
-        from raghub.embeddings.litellm import LiteLLMEmbeddingProvider
-
-        return LiteLLMEmbeddingProvider(model=embedding_model)
-    except ConfigurationError:
-        from raghub.embeddings.hashing import HashingEmbeddingProvider
-
-        return HashingEmbeddingProvider(dimension=embedding_dim, model_name=embedding_model)
+    return LiteLLMEmbeddingProvider(model=embedding_model)
 
 
 def default_llm(llm_model: str) -> Any:
@@ -111,30 +128,10 @@ def default_llm(llm_model: str) -> Any:
     """
     model = (llm_model or "").lower()
     if "heuristic" in model or not model:
-        from raghub.llm.heuristic import HeuristicLLMProvider
-
         return HeuristicLLMProvider()
-    if not any(
-        os.getenv(k)
-        for k in (
-            "OPENAI_API_KEY",
-            "ANTHROPIC_API_KEY",
-            "NVIDIA_API_KEY",
-            "GROQ_API_KEY",
-            "LITELLM_API_KEY",
-        )
-    ):
-        from raghub.llm.heuristic import HeuristicLLMProvider
-
+    if not has_llm_api_key():
         return HeuristicLLMProvider()
-    try:
-        from raghub.llm.litellm import LiteLLMProvider
-
-        return LiteLLMProvider(model=llm_model)
-    except ConfigurationError:
-        from raghub.llm.heuristic import HeuristicLLMProvider
-
-        return HeuristicLLMProvider()
+    return LiteLLMProvider(model=llm_model)
 
 
 def default_vector_store(embedding_dim: int) -> Any:
@@ -154,21 +151,12 @@ def default_vector_store(embedding_dim: int) -> Any:
             present but the constructor itself raises.
     """
     if not os.getenv("QDRANT_URL"):
-        from raghub.vectorstore.memory import InMemoryVectorStore
-
         return InMemoryVectorStore()
-    try:
-        from raghub.vectorstore.qdrant import QdrantVectorStore
-
-        return QdrantVectorStore(
-            url=os.environ["QDRANT_URL"],
-            api_key=os.getenv("QDRANT_API_KEY"),
-            embedding_dim=embedding_dim,
-        )
-    except ConfigurationError:
-        from raghub.vectorstore.memory import InMemoryVectorStore
-
-        return InMemoryVectorStore()
+    return QdrantVectorStore(
+        url=os.environ["QDRANT_URL"],
+        api_key=os.getenv("QDRANT_API_KEY"),
+        embedding_dim=embedding_dim,
+    )
 
 
 def default_structured() -> Any:
@@ -178,21 +166,9 @@ def default_structured() -> Any:
         :class:`InstructorStructuredOutputProvider` when Instructor
         is installed and an LLM API key is set; ``None`` otherwise.
     """
-    if not any(
-        os.getenv(k)
-        for k in (
-            "OPENAI_API_KEY",
-            "ANTHROPIC_API_KEY",
-            "GROQ_API_KEY",
-        )
-    ):
+    if not has_llm_api_key():
         return None
-    try:
-        from raghub.structured.instructor import InstructorStructuredOutputProvider
-
-        return InstructorStructuredOutputProvider()
-    except (ConfigurationError, ImportError):
-        return None
+    return InstructorStructuredOutputProvider()
 
 
 def default_telemetry() -> Any:
@@ -202,15 +178,7 @@ def default_telemetry() -> Any:
         :class:`LangfuseTelemetryProvider` when Langfuse is
         configured; :class:`NoOpTelemetry` otherwise.
     """
-    try:
-        from raghub.telemetry.langfuse import LangfuseTelemetryProvider
-    except ImportError:
-        from raghub.observability.noop import NoOpTelemetry
-
-        return NoOpTelemetry()
     if not LangfuseTelemetryProvider.is_configured():
-        from raghub.observability.noop import NoOpTelemetry
-
         return NoOpTelemetry()
     return LangfuseTelemetryProvider()
 
@@ -237,14 +205,6 @@ def default_transforms(
         A :class:`raghub.retrieval.transforms.ComposeTransformer`.
         Unknown names are dropped silently.
     """
-    from raghub.retrieval.transforms import (
-        ComposeTransformer,
-        DecomposeTransformer,
-        HydeTransformer,
-        MultiQueryTransformer,
-        StepBackTransformer,
-    )
-
     enabled = enabled or []
     transformers = []
     for name in enabled:
@@ -256,7 +216,16 @@ def default_transforms(
             transformers.append(StepBackTransformer(llm))
         elif name == "decompose":
             transformers.append(DecomposeTransformer(llm))
-        # Unknown names are ignored on purpose — see the docstring of
-        # :func:`raghub.config.settings.load_settings` for the same
-        # forgiving behaviour on the env-var path.
     return ComposeTransformer(transformers)
+
+
+__all__ = [
+    "default_chunker",
+    "default_converter",
+    "default_embedder",
+    "default_llm",
+    "default_structured",
+    "default_telemetry",
+    "default_transforms",
+    "default_vector_store",
+]

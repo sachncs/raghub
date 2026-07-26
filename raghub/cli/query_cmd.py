@@ -41,3 +41,6 @@ def run_subcommand(args: argparse.Namespace) -> int:
         }
     )
     return 0
+
+
+__all__ = ["add_parser", "run_subcommand"]

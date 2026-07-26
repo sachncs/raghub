@@ -38,7 +38,6 @@ class CLIRateLimiter:
         burst_env = os.environ.get("RAGHUB_CLI_RATE_BURST")
         enabled_env = os.environ.get("RAGHUB_CLI_RATE_LIMIT_ENABLED", "1")
 
-        # Default: 30 calls/minute = 0.5 tokens/second, burst of 5.
         self.rate = (
             float(rate_env) / 60.0 if rate_env is not None else (rate if rate is not None else 0.5)
         )

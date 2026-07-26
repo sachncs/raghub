@@ -104,3 +104,6 @@ def main() -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
+
+
+__all__ = ["add_parser", "build_console_namespace", "main", "run_subcommand"]

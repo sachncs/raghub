@@ -34,6 +34,12 @@ def sse_comment(text: str) -> bytes:
 
     Useful as a keep-alive ping or a preamble before the first real
     event. SSE clients ignore ``data:`` after a ``:`` prefix.
+
+    Args:
+        text: The comment text.
+
+    Returns:
+        Bytes ready to be written to the streaming response.
     """
     return f": {text}\n\n".encode()
 

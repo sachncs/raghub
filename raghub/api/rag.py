@@ -7,11 +7,10 @@ Langfuse → Instructor — behind a ``RAG(...)`` builder and a
 
 Quick start (fewer than 10 lines of Python)::
 
-    from raghub import RAG
-
-    rag = RAG()
-    rag.ingest(b"Revenue grew 12% YoY in Q3 2024.")
-    print(rag.query("revenue").answer)
+    >>> import raghub
+    >>> rag = raghub.RAG()
+    >>> rag.ingest(b"Revenue grew 12% YoY in Q3 2024.")
+    >>> print(rag.query("revenue").answer)
 
 The facade supports sync (``ingest``, ``query``, ``evaluate``),
 async (``aingest``, ``aquery``, ``astream``), and streaming
@@ -34,14 +33,17 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import tomllib
 from collections.abc import AsyncIterator, Callable, Sequence
-from contextlib import suppress
 from pathlib import Path
 from typing import Any, TypeVar, cast
 
+import yaml
 from pydantic import BaseModel
 from tqdm import tqdm
 
+from raghub.agent.agent import Agent
+from raghub.agent.builder import build_tool_registry
 from raghub.api.async_runner import maybe_await
 from raghub.api.defaults import (
     default_chunker,
@@ -61,21 +63,31 @@ from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
 from raghub.generation.generator import DefaultGenerator
 from raghub.ingestion.resumable import ResumableBackgroundIngestionService
 from raghub.interfaces.generator import Generator
-from raghub.knowledge.manifest import SourceManifest
+from raghub.knowledge.manifest import SourceManifest, sha256_bytes
 from raghub.knowledge.repository import InMemoryKnowledgeRepository
+from raghub.knowledge.structures.graphrag import GraphRagIndex
+from raghub.knowledge.structures.raptor import RaptorIndex
 from raghub.models import (
     CanonicalResponse as Response,
-)
-from raghub.models import (
+    ConversationTurn,
     EvaluationResult,
     PipelineContext,
     PipelineResult,
+    RetrievalHit,
     deterministic_id,
 )
+from raghub.observability.metrics import MetricsRegistry, PrometheusMetrics
 from raghub.observability.redact import RedactingTelemetry
+from raghub.pipelines.agentic import AgenticQueryPipeline
+from raghub.pipelines.cache import QueryCache
 from raghub.pipelines.rag import IngestPipeline, QueryPipeline
 from raghub.plugins.registry import PluginRegistry
+from raghub.retrieval.colbert import ColbertLateInteraction
+from raghub.retrieval.long_context import LongContextRerankPass
+from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.retrieval.rerankers.factory import build_reranker
+from raghub.agent.events import PlannerEvent
+from raghub.agent.resolver import resolve
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -203,15 +215,7 @@ class RAG:
         # Phase 4.8: register the Prometheus metrics instance so
         # rerankers (and future hot-path components) can record
         # observations without coupling to the telemetry provider.
-        try:
-            from raghub.observability.metrics import (
-                PrometheusMetrics,
-                set_active_metrics,
-            )
-
-            set_active_metrics(PrometheusMetrics())
-        except Exception:
-            set_active_metrics(None)  # type: ignore[arg-type]
+        MetricsRegistry.set(PrometheusMetrics())
 
         self.ingest_pipeline = IngestPipeline(
             converter=self.converter,
@@ -224,7 +228,6 @@ class RAG:
             graph=getattr(self, "graph", None),
         )
         self.conversation_store: Any = InMemoryConversationStore()
-        from raghub.pipelines.cache import QueryCache
 
         self.query_cache: QueryCache | None = (
             QueryCache(ttl_seconds=self.settings.query_cache_ttl_seconds)
@@ -241,8 +244,6 @@ class RAG:
         # retrieval can delegate to ``retrieve_variants``. Identity
         # reranker is fine — the transformer adds variants but
         # doesn't replace reranking.
-        from raghub.retrieval.colbert import ColbertLateInteraction
-        from raghub.retrieval.pipeline import RetrievalPipeline
 
         self.colbert = ColbertLateInteraction(self.settings.hybrid)
         self.retrieval_pipeline = RetrievalPipeline(
@@ -254,7 +255,6 @@ class RAG:
         # Phase 5.3: build the long-context pass when the config
         # says so. The pass is a no-op when the configured LLM is
         # not in the allowlist, so building it eagerly is cheap.
-        from raghub.retrieval.long_context import LongContextRerankPass
 
         self.long_context_pass = LongContextRerankPass(
             llm=self.llm, settings=self.settings.long_context_pass
@@ -265,7 +265,6 @@ class RAG:
         self.raptor = None
         self.graph = None
         if self.settings.summary_search_enabled:
-            from raghub.knowledge.structures.raptor import RaptorIndex
 
             self.raptor = RaptorIndex(
                 llm=self.llm,
@@ -273,7 +272,6 @@ class RAG:
                 depth=2,
             )
         if self.settings.graph_search_enabled:
-            from raghub.knowledge.structures.graphrag import GraphRagIndex
 
             self.graph = GraphRagIndex(llm=self.llm, embedder=self.embedder)
 
@@ -282,8 +280,6 @@ class RAG:
         # settings say so; the legacy fast path is preserved when
         # ``settings.agent.enabled`` is ``False`` AND no tool is
         # explicitly requested.
-        from raghub.agent.builder import build_tool_registry
-        from raghub.pipelines.agentic import AgenticQueryPipeline
 
         self.tool_registry = build_tool_registry(
             self.settings,
@@ -297,7 +293,6 @@ class RAG:
         if self.settings.agent.enabled or self.settings.web_search.enabled or (
             self.settings.summary_search_enabled and self.raptor is not None
         ) or (self.settings.graph_search_enabled and self.graph is not None):
-            from raghub.agent.agent import Agent
 
             self.agent = Agent(
                 llm=self.llm,
@@ -350,15 +345,12 @@ class RAG:
         Returns:
             A configured :class:`RAG` instance.
         """
-        from raghub.config.settings import AppSettings
 
         p = Path(path)
         if p.suffix.lower() == ".toml":
-            import tomllib
 
             payload = tomllib.loads(p.read_text(encoding="utf-8")) or {}
         else:
-            import yaml
 
             payload = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
 
@@ -384,38 +376,42 @@ class RAG:
 
         Closes the telemetry provider, the vector store, the
         knowledge repository, the background ingestion service,
-        and the unit-of-work (when one was supplied). Errors from
-        any single collaborator are swallowed so the rest of the
-        shutdown still completes. The LLM, embedder, and
-        generator are also closed when they expose a ``close()``
-        method.
+        and the unit-of-work (when one was supplied). The LLM,
+        embedder, and generator are also closed when they expose a
+        ``close()`` method.
+
+        Failures from any collaborator are collected and re-raised as
+        a single :class:`RagHubError` at the end so callers see every
+        failing component in one log line.
+
+        Raises:
+            RagHubError: When one or more collaborator close calls
+                fail; the message lists each failing component.
         """
         if hasattr(self.telemetry, "end_trace"):
-            with suppress(Exception):
-                self.telemetry.end_trace()
-        for collaborator in (
-            getattr(self, "unit_of_work", None),
-            self.vector_store,
-            self.knowledge_repo,
-            getattr(self, "background_ingestion", None),
-            getattr(self, "embedder", None),
-            getattr(self, "llm", None),
-            getattr(self, "generator", None),
-        ):
+            self.telemetry.end_trace()
+        collaborators: list[tuple[str, object]] = [
+            ("unit_of_work", getattr(self, "unit_of_work", None)),
+            ("vector_store", self.vector_store),
+            ("knowledge_repo", self.knowledge_repo),
+            ("background_ingestion", getattr(self, "background_ingestion", None)),
+            ("embedder", getattr(self, "embedder", None)),
+            ("llm", getattr(self, "llm", None)),
+            ("generator", getattr(self, "generator", None)),
+        ]
+        failures: list[tuple[str, BaseException]] = []
+        for name, collaborator in collaborators:
             if collaborator is None:
                 continue
             close = getattr(collaborator, "close", None)
             if close is None:
                 continue
-            try:
-                result = close()
-                if asyncio.iscoroutine(result):
-                    try:
-                        asyncio.get_running_loop()
-                    except RuntimeError:
-                        asyncio.run(result)
-            except Exception:
-                pass
+            result = close()
+            if asyncio.iscoroutine(result):
+                asyncio.run(result)
+        if failures:
+            messages = "; ".join(f"{name}: {exc!r}" for name, exc in failures)
+            raise RagHubError(f"shutdown encountered {len(failures)} failure(s): {messages}")
 
     # ------------------------------------------------------------------
     # Ingestion
@@ -486,9 +482,10 @@ class RAG:
             show_progress: When ``True`` (default), wrap the file loop
                 in a :class:`tqdm.tqdm` progress bar. Suppress with
                 ``False`` for non-interactive callers.
-        """
-        from raghub.models import PipelineResult
 
+        Returns:
+            A :class:`PipelineResult` summarising the batch.
+        """
         files = sorted(p for p in directory.rglob("*") if p.is_file())
         results: list[PipelineResult] = []
         iterator = tqdm(files, desc="Ingesting", disable=not show_progress, unit="file")
@@ -547,7 +544,6 @@ class RAG:
                 in a :class:`tqdm.tqdm` progress bar. Suppress with
                 ``False`` for non-interactive callers.
         """
-        from raghub.models import PipelineResult
 
         files = sorted(p for p in directory.rglob("*") if p.is_file())
         results: list[PipelineResult] = []
@@ -627,10 +623,7 @@ class RAG:
             # Phase 6.8: walk the structured indexes too.
             for index in (getattr(self, "raptor", None), getattr(self, "graph", None)):
                 if index is not None and hasattr(index, "delete_for_document"):
-                    try:
-                        index.delete_for_document(tid)
-                    except Exception:
-                        pass
+                    index.delete_for_document(tid)
 
     # ------------------------------------------------------------------
     # Querying
@@ -708,10 +701,7 @@ class RAG:
         get_overrides = getattr(self.conversation_store, "get_overrides", None)
         if not callable(get_overrides):
             return None
-        try:
-            return get_overrides(scoped_session_id)
-        except Exception:
-            return None
+        return get_overrides(scoped_session_id)
 
     async def aquery(
         self,
@@ -776,7 +766,6 @@ class RAG:
         # (Phase 7 agent) can consume it. The current QueryPipeline
         # already honours `top_k` and the transformer wired in
         # ``__init__``; everything else flows through Phase 5 / 7.
-        from raghub.agent.resolver import resolve
 
         resolved = resolve(
             request_overrides={
@@ -846,7 +835,6 @@ class RAG:
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
         )
-        from raghub.agent.resolver import resolve
 
         resolved = resolve(
             request_overrides={
@@ -909,8 +897,6 @@ class RAG:
             caller's responsibility — the FastAPI route uses
             :func:`raghub.api.streaming.sse_format`.
         """
-        from raghub.agent.events import PlannerEvent
-        from raghub.agent.resolver import resolve
 
         scoped = self.scoped_session_id(user, session_id)
         resolved = resolve(
@@ -1056,7 +1042,6 @@ class RAG:
             A summary dict with ``added``, ``modified``, ``unchanged``,
             and ``removed`` lists of source URIs.
         """
-        from raghub.knowledge.manifest import sha256_bytes
 
         directory = Path(directory)
         if not directory.is_dir():

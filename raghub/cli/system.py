@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 
 from loguru import logger as loguru_logger
 
@@ -47,11 +48,11 @@ def handle_version(_: argparse.Namespace) -> int:
     Returns:
         ``0`` on success.
     """
-    from importlib.metadata import PackageNotFoundError
-    from importlib.metadata import version as package_version
-
     try:
-        loguru_logger.info("cli.version", version=package_version("raghub"))
-    except PackageNotFoundError:
+        loguru_logger.info("cli.version", version=importlib.metadata.version("raghub"))
+    except importlib.metadata.PackageNotFoundError:
         loguru_logger.info("cli.version", version="unknown")
     return 0
+
+
+__all__ = ["add_parser", "handle_health", "handle_version"]

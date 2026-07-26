@@ -36,6 +36,8 @@ from threading import RLock
 from time import monotonic
 from typing import Any
 
+from starlette.responses import JSONResponse
+
 
 class TokenBucket:
     """Per-key token-bucket rate limiter.
@@ -98,24 +100,13 @@ class TokenBucket:
         """
         with self.lock:
             now = monotonic()
-            # First-time seeding: a brand-new key starts with a full bucket.
-            # The ``now`` for ``last_refill`` ensures the next call measures the
-            # elapsed time from this moment, not from epoch zero.
             tokens, last_refill = self.buckets.get(key, (self.burst, now))
             elapsed = now - last_refill
-            # Lazy refill: capped at ``burst`` so we never exceed capacity,
-            # even after long idle periods (e.g. process slept then resumed).
             tokens = min(self.burst, tokens + elapsed * self.rate)
-            # Write the refilled state regardless of outcome so the next call
-            # sees an accurate ``last_refill`` even on rejections.
             self.buckets[key] = (tokens, now)
             if tokens >= cost:
-                # Admit: debit the cost. We write the bucket again so the
-                # post-deduction state is recorded atomically with the decision.
                 self.buckets[key] = (tokens - cost, now)
                 return True
-            # Reject: caller should respond with 429. No further write needed
-            # because the bucket state is already current.
             return False
 
 
@@ -156,16 +147,9 @@ class RateLimiterMiddleware:
             receive: ASGI receive callable.
             send: ASGI send callable.
         """
-        from starlette.responses import JSONResponse
-
-        # Pass-through for lifespan and websocket scopes: the rate limiter
-        # only governs HTTP traffic.
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        # ASGI guarantees ``scope["client"]`` is a ``(host, port)`` tuple for
-        # HTTP scopes; we default to "unknown" so unparseable proxies don't
-        # share a bucket.
         client_host = scope.get("client", ("unknown",))[0]
         if not self.bucket.allow(client_host):
             response = JSONResponse(
@@ -175,3 +159,6 @@ class RateLimiterMiddleware:
             await response(scope, receive, send)
             return
         await self.app(scope, receive, send)
+
+
+__all__ = ["RateLimiterMiddleware", "TokenBucket"]

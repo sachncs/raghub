@@ -82,9 +82,26 @@ async def require_admin(
     return user
 
 
+def require_bearer(authorization: str | None) -> str:
+    """Extract the bearer token from an ``Authorization`` header.
+
+    Args:
+        authorization: The raw header value.
+
+    Returns:
+        The trimmed token string.
+
+    Raises:
+        HTTPException: 401 if the header is missing or not bearer-formatted.
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    return authorization.split(" ", 1)[1].strip()
+
+
 @router.get("/documents")
 async def list_all_documents(
-    _admin: UserPrincipal = Depends(require_admin),
+    admin: UserPrincipal = Depends(require_admin),
     app_service: DynamicRagApplication = Depends(get_application),
 ) -> list[dict[str, Any]]:
     """Return every document in the registry.
@@ -101,7 +118,7 @@ async def list_all_documents(
 
 @router.get("/users")
 async def list_users(
-    _admin: UserPrincipal = Depends(require_admin),
+    admin: UserPrincipal = Depends(require_admin),
     app_service: DynamicRagApplication = Depends(get_application),
 ) -> list[dict[str, Any]]:
     """Return every user in the user store.
@@ -121,7 +138,7 @@ async def list_users(
 
 @router.get("/stats")
 async def system_stats(
-    _admin: UserPrincipal = Depends(require_admin),
+    admin: UserPrincipal = Depends(require_admin),
     app_service: DynamicRagApplication = Depends(get_application),
 ) -> dict[str, Any]:
     """Return high-level system counters.
@@ -144,23 +161,6 @@ async def system_stats(
         "chunk_count": chunk_count,
         "vector_store_size": vector_health.get("size", "unknown"),
     }
-
-
-def require_bearer(authorization: str | None) -> str:
-    """Extract the bearer token from an ``Authorization`` header.
-
-    Args:
-        authorization: The raw header value.
-
-    Returns:
-        The trimmed token string.
-
-    Raises:
-        HTTPException: 401 if the header is missing or not bearer-formatted.
-    """
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="Missing bearer token")
-    return authorization.split(" ", 1)[1].strip()
 
 
 __all__ = [

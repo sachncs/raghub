@@ -24,13 +24,27 @@ bearer token from the ``Authorization`` header), :func:`check_upload_size`
 before the multipart body is read into memory), and :func:`get_app`
 (a lazy singleton convenience used by tooling that needs the app
 without going through the FastAPI CLI).
+
+Section map:
+
+* :class:`Lifespan` — FastAPI startup/shutdown context.
+* :func:`cors_origins_from_env` / :func:`validate_cors_for_credentials`
+  — CORS configuration helpers.
+* :func:`check_upload_size` — pre-flight upload size guard.
+* :func:`_upload_content_length` — helper for parsing the
+  ``Content-Length`` header safely.
+* :class:`ExceptionHandlers` — installs handlers for the typed
+  application errors.
+* :class:`RouteGroup` — registers the versioned ``/v1/*`` routes.
+* :func:`create_app` — the public factory.
 """
 
 from __future__ import annotations
 
+import importlib.metadata
 import os
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager, suppress
+from collections.abc import AsyncIterator, Callable, Iterable
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import (
@@ -46,11 +60,13 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from raghub.api.admin import router as admin_router
 from raghub.api.dependencies import get_application
+from raghub.api.preferences import router as preferences_router
 from raghub.api.rate_limiter import RateLimiterMiddleware
+from raghub.api.streaming import sse_comment, sse_format
 from raghub.exceptions import AuthenticationError, AuthorizationError, DocumentError, StorageError
 from raghub.ingestion.background import BackgroundIngestionService
 from raghub.models.api import (
@@ -63,6 +79,11 @@ from raghub.models.api import (
     QueryResponse,
 )
 from raghub.services.application import DynamicRagApplication
+
+
+# ---------------------------------------------------------------------------
+# CORS
+# ---------------------------------------------------------------------------
 
 
 def cors_origins_from_env() -> list[str]:
@@ -100,6 +121,11 @@ def validate_cors_for_credentials(origins: list[str]) -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# Upload guards
+# ---------------------------------------------------------------------------
+
+
 def check_upload_size(content_length: int | None, max_bytes: int) -> bool:
     """Pre-flight guard for upload size.
 
@@ -125,606 +151,108 @@ def check_upload_size(content_length: int | None, max_bytes: int) -> bool:
     return content_length > max_bytes
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """FastAPI lifespan: graceful shutdown of collaborators.
-
-    Each collaborator's :meth:`shutdown` is wrapped in
-    :func:`contextlib.suppress` so a single failure does not skip the
-    rest. Errors are logged so operators see the failure rather than
-    having it silently swallowed.
-    """
-    try:
-        yield
-    finally:
-        application: DynamicRagApplication = app.state.application
-        try:
-            await application.shutdown()
-        except Exception as exc:
-            with suppress(Exception):
-                logger = getattr(application.container, "logger", None)
-                error_method = getattr(logger, "error", None)
-                if callable(error_method):
-                    error_method("shutdown.error", component="application", error=str(exc))
-        background = getattr(app.state, "background_ingestion", None)
-        if background is not None and hasattr(background, "shutdown"):
-            try:
-                background.shutdown()
-            except Exception as exc:
-                with suppress(Exception):
-                    logger = getattr(application.container, "logger", None)
-                    error_method = getattr(logger, "error", None)
-                    if callable(error_method):
-                        error_method(
-                            "shutdown.error",
-                            component="background_ingestion",
-                            error=str(exc),
-                        )
-
-
-def create_app(application: DynamicRagApplication) -> FastAPI:
-    """Build a :class:`FastAPI` instance wired to ``application``.
+def upload_content_length(request: Request) -> int | None:
+    """Return the parsed ``Content-Length`` header or ``None``.
 
     Args:
-        application: The pre-wired application facade.
+        request: The incoming request.
 
     Returns:
-        A fully-configured FastAPI app ready to be served by
-        ``uvicorn`` or any ASGI server.
+        The integer value, or ``None`` when the header is missing or
+        cannot be parsed as an integer.
+    """
+    declared = request.headers.get("content-length")
+    if declared is None:
+        return None
+    try:
+        return int(declared)
+    except ValueError:
+        return None
+
+
+def enforce_upload_limit(
+    request: Request,
+    container: Any,
+    payload: bytes | None = None,
+) -> None:
+    """Raise HTTP 413 when ``request`` (or ``payload``) exceeds the limit.
+
+    Args:
+        request: The incoming request (used to read ``Content-Length``).
+        container: The application container holding ``settings``.
+        payload: Optional in-memory payload. When provided, the
+            post-read check runs against the actual bytes.
 
     Raises:
-        RuntimeError: When CORS configuration is invalid (wildcard
-            origins with credentials).
+        HTTPException: 413 when the upload exceeds ``max_upload_bytes``.
     """
-    from importlib.metadata import metadata as get_metadata
-
-    try:
-        pkg = get_metadata("raghub")
-        app_title = pkg["Name"].replace("-", " ").title()
-        app_version = pkg["Version"]
-        app_description = pkg.get(
-            "Summary",
-            "RAGHub — production-grade multi-user retrieval-augmented generation platform",
+    max_bytes = int(getattr(container.settings, "max_upload_bytes", 0) or 0)
+    if max_bytes <= 0:
+        return
+    if check_upload_size(upload_content_length(request), max_bytes):
+        raise HTTPException(
+            status_code=413,
+            detail=f"Upload exceeds maximum size of {max_bytes} bytes",
         )
-    except Exception:
-        app_title = "RAGHub"
-        app_version = "0.3.3"
-        app_description = (
-            "RAGHub — production-grade multi-user retrieval-augmented generation platform"
+    if payload is not None and len(payload) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Upload exceeds maximum size of {max_bytes} bytes",
         )
 
-    app = FastAPI(
-        title=app_title, version=app_version, description=app_description, lifespan=lifespan
-    )
-    app.state.application = application
-    # Register Prometheus metrics endpoint; the application's metrics
-    # instance is the single source of truth.
-    metrics = getattr(application.container, "metrics", None)
-    if metrics is not None:
-        register = getattr(metrics, "register_app", None)
-        if callable(register):
-            register(app)
-    # Shared background ingestion pool (2 workers by default); the
-    # ``/ingest/async`` endpoint submits jobs to it.
-    app.state.background_ingestion = BackgroundIngestionService(max_workers=2)
 
-    cors_origins = cors_origins_from_env()
-    validate_cors_for_credentials(cors_origins)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    # Token-bucket rate limiter; per-client IP by default.
-    app.add_middleware(RateLimiterMiddleware, rate=10.0, burst=20)
-    router = APIRouter()
+# ---------------------------------------------------------------------------
+# Lifespan
+# ---------------------------------------------------------------------------
 
-    # Exception handlers translate typed application errors into HTTP
-    # responses without leaking internal exception class names.
-    @app.exception_handler(AuthenticationError)
-    def authentication_error_handler(_: Any, exc: AuthenticationError) -> JSONResponse:
-        """Return 401 for any :class:`AuthenticationError`."""
-        return JSONResponse(status_code=401, content={"detail": str(exc)})
 
-    @app.exception_handler(AuthorizationError)
-    def authorization_error_handler(_: Any, exc: AuthorizationError) -> JSONResponse:
-        """Return 403 for any :class:`AuthorizationError`."""
-        return JSONResponse(status_code=403, content={"detail": str(exc)})
+class Lifespan:
+    """FastAPI startup/shutdown coordinator.
 
-    @app.exception_handler(DocumentError)
-    def document_error_handler(_: Any, exc: DocumentError) -> JSONResponse:
-        """Return 400 for any :class:`DocumentError`."""
-        return JSONResponse(status_code=400, content={"detail": str(exc)})
+    The class is instantiated with the :class:`DynamicRagApplication`
+    facade and wired into the :class:`FastAPI` instance. On shutdown
+    it calls :meth:`DynamicRagApplication.shutdown` and then closes
+    the shared background-ingestion service.
 
-    @app.exception_handler(StorageError)
-    def storage_error_handler(_: Any, exc: StorageError) -> JSONResponse:
-        """Return 500 for any :class:`StorageError`."""
-        return JSONResponse(status_code=500, content={"detail": str(exc)})
+    Attributes:
+        application: The application facade.
+    """
 
-    @router.get("/health")
-    def health(app_service: DynamicRagApplication = Depends(get_application)) -> dict[str, Any]:
-        """Liveness probe; delegates to :meth:`DynamicRagApplication.health`."""
-        return app_service.health()
+    def __init__(self, application: DynamicRagApplication) -> None:
+        self.application = application
 
-    @router.post("/auth/login", response_model=AuthLoginResponse)
-    async def login(
-        payload: AuthLoginRequest,
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> AuthLoginResponse:
-        """Authenticate a user and return a session token.
+    @asynccontextmanager
+    async def __call__(self, app: FastAPI) -> AsyncIterator[None]:
+        """Drive the FastAPI lifespan protocol.
 
         Args:
-            payload: The :class:`AuthLoginRequest` body.
+            app: The FastAPI instance whose ``state`` carries the
+                application facade and the background-ingestion pool.
 
-        Returns:
-            The :class:`AuthLoginResponse` with a session token, email,
-            and allowed companies.
+        Yields:
+            Nothing; the context manager signals lifecycle transitions
+            to FastAPI.
         """
-        return await app_service.login(payload.email, payload.password)
-
-    @router.post("/auth/logout")
-    async def logout(
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> dict[str, str]:
-        """Invalidate the bearer token presented in the ``Authorization`` header.
-
-        Args:
-            authorization: The raw ``Authorization`` header.
-
-        Returns:
-            A ``{"status": "logged_out"}`` payload.
-        """
-        token = require_bearer(authorization)
-        await app_service.logout(token)
-        return {"status": "logged_out"}
-
-    @router.get("/session/history")
-    async def session_history(
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> dict[str, list[dict[str, Any]]]:
-        """Return the conversation history for the current session.
-
-        Args:
-            authorization: The raw ``Authorization`` header.
-
-        Returns:
-            ``{"history": [...]}`` where ``...`` is the serialised
-            :class:`ConversationTurn` list (oldest first).
-        """
-        token = require_bearer(authorization)
-        history = await app_service.history(token)
-        return {"history": [turn.model_dump(mode="json") for turn in history]}
-
-    @router.delete("/session/history", status_code=204, response_class=Response)
-    async def clear_history(
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> Response:
-        """Empty the conversation history for the current session.
-
-        Args:
-            authorization: The raw ``Authorization`` header.
-        """
-        token = require_bearer(authorization)
-        await app_service.clear_history(token)
-        return Response(status_code=204)
-
-    @router.post("/documents/upload", status_code=202, response_model=DocumentUploadResponse)
-    async def upload_document(
-        request: Request,
-        file: UploadFile = File(...),
-        company: str | None = Form(default=None),
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> DocumentUploadResponse:
-        """Upload a PDF document and synchronously index it.
-
-        Args:
-            request: The incoming FastAPI request (used to read
-                ``Content-Length`` so oversize uploads can be rejected
-                before the body is buffered into memory).
-            file: The multipart upload.
-            company: Optional tenant override; derived from the filename
-                when omitted.
-            authorization: The raw ``Authorization`` header.
-
-        Returns:
-            A :class:`DocumentUploadResponse` with the document id,
-            version, status, company, and filename.
-        """
-        token = require_bearer(authorization)
-        max_bytes = int(getattr(app_service.container.settings, "max_upload_bytes", 0) or 0)
-        declared = request.headers.get("content-length")
-        content_length: int | None
         try:
-            content_length = int(declared) if declared is not None else None
-        except ValueError:
-            content_length = None
-        if max_bytes > 0 and check_upload_size(content_length, max_bytes):
-            raise HTTPException(
-                status_code=413,
-                detail=f"Upload exceeds maximum size of {max_bytes} bytes",
-            )
-        content = await file.read()
-        if max_bytes > 0 and len(content) > max_bytes:
-            # Client may have omitted Content-Length (chunked encoding);
-            # fall back to a post-read check.
-            raise HTTPException(
-                status_code=413,
-                detail=f"Upload exceeds maximum size of {max_bytes} bytes",
-            )
-        document = await app_service.upload_document(
-            token=token,
-            filename=file.filename or "upload.pdf",
-            content=content,
-            company=company,
-        )
-        return DocumentUploadResponse(
-            document_id=document.document_id,
-            version=document.version,
-            status=document.status.value,
-            company=document.organization,
-            filename=document.filename,
-        )
+            yield
+        finally:
+            shutdown_app = getattr(self.application, "shutdown", None)
+            if shutdown_app is not None:
+                try:
+                    await shutdown_app()
+                except Exception:
+                    pass
+            background = getattr(app.state, "background_ingestion", None)
+            if background is not None and hasattr(background, "shutdown"):
+                try:
+                    background.shutdown()
+                except Exception:
+                    pass
 
-    @router.post(
-        "/documents/ingest/batch",
-        status_code=200,
-        response_model=BatchIngestResponse,
-    )
-    async def ingest_documents_batch(
-        request: Request,
-        files: list[UploadFile] = File(...),
-        company: str | None = Form(default=None),
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> BatchIngestResponse:
-        """Ingest multiple documents in a single request.
 
-        Accepts one or more files as multipart upload. Each file is
-        ingested independently; a failure in one does not affect the
-        others.
-
-        Memory characteristics: large files are buffered entirely in
-        memory before ingestion. The per-file peak memory usage
-        depends on the vector-store backend — zvec and Qdrant store
-        vectors server-side so client memory is O(file_size), while
-        the memory backend keeps everything in-process so peak RSS
-        grows with total batch size.
-
-        Args:
-            request: The incoming FastAPI request (used to read the
-                ``Content-Length`` header so oversize batch uploads are
-                rejected before the body is buffered).
-            files: One or more multipart file uploads.
-            company: Optional tenant override applied to **all** files.
-            authorization: The raw ``Authorization`` header.
-
-        Returns:
-            A :class:`BatchIngestResponse` with one item per file.
-        """
-        token = require_bearer(authorization)
-        max_bytes = int(getattr(app_service.container.settings, "max_upload_bytes", 0) or 0)
-        declared = request.headers.get("content-length")
-        try:
-            content_length = int(declared) if declared is not None else None
-        except ValueError:
-            content_length = None
-        if max_bytes > 0 and check_upload_size(content_length, max_bytes):
-            raise HTTPException(
-                status_code=413,
-                detail=f"Upload exceeds maximum size of {max_bytes} bytes",
-            )
-        results: list[BatchIngestItem] = []
-        for file in files:
-            try:
-                content = await file.read()
-                if max_bytes > 0 and len(content) > max_bytes:
-                    results.append(
-                        BatchIngestItem(
-                            filename=file.filename or "upload.pdf",
-                            status="error",
-                            error=f"Upload exceeds maximum size of {max_bytes} bytes",
-                        )
-                    )
-                    continue
-                document = await app_service.upload_document(
-                    token=token,
-                    filename=file.filename or "upload.pdf",
-                    content=content,
-                    company=company,
-                )
-                results.append(
-                    BatchIngestItem(
-                        filename=file.filename or "upload.pdf",
-                        document_id=document.document_id,
-                        status="ok",
-                    )
-                )
-            except Exception as exc:
-                results.append(
-                    BatchIngestItem(
-                        filename=file.filename or "upload.pdf",
-                        status="error",
-                        error=str(exc),
-                    )
-                )
-        return BatchIngestResponse(documents=results)
-
-    @router.get("/documents")
-    async def list_documents(
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> dict[str, list[dict[str, Any]]]:
-        """List the documents visible to the calling user.
-
-        Args:
-            authorization: The raw ``Authorization`` header.
-
-        Returns:
-            ``{"documents": [...]}`` containing the user's accessible
-            :class:`DocumentRecord` list.
-        """
-        token = require_bearer(authorization)
-        documents = await app_service.list_documents(token)
-        return {"documents": [document.model_dump(mode="json") for document in documents]}
-
-    @router.get("/documents/{document_id}/status")
-    async def document_status(
-        document_id: str,
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> dict[str, Any]:
-        """Return the latest status for a single document.
-
-        Args:
-            document_id: The document id.
-            authorization: The raw ``Authorization`` header.
-
-        Returns:
-            The serialised :class:`DocumentRecord`.
-        """
-        token = require_bearer(authorization)
-        document = await app_service.document_status(token, document_id)
-        return document.model_dump(mode="json")
-
-    @router.delete("/documents/{document_id}", status_code=204, response_class=Response)
-    async def delete_document(
-        document_id: str,
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> Response:
-        """Delete a document and all of its chunks. Admin-only.
-
-        Args:
-            document_id: The document id.
-            authorization: The raw ``Authorization`` header.
-        """
-        token = require_bearer(authorization)
-        await app_service.delete_document(token, document_id)
-        return Response(status_code=204)
-
-    @router.post("/query", response_model=QueryResponse)
-    async def query(
-        payload: QueryRequest,
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> QueryResponse:
-        """Answer a question using the application service.
-
-        Args:
-            payload: The :class:`QueryRequest` body. Advanced-RAG
-                flags (``agent``, ``web``, ``tools_enabled`` etc.) are
-                forwarded to the resolver.
-            authorization: The raw ``Authorization`` header.
-
-        Returns:
-            A :class:`QueryResponse` with the answer, citations,
-            source chunks, and (when applicable) the resolved
-            ``transforms_applied`` list.
-        """
-        token = require_bearer(authorization)
-        # Phase 8.3: forward the advanced-RAG flags through to the
-        # application service so the resolver runs end-to-end. The
-        # legacy fast path is preserved when no flags are supplied.
-        if payload.tools_enabled is None and payload.agent is None and payload.web is None \
-                and payload.graph is None and payload.summaries is None \
-                and payload.reranker is None and payload.long_context_pass is None \
-                and payload.query_transforms is None and payload.max_steps is None \
-                and payload.top_k is None:
-            response = await app_service.query(
-                token=token, question=payload.question
-            )
-        else:
-            response = await app_service.query_with_flags(
-                token=token,
-                question=payload.question,
-                tools_enabled=payload.tools_enabled,
-                agent=payload.agent,
-                web=payload.web,
-                graph=payload.graph,
-                summaries=payload.summaries,
-                reranker=payload.reranker,
-                long_context_pass=payload.long_context_pass,
-                query_transforms=payload.query_transforms,
-                max_steps=payload.max_steps,
-                top_k=payload.top_k,
-            )
-        return response
-
-    @router.post("/ingest/async")
-    async def ingest_async(
-        request: Request,
-        file: UploadFile = File(...),
-        company: str | None = Form(default=None),
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> dict[str, str]:
-        """Queue a document for asynchronous ingestion.
-
-        Args:
-            file: The multipart upload.
-            company: Optional tenant override.
-            authorization: The raw ``Authorization`` header.
-            app_service: The application facade.
-            request: The current FastAPI request (used to reach
-                ``app.state.background_ingestion`` and to read
-                ``Content-Length`` so oversize uploads can be
-                rejected before the body is read).
-
-        Returns:
-            ``{"job_id": "<uuid>"}`` that can later be polled via the
-            background ingestion service.
-        """
-        token = require_bearer(authorization)
-        max_bytes = int(getattr(app_service.container.settings, "max_upload_bytes", 0) or 0)
-        declared = request.headers.get("content-length")
-        try:
-            content_length = int(declared) if declared is not None else None
-        except ValueError:
-            content_length = None
-        if max_bytes > 0 and check_upload_size(content_length, max_bytes):
-            raise HTTPException(
-                status_code=413,
-                detail=f"Upload exceeds maximum size of {max_bytes} bytes",
-            )
-        content = await file.read()
-        if max_bytes > 0 and len(content) > max_bytes:
-            raise HTTPException(
-                status_code=413,
-                detail=f"Upload exceeds maximum size of {max_bytes} bytes",
-            )
-        background = request.app.state.background_ingestion
-        job_id = background.submit(
-            app_service.upload_document,
-            token=token,
-            filename=file.filename or "upload.pdf",
-            content=content,
-            company=company,
-        )
-        return {"job_id": job_id}
-
-    app.include_router(router, prefix="/v1")
-    app.include_router(admin_router, prefix="/v1")
-    # Phase 8.2 — per-user tool/agent preferences (GET / PATCH /
-    # DELETE). The router lives in :mod:`raghub.api.preferences` and
-    # shares the same auth dependency as the rest of the API.
-    from raghub.api.preferences import router as preferences_router
-
-    app.include_router(preferences_router, prefix="/v1")
-    # Phase 10.2 + 10.3 — streaming query + dedicated agent endpoint.
-    from raghub.api.streaming import sse_comment, sse_format
-
-    @router.post("/query/stream")
-    async def query_stream(
-        payload: QueryRequest,
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> Any:
-        """Stream agent / planner events as Server-Sent Events.
-
-        Args:
-            payload: The :class:`QueryRequest` body. ``agent`` and
-                ``tools_enabled`` drive the agent loop; in their
-                absence the route streams legacy answer tokens.
-            authorization: The ``Authorization: Bearer <token>`` header.
-            app_service: The application facade (FastAPI dependency).
-
-        Returns:
-            A :class:`StreamingResponse` of ``text/event-stream``
-            frames. The first frame is a keep-alive comment; the
-            rest are SSE-encoded ``PlannerEvent`` instances.
-        """
-        from fastapi.responses import StreamingResponse
-
-        token = require_bearer(authorization)
-        resolved_tools = (
-            set(payload.tools_enabled) if payload.tools_enabled else set()
-        )
-
-        async def gen():
-            yield sse_comment("raghub-query-stream")
-            # Resolve the bearer token to a user principal.
-            try:
-                user, _ = await app_service.auth_svc.resolve_user(token)
-            except Exception as exc:
-                yield sse_format("error", {"message": str(exc)})
-                return
-            rag = app_service.container.rag_facade
-            if rag is None:
-                yield sse_format(
-                    "error",
-                    {"message": "RAG facade unavailable"},
-                )
-                return
-            async for event in rag.astream_agent(
-                payload.question,
-                user=user,
-                session_id=None,
-                tools_enabled=list(resolved_tools) or None,
-                agent=payload.agent,
-                web=payload.web,
-                graph=payload.graph,
-                summaries=payload.summaries,
-                reranker=payload.reranker,
-                long_context_pass=payload.long_context_pass,
-                query_transforms=payload.query_transforms,
-                max_steps=payload.max_steps,
-            ):
-                yield sse_format(event.kind, event.model_dump(mode="json"))
-
-        return StreamingResponse(gen(), media_type="text/event-stream")
-
-    @router.post("/agent/run", response_model=QueryResponse)
-    async def agent_run(
-        payload: QueryRequest,
-        authorization: str | None = Header(default=None),
-        app_service: DynamicRagApplication = Depends(get_application),
-    ) -> QueryResponse:
-        """Run the agent end-to-end and return the full :class:`QueryResponse`.
-
-        Args:
-            payload: The :class:`QueryRequest` body.
-            authorization: The ``Authorization: Bearer <token>`` header.
-
-        Returns:
-            A :class:`QueryResponse` carrying the agent's final
-            answer, the planner trace, and the tools invoked.
-        """
-        token = require_bearer(authorization)
-        # Reuse ``query_with_flags`` which routes through the
-        # agentic pipeline when the resolved config requires it.
-        response = await app_service.query_with_flags(
-            token=token,
-            question=payload.question,
-            tools_enabled=payload.tools_enabled,
-            agent=payload.agent,
-            web=payload.web,
-            graph=payload.graph,
-            summaries=payload.summaries,
-            reranker=payload.reranker,
-            long_context_pass=payload.long_context_pass,
-            query_transforms=payload.query_transforms,
-            max_steps=payload.max_steps,
-            top_k=payload.top_k,
-        )
-        return response
-
-    @app.get("/health", include_in_schema=False)
-    def root_health() -> dict[str, str]:
-        """Unversioned liveness probe for orchestrator health checks.
-
-        Mirrors ``GET /v1/health`` but is mounted outside the versioned
-        router so Docker / Kubernetes probes do not need to track API
-        version bumps.
-        """
-        return {"status": "ok"}
-
-    return app
+# ---------------------------------------------------------------------------
+# Bearer / dependency helpers
+# ---------------------------------------------------------------------------
 
 
 def require_bearer(authorization: str | None) -> str:
@@ -744,14 +272,533 @@ def require_bearer(authorization: str | None) -> str:
     return authorization.split(" ", 1)[1].strip()
 
 
-# Re-exported so other routers (e.g. :mod:`raghub.api.preferences`)
-# can extract the bearer token without importing :mod:`raghub.api.app`.
-__all__ = ["require_bearer"]
+# ---------------------------------------------------------------------------
+# Exception handlers
+# ---------------------------------------------------------------------------
 
 
-# Module-level singleton used by :func:`get_app`. Avoid importing
-# build_application at module load time so this module stays cheap to
-# import in unit tests that don't need the full app.
+class ExceptionHandlers:
+    """Install typed-exception → HTTP response handlers on the app."""
+
+    @staticmethod
+    def install(app: FastAPI) -> None:
+        """Register exception handlers on ``app``.
+
+        Args:
+            app: The FastAPI instance.
+        """
+        @app.exception_handler(AuthenticationError)
+        def authentication_error_handler(_: Any, exc: AuthenticationError) -> JSONResponse:
+            """Return 401 for any :class:`AuthenticationError`."""
+            return JSONResponse(status_code=401, content={"detail": str(exc)})
+
+        @app.exception_handler(AuthorizationError)
+        def authorization_error_handler(_: Any, exc: AuthorizationError) -> JSONResponse:
+            """Return 403 for any :class:`AuthorizationError`."""
+            return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+        @app.exception_handler(DocumentError)
+        def document_error_handler(_: Any, exc: DocumentError) -> JSONResponse:
+            """Return 400 for any :class:`DocumentError`."""
+            return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+        @app.exception_handler(StorageError)
+        def storage_error_handler(_: Any, exc: StorageError) -> JSONResponse:
+            """Return 500 for any :class:`StorageError`."""
+            return JSONResponse(status_code=500, content={"detail": str(exc)})
+
+
+# ---------------------------------------------------------------------------
+# Versioned routes
+# ---------------------------------------------------------------------------
+
+
+class RouteGroup:
+    """Register the ``/v1/*`` route group on the application.
+
+    Centralises every route definition so :func:`create_app` stays a
+    pure wiring step. The methods are pure builders; each one returns
+    the decorated route function so tests can introspect them.
+
+    Attributes:
+        router: The :class:`APIRouter` carrying every v1 route.
+    """
+
+    def __init__(self) -> None:
+        self.router = APIRouter()
+
+    # ----- auth / session ----------------------------------------------
+
+    def health(self) -> Callable[..., Any]:
+        """Liveness probe; delegates to :meth:`DynamicRagApplication.health`."""
+
+        @self.router.get("/health")
+        def handler(app_service: DynamicRagApplication = Depends(get_application)) -> dict[str, Any]:
+            return app_service.health()
+
+        return handler
+
+    def login(self) -> Callable[..., Any]:
+        """Authenticate a user and return a session token."""
+
+        @self.router.post("/auth/login", response_model=AuthLoginResponse)
+        async def handler(
+            payload: AuthLoginRequest,
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> AuthLoginResponse:
+            return await app_service.login(payload.email, payload.password)
+
+        return handler
+
+    def logout(self) -> Callable[..., Any]:
+        """Invalidate the bearer token presented in the ``Authorization`` header."""
+
+        @self.router.post("/auth/logout")
+        async def handler(
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> dict[str, str]:
+            token = require_bearer(authorization)
+            await app_service.logout(token)
+            return {"status": "logged_out"}
+
+        return handler
+
+    def session_history(self) -> Callable[..., Any]:
+        """Return the conversation history for the current session."""
+
+        @self.router.get("/session/history")
+        async def handler(
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> dict[str, list[dict[str, Any]]]:
+            token = require_bearer(authorization)
+            history = await app_service.history(token)
+            return {"history": [turn.model_dump(mode="json") for turn in history]}
+
+        return handler
+
+    def clear_history(self) -> Callable[..., Any]:
+        """Empty the conversation history for the current session."""
+
+        @self.router.delete("/session/history", status_code=204, response_class=Response)
+        async def handler(
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> Response:
+            token = require_bearer(authorization)
+            await app_service.clear_history(token)
+            return Response(status_code=204)
+
+        return handler
+
+    # ----- documents ---------------------------------------------------
+
+    def upload_document(self) -> Callable[..., Any]:
+        """Upload a PDF document and synchronously index it."""
+
+        @self.router.post("/documents/upload", status_code=202, response_model=DocumentUploadResponse)
+        async def handler(
+            request: Request,
+            file: UploadFile = File(...),
+            company: str | None = Form(default=None),
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> DocumentUploadResponse:
+            token = require_bearer(authorization)
+            enforce_upload_limit(request, app_service.container)
+            content = await file.read()
+            enforce_upload_limit(request, app_service.container, payload=content)
+            document = await app_service.upload_document(
+                token=token,
+                filename=file.filename or "upload.pdf",
+                content=content,
+                company=company,
+            )
+            return DocumentUploadResponse(
+                document_id=document.document_id,
+                version=document.version,
+                status=document.status.value,
+                company=document.organization,
+                filename=document.filename,
+            )
+
+        return handler
+
+    def ingest_documents_batch(self) -> Callable[..., Any]:
+        """Ingest multiple documents in a single request.
+
+        Accepts one or more files as multipart upload. Each file is
+        ingested independently; a failure in one does not affect the
+        others. This is a pipeline boundary method — failures on
+        individual files are captured as :class:`BatchIngestItem`
+        entries and the surrounding batch loop continues.
+        """
+
+        @self.router.post(
+            "/documents/ingest/batch",
+            status_code=200,
+            response_model=BatchIngestResponse,
+        )
+        async def handler(
+            request: Request,
+            files: list[UploadFile] = File(...),
+            company: str | None = Form(default=None),
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> BatchIngestResponse:
+            token = require_bearer(authorization)
+            enforce_upload_limit(request, app_service.container)
+            results: list[BatchIngestItem] = []
+            for file in files:
+                try:
+                    content = await file.read()
+                    max_bytes = int(
+                        getattr(app_service.container.settings, "max_upload_bytes", 0) or 0
+                    )
+                    if max_bytes > 0 and len(content) > max_bytes:
+                        results.append(
+                            BatchIngestItem(
+                                filename=file.filename or "upload.pdf",
+                                status="error",
+                                error=f"Upload exceeds maximum size of {max_bytes} bytes",
+                            )
+                        )
+                        continue
+                    document = await app_service.upload_document(
+                        token=token,
+                        filename=file.filename or "upload.pdf",
+                        content=content,
+                        company=company,
+                    )
+                    results.append(
+                        BatchIngestItem(
+                            filename=file.filename or "upload.pdf",
+                            document_id=document.document_id,
+                            status="ok",
+                        )
+                    )
+                except Exception as exc:
+                    results.append(
+                        BatchIngestItem(
+                            filename=file.filename or "upload.pdf",
+                            status="error",
+                            error=str(exc),
+                        )
+                    )
+            return BatchIngestResponse(documents=results)
+
+        return handler
+
+    def list_documents(self) -> Callable[..., Any]:
+        """List the documents visible to the calling user."""
+
+        @self.router.get("/documents")
+        async def handler(
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> dict[str, list[dict[str, Any]]]:
+            token = require_bearer(authorization)
+            documents = await app_service.list_documents(token)
+            return {"documents": [document.model_dump(mode="json") for document in documents]}
+
+        return handler
+
+    def document_status(self) -> Callable[..., Any]:
+        """Return the latest status for a single document."""
+
+        @self.router.get("/documents/{document_id}/status")
+        async def handler(
+            document_id: str,
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> dict[str, Any]:
+            token = require_bearer(authorization)
+            document = await app_service.document_status(token, document_id)
+            return document.model_dump(mode="json")
+
+        return handler
+
+    def delete_document(self) -> Callable[..., Any]:
+        """Delete a document and all of its chunks. Admin-only."""
+
+        @self.router.delete("/documents/{document_id}", status_code=204, response_class=Response)
+        async def handler(
+            document_id: str,
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> Response:
+            token = require_bearer(authorization)
+            await app_service.delete_document(token, document_id)
+            return Response(status_code=204)
+
+        return handler
+
+    # ----- query -------------------------------------------------------
+
+    def query(self) -> Callable[..., Any]:
+        """Answer a question using the application service.
+
+        Advanced-RAG flags (``agent``, ``web``, ``tools_enabled``
+        etc.) are forwarded to the resolver when any of them are
+        supplied; otherwise the legacy fast path runs.
+        """
+
+        @self.router.post("/query", response_model=QueryResponse)
+        async def handler(
+            payload: QueryRequest,
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> QueryResponse:
+            token = require_bearer(authorization)
+            if payload.tools_enabled is None and payload.agent is None and payload.web is None \
+                    and payload.graph is None and payload.summaries is None \
+                    and payload.reranker is None and payload.long_context_pass is None \
+                    and payload.query_transforms is None and payload.max_steps is None \
+                    and payload.top_k is None:
+                return await app_service.query(token=token, question=payload.question)
+            return await app_service.query_with_flags(
+                token=token,
+                question=payload.question,
+                tools_enabled=payload.tools_enabled,
+                agent=payload.agent,
+                web=payload.web,
+                graph=payload.graph,
+                summaries=payload.summaries,
+                reranker=payload.reranker,
+                long_context_pass=payload.long_context_pass,
+                query_transforms=payload.query_transforms,
+                max_steps=payload.max_steps,
+                top_k=payload.top_k,
+            )
+
+        return handler
+
+    def ingest_async(self) -> Callable[..., Any]:
+        """Queue a document for asynchronous ingestion."""
+
+        @self.router.post("/ingest/async")
+        async def handler(
+            request: Request,
+            file: UploadFile = File(...),
+            company: str | None = Form(default=None),
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> dict[str, str]:
+            token = require_bearer(authorization)
+            enforce_upload_limit(request, app_service.container)
+            content = await file.read()
+            enforce_upload_limit(request, app_service.container, payload=content)
+            background = request.app.state.background_ingestion
+            job_id = background.submit(
+                app_service.upload_document,
+                token=token,
+                filename=file.filename or "upload.pdf",
+                content=content,
+                company=company,
+            )
+            return {"job_id": job_id}
+
+        return handler
+
+    # ----- streaming ---------------------------------------------------
+
+    def query_stream(self) -> Callable[..., Any]:
+        """Stream agent / planner events as Server-Sent Events."""
+
+        @self.router.post("/query/stream")
+        async def handler(
+            payload: QueryRequest,
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> StreamingResponse:
+            token = require_bearer(authorization)
+            resolved_tools = (
+                set(payload.tools_enabled) if payload.tools_enabled else set()
+            )
+
+            async def gen() -> Iterable[bytes]:
+                yield sse_comment("raghub-query-stream")
+                user, _ = await app_service.auth_svc.resolve_user(token)
+                rag = app_service.container.rag_facade
+                if rag is None:
+                    yield sse_format("error", {"message": "RAG facade unavailable"})
+                    return
+                async for event in rag.astream_agent(
+                    payload.question,
+                    user=user,
+                    session_id=None,
+                    tools_enabled=list(resolved_tools) or None,
+                    agent=payload.agent,
+                    web=payload.web,
+                    graph=payload.graph,
+                    summaries=payload.summaries,
+                    reranker=payload.reranker,
+                    long_context_pass=payload.long_context_pass,
+                    query_transforms=payload.query_transforms,
+                    max_steps=payload.max_steps,
+                ):
+                    yield sse_format(event.kind, event.model_dump(mode="json"))
+
+            return StreamingResponse(gen(), media_type="text/event-stream")
+
+        return handler
+
+    def agent_run(self) -> Callable[..., Any]:
+        """Run the agent end-to-end and return the full :class:`QueryResponse`."""
+
+        @self.router.post("/agent/run", response_model=QueryResponse)
+        async def handler(
+            payload: QueryRequest,
+            authorization: str | None = Header(default=None),
+            app_service: DynamicRagApplication = Depends(get_application),
+        ) -> QueryResponse:
+            token = require_bearer(authorization)
+            return await app_service.query_with_flags(
+                token=token,
+                question=payload.question,
+                tools_enabled=payload.tools_enabled,
+                agent=payload.agent,
+                web=payload.web,
+                graph=payload.graph,
+                summaries=payload.summaries,
+                reranker=payload.reranker,
+                long_context_pass=payload.long_context_pass,
+                query_transforms=payload.query_transforms,
+                max_steps=payload.max_steps,
+                top_k=payload.top_k,
+            )
+
+        return handler
+
+    def register_all(self, app: FastAPI, prefix: str) -> None:
+        """Build every route and mount the router under ``prefix``.
+
+        Args:
+            app: The FastAPI instance.
+            prefix: The URL prefix (e.g. ``"/v1"``).
+        """
+        for builder in (
+            self.health,
+            self.login,
+            self.logout,
+            self.session_history,
+            self.clear_history,
+            self.upload_document,
+            self.ingest_documents_batch,
+            self.list_documents,
+            self.document_status,
+            self.delete_document,
+            self.query,
+            self.ingest_async,
+            self.query_stream,
+            self.agent_run,
+        ):
+            builder()
+        app.include_router(self.router, prefix=prefix)
+
+
+# ---------------------------------------------------------------------------
+# Metadata helpers
+# ---------------------------------------------------------------------------
+
+
+def package_metadata() -> tuple[str, str, str]:
+    """Return ``(name, version, summary)`` for the raghub distribution.
+
+    Falls back to a static default when the package is not installed
+    in editable mode and the metadata lookup fails.
+
+    Returns:
+        A 3-tuple of ``(title, version, description)``.
+    """
+    try:
+        pkg = importlib.metadata.metadata("raghub")
+    except Exception:
+        return (
+            "RAGHub",
+            "0.3.3",
+            "RAGHub — production-grade multi-user retrieval-augmented generation platform",
+        )
+    return (
+        pkg["Name"].replace("-", " ").title(),
+        pkg["Version"],
+        pkg.get(
+            "Summary",
+            "RAGHub — production-grade multi-user retrieval-augmented generation platform",
+        ),
+    )
+
+
+def root_health_route(app: FastAPI) -> None:
+    """Mount an unversioned liveness probe for orchestrator health checks.
+
+    Args:
+        app: The FastAPI instance.
+    """
+
+    @app.get("/health", include_in_schema=False)
+    def handler() -> dict[str, str]:
+        """Mirrors ``GET /v1/health`` so Docker/Kubernetes probes skip the prefix."""
+        return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Public factory
+# ---------------------------------------------------------------------------
+
+
+def create_app(application: DynamicRagApplication) -> FastAPI:
+    """Build a :class:`FastAPI` instance wired to ``application``.
+
+    Args:
+        application: The pre-wired application facade.
+
+    Returns:
+        A fully-configured FastAPI app ready to be served by
+        ``uvicorn`` or any ASGI server.
+
+    Raises:
+        RuntimeError: When CORS configuration is invalid (wildcard
+            origins with credentials).
+    """
+    title, version, description = package_metadata()
+    app = FastAPI(
+        title=title, version=version, description=description, lifespan=Lifespan(application)
+    )
+    app.state.application = application
+
+    metrics = getattr(application.container, "metrics", None)
+    register = getattr(metrics, "register_app", None)
+    if callable(register):
+        register(app)
+
+    app.state.background_ingestion = BackgroundIngestionService(max_workers=2)
+
+    cors_origins = cors_origins_from_env()
+    validate_cors_for_credentials(cors_origins)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.add_middleware(RateLimiterMiddleware, rate=10.0, burst=20)
+
+    ExceptionHandlers.install(app)
+    RouteGroup().register_all(app, prefix="/v1")
+    app.include_router(admin_router, prefix="/v1")
+    app.include_router(preferences_router, prefix="/v1")
+    root_health_route(app)
+    return app
+
+
+# ---------------------------------------------------------------------------
+# Singleton
+# ---------------------------------------------------------------------------
+
+
 app_singleton: FastAPI | None = None
 
 
@@ -768,10 +815,28 @@ def get_app() -> FastAPI:
     """
     import asyncio
 
-    from raghub.core.container import build_application
+    from raghub.core import container as container_module
 
     global app_singleton
     if app_singleton is None:
-        application = asyncio.run(build_application())
+        application = asyncio.run(container_module.build_application())
         app_singleton = create_app(application)
     return app_singleton
+
+
+__all__ = [
+    "ExceptionHandlers",
+    "Lifespan",
+    "RouteGroup",
+    "app_singleton",
+    "check_upload_size",
+    "cors_origins_from_env",
+    "create_app",
+    "enforce_upload_limit",
+    "get_app",
+    "package_metadata",
+    "require_bearer",
+    "root_health_route",
+    "upload_content_length",
+    "validate_cors_for_credentials",
+]

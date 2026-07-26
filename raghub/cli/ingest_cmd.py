@@ -44,9 +44,11 @@ def run_subcommand(args: argparse.Namespace) -> int:
 
     result = rag.ingest(args.path)
     if result.outputs.get("batch"):
-        # Directory ingest: print per-file results.
         batch_payload: list = [r.model_dump(mode="json") for r in result.outputs["batch"]]
         write_json(batch_payload)
     else:
         write_json(result.model_dump(mode="json"))
     return 0
+
+
+__all__ = ["add_parser", "run_subcommand"]
