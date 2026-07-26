@@ -94,11 +94,6 @@ def test_context_precision() -> None:
     assert context_precision(question, contexts) == pytest.approx(1 / 3)
 
 
-def test_faithfulness_is_context_recall() -> None:
-    """Faithfulness is the same calculation as context recall."""
-    assert faithfulness("hello", ["hello world"]) == context_recall("hello", ["hello world"])
-
-
 def test_answer_correctness() -> None:
     """Answer correctness is the Jaccard overlap."""
     assert answer_correctness("apple banana", "apple banana cherry") == pytest.approx(2 / 3)

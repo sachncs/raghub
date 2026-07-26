@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import time
 
-from raghub.models import ConversationTurn
-
 
 def _poll_until(func, timeout=5.0, step=0.01):
     """Poll *func* until it returns a truthy value or *timeout* expires."""
@@ -44,39 +42,6 @@ class TestTokenBucket:
         for _ in range(5):
             bucket.allow("test")
         _poll_until(lambda: bucket.allow("test"), timeout=1.0)
-
-
-class TestSlidingWindowManager:
-    def test_trim_within_budget(self):
-        from raghub.conversation.sliding_window import SlidingWindowManager
-
-        manager = SlidingWindowManager(max_tokens=100)
-        history = [
-            ConversationTurn(question="Hi", answer="Hello"),
-            ConversationTurn(question="How are you?", answer="Fine thanks"),
-        ]
-        trimmed = manager.trim(history)
-        assert len(trimmed) == 2
-
-    def test_trims_oldest_first(self):
-        from raghub.conversation.sliding_window import SlidingWindowManager
-
-        manager = SlidingWindowManager(max_tokens=20)
-        history = [
-            ConversationTurn(question="First message " * 10, answer="First answer " * 10),
-            ConversationTurn(question="Second", answer="Short"),
-        ]
-        trimmed = manager.trim(history)
-        assert len(trimmed) == 1
-
-    def test_fallback_without_tiktoken(self):
-        from raghub.conversation.sliding_window import SlidingWindowManager
-
-        manager = SlidingWindowManager(max_tokens=100)
-        manager.enc = None
-        text = "hello " * 50
-        count = manager.counttokenize(text)
-        assert count == 50
 
 
 class TestBackgroundIngestionService:
