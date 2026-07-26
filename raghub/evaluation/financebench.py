@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from raghub.evaluation.harness import score_string
+from raghub.evaluation.metrics import evaluate_example
 from raghub.exceptions import EvaluationError
 from raghub.interfaces.evaluation import Evaluator
 from raghub.models import EvaluationResult
@@ -185,8 +186,6 @@ class FinanceBenchEvaluator(Evaluator):
         Returns:
             A list of :class:`EvaluationResult`.
         """
-        from raghub.evaluation.metrics import evaluate_example
-
         rows = list(examples) if examples is not None else self.ensure_loaded_examples()
         results: list[EvaluationResult] = []
         for idx, example in enumerate(rows):

@@ -39,6 +39,8 @@ from typing import Any
 from tqdm import tqdm
 
 from raghub.agent import Agent, AgentTrace
+from raghub.conversation import InMemoryConversationStore
+from raghub.documents import PlainTextConverter
 from raghub.embeddings import BaseEmbeddingProvider
 from raghub.exceptions import PipelineError
 from raghub.interfaces.chunker import Chunker
@@ -51,6 +53,7 @@ from raghub.interfaces.pipeline import Pipeline
 from raghub.interfaces.retrieval import Reranker
 from raghub.interfaces.structured import StructuredOutputProvider
 from raghub.interfaces.vectorstore import VectorStore
+from raghub.knowledge import InMemoryKnowledgeRepository
 from raghub.llm import BaseLLMProvider
 from raghub.models import (
     Chunk,
@@ -396,9 +399,7 @@ class IngestPipeline(Pipeline):
         graph: Any | None = None,
     ) -> None:
         """Initialise the ingest pipeline."""
-        from raghub.documents import PlainTextConverter
         from raghub.ingestion import WordWindowChunker
-        from raghub.knowledge import InMemoryKnowledgeRepository
 
         if embedder is None or vector_store is None:
             raise PipelineError("IngestPipeline requires embedder and vector_store")
@@ -572,8 +573,6 @@ class QueryPipeline(Pipeline):
         self.structured = structured
         self.telemetry = telemetry or NoOpTelemetry()
         if conversation_store is None:
-            from raghub.conversation import InMemoryConversationStore
-
             conversation_store = InMemoryConversationStore()
         self.conversation_store = conversation_store
         self.cache = cache

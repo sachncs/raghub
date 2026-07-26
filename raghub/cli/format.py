@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-import json
-import sys
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+from raghub.config import Settings
+from raghub.rag import RAG
+from raghub.utils import write_json as write_json_impl
 
 
 def write_json(payload: Any) -> None:
@@ -16,9 +18,7 @@ def write_json(payload: Any) -> None:
     Args:
         payload: Any JSON-serialisable value.
     """
-    sys.stdout.write(json.dumps(payload, indent=2, default=str))
-    sys.stdout.write("\n")
-    sys.stdout.flush()
+    write_json_impl(payload)
 
 
 def read_settings(path: str | None) -> Any:
@@ -30,8 +30,6 @@ def read_settings(path: str | None) -> Any:
     Returns:
         The parsed :class:`Settings`.
     """
-    from raghub.config import Settings
-
     if path is None:
         return Settings.load()
     if path.endswith(".toml"):
@@ -52,8 +50,6 @@ def make_rag(config: str | None) -> Any:
     Returns:
         A configured :class:`raghub.RAG` instance.
     """
-    from raghub.rag import RAG
-
     return RAG.from_config(config) if config else RAG()
 
 

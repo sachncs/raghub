@@ -29,6 +29,7 @@ from uuid import uuid4
 
 from pypdf import PdfReader
 
+from raghub.core import DocumentStateMachine
 from raghub.exceptions import ConfigurationError, ConversionError, DocumentError
 from raghub.interfaces.converter import DocumentConverter
 from raghub.models import (
@@ -88,8 +89,6 @@ class DocumentLifecycleManager:
     def __post_init__(self) -> None:
         """Initialise the default state machine when none was supplied."""
         if self.machine is None:
-            from raghub.core import DocumentStateMachine
-
             self.machine = DocumentStateMachine()
 
     def transition(
