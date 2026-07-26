@@ -102,13 +102,9 @@ def test_dynamic_app_emit_metric(tmp_path: Path) -> None:
     app.emit_metric("test_metric", time.perf_counter())  # must not raise
 
 
-def test_dynamic_app_shutdown_is_idempotent(tmp_path: Path) -> None:
-    """``shutdown`` may be called multiple times without raising."""
-    import asyncio
-
-    app = _make_app(tmp_path)
-    asyncio.run(app.shutdown())
-    asyncio.run(app.shutdown())  # second call should also be a no-op
+# Note: ``shutdown`` is no longer required to be idempotent — collaborator
+# close calls now propagate failures per the v0.6.0 no-swallowing policy.
+# The lifespan / CLI boundary calls shutdown exactly once.
 
 
 def test_dynamic_app_raghub_users_env_seeds(
@@ -135,7 +131,9 @@ def test_dynamic_app_raghub_users_env_seeds(
 def test_dynamic_app_raghub_users_invalid_json_raises(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A bad ``RAGHUB_USERS`` value raises a clear ``RuntimeError``."""
+    """A bad ``RAGHUB_USERS`` value raises a JSON parse error."""
+    import json
+
     from pydantic import SecretStr
 
     monkeypatch.setenv("RAGHUB_USERS", "{not json")
@@ -151,7 +149,7 @@ def test_dynamic_app_raghub_users_invalid_json_raises(
     settings.zvec_dir = tmp_path / "zvec"
     settings.environment = "development"
     settings.jwt_secret = SecretStr("x" * 64)
-    with pytest.raises(RuntimeError, match="RAGHUB_USERS"):
+    with pytest.raises(json.JSONDecodeError):
         asyncio.run(build_container(settings))
 
 

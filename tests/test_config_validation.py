@@ -10,8 +10,8 @@ import pytest
 
 from raghub.config.settings import (
     AppSettings,
-    _csv_to_transforms,
-    _env_bool,
+    csv_to_transforms,
+    env_bool,
     load_settings,
 )
 
@@ -19,8 +19,8 @@ from raghub.config.settings import (
 class TestEnvBool:
     def test_returns_default_when_unset(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            assert _env_bool("NONEXISTENT_VAR_FOR_TEST", default=True) is True
-            assert _env_bool("NONEXISTENT_VAR_FOR_TEST", default=False) is False
+            assert env_bool("NONEXISTENT_VAR_FOR_TEST", default=True) is True
+            assert env_bool("NONEXISTENT_VAR_FOR_TEST", default=False) is False
 
     @pytest.mark.parametrize(
         "value,expected",
@@ -42,36 +42,36 @@ class TestEnvBool:
     )
     def test_truthy_and_falsy_values(self, value: str, expected: bool) -> None:
         with patch.dict(os.environ, {"TEST_BOOL_VAR": value}):
-            assert _env_bool("TEST_BOOL_VAR", default=False) is expected
+            assert env_bool("TEST_BOOL_VAR", default=False) is expected
 
 
 class TestCsvToTransforms:
     def test_empty_string_returns_default(self) -> None:
-        result = _csv_to_transforms("", ["hyde", "multi_query"])
+        result = csv_to_transforms("", ["hyde", "multi_query"])
         assert result == ["hyde", "multi_query"]
 
     def test_valid_transforms_parsed(self) -> None:
-        result = _csv_to_transforms("hyde,step_back", [])
+        result = csv_to_transforms("hyde,step_back", [])
         assert result == ["hyde", "step_back"]
 
     def test_unknown_transforms_dropped(self) -> None:
-        result = _csv_to_transforms("hyde,unknown_foo,multi_query", [])
+        result = csv_to_transforms("hyde,unknown_foo,multi_query", [])
         assert result == ["hyde", "multi_query"]
 
     def test_duplicates_deduplicated(self) -> None:
-        result = _csv_to_transforms("hyde,hyde,multi_query", [])
+        result = csv_to_transforms("hyde,hyde,multi_query", [])
         assert result == ["hyde", "multi_query"]
 
     def test_case_insensitive(self) -> None:
-        result = _csv_to_transforms("HYDE,Multi_Query", [])
+        result = csv_to_transforms("HYDE,Multi_Query", [])
         assert result == ["hyde", "multi_query"]
 
     def test_whitespace_trimmed(self) -> None:
-        result = _csv_to_transforms("  hyde , multi_query  ", [])
+        result = csv_to_transforms("  hyde , multi_query  ", [])
         assert result == ["hyde", "multi_query"]
 
     def test_all_valid_transforms(self) -> None:
-        result = _csv_to_transforms("hyde,multi_query,step_back,decompose", [])
+        result = csv_to_transforms("hyde,multi_query,step_back,decompose", [])
         assert result == ["hyde", "multi_query", "step_back", "decompose"]
 
 

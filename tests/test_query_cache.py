@@ -55,7 +55,7 @@ def test_get_evicts_expired_entries(monkeypatch: pytest.MonkeyPatch) -> None:
     base = time.monotonic()
     monkeypatch.setattr(time, "monotonic", lambda: base + 11)
     assert cache.get("q", "alice", None) is None
-    assert "q" not in cache._store  # type: ignore[attr-defined]
+    assert "q" not in cache.store
 
 
 def test_clear_evicts_everything() -> None:

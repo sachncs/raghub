@@ -76,9 +76,10 @@ async def test_hyde_returns_one_variant_per_call() -> None:
 
 
 @pytest.mark.asyncio
-async def test_hyde_raises_transform_error_on_llm_failure() -> None:
+async def test_hyde_propagates_llm_failure() -> None:
+    """Hyde no longer wraps LLM errors in ``TransformError``; the original exception propagates."""
     t = HydeTransformer(RaisingLLM())
-    with pytest.raises(TransformError):
+    with pytest.raises(RuntimeError, match="LLM down"):
         await t.transform(question="anything", history=[])
 
 
@@ -182,22 +183,18 @@ async def test_compose_runs_every_transformer_in_order() -> None:
 
 
 @pytest.mark.asyncio
-async def test_compose_swallows_transform_error() -> None:
-    """A single failing transform does not abort the composition."""
+async def test_compose_propagates_failing_transform_error() -> None:
+    """A single failing transform now propagates the LLM error to the caller."""
     good = FakeLLM(["hyde text"])
     bad = RaisingLLM()
     composer = ComposeTransformer(
         [
-            HydeTransformer(bad),  # raises TransformError
-            HydeTransformer(good),  # still runs
+            HydeTransformer(bad),
+            HydeTransformer(good),
         ]
     )
-    variants = await composer.transform(question="Q?", history=[])
-    kinds = [v.kind for v in variants]
-    assert "original" in kinds
-    assert "hyde" in kinds
-    # Exactly one hyde variant (from the good transform)
-    assert kinds.count("hyde") == 1
+    with pytest.raises(RuntimeError, match="LLM down"):
+        await composer.transform(question="Q?", history=[])
 
 
 def test_query_variant_weight_validation() -> None:

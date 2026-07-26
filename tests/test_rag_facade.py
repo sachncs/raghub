@@ -143,7 +143,7 @@ def test_rag_initialize() -> None:
 
 
 def test_rag_shutdown_telemetry_error() -> None:
-    """shutdown() swallows telemetry.end_trace() exceptions."""
+    """shutdown() surfaces telemetry.end_trace() failures (no swallowing)."""
     rag = RAG()
 
     class _BadTelemetry:
@@ -152,11 +152,12 @@ def test_rag_shutdown_telemetry_error() -> None:
             raise RuntimeError("telemetry crashed")
 
     rag.telemetry = _BadTelemetry()
-    rag.shutdown()
+    with pytest.raises(RuntimeError, match="telemetry crashed"):
+        rag.shutdown()
 
 
 def test_rag_shutdown_async_close() -> None:
-    """shutdown() handles collaborators whose close() returns a coroutine."""
+    """shutdown() runs coroutine-typed close() via asyncio.run."""
     rag = RAG()
 
     class _AsyncCloser:

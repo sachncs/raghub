@@ -40,6 +40,7 @@ def test_config_tools_parser_parses_all_subcommands() -> None:
 def test_config_tools_set_filters_unknown_keys() -> None:
     """Unknown keys are dropped silently so a typo can't break startup."""
     from raghub.cli import config_cmd
+    import threading
 
     async def runner() -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -48,7 +49,6 @@ def test_config_tools_set_filters_unknown_keys() -> None:
             await store.create_user("a@b.c", "password")
             user_id = (await store.get_by_email("a@b.c")).user_id
 
-            # Patch async_load_store to return our fresh store.
             async def make_store():
                 return store
 
@@ -62,7 +62,19 @@ def test_config_tools_set_filters_unknown_keys() -> None:
             assert "agent_enabled" in prefs
             assert "BOGUS_KEY" not in prefs
 
-    asyncio.run(runner())
+    error: list[Exception | None] = [None]
+
+    def thread_runner() -> None:
+        try:
+            asyncio.run(runner())
+        except Exception as exc:
+            error[0] = exc
+
+    thread = threading.Thread(target=thread_runner, daemon=True)
+    thread.start()
+    thread.join()
+    if error[0] is not None:
+        raise error[0]  # type: ignore[misc]  
 
 
 def test_config_tools_set_rejects_non_json() -> None:
@@ -82,6 +94,7 @@ def test_config_tools_set_rejects_non_object() -> None:
 def test_config_tools_unset_removes_blob() -> None:
     """``unset`` deletes the stored tool_settings."""
     from raghub.cli import config_cmd
+    import threading
 
     async def runner() -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -98,4 +111,16 @@ def test_config_tools_unset_removes_blob() -> None:
             assert config_cmd.handle_unset(argparse.Namespace(email="a@b.c")) == 0
             assert await store.get_pref(user_id, "tool_settings") is None
 
-    asyncio.run(runner())
+    error: list[Exception | None] = [None]
+
+    def thread_runner() -> None:
+        try:
+            asyncio.run(runner())
+        except Exception as exc:
+            error[0] = exc
+
+    thread = threading.Thread(target=thread_runner, daemon=True)
+    thread.start()
+    thread.join()
+    if error[0] is not None:
+        raise error[0]  # type: ignore[misc]  

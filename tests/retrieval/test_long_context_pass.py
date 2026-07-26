@@ -121,18 +121,18 @@ async def test_rerank_applies_long_context_ordering() -> None:
 
 
 @pytest.mark.asyncio
-async def test_rerank_falls_back_on_bad_json() -> None:
-    """Unparseable JSON keeps the original order."""
+async def test_rerank_raises_on_bad_json() -> None:
+    """Unparseable JSON now raises — boundary must catch it."""
     llm = StubLlm("claude-3-5-sonnet", response="not json at all")
     pass_ = LongContextRerankPass(llm, LongContextConfig(enabled=True))
     hits = [make_hit(0, "a"), make_hit(1, "b")]
-    out = await pass_.rerank(question="q", hits=hits)
-    assert [h.chunk_id for h in out] == ["c-0", "c-1"]
+    with pytest.raises(ValueError, match="unparseable"):
+        await pass_.rerank(question="q", hits=hits)
 
 
 @pytest.mark.asyncio
-async def test_rerank_falls_back_on_schema_violation() -> None:
-    """An out-of-range score keeps the original order."""
+async def test_rerank_raises_on_schema_violation() -> None:
+    """An out-of-range score raises instead of being swallowed."""
     payload = (
         '{"items": ['
         '{"chunk_id": "c-1", "score": 2.0, "rationale": "bad score"}'
@@ -141,13 +141,13 @@ async def test_rerank_falls_back_on_schema_violation() -> None:
     llm = StubLlm("claude-3-5-sonnet", response=payload)
     pass_ = LongContextRerankPass(llm, LongContextConfig(enabled=True))
     hits = [make_hit(0, "a"), make_hit(1, "b")]
-    out = await pass_.rerank(question="q", hits=hits)
-    assert [h.chunk_id for h in out] == ["c-0", "c-1"]
+    with pytest.raises(ValueError):
+        await pass_.rerank(question="q", hits=hits)
 
 
 @pytest.mark.asyncio
-async def test_rerank_falls_back_when_llm_raises() -> None:
-    """An LLM exception degrades to the original order, never crashes."""
+async def test_rerank_raises_when_llm_raises() -> None:
+    """An LLM exception propagates — boundary handles it."""
 
     class Raising:
         model_name = "claude-3-5-sonnet"
@@ -157,8 +157,8 @@ async def test_rerank_falls_back_when_llm_raises() -> None:
 
     pass_ = LongContextRerankPass(Raising(), LongContextConfig(enabled=True))
     hits = [make_hit(0, "a"), make_hit(1, "b")]
-    out = await pass_.rerank(question="q", hits=hits)
-    assert [h.chunk_id for h in out] == ["c-0", "c-1"]
+    with pytest.raises(RuntimeError, match="upstream down"):
+        await pass_.rerank(question="q", hits=hits)
 
 
 @pytest.mark.asyncio

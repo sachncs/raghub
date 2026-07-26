@@ -77,12 +77,13 @@ async def test_set_prefs_bulk(store: SqliteUserStore) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_prefs_handles_malformed_json(store: SqliteUserStore) -> None:
-    """Malformed JSON in the ``value`` column is exposed as raw text."""
+async def test_get_prefs_raises_on_malformed_json(store: SqliteUserStore) -> None:
+    """Malformed JSON in the ``value`` column now raises ``JSONDecodeError``."""
+    import json
+
     user = await store.create_user("a@b.c", "pw")
     # Bypass the API to inject bad JSON (simulates a legacy/corrupt row).
     import aiosqlite
-    import json
 
     payload = json.dumps({"bad": "value"}).replace("}", "]")  # invalid JSON
     async with aiosqlite.connect(store.db_path) as db:
@@ -91,5 +92,5 @@ async def test_get_prefs_handles_malformed_json(store: SqliteUserStore) -> None:
             (user.user_id, "broken", payload),
         )
         await db.commit()
-    all_prefs = await store.get_prefs(user.user_id)
-    assert all_prefs.get("broken") == payload
+    with pytest.raises(json.JSONDecodeError):
+        await store.get_prefs(user.user_id)
