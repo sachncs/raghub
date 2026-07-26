@@ -15,7 +15,7 @@ from raghub.models import (
 
 
 class TestDocumentService:
-    """Tests for :class:`raghub.services.document_service.DocumentService`."""
+    """Tests for :class:`raghub.services.document.DocumentService`."""
 
     @pytest.fixture
     def container(self) -> MagicMock:
@@ -38,7 +38,7 @@ class TestDocumentService:
 
     @pytest.fixture
     def service(self, container: MagicMock) -> Any:
-        from raghub.services.document_service import DocumentService
+        from raghub.services.document import DocumentService
 
         return DocumentService(container)
 
@@ -54,7 +54,7 @@ class TestDocumentService:
             )
         )
         with patch(
-            "raghub.services.document_service.detect_mime_type", return_value="application/pdf"
+            "raghub.services.document.detect_mime_type", return_value="application/pdf"
         ):
             result = await service.upload_document(
                 token="tok1", filename="Acme_report.pdf", content=b"pdf data"
@@ -76,7 +76,7 @@ class TestDocumentService:
         )
         with (
             patch(
-                "raghub.services.document_service.detect_mime_type", return_value="application/pdf"
+                "raghub.services.document.detect_mime_type", return_value="application/pdf"
             ),
             pytest.raises(AuthorizationError, match="cannot upload documents"),
         ):
@@ -161,7 +161,7 @@ class TestDocumentService:
 
 
 class TestHealthService:
-    """Tests for :class:`raghub.services.health_service.HealthService`."""
+    """Tests for :class:`raghub.services.health.HealthService`."""
 
     @pytest.fixture
     def container(self) -> MagicMock:
@@ -171,7 +171,7 @@ class TestHealthService:
 
     @pytest.fixture
     def service(self, container: MagicMock) -> Any:
-        from raghub.services.health_service import HealthService
+        from raghub.services.health import HealthService
 
         return HealthService(container)
 

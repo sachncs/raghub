@@ -27,8 +27,8 @@ from raghub.services.application.auth import AuthCoordinator
 from raghub.services.application.preferences import PreferenceCoordinator
 from raghub.services.application.shutdown import ShutdownCoordinator
 from raghub.auth import AuthService
-from raghub.services.document_service import DocumentService
-from raghub.services.health_service import HealthService
+from raghub.services.document import DocumentService
+from raghub.services.health import HealthService
 from raghub.services.query_service import QueryService
 
 _RAG_FACADE_AVAILABLE: bool = importlib.util.find_spec("raghub.api.rag") is not None
