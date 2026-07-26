@@ -168,7 +168,7 @@ def test_query_pipeline_accepts_long_context_pass() -> None:
 def test_facade_wires_long_context_pass_through() -> None:
     """`RAG.__init__` instantiates and exposes a LongContextRerankPass."""
     with tempfile.TemporaryDirectory() as tmp:
-        rag = __import__("raghub.api.rag", fromlist=["RAG"]).RAG(
+        rag = __import__("raghub.rag", fromlist=["RAG"]).RAG(
             settings=Settings(
                 data_dir=Path(tmp),
                 long_context_pass=LongContextConfig(enabled=True),

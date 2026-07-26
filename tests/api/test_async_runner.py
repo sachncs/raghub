@@ -5,7 +5,7 @@ import asyncio
 
 import pytest
 
-from raghub.utils import maybe_await
+from raghub.utils import maybe_await_sync as maybe_await
 
 
 # ---------------------------------------------------------------------------

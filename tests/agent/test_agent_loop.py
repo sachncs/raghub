@@ -9,11 +9,11 @@ from typing import Any
 
 import pytest
 
-from raghub.agent import Agent, AgentTrace
-from raghub.agent import PlannerEvent
-from raghub.tools.base import BaseTool, ToolContext, ToolResult
-from raghub.tools.date_today import DateTodayTool
-from raghub.tools.registry import ToolRegistry
+from raghub.agent.agent import Agent, AgentTrace
+from raghub.agent.events import PlannerEvent
+from raghub.agent.tools.base import BaseTool, ToolContext, ToolResult
+from raghub.agent.tools.date_today import DateTodayTool
+from raghub.agent.tools.registry import ToolRegistry
 from raghub.config import AgentConfig
 from raghub.models import UserPrincipal
 
@@ -278,7 +278,7 @@ async def test_agent_respects_wall_clock_budget() -> None:
         tool_registry=registry,
         settings=AgentConfig(max_steps=100, max_wall_seconds=0.01),
     )
-    with patch("raghub.agent.time.perf_counter", side_effect=fake_perf_counter):
+    with patch("raghub.agent.agent.time.perf_counter", side_effect=fake_perf_counter):
         with pytest.raises(Exception) as excinfo:
             await agent.run(question="?")
     assert "wall-clock" in str(excinfo.value).lower()

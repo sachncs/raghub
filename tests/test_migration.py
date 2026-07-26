@@ -18,9 +18,9 @@ def test_migrate_from_json_empty_registries(tmp_path: Path) -> None:
     sessions_path.write_text(json.dumps({"sessions": {}}), encoding="utf-8")
 
     with (
-        patch("raghub.repositories.sqlite_document_repo.SqliteDocumentRepository") as mock_repo_cls,
+        patch("raghub.repositories.SqliteDocumentRepository") as mock_repo_cls,
         patch(
-            "raghub.repositories.sqlite_session_repo.SqliteSessionRepository"
+            "raghub.repositories.SqliteSessionRepository"
         ) as mock_sess_repo_cls,
         patch("raghub.storage.json_registry.JsonDocumentRegistry") as mock_json_reg_cls,
         patch("raghub.storage.session_store.JsonSessionStore") as mock_json_ss_cls,
@@ -52,9 +52,9 @@ def test_migrate_from_json_with_data(tmp_path: Path) -> None:
     sessions_path.write_text(json.dumps({"sessions": {}}), encoding="utf-8")
 
     with (
-        patch("raghub.repositories.sqlite_document_repo.SqliteDocumentRepository") as mock_repo_cls,
+        patch("raghub.repositories.SqliteDocumentRepository") as mock_repo_cls,
         patch(
-            "raghub.repositories.sqlite_session_repo.SqliteSessionRepository"
+            "raghub.repositories.SqliteSessionRepository"
         ) as mock_sess_repo_cls,
         patch("raghub.storage.json_registry.JsonDocumentRegistry") as mock_json_reg_cls,
         patch("raghub.storage.session_store.JsonSessionStore") as mock_json_ss_cls,

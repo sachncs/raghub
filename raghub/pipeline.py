@@ -990,7 +990,7 @@ class AgenticQueryPipeline:
         context: PipelineContext,
         **inputs: Any,
     ) -> Any:
-        """Async-iterate :class:`raghub.agent.events.PlannerEvent`."""
+        """Async-iterate :class:`raghub.agent.PlannerEvent`."""
         question: str = inputs["question"]
         user: UserPrincipal | None = inputs.get("user")
         session_id: str | None = inputs.get("session_id")
