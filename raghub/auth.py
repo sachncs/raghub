@@ -1,29 +1,20 @@
-"""SQLite-backed user store with bcrypt password hashing.
+"""Authentication, RBAC, and the user store.
 
-This module defines :class:`UserRecord` (the persisted user model) and
-:class:`SqliteUserStore` (the async CRUD wrapper around a SQLite
-database). Passwords are hashed with bcrypt; never stored as plaintext.
+The auth domain in one file because the components are tightly
+coupled:
 
-Schema:
-
-    users (
-        user_id TEXT PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        allowed_companies TEXT DEFAULT '[]',  -- JSON array
-        allowed_groups TEXT DEFAULT '[]',     -- JSON array
-        is_admin INTEGER DEFAULT 0,           -- 0 / 1
-        created_at TEXT NOT NULL              -- ISO 8601
-    )
-
-The two JSON columns (``allowed_companies`` and ``allowed_groups``) are
-serialised with :func:`json.dumps` and deserialised on read. Bools are
-stored as integers per SQLite convention.
+* :class:`UserRecord` / :class:`SqliteUserStore` — the SQLite-backed
+  user CRUD store with bcrypt password hashing.
+* :class:`RBACAuthorizationService` — admin-only authorisation checks
+  used by API dependencies.
+* :class:`AuthService` — login / logout / token resolution used by
+  the API and CLI.
 """
 
 from __future__ import annotations
 
 import json
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -32,6 +23,10 @@ from uuid import uuid4
 import aiosqlite
 import bcrypt
 from pydantic import BaseModel, Field
+
+from raghub.exceptions import AuthenticationError, AuthorizationError
+from raghub.models import AuthLoginResponse, ConversationTurn, UserPrincipal
+from raghub.services import ServiceMixin
 
 
 class UserRecord(BaseModel):
@@ -63,9 +58,7 @@ class SqliteUserStore:
 
     Each method opens a fresh :mod:`aiosqlite` connection. This is
     intentional: it keeps the surface area simple at the cost of a
-    per-call connect. For high-throughput paths, wrap the store in a
-    connection pool (e.g. ``aiosqlite``'s ``Connection`` sharing pattern
-    plus a semaphore) — outside the scope of this module.
+    per-call connect.
 
     Attributes:
         db_path: Filesystem path of the SQLite database file. The file
@@ -86,8 +79,6 @@ class SqliteUserStore:
 
         Also creates the ``user_preferences`` table (Phase 1.9) used
         for per-user tool/agent settings.
-
-        Safe to call multiple times; uses ``CREATE TABLE IF NOT EXISTS``.
         """
         async with aiosqlite.connect(self.db_path) as db:
             await db.executescript("""
@@ -204,9 +195,7 @@ class SqliteUserStore:
 
         Returns:
             The :class:`UserRecord` on success; ``None`` if the user
-            does not exist or the password does not match. Callers
-            should not distinguish the two failure modes to avoid
-            leaking which emails are registered.
+            does not exist or the password does not match.
         """
         user = await self.get_by_email(email)
         if user is None:
@@ -219,8 +208,7 @@ class SqliteUserStore:
         """List every user ordered by ``created_at`` descending.
 
         Returns:
-            A list of :class:`UserRecord`. Empty when the table is
-            empty.
+            A list of :class:`UserRecord`. Empty when the table is empty.
         """
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
@@ -244,23 +232,14 @@ class SqliteUserStore:
         data["created_at"] = datetime.fromisoformat(data["created_at"])
         return UserRecord.model_validate(data)
 
-    # ------------------------------------------------------------------
-    # Per-user preferences (Phase 1.10)
-    # ------------------------------------------------------------------
-
     async def get_prefs(self, user_id: str) -> dict[str, Any]:
         """Return every stored preference for ``user_id`` as a dict.
-
-        The values are stored as JSON text; this method decodes each
-        value back into its native Python type (``dict``, ``list``,
-        ``str``, ``int``, ``float``, ``bool``, ``None``).
 
         Args:
             user_id: Owning user id.
 
         Returns:
-            Mapping of preference key → decoded value. Empty when the
-            user has no preferences or does not exist.
+            Mapping of preference key → decoded value.
         """
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
@@ -290,12 +269,9 @@ class SqliteUserStore:
         """Upsert a single preference.
 
         Args:
-            user_id: Owning user id. A foreign-key violation (unknown
-                user) raises :class:`aiosqlite.IntegrityError`.
-            key: Preference key. Namespaced by caller (e.g.
-                ``"tool_settings"``).
-            value: Any JSON-serialisable value. ``None`` is stored as
-                JSON ``null``.
+            user_id: Owning user id.
+            key: Preference key. Namespaced by caller.
+            value: Any JSON-serialisable value.
         """
         encoded = json.dumps(value)
         async with aiosqlite.connect(self.db_path) as db:
@@ -344,4 +320,183 @@ class SqliteUserStore:
             await db.commit()
 
 
-__all__ = ["SqliteUserStore", "UserRecord"]
+class RBACAuthorizationService:
+    """Authorisation checks used by admin-only API dependencies.
+
+    Attributes:
+        user_store: User store held for future admin-elevation flows.
+        logger: Optional loguru-compatible logger for audit events.
+    """
+
+    def __init__(self, user_store: SqliteUserStore, logger: Any | None = None) -> None:
+        """Initialise the service.
+
+        Args:
+            user_store: Backing user store.
+            logger: Optional loguru-compatible logger for audit events.
+        """
+        self.user_store = user_store
+        self.logger = logger
+
+    async def check_access(self, user: UserPrincipal, required_company: str) -> bool:
+        """Return whether ``user`` may access ``required_company``.
+
+        Args:
+            user: The principal performing the access.
+            required_company: The company identifier of the resource.
+
+        Returns:
+            ``True`` if the user is an admin or if the company is in
+            their tenant allow-list; ``False`` otherwise.
+        """
+        if user.is_admin:
+            return True
+        allowed = required_company in user.allowed_companies
+        if not allowed and self.logger is not None:
+            log = getattr(self.logger, "info", None)
+            if callable(log):
+                log(
+                    "audit.rbac.denied",
+                    user_id=user.user_id,
+                    email=user.email,
+                    required_company=required_company,
+                    allowed_companies=list(user.allowed_companies),
+                )
+        return allowed
+
+    async def filter_companies(self, user: UserPrincipal) -> list[str]:
+        """Return the set of companies ``user`` may access.
+
+        Admins see an empty list (a sentinel meaning "everything").
+
+        Args:
+            user: The principal being authorised.
+
+        Returns:
+            The companies the user may access, or an empty list for
+            admin.
+        """
+        if user.is_admin:
+            return []
+        return list(user.allowed_companies)
+
+    async def require_admin(self, user: UserPrincipal) -> None:
+        """Raise :class:`AuthorizationError` unless ``user.is_admin``.
+
+        Args:
+            user: The principal being authorised.
+
+        Raises:
+            AuthorizationError: When ``user`` is not an admin.
+        """
+        if user.is_admin:
+            return
+        if self.logger is not None:
+            log = getattr(self.logger, "warning", None)
+            if callable(log):
+                log("audit.rbac.admin_required", user_id=user.user_id, email=user.email)
+        raise AuthorizationError("Admin access required")
+
+
+class AuthService(ServiceMixin):
+    """Login, logout, and principal-resolution operations.
+
+    Attributes:
+        container: The application container.
+    """
+
+    def __init__(self, container: Any) -> None:
+        """Store the container reference.
+
+        Args:
+            container: The application container.
+        """
+        self.container = container
+
+    async def login(self, email: str, password: str) -> AuthLoginResponse:
+        """Verify credentials and create a session.
+
+        Args:
+            email: User email.
+            password: Plaintext password.
+
+        Returns:
+            An :class:`AuthLoginResponse` carrying the session token,
+            user email, and allowed companies.
+
+        Raises:
+            AuthenticationError: If the email/password combination is
+                invalid.
+        """
+        started = time.perf_counter()
+        user = await self.container.user_store.verify_password(email, password)
+        if user is None:
+            self.log("audit.login.failed", email=email, reason="invalid_credentials")
+            raise AuthenticationError("Invalid email or password")
+        session = await self.container.store.create_session(user.user_id)
+        self.emit_metric("auth_login_latency_ms", started)
+        self.log("audit.login.success", email=user.email)
+        return AuthLoginResponse(
+            session_token=session.token,
+            user_email=user.email,
+            allowed_companies=user.allowed_companies,
+        )
+
+    async def logout(self, token: str) -> None:
+        """Invalidate the session associated with ``token``.
+
+        Args:
+            token: The bearer token presented by the client.
+        """
+        session = await self.container.store.get_by_token(token)
+        if session is not None:
+            await self.container.store.delete_session(session.session_id)
+
+    async def resolve_user(self, token: str) -> tuple[UserPrincipal, list[ConversationTurn]]:
+        """Resolve a bearer token to (principal, conversation history).
+
+        Args:
+            token: The bearer token.
+
+        Returns:
+            A tuple of :class:`UserPrincipal` and the session's
+            conversation history.
+
+        Raises:
+            AuthenticationError: If the token does not correspond to a
+                live session, or the underlying user has been deleted.
+        """
+        session = await self.container.store.get_by_token(token)
+        if session is None:
+            self.log("audit.token.invalid", reason="no_session")
+            raise AuthenticationError("Invalid or expired session")
+        record = await self.container.user_store.get_by_id(session.user_id)
+        if record is None:
+            self.log("audit.token.invalid", user_id=session.user_id, reason="user_deleted")
+            raise AuthenticationError("User not found")
+        user = UserPrincipal(
+            user_id=record.user_id,
+            email=record.email,
+            allowed_companies=record.allowed_companies,
+            allowed_groups=record.allowed_groups,
+            is_admin=record.is_admin,
+            tool_settings=await self.load_tool_settings(record.user_id),
+        )
+        return user, list(session.history)
+
+    async def load_tool_settings(self, user_id: str) -> dict[str, Any]:
+        """Return the ``tool_settings`` prefs blob for ``user_id``.
+
+        Args:
+            user_id: The owning user's id.
+
+        Returns:
+            The stored ``tool_settings`` dict, or ``{}`` when the
+            store lacks the method (e.g. a custom in-memory store
+            used by tests).
+        """
+        store = getattr(self.container, "user_store", None)
+        if store is None or not hasattr(store, "get_pref"):
+            return {}
+        value = await store.get_pref(user_id, "tool_settings")
+        return value if isinstance(value, dict) else {}

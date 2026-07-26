@@ -39,7 +39,7 @@ from raghub.api.app import (
     validate_cors_for_credentials,
 )
 from raghub.api.dependencies import get_application
-from raghub.auth.user_store import UserRecord
+from raghub.auth import UserRecord
 from raghub.exceptions import DocumentError
 from raghub.ingestion.background import BackgroundIngestionService
 from raghub.ingestion.service import DocumentIngestionService

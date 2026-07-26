@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from raghub.auth.user_store import SqliteUserStore
+from raghub.auth import SqliteUserStore
 
 
 @pytest.fixture

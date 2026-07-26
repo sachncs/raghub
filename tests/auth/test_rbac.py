@@ -10,8 +10,8 @@ from typing import Any
 
 import pytest
 
-from raghub.auth.rbac import RBACAuthorizationService
-from raghub.auth.user_store import SqliteUserStore
+from raghub.auth import RBACAuthorizationService
+from raghub.auth import SqliteUserStore
 from raghub.exceptions import AuthorizationError
 from raghub.models import UserPrincipal
 

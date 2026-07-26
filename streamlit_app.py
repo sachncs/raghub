@@ -103,7 +103,7 @@ async def user_store():
     """
     from pathlib import Path
 
-    from raghub.auth.user_store import SqliteUserStore
+    from raghub.auth import SqliteUserStore
     from raghub.config import Settings; _settings_legacy = Settings  # noop back-compat
 from raghub.config import Settings
 
