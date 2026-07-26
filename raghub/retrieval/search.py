@@ -6,6 +6,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from raghub.models import ChunkRecord, Classification
+from raghub.retrieval.colbert import ColbertLateInteraction
+
+__all__ = [
+    "ColbertLateInteraction",
+    "FacetedSearchEngine",
+    "SearchFilters",
+    "build_filter_string",
+]
 
 
 @dataclass

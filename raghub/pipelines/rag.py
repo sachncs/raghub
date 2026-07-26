@@ -156,6 +156,8 @@ class IngestPipeline(Pipeline):
         vector_store: VectorStore | None = None,
         knowledge_repo: KnowledgeRepository | None = None,
         telemetry: TelemetryProvider | None = None,
+        raptor: Any | None = None,
+        graph: Any | None = None,
     ) -> None:
         """Initialise the ingest pipeline.
 
@@ -166,6 +168,11 @@ class IngestPipeline(Pipeline):
             vector_store: Vector store. **Required.**
             knowledge_repo: Optional knowledge repository.
             telemetry: Optional telemetry provider.
+            raptor: Optional :class:`RaptorIndex` (Phase 6.2). When
+                present, every ingested batch is also fed into the
+                RAPTOR summary tree.
+            graph: Optional :class:`GraphRagIndex` (Phase 6.3).
+                Entity / community graph over the corpus.
         """
         if embedder is None or vector_store is None:
             raise PipelineError("IngestPipeline requires embedder and vector_store")
@@ -175,6 +182,8 @@ class IngestPipeline(Pipeline):
         self.vector_store = vector_store
         self.knowledge_repo = knowledge_repo or InMemoryKnowledgeRepository()
         self.telemetry = telemetry or NoOpTelemetry()
+        self.raptor = raptor
+        self.graph = graph
         self.show_progress = True
 
     def vectors_already_indexed(self, chunks: list[Chunk]) -> bool:
@@ -325,6 +334,13 @@ class IngestPipeline(Pipeline):
                 with self.telemetry.span("ingest.upsert", count=len(chunks)):
                     if chunks:
                         self.vector_store.upsert(chunks, vectors)
+                        # Phase 6.6: feed the structured indexes too.
+                        if self.raptor is not None:
+                            with self.telemetry.span("ingest.raptor"):
+                                self.raptor.add_chunks(chunks, vectors)
+                        if self.graph is not None:
+                            with self.telemetry.span("ingest.graph"):
+                                self.graph.add_chunks(chunks, vectors)
 
                 self.knowledge_repo.save(bundle)
 
@@ -379,13 +395,17 @@ class QueryPipeline(Pipeline):
         telemetry: TelemetryProvider | None = None,
         conversation_store: Any | None = None,
         cache: Any | None = None,
+        transformer: Any | None = None,
+        retrieval_pipeline: Any | None = None,
+        long_context_pass: Any | None = None,
+        agentic_pipeline: Any | None = None,
     ) -> None:
         """Initialise the query pipeline.
 
         Args:
             embedder: Embedding provider.
             vector_store: Vector store.
-            generator: Generator.
+            generator: Answer generator.
             reranker: Reranker. Defaults to identity.
             structured: Optional structured-output provider.
             telemetry: Optional telemetry provider.
@@ -395,6 +415,25 @@ class QueryPipeline(Pipeline):
             cache: Optional :class:`QueryCache` instance. When set,
                 the pipeline checks the cache before running and
                 stores results after a successful run.
+            transformer: Optional :class:`QueryTransformer` (typically
+                a :class:`ComposeTransformer`). When set and the
+                transformer produces more than one variant, the
+                pipeline searches each variant and fuses the hits.
+                The empty/identity case (``ComposeTransformer([])``)
+                preserves the fast-path byte equivalence — see
+                :meth:`RetrievalPipeline.retrieve_variants`; otherwise
+                the pipeline falls back to the legacy single-shot path.
+            long_context_pass: Optional :class:`LongContextRerankPass`
+                (Phase 5). When set and the configured LLM is in
+                :attr:`LongContextConfig.allowlist_models`, the
+                top-K hits are re-ordered with a second LLM call
+                before generation. Failures degrade silently to the
+                first-pass order.
+            agentic_pipeline: Optional :class:`AgenticQueryPipeline`
+                (Phase 7.9). When set, the dispatch logic forwards
+                any request whose resolved config requires tools
+                or the agent loop through this pipeline; the legacy
+                path stays intact for the fast path.
         """
         self.embedder = embedder
         self.vector_store = vector_store
@@ -408,6 +447,10 @@ class QueryPipeline(Pipeline):
             conversation_store = InMemoryConversationStore()
         self.conversation_store = conversation_store
         self.cache = cache
+        self.transformer = transformer
+        self.retrieval_pipeline = retrieval_pipeline
+        self.long_context_pass = long_context_pass
+        self.agentic_pipeline = agentic_pipeline
 
     def metadata_filter_for_user(self, user: Any) -> dict | str:
         """Derive a metadata filter for the vector store from a user.
@@ -455,6 +498,7 @@ class QueryPipeline(Pipeline):
             session_id: str | None = inputs.get("session_id")
             response_model = inputs.get("response_model")
             record: bool = bool(inputs.get("record", True))
+            tools_enabled: set[str] | None = inputs.get("tools_enabled")
             from raghub.models import RetrievalHit
 
             history: list = []
@@ -485,6 +529,28 @@ class QueryPipeline(Pipeline):
                 if isinstance(cached, PipelineResult):
                     return cached
 
+            # Phase 7.10: route through the agentic pipeline when
+            # one is configured. The dispatcher is the seam that
+            # makes Phase 7's agent loop a *real* feature rather
+            # than a metadata stub.
+            if self.agentic_pipeline is not None and (
+                tools_enabled
+                or ((record_overrides := inputs.get("resolved_config")) is not None
+                and (
+                    record_overrides.get("agent_enabled")
+                    or record_overrides.get("tools_enabled")
+                ))
+            ):
+                return await self.agentic_pipeline.run(
+                    context,
+                    question=question,
+                    user=user,
+                    session_id=session_id,
+                    tools_enabled=tools_enabled,
+                    top_k=top_k,
+                    history=history,
+                )
+
             with self.telemetry.span("query", question=question[:128], top_k=top_k) as span:
                 if user is not None:
                     email = getattr(user, "email", None)
@@ -496,31 +562,73 @@ class QueryPipeline(Pipeline):
                 with self.telemetry.span("query.embed_query"):
                     vector = self.embedder.embed_text(question)
 
-                with self.telemetry.span("query.search", top_k=top_k):
-                    raw = self.vector_store.search(
-                        vector=vector,
-                        top_k=top_k,
-                        metadata_filter=rbac_filter,
+                # Query-transform path (Phase 2.8). When the configured
+                # transformer produces more than a single original
+                # variant, we run a multi-variant retrieval through
+                # the pre-built RetrievalPipeline. The empty-transformer
+                # case (default config) leaves ``variants`` at exactly
+                # the original question and short-circuits to the
+                # legacy single-shot path below — preserving the
+                # byte-equivalent fast path the regression test in
+                # Phase 10.6 pins down.
+                transforms_applied: list[str] = []
+                if self.transformer is not None and self.retrieval_pipeline is not None:
+                    variants = await self.transformer.transform(
+                        question=question, history=history
                     )
-                hits: list[RetrievalHit] = [
-                    RetrievalHit(
-                        chunk_id=h["chunk_id"],
-                        score=float(h["score"]),
-                        chunk=h["chunk"],
-                    )
-                    for h in raw
-                ]
-                # Apply additional user-supplied filter post-hoc
-                # (the in-memory store accepts both dict and str).
-                if isinstance(user_filter, dict) and user_filter:
+                    multi = [v for v in variants if v.text and v.text.strip()]
+                    if len(multi) > 1 or (
+                        len(multi) == 1 and multi[0].kind != "original"
+                    ):
+                        transforms_applied = [v.kind for v in multi]
+                        with self.telemetry.span(
+                            "query.search_variants",
+                            count=len(multi),
+                            kinds=",".join(transforms_applied),
+                        ):
+                            hits = self.retrieval_pipeline.retrieve_variants(
+                                user=user, variants=multi, top_k=top_k
+                            )
+                    else:
+                        hits = None  # fall through to legacy path
+                else:
+                    hits = None  # legacy fast path
+
+                if hits is None:
+                    with self.telemetry.span("query.search", top_k=top_k):
+                        raw = self.vector_store.search(
+                            vector=vector,
+                            top_k=top_k,
+                            metadata_filter=rbac_filter,
+                        )
                     hits = [
-                        h
-                        for h in hits
-                        if all(getattr(h.chunk, k, None) == v for k, v in user_filter.items())
+                        RetrievalHit(
+                            chunk_id=h["chunk_id"],
+                            score=float(h["score"]),
+                            chunk=h["chunk"],
+                        )
+                        for h in raw
                     ]
-                if self.reranker is not None:
-                    with self.telemetry.span("query.rerank"):
-                        hits = self.reranker.rerank(question=question, hits=hits)
+                    # Apply additional user-supplied filter post-hoc
+                    # (the in-memory store accepts both dict and str).
+                    if isinstance(user_filter, dict) and user_filter:
+                        hits = [
+                            h
+                            for h in hits
+                            if all(getattr(h.chunk, k, None) == v for k, v in user_filter.items())
+                        ]
+                    if self.reranker is not None:
+                        with self.telemetry.span("query.rerank"):
+                            hits = self.reranker.rerank(question=question, hits=hits)
+                # Phase 5.3: long-context second pass (after the
+                # cross-encoder rerank, before generation). Only
+                # runs when the pass was constructed on this pipeline
+                # AND there is at least one candidate hit.
+                if self.long_context_pass is not None and hits:
+                    with self.telemetry.span("query.long_context_pass"):
+                        hits = await self.long_context_pass.rerank(
+                            question=question, hits=hits
+                        )
 
                 answer: Any
                 citations: list = []
@@ -574,6 +682,12 @@ class QueryPipeline(Pipeline):
                     "hits": hits,
                     "structured": structured_output,
                     "history": history,
+                    "transforms_applied": transforms_applied,
+                    # Phase 8.7: forward the resolved advanced-RAG
+                    # config from the pipeline context (set by
+                    # ``RAG.aquery`` / ``RAG.astream``) into outputs
+                    # so ``build_response`` can surface it.
+                    "resolved_config": context.metadata.get("resolved_config"),
                 },
             )
             if self.cache is not None:
@@ -653,6 +767,12 @@ class QueryPipeline(Pipeline):
             if self.reranker is not None:
                 with self.telemetry.span("query.rerank"):
                     hits = self.reranker.rerank(question=question, hits=hits)
+            # Phase 5.3: long-context second pass (streaming path).
+            if self.long_context_pass is not None and hits:
+                with self.telemetry.span("query.long_context_pass"):
+                    hits = await self.long_context_pass.rerank(
+                        question=question, hits=hits
+                    )
             history: list = []
             if session_id:
                 try:

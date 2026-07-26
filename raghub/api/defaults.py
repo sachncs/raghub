@@ -213,3 +213,50 @@ def default_telemetry() -> Any:
 
         return NoOpTelemetry()
     return LangfuseTelemetryProvider()
+
+
+def default_transforms(
+    llm: Any,
+    *,
+    enabled: list[str] | None = None,
+    hyde_n: int = 1,
+    multi_query_n: int = 4,
+) -> Any:
+    """Build the configured :class:`ComposeTransformer`.
+
+    Args:
+        llm: Any object with ``async_generate`` — typically the same
+            LLM the facade already holds.
+        enabled: Ordered list of transform names. Empty / ``None``
+            returns an empty :class:`ComposeTransformer` (zero-cost
+            fast path).
+        hyde_n: Number of hypothetical passages for ``hyde``.
+        multi_query_n: Number of rephrasings for ``multi_query``.
+
+    Returns:
+        A :class:`raghub.retrieval.transforms.ComposeTransformer`.
+        Unknown names are dropped silently.
+    """
+    from raghub.retrieval.transforms import (
+        ComposeTransformer,
+        DecomposeTransformer,
+        HydeTransformer,
+        MultiQueryTransformer,
+        StepBackTransformer,
+    )
+
+    enabled = enabled or []
+    transformers = []
+    for name in enabled:
+        if name == "hyde":
+            transformers.append(HydeTransformer(llm, n=hyde_n))
+        elif name == "multi_query":
+            transformers.append(MultiQueryTransformer(llm, n=multi_query_n))
+        elif name == "step_back":
+            transformers.append(StepBackTransformer(llm))
+        elif name == "decompose":
+            transformers.append(DecomposeTransformer(llm))
+        # Unknown names are ignored on purpose — see the docstring of
+        # :func:`raghub.config.settings.load_settings` for the same
+        # forgiving behaviour on the env-var path.
+    return ComposeTransformer(transformers)

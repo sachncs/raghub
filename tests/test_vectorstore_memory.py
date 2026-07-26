@@ -383,18 +383,62 @@ class TestHybridSearch:
 
 class TestKeywordSearch:
     def test_finds_matching_chunks(self) -> None:
+        # 5-doc corpus with each query term occurring in exactly one
+        # doc (df=1 → positive IDF under BM25's Robertson–Sparck
+        # Jones weight). Larger corpora with df > N/2 produce
+        # negative IDF which rank-bm25 clamps to 0.
         store = InMemoryVectorStore()
-        store.insert([make_chunk(chunk_id="c1", text="hello world")], [[0.1]])
-        store.insert([make_chunk(chunk_id="c2", text="foo bar")], [[0.1]])
+        store.insert(
+            [make_chunk(chunk_id="c1", text="hello world is a common phrase used in many places")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c2", text="apple pie is a popular dessert in many countries")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c3", text="banana split is a classic summer treat")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c4", text="cherry cobbler is another favourite pie")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c5", text="orange marmalade pairs well with toast")],
+            [[0.1]],
+        )
         results = store.keyword_search("hello", top_k=5)
         assert len(results) == 1
         assert results[0]["chunk_id"] == "c1"
 
     def test_scores_reflect_term_frequency(self) -> None:
+        # c1 contains "hello" twice, c2 once. c3-c5 are decoys with
+        # no occurrence of "hello". All five docs have distinct,
+        # longer content so BM25's IDF is positive.
         store = InMemoryVectorStore()
-        store.insert([make_chunk(chunk_id="c1", text="hello hello world")], [[0.1]])
-        store.insert([make_chunk(chunk_id="c2", text="hello world")], [[0.1]])
+        store.insert(
+            [make_chunk(chunk_id="c1", text="hello hello world is the first chunk indexed here")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c2", text="hello world is the second chunk indexed there")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c3", text="apple pie dessert with many different words inside")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c4", text="banana split treat is full of disparate words today")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c5", text="cherry cobbler uses many assorted words in the recipe")],
+            [[0.1]],
+        )
         results = store.keyword_search("hello", top_k=5)
+        # c1 and c2 are the only ones that contain "hello".
         assert len(results) == 2
         assert results[0]["chunk_id"] == "c1"
         assert results[0]["score"] > results[1]["score"]
@@ -411,22 +455,69 @@ class TestKeywordSearch:
 
     def test_no_match_returns_empty(self) -> None:
         store = InMemoryVectorStore()
-        store.insert([make_chunk(chunk_id="c1", text="hello world")], [[0.1]])
+        store.insert(
+            [make_chunk(chunk_id="c1", text="hello world is a common phrase used in many places")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c2", text="apple pie is a popular dessert in many countries")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c3", text="banana split is a classic summer treat")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c4", text="cherry cobbler is another favourite pie")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c5", text="orange marmalade pairs well with toast")],
+            [[0.1]],
+        )
         results = store.keyword_search("zzzzzz", top_k=5)
         assert results == []
 
     def test_empty_text_chunks_are_skipped(self) -> None:
         store = InMemoryVectorStore()
         store.insert([make_chunk(chunk_id="c1", text="")], [[0.1]])
-        store.insert([make_chunk(chunk_id="c2", text="hello")], [[0.1]])
+        store.insert(
+            [make_chunk(chunk_id="c2", text="hello there general kenobi how are you today")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c3", text="apple pie for dessert tonight at the diner")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c4", text="banana split for a treat any day of the week")],
+            [[0.1]],
+        )
+        store.insert(
+            [make_chunk(chunk_id="c5", text="cherry cobbler is another favourite in the south")],
+            [[0.1]],
+        )
         results = store.keyword_search("hello", top_k=5)
         assert len(results) == 1
         assert results[0]["chunk_id"] == "c2"
 
     def test_top_k_limits(self) -> None:
         store = InMemoryVectorStore()
-        chunks = [make_chunk(chunk_id=f"c{i}", text="hello world") for i in range(5)]
+        # 5 unique chunks each with "hello" once, decoys without it.
+        chunks = [
+            make_chunk(
+                chunk_id=f"c{i}",
+                text=f"hello world is the {i}th chunk we have indexed in the system",
+            )
+            for i in range(5)
+        ]
         store.insert(chunks, [[0.1]] * 5)
+        # Padding chunks so df is not the full corpus.
+        for i in range(3):
+            store.insert(
+                [make_chunk(chunk_id=f"pad{i}", text=f"apple pie is dessert {i}")],
+                [[0.1]],
+            )
         results = store.keyword_search("hello", top_k=2)
         assert len(results) == 2
 
