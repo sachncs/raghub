@@ -15,7 +15,7 @@ from raghub.agent.tools.keyword_search import KeywordSearchTool
 from raghub.agent.tools.summary_search import SummarySearchTool
 from raghub.agent.tools.vector_search import VectorSearchTool
 from raghub.agent.tools.web_search import WebSearchTool
-from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
 from raghub.models import ChunkRecord, UserPrincipal
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.vectorstore.memory import InMemoryVectorStore

@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
 from raghub.knowledge.structures.graphrag import GraphRagIndex
 from raghub.models import Chunk
 

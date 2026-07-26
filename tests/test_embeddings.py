@@ -8,8 +8,8 @@ substring-based dispatch.
 from __future__ import annotations
 
 from raghub.embeddings import build_embedding_provider
-from raghub.embeddings.hashing import HashingEmbeddingProvider
-from raghub.embeddings.sentence_transformer import SentenceTransformerEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
+from raghub.embeddings import SentenceTransformerEmbeddingProvider
 
 
 class TestHashingEmbeddingProvider:

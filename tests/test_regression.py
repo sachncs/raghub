@@ -10,7 +10,7 @@ import pytest
 
 from raghub import RAG
 from raghub.config import Settings
-from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
 from raghub.generation.generator import DefaultGenerator
 from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.interfaces.observability import TelemetryProvider

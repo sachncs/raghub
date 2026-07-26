@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from raghub.config import HybridConfig
-from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
 from raghub.models import ChunkRecord, UserPrincipal
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.vectorstore.memory import InMemoryVectorStore

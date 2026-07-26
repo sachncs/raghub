@@ -38,7 +38,7 @@ from hashlib import sha256
 from raghub.api.defaults import default_converter
 from raghub.documents import validation as validation_module
 from raghub.documents.lifecycle import DocumentLifecycleManager
-from raghub.embeddings.base import BaseEmbeddingProvider
+from raghub.embeddings import BaseEmbeddingProvider
 from raghub.exceptions import DocumentError
 from raghub.ingestion.background import BackgroundIngestionService
 from raghub.ingestion.chunkers.word_window import WordWindowChunker

@@ -31,7 +31,7 @@ from typing import Any
 
 from raghub.config import HybridConfig
 from raghub.core import allowed_company_filter
-from raghub.embeddings.base import BaseEmbeddingProvider
+from raghub.embeddings import BaseEmbeddingProvider
 from raghub.interfaces.vectorstore import VectorStore
 from raghub.models import ChunkRecord, RetrievalHit, UserPrincipal
 from raghub.retrieval.fusion import rrf

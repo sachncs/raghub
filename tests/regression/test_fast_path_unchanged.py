@@ -36,7 +36,7 @@ def build_pipeline() -> tuple[QueryPipeline, Any, Any, Any, Any]:
 
     Returns (pipeline, embedder, vector_store, reranker, generator).
     """
-    from raghub.embeddings.hashing import HashingEmbeddingProvider
+    from raghub.embeddings import HashingEmbeddingProvider
     from raghub.retrieval.reranker import IdentityReranker
     from raghub.vectorstore.memory import InMemoryVectorStore
 

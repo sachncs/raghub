@@ -475,7 +475,7 @@ class TestDefaultConverter:
 class TestDefaultEmbedder:
     def test_no_api_key_uses_hashing(self):
         from raghub.api.defaults import default_embedder
-        from raghub.embeddings.hashing import HashingEmbeddingProvider
+        from raghub.embeddings import HashingEmbeddingProvider
 
         result = default_embedder("test-model", 128)
         assert isinstance(result, HashingEmbeddingProvider)
@@ -483,7 +483,7 @@ class TestDefaultEmbedder:
 
     def test_with_litellm_api_key(self):
         with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True):
-            with patch("raghub.embeddings.litellm.LiteLLMEmbeddingProvider") as mock_llm:
+            with patch("raghub.embeddings.LiteLLMEmbeddingProvider") as mock_llm:
                 from raghub.api.defaults import default_embedder
 
                 result = default_embedder("gpt-4", 256)
@@ -495,12 +495,12 @@ class TestDefaultEmbedder:
         with (
             patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
             patch(
-                "raghub.embeddings.litellm.LiteLLMEmbeddingProvider",
+                "raghub.embeddings.LiteLLMEmbeddingProvider",
                 side_effect=ConfigurationError("fail"),
             ),
         ):
             from raghub.api.defaults import default_embedder
-            from raghub.embeddings.hashing import HashingEmbeddingProvider
+            from raghub.embeddings import HashingEmbeddingProvider
 
             result = default_embedder("gpt-4", 256)
             assert isinstance(result, HashingEmbeddingProvider)
