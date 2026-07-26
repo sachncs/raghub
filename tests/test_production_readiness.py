@@ -41,8 +41,8 @@ from raghub.api.app import (
 from raghub.api.dependencies import get_application
 from raghub.auth import UserRecord
 from raghub.exceptions import DocumentError
-from raghub.ingestion.background import BackgroundIngestionService
-from raghub.ingestion.service import DocumentIngestionService
+from raghub.ingestion import BackgroundIngestionService
+from raghub.ingestion import DocumentIngestionService
 from raghub.models import AuthLoginResponse, QueryResponse
 from raghub.models import (
     ConversationTurn,

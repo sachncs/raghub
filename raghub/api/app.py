@@ -68,7 +68,7 @@ from raghub.api.preferences import router as preferences_router
 from raghub.api.rate_limiter import RateLimiterMiddleware
 from raghub.api.streaming import sse_comment, sse_format
 from raghub.exceptions import AuthenticationError, AuthorizationError, DocumentError, StorageError
-from raghub.ingestion.background import BackgroundIngestionService
+from raghub.ingestion import BackgroundIngestionService
 from raghub.models import (
     AuthLoginRequest,
     AuthLoginResponse,

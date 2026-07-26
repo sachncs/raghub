@@ -20,7 +20,7 @@ import pytest
 
 from raghub import RAG
 from raghub.documents import PlainTextConverter
-from raghub.ingestion.chunkers.word_window import WordWindowChunker
+from raghub.ingestion import WordWindowChunker
 from raghub.models import UserPrincipal
 
 

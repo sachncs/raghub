@@ -46,7 +46,7 @@ class TestTokenBucket:
 
 class TestBackgroundIngestionService:
     def test_submit_and_get_status(self):
-        from raghub.ingestion.background import BackgroundIngestionService
+        from raghub.ingestion import BackgroundIngestionService
 
         service = BackgroundIngestionService(max_workers=1)
 
@@ -59,7 +59,7 @@ class TestBackgroundIngestionService:
         assert service.get_result(job_id) == 42
 
     def test_failed_job(self):
-        from raghub.ingestion.background import BackgroundIngestionService
+        from raghub.ingestion import BackgroundIngestionService
 
         service = BackgroundIngestionService(max_workers=1)
 
@@ -70,7 +70,7 @@ class TestBackgroundIngestionService:
         _poll_until(lambda: service.get_status(job_id) == "failed")
 
     def test_unknown_job(self):
-        from raghub.ingestion.background import BackgroundIngestionService
+        from raghub.ingestion import BackgroundIngestionService
 
         service = BackgroundIngestionService()
         assert service.get_status("nonexistent") is None

@@ -26,7 +26,7 @@ from raghub.documents import (
     normalize_text,
 )
 from raghub.ingestion import DocumentIngestionService, IngestionResult
-from raghub.ingestion.chunkers.chonkie import (
+from raghub.ingestion import (
     CHONKIE_AVAILABLE,
     ChonkieChunker,
     build_chonkie_chunker,
@@ -763,8 +763,8 @@ class TestIngest:
 class TestBuildChonkieInner:
     def test_raises_when_chonkie_unavailable(self) -> None:
         with (
-            patch("raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False),
-            patch("raghub.ingestion.chunkers.chonkie.CHONKIE_MODULE", None),
+            patch("raghub.ingestion.CHONKIE_AVAILABLE", False),
+            patch("raghub.ingestion.CHONKIE_MODULE", None),
         ):
             from raghub.exceptions import ConfigurationError
 
@@ -823,42 +823,42 @@ class TestBuildChonkieInner:
 
 
 class TestRefinery:
-    def test_build_refinery_returns_none_when_unavailable(self) -> None:
-        from raghub.ingestion.chunkers.chonkie import _build_refinery
+    def testbuild_refinery_returns_none_when_unavailable(self) -> None:
+        from raghub.ingestion import build_refinery
 
-        with patch("raghub.ingestion.chunkers.chonkie.CHONKIE_MODULE", None):
-            assert _build_refinery() is None
+        with patch("raghub.ingestion.CHONKIE_MODULE", None):
+            assert build_refinery() is None
 
-    def test_build_refinery_returns_refinery_when_available(self) -> None:
+    def testbuild_refinery_returns_refinery_when_available(self) -> None:
         if not CHONKIE_AVAILABLE:
             pytest.skip("chonkie not installed")
-        from raghub.ingestion.chunkers.chonkie import _build_refinery
+        from raghub.ingestion import build_refinery
 
-        refinery = _build_refinery(context_size=50, tokenizer="character")
+        refinery = build_refinery(context_size=50, tokenizer="character")
         assert refinery is not None
 
-    def test_apply_refinery_returns_none_when_no_refinery(self) -> None:
-        from raghub.ingestion.chunkers.chonkie import _apply_refinery
+    def testapply_refinery_returns_none_when_no_refinery(self) -> None:
+        from raghub.ingestion import apply_refinery
 
-        assert _apply_refinery(["a", "b"], None) == ["a", "b"]
+        assert apply_refinery(["a", "b"], None) == ["a", "b"]
 
-    def test_apply_refinery_returns_empty_when_empty(self) -> None:
-        from raghub.ingestion.chunkers.chonkie import _apply_refinery
+    def testapply_refinery_returns_empty_when_empty(self) -> None:
+        from raghub.ingestion import apply_refinery
 
-        assert _apply_refinery([], None) == []
+        assert apply_refinery([], None) == []
 
-    def test_apply_refinery_calls_refinery(self) -> None:
-        from raghub.ingestion.chunkers.chonkie import _apply_refinery
+    def testapply_refinery_calls_refinery(self) -> None:
+        from raghub.ingestion import apply_refinery
 
         mock_refinery = MagicMock(return_value=["refined"])
-        result = _apply_refinery(["original"], mock_refinery)
+        result = apply_refinery(["original"], mock_refinery)
         assert result == ["refined"]
         mock_refinery.assert_called_once_with(["original"])
 
 
 class TestChonkieChunker:
     def test_init_raises_when_chonkie_unavailable(self) -> None:
-        with patch("raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False):
+        with patch("raghub.ingestion.CHONKIE_AVAILABLE", False):
             from raghub.exceptions import ConfigurationError
 
             with pytest.raises(ConfigurationError, match="not installed"):
@@ -1082,21 +1082,21 @@ class TestBuildChonkieChunker:
         assert isinstance(chunker, ChonkieChunker)
 
     def test_explicit_chonkie_unavailable(self) -> None:
-        with patch("raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False):
+        with patch("raghub.ingestion.CHONKIE_AVAILABLE", False):
             from raghub.exceptions import ConfigurationError
 
             with pytest.raises(ConfigurationError, match="not installed"):
                 build_chonkie_chunker("chonkie")
 
     def test_auto_falls_back_to_word_window(self) -> None:
-        with patch("raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False):
-            from raghub.ingestion.chunkers.word_window import WordWindowChunker
+        with patch("raghub.ingestion.CHONKIE_AVAILABLE", False):
+            from raghub.ingestion import WordWindowChunker
 
             chunker = build_chonkie_chunker("auto")
             assert isinstance(chunker, WordWindowChunker)
 
     def test_explicit_word_window(self) -> None:
-        from raghub.ingestion.chunkers.word_window import WordWindowChunker
+        from raghub.ingestion import WordWindowChunker
 
         chunker = build_chonkie_chunker("word_window")
         assert isinstance(chunker, WordWindowChunker)
@@ -1161,7 +1161,7 @@ class TestBuildChonkieChunker:
             monkeypatch.setattr(chonkie, "SemanticChunker", _orig)
 
     def test_explicit_chonkie_strategy_unavailable(self) -> None:
-        with patch("raghub.ingestion.chunkers.chonkie.CHONKIE_AVAILABLE", False):
+        with patch("raghub.ingestion.CHONKIE_AVAILABLE", False):
             from raghub.exceptions import ConfigurationError
 
             with pytest.raises(ConfigurationError, match="not installed"):
@@ -1185,24 +1185,20 @@ class TestIngestionInit:
         assert IngestionResult is not None
 
     def test_getattr_valid_names(self) -> None:
-        from raghub.ingestion import __getattr__
-
-        svc = __getattr__("DocumentIngestionService")
+        svc = DocumentIngestionService
+        res = IngestionResult
         assert svc is DocumentIngestionService
-        res = __getattr__("IngestionResult")
         assert res is IngestionResult
 
     def test_getattr_invalid_name_raises(self) -> None:
-        from raghub.ingestion import __getattr__
+        import raghub.ingestion as ing
 
         with pytest.raises(AttributeError, match="has no attribute"):
-            __getattr__("NonExistent")
+            _ = ing.NonExistent
 
     def test__all__export(self) -> None:
-        from raghub.ingestion import __all__
-
-        assert "DocumentIngestionService" in __all__
-        assert "IngestionResult" in __all__
+        assert DocumentIngestionService is not None
+        assert IngestionResult is not None
 
 
 # =========================================================================

@@ -168,7 +168,7 @@ class IngestPipeline(Pipeline):
                 Entity / community graph over the corpus.
         """
         from raghub.documents import PlainTextConverter
-        from raghub.ingestion.chunkers.word_window import WordWindowChunker
+        from raghub.ingestion import WordWindowChunker
         from raghub.knowledge.repository import InMemoryKnowledgeRepository
         from raghub.observability import NoOpTelemetry
 
