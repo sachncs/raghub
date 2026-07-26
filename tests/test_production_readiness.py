@@ -43,8 +43,8 @@ from raghub.auth.user_store import UserRecord
 from raghub.exceptions import DocumentError
 from raghub.ingestion.background import BackgroundIngestionService
 from raghub.ingestion.service import DocumentIngestionService
-from raghub.models.api import AuthLoginResponse, QueryResponse
-from raghub.models.domain import (
+from raghub.models import AuthLoginResponse, QueryResponse
+from raghub.models import (
     ConversationTurn,
     DocumentLifecycleStatus,
     DocumentRecord,

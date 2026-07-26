@@ -12,7 +12,7 @@ from raghub.api.schemas import (
     QueryRequest,
     QueryResponse,
 )
-from raghub.models.api import BatchIngestItem
+from raghub.models import BatchIngestItem
 
 
 # ---------------------------------------------------------------------------
