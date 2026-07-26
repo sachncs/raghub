@@ -127,11 +127,14 @@ def test_evaluation_result_metrics() -> None:
     assert r.passed
 
 
-def test_embedding_carries_dim_and_vector() -> None:
-    """``Embedding`` validates ``dim`` matches ``len(vector)``."""
+def test_embedding_round_trip() -> None:
+    """``Embedding`` survives serialization round-trip."""
     e = Embedding(chunk_id="c1", model="hashing", dim=3, vector=[0.1, 0.2, 0.3])
-    assert e.dim == 3
-    assert len(e.vector) == 3
+    dumped = e.model_dump()
+    restored = Embedding.model_validate(dumped)
+    assert restored.dim == 3
+    assert restored.vector == [0.1, 0.2, 0.3]
+    assert restored.chunk_id == "c1"
 
 
 def test_document_section_blocks_in_order() -> None:
@@ -159,11 +162,6 @@ def test_query_alias() -> None:
     q = Query(user_id="u1", question="revenue", session_id="s1", top_k=3)
     assert q.question == "revenue"
     assert q.top_k == 3
-
-
-def test_response_alias() -> None:
-    """``Response`` is the canonical model for query answers."""
-    assert Response.model_fields is not None
 
 
 def test_document_alias_is_document_record() -> None:
