@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from raghub.ingestion.chunkers.chonkie import (
+from raghub.ingestion import (
     ChonkieChunker,
     build_chonkie_chunker,
 )
@@ -36,7 +36,7 @@ def test_build_chonkie_chunker_auto_uses_chonkie() -> None:
 
 def test_build_chonkie_chunker_explicit_word_window() -> None:
     """``build_chonkie_chunker('word_window')`` returns a WordWindowChunker."""
-    from raghub.ingestion.chunkers.word_window import WordWindowChunker
+    from raghub.ingestion import WordWindowChunker
 
     chunker = build_chonkie_chunker("word_window", chunk_size=16, chunk_overlap=2)
     assert isinstance(chunker, WordWindowChunker)

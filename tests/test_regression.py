@@ -12,7 +12,7 @@ from raghub import RAG
 from raghub.config import Settings
 from raghub.embeddings import HashingEmbeddingProvider
 from raghub.generation import DefaultGenerator
-from raghub.ingestion.chunkers.word_window import WordWindowChunker
+from raghub.ingestion import WordWindowChunker
 from raghub.interfaces.observability import TelemetryProvider
 from raghub.knowledge.manifest import SourceManifest
 from raghub.llm import HeuristicLLMProvider
@@ -73,7 +73,7 @@ def test_rag_evaluate_inside_event_loop() -> None:
 def test_rag_astream_yields_chunks() -> None:
     """``RAG.astream`` yields at least one chunk for a non-empty answer."""
     from raghub.documents import PlainTextConverter
-    from raghub.ingestion.chunkers.word_window import WordWindowChunker
+    from raghub.ingestion import WordWindowChunker
 
     rag = RAG()
     rag.converter = PlainTextConverter()
@@ -220,7 +220,7 @@ def test_rag_query_with_metadata_filter() -> None:
 def test_incremental_short_circuits_unchanged() -> None:
     """Ingesting the same bytes twice does not re-embed."""
     from raghub.documents import PlainTextConverter
-    from raghub.ingestion.chunkers.word_window import WordWindowChunker
+    from raghub.ingestion import WordWindowChunker
 
     rag = RAG()
     # Use the plain text converter so this test works without a

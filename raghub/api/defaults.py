@@ -87,7 +87,7 @@ def default_chunker(
     # ``raghub.ingestion`` package, which transitively imports
     # :func:`default_converter` from this module. The hop would be a
     # circular import at module-load time.
-    from raghub.ingestion.chunkers.chonkie import build_chonkie_chunker
+    from raghub.ingestion import build_chonkie_chunker
 
     return build_chonkie_chunker(
         chunker_strategy,

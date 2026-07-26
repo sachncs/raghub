@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 
-from raghub.ingestion.background import BackgroundIngestionService
+from raghub.ingestion import BackgroundIngestionService
 
 
 def _poll_until(func, timeout=5.0, step=0.01):

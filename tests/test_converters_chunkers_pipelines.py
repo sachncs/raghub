@@ -8,7 +8,7 @@ from raghub.documents import normalise_markdown
 from raghub.documents import PlainTextConverter
 from raghub.embeddings import HashingEmbeddingProvider
 from raghub.generation import DefaultGenerator
-from raghub.ingestion.chunkers.word_window import WordWindowChunker
+from raghub.ingestion import WordWindowChunker
 from raghub.knowledge.repository import InMemoryKnowledgeRepository
 from raghub.llm import HeuristicLLMProvider
 from raghub.models import (

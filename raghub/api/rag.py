@@ -61,7 +61,7 @@ from raghub.conversation import InMemoryConversationStore
 from raghub.evaluation.financebench import FinanceBenchEvaluator
 from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
 from raghub.generation import DefaultGenerator
-from raghub.ingestion.resumable import ResumableBackgroundIngestionService
+from raghub.ingestion import ResumableBackgroundIngestionService
 from raghub.interfaces.generator import Generator
 from raghub.knowledge.manifest import SourceManifest, sha256_bytes
 from raghub.knowledge.repository import InMemoryKnowledgeRepository

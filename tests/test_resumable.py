@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import time
 
-from raghub.ingestion.background import BackgroundIngestionService
-from raghub.ingestion.jobs import PersistentJobStore
-from raghub.ingestion.resumable import ResumableBackgroundIngestionService
+from raghub.ingestion import BackgroundIngestionService
+from raghub.ingestion import PersistentJobStore
+from raghub.ingestion import ResumableBackgroundIngestionService
 
 
 def _poll_until(func, timeout=5.0, step=0.01):

@@ -24,7 +24,7 @@ from raghub.documents import (
 )
 from raghub.documents import detect_mime_type, validate_upload
 from raghub.exceptions import DocumentError
-from raghub.ingestion.service import DocumentIngestionService
+from raghub.ingestion import DocumentIngestionService
 from raghub.models import (
     Classification,
     DocumentLifecycleStatus,
