@@ -263,60 +263,7 @@ class TestConcurrentIngestionRaces:
         # At minimum, no crash; ideally one succeeds, other retries
         assert ok_count >= 1
 
-    @patch("raghub.documents.validation.validate_upload")
-    async def test_try_insert_retries_on_integrity_error(
-        self,
-        mock_validate: MagicMock,
-    ) -> None:
-        """try_insert must retry when aiosqlite.IntegrityError is raised."""
-        uow = MagicMock()
-        uow.document_repo = AsyncMock()
-        uow.chunk_repo = AsyncMock()
-        embedding = MagicMock()
-        embedding.model_name = "m"
-        embedding.embed_texts.return_value = [[0.1]]
 
-        # First call returns None (no existing checksum), second returns a READY doc
-        # after the retry loop re-checks
-        DocumentRecord(
-            checksum="abc",
-            owner="a@a.com",
-            organization="Acme",
-            status=DocumentLifecycleStatus.READY,
-            chunk_ids=["c1"],
-        )
-
-        def get_by_checksum_side_effect(checksum: str) -> DocumentRecord | None:
-            return None  # First call always None
-
-        # Set up try_insert to fail once then succeed
-        uow.document_repo.get_by_checksum.side_effect = None
-        uow.document_repo.get_by_checksum.return_value = None
-
-        # For this test we simulate the retry by making try_insert fail
-        import aiosqlite
-
-        uow.document_repo.try_insert.side_effect = [
-            aiosqlite.IntegrityError("UNIQUE constraint failed"),
-            None,
-        ]
-
-        record = DocumentRecord(
-            checksum="abc",
-            owner="a@a.com",
-            organization="Acme",
-            status=DocumentLifecycleStatus.NEW,
-        )
-
-        # First call should raise, second should succeed
-        with pytest.raises(aiosqlite.IntegrityError):
-            await uow.document_repo.try_insert(record, max_retries=1)
-
-        # Now test with retries
-        uow.document_repo.try_insert.side_effect = None
-        uow.document_repo.get_by_checksum.return_value = None
-        # We'll test the actual retry in the service-level test
-        assert True
 
 
 # =========================================================================
