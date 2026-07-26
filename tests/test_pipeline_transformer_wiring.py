@@ -86,7 +86,7 @@ def build_pipeline(
     pipeline = QueryPipeline(
         embedder=embedder,
         vector_store=store,
-        generator=DefaultGenerator(llm=__import__("raghub.llm.heuristic", fromlist=["HeuristicLLMProvider"]).HeuristicLLMProvider()),
+        generator=DefaultGenerator(llm=__import__("raghub.llm", fromlist=["HeuristicLLMProvider"]).HeuristicLLMProvider()),
         reranker=retrieval.reranker,
         transformer=transformer,
         retrieval_pipeline=retrieval,

@@ -25,8 +25,8 @@ from raghub.exceptions import ConfigurationError
 from raghub.interfaces.chunker import Chunker
 from raghub.interfaces.converter import DocumentConverter
 from raghub.interfaces.embeddings import EmbeddingProvider
-from raghub.llm.heuristic import HeuristicLLMProvider
-from raghub.llm.litellm import LiteLLMProvider
+from raghub.llm import HeuristicLLMProvider
+from raghub.llm import LiteLLMProvider
 from raghub.observability import NoOpTelemetry
 from raghub.retrieval.transforms import (
     ComposeTransformer,

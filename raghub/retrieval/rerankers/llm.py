@@ -119,7 +119,7 @@ class LLMReranker:
 
         Args:
             llm: Any object with an ``async_generate`` method
-                matching :class:`raghub.llm.base.BaseLLMProvider`.
+                matching :class:`raghub.llm.BaseLLMProvider`.
             top_k: Maximum candidates the reranker is asked to score.
         """
         self.llm = llm

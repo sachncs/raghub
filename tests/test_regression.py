@@ -15,7 +15,7 @@ from raghub.generation.generator import DefaultGenerator
 from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.interfaces.observability import TelemetryProvider
 from raghub.knowledge.manifest import SourceManifest
-from raghub.llm.heuristic import HeuristicLLMProvider
+from raghub.llm import HeuristicLLMProvider
 from raghub.observability import NoOpTelemetry
 from raghub.observability import RedactingTelemetry
 from raghub.pipelines.rag import IngestPipeline, QueryPipeline

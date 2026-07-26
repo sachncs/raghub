@@ -26,7 +26,7 @@ import pytest
 
 from raghub.config import Settings
 from raghub.generation.generator import DefaultGenerator
-from raghub.llm.heuristic import HeuristicLLMProvider
+from raghub.llm import HeuristicLLMProvider
 from raghub.models import PipelineContext, UserPrincipal
 from raghub.pipelines.rag import QueryPipeline
 

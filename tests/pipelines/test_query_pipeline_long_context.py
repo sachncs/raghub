@@ -16,7 +16,7 @@ import pytest
 from raghub.config import Settings, LongContextConfig
 from raghub.embeddings.hashing import HashingEmbeddingProvider
 from raghub.generation.generator import DefaultGenerator
-from raghub.llm.heuristic import HeuristicLLMProvider
+from raghub.llm import HeuristicLLMProvider
 from raghub.models import (
     ChunkRecord,
     Citation,

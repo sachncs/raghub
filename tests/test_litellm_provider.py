@@ -10,7 +10,7 @@ import pytest
 
 def test_litellm_provider_requires_litellm() -> None:
     """Without litellm installed, the provider raises ConfigurationError."""
-    import raghub.llm.litellm as litellm_mod
+    import raghub.llm as litellm_mod
     from raghub.exceptions import ConfigurationError
 
     saved = litellm_mod.litellm
@@ -26,7 +26,7 @@ def test_litellm_provider_requires_litellm() -> None:
 
 def test_litellm_provider_generates_text() -> None:
     """``generate`` returns the assistant's content text."""
-    import raghub.llm.litellm as litellm_mod
+    import raghub.llm as litellm_mod
 
     class _FakeMessage:
         def __init__(self, content: str) -> None:
@@ -65,7 +65,7 @@ def test_litellm_provider_generates_text() -> None:
 
 def test_litellm_provider_handles_dict_response() -> None:
     """``generate`` accepts the dict-style response too."""
-    import raghub.llm.litellm as litellm_mod
+    import raghub.llm as litellm_mod
 
     def _fake_completion(model: str, messages: list, **kwargs: object) -> dict:
         return {"choices": [{"message": {"content": "ok"}}]}
@@ -83,7 +83,7 @@ def test_litellm_provider_handles_dict_response() -> None:
 
 def test_litellm_provider_captures_usage() -> None:
     """``last_usage`` is populated from the response."""
-    import raghub.llm.litellm as litellm_mod
+    import raghub.llm as litellm_mod
 
     class _FakeMessage:
         content = "x"
@@ -121,7 +121,7 @@ def test_litellm_provider_captures_usage() -> None:
 
 def test_litellm_provider_build_messages_with_session_history() -> None:
     """The OpenAI-style message list includes the session history."""
-    from raghub.llm.litellm import LiteLLMProvider
+    from raghub.llm import LiteLLMProvider
     from raghub.models import ConversationTurn
 
     provider = LiteLLMProvider.__new__(LiteLLMProvider)  # bypass __init__
@@ -147,7 +147,7 @@ def test_litellm_provider_build_messages_with_session_history() -> None:
 
 
 def test_litellm_provider_build_messages_with_conversation() -> None:
-    from raghub.llm.litellm import LiteLLMProvider
+    from raghub.llm import LiteLLMProvider
     from raghub.models import ConversationTurn
 
     provider = LiteLLMProvider.__new__(LiteLLMProvider)
@@ -168,7 +168,7 @@ def test_litellm_provider_build_messages_with_conversation() -> None:
 
 
 def test_litellm_provider_uses_native_async_completion() -> None:
-    import raghub.llm.litellm as litellm_mod
+    import raghub.llm as litellm_mod
     from raghub.models import ConversationTurn
 
     captured: dict[str, object] = {}

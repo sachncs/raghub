@@ -14,7 +14,7 @@ from raghub.agent.tools.registry import ToolRegistry
 from raghub.config import AgentConfig
 from raghub.embeddings.hashing import HashingEmbeddingProvider
 from raghub.generation.generator import DefaultGenerator
-from raghub.llm.heuristic import HeuristicLLMProvider
+from raghub.llm import HeuristicLLMProvider
 from raghub.models import (
     ChunkRecord,
     PipelineContext,

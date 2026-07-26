@@ -105,7 +105,7 @@ class Agent:
 
         Args:
             llm: Any object with ``async_generate`` matching the
-                :class:`raghub.llm.base.BaseLLMProvider` interface.
+                :class:`raghub.llm.BaseLLMProvider` interface.
             tool_registry: The tool registry. The agent only invokes
                 tools whose names appear in the configured
                 ``tools_enabled`` set.

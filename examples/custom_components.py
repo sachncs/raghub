@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from raghub import RAG
 from raghub.embeddings.hashing import HashingEmbeddingProvider
-from raghub.llm.heuristic import HeuristicLLMProvider
+from raghub.llm import HeuristicLLMProvider
 from raghub.vectorstore.memory import InMemoryVectorStore
 
 
