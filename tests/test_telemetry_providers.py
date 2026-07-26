@@ -84,37 +84,34 @@ def test_langfuse_provider_no_client_when_unconfigured(
     provider.start_span("op")  # returns a NoopSpan
 
 
-def test_langfuse_safe_helper_returns_value() -> None:
-    """``_safe`` returns the callable's return value when it succeeds."""
+def test_langfuse_try_call_returns_value() -> None:
+    """``try_call`` returns the callable's return value when it succeeds."""
 
     def fn(x: int) -> int:
         return x * 2
 
-    assert LangfuseTelemetryProvider.safe_call(fn, 21) == 42
+    assert LangfuseTelemetryProvider.try_call(fn, 21) == 42
 
 
-def test_langfuse_safe_helper_swallows_exception() -> None:
-    """``_safe`` returns ``None`` when the callable raises."""
+def test_langfuse_try_call_propagates_exception() -> None:
+    """``try_call`` re-raises when the callable raises."""
 
     def bad() -> None:
         raise RuntimeError("boom")
 
-    assert LangfuseTelemetryProvider.safe_call(bad) is None
+    with pytest.raises(RuntimeError, match="boom"):
+        LangfuseTelemetryProvider.try_call(bad)
 
 
-def test_langfuse_safe_helper_logs_when_debug_set(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+def test_langfuse_start_span_returns_noop_when_unconfigured(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``_safe`` logs the failure when ``LANGFUSE_DEBUG`` is set."""
-    monkeypatch.setenv("LANGFUSE_DEBUG", "1")
-
-    def bad() -> None:
-        raise RuntimeError("boom")
-
-    with caplog.at_level("WARNING", logger="raghub.telemetry.langfuse"):
-        result = LangfuseTelemetryProvider.safe_call(bad)
-    assert result is None
-    assert any("boom" in record.message for record in caplog.records)
+    """``start_span`` returns a :class:`NoopSpan` without credentials."""
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+    monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+    provider = LangfuseTelemetryProvider()
+    span = provider.start_span("op")
+    assert isinstance(span, NoopSpan)
 
 
 def test_langfuse_end_trace_no_client() -> None:

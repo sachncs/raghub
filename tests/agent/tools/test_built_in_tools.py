@@ -157,14 +157,14 @@ async def test_keyword_search_tool_finds_token_overlap_only_chunks(
 
 
 @pytest.mark.asyncio
-async def test_keyword_search_tool_falls_back_when_store_lacks_keyword() -> None:
+async def test_keyword_search_tool_propagates_when_store_lacks_keyword() -> None:
     class NoKeywordStore:
         def keyword_search(self, *_):  # pragma: no cover - branch covered
             raise AttributeError("missing")
 
-    tool = KeywordSearchTool(NoKeywordStore())  # type: ignore[arg-type]
-    result = await tool.execute(make_ctx(), query="revenue", top_k=2)
-    assert result.ok is False
+    tool = KeywordSearchTool(NoKeywordStore())
+    with pytest.raises(AttributeError, match="missing"):
+        await tool.execute(make_ctx(), query="revenue", top_k=2)
 
 
 # --- HybridSearchTool --------------------------------------------------
@@ -220,7 +220,7 @@ async def test_hybrid_search_tool_fuses_both_channels(
 async def test_hybrid_search_tool_propagates_dense_failure(
     store_with_chunks: InMemoryVectorStore,
 ) -> None:
-    """A dense-channel exception surfaces as a tool error."""
+    """A dense-channel exception now propagates to the caller."""
     pipe = make_retrieval(store_with_chunks)
 
     class BrokenPipeline:
@@ -228,9 +228,8 @@ async def test_hybrid_search_tool_propagates_dense_failure(
             raise RuntimeError("boom")
 
     tool = HybridSearchTool(BrokenPipeline(), store_with_chunks)
-    result = await tool.execute(make_ctx(), query="revenue", top_k=3)
-    assert result.ok is False
-    assert "boom" in result.error
+    with pytest.raises(RuntimeError, match="boom"):
+        await tool.execute(make_ctx(), query="revenue", top_k=3)
 
 
 # --- DateTodayTool ------------------------------------------------------
@@ -288,9 +287,7 @@ async def test_summary_search_tool_with_index_returns_hits() -> None:
 
 @pytest.mark.asyncio
 async def test_web_search_tool_missing_dep_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A botched import of ``duckduckgo_search`` raises ``WebSearchError``."""
-    from raghub.exceptions import WebSearchError
-
+    """A botched import of ``duckduckgo_search`` now lets ``ImportError`` propagate."""
     import builtins
 
     real_import = builtins.__import__
@@ -302,7 +299,7 @@ async def test_web_search_tool_missing_dep_raises(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
     tool = WebSearchTool()
-    with pytest.raises(WebSearchError):
+    with pytest.raises(ImportError, match="simulated missing"):
         await tool.execute(make_ctx(), query="anything")
 
 

@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 from qdrant_client.http import models as qmodels
 
 from raghub.exceptions import VectorStoreError
@@ -90,23 +91,21 @@ def test_search_rejects_unsupported_filter_without_query() -> None:
     client.query_points.assert_not_called()
 
 
-def test_create_collection_does_not_recreate_after_lookup_failure() -> None:
+def test_create_collection_propagates_lookup_failure() -> None:
     client = MagicMock()
-    client.get_collection.side_effect = RuntimeError("connection failed")
+    client.collection_exists.side_effect = RuntimeError("connection failed")
     store = make_store(client)
 
-    with pytest.raises(VectorStoreError, match="collection lookup failed"):
+    with pytest.raises(RuntimeError, match="connection failed"):
         store.create_collection()
 
     client.create_collection.assert_not_called()
     client.recreate_collection.assert_not_called()
 
 
-def test_create_collection_creates_only_after_not_found() -> None:
+def test_create_collection_creates_only_when_absent() -> None:
     client = MagicMock()
-    error = RuntimeError("missing")
-    error.status_code = 404
-    client.get_collection.side_effect = error
+    client.collection_exists.return_value = False
     store = make_store(client)
 
     store.create_collection()
@@ -134,7 +133,7 @@ def test_payload_roundtrip_preserves_and_validates_chunk_record() -> None:
     client.query_points.return_value = qmodels.QueryResponse(
         points=[qmodels.ScoredPoint(id="point-1", version=1, score=0.9, payload={})]
     )
-    with pytest.raises(VectorStoreError, match="invalid payload"):
+    with pytest.raises(ValidationError):
         store.search(vector=[1.0, 0.0], top_k=1)
 
 

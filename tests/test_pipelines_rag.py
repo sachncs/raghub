@@ -482,30 +482,33 @@ class TestIngestPipelineRun:
         pipeline_context: PipelineContext,
     ) -> None:
         pipe = IngestPipeline(embedder=mock_embedder, vector_store=mock_vector_store)
-        with patch.object(pipe.converter, "convert", side_effect=ValueError("boom")):
-            result = await pipe.run(
+        with (
+            patch.object(pipe.converter, "convert", side_effect=ValueError("boom")),
+            pytest.raises(ValueError, match="boom"),
+        ):
+            await pipe.run(
                 pipeline_context,
                 file_bytes=b"data",
                 source_uri="file:///doc.pdf",
             )
-        assert result.success is False
-        assert "boom" in result.error
 
     async def test_missing_required_inputs(
         self,
         pipe: IngestPipeline,
         pipeline_context: PipelineContext,
     ) -> None:
-        result = await pipe.run(pipeline_context)
-        assert result.success is False
-        assert "file_bytes" in result.error
+        with pytest.raises(KeyError, match="file_bytes"):
+            await pipe.run(pipeline_context)
 
     async def test_sets_duration_metadata_on_error(
         self,
         pipe: IngestPipeline,
         pipeline_context: PipelineContext,
     ) -> None:
-        with patch.object(pipe.converter, "convert", side_effect=ValueError("fail")):
+        with (
+            patch.object(pipe.converter, "convert", side_effect=ValueError("fail")),
+            pytest.raises(ValueError),
+        ):
             await pipe.run(
                 pipeline_context,
                 file_bytes=b"data",
@@ -566,7 +569,7 @@ class TestIngestPipelineRun:
         assert events == ["upsert", "save"]
 
     @pytest.mark.parametrize("failure_stage", ["embed", "upsert"])
-    async def test_failed_indexing_is_retryable_without_persisting_bundle(
+    async def test_failed_indexing_propagates_without_persisting_bundle(
         self,
         failure_stage: str,
         mock_converter: MagicMock,
@@ -590,8 +593,9 @@ class TestIngestPipelineRun:
             knowledge_repo=mock_knowledge_repo,
         )
 
-        first = await pipe.run(pipeline_context, **inputs)
-        assert first.success is False
+        expected_msg = "embed failed" if failure_stage == "embed" else "upsert failed"
+        with pytest.raises(RuntimeError, match=expected_msg):
+            await pipe.run(pipeline_context, **inputs)
         mock_knowledge_repo.save.assert_not_called()
 
         second = await pipe.run(pipeline_context, **inputs)
@@ -823,13 +827,12 @@ class TestQueryPipelineRun:
             generator=mock_generator,
             conversation_store=mock_conversation_store,
         )
-        result = await pipe.run(
-            pipeline_context,
-            question="what is acme?",
-            session_id="sess-1",
-        )
-        assert result.success is True
-        assert result.outputs["history"] == []
+        with pytest.raises(RuntimeError, match="store down"):
+            await pipe.run(
+                pipeline_context,
+                question="what is acme?",
+                session_id="sess-1",
+            )
 
     async def test_with_user_rbac(
         self,
@@ -914,12 +917,11 @@ class TestQueryPipelineRun:
             vector_store=mock_vector_store,
             generator=mock_generator,
         )
-        result = await pipe.run(
-            pipeline_context,
-            question="what is acme?",
-        )
-        assert result.success is False
-        assert "gen failed" in result.error
+        with pytest.raises(ValueError, match="gen failed"):
+            await pipe.run(
+                pipeline_context,
+                question="what is acme?",
+            )
 
     async def test_sets_duration_on_error(
         self,
@@ -934,7 +936,8 @@ class TestQueryPipelineRun:
             vector_store=mock_vector_store,
             generator=mock_generator,
         )
-        await pipe.run(pipeline_context, question="what?")
+        with pytest.raises(ValueError, match="fail"):
+            await pipe.run(pipeline_context, question="what?")
         assert pipeline_context.metadata["duration_ms"] > 0
 
     async def test_record_skipped_when_no_answer(
@@ -1095,10 +1098,13 @@ class TestQueryPipelineStream:
             generator=generator,
             conversation_store=mock_conversation_store,
         )
-        tokens = []
-        async for token in pipe.stream(pipeline_context, question="hi", session_id="sess-1"):
-            tokens.append(token)
-        assert "".join(tokens) == "data"
+        with pytest.raises(RuntimeError, match="fail"):
+
+            async def _collect() -> None:
+                async for _ in pipe.stream(pipeline_context, question="hi", session_id="sess-1"):
+                    pass
+
+            await _collect()
 
     async def test_fallback_nonstreaming_generator(
         self,
