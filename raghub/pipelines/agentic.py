@@ -23,7 +23,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from raghub.agent.agent import Agent, AgentTrace
-from raghub.embeddings.base import BaseEmbeddingProvider
+from raghub.embeddings import BaseEmbeddingProvider
 from raghub.interfaces.generator import Generator
 from raghub.interfaces.observability import TelemetryProvider
 from raghub.interfaces.vectorstore import VectorStore

@@ -7,7 +7,7 @@ reranker.
 
 from __future__ import annotations
 
-from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
 from raghub.models import ChunkRecord, Classification, UserPrincipal
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.retrieval.reranker import IdentityReranker

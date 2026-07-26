@@ -31,7 +31,7 @@ import re
 from collections import defaultdict
 from typing import Any
 
-from raghub.embeddings.base import BaseEmbeddingProvider
+from raghub.embeddings import BaseEmbeddingProvider
 from raghub.knowledge.structures.base import KnowledgeIndex
 from raghub.llm import BaseLLMProvider
 from raghub.models import Chunk, ChunkRecord, RetrievalHit

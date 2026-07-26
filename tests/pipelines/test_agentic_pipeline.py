@@ -12,7 +12,7 @@ from raghub.agent.tools.base import BaseTool, ToolContext, ToolResult
 from raghub.agent.tools.date_today import DateTodayTool
 from raghub.agent.tools.registry import ToolRegistry
 from raghub.config import AgentConfig
-from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
 from raghub.generation.generator import DefaultGenerator
 from raghub.llm import HeuristicLLMProvider
 from raghub.models import (

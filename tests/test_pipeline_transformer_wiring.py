@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
 from raghub.models import (
     ChunkRecord,
     Citation,

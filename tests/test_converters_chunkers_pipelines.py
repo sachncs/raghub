@@ -6,7 +6,7 @@ import asyncio
 
 from raghub.converters.markdown import normalise_markdown
 from raghub.converters.plaintext import PlainTextConverter
-from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
 from raghub.generation.generator import DefaultGenerator
 from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.knowledge.repository import InMemoryKnowledgeRepository

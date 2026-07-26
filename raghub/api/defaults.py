@@ -19,8 +19,8 @@ from typing import Any
 
 from raghub.converters.marker import MarkerConverter
 from raghub.converters.plaintext import PlainTextConverter
-from raghub.embeddings.hashing import HashingEmbeddingProvider
-from raghub.embeddings.litellm import LiteLLMEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
+from raghub.embeddings import LiteLLMEmbeddingProvider
 from raghub.exceptions import ConfigurationError
 from raghub.interfaces.chunker import Chunker
 from raghub.interfaces.converter import DocumentConverter

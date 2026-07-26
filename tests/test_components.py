@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from raghub.core import DocumentStateMachine
 from raghub.core import allowed_company_filter
-from raghub.embeddings.hashing import HashingEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
 from raghub.models import DocumentLifecycleStatus, UserPrincipal
 from raghub.vectorstore.memory import InMemoryVectorStore
 
