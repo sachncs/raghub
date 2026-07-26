@@ -51,7 +51,13 @@ def test_prometheus_metrics_token_routing_uses_model_label() -> None:
 def test_prometheus_metrics_routes_to_auth_duration() -> None:
     """The ``auth`` substring routes to the auth histogram, not query."""
     metrics = PrometheusMetrics()
+    auth_before = REGISTRY.get_sample_value("raghub_auth_duration_ms_count", {}) or 0.0
+    query_before = REGISTRY.get_sample_value("raghub_query_duration_ms_count", {}) or 0.0
     metrics.record_latency("auth.login.success", 12.0)
     metrics.record_latency("query.execute", 30.0)
-    assert REGISTRY.get_sample_value("raghub_auth_duration_ms_count", {}) is not None
-    assert REGISTRY.get_sample_value("raghub_query_duration_ms_count", {}) is not None
+    assert (
+        REGISTRY.get_sample_value("raghub_auth_duration_ms_count", {}) or 0.0
+    ) == auth_before + 1
+    assert (
+        REGISTRY.get_sample_value("raghub_query_duration_ms_count", {}) or 0.0
+    ) == query_before + 1
