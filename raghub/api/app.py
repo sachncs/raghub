@@ -45,7 +45,7 @@ import importlib.metadata
 import os
 from collections.abc import AsyncIterator, Callable, Iterable
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, ClassVar
 
 from fastapi import (
     APIRouter,
@@ -793,35 +793,53 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
     root_health_route(app)
     return app
 
-
 # ---------------------------------------------------------------------------
-# Singleton
+# Factory (replaces module-level singleton)
 # ---------------------------------------------------------------------------
 
 
-app_singleton: FastAPI | None = None
+class AppFactory:
+    """Encapsulates the lazily-built singleton :class:`FastAPI`.
 
-
-def get_app() -> FastAPI:
-    """Lazily build and return the singleton :class:`FastAPI` instance.
-
-    Used by tooling (e.g. test fixtures, ASGI clients) that needs a
-    fully-configured app but doesn't want to wire it themselves. The
-    application container is built on the first call and reused on
-    every subsequent call.
-
-    Returns:
-        The cached :class:`FastAPI` instance.
+    Replaces the prior module-level ``app_singleton`` global. The
+    factory holds a single class-level :class:`AppFactory` instance
+    whose ``cached`` attribute is populated on the first call to
+    :meth:`create_app`. Tests can reset the cache via
+    :meth:`reset` to force a rebuild.
     """
-    import asyncio
 
-    from raghub.core import build_application
+    _instance: ClassVar[AppFactory | None] = None
 
-    global app_singleton
-    if app_singleton is None:
-        application = asyncio.run(build_application())
-        app_singleton = create_app(application)
-    return app_singleton
+    def __init__(self) -> None:
+        """Store an empty cache."""
+        self.cached: FastAPI | None = None
+
+    @classmethod
+    def create_app(cls) -> FastAPI:
+        """Build the app via :func:`build_application` if not cached.
+
+        Returns:
+            The cached :class:`FastAPI` instance.
+        """
+        if cls._instance is None:
+            cls._instance = cls()
+        if cls._instance.cached is None:
+            import asyncio
+
+            from raghub.core import build_application
+
+            application = asyncio.run(build_application())
+            cls._instance.cached = create_app(application)
+        return cls._instance.cached
+
+    @classmethod
+    def reset(cls) -> None:
+        """Drop the cached :class:`FastAPI` so the next build is fresh."""
+        if cls._instance is not None:
+            cls._instance.cached = None
+
+
+app_singleton = AppFactory()
 
 
 __all__ = [

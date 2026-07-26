@@ -669,18 +669,16 @@ class TestAppMetadata:
 
 class TestGetApp:
     def test_get_app_singleton(self, monkeypatch: Any) -> None:
-        """get_app() lazily builds and returns the same singleton."""
-        import raghub.api.app as app_mod
+        """AppFactory.create_app() lazily builds and returns the same singleton."""
+        from raghub.api.app import AppFactory
 
-        app_mod.app_singleton = None
+        AppFactory.reset()
 
         async def mock_build(*args: object, **kwargs: object) -> StubApp:
             return StubApp()
 
         monkeypatch.setattr("raghub.core.build_application", mock_build)
 
-        from raghub.api.app import get_app
-
-        a1 = get_app()
-        a2 = get_app()
+        a1 = AppFactory.create_app()
+        a2 = AppFactory.create_app()
         assert a1 is a2

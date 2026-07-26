@@ -91,29 +91,35 @@ class MetricsRegistry:
     Hot-path helpers (:func:`record_rerank_latency`,
     :func:`record_long_context`) delegate to :meth:`current`; the
     facade calls :meth:`set` once during construction.
+
+    Attributes:
+        instance: The currently-registered :class:`PrometheusMetrics`
+            (or ``None`` when nothing is registered).
     """
 
-    instance: PrometheusMetrics | None = None
+    def __init__(self) -> None:
+        """Initialise the registry with no instance registered."""
+        self.instance: PrometheusMetrics | None = None
 
-    @classmethod
-    def set(cls, value: PrometheusMetrics | None) -> None:
+    def set(self, value: PrometheusMetrics | None) -> None:
         """Register the active metrics instance for this process.
 
         Args:
             value: The :class:`PrometheusMetrics` to expose to
                 hot-path callers, or ``None`` to clear the registry.
         """
-        cls.instance = value
+        self.instance = value
 
-    @classmethod
-    def current(cls) -> PrometheusMetrics | None:
+    def current(self) -> PrometheusMetrics | None:
         """Return the currently-registered instance, or ``None``."""
-        return cls.instance
+        return self.instance
 
-    @classmethod
-    def is_available(cls) -> bool:
+    def is_available(self) -> bool:
         """Return ``True`` when an instance is registered."""
-        return cls.instance is not None
+        return self.instance is not None
+
+
+DEFAULT_METRICS_REGISTRY = MetricsRegistry()
 
 
 class NullMetrics:
@@ -332,7 +338,7 @@ def set_active_metrics(instance: PrometheusMetrics | None) -> None:
         instance: The :class:`PrometheusMetrics` to expose to hot-path
             callers, or ``None`` to clear the registry.
     """
-    MetricsRegistry.set(instance)
+    DEFAULT_METRICS_REGISTRY.set(instance)
 
 
 def record_rerank_latency(provider: str, seconds: float) -> None:
@@ -345,7 +351,7 @@ def record_rerank_latency(provider: str, seconds: float) -> None:
         provider: Provider label (e.g. ``"cohere"``).
         seconds: Latency in seconds.
     """
-    metrics = MetricsRegistry.current()
+    metrics = DEFAULT_METRICS_REGISTRY.current()
     if metrics is None:
         return
     try:
@@ -367,7 +373,7 @@ def record_long_context(*, outcome: str, seconds: float) -> None:
             informational purposes; the metric is a counter, not
             a histogram).
     """
-    metrics = MetricsRegistry.current()
+    metrics = DEFAULT_METRICS_REGISTRY.current()
     if metrics is None:
         return
     try:
