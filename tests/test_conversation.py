@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from raghub.conversation.manager import ConversationManager
-from raghub.conversation.sliding_window import SlidingWindowManager
+from raghub.conversation import ConversationManager
+from raghub.conversation import SlidingWindowManager
 from raghub.models import ConversationTurn, SessionRecord
 
 # ---------------------------------------------------------------------------

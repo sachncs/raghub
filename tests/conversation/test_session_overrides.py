@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from raghub.conversation.memory import InMemoryConversationStore
+from raghub.conversation import InMemoryConversationStore
 
 
 def test_get_overrides_default_empty() -> None:

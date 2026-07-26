@@ -57,7 +57,7 @@ from raghub.api.defaults import (
 )
 from raghub.api.response import build_response
 from raghub.config import Settings
-from raghub.conversation.memory import InMemoryConversationStore
+from raghub.conversation import InMemoryConversationStore
 from raghub.evaluation.financebench import FinanceBenchEvaluator
 from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
 from raghub.generation import DefaultGenerator

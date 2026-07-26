@@ -655,7 +655,7 @@ class TestQueryPipelineInit:
         from raghub.observability import NoOpTelemetry
 
         assert isinstance(pipe.telemetry, NoOpTelemetry)
-        from raghub.conversation.memory import InMemoryConversationStore
+        from raghub.conversation import InMemoryConversationStore
 
         assert isinstance(pipe.conversation_store, InMemoryConversationStore)
 

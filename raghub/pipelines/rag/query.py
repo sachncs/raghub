@@ -112,7 +112,7 @@ class QueryPipeline(Pipeline):
         self.structured = structured
         self.telemetry = telemetry or NoOpTelemetry()
         if conversation_store is None:
-            from raghub.conversation.memory import InMemoryConversationStore
+            from raghub.conversation import InMemoryConversationStore
 
             conversation_store = InMemoryConversationStore()
         self.conversation_store = conversation_store
