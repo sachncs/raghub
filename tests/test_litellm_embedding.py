@@ -33,15 +33,15 @@ def test_litellm_embedder_uses_litellm_when_available() -> None:
             self.prompt_tokens = 5
             self.completion_tokens = 0
 
-    class _FakeResponse:
+    class FakeResponse:
         def __init__(self) -> None:
             self.data = [{"embedding": [0.1, 0.2, 0.3]}]
             self.usage = _FakeUsage()
 
-    def _fake_embedding(model: str, input: list[str], **kwargs: object) -> _FakeResponse:
+    def _fake_embedding(model: str, input: list[str], **kwargs: object) -> FakeResponse:
         assert model == "text-embedding-3-small"
         assert input == ["hello"]
-        return _FakeResponse()
+        return FakeResponse()
 
     saved = litellm_mod.litellm
     try:

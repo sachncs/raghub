@@ -54,7 +54,7 @@ def test_e2e_multi_user_ingest_query_delete(rag: RAG) -> None:
     alice = _user("alice@x", "Apple")
     bob = _user("bob@x", "Microsoft")
 
-    async def _drive() -> None:
+    async def drive() -> None:
         await rag.aingest(apple_text, source_uri="file://apple.txt", user=alice)
         await rag.aingest(msft_text, source_uri="file://msft.txt", user=bob)
 
@@ -70,7 +70,7 @@ def test_e2e_multi_user_ingest_query_delete(rag: RAG) -> None:
         after_delete = await rag.aquery("revenue", user=alice)
         assert all("apple.txt" not in c.source_uri for c in after_delete.citations)
 
-    asyncio.run(_drive())
+    asyncio.run(drive())
 
 
 def test_e2e_conversational_followup(rag: RAG) -> None:
@@ -81,7 +81,7 @@ def test_e2e_conversational_followup(rag: RAG) -> None:
     ) * 5
     alice = _user("alice@x", "Apple")
 
-    async def _drive() -> None:
+    async def drive() -> None:
         await rag.aingest(text, source_uri="file://apple.txt", user=alice)
         r1 = await rag.aquery("revenue", user=alice, session_id="s1")
         r2 = await rag.aquery("and growth?", user=alice, session_id="s1")
@@ -91,7 +91,7 @@ def test_e2e_conversational_followup(rag: RAG) -> None:
         assert history[0].question == "revenue"
         assert history[1].question == "and growth?"
 
-    asyncio.run(_drive())
+    asyncio.run(drive())
 
 
 def test_e2e_streaming(rag: RAG) -> None:
@@ -102,7 +102,7 @@ def test_e2e_streaming(rag: RAG) -> None:
     ) * 5
     alice = _user("alice@x", "Apple")
 
-    async def _drive() -> list:
+    async def drive() -> list:
         await rag.aingest(text, source_uri="file://apple.txt", user=alice)
         chunks: list = []
         async for piece in rag.astream("revenue", user=alice, session_id="sx"):
@@ -110,7 +110,7 @@ def test_e2e_streaming(rag: RAG) -> None:
                 chunks.append(piece)
         return chunks
 
-    chunks = asyncio.run(_drive())
+    chunks = asyncio.run(drive())
     assert len(chunks) >= 1
     assert any("revenue" in c.lower() for c in chunks)
 
@@ -123,7 +123,7 @@ def test_e2e_50_query_workload_under_10s(rag: RAG) -> None:
     ) * 5
     alice = _user("alice@x", "Apple")
 
-    async def _drive() -> float:
+    async def drive() -> float:
         await rag.aingest(text, source_uri="file://apple.txt", user=alice)
         queries = ["revenue"] * 50
         start = time.perf_counter()
@@ -131,5 +131,5 @@ def test_e2e_50_query_workload_under_10s(rag: RAG) -> None:
             await rag.aquery(q, user=alice, session_id=f"s-{q}-{start}")
         return time.perf_counter() - start
 
-    elapsed = asyncio.run(_drive())
+    elapsed = asyncio.run(drive())
     assert elapsed < 10.0

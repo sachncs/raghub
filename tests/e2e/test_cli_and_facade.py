@@ -103,11 +103,11 @@ def test_tqdm_progress_appears_during_ingest(capsys) -> None:
         target = Path(tmp) / "doc.txt"
         target.write_bytes(b"hello world " * 50)
 
-        async def _drive() -> None:
+        async def drive() -> None:
             result = await rag.aingest(target, mime_type="text/plain")
             assert result.success, result.error
 
-        asyncio.run(_drive())
+        asyncio.run(drive())
     # tqdm writes progress to stderr by default; loguru writes to
     # stderr too. We just assert something made it to stderr so the
     # operator sees progress.

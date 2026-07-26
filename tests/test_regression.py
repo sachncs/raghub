@@ -29,7 +29,7 @@ from raghub.vectorstore.memory import InMemoryVectorStore
 def test_rag_ingest_inside_event_loop() -> None:
     """Sync ``RAG.ingest`` from inside a running event loop returns a coroutine."""
 
-    async def _drive() -> None:
+    async def drive() -> None:
         rag = RAG()
         result = rag.ingest(b"revenue grew 10%", source_uri="mem://x")
         # When a loop is running, ``_maybe_run`` returns the awaitable
@@ -38,7 +38,7 @@ def test_rag_ingest_inside_event_loop() -> None:
             await result
         # Otherwise it's the resolved result.
 
-    asyncio.run(_drive())
+    asyncio.run(drive())
 
 
 def test_rag_evaluate_inside_event_loop() -> None:
@@ -47,7 +47,7 @@ def test_rag_evaluate_inside_event_loop() -> None:
     async def _factory(_example):
         return "ok"
 
-    async def _drive() -> None:
+    async def drive() -> None:
         rag = RAG()
         out = rag.evaluate(
             benchmark="financebench",
@@ -62,7 +62,7 @@ def test_rag_evaluate_inside_event_loop() -> None:
         else:
             assert isinstance(out, list)
 
-    asyncio.run(_drive())
+    asyncio.run(drive())
 
 
 # ---------------------------------------------------------------------------
@@ -332,7 +332,7 @@ def test_ingest_pipeline_emits_spans() -> None:
         telemetry=cap,
     )
 
-    async def _drive():
+    async def drive():
         from raghub.models import PipelineContext
 
         return await pipeline.run(
@@ -342,7 +342,7 @@ def test_ingest_pipeline_emits_spans() -> None:
             mime_type="text/plain",
         )
 
-    result = asyncio.run(_drive())
+    result = asyncio.run(drive())
     assert result.success
     names = [name for (name, _attrs) in cap.spans]
     assert "ingest" in names
@@ -380,12 +380,12 @@ def test_query_pipeline_emits_spans() -> None:
         telemetry=cap,
     )
 
-    async def _drive():
+    async def drive():
         from raghub.models import PipelineContext
 
         return await pipeline.run(PipelineContext(pipeline_name="query"), question="revenue")
 
-    result = asyncio.run(_drive())
+    result = asyncio.run(drive())
     assert result.success
     names = [name for (name, _attrs) in cap.spans]
     assert "query" in names
