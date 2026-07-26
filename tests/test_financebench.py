@@ -17,7 +17,7 @@ from urllib.request import urlretrieve
 
 import pytest
 
-from raghub.core.container import build_application
+from raghub.core import build_application
 
 FINANCEBENCH_URL = "https://raw.githubusercontent.com/patronus-ai/financebench/main"
 DATA_DIR = Path(tempfile.gettempdir()) / "financebench_data"

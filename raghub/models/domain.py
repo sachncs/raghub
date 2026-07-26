@@ -25,7 +25,7 @@ class DocumentLifecycleStatus(str, Enum):
     """Document lifecycle states.
 
     Legal transitions are validated by
-    :class:`raghub.core.document_state.DocumentStateMachine`; see its
+    :class:`raghub.core.DocumentStateMachine`; see its
     docstring for the full transition table. ``ARCHIVED`` and
     ``FAILED`` are terminal.
     """

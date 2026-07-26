@@ -18,7 +18,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
 from raghub.api.app import create_app
-from raghub.core.container import build_application
+from raghub.core import build_application
 from raghub.models import UserPrincipal
 
 
@@ -67,7 +67,7 @@ def test_login_and_rbac_filter(app_service) -> None:
         email=user.email,
         allowed_companies=user.allowed_companies,
     )
-    from raghub.core.rbac import allowed_company_filter
+    from raghub.core import allowed_company_filter
 
     assert allowed_company_filter(principal) == {"company": ["Apple"]}
 

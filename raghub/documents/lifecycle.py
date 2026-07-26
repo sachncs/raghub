@@ -1,6 +1,6 @@
 """Adapter that wraps :class:`DocumentStateMachine` for in-place mutation.
 
-The state machine in :mod:`raghub.core.document_state` validates legal
+The state machine in :mod:`raghub.core` validates legal
 transitions but doesn't touch the document record. This adapter does
 both: it checks the transition with the state machine and, when legal,
 mutates ``document.status`` in place.
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from raghub.core.document_state import DocumentStateMachine
+from raghub.core import DocumentStateMachine
 from raghub.models import DocumentLifecycleStatus, DocumentVersion
 
 

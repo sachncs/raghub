@@ -14,7 +14,7 @@ import os
 import pytest
 
 from raghub.config import Settings
-from raghub.core.container import build_application
+from raghub.core import build_application
 
 
 def test_load_settings_default_profile() -> None:
