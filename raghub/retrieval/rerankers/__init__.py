@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Reranker implementations (Phase 4).
 
 Public surface:

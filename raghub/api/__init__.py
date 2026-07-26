@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """FastAPI reference application.
 
 This package bundles the HTTP layer of the framework: the

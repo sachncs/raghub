@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Query-transform package.
 
 Re-exports the public surface so callers can do

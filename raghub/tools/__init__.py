@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tool registry subpackage.
 
 Re-exports the public surface so callers can do

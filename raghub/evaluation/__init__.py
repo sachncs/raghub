@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Evaluation framework.
 
 Benchmark-agnostic scoring layer. The default benchmark is FinanceBench.
