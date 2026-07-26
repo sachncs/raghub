@@ -55,4 +55,3 @@ def financebench(
     asyncio.run(runner())
 
 
-__all__ = ["app", "financebench"]

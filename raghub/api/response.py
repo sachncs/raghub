@@ -60,4 +60,3 @@ def build_response(result: PipelineResult) -> Response:
     )
 
 
-__all__ = ["build_response"]

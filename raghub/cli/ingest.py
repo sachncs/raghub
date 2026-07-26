@@ -47,4 +47,3 @@ def register(app: "typer.Typer") -> None:
             typer.echo(f"ingested {path}")
 
 
-__all__ = ["register"]

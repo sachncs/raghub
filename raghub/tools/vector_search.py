@@ -112,4 +112,3 @@ class VectorSearchTool(BaseTool):
         )
 
 
-__all__ = ["VectorSearchTool"]

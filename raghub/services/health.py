@@ -148,9 +148,3 @@ class HealthService(ServiceMixin):
         }
 
 
-__all__ = [
-    "HealthService",
-    "aggregate_status",
-    "probe_embedder",
-    "probe_vector_store",
-]

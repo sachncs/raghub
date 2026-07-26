@@ -61,4 +61,3 @@ class ComposeTransformer:
         return variants
 
 
-__all__ = ["ComposeTransformer"]

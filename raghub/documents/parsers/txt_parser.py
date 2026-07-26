@@ -37,4 +37,3 @@ class TxtParser(FileParser):
         ]
 
 
-__all__ = ["TxtParser"]

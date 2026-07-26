@@ -28,4 +28,3 @@ class Plugin(Protocol):
         """
 
 
-__all__ = ["Plugin"]

@@ -44,4 +44,3 @@ def sse_comment(text: str) -> bytes:
     return f": {text}\n\n".encode()
 
 
-__all__ = ["sse_comment", "sse_format"]

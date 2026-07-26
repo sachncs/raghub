@@ -78,4 +78,3 @@ class SummarySearchTool(BaseTool):
         )
 
 
-__all__ = ["SummarySearchTool"]

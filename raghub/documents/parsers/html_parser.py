@@ -46,4 +46,3 @@ class HtmlParser(FileParser):
         ]
 
 
-__all__ = ["HtmlParser"]

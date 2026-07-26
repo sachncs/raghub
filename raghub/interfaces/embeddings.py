@@ -41,4 +41,3 @@ class EmbeddingProvider(Protocol):
         """
 
 
-__all__ = ["EmbeddingProvider"]

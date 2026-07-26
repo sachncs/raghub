@@ -33,9 +33,6 @@ from raghub.exceptions import StorageError
 from raghub.models import DocumentLifecycleStatus, DocumentVersion
 from raghub.utils import atomic_write_json, capture, load_json
 
-__all__ = ["JsonDocumentRegistry", "RegistrySnapshot"]
-
-
 @dataclass
 class RegistrySnapshot:
     """In-memory snapshot of the registry.

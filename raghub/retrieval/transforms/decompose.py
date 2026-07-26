@@ -106,4 +106,3 @@ class DecomposeTransformer:
         return [QueryVariant(text=q, kind="sub") for q in sub_questions]
 
 
-__all__ = ["DecomposeTransformer"]

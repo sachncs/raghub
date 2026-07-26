@@ -112,4 +112,3 @@ class MultiQueryTransformer:
         return variants
 
 
-__all__ = ["MultiQueryTransformer"]

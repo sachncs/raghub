@@ -64,4 +64,3 @@ class ImageParser(FileParser):
         ]
 
 
-__all__ = ["ImageParser"]

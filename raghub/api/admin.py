@@ -163,10 +163,3 @@ async def system_stats(
     }
 
 
-__all__ = [
-    "SENSITIVE_USER_FIELDS",
-    "redact_user_payload",
-    "require_admin",
-    "require_bearer",
-    "router",
-]

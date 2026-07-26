@@ -190,4 +190,3 @@ class DocumentService(ServiceMixin):
         await self.container.uow.document_repo.delete(document_id)
 
 
-__all__ = ["DocumentService"]

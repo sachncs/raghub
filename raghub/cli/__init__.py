@@ -10,4 +10,3 @@ Public surface: ``from raghub.cli import app, main``.
 
 from raghub.cli.main import app, main
 
-__all__ = ["app", "main"]

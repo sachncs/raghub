@@ -38,4 +38,3 @@ class CsvParser(FileParser):
         ]
 
 
-__all__ = ["CsvParser"]

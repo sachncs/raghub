@@ -55,4 +55,3 @@ class KnowledgeRepository(Protocol):
         """
 
 
-__all__ = ["KnowledgeRepository"]

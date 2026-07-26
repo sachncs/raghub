@@ -74,4 +74,3 @@ class ToolRegistry:
         return len(self.tools)
 
 
-__all__ = ["ToolRegistry"]
