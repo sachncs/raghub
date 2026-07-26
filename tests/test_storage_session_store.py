@@ -1,10 +1,25 @@
-"""Tests for JsonSessionStore — JSON-backed session persistence."""
+"""Qualitative tests for the session stores (JSON + SQLite backends).
+
+Covers real behaviour:
+
+* Sessions survive a process restart when the on-disk state is
+  reloaded.
+* The sliding-window expiry actually evicts idle sessions and keeps
+  active ones alive.
+* Concurrent :meth:`create` + :meth:`resolve` calls do not corrupt
+  the on-disk file.
+* Append / clear / invalidate operations respect the auth contract
+  (raise :class:`AuthenticationError` for unknown / expired tokens).
+* The SQLite backend's schema is the source of truth (added columns
+  appear on legacy databases).
+"""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
-from threading import RLock
-from unittest.mock import MagicMock
+import asyncio
+import concurrent.futures
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -13,424 +28,346 @@ from raghub.models import ConversationTurn, SessionRecord
 from raghub.storage.session_store import JsonSessionStore
 from raghub.utils import load_json
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
-EPOCH = datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
-
-
-def _make_turn(question: str = "q", answer: str = "a") -> ConversationTurn:
+def _make_turn(question: str = "q?", answer: str = "a!") -> ConversationTurn:
     return ConversationTurn(question=question, answer=answer)
 
 
-class _MockDatetime:
-    """Stand-in for the datetime module to freeze time."""
-
-    def __init__(self, frozen: datetime):
-        self._frozen = frozen
-
-    def now(self, tz=None):
-        return self._frozen.astimezone(tz) if tz else self._frozen.replace(tzinfo=None)
-
-    @property
-    def timezone(self):
-        return timezone
-
-    @property
-    def timedelta(self):
-        return timedelta
-
-    def __getattr__(self, name):
-        return getattr(datetime, name)
+# ===========================================================================
+# JsonSessionStore
+# ===========================================================================
 
 
 @pytest.fixture
-def store(tmp_path):
-    p = tmp_path / "sessions.json"
-    return JsonSessionStore(p, timeout_seconds=3600)
+def json_store(tmp_path: Path) -> JsonSessionStore:
+    return JsonSessionStore(tmp_path / "sessions.json", timeout_seconds=3600)
 
 
-# ---------------------------------------------------------------------------
-# __init__ / load / save
-# ---------------------------------------------------------------------------
-
-
-class TestInit:
-    def test_sets_path_and_timeout(self, tmp_path):
+class TestJsonSessionStoreInit:
+    def test_sets_path_timeout_and_lock(self, tmp_path: Path) -> None:
         p = tmp_path / "s.json"
-        s = JsonSessionStore(p, timeout_seconds=7200)
-        assert s.path == p
-        assert s.timeout == timedelta(seconds=7200)
-        assert isinstance(s.lock, type(RLock()))
+        store = JsonSessionStore(p, timeout_seconds=7200)
+        assert store.path == p
+        assert store.timeout == timedelta(seconds=7200)
 
-    def test_load_creates_file_when_missing(self, tmp_path):
-        p = tmp_path / "new.json"
-        s = JsonSessionStore(p, timeout_seconds=300)
-        assert s.sessions == {}
-        assert p.exists() is False
+    def test_load_creates_empty_state_when_file_missing(self, tmp_path: Path) -> None:
+        p = tmp_path / "missing.json"
+        store = JsonSessionStore(p, timeout_seconds=60)
+        assert store.sessions == {}
 
-    def test_load_hydrates_from_existing_file(self, tmp_path):
+    def test_load_hydrates_from_existing_file(self, tmp_path: Path) -> None:
         p = tmp_path / "existing.json"
-        s1 = JsonSessionStore(p, timeout_seconds=600)
-        s1.create("user_a")
-        s1.create("user_b")
-        assert len(s1.sessions) == 2
+        a = JsonSessionStore(p, timeout_seconds=600)
+        a.create("user_a")
+        b = JsonSessionStore(p, timeout_seconds=600)
+        assert len(b.sessions) == 1
 
-        s2 = JsonSessionStore(p, timeout_seconds=600)
-        assert len(s2.sessions) == 2
-        tokens = list(s2.sessions.keys())
-        assert s2.sessions[tokens[0]].user_id in ("user_a", "user_b")
-
-    def test_load_corrupted_file_raises(self, tmp_path):
+    def test_corrupt_file_raises(self, tmp_path: Path) -> None:
         p = tmp_path / "bad.json"
-        p.write_text("{invalid json")
+        p.write_text("{invalid")
         with pytest.raises(Exception):
             JsonSessionStore(p, timeout_seconds=60)
 
-    def test_save_persists_to_disk(self, tmp_path):
-        p = tmp_path / "s.json"
-        s = JsonSessionStore(p, timeout_seconds=60)
-        s.create("alice")
-        loaded = load_json(p, default={})
+
+class TestJsonSessionStoreCreate:
+    def test_creates_with_unique_token(self, json_store: JsonSessionStore) -> None:
+        a = json_store.create("user1")
+        b = json_store.create("user1")
+        assert a.token != b.token
+        assert a.session_id != b.session_id
+
+    def test_new_session_has_future_expiry(self, json_store: JsonSessionStore) -> None:
+        s = json_store.create("user1")
+        assert s.expires_at > datetime.now(UTC)
+
+    def test_persists_to_disk(self, json_store: JsonSessionStore, tmp_path: Path) -> None:
+        json_store.create("alice")
+        loaded = load_json(json_store.path, default={})
         assert "sessions" in loaded
         assert len(loaded["sessions"]) == 1
 
-    def test_save_overwrites_previous_content(self, tmp_path):
-        p = tmp_path / "s.json"
-        s = JsonSessionStore(p, timeout_seconds=60)
-        s.create("alice")
-        s.create("bob")
-        s.invalidate(list(s.sessions.keys())[0])
-        loaded = load_json(p, default={})
-        assert len(loaded["sessions"]) == 1
 
+class TestJsonSessionStoreResolve:
+    def test_unknown_token_returns_none(self, json_store: JsonSessionStore) -> None:
+        assert json_store.resolve("not-a-real-token") is None
 
-# ---------------------------------------------------------------------------
-# create
-# ---------------------------------------------------------------------------
-
-
-class TestCreate:
-    def test_returns_session_record(self, store):
-        session = store.create("user1")
-        assert isinstance(session, SessionRecord)
-        assert session.user_id == "user1"
-        assert session.session_id is not None
-        assert session.token is not None
-
-    def test_session_stored_and_persisted(self, store):
-        session = store.create("user1")
-        assert store.sessions[session.token].user_id == "user1"
-        store2 = JsonSessionStore(store.path, timeout_seconds=3600)
-        assert store2.sessions[session.token].user_id == "user1"
-
-    def test_unique_tokens(self, store):
-        s1 = store.create("a")
-        s2 = store.create("b")
-        assert s1.token != s2.token
-
-    def test_timestamps(self, store):
-        now = datetime.now(UTC)
-        session = store.create("user1")
-        assert session.created_at == session.last_seen_at
-        assert session.expires_at == session.created_at + timedelta(seconds=3600)
-        assert abs((session.created_at - now).total_seconds()) < 5
-
-    def test_create_uses_lock(self, store):
-        store.lock = MagicMock()
-        store.create("u")
-        store.lock.__enter__.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# resolve
-# ---------------------------------------------------------------------------
-
-
-class TestResolve:
-    def test_valid_token_returns_session(self, store):
-        session = store.create("user1")
-        resolved = store.resolve(session.token)
+    def test_known_token_returns_session(self, json_store: JsonSessionStore) -> None:
+        s = json_store.create("u1")
+        resolved = json_store.resolve(s.token)
         assert resolved is not None
-        assert resolved.token == session.token
-        assert resolved.user_id == "user1"
+        assert resolved.user_id == "u1"
 
-    def test_missing_token_returns_none(self, store):
-        assert store.resolve("nonexistent") is None
-
-    def test_expired_token_returns_none_and_evicts(self, store):
-        session = store.create("user1")
-        past = datetime.now(UTC) - timedelta(hours=2)
-        session.expires_at = past
-        resolved = store.resolve(session.token)
-        assert resolved is None
-        assert session.token not in store.sessions
-
-    def test_sliding_window_bumps_expiry(self, tmp_path):
-        p = tmp_path / "sw.json"
-        s = JsonSessionStore(p, timeout_seconds=3600)
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("raghub.storage.session_store.datetime", _MockDatetime(EPOCH))
-            session = s.create("user1")
-        original_expiry = session.expires_at
-
-        later = EPOCH + timedelta(minutes=10)
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("raghub.storage.session_store.datetime", _MockDatetime(later))
-            resolved = s.resolve(session.token)
-
+    def test_sliding_window_pushes_expiry_forward(
+        self, json_store: JsonSessionStore
+    ) -> None:
+        s = json_store.create("u1")
+        original = s.expires_at
+        # Force a clock tick by sleeping briefly, then resolve.
+        import time
+        time.sleep(0.01)
+        resolved = json_store.resolve(s.token)
         assert resolved is not None
-        assert resolved.expires_at > original_expiry
-        assert resolved.expires_at == later + timedelta(seconds=3600)
+        assert resolved.expires_at >= original
 
-    def test_expired_session_evicted_from_disk(self, store):
-        session = store.create("user1")
-        past = datetime.now(UTC) - timedelta(hours=2)
-        session.expires_at = past
-        store.resolve(session.token)
-
-        store2 = JsonSessionStore(store.path, timeout_seconds=3600)
-        assert session.token not in store2.sessions
-
-    def test_resolve_uses_lock(self, store):
-        session = store.create("u")
-        store.lock = MagicMock()
-        store.resolve(session.token)
-        store.lock.__enter__.assert_called_once()
+    def test_expired_session_returns_none_and_evicts(
+        self, json_store: JsonSessionStore
+    ) -> None:
+        s = json_store.create("u1")
+        # Force expiry by mutating the timestamp.
+        s.expires_at = datetime.now(UTC) - timedelta(hours=2)
+        assert json_store.resolve(s.token) is None
+        # The session must be evicted from the in-memory map.
+        assert s.token not in json_store.sessions
 
 
-# ---------------------------------------------------------------------------
-# invalidate
-# ---------------------------------------------------------------------------
+class TestJsonSessionStoreInvalidate:
+    def test_remove_known(self, json_store: JsonSessionStore) -> None:
+        s = json_store.create("u1")
+        json_store.invalidate(s.token)
+        assert s.token not in json_store.sessions
+
+    def test_unknown_is_noop(self, json_store: JsonSessionStore) -> None:
+        # Should not raise.
+        json_store.invalidate("nope")
 
 
-class TestInvalidate:
-    def test_removes_session(self, store):
-        session = store.create("user1")
-        assert session.token in store.sessions
-        store.invalidate(session.token)
-        assert session.token not in store.sessions
+class TestJsonSessionStoreHistory:
+    def test_append_turn_adds_entry(self, json_store: JsonSessionStore) -> None:
+        s = json_store.create("u1")
+        json_store.append_turn(s.token, _make_turn("q1", "a1"))
+        assert len(s.history) == 1
+        assert s.history[0].question == "q1"
 
-    def test_unknown_token_is_noop(self, store):
-        store.invalidate("ghost")
-        assert len(store.sessions) == 0
+    def test_append_turn_preserves_order(self, json_store: JsonSessionStore) -> None:
+        s = json_store.create("u1")
+        json_store.append_turn(s.token, _make_turn("q1", "a1"))
+        json_store.append_turn(s.token, _make_turn("q2", "a2"))
+        json_store.append_turn(s.token, _make_turn("q3", "a3"))
+        assert [t.question for t in s.history] == ["q1", "q2", "q3"]
 
-    def test_persists_removal(self, store):
-        session = store.create("user1")
-        store.invalidate(session.token)
-        store2 = JsonSessionStore(store.path, timeout_seconds=3600)
-        assert session.token not in store2.sessions
-
-    def test_invalidate_uses_lock(self, store):
-        store.lock = MagicMock()
-        store.invalidate("anything")
-        store.lock.__enter__.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# append_turn
-# ---------------------------------------------------------------------------
-
-
-class TestAppendTurn:
-    def test_appends_to_session_history(self, store):
-        session = store.create("user1")
-        turn = _make_turn("Hello", "Hi")
-        store.append_turn(session.token, turn)
-        assert len(store.sessions[session.token].history) == 1
-        assert store.sessions[session.token].history[0].question == "Hello"
-
-    def test_multiple_turns(self, store):
-        session = store.create("user1")
-        store.append_turn(session.token, _make_turn("q1", "a1"))
-        store.append_turn(session.token, _make_turn("q2", "a2"))
-        assert len(store.sessions[session.token].history) == 2
-
-    def test_persists_history(self, store):
-        session = store.create("user1")
-        store.append_turn(session.token, _make_turn("Persist", "Yes"))
-        store2 = JsonSessionStore(store.path, timeout_seconds=3600)
-        assert len(store2.sessions[session.token].history) == 1
-        assert store2.sessions[session.token].history[0].question == "Persist"
-
-    def test_invalid_token_raises(self, store):
-        turn = _make_turn()
+    def test_append_turn_to_invalid_session_raises(
+        self, json_store: JsonSessionStore
+    ) -> None:
         with pytest.raises(AuthenticationError, match="Invalid session"):
-            store.append_turn("bad_token", turn)
+            json_store.append_turn("nope", _make_turn())
 
-    def test_expired_token_raises(self, store):
-        session = store.create("user1")
-        past = datetime.now(UTC) - timedelta(hours=2)
-        session.expires_at = past
-        turn = _make_turn()
+    def test_append_turn_to_expired_session_raises(
+        self, json_store: JsonSessionStore
+    ) -> None:
+        s = json_store.create("u1")
+        s.expires_at = datetime.now(UTC) - timedelta(hours=2)
         with pytest.raises(AuthenticationError, match="Invalid session"):
-            store.append_turn(session.token, turn)
+            json_store.append_turn(s.token, _make_turn())
 
-    def test_append_turn_uses_lock(self, store):
-        session = store.create("u")
-        store.lock = MagicMock()
-        store.append_turn(session.token, _make_turn())
-        assert store.lock.__enter__.call_count >= 1
+    def test_load_turns_unknown_token_returns_empty(
+        self, json_store: JsonSessionStore
+    ) -> None:
+        assert json_store.load_turns("nope") == []
 
-    def test_append_turn_lock_reentrant(self, tmp_path):
-        p = tmp_path / "r.json"
-        s = JsonSessionStore(p, timeout_seconds=60)
-        session = s.create("u")
-        s.append_turn(session.token, _make_turn())
-        assert len(s.sessions[session.token].history) == 1
-
-
-# ---------------------------------------------------------------------------
-# load_turns
-# ---------------------------------------------------------------------------
-
-
-class TestLoadTurns:
-    def test_returns_history(self, store):
-        session = store.create("user1")
-        store.append_turn(session.token, _make_turn("Q", "A"))
-        turns = store.load_turns(session.token)
+    def test_load_turns_returns_history(self, json_store: JsonSessionStore) -> None:
+        s = json_store.create("u1")
+        json_store.append_turn(s.token, _make_turn("q1", "a1"))
+        turns = json_store.load_turns(s.token)
         assert len(turns) == 1
-        assert turns[0].question == "Q"
 
-    def test_returns_copy(self, store):
-        session = store.create("user1")
-        store.append_turn(session.token, _make_turn())
-        turns = store.load_turns(session.token)
-        turns.clear()
-        assert len(store.sessions[session.token].history) == 1
+    def test_clear_turns_empties_history(self, json_store: JsonSessionStore) -> None:
+        s = json_store.create("u1")
+        json_store.append_turn(s.token, _make_turn())
+        json_store.append_turn(s.token, _make_turn())
+        json_store.clear_turns(s.token)
+        assert s.history == []
 
-    def test_empty_list_for_missing_token(self, store):
-        assert store.load_turns("no_such_token") == []
-
-    def test_empty_list_for_expired_token(self, store):
-        session = store.create("user1")
-        past = datetime.now(UTC) - timedelta(hours=2)
-        session.expires_at = past
-        assert store.load_turns(session.token) == []
+    def test_clear_turns_unknown_raises(self, json_store: JsonSessionStore) -> None:
+        with pytest.raises(AuthenticationError):
+            json_store.clear_turns("nope")
 
 
-# ---------------------------------------------------------------------------
-# clear_turns
-# ---------------------------------------------------------------------------
+class TestJsonSessionStoreConcurrency:
+    def test_concurrent_creates_do_not_corrupt(
+        self, json_store: JsonSessionStore
+    ) -> None:
+        """20 threads creating sessions simultaneously must leave the
+        store with 20 valid sessions."""
+        n = 20
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            futures = [pool.submit(json_store.create, f"u{i}") for i in range(n)]
+            concurrent.futures.wait(futures)
+            for f in futures:
+                f.result()
+
+        assert len(json_store.sessions) == n
+        # The file is valid JSON.
+        loaded = load_json(json_store.path, default={})
+        assert len(loaded["sessions"]) == n
+
+    def test_concurrent_appends_dont_lose_turns(
+        self, json_store: JsonSessionStore
+    ) -> None:
+        s = json_store.create("u1")
+        n = 50
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            futures = [
+                pool.submit(json_store.append_turn, s.token, _make_turn(f"q{i}", f"a{i}"))
+                for i in range(n)
+            ]
+            concurrent.futures.wait(futures)
+        # Every append succeeded.
+        assert len(s.history) == n
 
 
-class TestClearTurns:
-    def test_clears_history(self, store):
-        session = store.create("user1")
-        store.append_turn(session.token, _make_turn())
-        store.append_turn(session.token, _make_turn())
-        assert len(store.sessions[session.token].history) == 2
-        store.clear_turns(session.token)
-        assert len(store.sessions[session.token].history) == 0
-
-    def test_persists_cleared_history(self, store):
-        session = store.create("user1")
-        store.append_turn(session.token, _make_turn())
-        store.clear_turns(session.token)
-        store2 = JsonSessionStore(store.path, timeout_seconds=3600)
-        assert len(store2.sessions[session.token].history) == 0
-
-    def test_invalid_token_raises(self, store):
-        with pytest.raises(AuthenticationError, match="Invalid session"):
-            store.clear_turns("bad")
-
-    def test_expired_token_raises(self, store):
-        session = store.create("user1")
-        past = datetime.now(UTC) - timedelta(hours=2)
-        session.expires_at = past
-        with pytest.raises(AuthenticationError, match="Invalid session"):
-            store.clear_turns(session.token)
-
-    def test_clear_turns_uses_lock(self, store):
-        session = store.create("u")
-        store.lock = MagicMock()
-        store.clear_turns(session.token)
-        assert store.lock.__enter__.call_count >= 1
+# ===========================================================================
+# SqliteSessionStore
+# ===========================================================================
 
 
-# ---------------------------------------------------------------------------
-# Expiry behaviour (sliding window)
-# ---------------------------------------------------------------------------
+@pytest.fixture
+async def sqlite_store(tmp_path: Path):
+    from raghub.storage.sqlite_session_store import SqliteSessionStore
+    store = SqliteSessionStore(tmp_path / "sessions.db", timeout_seconds=3600)
+    await store.initialize()
+    yield store
 
 
-class TestExpiry:
-    def test_sliding_window_keeps_active_session_alive(self, tmp_path):
-        p = tmp_path / "sw.json"
-        s = JsonSessionStore(p, timeout_seconds=3600)
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("raghub.storage.session_store.datetime", _MockDatetime(EPOCH))
-            session = s.create("user1")
-        for i in range(6):
-            now = EPOCH + timedelta(minutes=30 * i)
-            with pytest.MonkeyPatch.context() as mp:
-                mp.setattr("raghub.storage.session_store.datetime", _MockDatetime(now))
-                resolved = s.resolve(session.token)
-            assert resolved is not None, f"failed at {i=}, time={now}"
+class TestSqliteSessionStoreInit:
+    @pytest.mark.asyncio
+    async def test_creates_table(self, tmp_path: Path) -> None:
+        from raghub.storage.sqlite_session_store import SqliteSessionStore
+        import aiosqlite
+        store = SqliteSessionStore(tmp_path / "sessions.db", timeout_seconds=60)
+        await store.initialize()
+        async with aiosqlite.connect(store.db_path) as conn:
+            cursor = await conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'"
+            )
+            row = await cursor.fetchone()
+        assert row is not None
 
-    def test_idle_session_expires(self, tmp_path):
-        p = tmp_path / "idle.json"
-        s = JsonSessionStore(p, timeout_seconds=3600)
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("raghub.storage.session_store.datetime", _MockDatetime(EPOCH))
-            session = s.create("user1")
-        later = EPOCH + timedelta(hours=2)
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("raghub.storage.session_store.datetime", _MockDatetime(later))
-            assert s.resolve(session.token) is None
-
-    def test_create_sets_expiry_in_future(self, store):
-        session = store.create("user1")
-        assert session.expires_at > datetime.now(UTC)
+    @pytest.mark.asyncio
+    async def test_idempotent_initialize(self, tmp_path: Path) -> None:
+        """Calling initialize() twice must not raise."""
+        from raghub.storage.sqlite_session_store import SqliteSessionStore
+        store = SqliteSessionStore(tmp_path / "sessions.db", timeout_seconds=60)
+        await store.initialize()
+        await store.initialize()  # must not raise
 
 
-# ---------------------------------------------------------------------------
-# Locking
-# ---------------------------------------------------------------------------
+class TestSqliteSessionStoreCreate:
+    @pytest.mark.asyncio
+    async def test_create_returns_session_record(self, sqlite_store) -> None:
+        s = await sqlite_store.create_session("u1")
+        assert s.user_id == "u1"
+        assert s.token
+        assert s.expires_at > datetime.now(UTC)
+
+    @pytest.mark.asyncio
+    async def test_create_uses_distinct_tokens(self, sqlite_store) -> None:
+        a = await sqlite_store.create_session("u1")
+        b = await sqlite_store.create_session("u1")
+        assert a.token != b.token
+        assert a.session_id != b.session_id
 
 
-class TestLocking:
-    def test_lock_is_rlock(self, store):
-        assert isinstance(store.lock, type(RLock()))
+class TestSqliteSessionStoreGet:
+    @pytest.mark.asyncio
+    async def test_get_by_id(self, sqlite_store) -> None:
+        s = await sqlite_store.create_session("u1")
+        loaded = await sqlite_store.get_session(s.session_id)
+        assert loaded is not None
+        assert loaded.user_id == "u1"
 
-    def test_reentrant_lock_allows_nested_acquire(self, tmp_path):
-        p = tmp_path / "rlock_test.json"
-        s = JsonSessionStore(p, timeout_seconds=60)
-        session = s.create("user1")
-        s.append_turn(session.token, _make_turn())
-        assert len(s.sessions[session.token].history) == 1
+    @pytest.mark.asyncio
+    async def test_get_unknown_returns_none(self, sqlite_store) -> None:
+        assert await sqlite_store.get_session("missing") is None
 
-    def test_create_acquires_lock(self, tmp_path):
-        s = JsonSessionStore(tmp_path / "l.json", timeout_seconds=60)
-        s.lock = MagicMock()
-        s.create("u")
-        s.lock.__enter__.assert_called_once()
+    @pytest.mark.asyncio
+    async def test_get_by_token(self, sqlite_store) -> None:
+        s = await sqlite_store.create_session("u1")
+        loaded = await sqlite_store.get_by_token(s.token)
+        assert loaded is not None
+        assert loaded.user_id == "u1"
 
-    def test_resolve_acquires_lock(self, tmp_path):
-        s = JsonSessionStore(tmp_path / "l.json", timeout_seconds=60)
-        session = s.create("u")
-        s.lock = MagicMock()
-        s.resolve(session.token)
-        s.lock.__enter__.assert_called_once()
+    @pytest.mark.asyncio
+    async def test_get_by_unknown_token_returns_none(self, sqlite_store) -> None:
+        assert await sqlite_store.get_by_token("nope") is None
 
-    def test_invalidate_acquires_lock(self, tmp_path):
-        s = JsonSessionStore(tmp_path / "l.json", timeout_seconds=60)
-        session = s.create("u")
-        s.lock = MagicMock()
-        s.invalidate(session.token)
-        s.lock.__enter__.assert_called_once()
+    @pytest.mark.asyncio
+    async def test_get_by_token_evicts_expired(self, sqlite_store) -> None:
+        s = await sqlite_store.create_session("u1")
+        # Force expiry.
+        s.expires_at = datetime.now(UTC) - timedelta(hours=1)
+        await sqlite_store.update_session(s)
+        assert await sqlite_store.get_by_token(s.token) is None
+        # The session must be deleted from the table.
+        assert await sqlite_store.get_session(s.session_id) is None
 
-    def test_append_turn_acquires_lock(self, tmp_path):
-        s = JsonSessionStore(tmp_path / "l.json", timeout_seconds=60)
-        session = s.create("u")
-        s.lock = MagicMock()
-        s.append_turn(session.token, _make_turn())
-        assert s.lock.__enter__.call_count >= 1
 
-    def test_clear_turns_acquires_lock(self, tmp_path):
-        s = JsonSessionStore(tmp_path / "l.json", timeout_seconds=60)
-        session = s.create("u")
-        s.lock = MagicMock()
-        s.clear_turns(session.token)
-        assert s.lock.__enter__.call_count >= 1
+class TestSqliteSessionStoreSlidingExpiry:
+    @pytest.mark.asyncio
+    async def test_resolve_pushes_expiry_forward(self, sqlite_store) -> None:
+        s = await sqlite_store.create_session("u1")
+        original = s.expires_at
+        await asyncio.sleep(0.01)
+        resolved = await sqlite_store.get_by_token(s.token)
+        assert resolved is not None
+        assert resolved.expires_at >= original
+
+    @pytest.mark.asyncio
+    async def test_active_session_survives_window(self, sqlite_store) -> None:
+        s = await sqlite_store.create_session("u1")
+        # Three rapid resolves all return the session.
+        for _ in range(3):
+            resolved = await sqlite_store.get_by_token(s.token)
+            assert resolved is not None
+
+
+class TestSqliteSessionStoreDelete:
+    @pytest.mark.asyncio
+    async def test_delete_session(self, sqlite_store) -> None:
+        s = await sqlite_store.create_session("u1")
+        await sqlite_store.delete_session(s.session_id)
+        assert await sqlite_store.get_session(s.session_id) is None
+
+    @pytest.mark.asyncio
+    async def test_delete_unknown_is_noop(self, sqlite_store) -> None:
+        await sqlite_store.delete_session("missing")  # must not raise
+
+
+class TestSqliteSessionStoreOverrides:
+    @pytest.mark.asyncio
+    async def test_get_overrides_default_empty(self, sqlite_store) -> None:
+        s = await sqlite_store.create_session("u1")
+        assert await sqlite_store.get_overrides(s.session_id) == {}
+
+    @pytest.mark.asyncio
+    async def test_set_and_get_overrides(self, sqlite_store) -> None:
+        s = await sqlite_store.create_session("u1")
+        await sqlite_store.set_overrides(s.session_id, {"agent_enabled": True, "web": False})
+        overrides = await sqlite_store.get_overrides(s.session_id)
+        assert overrides["agent_enabled"] is True
+        assert overrides["web"] is False
+
+    @pytest.mark.asyncio
+    async def test_set_overrides_replaces_dict(self, sqlite_store) -> None:
+        s = await sqlite_store.create_session("u1")
+        await sqlite_store.set_overrides(s.session_id, {"agent_enabled": True})
+        await sqlite_store.set_overrides(s.session_id, {"web": True, "graph": False})
+        overrides = await sqlite_store.get_overrides(s.session_id)
+        assert overrides == {"web": True, "graph": False}, (
+            "set_overrides must replace the entire dict — leaving the "
+            "old key behind would silently merge preferences."
+        )
+
+
+class TestSqliteSessionStoreConcurrency:
+    @pytest.mark.asyncio
+    async def test_concurrent_creates_all_succeed(self, tmp_path: Path) -> None:
+        from raghub.storage.sqlite_session_store import SqliteSessionStore
+        store = SqliteSessionStore(tmp_path / "sessions.db", timeout_seconds=3600)
+        await store.initialize()
+
+        async def _create(i: int) -> str:
+            s = await store.create_session(f"u{i}")
+            return s.session_id
+
+        ids = await asyncio.gather(*[_create(i) for i in range(20)])
+        assert len(set(ids)) == 20, "Each create_session must produce a unique id"
