@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from raghub.vectorstore.base import BaseVectorStore
+from raghub.vectorstore import BaseVectorStore
 
 
 class _StubStore(BaseVectorStore):

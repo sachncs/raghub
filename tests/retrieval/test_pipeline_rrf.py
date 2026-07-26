@@ -10,7 +10,7 @@ from raghub.config import HybridConfig
 from raghub.embeddings import HashingEmbeddingProvider
 from raghub.models import ChunkRecord, UserPrincipal
 from raghub.retrieval.pipeline import RetrievalPipeline
-from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 
 def make_store() -> InMemoryVectorStore:

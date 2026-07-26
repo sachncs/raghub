@@ -13,7 +13,7 @@ from raghub.retrieval.search import (
     SearchFilters,
     build_filter_string,
 )
-from raghub.vectorstore.memory import (
+from raghub.vectorstore import (
     InMemoryVectorStore,
     MemoryVectorRecord,
     matches_metadata_dict,

@@ -22,7 +22,7 @@ from raghub.models import (
 )
 from raghub.pipelines.agentic import AgenticQueryPipeline
 from raghub.retrieval.pipeline import RetrievalPipeline
-from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 
 class EchoTool(BaseTool):

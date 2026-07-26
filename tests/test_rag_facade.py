@@ -304,7 +304,7 @@ def test_sync_index_replaces_modified_vectors(tmp_path: Path) -> None:
     from raghub.documents import PlainTextConverter
     from raghub.ingestion.chunkers.word_window import WordWindowChunker
     from raghub.knowledge.manifest import SourceManifest
-    from raghub.vectorstore.memory import InMemoryVectorStore
+    from raghub.vectorstore import InMemoryVectorStore
 
     directory = tmp_path / "documents"
     directory.mkdir()

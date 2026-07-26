@@ -28,7 +28,7 @@ from raghub.pipelines.rag import QueryPipeline
 from raghub.retrieval.long_context import LongContextRerankPass
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.retrieval.reranker import IdentityReranker
-from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 
 class StubLlm:

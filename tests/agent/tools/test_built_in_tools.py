@@ -18,7 +18,7 @@ from raghub.agent.tools.web_search import WebSearchTool
 from raghub.embeddings import HashingEmbeddingProvider
 from raghub.models import ChunkRecord, UserPrincipal
 from raghub.retrieval.pipeline import RetrievalPipeline
-from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 
 def make_chunk(i: int, text: str) -> ChunkRecord:

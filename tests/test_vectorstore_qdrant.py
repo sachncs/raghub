@@ -9,7 +9,7 @@ from qdrant_client.http import models as qmodels
 
 from raghub.exceptions import VectorStoreError
 from raghub.models import ChunkRecord, Classification
-from raghub.vectorstore.qdrant import QdrantVectorStore
+from raghub.vectorstore import QdrantVectorStore
 
 
 def make_chunk() -> ChunkRecord:

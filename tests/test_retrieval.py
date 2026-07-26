@@ -12,7 +12,7 @@ from raghub.models import ChunkRecord, Classification, UserPrincipal
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.retrieval.reranker import IdentityReranker
 from raghub.retrieval.search import FacetedSearchEngine, SearchFilters, build_filter_string
-from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 
 def make_chunk(text: str, company: str = "acme", chunk_id: str | None = None) -> ChunkRecord:

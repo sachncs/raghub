@@ -31,7 +31,7 @@ from raghub.retrieval.transforms import (
     QueryVariant,
 )
 from raghub.retrieval.transforms.compose import ComposeTransformer as _Compose  # noqa: F401
-from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 
 class StubLlm:
