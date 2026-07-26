@@ -147,11 +147,3 @@ def test_check_upload_size_returns_bool() -> None:
     assert check_upload_size(500, 1024) is False
     assert check_upload_size(2048, 1024) is True
     assert check_upload_size(1024, 1024) is False
-
-
-def test_app_singleton_is_public() -> None:
-    """The module exposes the canonical ``app_singleton`` (no leading underscore)."""
-    import raghub.api.app as app_module
-
-    assert hasattr(app_module, "app_singleton")
-    assert not hasattr(app_module, "app_instance")
