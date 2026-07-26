@@ -28,7 +28,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from raghub.config import AgentConfig, Settings
-from raghub.exceptions import AgentBudgetExceeded, ToolError
+from raghub.exceptions import AgentBudgetExceeded
 from raghub.models import ConversationTurn, UserPrincipal
 from raghub.observability import NoOpTelemetry
 from raghub.tools.base import ToolContext, ToolResult
@@ -675,13 +675,19 @@ class Agent:
         enabled: dict[str, Any],
         ctx: ToolContext,
     ) -> ToolResult:
-        """Execute a planner action with timing + telemetry."""
+        """Execute a planner action with timing + telemetry.
+
+        Tool exceptions are caught and converted into a
+        :class:`ToolResult` with ``ok=False`` so the agent loop can
+        observe the failure and continue rather than crash.
+        """
         tool = enabled[action.name]
         with self.telemetry.span(f"agent.tool:{action.name}"):
             try:
-                result = await tool.run(action.args, ctx)
+                return await tool.run(action.args, ctx)
             except Exception as exc:
-                raise ToolError(
-                    f"{action.name} raised: {type(exc).__name__}: {exc}"
-                ) from exc
-        return result
+                return ToolResult(
+                    ok=False,
+                    error=f"{type(exc).__name__}: {exc}",
+                    latency_ms=0.0,
+                )
