@@ -44,10 +44,9 @@ class ToolRegistry:
         Raises:
             ConfigurationError: When ``name`` is not registered.
         """
-        try:
-            return self.tools[name]
-        except KeyError as exc:
-            raise ConfigurationError(f"Tool {name!r} is not registered") from exc
+        if name not in self.tools:
+            raise ConfigurationError(f"Tool {name!r} is not registered")
+        return self.tools[name]  
 
     def try_get(self, name: str) -> Tool | None:
         """Return the tool registered under ``name`` or ``None``."""

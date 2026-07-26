@@ -68,19 +68,12 @@ class WebSearchTool(BaseTool):
         text = (query or "").strip()
         if not text:
             return ToolResult(ok=False, error="web_search: empty query")
-        try:
-            from duckduckgo_search import DDGS  # type: ignore[import-not-found]
-        except ImportError as exc:
-            raise WebSearchError(
-                "duckduckgo-search not installed; pip install 'raghub[agent]'"
-            ) from exc
+        from duckduckgo_search import DDGS
+
         n = int(max_results) if max_results is not None else self.default_max
         n = max(1, min(n, 25))
-        try:
-            with DDGS() as ddgs:
-                results = list(ddgs.text(text, max_results=n))
-        except Exception as exc:
-            return ToolResult(ok=False, error=f"web_search failed: {exc}")
+        with DDGS() as ddgs:
+            results = list(ddgs.text(text, max_results=n))
         if not results:
             return ToolResult(content="(no web results)")
         lines: list[str] = []

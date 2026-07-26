@@ -138,19 +138,13 @@ class PluginRegistry:
             The number of entry points that loaded successfully.
         """
         loaded = 0
-        try:
-            entries = metadata.entry_points(group=group)
-        except Exception:
-            return 0
+        entries = metadata.entry_points(group=group)
         for entry in entries:
-            try:
-                plugin_factory = entry.load()
-                plugin = plugin_factory()
-                if hasattr(plugin, "register"):
-                    plugin.register(self)
-                    loaded += 1
-            except Exception:
-                continue
+            plugin_factory = entry.load()
+            plugin = plugin_factory()
+            if hasattr(plugin, "register"):
+                plugin.register(self)
+                loaded += 1
         return loaded
 
 

@@ -65,10 +65,7 @@ class KeywordSearchTool(BaseTool):
                 ok=False,
                 error="keyword_search: vector store lacks keyword_search()",
             )
-        try:
-            raw = keyword_search(text, int(top_k))
-        except Exception as exc:
-            return ToolResult(ok=False, error=f"keyword_search failed: {exc}")
+        raw = keyword_search(text, int(top_k))
         if not raw:
             return ToolResult(content="(no hits)")
         joined = "\n\n---\n\n".join(

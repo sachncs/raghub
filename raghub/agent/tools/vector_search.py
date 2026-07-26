@@ -88,12 +88,9 @@ class VectorSearchTool(BaseTool):
         if not text:
             return ToolResult(ok=False, error="vector_search: empty query")
         user = as_admin_user(context.user)
-        try:
-            hits = self.pipeline.retrieve(
-                user=user, question=text, top_k=int(top_k)
-            )
-        except Exception as exc:
-            return ToolResult(ok=False, error=f"vector_search failed: {exc}")
+        hits = self.pipeline.retrieve(
+            user=user, question=text, top_k=int(top_k)
+        )
         if not hits:
             return ToolResult(content="(no hits)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)
