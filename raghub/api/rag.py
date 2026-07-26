@@ -63,10 +63,10 @@ from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
 from raghub.generation import DefaultGenerator
 from raghub.ingestion import ResumableBackgroundIngestionService
 from raghub.interfaces.generator import Generator
-from raghub.knowledge.manifest import SourceManifest, sha256_bytes
-from raghub.knowledge.repository import InMemoryKnowledgeRepository
-from raghub.knowledge.structures.graphrag import GraphRagIndex
-from raghub.knowledge.structures.raptor import RaptorIndex
+from raghub.knowledge import SourceManifest, sha256_bytes
+from raghub.knowledge import InMemoryKnowledgeRepository
+from raghub.knowledge import GraphRagIndex
+from raghub.knowledge import RaptorIndex
 from raghub.models import (
     ConversationTurn,
     EvaluationResult,

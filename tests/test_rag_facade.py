@@ -273,7 +273,7 @@ def test_sync_index_does_not_record_failed_ingest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from raghub.exceptions import IngestionError
-    from raghub.knowledge.manifest import SourceManifest
+    from raghub.knowledge import SourceManifest
     from raghub.models import PipelineResult
 
     directory = tmp_path / "documents"
@@ -303,7 +303,7 @@ def test_sync_index_does_not_record_failed_ingest(
 def test_sync_index_replaces_modified_vectors(tmp_path: Path) -> None:
     from raghub.documents import PlainTextConverter
     from raghub.ingestion import WordWindowChunker
-    from raghub.knowledge.manifest import SourceManifest
+    from raghub.knowledge import SourceManifest
     from raghub.vectorstore import InMemoryVectorStore
 
     directory = tmp_path / "documents"

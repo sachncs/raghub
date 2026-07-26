@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from raghub.exceptions import KnowledgeError
-from raghub.knowledge.okf import from_okf, loads, to_okf
+from raghub.knowledge import from_okf, loads, to_okf
 from raghub.models import (
     BlockKind,
     DocumentBlock,

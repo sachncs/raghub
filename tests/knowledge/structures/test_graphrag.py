@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from raghub.embeddings import HashingEmbeddingProvider
-from raghub.knowledge.structures.graphrag import GraphRagIndex
+from raghub.knowledge import GraphRagIndex
 from raghub.models import Chunk
 
 
@@ -129,7 +129,7 @@ def test_graphrag_search_local_returns_entity_anchored_hits() -> None:
     query mentions ``Acme``.
     """
     embedder = HashingEmbeddingProvider(dimension=16)
-    from raghub.knowledge.structures.graphrag import GraphRagIndex
+    from raghub.knowledge import GraphRagIndex
 
     llm = StubLlm(
         entities=[
@@ -165,7 +165,7 @@ def test_graphrag_search_global_returns_community_summaries() -> None:
     query is constructed so it tokenises into a superset of the
     summary's tokens, giving a positive overlap score.
     """
-    from raghub.knowledge.structures.graphrag import GraphRagIndex
+    from raghub.knowledge import GraphRagIndex
 
     embedder = HashingEmbeddingProvider(dimension=16)
     llm = StubLlm(
@@ -211,7 +211,7 @@ def test_graphrag_combined_search_runs_local_and_global() -> None:
     (local channel) and the community summary (global channel) —
     the same chunk_id never appears twice.
     """
-    from raghub.knowledge.structures.graphrag import GraphRagIndex
+    from raghub.knowledge import GraphRagIndex
     from raghub.models import Chunk
 
     embedder = HashingEmbeddingProvider(dimension=16)

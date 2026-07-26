@@ -82,7 +82,7 @@ def test_document_section_blocks_preserve_kind() -> None:
 
 def test_knowledge_bundle_full_okf_round_trip() -> None:
     """A bundle with sections and blocks survives OKF dumps/loads."""
-    from raghub.knowledge.okf import dumps, loads
+    from raghub.knowledge import dumps, loads
 
     bundle = KnowledgeBundle(
         source_uri="file://example",

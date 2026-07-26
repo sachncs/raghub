@@ -18,7 +18,7 @@ from raghub.evaluation.metrics import (
     precision_at_k,
     recall_at_k,
 )
-from raghub.knowledge.okf import dumps, from_okf, to_okf
+from raghub.knowledge import dumps, from_okf, to_okf
 from raghub.models import deterministic_id
 from raghub.pipelines.cache import canonical_filters
 

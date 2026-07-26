@@ -342,7 +342,7 @@ class TestIngestPipelineInit:
         pipe = IngestPipeline(embedder=mock_embedder, vector_store=mock_vector_store)
         from raghub.documents import PlainTextConverter
         from raghub.ingestion import WordWindowChunker
-        from raghub.knowledge.repository import InMemoryKnowledgeRepository
+        from raghub.knowledge import InMemoryKnowledgeRepository
         from raghub.observability import NoOpTelemetry
 
         assert isinstance(pipe.converter, PlainTextConverter)

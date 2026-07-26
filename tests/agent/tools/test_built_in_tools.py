@@ -262,7 +262,7 @@ async def test_summary_search_tool_with_index_returns_hits() -> None:
     We build a tiny RAPTOR (depth=0 so it stays as a leaf cosine
     search) and verify the tool returns those leaves as hits.
     """
-    from raghub.knowledge.structures.raptor import RaptorIndex
+    from raghub.knowledge import RaptorIndex
 
     embedder = HashingEmbeddingProvider(dimension=16, model_name="t")
     index = RaptorIndex(llm=None, embedder=embedder, depth=0)

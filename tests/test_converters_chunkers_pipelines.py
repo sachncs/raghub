@@ -9,7 +9,7 @@ from raghub.documents import PlainTextConverter
 from raghub.embeddings import HashingEmbeddingProvider
 from raghub.generation import DefaultGenerator
 from raghub.ingestion import WordWindowChunker
-from raghub.knowledge.repository import InMemoryKnowledgeRepository
+from raghub.knowledge import InMemoryKnowledgeRepository
 from raghub.llm import HeuristicLLMProvider
 from raghub.models import (
     BlockKind,
