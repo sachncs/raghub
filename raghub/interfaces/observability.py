@@ -144,3 +144,6 @@ class TelemetryProvider(Logger, Metrics, Protocol):
             yield s
         finally:
             self.end_span(s)
+
+
+__all__ = ["Logger", "Metrics", "Span", "TelemetryProvider"]

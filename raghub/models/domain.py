@@ -272,3 +272,19 @@ class SearchResponse(BaseModel):
 
 
 SessionRecord.model_rebuild()
+
+
+__all__ = [
+    "ChunkRecord",
+    "Classification",
+    "ConversationTurn",
+    "DocumentLifecycleStatus",
+    "DocumentRecord",
+    "DocumentVersion",
+    "RetrievalHit",
+    "SearchRequest",
+    "SearchResponse",
+    "SessionRecord",
+    "UserPrincipal",
+    "Visibility",
+]

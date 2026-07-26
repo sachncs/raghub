@@ -28,3 +28,6 @@ class Pipeline(Protocol):
         Returns:
             The populated :class:`PipelineResult`.
         """
+
+
+__all__ = ["Pipeline"]

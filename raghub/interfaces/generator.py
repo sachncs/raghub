@@ -10,11 +10,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Sequence
 from typing import Protocol
 
-from raghub.models import (
-    Citation,
-    ConversationTurn,
-    RetrievalHit,
-)
+from raghub.models import Citation, ConversationTurn, RetrievalHit
 
 
 class Generator(Protocol):
@@ -55,3 +51,6 @@ class Generator(Protocol):
         Yields:
             String chunks of the answer as they become available.
         """
+
+
+__all__ = ["Generator"]
