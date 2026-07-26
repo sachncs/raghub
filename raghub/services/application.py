@@ -40,6 +40,7 @@ import asyncio
 import contextlib
 import os
 from dataclasses import dataclass
+from typing import Any
 
 from raghub.auth import RBACAuthorizationService, SqliteUserStore
 from raghub.config.settings import AppSettings
@@ -162,6 +163,7 @@ class DynamicRagContainer:
     documents: object = None
     query: object = None
     health: object = None
+    rag_facade: object = None
 
 
 class DynamicRagApplication:
@@ -197,6 +199,37 @@ class DynamicRagApplication:
         container.documents = self.documents_svc
         container.query = self.query_svc
         container.health = self.health_svc
+        # Phase 7.11: lazily build a :class:`raghub.RAG` facade so
+        # advanced flags (``agent=True``, ``tools_enabled=[...]``)
+        # route through the real agent loop. The legacy ``query_svc``
+        # path stays as the default when no ``RAG`` is wired.
+        container.rag_facade = self.build_rag_facade(container)
+
+    @staticmethod
+    def build_rag_facade(container: DynamicRagContainer) -> Any | None:
+        """Construct a :class:`raghub.RAG` from the container's collaborators.
+
+        Args:
+            container: The wired :class:`DynamicRagContainer`.
+
+        Returns:
+            A configured :class:`raghub.RAG`, or ``None`` when
+            construction failed (e.g. an optional dep was missing
+            during boot).
+        """
+        try:
+            from raghub.api.rag import RAG
+
+            return RAG(
+                settings=container.settings,
+                embedder=container.embeddings,
+                llm=container.llm,
+                vector_store=container.vector_store,
+                knowledge_repo=container.registry,
+                conversation_store=getattr(container, "conversation_store", None),
+            )
+        except Exception:
+            return None
 
     async def login(self, email: str, password: str) -> AuthLoginResponse:
         """Authenticate a user and return a session token.
@@ -333,6 +366,128 @@ class DynamicRagApplication:
             and source chunks.
         """
         return await self.query_svc.query(token=token, question=question)
+
+    async def query_with_flags(
+        self,
+        *,
+        token: str,
+        question: str,
+        tools_enabled: list[str] | None = None,
+        agent: bool | None = None,
+        web: bool | None = None,
+        graph: bool | None = None,
+        summaries: bool | None = None,
+        reranker: str | None = None,
+        long_context_pass: bool | None = None,
+        query_transforms: list[str] | None = None,
+        max_steps: int | None = None,
+        top_k: int | None = None,
+    ) -> QueryResponse:
+        """Resolve advanced-RAG flags against user prefs and route accordingly.
+
+        Args:
+            token: Bearer token.
+            question: The user's question.
+            tools_enabled: Per-request tool allow-list override.
+            agent: Force the agent loop on (Phase 7).
+            web: ``"web_search"`` shortcut.
+            graph: ``"graph_search"`` shortcut.
+            summaries: ``"summary_search"`` shortcut.
+            reranker: Per-request reranker provider override.
+            long_context_pass: Per-request long-context rerank toggle.
+            query_transforms: Per-request list of transform names.
+            max_steps: Per-request cap on planner steps.
+            top_k: Per-request override of retrieval depth.
+
+        Returns:
+            A :class:`QueryResponse` carrying the resolved config in
+            ``metadata``. When a :class:`raghub.RAG` instance is
+            available (Phase 7+), the request is routed through
+            :meth:`RAG.aquery` so the agent loop and tools actually
+            run end-to-end. Otherwise the legacy ``QueryService`` is
+            used and the response carries the resolved config for
+            observability.
+        """
+        from raghub.agent.resolver import resolve
+        from raghub.api.rag import RAG
+
+        user, _ = await self.container.auth.resolve_user(token)
+        prefs = dict(getattr(user, "tool_settings", None) or {})
+        resolved = resolve(
+            request_overrides={
+                "tools_enabled": tools_enabled,
+                "agent": agent,
+                "web": web,
+                "graph": graph,
+                "summaries": summaries,
+                "reranker": reranker,
+                "long_context_pass": long_context_pass,
+                "query_transforms": query_transforms,
+                "max_steps": max_steps,
+            },
+            session_overrides=None,
+            user_prefs=prefs,
+            settings=self.container.settings,
+        )
+
+        # Prefer the new :class:`RAG` facade when one is wired.
+        # The container exposes it via the dynamic-application
+        # builder; legacy callers fall back to ``query_svc``.
+        rag: RAG | None = getattr(self.container, "rag_facade", None)
+        if rag is None:
+            response = await self.query_svc.query(token=token, question=question)
+            response.metadata = dict(response.metadata or {})
+            response.metadata["resolved_config"] = resolved.to_dict()
+            if top_k is not None:
+                response.metadata["requested_top_k"] = top_k
+            return response
+
+        # Translate QueryService's auth shape into the user
+        # principal the RAG facade expects.
+        from raghub.models import UserPrincipal
+
+        session = await self.container.store.get_by_token(token)
+        principal = UserPrincipal(
+            user_id=user.user_id,
+            email=user.email,
+            allowed_companies=user.allowed_companies,
+            allowed_groups=user.allowed_groups,
+            is_admin=user.is_admin,
+            tool_settings=user.tool_settings,
+        )
+        canonical = await rag.aquery(
+            question,
+            user=principal,
+            session_id=session.session_id if session is not None else None,
+            tools_enabled=tools_enabled,
+            agent=agent,
+            web=web,
+            graph=graph,
+            summaries=summaries,
+            reranker=reranker,
+            long_context_pass=long_context_pass,
+            query_transforms=query_transforms,
+            max_steps=max_steps,
+            top_k=top_k,
+        )
+        return QueryResponse(
+            answer=canonical.answer,
+            citations=canonical.citations,
+            source_chunks=[
+                chunk.model_dump(mode="json")
+                for chunk in canonical.source_chunks
+            ],
+            planner_trace=canonical.metadata.get("planner_trace"),
+            tools_invoked=canonical.metadata.get("tools_invoked") or [],
+            transforms_applied=canonical.transforms_applied,
+            metadata={
+                "pipeline_id": "query_agent"
+                if (resolved.agent_enabled or resolved.tools_enabled)
+                else "query",
+                "structured": False,
+                **canonical.metadata,
+            },
+        )
 
     def log(self, message: str, **payload: object) -> None:
         """Emit a structured log event via the health service.
