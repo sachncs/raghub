@@ -12,7 +12,7 @@ import threading
 import pytest
 
 from raghub.models import ChunkRecord, Classification
-from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 
 def _make_chunk(chunk_id: str, company: str = "acme", document_id: str = "d1") -> ChunkRecord:

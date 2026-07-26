@@ -16,7 +16,7 @@ from raghub.repositories import SqliteChunkRepository
 from raghub.repositories import SqliteSessionRepository
 from raghub.repositories import UnitOfWork
 from raghub.storage.database import DatabaseManager
-from raghub.vectorstore.base import BaseVectorStore
+from raghub.vectorstore import BaseVectorStore
 
 pytestmark = pytest.mark.asyncio
 

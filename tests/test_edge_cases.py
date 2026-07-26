@@ -275,7 +275,7 @@ class TestQdrantTransportDocstring:
     """Verify the qdrant adapter has the gRPC vs HTTP docstring."""
 
     def test_transport_docstring_present(self) -> None:
-        from raghub.vectorstore.qdrant import QdrantVectorStore
+        from raghub.vectorstore import QdrantVectorStore
 
         doc = QdrantVectorStore.__doc__ or ""
         assert "gRPC" in doc or "grpc" in doc

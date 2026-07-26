@@ -36,7 +36,7 @@ from raghub.models import (
 )
 from raghub.storage.database import DatabaseManager
 from raghub.storage.sqlite_session_store import SqliteSessionStore
-from raghub.vectorstore.base import BaseVectorStore
+from raghub.vectorstore import BaseVectorStore
 
 MAX_INSERT_RETRIES = 3
 RETRY_BASE_DELAY = 0.05

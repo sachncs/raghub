@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from raghub.generation import InstructorStructuredOutputProvider
 from raghub.models import ChunkRecord, Classification, RetrievalHit
-from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 
 class Answer(BaseModel):

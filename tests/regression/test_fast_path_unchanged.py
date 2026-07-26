@@ -38,7 +38,7 @@ def build_pipeline() -> tuple[QueryPipeline, Any, Any, Any, Any]:
     """
     from raghub.embeddings import HashingEmbeddingProvider
     from raghub.retrieval.reranker import IdentityReranker
-    from raghub.vectorstore.memory import InMemoryVectorStore
+    from raghub.vectorstore import InMemoryVectorStore
 
     embedder = HashingEmbeddingProvider(dimension=8, model_name="t")
     store = InMemoryVectorStore()

@@ -53,8 +53,8 @@ from raghub.retrieval.reranker import IdentityReranker
 from raghub.services.application.facade import ApplicationFacade
 from raghub.storage.image_store import FilesystemImageStore
 from raghub.storage.sqlite_session_store import SqliteSessionStore
-from raghub.vectorstore.base import BaseVectorStore
-from raghub.vectorstore.zvec import ZvecVectorStore
+from raghub.vectorstore import BaseVectorStore
+from raghub.vectorstore import ZvecVectorStore
 
 __all__ = [
     "ApplicationFacade",

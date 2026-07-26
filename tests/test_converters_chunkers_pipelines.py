@@ -17,7 +17,7 @@ from raghub.models import (
     PipelineContext,
 )
 from raghub.pipelines.rag import IngestPipeline, QueryPipeline
-from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 
 def test_normalise_markdown_extracts_tables() -> None:

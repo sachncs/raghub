@@ -11,7 +11,7 @@ from raghub.core import DocumentStateMachine
 from raghub.core import allowed_company_filter
 from raghub.embeddings import HashingEmbeddingProvider
 from raghub.models import DocumentLifecycleStatus, UserPrincipal
-from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 
 def test_state_machine_allows_valid_transition() -> None:

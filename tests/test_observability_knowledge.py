@@ -559,7 +559,7 @@ class TestDefaultLLM:
 class TestDefaultVectorStore:
     def test_no_qdrant_url_uses_memory(self):
         from raghub.api.defaults import default_vector_store
-        from raghub.vectorstore.memory import InMemoryVectorStore
+        from raghub.vectorstore import InMemoryVectorStore
 
         result = default_vector_store(384)
         assert isinstance(result, InMemoryVectorStore)
@@ -592,7 +592,7 @@ class TestDefaultVectorStore:
                 side_effect=ConfigurationError("fail"),
             ):
                 from raghub.api.defaults import default_vector_store
-                from raghub.vectorstore.memory import InMemoryVectorStore
+                from raghub.vectorstore import InMemoryVectorStore
 
                 result = default_vector_store(384)
                 assert isinstance(result, InMemoryVectorStore)

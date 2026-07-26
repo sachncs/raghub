@@ -37,8 +37,8 @@ from raghub.retrieval.transforms import (
 )
 from raghub.generation import InstructorStructuredOutputProvider
 from raghub.observability import LangfuseTelemetryProvider
-from raghub.vectorstore.memory import InMemoryVectorStore
-from raghub.vectorstore.qdrant import QdrantVectorStore
+from raghub.vectorstore import InMemoryVectorStore
+from raghub.vectorstore import QdrantVectorStore
 
 LLM_API_KEY_ENV_VARS = (
     "OPENAI_API_KEY",

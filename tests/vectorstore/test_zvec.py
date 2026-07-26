@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 
 from raghub.models import ChunkRecord, Classification
-from raghub.vectorstore.zvec import (
+from raghub.vectorstore import (
     RealZvecBackend,
     ZvecVectorStore,
     native_filter,
@@ -324,7 +324,7 @@ def test_zvec_store_falls_back_when_module_missing(
 ) -> None:
     """Without ``zvec``, the wrapper picks the in-memory fallback."""
     from raghub.vectorstore import zvec as zvec_mod
-    from raghub.vectorstore.memory import InMemoryVectorStore
+    from raghub.vectorstore import InMemoryVectorStore
 
     monkeypatch.setattr(zvec_mod, "zvec_module", None)
     store = ZvecVectorStore(path=tmp_path, embedding_dim=4)

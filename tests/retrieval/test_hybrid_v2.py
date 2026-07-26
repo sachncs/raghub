@@ -12,7 +12,7 @@ from raghub.exceptions import GraphUnavailableError
 from raghub.models import ChunkRecord, UserPrincipal
 from raghub.retrieval.colbert import ColbertLateInteraction
 from raghub.retrieval.pipeline import RetrievalPipeline
-from raghub.vectorstore.memory import InMemoryVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 
 # --- 3.1: BM25 -------------------------------------------------------------
