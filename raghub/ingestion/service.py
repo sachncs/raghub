@@ -33,11 +33,15 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from hashlib import sha256
 
+from raghub.api.defaults import default_converter
+from raghub.documents import validation as validation_module
 from raghub.documents.lifecycle import DocumentLifecycleManager
 from raghub.embeddings.base import BaseEmbeddingProvider
 from raghub.exceptions import DocumentError
 from raghub.ingestion.background import BackgroundIngestionService
+from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.models import (
     ChunkRecord,
     Classification,
@@ -196,9 +200,6 @@ class DocumentIngestionService:
         Wired from the embedder + vector store + default chunker
         + converter. The result is cached on first call.
         """
-        from raghub.api.defaults import default_converter
-        from raghub.ingestion.chunkers.word_window import WordWindowChunker
-
         return IngestPipeline(
             converter=default_converter(),
             chunker=WordWindowChunker(),
@@ -298,10 +299,6 @@ class DocumentIngestionService:
                 is left in ``FAILED`` state with the error message
                 persisted.
         """
-        from hashlib import sha256
-
-        from raghub.documents import validation as validation_module
-
         mime_type = validation_module.validate_upload(file_name, file_bytes, self.max_upload_bytes)
         self.virus_scan_hook(file_bytes)
         checksum = sha256(file_bytes).hexdigest()

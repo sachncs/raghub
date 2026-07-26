@@ -55,12 +55,10 @@ class ResumableBackgroundIngestionService(BackgroundIngestionService):
 
     def run_job(self, job_id: str, fn: Any, args: Any, kwargs: Any) -> None:
         """Execute a job, persisting status transitions."""
-        try:
-            super().run_job(job_id, fn, args, kwargs)
-        finally:
-            job = self.jobs.get(job_id)
-            if job is not None:
-                self.store.upsert(job_id, job.status, job.result)
+        super().run_job(job_id, fn, args, kwargs)
+        job = self.jobs.get(job_id)
+        if job is not None:
+            self.store.upsert(job_id, job.status, job.result)
 
     def shutdown(self, *, wait: bool = False) -> None:
         """Flush the job store and shut down the executor.
@@ -76,16 +74,10 @@ class ResumableBackgroundIngestionService(BackgroundIngestionService):
         """
         if self.closed:
             return
-        try:
-            for job_id, job in list(self.jobs.items()):
-                self.store.upsert(job_id, job.status, job.result)
-        finally:
-            try:
-                self.store.close()
-            finally:
-                # Delegate to the parent so the executor is properly
-                # closed and the ``closed`` flag is set.
-                super().shutdown(wait=wait)
+        for job_id, job in list(self.jobs.items()):
+            self.store.upsert(job_id, job.status, job.result)
+        self.store.close()
+        super().shutdown(wait=wait)
 
 
 __all__ = ["ResumableBackgroundIngestionService"]

@@ -133,3 +133,6 @@ def validate_upload(filename: str, content: bytes, max_bytes: int) -> str:
         raise DocumentError(f"Unsupported file type: {mime_type}")
 
     return mime_type
+
+
+__all__ = ["MAGIC_BYTES", "MIME_TYPES_BY_EXTENSION", "detect_mime_type", "validate_upload"]

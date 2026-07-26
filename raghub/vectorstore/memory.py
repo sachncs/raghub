@@ -1,25 +1,18 @@
-"""In-memory vector store used for development, tests, and tiny workloads.
+"""Thread-safe in-memory vector store for tests, demos, and small workloads.
 
-This module implements a simple dictionary-backed vector store with cosine
-similarity search, RBAC-aware metadata filtering, and a naive keyword
-fallback. It is **not** a high-throughput system: every query scans the
-full record set under a re-entrant lock, so the cost is ``O(n)`` per
-search. Use it for tests, demos, and single-tenant deployments of a few
-thousand chunks. For production scale use
-:class:`raghub.vectorstore.zvec.ZvecVectorStore` or another persistent
-backend.
+The adapter performs an ``O(n)`` cosine-similarity scan with metadata
+filtering and BM25 keyword search. It is not intended for high-throughput
+production workloads; use :class:`raghub.vectorstore.zvec.ZvecVectorStore`
+or another persistent backend at scale.
 
 Concurrency:
-    The store uses an :class:`threading.RLock` around all mutating and
-    snapshot reads. Callers may safely share an instance across threads
-    without external locking; the snapshot taken in :meth:`search` is
-    consistent because the lock is held while building it.
+    Mutations and snapshot reads are protected by a re-entrant lock, so a
+    store can be shared safely across threads.
 
 Security:
-    The metadata filter parser understands only the ``company IN (...)``
-    and ``document_id = '...'`` shapes emitted by legacy callers. Unknown
-    string filters fail closed. Canonical dict filters match
-    :class:`ChunkRecord` fields directly.
+    Legacy string filters accept only the ``company IN (...)`` and
+    ``document_id = '...'`` forms. Unknown string filters fail closed.
+    Canonical dict filters match :class:`ChunkRecord` fields directly.
 """
 
 from __future__ import annotations
@@ -31,6 +24,7 @@ from threading import RLock
 from typing import Any, cast
 
 import numpy as np
+from rank_bm25 import BM25Okapi
 
 from raghub.models import ChunkRecord
 from raghub.vectorstore.base import BaseVectorStore
@@ -66,7 +60,7 @@ class MemoryVectorRecord:
 
 
 class InMemoryVectorStore(BaseVectorStore):
-    """Cosine-similarity vector store with naive keyword fallback.
+    """Cosine-similarity vector store with BM25 keyword search.
 
     Search is performed by snapshotting the records under the lock,
     computing cosine similarity against the query vector, and returning
@@ -176,7 +170,7 @@ class InMemoryVectorStore(BaseVectorStore):
             r"\s*document_id\s*=\s*'([^']+)'\s*", metadata_filter, flags=re.IGNORECASE
         )
         if document_match:
-            return record.chunk.document_id == document_match.group(1)
+            return bool(record.chunk.document_id == document_match.group(1))
         return False
 
     def compute_score(self, left: Sequence[float], right: Sequence[float]) -> float:
@@ -267,73 +261,31 @@ class InMemoryVectorStore(BaseVectorStore):
         return self.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
-        """BM25 keyword search (Phase 3.1) with TF fallback.
+        """Return BM25-ranked chunks containing the query terms.
 
-        Uses :class:`rank_bm25.BM25Okapi` when the optional ``rank_bm25``
-        dependency is importable; otherwise falls back to a naive
-        term-frequency / chunk-length score (the historical default
-        the docstring below describes).
-
-        BM25 is rebuilt from the current record snapshot on every call.
-        The in-memory store is small enough that this is cheaper than
-        maintaining a delta log; for larger backends a proper inverted
-        index would be the next step.
-
-        The score for a chunk under the TF fallback is
-        ``sum(token_count_in_chunk) / len(chunk_text_tokens)`` across
-        all query tokens present in the chunk. **This is not
-        BM25/TF-IDF**: there is no IDF weighting, no length
-        saturation, and no per-token inverse document frequency. The
-        score therefore favours very short chunks that happen to
-        contain query terms.
-
-        Args:
-            query: Raw query string.
-            top_k: Maximum number of hits.
-
-        Returns:
-            A list of hit dicts sorted by descending score. Empty query
-            yields an empty list.
+        The corpus is rebuilt from a lock-protected record snapshot on every
+        call, which is appropriate for the small workloads supported by this
+        adapter.
         """
         query_terms = query.lower().split()
         if not query_terms:
             return []
-        # Snapshot under lock so iteration is safe against concurrent
-        # inserts/deletes.
         with self.lock:
             records = list(self.records.values())
-        # Phase 3.1: try BM25 first; fall back to TF on ImportError.
-        try:
-            from rank_bm25 import BM25Okapi  # type: ignore[import-not-found]
-        except ImportError:
-            BM25Okapi = None  # type: ignore[assignment]
-        if BM25Okapi is not None:
-            tokenised_corpus = [
-                (rec.chunk.text or "").lower().split() for rec in records
-            ]
-            if not any(tokenised_corpus):
-                return []
-            bm25 = BM25Okapi(tokenised_corpus)
-            scores = bm25.get_scores(query_terms)
-            scored: list[tuple[str, float, ChunkRecord]] = [
-                (rec.chunk.chunk_id, float(score), rec.chunk)
-                for rec, score in zip(records, scores, strict=True)
-                if score > 0
-            ]
-        else:
-            scored = []
-            for rec in records:
-                text = (rec.chunk.text or "").lower()
-                text_terms = text.split()
-                if not text_terms:
-                    continue
-                # Raw TF / chunk-length: over-counts for short chunks because
-                # every query term is divided by the same denominator.
-                score = sum(text_terms.count(q) for q in query_terms) / len(text_terms)
-                if score > 0:
-                    scored.append((rec.chunk.chunk_id, score, rec.chunk))
-        scored.sort(key=lambda x: x[1], reverse=True)
-        return [{"chunk_id": cid, "score": s, "chunk": c} for cid, s, c in scored[:top_k]]
+        tokenised_corpus = [(record.chunk.text or "").lower().split() for record in records]
+        if not any(tokenised_corpus):
+            return []
+        scores = BM25Okapi(tokenised_corpus).get_scores(query_terms)
+        scored = [
+            (record.chunk.chunk_id, float(score), record.chunk)
+            for record, score in zip(records, scores, strict=True)
+            if score > 0
+        ]
+        scored.sort(key=lambda item: item[1], reverse=True)
+        return [
+            {"chunk_id": chunk_id, "score": score, "chunk": chunk}
+            for chunk_id, score, chunk in scored[:top_k]
+        ]
 
     def optimize(self) -> None:
         """No-op: the in-memory backend has no on-disk structures to optimise."""
@@ -347,3 +299,6 @@ class InMemoryVectorStore(BaseVectorStore):
             ``backend`` identifier, and the current chunk count.
         """
         return {"status": "ok", "backend": "memory", "chunks": len(self.records)}
+
+
+__all__ = ["InMemoryVectorStore", "MemoryVectorRecord", "matches_metadata_dict"]

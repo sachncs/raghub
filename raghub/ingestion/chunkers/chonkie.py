@@ -21,19 +21,11 @@ from raghub.exceptions import ConfigurationError
 from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.interfaces.chunker import Chunker
 from raghub.models import Chunk
+from raghub.utils.execution import capture
 
-chonkie: Any
-
-try:
-    chonkie = __import__("chonkie")
-    CHONKIE_AVAILABLE = True
-    CHONKIE_MODULE = chonkie
-    OptionalImportError: Exception | None = None
-except Exception as exc:  # pragma: no cover - optional dep
-    chonkie = None
-    CHONKIE_MODULE = None
-    CHONKIE_AVAILABLE = False
-    OptionalImportError = exc
+chonkie, OptionalImportError = capture(__import__, "chonkie")
+CHONKIE_AVAILABLE = OptionalImportError is None
+CHONKIE_MODULE = chonkie if CHONKIE_AVAILABLE else None
 
 
 class RAGHubGenie:
@@ -44,10 +36,11 @@ class RAGHubGenie:
     """
 
     def __init__(self, llm_provider: Any) -> None:
-        self._llm = llm_provider
+        self.llm = llm_provider
 
     def generate(self, prompt: str) -> str:
-        return str(self._llm.generate(
+        """Generate a chunking response for ``prompt``."""
+        return str(self.llm.generate(
             system_prompt="You are a text chunking assistant. Split the text at natural boundaries.",
             conversation=[],
             context=[],
@@ -55,31 +48,29 @@ class RAGHubGenie:
         ))
 
     async def agenerate(self, prompt: str) -> str:
+        """Generate a chunking response asynchronously."""
         return str(self.generate(prompt))
 
 
-def _build_refinery(context_size: int = 128, tokenizer: str = "character") -> Any:
-    """Build an OverlapRefinery if available, else return None."""
+def build_refinery(context_size: int = 128, tokenizer: str = "character") -> Any:
+    """Build an overlap refinery when supported."""
     if CHONKIE_MODULE is None:
         return None
     cls = getattr(CHONKIE_MODULE, "OverlapRefinery", None)
     if cls is None:
         return None
-    try:
-        return cls(tokenizer=tokenizer, context_size=context_size, merge=True, inplace=True)
-    except TypeError:
-        return None
+    refinery, error = capture(
+        cls, tokenizer=tokenizer, context_size=context_size, merge=True, inplace=True
+    )
+    return None if isinstance(error, TypeError) else refinery
 
 
-def _apply_refinery(pieces: list[Any], refinery: Any) -> list[Any]:
-    """Apply refinery to chonkie chunks if refinery is available."""
+def apply_refinery(pieces: list[Any], refinery: Any) -> list[Any]:
+    """Apply an available refinery to chunks."""
     if refinery is None or not pieces:
         return pieces
-    try:
-        result = refinery(pieces)
-        return result  # type: ignore[no-any-return]
-    except Exception:
-        return pieces
+    result, error = capture(refinery, pieces)
+    return pieces if error is not None else list(result)
 
 
 def build_chonkie_inner(
@@ -99,7 +90,7 @@ def build_chonkie_inner(
             "or use WordWindowChunker."
         )
 
-    _CHUNKER_BUILDERS: dict[str, tuple[str, dict[str, Any]]] = {
+    chunker_builders: dict[str, tuple[str, dict[str, Any]]] = {
         "token": ("TokenChunker", {"tokenizer": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}),
         "sentence": ("SentenceChunker", {"tokenizer": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}),
         "recursive": ("RecursiveChunker", {"tokenizer": tokenizer, "chunk_size": chunk_size}),
@@ -111,16 +102,15 @@ def build_chonkie_inner(
         "slumber": ("SlumberChunker", {"genie": genie, "chunk_size": chunk_size, "candidate_size": 128}),
     }
 
-    _AUTO_PROBE = ("RecursiveChunker", "TokenChunker", "SentenceChunker")
+    auto_probe = ("RecursiveChunker", "TokenChunker", "SentenceChunker")
 
     if chunker_name == "auto":
-        for cls_name in _AUTO_PROBE:
+        for cls_name in auto_probe:
             cls = getattr(CHONKIE_MODULE, cls_name, None)
             if cls is None:
                 continue
-            try:
-                sig = inspect.signature(cls)
-            except (TypeError, ValueError):
+            sig, signature_error = capture(inspect.signature, cls)
+            if isinstance(signature_error, (TypeError, ValueError)):
                 sig = None
             kwargs: dict[str, Any] = {}
             if sig is not None:
@@ -134,33 +124,34 @@ def build_chonkie_inner(
                 ):
                     if key in params:
                         kwargs[key] = value
-            try:
-                return cls(**kwargs)
-            except TypeError:
-                continue
+            inner, initialization_error = capture(cls, **kwargs)
+            if initialization_error is None:
+                return inner
+            if not isinstance(initialization_error, TypeError):
+                raise initialization_error
         raise ConfigurationError(
             "chonkie is installed but no documented chunker accepted the "
             "configuration; please check the installed chonkie version."
         )
 
-    if chunker_name not in _CHUNKER_BUILDERS:
+    if chunker_name not in chunker_builders:
         raise ConfigurationError(f"Unknown chonkie chunker strategy: {chunker_name!r}")
 
-    cls_name, kwargs = _CHUNKER_BUILDERS[chunker_name]
+    cls_name, kwargs = chunker_builders[chunker_name]
     cls = getattr(CHONKIE_MODULE, cls_name, None)
     if cls is None:
         raise ConfigurationError(
             f"chonkie chunker {cls_name!r} not available; "
             "install the required extra (e.g. `pip install chonkie[semantic]`)"
         )
-    try:
-        return cls(**kwargs)
-    except Exception as exc:
-        if isinstance(exc, ConfigurationError):
-            raise
-        raise ConfigurationError(
-            f"chonkie {cls_name} failed to initialize: {exc}"
-        ) from exc
+    inner, initialization_error = capture(cls, **kwargs)
+    if initialization_error is None:
+        return inner
+    if isinstance(initialization_error, ConfigurationError):
+        raise initialization_error
+    raise ConfigurationError(
+        f"chonkie {cls_name} failed to initialize: {initialization_error}"
+    ) from initialization_error
 
 
 class ChonkieChunker(Chunker):
@@ -219,47 +210,25 @@ class ChonkieChunker(Chunker):
             language=language,
             genie=genie,
         )
-        self.refinery = _build_refinery(context_size=chunk_overlap, tokenizer=tokenizer)
+        self.refinery = build_refinery(context_size=chunk_overlap, tokenizer=tokenizer)
 
     def chonkie_text_chunks(self, text: str) -> list[Any]:
         """Invoke the underlying Chonkie chunker; tolerate API drift."""
-        try:
-            pieces = self.inner(text)
-        except TypeError:
+        pieces, invocation_error = capture(self.inner, text)
+        if isinstance(invocation_error, TypeError):
             chunk = getattr(self.inner, "chunk", None) or getattr(self.inner, "split_text", None)
-            if chunk is not None:
-                pieces = chunk(text)
-            else:
-                raise
-        return _apply_refinery(pieces, self.refinery)
+            if chunk is None:
+                raise invocation_error
+            pieces = chunk(text)
+        elif invocation_error is not None:
+            raise invocation_error
+        return apply_refinery(pieces, self.refinery)
 
     def chonkie_batch_chunks(self, texts: list[str]) -> list[list[Any]]:
         """Chunk multiple texts at once via chonkie.Pipeline when available."""
         if not texts:
             return []
-        Pipeline = getattr(CHONKIE_MODULE, "Pipeline", None) if CHONKIE_MODULE else None
-        if Pipeline is None:
-            return [self.chonkie_text_chunks(t) for t in texts]
-        try:
-            p = Pipeline()
-            # Configure the pipeline's chunker to match our inner chunker's class
-            chunker_cls_name = type(self.inner).__name__
-            p.chunk_with(chunker_cls_name, **{
-                k: v for k, v in getattr(self.inner, "__dict__", {}).items()
-                if not k.startswith("_")
-            })
-            if self.refinery is not None:
-                p.refine_with(
-                    type(self.refinery).__name__,
-                    context_size=getattr(self.refinery, "context_size", 0.25),
-                )
-            docs = p.run(texts)
-            if not isinstance(docs, list):
-                docs = [docs]
-            return [doc.chunks if hasattr(doc, "chunks") else [] for doc in docs]
-        except Exception:
-            # Pipeline config failed or API drift; fall back to per-text
-            return [self.chonkie_text_chunks(t) for t in texts]
+        return [self.chonkie_text_chunks(text) for text in texts]
 
     def chunk(self, bundle: Any) -> list[Chunk]:
         """Chunk a bundle via Chonkie."""
@@ -361,12 +330,12 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
         ConfigurationError: When ``name`` is unknown or chonkie is
             explicitly requested but unavailable.
     """
-    _CHONKIE_NAMES = {
+    chonkie_names = {
         "auto", "recursive", "token", "sentence",
         "semantic", "late", "table", "code",
         "slumber", "neural",
     }
-    if name in _CHONKIE_NAMES:
+    if name in chonkie_names:
         if CHONKIE_AVAILABLE:
             return ChonkieChunker(chunker_name=name, **kwargs)
         if name != "auto":
@@ -380,4 +349,21 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
     raise ConfigurationError(f"Unknown chunker: {name!r}")
 
 
-__all__ = ["ChonkieChunker", "RAGHubGenie", "build_chonkie_chunker"]
+def __getattr__(name: str) -> Any:
+    """Resolve renamed refinery helpers for compatibility."""
+    if name == "_build_refinery":
+        return build_refinery
+    if name == "_apply_refinery":
+        return apply_refinery
+    raise AttributeError(name)
+
+
+__all__ = [
+    "CHONKIE_AVAILABLE",
+    "ChonkieChunker",
+    "RAGHubGenie",
+    "apply_refinery",
+    "build_chonkie_chunker",
+    "build_chonkie_inner",
+    "build_refinery",
+]

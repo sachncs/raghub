@@ -169,4 +169,4 @@ def markdown_to_document_blocks(markdown: str) -> tuple[list[DocumentBlock], str
     return blocks, ""
 
 
-__all__ = ["normalise_markdown"]
+__all__ = ["markdown_to_document_blocks", "normalise_markdown"]

@@ -35,3 +35,6 @@ class TxtParser(FileParser):
                 metadata={},
             )
         ]
+
+
+__all__ = ["TxtParser"]

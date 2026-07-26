@@ -54,3 +54,6 @@ class DocumentLifecycleManager:
             raise ValueError(f"Illegal transition from {document.status} to {status}")
         document.status = status
         return document
+
+
+__all__ = ["DocumentLifecycleManager"]

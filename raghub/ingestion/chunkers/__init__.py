@@ -1,7 +1,6 @@
-"""Chunker implementations.
+"""Chunker implementations for ingestion pipelines."""
 
-Adapters turn a :class:`KnowledgeBundle` (or raw text) into a list of
-:class:`raghub.models.Chunk` records. The default is a built-in
-word-window chunker; Chonkie provides a higher-quality default for
-production.
-"""
+from .chonkie import ChonkieChunker, build_chonkie_chunker
+from .word_window import WordWindowChunker
+
+__all__ = ["ChonkieChunker", "WordWindowChunker", "build_chonkie_chunker"]
