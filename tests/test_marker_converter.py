@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from raghub.converters.marker import MARKER_AVAILABLE, MarkerConverter, looks_like_pdf
+from raghub.documents import MARKER_AVAILABLE, MarkerConverter, looks_like_pdf
 from raghub.exceptions import ConfigurationError
 from raghub.models import KnowledgeBundle
 

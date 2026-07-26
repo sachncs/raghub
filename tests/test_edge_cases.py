@@ -16,13 +16,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from raghub.documents.chunker import (
+from raghub.documents import (
     ChunkingPlan,
     build_chunk_records,
     chunk_words,
     extract_text_from_content,
 )
-from raghub.documents.validation import detect_mime_type, validate_upload
+from raghub.documents import detect_mime_type, validate_upload
 from raghub.exceptions import DocumentError
 from raghub.ingestion.service import DocumentIngestionService
 from raghub.models import (
@@ -68,7 +68,7 @@ class TestEmptyDocumentIngestion:
     def test_chunk_words_empty_string(self) -> None:
         assert chunk_words("", ChunkingPlan()) == []
 
-    @patch("raghub.documents.validation.validate_upload")
+    @patch("raghub.documents.validate_upload")
     async def test_ingestion_service_rejects_empty(
         self,
         mock_validate: MagicMock,
@@ -218,7 +218,7 @@ class TestConcurrentIngestionRaces:
         except Exception as exc:
             result_list[index] = ("error", str(exc))
 
-    @patch("raghub.documents.validation.validate_upload")
+    @patch("raghub.documents.validate_upload")
     async def test_concurrent_same_checksum_does_not_duplicate(
         self,
         mock_validate: MagicMock,
@@ -319,7 +319,7 @@ class TestLargeFileHandling:
         assert total_chars > len(text) * 0.5  # at least 50% of input
         assert total_chars < len(text) * 2  # no runaway expansion
 
-    @patch("raghub.documents.validation.validate_upload")
+    @patch("raghub.documents.validate_upload")
     async def test_ingest_large_file_does_not_oom(
         self,
         mock_validate: MagicMock,

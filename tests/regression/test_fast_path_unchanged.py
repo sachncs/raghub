@@ -25,7 +25,7 @@ from unittest.mock import patch
 import pytest
 
 from raghub.config import Settings
-from raghub.generation.generator import DefaultGenerator
+from raghub.generation import DefaultGenerator
 from raghub.llm import HeuristicLLMProvider
 from raghub.models import PipelineContext, UserPrincipal
 from raghub.pipelines.rag import QueryPipeline
@@ -121,7 +121,7 @@ async def test_fast_path_with_compose_transformer_empty() -> None:
 
     embedder, store = build_pipeline()[1:3]
     from raghub.retrieval.reranker import IdentityReranker
-    from raghub.generation.generator import DefaultGenerator
+    from raghub.generation import DefaultGenerator
 
     pipeline = QueryPipeline(
         embedder=embedder,

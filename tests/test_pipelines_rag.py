@@ -340,7 +340,7 @@ class TestIngestPipelineInit:
 
     def test_sets_defaults(self, mock_embedder: MagicMock, mock_vector_store: MagicMock) -> None:
         pipe = IngestPipeline(embedder=mock_embedder, vector_store=mock_vector_store)
-        from raghub.converters.plaintext import PlainTextConverter
+        from raghub.documents import PlainTextConverter
         from raghub.ingestion.chunkers.word_window import WordWindowChunker
         from raghub.knowledge.repository import InMemoryKnowledgeRepository
         from raghub.observability import NoOpTelemetry

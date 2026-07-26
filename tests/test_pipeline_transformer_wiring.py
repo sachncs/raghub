@@ -81,7 +81,7 @@ def build_pipeline(
         vector_store=store,
         reranker=__import__("raghub.retrieval.reranker", fromlist=["IdentityReranker"]).IdentityReranker(),
     )
-    from raghub.generation.generator import DefaultGenerator
+    from raghub.generation import DefaultGenerator
 
     pipeline = QueryPipeline(
         embedder=embedder,

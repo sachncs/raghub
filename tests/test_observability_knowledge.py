@@ -451,7 +451,7 @@ class TestBuildResponseWithStructured:
 
 class TestDefaultConverter:
     def test_returns_marker_converter_when_importable(self):
-        with patch("raghub.converters.marker.MarkerConverter") as mock_mc:
+        with patch("raghub.documents.MarkerConverter") as mock_mc:
             from raghub.api.defaults import default_converter
 
             result = default_converter()
@@ -461,11 +461,11 @@ class TestDefaultConverter:
         from raghub.exceptions import ConfigurationError
 
         with patch(
-            "raghub.converters.marker.MarkerConverter",
+            "raghub.documents.MarkerConverter",
             side_effect=ConfigurationError("not configured"),
         ):
             from raghub.api.defaults import default_converter
-            from raghub.converters.plaintext import PlainTextConverter
+            from raghub.documents import PlainTextConverter
 
             result = default_converter()
             assert isinstance(result, PlainTextConverter)

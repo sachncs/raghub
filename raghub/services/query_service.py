@@ -13,7 +13,7 @@ Conversation history is **always** propagated to the LLM through two
 channels: as the legacy ``conversation`` argument (used by the
 heuristic provider) and as ``session_history`` (used by
 :class:`raghub.llm.LiteLLMProvider` via
-``build_messages``). The :class:`raghub.generation.generator.DefaultGenerator`
+``build_messages``). The :class:`raghub.generation.DefaultGenerator`
 also receives the history as a kwarg so streaming paths see the same
 context as the synchronous path.
 """

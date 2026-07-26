@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from raghub.documents.validation import detect_mime_type, validate_upload
+from raghub.documents import detect_mime_type, validate_upload
 from raghub.exceptions import DocumentError
 
 

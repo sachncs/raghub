@@ -11,7 +11,7 @@ import pytest
 from raghub import RAG
 from raghub.config import Settings
 from raghub.embeddings import HashingEmbeddingProvider
-from raghub.generation.generator import DefaultGenerator
+from raghub.generation import DefaultGenerator
 from raghub.ingestion.chunkers.word_window import WordWindowChunker
 from raghub.interfaces.observability import TelemetryProvider
 from raghub.knowledge.manifest import SourceManifest
@@ -72,7 +72,7 @@ def test_rag_evaluate_inside_event_loop() -> None:
 
 def test_rag_astream_yields_chunks() -> None:
     """``RAG.astream`` yields at least one chunk for a non-empty answer."""
-    from raghub.converters.plaintext import PlainTextConverter
+    from raghub.documents import PlainTextConverter
     from raghub.ingestion.chunkers.word_window import WordWindowChunker
 
     rag = RAG()
@@ -219,7 +219,7 @@ def test_rag_query_with_metadata_filter() -> None:
 
 def test_incremental_short_circuits_unchanged() -> None:
     """Ingesting the same bytes twice does not re-embed."""
-    from raghub.converters.plaintext import PlainTextConverter
+    from raghub.documents import PlainTextConverter
     from raghub.ingestion.chunkers.word_window import WordWindowChunker
 
     rag = RAG()
@@ -443,7 +443,7 @@ class _PlainConverter:
     """Minimal converter that wraps :class:`PlainTextConverter`."""
 
     def convert(self, *, source_uri, file_bytes, mime_type="", language="", metadata=None):
-        from raghub.converters.plaintext import PlainTextConverter
+        from raghub.documents import PlainTextConverter
 
         return PlainTextConverter().convert(
             source_uri=source_uri,

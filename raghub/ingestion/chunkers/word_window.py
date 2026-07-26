@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from raghub.documents.chunker import ChunkingPlan as LegacyPlan
-from raghub.documents.chunker import chunk_words as legacy_chunk_words
-from raghub.documents.chunker import normalize_text as normalize_text
+from raghub.documents import ChunkingPlan as LegacyPlan
+from raghub.documents import chunk_words as legacy_chunk_words
+from raghub.documents import normalize_text as normalize_text
 from raghub.interfaces.chunker import Chunker
 from raghub.models import Chunk
 from raghub.models import deterministic_id
