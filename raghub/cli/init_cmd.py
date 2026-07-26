@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from loguru import logger as loguru_logger
 
@@ -46,11 +47,12 @@ def run_subcommand(args: argparse.Namespace) -> int:
     Returns:
         ``0`` on success.
     """
-    from pathlib import Path
-
     if args.output:
         Path(args.output).write_text(SAMPLE_CONFIG, encoding="utf-8")
         loguru_logger.info("cli.init.wrote", path=str(args.output))
     else:
         loguru_logger.info(SAMPLE_CONFIG)
     return 0
+
+
+__all__ = ["SAMPLE_CONFIG", "add_parser", "run_subcommand"]

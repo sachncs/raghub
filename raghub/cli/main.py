@@ -19,7 +19,6 @@ from raghub.cli.rate_limiter import CLIRateLimiter, RateLimitExceeded
 
 CLI_LIMITER = CLIRateLimiter()
 
-# Commands that are exempt from rate limiting (e.g. health, version, run).
 RATE_LIMIT_EXEMPT_COMMANDS = frozenset({"health", "version", "run"})
 
 
@@ -42,7 +41,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    """Entry point for ``python -m raghub.cli``."""
+    """Entry point for ``python -m raghub.cli``.
+
+    Returns:
+        Process exit code; ``0`` on success and a non-zero value
+        on rate-limit failure.
+    """
     parser = build_parser()
     args = parser.parse_args()
     handler = getattr(args, "handler", None)
@@ -63,3 +67,6 @@ def main() -> int:
 
 if __name__ == "__main__":
     main()
+
+
+__all__ = ["CLI_LIMITER", "RATE_LIMIT_EXEMPT_COMMANDS", "build_parser", "main"]

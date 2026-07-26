@@ -8,13 +8,10 @@ itself is minted by :class:`raghub.services.auth_service.AuthService`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from raghub.exceptions import AuthorizationError
 from raghub.models import UserPrincipal
-
-if TYPE_CHECKING:
-    from raghub.auth.user_store import SqliteUserStore
 
 
 class RBACAuthorizationService:
@@ -22,6 +19,7 @@ class RBACAuthorizationService:
 
     Attributes:
         user_store: User store held for future admin-elevation flows.
+        logger: Optional loguru-compatible logger for audit events.
     """
 
     def __init__(self, user_store: SqliteUserStore, logger: Any | None = None) -> None:
@@ -86,12 +84,13 @@ class RBACAuthorizationService:
         Raises:
             AuthorizationError: When ``user`` is not an admin.
         """
-        if not user.is_admin:
-            if self.logger is not None:
-                log = getattr(self.logger, "warning", None)
-                if callable(log):
-                    log("audit.rbac.admin_required", user_id=user.user_id, email=user.email)
-            raise AuthorizationError("Admin access required")
+        if user.is_admin:
+            return
+        if self.logger is not None:
+            log = getattr(self.logger, "warning", None)
+            if callable(log):
+                log("audit.rbac.admin_required", user_id=user.user_id, email=user.email)
+        raise AuthorizationError("Admin access required")
 
 
 __all__ = ["RBACAuthorizationService"]

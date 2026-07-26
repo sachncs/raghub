@@ -8,12 +8,8 @@ stay small and makes the response format easy to test.
 
 from __future__ import annotations
 
-from typing import Any
-
 from raghub.models import (
     CanonicalResponse as Response,
-)
-from raghub.models import (
     PipelineResult,
     SearchResult,
 )
@@ -34,33 +30,27 @@ def build_response(result: PipelineResult) -> Response:
     """
     outputs = result.outputs
     answer = outputs.get("answer", "")
-    citations: list = list(outputs.get("citations", []))
-    hits = list(outputs.get("hits", []))
     structured = outputs.get("structured")
-    structured_payload: dict[str, Any] | None = None
+    structured_payload = None
 
     if structured is not None:
-        try:
-            answer = structured.model_dump_json()
-            structured_payload = structured.model_dump()
-        except Exception:
-            answer = str(structured)
+        answer = structured.model_dump_json()
+        structured_payload = structured.model_dump()
 
-    metadata: dict[str, Any] = {
+    metadata = {
         "pipeline_id": result.pipeline_id,
         "structured": structured is not None,
     }
-    # Phase 8.7: surface the resolved advanced-RAG config that the
-    # facade attached to the pipeline outputs via the context.
     resolved_config = outputs.get("resolved_config")
     if resolved_config:
         metadata["resolved_config"] = resolved_config
 
     return Response(
         answer=answer,
-        citations=citations,
+        citations=list(outputs.get("citations", [])),
         source_chunks=[
-            SearchResult(chunk_id=h.chunk_id, score=h.score, chunk=h.chunk) for h in hits
+            SearchResult(chunk_id=h.chunk_id, score=h.score, chunk=h.chunk)
+            for h in outputs.get("hits", [])
         ],
         metadata=metadata,
         structured=structured_payload,
@@ -68,3 +58,6 @@ def build_response(result: PipelineResult) -> Response:
         planner_trace=list(outputs.get("planner_trace") or []) or None,
         tools_invoked=list(outputs.get("tools_invoked") or []),
     )
+
+
+__all__ = ["build_response"]

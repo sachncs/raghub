@@ -271,10 +271,10 @@ class QueryTransformsConfig(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-_TRUTHY = {"1", "true", "yes", "on"}
+TRUTHY = {"1", "true", "yes", "on"}
 
 
-def _env_bool(name: str, default: bool) -> bool:
+def env_bool(name: str, default: bool) -> bool:
     """Return the boolean value of ``os.getenv(name, ...)``.
 
     Treats ``"1"`` / ``"true"`` / ``"yes"`` / ``"on"`` (case-insensitive)
@@ -284,13 +284,13 @@ def _env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
         return default
-    return raw.strip().lower() in _TRUTHY
+    return raw.strip().lower() in TRUTHY
 
 
-_TRANSFORM_NAMES = ("hyde", "multi_query", "step_back", "decompose")
+TRANSFORM_NAMES = ("hyde", "multi_query", "step_back", "decompose")
 
 
-def _csv_to_transforms(raw: str, default: list[str]) -> list[str]:
+def csv_to_transforms(raw: str, default: list[str]) -> list[str]:
     """Parse a comma-separated env var into a validated transform list.
 
     Unknown names are dropped silently — config files are validated by
@@ -298,36 +298,32 @@ def _csv_to_transforms(raw: str, default: list[str]) -> list[str]:
     typo doesn't prevent startup.
     """
     if not raw:
-        return [name for name in default if name in _TRANSFORM_NAMES]
+        return [name for name in default if name in TRANSFORM_NAMES]
     out: list[str] = []
     for chunk in raw.split(","):
         name = chunk.strip().lower()
-        if name and name in _TRANSFORM_NAMES and name not in out:
+        if name and name in TRANSFORM_NAMES and name not in out:
             out.append(name)
     return out
 
 
 def read_toml_file(path: Path) -> dict[str, Any]:
-    """Load a TOML file using :mod:`tomllib` (3.11+) or :mod:`tomli`.
+    """Load a TOML file using :mod:`tomllib` (3.11+).
 
     Args:
         path: Path to the TOML file.
 
     Returns:
-        The parsed dict, or ``{}`` if the file is empty. Missing
-        optional dependencies are non-fatal: the caller logs a
-        warning and falls back to YAML.
+        The parsed dict, or ``{}`` if the file is empty.
+
+    Raises:
+        FileNotFoundError: When ``path`` doesn't exist.
+        tomllib.TOMLDecodeError: When the TOML is malformed.
+        OSError: When the file cannot be read.
     """
     import tomllib
 
-    try:
-        return tomllib.loads(path.read_text(encoding="utf-8")) or {}
-    except ImportError:
-        # Neither tomllib nor tomli is available; return empty so
-        # the YAML profile is used.
-        return {}
-    except Exception:
-        return {}
+    return tomllib.loads(path.read_text(encoding="utf-8")) or {}
 
 
 def load_settings(profile: str | None = None) -> AppSettings:
@@ -419,7 +415,7 @@ def load_settings(profile: str | None = None) -> AppSettings:
     # built from them so config files can still express them as YAML.
     advanced_payload: dict[str, Any] = {
         "agent": AgentConfig(
-            enabled=_env_bool("RAG_AGENT_ENABLED", payload.get("agent", {}).get("enabled", False)),
+            enabled=env_bool("RAG_AGENT_ENABLED", payload.get("agent", {}).get("enabled", False)),
             max_steps=int(
                 os.getenv("RAG_AGENT_MAX_STEPS", str(payload.get("agent", {}).get("max_steps", 8)))
             ),
@@ -439,13 +435,13 @@ def load_settings(profile: str | None = None) -> AppSettings:
                 "RAG_AGENT_PLANNER_MODEL", payload.get("agent", {}).get("planner_model")
             )
             or None,
-            enable_streaming=_env_bool(
+            enable_streaming=env_bool(
                 "RAG_AGENT_STREAMING",
                 payload.get("agent", {}).get("enable_streaming", True),
             ),
         ),
         "web_search": WebSearchConfig(
-            enabled=_env_bool("RAG_WEB_ENABLED", payload.get("web_search", {}).get("enabled", False)),
+            enabled=env_bool("RAG_WEB_ENABLED", payload.get("web_search", {}).get("enabled", False)),
             max_results=int(
                 os.getenv(
                     "RAG_WEB_MAX_RESULTS",
@@ -463,10 +459,10 @@ def load_settings(profile: str | None = None) -> AppSettings:
                 payload.get("web_search", {}).get("safe_search", "moderate"),
             ),
         ),
-        "graph_search_enabled": _env_bool(
+        "graph_search_enabled": env_bool(
             "RAG_GRAPH_ENABLED", payload.get("graph_search_enabled", False)
         ),
-        "summary_search_enabled": _env_bool(
+        "summary_search_enabled": env_bool(
             "RAG_SUMMARY_ENABLED", payload.get("summary_search_enabled", False)
         ),
         "reranker": RerankerConfig(
@@ -485,7 +481,7 @@ def load_settings(profile: str | None = None) -> AppSettings:
             ),
         ),
         "long_context_pass": LongContextConfig(
-            enabled=_env_bool(
+            enabled=env_bool(
                 "RAG_LONG_CONTEXT_ENABLED",
                 payload.get("long_context_pass", {}).get("enabled", False),
             ),
@@ -516,13 +512,13 @@ def load_settings(profile: str | None = None) -> AppSettings:
                     str(payload.get("hybrid", {}).get("vector_weight", 0.7)),
                 )
             ),
-            colbert_enabled=_env_bool(
+            colbert_enabled=env_bool(
                 "RAG_HYBRID_COLBERT",
                 payload.get("hybrid", {}).get("colbert_enabled", False),
             ),
         ),
         "query_transforms": QueryTransformsConfig(
-            enabled=_csv_to_transforms(
+            enabled=csv_to_transforms(
                 os.getenv("RAG_TRANSFORMS_ENABLED", ""),
                 payload.get("query_transforms", {}).get("enabled", []),
             ),
@@ -567,3 +563,18 @@ def load_settings(profile: str | None = None) -> AppSettings:
             )
     settings.ensure_dirs()
     return settings
+
+
+__all__ = [
+    "AgentConfig",
+    "AppSettings",
+    "HybridConfig",
+    "LongContextConfig",
+    "QueryTransformsConfig",
+    "RerankerConfig",
+    "WebSearchConfig",
+    "csv_to_transforms",
+    "env_bool",
+    "load_settings",
+    "read_toml_file",
+]

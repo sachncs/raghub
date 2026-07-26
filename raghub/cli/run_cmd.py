@@ -13,6 +13,8 @@ import argparse
 
 from loguru import logger as loguru_logger
 
+import uvicorn
+
 
 def add_parser(subparsers: argparse._SubParsersAction) -> None:
     """Register the ``run`` subcommand.
@@ -42,8 +44,6 @@ def run_subcommand(args: argparse.Namespace) -> int:
         Uvicorn's process exit code (typically ``0`` on a clean
         ``SIGINT`` shutdown and ``1`` on a bind error).
     """
-    import uvicorn
-
     loguru_logger.info(
         "cli.run.starting",
         host=args.host,

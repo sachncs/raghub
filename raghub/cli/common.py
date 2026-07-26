@@ -6,12 +6,12 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+import yaml
 from loguru import logger as loguru_logger
 
-if TYPE_CHECKING:
-    from raghub.config.settings import AppSettings
+from raghub.config.settings import AppSettings, load_settings
 
 
 def load_settings_or_path(path: str | None) -> AppSettings:
@@ -25,12 +25,8 @@ def load_settings_or_path(path: str | None) -> AppSettings:
     Returns:
         The loaded :class:`AppSettings`.
     """
-    from raghub.config.settings import AppSettings, load_settings
-
     if path is None:
         return load_settings()
-    import yaml
-
     if str(path).endswith(".toml"):
         import tomllib
 

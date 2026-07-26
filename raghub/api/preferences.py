@@ -12,11 +12,30 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from raghub.api.app import require_bearer
 from raghub.api.dependencies import get_application
 from raghub.services.application import DynamicRagApplication
 
 router = APIRouter()
+
+
+def require_bearer(authorization: str | None) -> str:
+    """Extract the bearer token from an ``Authorization`` header.
+
+    Local helper so this module does not depend on
+    :mod:`raghub.api.app` (which would be a circular import).
+
+    Args:
+        authorization: The raw header value.
+
+    Returns:
+        The trimmed token string.
+
+    Raises:
+        HTTPException: 401 if the header is missing or not bearer-formatted.
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    return authorization.split(" ", 1)[1].strip()
 
 
 class PreferencesResponse(BaseModel):
@@ -77,10 +96,7 @@ async def user_id_from_token(
     Raises:
         HTTPException: 401 when the token is invalid.
     """
-    try:
-        user, _ = await app_service.auth.resolve_user(token)
-    except Exception as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    user, _ = await app_service.auth.resolve_user(token)
     return user.user_id
 
 
@@ -106,10 +122,7 @@ async def get_preferences(
     token = require_bearer(authorization)
     user_id = await user_id_from_token(app_service, token)
     store = get_user_store(app_service)
-    try:
-        prefs = await store.get_prefs(user_id)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    prefs = await store.get_prefs(user_id)
     return PreferencesResponse(prefs=prefs or {})
 
 
@@ -137,11 +150,8 @@ async def patch_preferences(
     token = require_bearer(authorization)
     user_id = await user_id_from_token(app_service, token)
     store = get_user_store(app_service)
-    try:
-        await store.set_prefs(user_id, dict(payload.prefs or {}))
-        prefs = await store.get_prefs(user_id)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    await store.set_prefs(user_id, dict(payload.prefs or {}))
+    prefs = await store.get_prefs(user_id)
     return PreferencesResponse(prefs=prefs or {})
 
 
@@ -168,10 +178,13 @@ async def delete_preference(
     token = require_bearer(authorization)
     user_id = await user_id_from_token(app_service, token)
     store = get_user_store(app_service)
-    try:
-        await store.delete_pref(user_id, key)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    await store.delete_pref(user_id, key)
 
 
-__all__ = ["router"]
+__all__ = [
+    "PreferencesPatch",
+    "PreferencesResponse",
+    "get_user_store",
+    "router",
+    "user_id_from_token",
+]
