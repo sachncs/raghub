@@ -8,7 +8,7 @@ whitespace fallback when tiktoken is unavailable).
 from __future__ import annotations
 
 from raghub.models import ConversationTurn
-from raghub.prompts.builder import PromptBuilder, PromptConfig, TokenCounter
+from raghub.prompts import PromptBuilder, PromptConfig, TokenCounter
 
 
 class TestTokenCounter:
