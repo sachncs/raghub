@@ -9,7 +9,6 @@ env:
   JWT_SECRET: "test-secret-must-be-32-bytes-or-longer-for-sha256"
   RAG_PROFILE: "development"
   CORS_ORIGINS: "http://testserver"
-  RAGHUB_RUN_PLATFORM_TESTS: "1"
 
 jobs:
   quality:

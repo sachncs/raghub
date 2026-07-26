@@ -8,14 +8,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.skipif(
-    not os.getenv("RAGHUB_RUN_PLATFORM_TESTS"),
-    reason=(
-        "Set RAGHUB_RUN_PLATFORM_TESTS=1 to run the legacy integration tests. "
-        "The end-to-end service test boots a full async stack."
-    ),
-)
-
 
 def _make_app(tmp_path: Path):
     """Build a ``DynamicRagApplication`` against a temp data dir."""
