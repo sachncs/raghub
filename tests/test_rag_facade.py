@@ -227,12 +227,12 @@ def test_rag_aquery_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_rag_evaluate_without_factory(monkeypatch: pytest.MonkeyPatch) -> None:
     """evaluate() with no response_factory calls aquery internally."""
-    from raghub.models import CanonicalResponse
+    from raghub.models import Response
 
     rag = RAG()
 
-    async def _mock_aquery(*args: object, **kwargs: object) -> CanonicalResponse:
-        return CanonicalResponse(answer="42", citations=[])
+    async def _mock_aquery(*args: object, **kwargs: object) -> Response:
+        return Response(answer="42", citations=[])
 
     monkeypatch.setattr(rag, "aquery", _mock_aquery)
 
@@ -412,7 +412,7 @@ def test_rag_ingest_async_with_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
         def submit(*args: object, **kwargs: object) -> str:
             return "mock-job-1"
 
-    monkeypatch.setattr("raghub.api.rag.ResumableBackgroundIngestionService", _MockBgService)
+    monkeypatch.setattr("raghub.rag.ResumableBackgroundIngestionService", _MockBgService)
 
     rag = RAG()
     rag.settings.data_dir.mkdir(parents=True, exist_ok=True)

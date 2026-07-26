@@ -18,7 +18,7 @@ from raghub.services.application import DynamicRagApplication
 
 def _build_app(tmp: Path) -> tuple[Any, SqliteUserStore]:
     """Build a FastAPI app with a fresh user store + application container."""
-    from raghub.api.rag import RAG
+    from raghub.rag import RAG
     from raghub.conversation import InMemoryConversationStore
     from raghub.repositories import UnitOfWork
     from raghub.storage.database import DatabaseManager

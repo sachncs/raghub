@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from raghub.api.rag import RAG
+from raghub.rag import RAG
 from raghub.config import Settings
 from raghub.models import UserPrincipal
 

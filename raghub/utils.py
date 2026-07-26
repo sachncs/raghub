@@ -171,6 +171,28 @@ async def maybe_await(value: T | Awaitable[T]) -> T:
     return value  # type: ignore[return-value]
 
 
+def maybe_await_sync(awaitable: Any) -> Any:
+    """Run ``awaitable`` whether or not a loop is already running.
+
+    Sync counterpart to :func:`maybe_await`. If a loop is running,
+    returns the coroutine so the caller can ``await`` it. Otherwise
+    wraps ``awaitable`` in :func:`asyncio.run` so the sync facade
+    still works.
+
+    Args:
+        awaitable: The coroutine to schedule.
+
+    Returns:
+        Either the resolved value (sync path) or the coroutine
+        (async-from-async path).
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(awaitable)
+    return awaitable
+
+
 class DurationTimer:
     """Wall-clock timer used by orchestration pipelines.
 

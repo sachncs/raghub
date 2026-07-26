@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from raghub.api.defaults import default_converter
+from raghub.documents import PlainTextConverter as default_converter
 from raghub.documents import (
     DocumentLifecycleManager,
     validate_upload,
