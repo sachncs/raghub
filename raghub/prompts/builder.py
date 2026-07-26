@@ -27,6 +27,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import tiktoken
+
 from raghub.models import ConversationTurn
 
 
@@ -52,35 +54,22 @@ class PromptConfig:
 class TokenCounter:
     """Rough token counter using ``tiktoken`` with a word-splitting fallback.
 
-    The class attempts to load a tiktoken encoding at construction time
-    (default ``cl100k_base``). If the dependency is unavailable it falls
-    back to whitespace-separated word counting, which is faster but
-    systematically over-counts for languages without Latin word
-    boundaries.
+    The class loads a tiktoken encoding at construction time (default
+    ``cl100k_base``). Setting :attr:`enc` to ``None`` enables whitespace
+    word counting as a lightweight fallback.
 
     Attributes:
         enc: The loaded tiktoken encoding, or ``None`` if unavailable.
     """
 
     def __init__(self, encoding: str = "cl100k_base") -> None:
-        """Try to load ``encoding`` from ``tiktoken``.
+        """Load ``encoding`` from ``tiktoken``.
 
         Args:
             encoding: The tiktoken encoding name. ``cl100k_base`` matches
                 GPT-3.5/4 tokenisation and is a reasonable default.
         """
-        self.enc: Any = None
-        # Broad ``except`` because tiktoken raises several different
-        # exceptions for missing data files and unsupported encodings;
-        # we don't want any of them to crash service startup.
-        try:
-            import tiktoken
-
-            self.enc = tiktoken.get_encoding(encoding)
-        except Exception:
-            # Fallback path: word counts. Acceptable for English;
-            # over-estimates for languages without Latin word boundaries.
-            pass
+        self.enc: tiktoken.Encoding | None = tiktoken.get_encoding(encoding)
 
     def count(self, text: str) -> int:
         """Return the token count for ``text``.
@@ -95,6 +84,11 @@ class TokenCounter:
         if self.enc is None:
             return len(text.split())
         return len(self.enc.encode(text))
+
+    def decode_tokens(self, tokens: list[int]) -> str:
+        """Decode tiktoken token IDs into text."""
+        assert self.enc is not None
+        return str(self.enc.decode(tokens))
 
     def truncate(self, text: str, max_tokens: int) -> str:
         """Return ``text`` truncated to at most ``max_tokens`` tokens.
@@ -117,7 +111,7 @@ class TokenCounter:
             # when tiktoken is given a partial sequence. We accept this
             # rather than stripping characters because the loss is
             # strictly bounded by one token.
-            return self.enc.decode(tokens)  # type: ignore[no-any-return]
+            return self.decode_tokens(tokens)
         words = text.split()[:max_tokens]
         return " ".join(words)
 

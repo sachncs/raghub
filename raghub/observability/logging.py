@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import re
 import sys
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -162,8 +163,6 @@ class LoguruSpan(Span):
             metrics: The metrics sink that receives the duration.
             attributes: Structured attributes attached to the span.
         """
-        import time
-
         self.name = name
         self.logger = logger
         self.metrics = metrics
@@ -172,8 +171,6 @@ class LoguruSpan(Span):
 
     def end(self) -> None:
         """Record duration into the metrics sink and log completion."""
-        import time
-
         duration_ms = (time.perf_counter() - self.started) * 1000.0
         self.metrics.record_latency(f"span.{self.name}", duration_ms, **self.attributes)
         self.logger.info(f"span.end.{self.name}", duration_ms=duration_ms, **self.attributes)

@@ -14,26 +14,44 @@ shape that :meth:`generate` and :meth:`astream` would produce.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import mimetypes
 from collections.abc import AsyncIterator, Sequence
-from typing import Any
+from types import TracebackType
+from typing import Any, Literal, Self
+
+import litellm
 
 from raghub.exceptions import ConfigurationError, LLMError
 from raghub.llm.base import BaseLLMProvider
 from raghub.models import ConversationTurn
 
-litellm: Any
+LITELLM_AVAILABLE = True
+OptionalImportError: Exception | None = None
 
-try:
-    import litellm
 
-    LITELLM_AVAILABLE = True
-    OptionalImportError: Exception | None = None
-except Exception as exc:  # pragma: no cover - optional dep
-    litellm = None
-    LITELLM_AVAILABLE = False
-    OptionalImportError = exc
+class LLMValueErrorBoundary:
+    """Preserve legacy ``ValueError`` translation without catching provider errors."""
+
+    def __init__(self, message: str) -> None:
+        """Store the domain-error message prefix."""
+        self.message = message
+
+    def __enter__(self) -> Self:
+        """Enter the error boundary."""
+        return self
+
+    def __exit__(
+        self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> Literal[False]:
+        """Translate direct ``ValueError`` failures and propagate all others."""
+        if exception_type is ValueError and exception is not None:
+            raise LLMError(f"{self.message}: {exception}") from exception
+        return False
 
 
 class LiteLLMProvider(BaseLLMProvider):
@@ -194,10 +212,8 @@ class LiteLLMProvider(BaseLLMProvider):
         }
         if self.timeout_seconds is not None:
             options["timeout"] = self.timeout_seconds
-        try:
+        with LLMValueErrorBoundary("LiteLLM completion failed"):
             response = litellm.completion(**options)
-        except Exception as exc:
-            raise LLMError(f"LiteLLM completion failed: {exc}") from exc
 
         choice = response["choices"][0] if isinstance(response, dict) else response.choices[0]
         message = choice["message"] if isinstance(choice, dict) else choice.message
@@ -235,10 +251,8 @@ class LiteLLMProvider(BaseLLMProvider):
         }
         if self.timeout_seconds is not None:
             options["timeout"] = self.timeout_seconds
-        try:
+        with LLMValueErrorBoundary("LiteLLM async completion failed"):
             response = await litellm.acompletion(**options)
-        except Exception as exc:
-            raise LLMError(f"LiteLLM async completion failed: {exc}") from exc
         choice = response["choices"][0] if isinstance(response, dict) else response.choices[0]
         message = choice["message"] if isinstance(choice, dict) else choice.message
         self.record_usage(response)
@@ -286,15 +300,12 @@ class LiteLLMProvider(BaseLLMProvider):
 
         Token usage is captured by asking LiteLLM to include it in
         the final chunk (``stream_options={"include_usage": True}``).
-        The streaming loop honours :pyattr:`timeout_seconds` by
-        racing the chunk iterator against :func:`asyncio.wait_for` so
-        a slow LLM does not block indefinitely. The implementation
-        reads each chunk's ``delta.content`` when present and
+        The streaming loop honours :pyattr:`timeout_seconds` with
+        :func:`asyncio.timeout` so a slow LLM does not block indefinitely.
+        The implementation reads each chunk's ``delta.content`` when present and
         tolerates the dict / object shapes that LiteLLM emits
         across versions.
         """
-        import asyncio
-
         messages = self.build_messages(
             system_prompt=system_prompt,
             conversation=conversation,
@@ -315,28 +326,13 @@ class LiteLLMProvider(BaseLLMProvider):
         }
         if self.timeout_seconds is not None:
             options["timeout"] = self.timeout_seconds
-        try:
+        with LLMValueErrorBoundary("LiteLLM streaming failed"):
             response = await litellm.acompletion(**options)
-        except Exception as exc:
-            raise LLMError(f"LiteLLM streaming failed: {exc}") from exc
 
         prompt_tokens = 0
         completion_tokens = 0
-        try:
-            iterator = response.__aiter__()
-            while True:
-                try:
-                    if self.timeout_seconds is not None:
-                        chunk = await asyncio.wait_for(
-                            iterator.__anext__(),
-                            timeout=self.timeout_seconds,
-                        )
-                    else:
-                        chunk = await iterator.__anext__()
-                except StopAsyncIteration:
-                    break
-                # Some chunks carry a final usage object; capture it for
-                # telemetry even when streaming.
+        async with asyncio.timeout(self.timeout_seconds):
+            async for chunk in response:
                 usage = (
                     chunk.get("usage") if isinstance(chunk, dict) else getattr(chunk, "usage", None)
                 )
@@ -358,8 +354,6 @@ class LiteLLMProvider(BaseLLMProvider):
                 content = delta.get("content")
                 if content:
                     yield content
-        except TimeoutError as exc:
-            raise LLMError("LiteLLM streaming timed out") from exc
 
         if prompt_tokens or completion_tokens:
             self.last_usage = {

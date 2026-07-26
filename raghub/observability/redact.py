@@ -35,7 +35,11 @@ class RedactingTelemetry(TelemetryProvider):
     """Telemetry wrapper that redacts secret-looking keys."""
 
     def __init__(self, inner: TelemetryProvider) -> None:
-        """Wrap ``inner`` with secret-redaction."""
+        """Wrap ``inner`` with secret-redaction.
+
+        Args:
+            inner: The downstream provider receiving redacted calls.
+        """
         self.inner = inner
 
     def info(self, message: str, **kwargs: Any) -> None:
