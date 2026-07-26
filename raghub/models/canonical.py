@@ -227,6 +227,9 @@ class Response(BaseModel):
     source_chunks: list[SearchResult] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     structured: dict[str, Any] | None = None
+    transforms_applied: list[str] = Field(default_factory=list)
+    planner_trace: list[dict[str, Any]] | None = None
+    tools_invoked: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

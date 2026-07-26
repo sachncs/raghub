@@ -12,7 +12,7 @@ JWT library is involved.
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from raghub.exceptions import AuthenticationError
 from raghub.models import AuthLoginResponse, ConversationTurn, UserPrincipal
@@ -117,8 +117,29 @@ class AuthService(ServiceMixin):
             allowed_companies=record.allowed_companies,
             allowed_groups=record.allowed_groups,
             is_admin=record.is_admin,
+            tool_settings=await self.load_tool_settings(record.user_id),
         )
         return user, list(session.history)
+
+    async def load_tool_settings(self, user_id: str) -> dict[str, Any]:
+        """Return the ``tool_settings`` prefs blob for ``user_id``.
+
+        Args:
+            user_id: The owning user's id.
+
+        Returns:
+            The stored ``tool_settings`` dict, or ``{}`` when the
+            store lacks the method (e.g. a custom in-memory store
+            used by tests) so the principal is always well-formed.
+        """
+        store = getattr(self.container, "user_store", None)
+        if store is None or not hasattr(store, "get_pref"):
+            return {}
+        try:
+            value = await store.get_pref(user_id, "tool_settings")
+        except Exception:
+            return {}
+        return value if isinstance(value, dict) else {}
 
 
 __all__ = ["AuthService"]

@@ -184,26 +184,27 @@ class DocumentIngestionService:
         self.virus_scan_hook = virus_scan_hook or (lambda _: None)
         # ``plan`` is retained for backwards compatibility only.
         self.plan = plan
-        # Lazy pipeline construction so callers that pre-build one
-        # (e.g. tests) can inject it directly. The default wires the
-        # vector store from ``uow`` and the embedder from the
-        # constructor arguments.
-        self._pipeline: IngestPipeline | None = pipeline
+        # ``make_pipeline`` is the public seam for tests: the
+        # default constructor leaves it ``None`` and the service
+        # builds the real pipeline on first use. Tests can inject
+        # a mock by assigning directly to the instance attribute.
+        self.make_pipeline: IngestPipeline | None = pipeline
 
-    @property
-    def pipeline(self) -> IngestPipeline:
-        """Lazily build the underlying :class:`IngestPipeline`."""
-        if self._pipeline is None:
-            from raghub.api.defaults import default_converter
-            from raghub.ingestion.chunkers.word_window import WordWindowChunker
+    def build_pipeline(self) -> IngestPipeline:
+        """Construct the default :class:`IngestPipeline`.
 
-            self._pipeline = IngestPipeline(
-                converter=default_converter(),
-                chunker=WordWindowChunker(),
-                embedder=self.embedding_provider,
-                vector_store=self.uow.vector_store,
-            )
-        return self._pipeline
+        Wired from the embedder + vector store + default chunker
+        + converter. The result is cached on first call.
+        """
+        from raghub.api.defaults import default_converter
+        from raghub.ingestion.chunkers.word_window import WordWindowChunker
+
+        return IngestPipeline(
+            converter=default_converter(),
+            chunker=WordWindowChunker(),
+            embedder=self.embedding_provider,
+            vector_store=self.uow.vector_store,
+        )
 
     def submit_async(
         self,
@@ -315,7 +316,10 @@ class DocumentIngestionService:
 
         # Build the canonical pipeline context and run the new pipeline.
         context = PipelineContext(pipeline_name="ingest", metadata={"user_id": owner.email})
-        result = await self.pipeline.run(
+        # Lazily build the pipeline if no test injected one.
+        if self.make_pipeline is None:
+            self.make_pipeline = self.build_pipeline()
+        result = await self.make_pipeline.run(
             context,
             file_bytes=file_bytes,
             source_uri=file_name,
