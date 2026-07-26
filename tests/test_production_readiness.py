@@ -430,8 +430,8 @@ class TestDocumentIngestionServiceWrapper:
                 },
             )
 
-        svc._pipeline = MagicMock()
-        svc._pipeline.run = fake_run  # type: ignore[assignment]
+        svc.make_pipeline = MagicMock()
+        svc.make_pipeline.run = fake_run  # type: ignore[assignment]
         owner = UserPrincipal(email="alice@acme.com")
         result = await svc.ingest(
             file_name="notes.txt",
@@ -482,8 +482,8 @@ class TestDocumentIngestionServiceWrapper:
                 },
             )
 
-        svc._pipeline = MagicMock()
-        svc._pipeline.run = fake_run  # type: ignore[assignment]
+        svc.make_pipeline = MagicMock()
+        svc.make_pipeline.run = fake_run  # type: ignore[assignment]
         owner = UserPrincipal(email="alice@acme.com")
         result = await svc.ingest(
             file_name="notes.txt",

@@ -131,11 +131,11 @@ def test_conversation_history_isolated_per_session() -> None:
     alice = _make_user("alice@x", "Apple")
     bob = _make_user("bob@x", "Microsoft")
 
-    async def _drive() -> None:
+    async def drive() -> None:
         await rag.aquery("revenue", user=alice, session_id="alice-s")
         await rag.aquery("revenue", user=bob, session_id="bob-s")
 
-    asyncio.run(_drive())
+    asyncio.run(drive())
 
     alice_hist = rag.conversation_history("alice-s", user=alice)
     bob_hist = rag.conversation_history("bob-s", user=bob)
@@ -157,11 +157,11 @@ def test_conversation_history_supports_followup() -> None:
     _seed_chunks(rag, "Apple", "alice@x", "apple revenue grew 12%")
     alice = _make_user("alice@x", "Apple")
 
-    async def _drive() -> None:
+    async def drive() -> None:
         await rag.aquery("revenue", user=alice, session_id="s1")
         await rag.aquery("and growth?", user=alice, session_id="s1")
 
-    asyncio.run(_drive())
+    asyncio.run(drive())
     history = rag.conversation_history("s1", user=alice)
     assert len(history) >= 2
     assert history[0].question == "revenue"
@@ -179,12 +179,12 @@ def test_concurrent_users_isolated() -> None:
         response = await rag.aquery("secret", user=user, session_id=f"s-{user.user_id}")
         return [c.document_id for c in response.citations]
 
-    async def _drive() -> None:
+    async def drive() -> None:
         results = await asyncio.gather(*[_ask(u) for u in users])
         for i, docs in enumerate(results):
             assert all(d == f"Company{i}-doc" for d in docs), f"user {i} saw wrong docs: {docs}"
 
-    asyncio.run(_drive())
+    asyncio.run(drive())
 
 
 def test_unauthorized_user_does_not_see_admin_data() -> None:

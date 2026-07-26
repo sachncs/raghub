@@ -32,7 +32,7 @@ def test_user_cannot_bypass_rbac_via_metadata_filter(rag: RAG) -> None:
     alice = UserPrincipal(user_id="alice@x", email="alice@x", allowed_companies=["Apple"])
     bob = UserPrincipal(user_id="bob@x", email="bob@x", allowed_companies=["Microsoft"])
 
-    async def _drive() -> None:
+    async def drive() -> None:
         await rag.aingest(
             b"Apple revenue grew 25%. " * 5,
             source_uri="file://apple.txt",
@@ -54,7 +54,7 @@ def test_user_cannot_bypass_rbac_via_metadata_filter(rag: RAG) -> None:
         )
         assert not any("msft" in c.source_uri for c in r.citations)
 
-    asyncio.run(_drive())
+    asyncio.run(drive())
 
 
 def test_session_id_does_not_leak_other_users_history(rag: RAG) -> None:
@@ -67,7 +67,7 @@ def test_session_id_does_not_leak_other_users_history(rag: RAG) -> None:
     alice = UserPrincipal(user_id="alice@x", email="alice@x", allowed_companies=["Apple"])
     bob = UserPrincipal(user_id="bob@x", email="bob@x", allowed_companies=["Microsoft"])
 
-    async def _drive() -> None:
+    async def drive() -> None:
         await rag.aingest(b"Apple revenue " * 5, source_uri="file://apple.txt", user=alice)
         await rag.aingest(b"MSFT cloud " * 5, source_uri="file://msft.txt", user=bob)
 
@@ -88,7 +88,7 @@ def test_session_id_does_not_leak_other_users_history(rag: RAG) -> None:
         # user yields the empty list (anonymous namespace).
         assert rag.conversation_history("secret") == []
 
-    asyncio.run(_drive())
+    asyncio.run(drive())
 
 
 def test_empty_allow_list_sees_nothing(rag: RAG) -> None:
@@ -96,10 +96,10 @@ def test_empty_allow_list_sees_nothing(rag: RAG) -> None:
     unauth = UserPrincipal(user_id="eve@x", email="eve@x", allowed_companies=[], is_admin=False)
     alice = UserPrincipal(user_id="alice@x", email="alice@x", allowed_companies=["Apple"])
 
-    async def _drive() -> None:
+    async def drive() -> None:
         await rag.aingest(b"Apple revenue " * 5, source_uri="file://apple.txt", user=alice)
         r = await rag.aquery("revenue", user=unauth)
         assert r.answer is not None
         assert not r.citations  # No documents
 
-    asyncio.run(_drive())
+    asyncio.run(drive())

@@ -18,14 +18,14 @@ def tmp_db(tmp_path):
     return str(tmp_path / "test_sessions.db")
 
 
-async def _make_store(db_path: str) -> SqliteSessionStore:
+async def make_session_store(db_path: str) -> SqliteSessionStore:
     store = SqliteSessionStore(db_path, timeout_seconds=60)
     await store.initialize()
     return store
 
 
 async def test_create_and_get_by_token(tmp_db: str) -> None:
-    store = await _make_store(tmp_db)
+    store = await make_session_store(tmp_db)
     session = await store.create_session("user1")
     assert session.token is not None
     loaded = await store.get_by_token(session.token)
@@ -44,13 +44,13 @@ async def test_get_by_token_expired(tmp_db: str) -> None:
 
 
 async def test_get_by_token_nonexistent(tmp_db: str) -> None:
-    store = await _make_store(tmp_db)
+    store = await make_session_store(tmp_db)
     loaded = await store.get_by_token("nonexistent-token")
     assert loaded is None
 
 
 async def test_append_and_get_history(tmp_db: str) -> None:
-    store = await _make_store(tmp_db)
+    store = await make_session_store(tmp_db)
     session = await store.create_session("user1")
     turn = ConversationTurn(question="Hello", answer="Hi there!")
     await store.append_history(session.session_id, turn)
@@ -61,7 +61,7 @@ async def test_append_and_get_history(tmp_db: str) -> None:
 
 
 async def test_append_history_nonexistent_session(tmp_db: str) -> None:
-    store = await _make_store(tmp_db)
+    store = await make_session_store(tmp_db)
     turn = ConversationTurn(question="Hello", answer="Hi")
     await store.append_history("nonexistent", turn)
     history = await store.get_history("nonexistent")
@@ -80,7 +80,7 @@ async def test_get_by_token_updates_expiry(tmp_db: str) -> None:
 
 
 async def test_delete_session(tmp_db: str) -> None:
-    store = await _make_store(tmp_db)
+    store = await make_session_store(tmp_db)
     session = await store.create_session("user1")
     await store.delete_session(session.session_id)
     loaded = await store.get_session(session.session_id)
@@ -88,7 +88,7 @@ async def test_delete_session(tmp_db: str) -> None:
 
 
 async def test_multiple_sessions_same_user(tmp_db: str) -> None:
-    store = await _make_store(tmp_db)
+    store = await make_session_store(tmp_db)
     s1 = await store.create_session("user1")
     s2 = await store.create_session("user1")
     assert s1.session_id != s2.session_id

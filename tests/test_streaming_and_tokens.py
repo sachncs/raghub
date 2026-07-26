@@ -66,11 +66,11 @@ def test_default_generator_records_tokens_after_stream() -> None:
     llm = _StreamingMockLLM()
     gen = DefaultGenerator(llm=llm)
 
-    async def _drive() -> None:
+    async def drive() -> None:
         async for _ in gen.astream(question="hi", context=[]):
             pass
 
-    asyncio.run(_drive())
+    asyncio.run(drive())
     usage = gen.record_tokens()
     assert usage is not None
     assert usage["prompt"] == 12
@@ -83,14 +83,14 @@ def test_default_generator_aggregates_usage_across_chunks() -> None:
     llm = _StreamingMockLLM()
     gen = DefaultGenerator(llm=llm)
 
-    async def _drive() -> list[str]:
+    async def drive() -> list[str]:
         chunks: list[str] = []
         async for piece in gen.astream(question="hi", context=[]):
             if piece:
                 chunks.append(piece)
         return chunks
 
-    chunks = asyncio.run(_drive())
+    chunks = asyncio.run(drive())
     assert "".join(chunks) == "hello world!"
 
 
@@ -199,12 +199,12 @@ def test_litellm_provider_passes_stream_options() -> None:
     try:
         provider = litellm_mod.LiteLLMProvider(model="gpt-4o-mini", api_key="x")
 
-        async def _drive() -> None:
+        async def drive() -> None:
             gen = provider.astream(system_prompt="", question="hi")
             with suppress(StopAsyncIteration):
                 await gen.__anext__()
 
-        asyncio.run(_drive())
+        asyncio.run(drive())
     finally:
         litellm_mod.litellm = saved
 

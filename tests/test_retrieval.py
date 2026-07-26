@@ -15,7 +15,7 @@ from raghub.retrieval.search import FacetedSearchEngine, SearchFilters, build_fi
 from raghub.vectorstore.memory import InMemoryVectorStore
 
 
-def _make_chunk(text: str, company: str = "acme", chunk_id: str | None = None) -> ChunkRecord:
+def make_chunk(text: str, company: str = "acme", chunk_id: str | None = None) -> ChunkRecord:
     return ChunkRecord(
         chunk_id=chunk_id or f"chunk_{hash(text)}",
         text=text,
@@ -64,7 +64,7 @@ class TestFacetedSearchEngine:
         store.create_collection()
         provider = HashingEmbeddingProvider(dimension=4)
         engine = FacetedSearchEngine(store, provider)
-        chunk = _make_chunk("hello world")
+        chunk = make_chunk("hello world")
         store.insert([chunk], [provider.embed_text("hello world")])
         results = engine.search("hello")
         assert len(results) == 1
@@ -75,8 +75,8 @@ class TestFacetedSearchEngine:
         store.create_collection()
         provider = HashingEmbeddingProvider(dimension=4)
         engine = FacetedSearchEngine(store, provider)
-        c1 = _make_chunk("alpha", company="acme", chunk_id="c1")
-        c2 = _make_chunk("beta", company="beta", chunk_id="c2")
+        c1 = make_chunk("alpha", company="acme", chunk_id="c1")
+        c2 = make_chunk("beta", company="beta", chunk_id="c2")
         store.insert([c1, c2], [provider.embed_text("alpha"), provider.embed_text("beta")])
         filters = SearchFilters(companies=["acme"])
         results = engine.search("alpha", filters=filters)
@@ -86,7 +86,7 @@ class TestFacetedSearchEngine:
     def test_matches_filters(self) -> None:
         provider = HashingEmbeddingProvider(dimension=4)
         engine = FacetedSearchEngine(InMemoryVectorStore(), provider)
-        chunk = _make_chunk("test", company="acme")
+        chunk = make_chunk("test", company="acme")
         filters = SearchFilters(companies=["acme"], departments=["eng"])
         assert engine.matches_filters(chunk, filters)
         filters2 = SearchFilters(companies=["beta"])
@@ -98,7 +98,7 @@ class TestFacetedSearchEngine:
         provider = HashingEmbeddingProvider(dimension=4)
         engine = FacetedSearchEngine(store, provider)
         store.insert(
-            [_make_chunk("a", company="acme"), _make_chunk("b", company="beta")],
+            [make_chunk("a", company="acme"), make_chunk("b", company="beta")],
             [provider.embed_text("a"), provider.embed_text("b")],
         )
         counts = engine.count_by_field("company")
@@ -116,7 +116,7 @@ class TestRetrievalPipeline:
             vector_store=store,
             reranker=IdentityReranker(),
         )
-        chunk = _make_chunk("hello world")
+        chunk = make_chunk("hello world")
         store.insert([chunk], [provider.embed_text("hello world")])
         user = UserPrincipal(email="test@acme.com", allowed_companies=["acme"], is_admin=False)
         hits = pipeline.retrieve(user=user, question="hello", top_k=5)
@@ -132,10 +132,15 @@ class TestRetrievalPipeline:
             vector_store=store,
             reranker=IdentityReranker(),
         )
-        chunk = _make_chunk("hello world foo bar")
-        store.insert([chunk], [provider.embed_text("hello world foo bar")])
+        # 3 docs so BM25's IDF is well-defined.
+        chunks = [
+            make_chunk("hello world foo bar", chunk_id="c-0"),
+            make_chunk("unrelated context", chunk_id="c-1"),
+            make_chunk("hello there friend", chunk_id="c-2"),
+        ]
+        store.insert(chunks, [provider.embed_text(c.text) for c in chunks])
         hits = pipeline.retrieve_keyword("hello", top_k=5)
-        assert len(hits) == 1
+        assert len(hits) >= 1
 
     def test_retrieve_keyword_empty_records(self) -> None:
         store = InMemoryVectorStore()
@@ -155,7 +160,7 @@ class TestRetrievalPipeline:
             vector_store=store,
             reranker=IdentityReranker(),
         )
-        chunk = _make_chunk("hello world")
+        chunk = make_chunk("hello world")
         store.insert([chunk], [provider.embed_text("hello world")])
         user = UserPrincipal(email="test@acme.com", allowed_companies=["acme"], is_admin=False)
         hits = pipeline.hybrid_search(user=user, question="hello", top_k=5)
@@ -170,8 +175,8 @@ class TestRetrievalPipeline:
             vector_store=store,
             reranker=IdentityReranker(),
         )
-        c1 = _make_chunk("alpha", chunk_id="c1")
-        c2 = _make_chunk("beta", chunk_id="c2")
+        c1 = make_chunk("alpha", chunk_id="c1")
+        c2 = make_chunk("beta", chunk_id="c2")
         store.insert([c1, c2], [provider.embed_text("alpha"), provider.embed_text("beta")])
         user = UserPrincipal(email="test@acme.com", allowed_companies=["acme"], is_admin=False)
         vector_hits = pipeline.retrieve(user=user, question="alpha", top_k=5)

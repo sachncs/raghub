@@ -474,8 +474,8 @@ class TestIngest:
                 },
             )
 
-        service._pipeline = MagicMock()
-        service._pipeline.run = fake_run  # type: ignore[assignment]
+        service.make_pipeline = MagicMock()
+        service.make_pipeline.run = fake_run  # type: ignore[assignment]
         text = "hello world foo bar baz"
         result = await service.ingest(
             file_name="notes.txt",
@@ -518,7 +518,7 @@ class TestIngest:
         # No further processing
         mock_uow.document_repo.save.assert_not_called()
         # Pipeline was not invoked on a dedup short-circuit.
-        assert service._pipeline is None or service._pipeline.run.call_count == 0  # type: ignore[union-attr]
+        assert service.make_pipeline is None or service.make_pipeline.run.call_count == 0  # type: ignore[union-attr]
 
     @patch("raghub.documents.validation.validate_upload")
     async def test_dedup_non_ready_creates_new_version(
@@ -556,8 +556,8 @@ class TestIngest:
                 },
             )
 
-        service._pipeline = MagicMock()
-        service._pipeline.run = fake_run  # type: ignore[assignment]
+        service.make_pipeline = MagicMock()
+        service.make_pipeline.run = fake_run  # type: ignore[assignment]
         text = "hello world foo bar baz"
         result = await service.ingest(
             file_name="notes.txt",
@@ -646,8 +646,8 @@ class TestIngest:
             plan=ChunkingPlan(),
             max_upload_bytes=10_000_000,
         )
-        svc._pipeline = MagicMock()
-        svc._pipeline.run = fake_run  # type: ignore[assignment]
+        svc.make_pipeline = MagicMock()
+        svc.make_pipeline.run = fake_run  # type: ignore[assignment]
         with pytest.raises(DocumentError, match="Illegal transition"):
             await svc.ingest(
                 file_name="test.txt",
@@ -692,8 +692,8 @@ class TestIngest:
             plan=ChunkingPlan(),
             max_upload_bytes=10_000_000,
         )
-        svc._pipeline = MagicMock()
-        svc._pipeline.run = fake_run  # type: ignore[assignment]
+        svc.make_pipeline = MagicMock()
+        svc.make_pipeline.run = fake_run  # type: ignore[assignment]
         with pytest.raises(DocumentError, match="Embedding failed"):
             await svc.ingest(
                 file_name="test.txt",
@@ -736,8 +736,8 @@ class TestIngest:
                 },
             )
 
-        service._pipeline = MagicMock()
-        service._pipeline.run = fake_run  # type: ignore[assignment]
+        service.make_pipeline = MagicMock()
+        service.make_pipeline.run = fake_run  # type: ignore[assignment]
         text = "hello world foo bar baz"
         result = await service.ingest(
             file_name="notes.txt",

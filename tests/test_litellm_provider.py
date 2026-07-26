@@ -40,13 +40,13 @@ def test_litellm_provider_generates_text() -> None:
         prompt_tokens = 3
         completion_tokens = 2
 
-    class _FakeResponse:
+    class FakeResponse:
         def __init__(self) -> None:
             self.choices = [_FakeChoice()]
             self.usage = _FakeUsage()
 
-    def _fake_completion(model: str, messages: list, **kwargs: object) -> _FakeResponse:
-        return _FakeResponse()
+    def _fake_completion(model: str, messages: list, **kwargs: object) -> FakeResponse:
+        return FakeResponse()
 
     saved = litellm_mod.litellm
     try:
@@ -95,13 +95,13 @@ def test_litellm_provider_captures_usage() -> None:
         prompt_tokens = 11
         completion_tokens = 22
 
-    class _FakeResponse:
+    class FakeResponse:
         def __init__(self) -> None:
             self.choices = [_FakeChoice()]
             self.usage = _FakeUsage()
 
-    def _fake_completion(model: str, messages: list, **kwargs: object) -> _FakeResponse:
-        return _FakeResponse()
+    def _fake_completion(model: str, messages: list, **kwargs: object) -> FakeResponse:
+        return FakeResponse()
 
     saved = litellm_mod.litellm
     try:
