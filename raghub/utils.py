@@ -6,66 +6,93 @@ codebase:
 * :func:`atomic_write_json` — atomic disk write via a temporary file
   and ``os.replace``.
 * :func:`load_json` — JSON loader with a sensible default.
-* :func:`retry` (in :mod:`.retry`) — exponential-backoff retry for
-  transient upstream errors.
+* :func:`capture` — exception-aware callable execution.
+* :func:`retry` — exponential-backoff retry for transient upstream
+  errors.
+* :func:`maybe_await` — bridges sync / async callables at API
+  boundaries.
+* :class:`DurationTimer` — wall-clock timer used by orchestration
+  pipelines.
 """
-"""Exception-aware callable execution helpers."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
+import asyncio
+import inspect
+import json
+import os
+import time
+from collections.abc import Awaitable, Callable
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from typing import Any, TypeVar
+
+T = TypeVar("T")
 
 
-def capture(call: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, Exception | None]:
+def typed_json_loads(raw: str | bytes, default: object = None) -> object:
+    """Parse JSON and return the decoded value.
+
+    Args:
+        raw: JSON text or bytes.
+        default: Unused compatibility default.
+
+    Returns:
+        The decoded JSON value.
+    """
+    return json.loads(raw)
+
+
+def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    """Atomically write JSON to ``path``.
+
+    The write goes through a sibling temp file followed by
+    :func:`os.replace`, which is atomic on POSIX and Windows. This
+    prevents readers from observing a partially-written file even
+    when the process is killed mid-write.
+
+    Args:
+        path: Destination path. Parent directories are created
+            automatically.
+        payload: The dict to serialize. ``default=str`` is passed to
+            :func:`json.dump` so non-JSON-native values fall back to
+            their string representation.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile("w", delete=False, dir=path.parent, encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True, default=str)
+        temp_name = handle.name
+    os.replace(temp_name, path)
+
+
+def load_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Load JSON from ``path``, returning ``default`` when missing.
+
+    Args:
+        path: Path to the JSON file.
+        default: Value returned when ``path`` does not exist. When
+            ``None``, an empty dict is returned.
+
+    Returns:
+        The parsed dict, or ``default`` when the file is missing.
+        Parse errors propagate as :class:`json.JSONDecodeError`.
+    """
+    if not path.exists():
+        return {} if default is None else default
+    decoded = typed_json_loads(path.read_text(encoding="utf-8"))
+    if not isinstance(decoded, dict):
+        raise TypeError("JSON root must be an object")
+    return decoded
+
+
+def capture(
+    call: Callable[..., Any], *args: Any, **kwargs: Any
+) -> tuple[Any, Exception | None]:
     """Return a callable result and any raised exception."""
     try:
         return call(*args, **kwargs), None
     except Exception as error:
         return None, error
-
-
-__all__ = ["capture"]
-
-
-
-"""Exponential-backoff retry helper for transient failure recovery.
-
-This module provides a single function, :func:`retry`, that runs a
-zero-argument callable and re-invokes it with growing sleeps between
-attempts if the raised exception's message matches any of a configurable
-list of "transient" keywords. It is used by the LLM and embedding
-providers to ride out momentary network blips, rate-limit responses, and
-upstream 5xx errors without surfacing them to the caller.
-
-Design notes and trade-offs:
-
-* **Substring matching, not exception types.** We deliberately do not
-  enumerate HTTP status codes or wrap exceptions in typed hierarchies;
-  this keeps :func:`retry` decoupled from ``requests``/``httpx``/SDK
-  specifics. The trade-off is a fragile contract: a future error message
-  that *doesn't* contain a keyword will be treated as non-retryable even
-  if it actually is. If you need typed retries, switch to ``tenacity``.
-* **Exponential backoff without jitter or cap.** The sleep grows as
-  ``base_delay * 2 ** attempt``. There is no jitter, which means a
-  thundering-herd of simultaneous callers can resync their retries. There
-  is no cap, so long ``max_retries`` values combined with a generous
-  ``base_delay`` will sleep for a long time on the last attempt.
-* **Bare ``except Exception`` is intentional.** We catch everything that
-  propagates out of ``fn`` because the call site may wrap any provider's
-  error type. The keyword check below then short-circuits to a re-raise
-  for non-retryable failures.
-"""
-
-from __future__ import annotations
-
-import time
-from collections.abc import Callable
-from typing import TypeVar
-
-__all__ = ["retry"]
-
-T = TypeVar("T")
 
 
 def retry(
@@ -108,17 +135,6 @@ def retry(
             the retry budget is exhausted or the error is deemed
             non-retryable.
 
-    Example:
-        >>> import random
-        >>> def flaky():
-        ...     if random.random() < 0.5:
-        ...         raise RuntimeError("upstream timeout")
-        ...     return 42
-        >>> # Don't actually run this in a doctest; it's random.
-        >>> # Instead, exercise the deterministic path:
-        >>> retry(lambda: "ok")
-        'ok'
-
     Note:
         Sleeping blocks the calling thread. Use the async variant of your
         provider (or wrap in ``asyncio.to_thread``) when calling from a
@@ -134,3 +150,48 @@ def retry(
             else:
                 raise
     raise RuntimeError("unreachable")
+
+
+async def maybe_await(value: T | Awaitable[T]) -> T:
+    """Await ``value`` if it is awaitable; otherwise return it as-is.
+
+    Bridges sync and async callables at API boundaries so a single
+    function can accept either flavour. Coroutines, ``asyncio.Future``
+    instances, and any object exposing ``__await__`` are awaited.
+
+    Args:
+        value: Either a concrete result or an awaitable that resolves
+            to the result.
+
+    Returns:
+        The awaited-or-direct result.
+    """
+    if inspect.isawaitable(value):
+        return await value  # type: ignore[return-value]
+    return value  # type: ignore[return-value]
+
+
+class DurationTimer:
+    """Wall-clock timer used by orchestration pipelines.
+
+    Records the start instant on construction; :meth:`elapsed_ms`
+    returns milliseconds since the start. Used by ingest/query
+    pipelines to publish latency metrics without depending on
+    third-party timing libraries.
+
+    The timer is **not** thread-safe; pipelines that fan out to
+    threads should construct a fresh :class:`DurationTimer` per
+    coroutine.
+    """
+
+    def __init__(self) -> None:
+        """Record the current ``time.perf_counter`` as the start."""
+        self.start = time.perf_counter()
+
+    def elapsed_ms(self) -> float:
+        """Return the elapsed time in milliseconds since construction.
+
+        Returns:
+            Elapsed time in milliseconds (float).
+        """
+        return (time.perf_counter() - self.start) * 1000.0
