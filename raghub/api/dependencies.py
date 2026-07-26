@@ -28,4 +28,3 @@ def get_application(request: Request) -> DynamicRagApplication:
     return app.state.application
 
 
-__all__ = ["get_application"]

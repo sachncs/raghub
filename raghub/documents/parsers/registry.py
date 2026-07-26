@@ -166,4 +166,3 @@ class ParserCatalog:
 ParserRegistry = ParserCatalog
 
 
-__all__ = ["ParserCatalog", "ParserRegistry"]

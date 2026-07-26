@@ -117,4 +117,3 @@ class QueryService(ServiceMixin):
         )
 
 
-__all__ = ["QueryService"]

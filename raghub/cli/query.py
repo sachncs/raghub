@@ -41,4 +41,3 @@ def register(app: "typer.Typer") -> None:
                 typer.echo(f"  - {c.document_id}#{c.chunk_id} (score={c.score:.3f})")
 
 
-__all__ = ["register"]

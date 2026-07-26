@@ -55,4 +55,3 @@ async def run_evaluator(
         raise EvaluationError(f"Evaluator {evaluator.benchmark!r} failed: {exc}") from exc
 
 
-__all__ = ["run_evaluator", "score_string"]

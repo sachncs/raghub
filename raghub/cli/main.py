@@ -73,4 +73,3 @@ def main() -> None:
     raise typer.Exit(app())
 
 
-__all__ = ["app", "health", "main", "version"]

@@ -53,4 +53,3 @@ class Generator(Protocol):
         """
 
 
-__all__ = ["Generator"]

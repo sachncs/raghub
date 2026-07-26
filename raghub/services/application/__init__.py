@@ -54,16 +54,6 @@ from raghub.storage.image_store import FilesystemImageStore
 from raghub.storage.sqlite_session_store import SqliteSessionStore
 from raghub.vectorstore import BaseVectorStore, ZvecVectorStore
 
-__all__ = [
-    "ApplicationFacade",
-    "DynamicRagApplication",
-    "DynamicRagContainer",
-    "build_container",
-    "seed_demo_users",
-    "seed_blocked",
-]
-
-
 def seed_blocked(settings: Settings) -> bool:
     """Return ``True`` when the demo-user seed must be skipped.
 

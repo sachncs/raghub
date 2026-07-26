@@ -180,10 +180,3 @@ async def delete_preference(
     await store.delete_pref(user_id, key)
 
 
-__all__ = [
-    "PreferencesPatch",
-    "PreferencesResponse",
-    "get_user_store",
-    "router",
-    "user_id_from_token",
-]

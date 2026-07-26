@@ -73,4 +73,3 @@ class StepBackTransformer:
         return [QueryVariant(text=text, kind="step_back", weight=1.2)]
 
 
-__all__ = ["StepBackTransformer"]

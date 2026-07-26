@@ -88,4 +88,3 @@ class KeywordSearchTool(BaseTool):
         )
 
 
-__all__ = ["KeywordSearchTool"]

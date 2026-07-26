@@ -56,4 +56,3 @@ class StructuredOutputProvider(Protocol):
         """
 
 
-__all__ = ["StructuredOutputProvider"]

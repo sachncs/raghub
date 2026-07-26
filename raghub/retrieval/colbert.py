@@ -85,4 +85,3 @@ class ColbertLateInteraction:
         return list(self.index.rerank(query=query, documents=doc_texts))
 
 
-__all__ = ["ColbertLateInteraction"]

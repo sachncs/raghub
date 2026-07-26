@@ -132,5 +132,3 @@ def linear_combine(
     return sorted(scores.items(), key=lambda x: x[1], reverse=True)
 
 
-__all__ = ["RankFusion", "linear_combine", "reciprocal_rank_fusion", "rrf"]
-

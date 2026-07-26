@@ -34,4 +34,3 @@ def register(app: "typer.Typer") -> None:
         uvicorn.Server(config).run()
 
 
-__all__ = ["register"]

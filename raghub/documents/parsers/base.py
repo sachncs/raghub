@@ -56,4 +56,3 @@ class FileParser(ABC):
         """
 
 
-__all__ = ["FileParser", "ParsedSection"]

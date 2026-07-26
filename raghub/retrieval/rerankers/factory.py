@@ -52,4 +52,3 @@ def build_reranker(settings: Settings, *, llm: Any | None = None, cohere_api_key
     return RerankerFactory(settings, llm=llm, cohere_api_key=cohere_api_key).create()
 
 
-__all__ = ["RerankerFactory", "build_reranker"]

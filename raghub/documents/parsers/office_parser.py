@@ -104,4 +104,3 @@ class OfficeParser(FileParser):
         return sections
 
 
-__all__ = ["OfficeParser"]

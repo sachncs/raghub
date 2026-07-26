@@ -43,4 +43,3 @@ def register(app: "typer.Typer") -> None:
             typer.echo(SAMPLE_CONFIG, nl=False)
 
 
-__all__ = ["SAMPLE_CONFIG", "register"]

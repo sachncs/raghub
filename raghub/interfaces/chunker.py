@@ -46,4 +46,3 @@ class Chunker(Protocol):
         """
 
 
-__all__ = ["Chunker"]

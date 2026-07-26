@@ -30,4 +30,3 @@ class Pipeline(Protocol):
         """
 
 
-__all__ = ["Pipeline"]

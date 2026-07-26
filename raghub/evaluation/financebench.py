@@ -270,4 +270,3 @@ def first_number(text: str) -> str:
     return ""
 
 
-__all__ = ["DEFAULT_DATASET", "DEFAULT_SPLIT", "FinanceBenchEvaluator"]

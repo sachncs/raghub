@@ -136,4 +136,3 @@ class CohereReranker:
         return ordered
 
 
-__all__ = ["CohereReranker", "record_latency"]

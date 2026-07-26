@@ -29,9 +29,6 @@ from pathlib import Path
 
 import aiosqlite
 
-__all__ = ["DatabaseManager"]
-
-
 class DatabaseManager:
     """Manages a shared :class:`aiosqlite.Connection` with WAL mode."""
 

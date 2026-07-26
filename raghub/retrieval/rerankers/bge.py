@@ -110,4 +110,3 @@ class BgeReranker:
         return [hit for _, hit in ordered[: self.top_k]]
 
 
-__all__ = ["BgeReranker", "record_latency"]
