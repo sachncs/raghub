@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from raghub.tools.base import Tool
 from raghub.exceptions import ConfigurationError
+from raghub.tools.base import Tool
 
 
 class ToolRegistry:

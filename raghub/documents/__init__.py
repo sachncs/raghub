@@ -18,11 +18,11 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 import tempfile
 from dataclasses import dataclass, field
 from hashlib import sha256
 from importlib import import_module
-import sys
 from io import BytesIO
 from pathlib import Path
 from typing import Any

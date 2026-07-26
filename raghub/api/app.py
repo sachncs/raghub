@@ -80,7 +80,6 @@ from raghub.models import (
 )
 from raghub.services.application import DynamicRagApplication
 
-
 # ---------------------------------------------------------------------------
 # CORS
 # ---------------------------------------------------------------------------

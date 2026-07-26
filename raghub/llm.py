@@ -31,7 +31,6 @@ import litellm
 from raghub.exceptions import ConfigurationError, LLMError
 from raghub.models import ConversationTurn
 
-
 # Module-level flag retained so existing tests that patch
 # ``raghub.llm.LITELLM_AVAILABLE = False`` can simulate a missing
 # optional dependency even though the package is now required.

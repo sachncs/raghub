@@ -27,7 +27,6 @@ from sentence_transformers import SentenceTransformer
 
 from raghub.exceptions import ConfigurationError
 
-
 # Module-level flag retained so existing tests that patch
 # ``raghub.embeddings.LITELLM_AVAILABLE = False`` can simulate a
 # missing optional dependency even though the package is now required.

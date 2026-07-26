@@ -26,6 +26,8 @@ from raghub.domain import (
     ChunkRepository,
     DocumentRepository,
     SessionRepository,
+)
+from raghub.domain import (
     UnitOfWork as BaseUnitOfWork,
 )
 from raghub.models import (
