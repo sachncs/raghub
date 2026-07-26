@@ -68,11 +68,11 @@ from raghub.knowledge.repository import InMemoryKnowledgeRepository
 from raghub.knowledge.structures.graphrag import GraphRagIndex
 from raghub.knowledge.structures.raptor import RaptorIndex
 from raghub.models import (
-    CanonicalResponse as Response,
     ConversationTurn,
     EvaluationResult,
     PipelineContext,
     PipelineResult,
+    Response,
     RetrievalHit,
     deterministic_id,
 )

@@ -1,16 +1,16 @@
 """Build typed :class:`Response` objects from pipeline results.
 
 A small module that owns the construction of the public
-:class:`raghub.models.canonical.Response` (and its ``CanonicalResponse``
-alias). Keeping this logic in its own module lets the ``RAG`` class
+:class:`raghub.models.Response` (the canonical response type).
+Keeping this logic in its own module lets the ``RAG`` class
 stay small and makes the response format easy to test.
 """
 
 from __future__ import annotations
 
 from raghub.models import (
-    CanonicalResponse as Response,
     PipelineResult,
+    Response,
     SearchResult,
 )
 

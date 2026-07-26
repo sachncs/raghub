@@ -11,7 +11,7 @@ import pytest
 
 from raghub.api.app import create_app
 from raghub.api.dependencies import get_application
-from raghub.auth.user_store import SqliteUserStore
+from raghub.auth import SqliteUserStore
 from raghub.config import Settings
 from raghub.services.application import DynamicRagApplication
 

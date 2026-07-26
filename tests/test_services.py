@@ -244,7 +244,7 @@ class TestAuthService:
 
     @pytest.fixture
     def service(self, container: MagicMock) -> Any:
-        from raghub.services.auth_service import AuthService
+        from raghub.auth import AuthService
 
         return AuthService(container)
 

@@ -42,7 +42,7 @@ async def load_store() -> Any:
     Returns:
         The initialised :class:`raghub.auth.user_store.SqliteUserStore`.
     """
-    from raghub.auth.user_store import SqliteUserStore
+    from raghub.auth import SqliteUserStore
 
     settings = read_settings(None)
     db_path = Path(settings.data_dir) / "users.db"

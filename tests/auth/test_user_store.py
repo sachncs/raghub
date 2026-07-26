@@ -6,7 +6,7 @@ from pathlib import Path
 import aiosqlite
 import pytest
 
-from raghub.auth.user_store import SqliteUserStore, UserRecord
+from raghub.auth import SqliteUserStore, UserRecord
 
 
 @pytest.fixture

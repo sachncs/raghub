@@ -26,7 +26,7 @@ from raghub.models import (
 from raghub.services.application.auth import AuthCoordinator
 from raghub.services.application.preferences import PreferenceCoordinator
 from raghub.services.application.shutdown import ShutdownCoordinator
-from raghub.services.auth_service import AuthService
+from raghub.auth import AuthService
 from raghub.services.document_service import DocumentService
 from raghub.services.health_service import HealthService
 from raghub.services.query_service import QueryService

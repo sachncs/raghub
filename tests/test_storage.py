@@ -146,7 +146,7 @@ class TestSqliteSessionStore:
 class TestSqliteUserStore:
     @pytest.mark.asyncio
     async def test_create_and_get_user(self, tmp_db):
-        from raghub.auth.user_store import SqliteUserStore
+        from raghub.auth import SqliteUserStore
 
         store = SqliteUserStore(tmp_db)
         await store.initialize()
@@ -158,7 +158,7 @@ class TestSqliteUserStore:
 
     @pytest.mark.asyncio
     async def test_verify_password(self, tmp_db):
-        from raghub.auth.user_store import SqliteUserStore
+        from raghub.auth import SqliteUserStore
 
         store = SqliteUserStore(tmp_db)
         await store.initialize()
@@ -171,7 +171,7 @@ class TestSqliteUserStore:
 
     @pytest.mark.asyncio
     async def test_list_users(self, tmp_db):
-        from raghub.auth.user_store import SqliteUserStore
+        from raghub.auth import SqliteUserStore
 
         store = SqliteUserStore(tmp_db)
         await store.initialize()
