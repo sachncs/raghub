@@ -517,15 +517,43 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
         """Answer a question using the application service.
 
         Args:
-            payload: The :class:`QueryRequest` body.
+            payload: The :class:`QueryRequest` body. Advanced-RAG
+                flags (``agent``, ``web``, ``tools_enabled`` etc.) are
+                forwarded to the resolver.
             authorization: The raw ``Authorization`` header.
 
         Returns:
-            A :class:`QueryResponse` with the answer, citations, and
-            source chunks.
+            A :class:`QueryResponse` with the answer, citations,
+            source chunks, and (when applicable) the resolved
+            ``transforms_applied`` list.
         """
         token = require_bearer(authorization)
-        response = await app_service.query(token=token, question=payload.question)
+        # Phase 8.3: forward the advanced-RAG flags through to the
+        # application service so the resolver runs end-to-end. The
+        # legacy fast path is preserved when no flags are supplied.
+        if payload.tools_enabled is None and payload.agent is None and payload.web is None \
+                and payload.graph is None and payload.summaries is None \
+                and payload.reranker is None and payload.long_context_pass is None \
+                and payload.query_transforms is None and payload.max_steps is None \
+                and payload.top_k is None:
+            response = await app_service.query(
+                token=token, question=payload.question
+            )
+        else:
+            response = await app_service.query_with_flags(
+                token=token,
+                question=payload.question,
+                tools_enabled=payload.tools_enabled,
+                agent=payload.agent,
+                web=payload.web,
+                graph=payload.graph,
+                summaries=payload.summaries,
+                reranker=payload.reranker,
+                long_context_pass=payload.long_context_pass,
+                query_transforms=payload.query_transforms,
+                max_steps=payload.max_steps,
+                top_k=payload.top_k,
+            )
         return response
 
     @router.post("/ingest/async")
@@ -582,6 +610,109 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
 
     app.include_router(router, prefix="/v1")
     app.include_router(admin_router, prefix="/v1")
+    # Phase 8.2 — per-user tool/agent preferences (GET / PATCH /
+    # DELETE). The router lives in :mod:`raghub.api.preferences` and
+    # shares the same auth dependency as the rest of the API.
+    from raghub.api.preferences import router as preferences_router
+
+    app.include_router(preferences_router, prefix="/v1")
+    # Phase 10.2 + 10.3 — streaming query + dedicated agent endpoint.
+    from raghub.api.streaming import sse_comment, sse_format
+
+    @router.post("/query/stream")
+    async def query_stream(
+        payload: QueryRequest,
+        authorization: str | None = Header(default=None),
+        app_service: DynamicRagApplication = Depends(get_application),
+    ) -> Any:
+        """Stream agent / planner events as Server-Sent Events.
+
+        Args:
+            payload: The :class:`QueryRequest` body. ``agent`` and
+                ``tools_enabled`` drive the agent loop; in their
+                absence the route streams legacy answer tokens.
+            authorization: The ``Authorization: Bearer <token>`` header.
+            app_service: The application facade (FastAPI dependency).
+
+        Returns:
+            A :class:`StreamingResponse` of ``text/event-stream``
+            frames. The first frame is a keep-alive comment; the
+            rest are SSE-encoded ``PlannerEvent`` instances.
+        """
+        from fastapi.responses import StreamingResponse
+
+        token = require_bearer(authorization)
+        resolved_tools = (
+            set(payload.tools_enabled) if payload.tools_enabled else set()
+        )
+
+        async def gen():
+            yield sse_comment("raghub-query-stream")
+            # Resolve the bearer token to a user principal.
+            try:
+                user, _ = await app_service.auth_svc.resolve_user(token)
+            except Exception as exc:
+                yield sse_format("error", {"message": str(exc)})
+                return
+            rag = app_service.container.rag_facade
+            if rag is None:
+                yield sse_format(
+                    "error",
+                    {"message": "RAG facade unavailable"},
+                )
+                return
+            async for event in rag.astream_agent(
+                payload.question,
+                user=user,
+                session_id=None,
+                tools_enabled=list(resolved_tools) or None,
+                agent=payload.agent,
+                web=payload.web,
+                graph=payload.graph,
+                summaries=payload.summaries,
+                reranker=payload.reranker,
+                long_context_pass=payload.long_context_pass,
+                query_transforms=payload.query_transforms,
+                max_steps=payload.max_steps,
+            ):
+                yield sse_format(event.kind, event.model_dump(mode="json"))
+
+        return StreamingResponse(gen(), media_type="text/event-stream")
+
+    @router.post("/agent/run", response_model=QueryResponse)
+    async def agent_run(
+        payload: QueryRequest,
+        authorization: str | None = Header(default=None),
+        app_service: DynamicRagApplication = Depends(get_application),
+    ) -> QueryResponse:
+        """Run the agent end-to-end and return the full :class:`QueryResponse`.
+
+        Args:
+            payload: The :class:`QueryRequest` body.
+            authorization: The ``Authorization: Bearer <token>`` header.
+
+        Returns:
+            A :class:`QueryResponse` carrying the agent's final
+            answer, the planner trace, and the tools invoked.
+        """
+        token = require_bearer(authorization)
+        # Reuse ``query_with_flags`` which routes through the
+        # agentic pipeline when the resolved config requires it.
+        response = await app_service.query_with_flags(
+            token=token,
+            question=payload.question,
+            tools_enabled=payload.tools_enabled,
+            agent=payload.agent,
+            web=payload.web,
+            graph=payload.graph,
+            summaries=payload.summaries,
+            reranker=payload.reranker,
+            long_context_pass=payload.long_context_pass,
+            query_transforms=payload.query_transforms,
+            max_steps=payload.max_steps,
+            top_k=payload.top_k,
+        )
+        return response
 
     @app.get("/health", include_in_schema=False)
     def root_health() -> dict[str, str]:
@@ -611,6 +742,11 @@ def require_bearer(authorization: str | None) -> str:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
     return authorization.split(" ", 1)[1].strip()
+
+
+# Re-exported so other routers (e.g. :mod:`raghub.api.preferences`)
+# can extract the bearer token without importing :mod:`raghub.api.app`.
+__all__ = ["require_bearer"]
 
 
 # Module-level singleton used by :func:`get_app`. Avoid importing
