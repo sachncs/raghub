@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from raghub.exceptions import (
+    AgentBudgetExceeded,
     AuthenticationError,
     AuthorizationError,
     ConfigurationError,
@@ -14,6 +15,7 @@ from raghub.exceptions import (
     EmbeddingError,
     EvaluationError,
     GenerationError,
+    GraphUnavailableError,
     IndexingError,
     IngestionError,
     KnowledgeError,
@@ -21,9 +23,13 @@ from raghub.exceptions import (
     PipelineError,
     PromptError,
     RagHubError,
+    RerankerError,
     RetrievalError,
     StorageError,
+    ToolError,
+    TransformError,
     VectorStoreError,
+    WebSearchError,
 )
 
 
@@ -71,3 +77,19 @@ def test_generation_error_is_llm_error_subclass() -> None:
     # Both descend from RagHubError; the spec only requires that.
     assert issubclass(LLMError, RagHubError)
     assert issubclass(GenerationError, RagHubError)
+
+
+@pytest.mark.parametrize(
+    "cls",
+    [
+        ToolError,
+        AgentBudgetExceeded,
+        WebSearchError,
+        RerankerError,
+        GraphUnavailableError,
+        TransformError,
+    ],
+)
+def test_phase1_exceptions_subclass_raghub_error(cls) -> None:
+    """Phase 1.5 advanced-RAG exceptions descend from RagHubError."""
+    assert issubclass(cls, RagHubError)

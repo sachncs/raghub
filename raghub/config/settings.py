@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field, SecretStr
@@ -89,6 +89,18 @@ class AppSettings(BaseModel):
     query_cache_ttl_seconds: int = 300
     extra: dict[str, Any] = Field(default_factory=dict)
 
+    # -- Advanced RAG (Phase 1.6) ------------------------------------------
+    agent: AgentConfig = Field(default_factory=lambda: AgentConfig())
+    web_search: WebSearchConfig = Field(default_factory=lambda: WebSearchConfig())
+    graph_search_enabled: bool = False
+    summary_search_enabled: bool = False
+    reranker: RerankerConfig = Field(default_factory=lambda: RerankerConfig())
+    long_context_pass: LongContextConfig = Field(default_factory=lambda: LongContextConfig())
+    hybrid: HybridConfig = Field(default_factory=lambda: HybridConfig())
+    query_transforms: QueryTransformsConfig = Field(
+        default_factory=lambda: QueryTransformsConfig()
+    )
+
     class Config:
         """Pydantic configuration."""
 
@@ -127,6 +139,172 @@ class AppSettings(BaseModel):
                 extra[key] = value
         merged["extra"] = extra
         return AppSettings(**merged)
+
+
+# ---------------------------------------------------------------------------
+# Advanced RAG configuration blocks (Phase 1.6)
+# ---------------------------------------------------------------------------
+
+
+class AgentConfig(BaseModel):
+    """Agent loop controls.
+
+    Attributes:
+        enabled: Master switch. ``False`` keeps the fast-path query
+            pipeline untouched (Phase 10.6 regression test).
+        max_steps: Hard cap on planner steps before raising
+            :class:`AgentBudgetExceeded`.
+        max_tool_calls: Hard cap on total tool invocations per query.
+        max_wall_seconds: Wall-clock cap per query.
+        planner_model: Optional override for the planner LLM. ``None``
+            falls back to :attr:`AppSettings.llm_model`.
+        enable_streaming: When ``True``, :meth:`Agent.astream` yields
+            :class:`PlannerEvent` instances instead of awaiting a final
+            :class:`AgentTrace`.
+    """
+
+    enabled: bool = False
+    max_steps: int = 8
+    max_tool_calls: int = 10
+    max_wall_seconds: float = 30.0
+    planner_model: str | None = None
+    enable_streaming: bool = True
+
+
+class WebSearchConfig(BaseModel):
+    """Web search tool configuration.
+
+    Attributes:
+        enabled: Register :class:`WebSearchTool` at startup.
+        max_results: Default result count for each call.
+        timeout_seconds: Network timeout per call.
+        safe_search: ``"strict"`` / ``"moderate"`` / ``"off"``.
+    """
+
+    enabled: bool = False
+    max_results: int = 5
+    timeout_seconds: float = 10.0
+    safe_search: Literal["strict", "moderate", "off"] = "moderate"
+
+
+class RerankerConfig(BaseModel):
+    """Cross-encoder / listwise reranker selection.
+
+    Attributes:
+        provider: ``"none"`` (identity) / ``"cohere"`` / ``"bge"`` /
+            ``"llm"`` / ``"cascade"``.
+        top_k: Maximum number of hits the reranker is asked to score.
+        cascade_threshold: For ``"cascade"`` — when the cheap reranker's
+            top-N score spread is below this threshold the expensive
+            reranker is invoked as well.
+    """
+
+    provider: Literal["none", "cohere", "bge", "llm", "cascade"] = "none"
+    top_k: int = 20
+    cascade_threshold: float = 0.05
+
+
+class LongContextConfig(BaseModel):
+    """Second-pass rerank using a long-context LLM.
+
+    Attributes:
+        enabled: Master switch.
+        candidate_k: Number of post-rerank candidates fed to the
+            long-context LLM.
+        allowlist_models: Model names eligible for the second pass.
+            Anything not in the list triggers a graceful no-op with a
+            telemetry event (Phase 5.1 invariant).
+    """
+
+    enabled: bool = False
+    candidate_k: int = 20
+    allowlist_models: list[str] = [
+        "claude-3-5-sonnet",
+        "claude-3-7-sonnet",
+        "gemini-1.5-pro",
+        "gemini-2.0-flash",
+        "command-r-plus",
+        "gpt-4.1",
+    ]
+
+
+class HybridConfig(BaseModel):
+    """Hybrid retrieval fusion.
+
+    Attributes:
+        fusion: ``"rrf"`` (default) or ``"linear"`` (legacy).
+        rrf_k: Standard RRF damping constant; 60 matches the literature.
+        keyword_weight: Weight for the keyword channel when ``fusion == "linear"``.
+        vector_weight: Weight for the dense channel when ``fusion == "linear"``.
+        colbert_enabled: When ``True``, an optional ColBERT late-interaction
+            channel is added to the hybrid retrieval (Phase 3.4).
+    """
+
+    fusion: Literal["rrf", "linear"] = "rrf"
+    rrf_k: int = 60
+    keyword_weight: float = 0.3
+    vector_weight: float = 0.7
+    colbert_enabled: bool = False
+
+
+class QueryTransformsConfig(BaseModel):
+    """Pre-retrieval query transforms (Phase 2).
+
+    Attributes:
+        enabled: Ordered list of transform names. Empty list = no
+            transforms (default behaviour preserved).
+        hyde_n: Number of hypothetical paragraphs to generate when
+            ``"hyde"`` is enabled.
+        multi_query_n: Number of rephrasings when ``"multi_query"`` is
+            enabled.
+    """
+
+    enabled: list[Literal["hyde", "multi_query", "step_back", "decompose"]] = Field(
+        default_factory=list
+    )
+    hyde_n: int = 1
+    multi_query_n: int = 4
+
+
+# ---------------------------------------------------------------------------
+# Env helpers (Phase 1.6)
+# ---------------------------------------------------------------------------
+
+
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    """Return the boolean value of ``os.getenv(name, ...)``.
+
+    Treats ``"1"`` / ``"true"`` / ``"yes"`` / ``"on"`` (case-insensitive)
+    as ``True``. Any other non-empty value is ``False``. Missing var
+    falls back to ``default``.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in _TRUTHY
+
+
+_TRANSFORM_NAMES = ("hyde", "multi_query", "step_back", "decompose")
+
+
+def _csv_to_transforms(raw: str, default: list[str]) -> list[str]:
+    """Parse a comma-separated env var into a validated transform list.
+
+    Unknown names are dropped silently — config files are validated by
+    Pydantic and raise on bad values; the env path is forgiving so a
+    typo doesn't prevent startup.
+    """
+    if not raw:
+        return [name for name in default if name in _TRANSFORM_NAMES]
+    out: list[str] = []
+    for chunk in raw.split(","):
+        name = chunk.strip().lower()
+        if name and name in _TRANSFORM_NAMES and name not in out:
+            out.append(name)
+    return out
 
 
 def read_toml_file(path: Path) -> dict[str, Any]:
@@ -237,6 +415,132 @@ def load_settings(profile: str | None = None) -> AppSettings:
         in ("1", "true", "yes")
         or payload.get("allow_passwordless_login", True),
     }
+    # Advanced RAG (Phase 1.6) — keep flat env vars; nested blocks are
+    # built from them so config files can still express them as YAML.
+    advanced_payload: dict[str, Any] = {
+        "agent": AgentConfig(
+            enabled=_env_bool("RAG_AGENT_ENABLED", payload.get("agent", {}).get("enabled", False)),
+            max_steps=int(
+                os.getenv("RAG_AGENT_MAX_STEPS", str(payload.get("agent", {}).get("max_steps", 8)))
+            ),
+            max_tool_calls=int(
+                os.getenv(
+                    "RAG_AGENT_MAX_TOOL_CALLS",
+                    str(payload.get("agent", {}).get("max_tool_calls", 10)),
+                )
+            ),
+            max_wall_seconds=float(
+                os.getenv(
+                    "RAG_AGENT_MAX_WALL_SECONDS",
+                    str(payload.get("agent", {}).get("max_wall_seconds", 30.0)),
+                )
+            ),
+            planner_model=os.getenv(
+                "RAG_AGENT_PLANNER_MODEL", payload.get("agent", {}).get("planner_model")
+            )
+            or None,
+            enable_streaming=_env_bool(
+                "RAG_AGENT_STREAMING",
+                payload.get("agent", {}).get("enable_streaming", True),
+            ),
+        ),
+        "web_search": WebSearchConfig(
+            enabled=_env_bool("RAG_WEB_ENABLED", payload.get("web_search", {}).get("enabled", False)),
+            max_results=int(
+                os.getenv(
+                    "RAG_WEB_MAX_RESULTS",
+                    str(payload.get("web_search", {}).get("max_results", 5)),
+                )
+            ),
+            timeout_seconds=float(
+                os.getenv(
+                    "RAG_WEB_TIMEOUT_SECONDS",
+                    str(payload.get("web_search", {}).get("timeout_seconds", 10.0)),
+                )
+            ),
+            safe_search=os.getenv(
+                "RAG_WEB_SAFE_SEARCH",
+                payload.get("web_search", {}).get("safe_search", "moderate"),
+            ),
+        ),
+        "graph_search_enabled": _env_bool(
+            "RAG_GRAPH_ENABLED", payload.get("graph_search_enabled", False)
+        ),
+        "summary_search_enabled": _env_bool(
+            "RAG_SUMMARY_ENABLED", payload.get("summary_search_enabled", False)
+        ),
+        "reranker": RerankerConfig(
+            provider=os.getenv(
+                "RAG_RERANKER_PROVIDER",
+                payload.get("reranker", {}).get("provider", "none"),
+            ),
+            top_k=int(
+                os.getenv("RAG_RERANKER_TOP_K", str(payload.get("reranker", {}).get("top_k", 20)))
+            ),
+            cascade_threshold=float(
+                os.getenv(
+                    "RAG_RERANKER_CASCADE_THRESHOLD",
+                    str(payload.get("reranker", {}).get("cascade_threshold", 0.05)),
+                )
+            ),
+        ),
+        "long_context_pass": LongContextConfig(
+            enabled=_env_bool(
+                "RAG_LONG_CONTEXT_ENABLED",
+                payload.get("long_context_pass", {}).get("enabled", False),
+            ),
+            candidate_k=int(
+                os.getenv(
+                    "RAG_LONG_CONTEXT_CANDIDATE_K",
+                    str(payload.get("long_context_pass", {}).get("candidate_k", 20)),
+                )
+            ),
+        ),
+        "hybrid": HybridConfig(
+            fusion=os.getenv(
+                "RAG_HYBRID_FUSION",
+                payload.get("hybrid", {}).get("fusion", "rrf"),
+            ),
+            rrf_k=int(
+                os.getenv("RAG_HYBRID_RRF_K", str(payload.get("hybrid", {}).get("rrf_k", 60)))
+            ),
+            keyword_weight=float(
+                os.getenv(
+                    "RAG_HYBRID_KEYWORD_WEIGHT",
+                    str(payload.get("hybrid", {}).get("keyword_weight", 0.3)),
+                )
+            ),
+            vector_weight=float(
+                os.getenv(
+                    "RAG_HYBRID_VECTOR_WEIGHT",
+                    str(payload.get("hybrid", {}).get("vector_weight", 0.7)),
+                )
+            ),
+            colbert_enabled=_env_bool(
+                "RAG_HYBRID_COLBERT",
+                payload.get("hybrid", {}).get("colbert_enabled", False),
+            ),
+        ),
+        "query_transforms": QueryTransformsConfig(
+            enabled=_csv_to_transforms(
+                os.getenv("RAG_TRANSFORMS_ENABLED", ""),
+                payload.get("query_transforms", {}).get("enabled", []),
+            ),
+            hyde_n=int(
+                os.getenv(
+                    "RAG_TRANSFORMS_HYDE_N",
+                    str(payload.get("query_transforms", {}).get("hyde_n", 1)),
+                )
+            ),
+            multi_query_n=int(
+                os.getenv(
+                    "RAG_TRANSFORMS_MULTI_QUERY_N",
+                    str(payload.get("query_transforms", {}).get("multi_query_n", 4)),
+                )
+            ),
+        ),
+    }
+    env_payload.update(advanced_payload)
     settings = AppSettings(
         **env_payload,
         profile_path=profile_path if profile_path.exists() else None,
