@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from raghub import RAG
-from raghub.plugins.registry import PluginRegistry
+from raghub.plugins import PluginRegistry
 
 
 def test_rag_default_construction() -> None:

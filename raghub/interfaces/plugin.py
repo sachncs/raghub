@@ -3,7 +3,7 @@
 Self-describing extension units that can register converters,
 chunkers, embedders, vector stores, retrievers, rerankers, LLM
 generators, telemetry providers, or evaluators. Plugins are loaded
-through :class:`raghub.plugins.registry.PluginRegistry`.
+through :class:`raghub.plugins.PluginRegistry`.
 """
 
 from __future__ import annotations

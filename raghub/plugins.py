@@ -5,12 +5,10 @@ retrievers, rerankers, generators, telemetry providers, and
 evaluators. The framework discovers plugins via entry points
 (``group="raghub.plugins"``) and via explicit registration through
 :class:`PluginRegistry`.
-"""
-"""Plugin registry with type-keyed registration helpers.
 
-Plugins register their contributions through this registry; the
-framework's :class:`RAG` facade uses the registry to resolve
-components when a caller does not provide one explicitly.
+The registry is the lookup table used by the framework's
+:class:`RAG` facade to resolve components when a caller does not
+provide one explicitly.
 """
 
 from __future__ import annotations
@@ -154,6 +152,3 @@ class PluginRegistry:
                 plugin.register(self)
                 loaded += 1
         return loaded
-
-
-__all__ = ["PluginRegistry"]
