@@ -10,24 +10,8 @@ Public surface:
 * :func:`build_reranker` — factory driven by :class:`Settings`.
 """
 
+from raghub.retrieval.rerankers.bge import BgeReranker
 from raghub.retrieval.rerankers.cascade import CascadeReranker
+from raghub.retrieval.rerankers.cohere import CohereReranker
 from raghub.retrieval.rerankers.factory import build_reranker
-
-__all__ = ["CascadeReranker", "build_reranker"]
-
-
-def __getattr__(name: str):  # pragma: no cover — lazy import shim
-    """Lazily import optional rerankers so the package stays cheap."""
-    if name == "CohereReranker":
-        from raghub.retrieval.rerankers.cohere import CohereReranker
-
-        return CohereReranker
-    if name == "BgeReranker":
-        from raghub.retrieval.rerankers.bge import BgeReranker
-
-        return BgeReranker
-    if name == "LLMReranker":
-        from raghub.retrieval.rerankers.llm import LLMReranker
-
-        return LLMReranker
-    raise AttributeError(f"module 'raghub.retrieval.rerankers' has no attribute {name!r}")
+from raghub.retrieval.rerankers.llm import LLMReranker

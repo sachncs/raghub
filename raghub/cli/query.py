@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import typer
 
+from raghub.cli.format import make_rag, write_json
+
 
 def register(app: "typer.Typer") -> None:
     """Attach the ``query`` command to ``app``."""
@@ -20,8 +22,6 @@ def register(app: "typer.Typer") -> None:
         json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
     ) -> None:
         """Ask a question and print the answer + citations."""
-        from raghub.cli.format import make_rag, write_json
-
         rag = make_rag(config)
         response = rag.query(question, top_k=top_k)
         if json_output:

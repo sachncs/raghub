@@ -17,6 +17,7 @@ from typing import Any
 
 import typer
 
+from raghub.auth import SqliteUserStore
 from raghub.cli.format import read_settings, write_json
 
 app = typer.Typer(help="Configuration commands.", no_args_is_help=True)
@@ -42,8 +43,6 @@ async def load_store() -> Any:
     Returns:
         The initialised :class:`raghub.auth.user_store.SqliteUserStore`.
     """
-    from raghub.auth import SqliteUserStore
-
     settings = read_settings(None)
     db_path = Path(settings.data_dir) / "users.db"
     store = SqliteUserStore(db_path)
@@ -51,7 +50,7 @@ async def load_store() -> Any:
     return store
 
 
-def __run(coro: Any) -> Any:
+def run_coro(coro: Any) -> Any:
     """Run an awaitable in a fresh event loop."""
     return asyncio.run(coro)
 
@@ -68,7 +67,7 @@ def list_cmd(email: str = typer.Option(..., "--email", help="User email.")) -> N
         prefs = await store.get_prefs(user.user_id)
         write_json({"email": email, "tool_settings": prefs.get("tool_settings", {})})
 
-    __run(runner())
+    run_coro(runner())
 
 
 @tools.command(name="set")
@@ -100,7 +99,7 @@ def set_cmd(
         await store.set_pref(user.user_id, "tool_settings", merged)
         write_json({"email": email, "tool_settings": merged})
 
-    __run(runner())
+    run_coro(runner())
 
 
 @tools.command(name="unset")
@@ -115,7 +114,7 @@ def unset_cmd(email: str = typer.Option(..., "--email", help="User email.")) -> 
         await store.delete_pref(user.user_id, "tool_settings")
         write_json({"email": email, "tool_settings": None})
 
-    __run(runner())
+    run_coro(runner())
 
 
 __all__ = ["TOOL_KEYS", "app", "load_store", "tools"]

@@ -21,6 +21,7 @@ import asyncio
 import inspect
 import json
 import os
+import sys
 import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -41,6 +42,17 @@ def typed_json_loads(raw: str | bytes, default: object = None) -> object:
         The decoded JSON value.
     """
     return json.loads(raw)
+
+
+def write_json(payload: Any) -> None:
+    """Write ``payload`` as pretty JSON to stdout.
+
+    Args:
+        payload: Any JSON-serialisable value.
+    """
+    sys.stdout.write(json.dumps(payload, indent=2, default=str))
+    sys.stdout.write("\n")
+    sys.stdout.flush()
 
 
 def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:

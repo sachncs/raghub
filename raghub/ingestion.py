@@ -41,7 +41,10 @@ from uuid import uuid4
 
 from raghub.documents import PlainTextConverter as default_converter
 from raghub.documents import (
+    ChunkingPlan,
     DocumentLifecycleManager,
+    chunk_words,
+    normalize_text,
     validate_upload,
 )
 from raghub.embeddings import BaseEmbeddingProvider
@@ -378,8 +381,6 @@ class WordWindowChunker(Chunker):
             raise ValueError("chunk_overlap must satisfy 0 <= overlap < chunk_size")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
-        from raghub.documents import ChunkingPlan
-
         self.plan = ChunkingPlan(chunk_size_words=chunk_size, overlap_words=chunk_overlap)
 
     def chunk(self, bundle: Any) -> list[Chunk]:
@@ -452,8 +453,6 @@ class WordWindowChunker(Chunker):
 
     def word_window_chunks(self, text: str) -> list[str]:
         """Split ``text`` into overlapping windows."""
-        from raghub.documents import chunk_words, normalize_text
-
         return chunk_words(normalize_text(text), self.plan)
 
 

@@ -51,7 +51,7 @@ from raghub.conversation import InMemoryConversationStore
 from raghub.evaluation.financebench import FinanceBenchEvaluator
 from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
 from raghub.generation import DefaultGenerator
-from raghub.ingestion import ResumableBackgroundIngestionService
+from raghub.ingestion import ResumableBackgroundIngestionService, build_chonkie_chunker
 from raghub.interfaces.generator import Generator
 from raghub.knowledge import SourceManifest, sha256_bytes
 from raghub.knowledge import InMemoryKnowledgeRepository
@@ -164,12 +164,6 @@ def default_chunker(
         :class:`ChonkieChunker` when Chonkie is available;
         :class:`WordWindowChunker` otherwise.
     """
-    # Lazy import: ``raghub.ingestion.chunkers.chonkie`` re-exports the
-    # ``raghub.ingestion`` package, which transitively imports
-    # :func:`default_converter` from this module. The hop would be a
-    # circular import at module-load time.
-    from raghub.ingestion import build_chonkie_chunker
-
     return build_chonkie_chunker(
         chunker_strategy,
         chunk_size=chunk_size,

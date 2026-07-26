@@ -30,6 +30,8 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+from raghub.cli.format import make_rag, write_json
+
 # Sub-trees — these are the only Typer-group attachments. Each gets its own
 # help subtree under the main app.
 from raghub.cli.config import app as config_app
@@ -51,8 +53,6 @@ register_run(app)
 @app.command(name="health")
 def health() -> None:
     """Print the framework liveness status as JSON."""
-    from raghub.cli.format import make_rag, write_json
-
     write_json(make_rag(None).health())
 
 

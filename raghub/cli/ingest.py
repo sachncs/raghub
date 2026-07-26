@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import typer
 
+from raghub.cli.format import make_rag, write_json
+
 
 def register(app: "typer.Typer") -> None:
     """Attach the ``ingest`` command to ``app``."""
@@ -19,8 +21,6 @@ def register(app: "typer.Typer") -> None:
         json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
     ) -> None:
         """Ingest ``PATH`` synchronously, or submit it as a background job with ``--async``."""
-        from raghub.cli.format import make_rag, write_json
-
         rag = make_rag(config)
         if background:
             job_id = rag.ingest_async(path)

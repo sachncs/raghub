@@ -10,7 +10,8 @@ import statistics
 
 import typer
 
-from raghub.cli.format import write_json
+from raghub.evaluation.financebench import FinanceBenchEvaluator
+from raghub.utils import write_json
 
 app = typer.Typer(help="Evaluation harnesses.", no_args_is_help=True)
 
@@ -21,7 +22,6 @@ def financebench(
 ) -> None:
     """Run the FinanceBench evaluator and print a JSON summary."""
     import asyncio
-    from raghub.evaluation.financebench import FinanceBenchEvaluator
 
     async def runner() -> None:
         evaluator = FinanceBenchEvaluator()
