@@ -252,13 +252,23 @@ async def test_agent_respects_max_steps_budget() -> None:
 @pytest.mark.asyncio
 async def test_agent_respects_wall_clock_budget() -> None:
     """The agent stops when wall-clock is exhausted."""
-    import time
+    from unittest.mock import patch
+
+    call_count = 0
+
+    def fake_perf_counter():
+        nonlocal call_count
+        call_count += 1
+        # Return 0 on first call (start), then 0.1 on each subsequent call
+        # This simulates 100ms passing per LLM call
+        if call_count == 1:
+            return 0.0
+        return call_count * 0.1
 
     class SlowLlm:
         model_name = "slow"
 
         async def async_generate(self, **_):
-            time.sleep(0.05)  # 50ms each call
             return json.dumps({"thought": "x", "action": {"name": "echo", "args": {"message": "x"}}})
 
     registry = ToolRegistry()
@@ -268,8 +278,9 @@ async def test_agent_respects_wall_clock_budget() -> None:
         tool_registry=registry,
         settings=AgentConfig(max_steps=100, max_wall_seconds=0.01),
     )
-    with pytest.raises(Exception) as excinfo:
-        await agent.run(question="?")
+    with patch("raghub.agent.agent.time.perf_counter", side_effect=fake_perf_counter):
+        with pytest.raises(Exception) as excinfo:
+            await agent.run(question="?")
     assert "wall-clock" in str(excinfo.value).lower()
 
 
