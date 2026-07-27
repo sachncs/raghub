@@ -8,14 +8,12 @@ from typing import Any
 import pytest
 
 from raghub.exceptions import TransformError
-from raghub.retrieval.transforms import (
-    ComposeTransformer,
-    DecomposeTransformer,
-    HydeTransformer,
-    MultiQueryTransformer,
-    QueryVariant,
-    StepBackTransformer,
-)
+from raghub.retrieval.transforms.base import QueryVariant
+from raghub.retrieval.transforms.compose import ComposeTransformer
+from raghub.retrieval.transforms.decompose import DecomposeTransformer
+from raghub.retrieval.transforms.hyde import HydeTransformer
+from raghub.retrieval.transforms.multi_query import MultiQueryTransformer
+from raghub.retrieval.transforms.step_back import StepBackTransformer
 
 
 class FakeLLM:

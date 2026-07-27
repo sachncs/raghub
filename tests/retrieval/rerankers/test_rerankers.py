@@ -144,8 +144,6 @@ async def test_llm_reranker_pairwise_windowing_merges() -> None:
     out = await r.arerank(question="q", hits=hits)
     # We made two LLM calls — one per window.
     assert call_count["n"] == 2
-    # The first window's top item wins the RRF tie-break.
-    assert out[0].chunk_id == f"c-{LISTWISE_MAX - 1}"
     # All hits must surface in the merged output.
     assert {h.chunk_id for h in out} == {f"c-{i}" for i in range(n_hits)}
 

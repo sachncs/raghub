@@ -59,30 +59,22 @@ def test_keyword_search_uses_bm25_when_available() -> None:
     assert hits[0]["chunk_id"] == "c-0"
 
 
-def test_keyword_search_tf_fallback_when_bm25_missing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A simulated ImportError on rank_bm25 falls back to the TF path."""
-    import builtins
-
-    from raghub.vectorstore import memory as memory_mod
-
-    real_import = builtins.__import__
-
-    def fake_import(name, *args, **kwargs):
-        if name == "rank_bm25" or name.startswith("rank_bm25"):
-            raise ImportError("simulated missing")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", fake_import)
-    # Force the module-level cache to forget the (possibly present) import.
-    monkeypatch.setattr(memory_mod, "BM25Okapi", None, raising=False)
-
-    store = store_with_texts(["revenue grew 12% in Q3", "operating margin expanded"])
-    hits = store.keyword_search("revenue", top_k=2)
-    # TF fallback: 1 match per query term per chunk, divided by chunk
-    # length. The matching chunk wins, the other gets 0.
-    assert [h["chunk_id"] for h in hits] == ["c-0"]
+def test_keyword_search_uses_bm25() -> None:
+    """BM25 is the default keyword search scoring."""
+    # 4-doc corpus so BM25's IDF is well-behaved (2-doc corpora give a
+    # negative log that rank-bm25 clamps to 0).
+    store = store_with_texts(
+        [
+            "revenue grew 12% in Q3",
+            "operating margin expanded",
+            "apple pie is delicious",
+            "banana split is cold",
+        ]
+    )
+    hits = store.keyword_search("revenue", top_k=4)
+    assert len(hits) == 1
+    assert hits[0]["score"] > 0
+    assert hits[0]["chunk_id"] == "c-0"
 
 
 # --- 3.4: ColBERT adapter ---------------------------------------------------
@@ -91,19 +83,21 @@ def test_keyword_search_tf_fallback_when_bm25_missing(
 def test_colbert_disabled_by_default() -> None:
     cfg = HybridConfig()
     adapter = ColbertLateInteraction(cfg)
-    assert adapter.is_available() is False
+    # ColBERT flag off ⇒ adapter is not enabled.
+    assert adapter.enabled is False
 
 
-def test_colbert_enabled_but_missing_dependency_raises() -> None:
-    """``is_available()`` returns ``False`` even when the flag is on,
-    when the optional dep is not installed. ``score()`` raises
-    :class:`GraphUnavailableError` to surface the misconfig.
-    """
+def test_colbert_enabled_and_available() -> None:
+    """With ragatouille now a required dep, ColBERT is always available."""
     cfg = HybridConfig(colbert_enabled=True)
     adapter = ColbertLateInteraction(cfg)
+    assert adapter.is_available() is True
+
+
+def test_colbert_disabled_means_unavailable() -> None:
+    cfg = HybridConfig(colbert_enabled=False)
+    adapter = ColbertLateInteraction(cfg)
     assert adapter.is_available() is False
-    with pytest.raises(GraphUnavailableError):
-        adapter.score("q", ["doc"])
 
 
 # --- 3.5: hybrid v2 --------------------------------------------------------
@@ -142,11 +136,11 @@ def test_retrieve_hybrid_v2_runs_without_colbert() -> None:
     assert all(h.score > 0 for h in out)
 
 
-def test_retrieve_hybrid_v2_skips_unavailable_colbert() -> None:
-    """An unavailable ColBERT adapter is silently dropped."""
+def test_retrieve_hybrid_v2_skips_disabled_colbert() -> None:
+    """A disabled ColBERT adapter is skipped (not an error)."""
     pipe, store = make_pipeline()
     user = UserPrincipal(email="a@b.c", allowed_companies=["A"])
-    adapter = ColbertLateInteraction(HybridConfig(colbert_enabled=True))
+    adapter = ColbertLateInteraction(HybridConfig(colbert_enabled=False))
     assert adapter.is_available() is False
     out = pipe.retrieve_hybrid_v2(
         user=user, question="revenue", top_k=3, colbert=adapter

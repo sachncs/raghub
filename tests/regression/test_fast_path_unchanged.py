@@ -117,7 +117,7 @@ async def test_fast_path_with_compose_transformer_empty() -> None:
     single-vector path so embedder and vector_store are called
     exactly once each.
     """
-    from raghub.retrieval.transforms import ComposeTransformer
+    from raghub.retrieval.transforms.compose import ComposeTransformer
 
     embedder, store = build_pipeline()[1:3]
     from raghub.retrieval.reranker import IdentityReranker
