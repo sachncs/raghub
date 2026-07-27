@@ -31,11 +31,6 @@ from uuid import uuid4
 from pypdf import PdfReader
 
 from raghub.core import DocumentStateMachine
-from raghub.documents.parsers import (
-    FileParser,
-    ParsedSection,
-    ParserRegistry,
-)
 from raghub.exceptions import ConfigurationError, ConversionError, DocumentError
 from raghub.interfaces.converter import DocumentConverter
 from raghub.models import (
