@@ -137,7 +137,7 @@ def test_from_okf_invalid_json_string():
 
 
 def test_from_okf_non_dict_payload():
-    with pytest.raises(KnowledgeError, match="must be a dict"):
+    with pytest.raises(KnowledgeError, match="Invalid OKF JSON"):
         from_okf("[]")
 
 
