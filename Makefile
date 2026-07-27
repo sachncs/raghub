@@ -1,4 +1,4 @@
-.PHONY: help install test coverage lint typecheck format security audit docs bench dev-api dev-ui db-init db-reset clean compose-build compose-up compose-down compose-dev compose-dev-down compose-prod compose-prod-down
+.PHONY: help install test coverage lint typecheck format security audit docs bench dev-api dev-ui db-init db-reset clean
 
 help:
 	@echo "Common targets:"
@@ -16,15 +16,10 @@ help:
 	@echo "  make dev-ui           - Start the Streamlit UI"
 	@echo "  make db-init          - Initialise database tables"
 	@echo "  make db-reset         - Reset database (drop + recreate)"
-	@echo "  make compose-build    - Build production images"
-	@echo "  make compose-up       - Start production stack (api + ui + qdrant)"
-	@echo "  make compose-down     - Stop production stack"
-	@echo "  make compose-dev      - Start dev stack with --reload and source mounts"
-	@echo "  make compose-dev-down - Stop dev stack"
 	@echo "  make clean            - Remove build artefacts"
 
 install:
-	pip install -e ".[api,ui,dev]"
+	pip install -e ".[dev]"
 
 test:
 	pytest -q
@@ -34,13 +29,13 @@ coverage:
 		--cov=raghub --cov-report=term-missing --cov-fail-under=90
 
 lint:
-	ruff check raghub/ tests/ examples/ bench/
+	ruff check raghub/ tests/ devtools/
 
 typecheck:
 	mypy raghub/
 
 format:
-	ruff format raghub/ tests/ examples/ bench/
+	ruff format raghub/ tests/ devtools/
 
 security:
 	bandit -r raghub/ -q -ll -i
@@ -52,7 +47,7 @@ docs:
 	mkdocs build --strict
 
 bench:
-	python -m bench.benchmark --documents 5 --queries 20 --concurrency 4
+	python -m devtools.benchmark --documents 5 --queries 20 --concurrency 4
 
 clean:
 	rm -rf build dist .pytest_cache .mypy_cache .ruff_cache .coverage
@@ -66,26 +61,9 @@ dev-ui:
 
 db-init:
 	python -c \
-		"from raghub.core.container import build_application; import asyncio; asyncio.run(build_application())"
+	"from raghub.core.container import build_application; import asyncio; asyncio.run(build_application())"
 
 db-reset:
 	rm -f data/*.db data/sessions.json data/registry.json
 	python -c \
-		"from raghub.core.container import build_application; import asyncio; asyncio.run(build_application())"
-
-# ---------- docker compose ----------
-
-compose-build:
-	docker compose -f docker-compose.yml build
-
-compose-up:
-	docker compose -f docker-compose.yml --profile production up -d
-
-compose-down:
-	docker compose -f docker-compose.yml --profile production down
-
-compose-dev:
-	docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile dev up
-
-compose-dev-down:
-	docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile dev down
+	"from raghub.core.container import build_application; import asyncio; asyncio.run(build_application())"

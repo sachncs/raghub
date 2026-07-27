@@ -64,7 +64,7 @@ echo "  Pip:    $(pip --version 2>&1 | head -1)"
 
 echo "[4/5] Installing project + extras ..."
 pip install --quiet --upgrade pip 2>/dev/null
-pip install --quiet -e ".[dev,api,ui]"
+pip install --quiet -e ".[dev]"
 echo "  pip packages: OK"
 
 echo "[5/5] Creating data directories ..."

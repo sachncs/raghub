@@ -49,7 +49,7 @@ dependencies = [
     "aiosqlite>=0.19,<1",
     "tiktoken>=0.5,<1",
     "beautifulsoup4>=4.12,<5",
-    "Pillow>=11,<14",
+    "Pillow>=10.1,<11",
     "openpyxl>=3.1,<4",
     "python-docx>=1.1,<2",
     "python-pptx>=0.6.21,<1",
@@ -63,7 +63,7 @@ dependencies = [
     "leidenalg>=0.10,<1",
     "rank-bm25>=0.2,<1",
     "ragatouille>=0.0.8,<1",
-    "marker-pdf>=1.0,<3",
+    "marker-pdf>=1.0,<1.10",
     "zvec>=0.5,<1",
     "typer>=0.12,<1",
 ]
@@ -91,7 +91,6 @@ dev = [
 [project.scripts]
 raghub = "raghub.cli.main:main"
 raghub-financebench = "raghub.evaluation.cli:app"
-raghub-benchmark = "bench.benchmark:main"
 
 [project.entry-points."raghub.plugins"]
 # A plugin is any class with a ``register(registry)`` method. The
@@ -112,8 +111,8 @@ Changelog = "https://github.com/sachncs/raghub/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["raghub*", "bench*"]
-exclude = ["tests*", "data*", "documents*", "examples*", "requirements*", "docs*"]
+include = ["raghub*"]
+exclude = ["tests*", "data*", "documents*", "devtools*", "docs*"]
 
 [tool.setuptools.package-data]
 raghub = ["py.typed"]
@@ -176,7 +175,7 @@ filterwarnings = [
 ]
 
 [tool.interrogate]
-exclude = ["tests", "build", "dist", "examples"]
+exclude = ["tests", "build", "dist", "devtools"]
 ignore-init-module = true
 ignore-magic = true
 ignore-semiprivate = false

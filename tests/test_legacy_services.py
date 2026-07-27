@@ -26,7 +26,8 @@ def test_load_settings_default_profile() -> None:
 
 def test_load_settings_with_profile() -> None:
     """``Settings.load("production")`` selects the production profile."""
-    os.environ.setdefault("JWT_SECRET", "test-secret")
+    os.environ["JWT_SECRET"] = "x" * 64
+    os.environ["RAG_ALLOW_PASSWORDLESS"] = "false"
     settings = Settings.load("production")
     assert settings.environment == "production"
     assert settings.allow_passwordless_login is False

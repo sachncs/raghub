@@ -84,7 +84,7 @@ class Settings(BaseModel):
     require_zvec: bool = False
     jwt_secret: SecretStr = SecretStr("")
     nvidia_api_key: str = ""
-    allow_passwordless_login: bool = True
+    allow_passwordless_login: bool = False
     enable_query_cache: bool = False
     query_cache_ttl_seconds: int = 300
     extra: dict[str, Any] = Field(default_factory=dict)
@@ -419,13 +419,13 @@ def _load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> 
         "worker_backend": os.getenv(
             "RAG_WORKER_BACKEND", payload.get("worker_backend", "threadpool")
         ),
-        "require_zvec": os.getenv("RAG_REQUIRE_ZVEC", "").lower() in ("1", "true", "yes")
-        or payload.get("require_zvec", False),
+        "require_zvec": env_bool("RAG_REQUIRE_ZVEC", payload.get("require_zvec", False)),
         "jwt_secret": SecretStr(os.getenv("JWT_SECRET", "")),
         "nvidia_api_key": os.getenv("NVIDIA_API_KEY", payload.get("nvidia_api_key", "")),
-        "allow_passwordless_login": os.getenv("RAG_ALLOW_PASSWORDLESS", "").lower()
-        in ("1", "true", "yes")
-        or payload.get("allow_passwordless_login", True),
+        "allow_passwordless_login": env_bool(
+            "RAG_ALLOW_PASSWORDLESS",
+            payload.get("allow_passwordless_login", False),
+        ),
     }
 
 

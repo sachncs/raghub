@@ -151,47 +151,14 @@ flag tells Uvicorn to call `get_app()` on each worker, which is the
 correct way to use the app factory without falling back to a
 module-level singleton.
 
-## Deployment (Docker)
+## Configuration
 
-```bash
-cp .env.example .env
-# Edit .env: set JWT_SECRET, an LLM API key, and CORS_ORIGINS.
-openssl rand -base64 48   # generate JWT_SECRET
-
-docker compose -f docker-compose.yml build
-docker compose -f docker-compose.yml --profile production up -d
-
-# Verify health
-docker compose -f docker-compose.yml --profile production ps
-curl -fsS http://127.0.0.1:8000/health
-curl -fsS http://127.0.0.1:8501/_stcore/health
-curl -fsS http://127.0.0.1:6333/healthz
-```
-
-The production stack runs three services (`api`, `ui`, `qdrant`)
-with hardened defaults: read-only root, `cap_drop: [ALL]`,
-`no-new-privileges`, JSON-file log rotation, named volumes for
-SQLite + Qdrant, service-aware healthchecks, and
-`depends_on: condition: service_healthy`. The `env_file` is
-declared with `required: true`, so the stack fails closed if
-`.env` is missing.
-
-For local development:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml \
-    --profile dev up
-```
-
-`docker-compose.dev.yml` is an explicit override; the dev
-mounts, `--reload`, and relaxed security live there so the
-production target stays clean.
-
-See [`docs/guide/deployment.md`](docs/guide/deployment.md),
-[`docs/operations/backup.md`](docs/operations/backup.md),
-[`docs/operations/runbook.md`](docs/operations/runbook.md), and
-[`docs/operations/scaling.md`](docs/operations/scaling.md) for
-the full operations story.
+Settings live in :mod:`raghub.config` and are loaded by
+:meth:`Settings.load` from environment variables plus an optional
+profile. There is no `.env` file or Docker layer — every config
+value is read from `os.environ` at process start, and missing
+required values (e.g. `JWT_SECRET` in production) raise
+immediately. See `Settings.load()` for the full env-var contract.
 
 ## Multi-User & RBAC
 
@@ -229,10 +196,9 @@ await rag.aquery("and growth?", user=alice, session_id="alice-s1")
 | `JWT_SECRET` | yes | random | Opaque session-token signing secret (≥32 bytes) |
 | `QDRANT_URL` | yes | unset | Qdrant server URL |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | yes | unset | Langfuse credentials |
-| TOML/YAML profile | no | — | `config/<profile>.toml` or `.yaml` |
 | Constructor kwargs | no | — | Passed to `RAG(...)` (highest precedence) |
 
-Precedence (highest first): constructor arguments → env vars → TOML config → YAML config → built-in defaults. `AppSettings.override(**changes)` returns a new instance with the given fields changed (the original is not mutated).
+Precedence (highest first): constructor arguments → env vars → built-in defaults. `Settings.override(**changes)` returns a new instance with the given fields changed (the original is not mutated).
 
 ## API
 
@@ -300,28 +266,25 @@ raghub/
 │   ├── telemetry/          # LangfuseTelemetryProvider, NoopSpan, LangfuseSpan
 │   ├── evaluation/         # FinanceBenchEvaluator, retrieval metrics
 │   ├── plugins/            # PluginRegistry, entry-point discovery
-│   └── cli/                # CLI commands (health, ingest, query, init, eval)
-├── tests/                  # Run `pytest --collect-only` for the current count
-├── bench/                  # Performance benchmark harness (startup, QPS, RSS)
-├── streamlit_app.py        # Demo Streamlit UI
-├── pyproject.toml
-└── setup.sh                # venv + dev-deps bootstrap
+ │   └── cli/                # CLI commands (health, ingest, query, init, eval)
+ ├── tests/                  # Run `pytest --collect-only` for the current count
+ ├── devtools/               # Bench harness, lock builder, example scripts
+ ├── streamlit_app.py        # Demo Streamlit UI
+ └── pyproject.toml
 ```
 
 ## Development
 
 ```bash
-./setup.sh
-# or:
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev,api,ui]"
+pip install -e ".[dev]"
 ```
 
 Linting and formatting:
 
 ```bash
-ruff check raghub/
-ruff format raghub/
+ruff check raghub/ tests/ devtools/
+ruff format raghub/ tests/ devtools/
 mypy raghub/
 interrogate -v \
     raghub/api/rag.py raghub/api/defaults.py raghub/api/response.py \
@@ -370,7 +333,7 @@ PyPI via OIDC trusted publishing (no API token secret required).
 # Local pre-release gates
 pytest -q --ignore=tests/test_financebench.py \
     --cov=raghub --cov-report=term-missing --cov-fail-under=90
-ruff check raghub/ tests/ examples/ bench/
+ruff check raghub/ tests/ devtools/
 mypy raghub/
 
 # Tag and push (publishing is automated).
@@ -384,10 +347,10 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 raghub-financebench --examples 25
 
 # Performance benchmark (startup, throughput, p50/p95 latency, peak RSS)
-python -m bench.benchmark --documents 100 --queries 200 --concurrency 8
+python -m devtools.benchmark --documents 100 --queries 200 --concurrency 8
 ```
 
-Reports are written to `bench/report.json`.
+Reports are written to `devtools/report.json`.
 
 ## Tech Stack
 
