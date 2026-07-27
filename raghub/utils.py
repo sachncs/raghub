@@ -31,19 +31,6 @@ from typing import Any, TypeVar
 T = TypeVar("T")
 
 
-def typed_json_loads(raw: str | bytes, default: object = None) -> object:
-    """Parse JSON and return the decoded value.
-
-    Args:
-        raw: JSON text or bytes.
-        default: Unused compatibility default.
-
-    Returns:
-        The decoded JSON value.
-    """
-    return json.loads(raw)
-
-
 def write_json(payload: Any) -> None:
     """Write ``payload`` as pretty JSON to stdout.
 
@@ -91,7 +78,7 @@ def load_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, An
     """
     if not path.exists():
         return {} if default is None else default
-    decoded = typed_json_loads(path.read_text(encoding="utf-8"))
+    decoded = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(decoded, dict):
         raise TypeError("JSON root must be an object")
     return decoded

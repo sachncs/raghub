@@ -61,7 +61,7 @@ from raghub.models import (
 from raghub.observability import NoOpTelemetry
 
 # ---------------------------------------------------------------------------
-# DurationTimer (formerly raghub.pipelines._timing)
+# DurationTimer
 # ---------------------------------------------------------------------------
 
 
@@ -89,7 +89,7 @@ class DurationTimer(AbstractContextManager["DurationTimer"]):
 
 
 # ---------------------------------------------------------------------------
-# QueryCache (formerly raghub.pipelines.cache)
+# QueryCache
 # ---------------------------------------------------------------------------
 
 
@@ -241,7 +241,7 @@ class QueryCache:
 
 
 # ---------------------------------------------------------------------------
-# ConversationRouter (formerly raghub.pipelines.rag.conversation)
+# ConversationRouter
 # ---------------------------------------------------------------------------
 
 
@@ -276,7 +276,7 @@ class ConversationRouter:
 
 
 # ---------------------------------------------------------------------------
-# PipelineResultBuilder (formerly raghub.pipelines.rag.result)
+# PipelineResultBuilder
 # ---------------------------------------------------------------------------
 
 
@@ -309,7 +309,7 @@ class PipelineResultBuilder:
 
 
 # ---------------------------------------------------------------------------
-# Ingest helpers (formerly raghub.pipelines.rag.ingest)
+# Ingest helpers
 # ---------------------------------------------------------------------------
 
 
@@ -531,7 +531,7 @@ class IngestPipeline(Pipeline):
 
 
 # ---------------------------------------------------------------------------
-# QueryPipeline (formerly raghub.pipelines.rag.query)
+# QueryPipeline
 # ---------------------------------------------------------------------------
 
 
@@ -875,7 +875,7 @@ class QueryPipeline(Pipeline):
 
 
 # ---------------------------------------------------------------------------
-# AgenticQueryPipeline (formerly raghub.pipelines.agentic)
+# AgenticQueryPipeline
 # ---------------------------------------------------------------------------
 
 

@@ -281,7 +281,7 @@ class QdrantVectorStore(VectorStore):
 
     Transport choice — gRPC vs HTTP:
         The client defaults to HTTP (``prefer_grpc=False``) for broad
-        compatibility. When latency matters, switch Qdrant to its gRPC
+        When latency matters, switch Qdrant to its gRPC
         port (usually 6334) and set ``prefer_grpc=True``.
     """
 
@@ -489,7 +489,7 @@ def native_filter(metadata_filter: str | dict[str, Any]) -> str | None:
     """Translate a canonical metadata filter into a Zvec SQL fragment.
 
     Args:
-        metadata_filter: Canonical dict, legacy string, or empty string.
+        metadata_filter: Canonical dict, SQL string, or empty string.
 
     Returns:
         A SQL fragment, ``None`` for no constraint, or ``"false"`` for an

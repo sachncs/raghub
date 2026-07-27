@@ -163,7 +163,7 @@ async def _run(args: argparse.Namespace) -> BenchmarkResult:
 
     # Query latency
     if args.realistic:
-        from raghub.evaluation.helper import FinanceBench
+        from raghub.helper.evaluation import FinanceBench
 
         evaluator = FinanceBench()
         examples = evaluator.ensure_loaded_examples()

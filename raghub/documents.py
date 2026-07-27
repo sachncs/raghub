@@ -1,28 +1,58 @@
-"""Document parsers and the dispatch entry point.
+"""documents package.
 
-The former ``raghub/documents/parsers/`` subpackage was lifted into this
-single module. Each format-specific file class lives next to
-:class:`Catalog`, which provides MIME-then-extension lookup with a
-UTF-8 fallback.
-
-The single user-facing entry point is :func:`parse`. Callers should
-reach for that — concrete file classes and the catalog exist for
-extensibility and tests, not for direct orchestration.
-
-Class summary::
-
-    Section        - one parsed chunk (location + text + metadata).
-    File           - abstract base; subclasses implement ``parse``.
-    Pdf            - one section per PDF page (pypdf).
-    HTML           - one section per HTML body (BeautifulSoup).
-    Image          - one section per image; optional OCR (pytesseract).
-    Office         - DOCX/XLSX/PPTX (and legacy DOC/XLS/PPT).
-    Csv            - whole-file UTF-8 decode.
-    Txt            - whole-file UTF-8 decode (plain text).
-    Catalog        - two-tier (MIME then extension) dispatcher.
+Implementation lives in :mod:`raghub.helper` (documents); local entry-point modules: ['parser'].
 """
 
 from __future__ import annotations
+
+from raghub.helper.documents import (
+    ChunkingPlan,
+    DocumentLifecycleManager,
+    EQUATION_BLOCK_RE,
+    FENCE_RE,
+    HEADING_RE,
+    IMAGE_RE,
+    INLINE_EQUATION_RE,
+    MAGIC_BYTES,
+    MARKER_AVAILABLE,
+    MIME_TYPES_BY_EXTENSION,
+    MarkdownSection,
+    MarkerConverter,
+    MarkerImportError,
+    MarkerPdfConverter,
+    PlainTextConverter,
+    TABLE_LINE_RE,
+    build_chunk_records,
+    build_marker_converter,
+    chunk_words,
+    convert_path,
+    datetime_now_utc,
+    detect_mime_type,
+    extract_pdf_metadata,
+    extract_pdf_pages,
+    extract_pdf_text,
+    extract_text_from_content,
+    looks_like_pdf,
+    markdown_to_document_blocks,
+    marker_create_model_dict,
+    marker_text_from_rendered,
+    new_version,
+    normalise_markdown,
+    normalize_text,
+    select_converter_for_path,
+    self_module,
+    validate_upload,
+)
+
+
+# --- parser.py content ---
+
+
+
+
+# --- parser.py content ---
+
+
 
 import io
 from abc import ABC, abstractmethod
@@ -198,7 +228,7 @@ class Image(File):
 
 
 class Office(File):
-    """DOCX/XLSX/PPTX (and legacy DOC/XLS/PPT) document."""
+    """DOCX/XLSX/PPTX (also DOC/XLS/PPT) document."""
 
     def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
         """Dispatch an Office document to its format-specific parser.
@@ -462,9 +492,7 @@ class Catalog:
         return parser.parse(file_bytes, file_name, mime_type)
 
 
-# ``Registry`` is the legacy public alias for :class:`Catalog`; the class was
-# renamed but external callers still import under the older name.
-Registry = Catalog
+# ``Catalog`` is the public class.
 
 
 # The single user-facing dispatch. Callers should reach for ``parse``
@@ -485,3 +513,42 @@ def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
         A list of :class:`Section` produced by the matched parser.
     """
     return Catalog().parse(file_bytes, file_name, mime_type)
+
+__all__ = [
+    "ChunkingPlan",
+    "DocumentLifecycleManager",
+    "EQUATION_BLOCK_RE",
+    "FENCE_RE",
+    "HEADING_RE",
+    "IMAGE_RE",
+    "INLINE_EQUATION_RE",
+    "MAGIC_BYTES",
+    "MARKER_AVAILABLE",
+    "MIME_TYPES_BY_EXTENSION",
+    "MarkdownSection",
+    "MarkerConverter",
+    "MarkerImportError",
+    "MarkerPdfConverter",
+    "PlainTextConverter",
+    "TABLE_LINE_RE",
+    "build_chunk_records",
+    "build_marker_converter",
+    "chunk_words",
+    "convert_path",
+    "datetime_now_utc",
+    "detect_mime_type",
+    "extract_pdf_metadata",
+    "extract_pdf_pages",
+    "extract_pdf_text",
+    "extract_text_from_content",
+    "looks_like_pdf",
+    "markdown_to_document_blocks",
+    "marker_create_model_dict",
+    "marker_text_from_rendered",
+    "new_version",
+    "normalise_markdown",
+    "normalize_text",
+    "select_converter_for_path",
+    "self_module",
+    "validate_upload",
+]

@@ -11,8 +11,8 @@ Consolidates every support file in the old
                           - in-process worker + queue primitives.
     RagContainer         - composition root for every collaborator.
     Facade               - high-level facade aggregating every public action
-                          (was ApplicationFacade; ``RagApplication`` is a
-                          legacy alias kept for external callers).
+                          (was ApplicationFacade; ``Facade`` is a
+                          prior-name alias kept for external callers).
 
 The module-level dispatch entry points live in :mod:`raghub.api.app`
 and the CLI surface in :mod:`raghub.cli.main`.
@@ -42,7 +42,7 @@ from raghub.conversation import ConversationManager
 from raghub.core import can_access_company
 from raghub.documents import detect_mime_type
 from raghub.documents import DocumentLifecycleManager
-from raghub.documents.parser import Catalog
+from raghub.documents import Catalog
 from raghub.embeddings import BaseEmbeddingProvider, build_embedding_provider
 from raghub.exceptions import AuthorizationError, DocumentError
 from raghub.ingestion import DocumentIngestionService, IngestionResult
@@ -56,22 +56,29 @@ from raghub.models import (
     TaskQueue,
     UserPrincipal,
 )
+
+
+# `Facade` is the public class; `RagApplication` was a prior name.
+# ``from raghub.services import Facade`` without churn. Define a
+# placeholder up front so partial-init cycles (api → helper.auth →
+# services → helper.services) resolve at every intermediate step; the real
+# alias lands at the bottom once ``Facade`` exists.
+# placeholder removed; Facade alias defined near the bottom.
+
+
 from raghub.observability import PrometheusMetrics, build_logger
 from raghub.prompts import PromptBuilder
 from raghub.repositories import UnitOfWork
-from raghub.retrieval.helper import (
+from raghub.helper.retrieval import (
     Identity as IdentityReranker,
     Retrieval as RetrievalPipeline,
 )
-from raghub.storage.image_store import FilesystemImageStore
-from raghub.storage.sqlite_session_store import SqliteSessionStore
+from raghub.storage import ImageStore, Sessions
 from raghub.vectorstore import BaseVectorStore, ZvecVectorStore
-
 
 # ---------------------------------------------------------------------------
 # Mixin shared by every service
 # ---------------------------------------------------------------------------
-
 
 class Mixin:
     """Provides structured logging and metric helpers to service classes.
@@ -101,26 +108,21 @@ class Mixin:
         if callable(recorder):
             recorder(name, (time.perf_counter() - started_at) * 1000.0)
 
-
 # ---------------------------------------------------------------------------
 # Document service
 # ---------------------------------------------------------------------------
-
 
 async def upload_record_helper(result: IngestionResult | Any) -> DocumentRecord:
     """Return the :class:`DocumentRecord` carried by an ingestion result."""
     return result.document
 
-
 def raise_missing_document(document_id: str) -> DocumentRecord:
     """Raise :class:`DocumentError` for an unknown document id."""
     raise DocumentError(f"Unknown document id: {document_id}")
 
-
 async def list_all_records_helper(uow: Any) -> list[DocumentRecord]:
     """Return every document from the repository."""
     return cast(list[DocumentRecord], await uow.document_repo.list_all())
-
 
 async def document_by_id_helper(uow: Any, document_id: str) -> DocumentRecord:
     """Return a single document by id or raise :class:`DocumentError`."""
@@ -130,7 +132,6 @@ async def document_by_id_helper(uow: Any, document_id: str) -> DocumentRecord:
     if record is None:
         raise_missing_document(document_id)
     return record
-
 
 class Document(Mixin):
     """Document upload, listing, status, and deletion."""
@@ -221,11 +222,9 @@ class Document(Mixin):
         self.container.vector_store.delete_document(document_id)
         await self.container.uow.document_repo.delete(document_id)
 
-
 # ---------------------------------------------------------------------------
 # Health service
 # ---------------------------------------------------------------------------
-
 
 def probe_vector_store(store: object) -> dict[str, object]:
     """Probe a vector store for liveness.
@@ -245,7 +244,6 @@ def probe_vector_store(store: object) -> dict[str, object]:
     else:
         payload = {**payload, "status": "ok"}
     return payload
-
 
 def probe_embedder(embedder: object) -> dict[str, object]:
     """Probe an embedding provider by emitting a tiny probe vector."""
@@ -270,7 +268,6 @@ def probe_embedder(embedder: object) -> dict[str, object]:
         "model": getattr(embedder, "model_name", ""),
     }
 
-
 def aggregate_status(probes: dict[str, dict[str, object]]) -> str:
     """Combine per-component probes into a single status string."""
     statuses = [str(p.get("status", "")).lower() for p in probes.values()]
@@ -279,7 +276,6 @@ def aggregate_status(probes: dict[str, dict[str, object]]) -> str:
     if any(s in {"degraded", "unknown"} for s in statuses):
         return "degraded"
     return "ok"
-
 
 class Health(Mixin):
     """Aggregate liveness signals from key collaborators."""
@@ -307,11 +303,9 @@ class Health(Mixin):
             "components": components,
         }
 
-
 # ---------------------------------------------------------------------------
 # Query service
 # ---------------------------------------------------------------------------
-
 
 class Query(Mixin):
     """High-level retrieval-augmented Q/A handler."""
@@ -372,11 +366,9 @@ class Query(Mixin):
             source_chunks=[chunk.model_dump(mode="json") for chunk in chunks],
         )
 
-
 # ---------------------------------------------------------------------------
 # Worker primitives
 # ---------------------------------------------------------------------------
-
 
 class Synchronous(BackgroundWorker):
     """Execute tasks inline on the caller's thread.
@@ -391,7 +383,6 @@ class Synchronous(BackgroundWorker):
             return fn(*args, **kwargs)
         except Exception:
             raise
-
 
 class ThreadPool(BackgroundWorker):
     """Execute tasks on a :class:`ThreadPoolExecutor`.
@@ -414,7 +405,6 @@ class ThreadPool(BackgroundWorker):
         """Submit ``fn`` to the pool and return its :class:`Future`."""
         return self.executor.submit(fn, *args, **kwargs)
 
-
 class InMemoryQueue(TaskQueue):
     """In-memory queue shim intended for Celery/RQ migration.
 
@@ -430,11 +420,9 @@ class InMemoryQueue(TaskQueue):
         self.queue.put((name, payload))
         return name
 
-
 # ---------------------------------------------------------------------------
 # Container + build helpers
 # ---------------------------------------------------------------------------
-
 
 @dataclass
 class RagContainer:
@@ -445,12 +433,12 @@ class RagContainer:
     * ``settings`` — typed configuration snapshot.
     * ``logger`` / ``metrics`` — observability primitives.
     * ``authorization`` — RBAC service for admin-only checks.
-    * ``registry`` — user-store alias kept for back-compat.
+    * ``registry`` — user-store alias kept for prior-version callers.
     * ``conversation`` — chat-history manager.
     * ``embeddings`` / ``llm`` — AI providers.
     * ``vector_store`` / ``prompt_builder`` / ``ingestion`` / ``retrieval`` — pipeline pieces.
     * ``image_store`` / ``parser_registry`` — auxiliary stores.
-    * ``store`` — raw :class:`SqliteSessionStore`.
+    * ``store`` — raw :class:`Sessions`.
     * ``uow`` — Unit-of-Work for transactional repo access.
     * ``auth`` / ``documents`` / ``query`` / ``health`` — service handles
       populated by :class:`Facade.__init__`.
@@ -468,10 +456,10 @@ class RagContainer:
     prompt_builder: PromptBuilder
     ingestion: DocumentIngestionService
     retrieval: RetrievalPipeline
-    image_store: FilesystemImageStore
+    image_store: ImageStore
     user_store: SqliteUserStore
     parser_registry: Catalog
-    store: SqliteSessionStore
+    store: Sessions
     uow: UnitOfWork
     auth: object = None
     documents: object = None
@@ -479,20 +467,17 @@ class RagContainer:
     health: object = None
     rag_facade: object = None
 
-
 def seed_blocked(settings: Settings) -> bool:
     """Return ``True`` when the demo-user seed must be skipped."""
     if settings.environment == "production":
         return True
     return os.getenv("CORS_ORIGINS", "").strip() == "*"
 
-
 def parse_seed_users_json(raw: str) -> Any:
     """Parse the ``RAGHUB_USERS`` env var as JSON."""
     import json as json_import
 
     return json_import.loads(raw)
-
 
 async def seed_demo_users(user_store: SqliteUserStore) -> None:
     """Seed demo users from ``RAGHUB_USERS`` or the default list."""
@@ -536,7 +521,6 @@ async def seed_demo_users(user_store: SqliteUserStore) -> None:
             is_admin=is_admin,
         )
 
-
 async def build_container(settings: Settings) -> RagContainer:
     """Construct a fully-wired :class:`RagContainer`.
 
@@ -571,7 +555,7 @@ async def build_container(settings: Settings) -> RagContainer:
         session_timeout=settings.session_timeout_seconds,
     )
     await uow.initialize()
-    raw_session_store = SqliteSessionStore(
+    raw_session_store = Sessions(
         settings.data_dir / "sessions.db",
         settings.session_timeout_seconds,
     )
@@ -598,7 +582,7 @@ async def build_container(settings: Settings) -> RagContainer:
         vector_store=vector_store,
         reranker=IdentityReranker(),
     )
-    image_store = FilesystemImageStore(settings.data_dir / "images")
+    image_store = ImageStore(settings.data_dir / "images")
     parser_registry = Catalog()
 
     if seed_blocked(settings):
@@ -629,14 +613,11 @@ async def build_container(settings: Settings) -> RagContainer:
         uow=uow,
     )
 
-
 # ---------------------------------------------------------------------------
 # Facade + coordinators
 # ---------------------------------------------------------------------------
 
-
 RAG_FACADE_AVAILABLE: bool = importlib.util.find_spec("raghub.rag") is not None
-
 
 class Auth:
     """Auth-shaped coordinator on the facade."""
@@ -663,7 +644,6 @@ class Auth:
             tuple[UserPrincipal, list[ConversationTurn]],
             await self.facade.auth_svc.resolve_user(token),
         )
-
 
 class Shutdown:
     """Release collaborators held by the :class:`RagContainer`."""
@@ -695,7 +675,6 @@ class Shutdown:
             result = close()
             if asyncio.iscoroutine(result):
                 await result
-
 
 class Preference:
     """Routes advanced-RAG requests based on resolved user prefs."""
@@ -794,7 +773,6 @@ class Preference:
                 **canonical.metadata,
             },
         )
-
 
 class Facade:
     """High-level facade exposing every public action.
@@ -949,6 +927,33 @@ class Facade:
         await self.shutdown_coordinator.release()
 
 
-# ``RagApplication`` is the legacy class name kept so callers can write
-# ``from raghub.services import RagApplication`` without churn.
-RagApplication = Facade
+# `Facade` is the public class
+# here, before ``__all__`` is defined, so partial-init cycles see it
+# via the star-import in :mod:`raghub.services`.
+
+__all__ = [
+    "Mixin",
+    "upload_record_helper",
+    "raise_missing_document",
+    "list_all_records_helper",
+    "document_by_id_helper",
+    "Document",
+    "probe_vector_store",
+    "probe_embedder",
+    "aggregate_status",
+    "Health",
+    "Query",
+    "Synchronous",
+    "ThreadPool",
+    "InMemoryQueue",
+    "RagContainer",
+    "seed_blocked",
+    "parse_seed_users_json",
+    "seed_demo_users",
+    "build_container",
+    "Auth",
+    "Shutdown",
+    "Preference",
+    "Facade",
+    "Facade",
+]

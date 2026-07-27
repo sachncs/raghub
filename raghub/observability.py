@@ -58,17 +58,17 @@ from raghub.models import Logger, Metrics, Span, TelemetryProvider
 T = TypeVar("T")
 
 langfuse_get_client: Any
-LangfuseLegacy: Any
+Langfuse: Any
 
 try:
-    from langfuse import Langfuse as LangfuseLegacy
+    from langfuse import Langfuse
     from langfuse import get_client as langfuse_get_client
 
     LANGFUSE_AVAILABLE = True
     IMPORT_ERROR: Exception | None = None
 except ImportError as exc:  # optional dep — propagate when explicitly requested
     langfuse_get_client = None
-    LangfuseLegacy = None
+    Langfuse = None
     LANGFUSE_AVAILABLE = False
     IMPORT_ERROR = exc
 
@@ -244,7 +244,7 @@ class PrometheusMetrics:
         Args:
             duration_ms: Query duration in milliseconds.
             top_k: Requested top-k value (currently not exported as a
-                label; retained for forward compatibility).
+                label).
         """
         self.query_duration.observe(duration_ms)
 
@@ -255,7 +255,7 @@ class PrometheusMetrics:
             duration_ms: Ingestion duration in milliseconds.
             chunk_count: Number of chunks produced (currently not
                 exported as a label; retained for forward
-                compatibility).
+
         """
         self.ingestion_duration.observe(duration_ms)
 
@@ -737,7 +737,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         """
         if langfuse_get_client is not None:
             return langfuse_get_client()
-        return LangfuseLegacy(
+        return Langfuse(
             public_key=public_key,
             secret_key=secret_key,
             host=host or "https://cloud.langfuse.com",
@@ -827,7 +827,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             propagate(**attrs)
 
     def end_span(self, span: Span) -> None:
-        """Close a previously-opened span.
+        """Close a span.
 
         Args:
             span: The span returned by :meth:`start_span`.
@@ -875,16 +875,6 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             yield s
         finally:
             self.end_span(s)
-
-    def end_trace(self) -> None:
-        """Flush buffered events; kept for backwards compatibility."""
-        if self.client is None:
-            return
-        flush = getattr(self.client, "flush", None)
-        if flush is None:
-            return
-        flush()
-
 
 class NoOpTelemetry(TelemetryProvider):
     """Silent telemetry provider; satisfies the contract."""

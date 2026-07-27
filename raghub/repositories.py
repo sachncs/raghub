@@ -1,6 +1,6 @@
 """SQLite-backed repository implementations.
 
-Concrete implementations of the legacy repository protocols
+Concrete implementations of the storage repository protocols
 defined in :mod:`raghub.domain`. The four classes ship in a single
 file because they share the SQLite persistence concern and are
 always wired together by :class:`UnitOfWork`:
@@ -36,8 +36,7 @@ from raghub.models import (
     DocumentRecord,
     SessionRecord,
 )
-from raghub.storage.database import DatabaseManager
-from raghub.storage.sqlite_session_store import SqliteSessionStore
+from raghub.storage import Database, Sessions
 from raghub.vectorstore import BaseVectorStore
 
 MAX_INSERT_RETRIES = 3
@@ -135,7 +134,7 @@ class SqliteDocumentRepository(DocumentRepository):
         index makes checksum-based dedup race-detectable.
 
     Migration:
-        Pre-existing databases created with the legacy single-column PK
+        Pre-existing databases created with a single-column primary key
         ``(document_id)`` are rebuilt transparently on first
         :meth:`initialize`.
     """
@@ -166,11 +165,11 @@ class SqliteDocumentRepository(DocumentRepository):
         conn = await self.conn()
         await conn.executescript(SCHEMA_SQL)
         await conn.execute(UNIQUE_CHECKSUM_INDEX)
-        await self.migrate_legacy_schema(conn)
+        await self.migrate_schema(conn)
         await self.maybe_commit_close(conn)
 
-    async def migrate_legacy_schema(self, conn: aiosqlite.Connection) -> None:
-        """Rebuild the legacy single-column documents table in place."""
+    async def migrate_schema(self, conn: aiosqlite.Connection) -> None:
+        """Rebuild the single-column documents table in place."""
         cursor = await conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='documents'"
         )
@@ -404,7 +403,7 @@ class SqliteSessionRepository(SessionRepository):
         timeout_seconds: int = 3600,
         db_manager: DatabaseManager | None = None,
     ) -> None:
-        self.inner = SqliteSessionStore(db_path, timeout_seconds, db_manager=db_manager)
+        self.inner = Sessions(db_path, timeout_seconds, db=db_manager)
         self.db_manager = db_manager
 
     async def initialize(self) -> None:

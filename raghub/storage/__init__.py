@@ -1,1 +1,0 @@
-"""Durable storage adapters."""

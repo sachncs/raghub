@@ -44,11 +44,11 @@ from pydantic import BaseModel
 from tqdm import tqdm
 
 from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
-from raghub.api.helper import ResponseBuilder
+from raghub.helper.response import ResponseBuilder
 from raghub.config import Settings
 from raghub.conversation import InMemoryConversationStore
 from raghub.embeddings import BaseEmbeddingProvider, HashingEmbeddingProvider
-from raghub.evaluation.helper import FinanceBench
+from raghub.helper.evaluation import FinanceBench
 from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
 from raghub.generation import DefaultGenerator
 from raghub.ingestion import ResumableBackgroundIngestionService, build_chonkie_chunker
@@ -71,7 +71,7 @@ from raghub.models import (
 from raghub.observability import DEFAULT_METRICS_REGISTRY, PrometheusMetrics, RedactingTelemetry
 from raghub.pipeline import AgenticQueryPipeline, IngestPipeline, QueryCache, QueryPipeline
 from raghub.plugins import PluginRegistry
-from raghub.retrieval.helper import (
+from raghub.helper.retrieval import (
     Colbert as ColbertLateInteraction,
     Compose as ComposeTransformer,
     Context as LongContextRerankPass,
@@ -275,7 +275,7 @@ def default_transforms(
         multi_query_n: Number of rephrasings for ``multi_query``.
 
     Returns:
-        A :class:`raghub.retrieval.helper.Compose`.
+        A :class:`raghub.helper.retrieval.Compose`.
         Unknown names are dropped silently.
     """
     enabled = enabled or []
@@ -479,7 +479,7 @@ class RAG:
 
         # Phase 7.8 + 7.11: build the agent + tool registry + the
         # agentic pipeline. The agent is wired only when the
-        # settings say so; the legacy fast path is preserved when
+        # settings say so; the early-exit path is preserved when
         # ``settings.agent.enabled`` is ``False`` AND no tool is
         # explicitly requested.
 
@@ -863,7 +863,7 @@ class RAG:
         The conversation store is keyed by this combined value so two
         callers who happen to share or guess a ``session_id`` cannot
         read each other's history. When ``user`` is ``None`` the
-        method returns the raw ``session_id`` (back-compat behaviour
+        method returns the raw ``session_id`` (matching the prior
         for tests that exercise the in-process store anonymously).
 
         Args:
@@ -1097,7 +1097,7 @@ class RAG:
         Yields:
             :class:`PlannerEvent` instances. SSE encoding is the
             caller's responsibility — the FastAPI route uses
-            :meth:`raghub.api.helper.Sse.format`.
+            :meth:`raghub.helper.sse.Sse.format`.
         """
 
         scoped = self.scoped_session_id(user, session_id)
@@ -1118,7 +1118,7 @@ class RAG:
             settings=self.settings,
         )
         if self.agentic_pipeline is None:
-            # No agent configured — wrap legacy tokens as events.
+            # No agent configured — wrap planner tokens as events.
             async for piece in self.astream(
                 question,
                 user=user,

@@ -21,7 +21,7 @@ Exception groups mirror the framework's domain modules:
 
 Legacy names (``AuthenticationError``, ``AuthorizationError``,
 ``DocumentError``, ``IndexingError``, ``PromptError``, ``LLMError``,
-``StorageError``) are preserved for backward compatibility.
+``StorageError``) are preserved for prior-version consumers.
 """
 
 from __future__ import annotations
@@ -116,14 +116,14 @@ class TransformError(RagHubError):
 
 
 # ---------------------------------------------------------------------------
-# Legacy / compatibility names (kept for existing API consumers).
+# Prior-version names kept for existing API consumers.
 # They are subclasses of :class:`RagHubError` so a single
 # ``except RagHubError`` continues to catch everything.
 # ---------------------------------------------------------------------------
 
 
 class DynamicRagError(RagHubError):
-    """Backward-compatible alias for :class:`RagHubError`.
+    """Alias for :class:`RagHubError`.
 
     New code should prefer :class:`RagHubError`. This alias is kept so
     existing imports (``from raghub.exceptions import DynamicRagError``)
@@ -233,6 +233,6 @@ class StreamingFormatError(GenerationError):
 class CacheMiss(KeyError):
     """Raised by ``cache.get_or_raise()`` when the key is absent.
 
-    Subclasses :class:`KeyError` for compatibility with
+    Subclasses :class:`KeyError` so callers can catch either type with
     ``__contains__`` checks while carrying a richer message.
     """

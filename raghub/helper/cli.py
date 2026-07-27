@@ -352,5 +352,15 @@ class ServerCommand:
 
 
 # Bind the tool-settings sub-commands onto the Typer sub-app at import time so
-# ``from raghub.cli.helper import ToolConfig`` always yields a wired app.
+# ``from raghub.helper.cli import ToolConfig`` always yields a wired app.
 ToolConfig.register()
+
+
+__all__ = [
+    "CliConfig",
+    "ToolConfig",
+    "IngestCommand",
+    "InitCommand",
+    "QueryCommand",
+    "ServerCommand",
+]
