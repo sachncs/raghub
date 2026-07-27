@@ -543,6 +543,68 @@ def normalise_markdown(
     )
 
 
+def _flush_text_buffer(blocks: list[DocumentBlock], text_buf: list[str]) -> None:
+    """Append a TEXT block from ``text_buf`` and reset the buffer."""
+    if not text_buf:
+        return
+    blocks.append(
+        DocumentBlock(kind=BlockKind.TEXT, content="\n".join(text_buf).rstrip("\n"))
+    )
+    text_buf.clear()
+
+
+def _handle_fenced_code(
+    raw_line: str,
+    blocks: list[DocumentBlock],
+    text_buf: list[str],
+    fence_marker: str,
+    fence_lang: str,
+    in_fence: bool,
+) -> bool:
+    """Return updated ``in_fence`` after handling a line inside (or closing) a code fence."""
+    if raw_line.strip() == fence_marker:
+        blocks.append(
+            DocumentBlock(
+                kind=BlockKind.CODE,
+                content="\n".join(text_buf).rstrip("\n"),
+                metadata={"language": fence_lang},
+            )
+        )
+        text_buf.clear()
+        return False
+    text_buf.append(raw_line)
+    return in_fence
+
+
+def _open_fence(blocks: list[DocumentBlock], text_buf: list[str], fence_match: re.Match[str]) -> tuple[str, str]:
+    """Open a new code fence; return ``(fence_marker, fence_lang)``."""
+    _flush_text_buffer(blocks, text_buf)
+    return fence_match.group(1), fence_match.group(2) or ""
+
+
+def _flush_images_and_text(
+    blocks: list[DocumentBlock], trailing: str
+) -> None:
+    """Extract image / inline-equation blocks from trailing text and append a TEXT block."""
+    for raw_image in IMAGE_RE.finditer(trailing):
+        caption, uri = raw_image.group(1), raw_image.group(2)
+        blocks.append(
+            DocumentBlock(
+                kind=BlockKind.IMAGE,
+                content=uri,
+                metadata={"caption": caption, "source": uri},
+            )
+        )
+    trailing = IMAGE_RE.sub("", trailing)
+    if trailing.strip():
+        blocks.append(
+            DocumentBlock(
+                kind=BlockKind.TEXT,
+                content=INLINE_EQUATION_RE.sub(lambda m: f"\\({m.group(1)}\\)", trailing),
+            )
+        )
+
+
 def markdown_to_document_blocks(markdown: str) -> tuple[list[DocumentBlock], str]:
     """Return ``(blocks, trailing_text)`` for a Markdown snippet.
 
@@ -551,6 +613,11 @@ def markdown_to_document_blocks(markdown: str) -> tuple[list[DocumentBlock], str
 
     Returns:
         A list of structured blocks plus any un-emitted text.
+
+    The body of this function is split into ``_handle_fenced_code``,
+    ``_open_fence``, ``_flush_text_buffer``, and
+    ``_flush_images_and_text`` so the per-line state machine stays
+    under 80 lines.
     """
     blocks: list[DocumentBlock] = []
     text_buf: list[str] = []
@@ -560,48 +627,25 @@ def markdown_to_document_blocks(markdown: str) -> tuple[list[DocumentBlock], str
 
     for raw_line in markdown.splitlines():
         if in_fence:
-            if raw_line.strip() == fence_marker:
-                blocks.append(
-                    DocumentBlock(
-                        kind=BlockKind.CODE,
-                        content="\n".join(text_buf).rstrip("\n"),
-                        metadata={"language": fence_lang},
-                    )
-                )
-                text_buf = []
-                in_fence = False
-            else:
-                text_buf.append(raw_line)
+            in_fence = _handle_fenced_code(
+                raw_line, blocks, text_buf, fence_marker, fence_lang, in_fence
+            )
             continue
 
         fence_match = FENCE_RE.match(raw_line.strip())
         if fence_match:
-            if text_buf:
-                blocks.append(
-                    DocumentBlock(kind=BlockKind.TEXT, content="\n".join(text_buf).rstrip("\n"))
-                )
-                text_buf = []
+            fence_marker, fence_lang = _open_fence(blocks, text_buf, fence_match)
             in_fence = True
-            fence_marker = fence_match.group(1)
-            fence_lang = fence_match.group(2) or ""
             continue
 
         if TABLE_LINE_RE.match(raw_line):
-            if text_buf:
-                blocks.append(
-                    DocumentBlock(kind=BlockKind.TEXT, content="\n".join(text_buf).rstrip("\n"))
-                )
-                text_buf = []
+            _flush_text_buffer(blocks, text_buf)
             blocks.append(DocumentBlock(kind=BlockKind.TABLE, content=raw_line.strip()))
             continue
 
         equation_match = EQUATION_BLOCK_RE.match(raw_line.strip())
         if equation_match:
-            if text_buf:
-                blocks.append(
-                    DocumentBlock(kind=BlockKind.TEXT, content="\n".join(text_buf).rstrip("\n"))
-                )
-                text_buf = []
+            _flush_text_buffer(blocks, text_buf)
             blocks.append(
                 DocumentBlock(
                     kind=BlockKind.EQUATION, content=equation_match.group(1).strip()
@@ -613,23 +657,7 @@ def markdown_to_document_blocks(markdown: str) -> tuple[list[DocumentBlock], str
 
     if text_buf:
         trailing = "\n".join(text_buf).rstrip("\n")
-        for raw_image in IMAGE_RE.finditer(trailing):
-            caption, uri = raw_image.group(1), raw_image.group(2)
-            blocks.append(
-                DocumentBlock(
-                    kind=BlockKind.IMAGE,
-                    content=uri,
-                    metadata={"caption": caption, "source": uri},
-                )
-            )
-        trailing = IMAGE_RE.sub("", trailing)
-        if trailing.strip():
-            blocks.append(
-                DocumentBlock(
-                    kind=BlockKind.TEXT,
-                    content=INLINE_EQUATION_RE.sub(lambda m: f"\\({m.group(1)}\\)", trailing),
-                )
-            )
+        _flush_images_and_text(blocks, trailing)
 
     return blocks, ""
 

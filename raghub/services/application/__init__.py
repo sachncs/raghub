@@ -160,53 +160,26 @@ class DynamicRagContainer:
 DynamicRagApplication = ApplicationFacade
 
 
-async def build_container(settings: Settings) -> DynamicRagContainer:
-    """Construct a fully-wired :class:`DynamicRagContainer`.
-
-    The build is ordered so that every collaborator's dependencies are
-    available when needed:
-
-    1. Logger and metrics.
-    2. User store (initialised against ``data_dir/users.db``).
-    3. RBAC service.
-    4. Vector store (``ZvecVectorStore`` with optional fallback).
-    5. Unit-of-work (initialised against the registry SQLite db).
-    6. Session store (initialised against ``data_dir/sessions.db``).
-    7. Embeddings, LLM (built via factory helpers).
-    8. Prompt builder, conversation, ingestion, retrieval, image store.
-    9. Demo-user seeding — skipped in production / wildcard CORS.
-
-    Args:
-        settings: The loaded application settings.
+async def _build_auth_components(settings: Settings) -> tuple[Any, Any, SqliteUserStore]:
+    """Build logger + user_store + RBAC.
 
     Returns:
-        A populated :class:`DynamicRagContainer` ready to be wrapped
-        by :class:`ApplicationFacade`.
-
-    Raises:
-        RuntimeError: When ``JWT_SECRET`` is missing from settings.
+        (logger, authorization_service, user_store).
     """
-    from contextlib import suppress
-
     logger = build_logger(settings.log_level)
-    metrics = PrometheusMetrics()
-
     user_store = SqliteUserStore(settings.data_dir / "users.db")
     await user_store.initialize()
-
     jwt_secret = settings.jwt_secret.get_secret_value()
     if not jwt_secret:
         raise RuntimeError("JWT_SECRET must be configured")
-    nvidia_api_key = settings.nvidia_api_key or settings.extra.get("nvidia_api_key")
-
     authorization = RBACAuthorizationService(user_store, logger=logger)
+    return logger, authorization, user_store
 
-    vector_store: BaseVectorStore = ZvecVectorStore(
-        str(settings.zvec_dir),
-        embedding_dim=settings.embedding_dim,
-        require_zvec=settings.require_zvec,
-    )
 
+async def _build_persistence_components(
+    settings: Settings, vector_store: BaseVectorStore
+) -> tuple[UnitOfWork, SqliteSessionStore]:
+    """Build unit-of-work + session store."""
     db_path = str(settings.registry_path).replace(".json", ".db")
     uow = UnitOfWork(
         db_path=db_path,
@@ -214,13 +187,18 @@ async def build_container(settings: Settings) -> DynamicRagContainer:
         session_timeout=settings.session_timeout_seconds,
     )
     await uow.initialize()
-
     raw_session_store = SqliteSessionStore(
         settings.data_dir / "sessions.db",
         settings.session_timeout_seconds,
     )
     await raw_session_store.initialize()
+    return uow, raw_session_store
 
+
+def _build_provider_components(
+    settings: Settings, nvidia_api_key: str
+) -> tuple[BaseEmbeddingProvider, BaseLLMProvider]:
+    """Build the embedding + LLM providers via the factory helpers."""
     embeddings: BaseEmbeddingProvider = build_embedding_provider(
         settings.embedding_model,
         settings.embedding_dim,
@@ -230,7 +208,16 @@ async def build_container(settings: Settings) -> DynamicRagContainer:
         settings.llm_model,
         nvidia_api_key,
     )
+    return embeddings, llm
 
+
+def _build_pipeline_components(
+    uow: UnitOfWork,
+    embeddings: BaseEmbeddingProvider,
+    vector_store: BaseVectorStore,
+    settings: Settings,
+) -> dict[str, Any]:
+    """Build the pipeline collaborators (prompt, conversation, ingestion, retrieval, image)."""
     prompt_builder = PromptBuilder()
     conversation = ConversationManager(uow)
     lifecycle = DocumentLifecycleManager()
@@ -247,31 +234,82 @@ async def build_container(settings: Settings) -> DynamicRagContainer:
     )
     image_store = FilesystemImageStore(settings.data_dir / "images")
     parser_registry = ParserRegistry()
+    return {
+        "prompt_builder": prompt_builder,
+        "conversation": conversation,
+        "ingestion": ingestion,
+        "retrieval": retrieval,
+        "image_store": image_store,
+        "parser_registry": parser_registry,
+    }
+
+
+async def _seed_demo_users(logger: Any, user_store: SqliteUserStore, settings: Settings) -> None:
+    """Seed demo users unless blocked (production or wildcard CORS)."""
+    from contextlib import suppress
 
     if not seed_blocked(settings):
         await seed_demo_users(user_store)
-    else:
-        info = getattr(logger, "warning", None) or getattr(logger, "info", None)
-        if callable(info):
-            with suppress(Exception):
-                info("seed.skipped", reason="production_or_wildcard_cors")
+        return
+    info = getattr(logger, "warning", None) or getattr(logger, "info", None)
+    if callable(info):
+        with suppress(Exception):
+            info("seed.skipped", reason="production_or_wildcard_cors")
 
+
+async def build_container(settings: Settings) -> DynamicRagContainer:
+    """Construct a fully-wired :class:`DynamicRagContainer`.
+
+    The build is ordered so that every collaborator's dependencies are
+    available when needed. The actual per-block construction is
+    delegated to ``_build_*`` helpers so this orchestrator stays
+    under 80 lines.
+
+    Build order:
+        1. Logger and metrics + user store + RBAC.
+        2. Vector store (``ZvecVectorStore``).
+        3. Unit-of-work + session store.
+        4. Embeddings + LLM (via factory helpers).
+        5. Pipeline collaborators (prompt, conversation, ingestion, retrieval).
+        6. Demo-user seeding — skipped in production / wildcard CORS.
+
+    Args:
+        settings: The loaded application settings.
+
+    Returns:
+        A populated :class:`DynamicRagContainer` ready to be wrapped
+        by :class:`ApplicationFacade`.
+
+    Raises:
+        RuntimeError: When ``JWT_SECRET`` is missing from settings.
+    """
+    logger, authorization, user_store = await _build_auth_components(settings)
+    nvidia_api_key = settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
+    vector_store: BaseVectorStore = ZvecVectorStore(
+        str(settings.zvec_dir),
+        embedding_dim=settings.embedding_dim,
+        require_zvec=settings.require_zvec,
+    )
+    uow, raw_session_store = await _build_persistence_components(settings, vector_store)
+    embeddings, llm = _build_provider_components(settings, nvidia_api_key)
+    pipelines = _build_pipeline_components(uow, embeddings, vector_store, settings)
+    await _seed_demo_users(logger, user_store, settings)
     return DynamicRagContainer(
         settings=settings,
         logger=logger,
-        metrics=metrics,
+        metrics=PrometheusMetrics(),
         authorization=authorization,
         registry=user_store,
-        conversation=conversation,
+        conversation=pipelines["conversation"],
         embeddings=embeddings,
         llm=llm,
         vector_store=vector_store,
-        prompt_builder=prompt_builder,
-        ingestion=ingestion,
-        retrieval=retrieval,
-        image_store=image_store,
+        prompt_builder=pipelines["prompt_builder"],
+        ingestion=pipelines["ingestion"],
+        retrieval=pipelines["retrieval"],
+        image_store=pipelines["image_store"],
         user_store=user_store,
-        parser_registry=parser_registry,
+        parser_registry=pipelines["parser_registry"],
         store=raw_session_store,
         uow=uow,
     )
