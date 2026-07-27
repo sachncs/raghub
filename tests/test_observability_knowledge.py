@@ -619,7 +619,8 @@ class TestDefaultStructured:
             result = default_structured()
             assert result is mock_inst.return_value
 
-    def test_import_error_returns_none(self):
+    def test_import_error_propagates(self):
+        """Per the v0.7 no-swallow contract, ImportError propagates from default_structured."""
         with (
             patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}, clear=True),
             patch(
@@ -629,10 +630,11 @@ class TestDefaultStructured:
         ):
             from raghub.rag import default_structured
 
-            result = default_structured()
-            assert result is None
+            with pytest.raises(ImportError, match="not installed"):
+                default_structured()
 
-    def test_config_error_returns_none(self):
+    def test_config_error_propagates(self):
+        """Per the v0.7 no-swallow contract, ConfigurationError propagates from default_structured."""
         from raghub.exceptions import ConfigurationError
 
         with (
@@ -644,8 +646,8 @@ class TestDefaultStructured:
         ):
             from raghub.rag import default_structured
 
-            result = default_structured()
-            assert result is None
+            with pytest.raises(ConfigurationError, match="fail"):
+                default_structured()
 
 
 @patch.dict("os.environ", {}, clear=True)
