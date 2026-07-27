@@ -28,7 +28,7 @@ allow_passwordless_login: true
 """
 
 
-def register(app: "typer.Typer") -> None:
+def register(app: typer.Typer) -> None:
     """Attach the ``init`` command to ``app``."""
 
     @app.command(name="init")

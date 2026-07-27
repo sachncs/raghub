@@ -22,6 +22,7 @@ from raghub.exceptions import AuthenticationError
 from raghub.models import ConversationTurn, SessionRecord
 from raghub.utils import atomic_write_json, load_json
 
+
 class JsonSessionStore:
     """Persist user sessions and per-session conversation history.
 

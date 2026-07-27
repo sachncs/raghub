@@ -83,7 +83,7 @@ class DurationTimer(AbstractContextManager["DurationTimer"]):
         self.context = context
         self.start: float = 0.0
 
-    def __enter__(self) -> "DurationTimer":
+    def __enter__(self) -> DurationTimer:
         """Capture the start time and return ``self`` for ``as`` binding."""
         self.start = time.perf_counter()
         return self

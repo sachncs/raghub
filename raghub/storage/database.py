@@ -29,6 +29,7 @@ from pathlib import Path
 
 import aiosqlite
 
+
 class DatabaseManager:
     """Manages a shared :class:`aiosqlite.Connection` with WAL mode."""
 

@@ -11,7 +11,7 @@ import typer
 from raghub.cli.format import make_rag, write_json
 
 
-def register(app: "typer.Typer") -> None:
+def register(app: typer.Typer) -> None:
     """Attach the ``query`` command to ``app``."""
 
     @app.command(name="query")

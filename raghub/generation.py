@@ -20,15 +20,14 @@ from __future__ import annotations
 import asyncio
 import inspect
 import os
-from collections.abc import AsyncIterator, Sequence
-from typing import Callable, TypeVar, cast
+from collections.abc import AsyncIterator, Callable, Sequence
+from typing import TypeVar, cast
 
 import instructor
 from instructor.core.client import AsyncInstructor, Instructor
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 
-from raghub.exceptions import ConfigurationError
 from raghub.interfaces.structured import StructuredOutputProvider
 from raghub.llm import BaseLLMProvider
 from raghub.models import (

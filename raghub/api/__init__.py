@@ -1,9 +1,3 @@
-from __future__ import annotations
-
-from raghub.api.app import create_app
-
-__all__ = ["create_app"]
-
 """FastAPI reference application.
 
 This package bundles the HTTP layer of the framework: the

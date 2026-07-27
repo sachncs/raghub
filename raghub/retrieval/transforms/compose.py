@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from raghub.exceptions import TransformError
 from raghub.models import ConversationTurn
 from raghub.retrieval.transforms.base import QueryTransformer, QueryVariant
 

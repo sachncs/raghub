@@ -9,7 +9,7 @@ import typer
 import uvicorn
 
 
-def register(app: "typer.Typer") -> None:
+def register(app: typer.Typer) -> None:
     """Attach the ``run`` command to ``app``."""
 
     @app.command(name="run")

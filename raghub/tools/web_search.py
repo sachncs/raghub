@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from raghub.exceptions import WebSearchError
 from raghub.tools.base import BaseTool, ToolContext, ToolResult
 
 

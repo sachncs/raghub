@@ -43,7 +43,7 @@ import sys
 import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from typing import Any, Callable, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 from loguru import logger as loguru_logger
 from opentelemetry.sdk.trace import ReadableSpan
@@ -1034,7 +1034,6 @@ class Tracer:
             ConfigurationError: When OpenTelemetry SDK packages are
                 not installed.
         """
-        import importlib
 
         ot_trace = try_import_submodule("opentelemetry", "trace")
         ot_resources = try_import_submodule("opentelemetry.sdk.resources", "Resource")
