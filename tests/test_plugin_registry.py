@@ -191,7 +191,7 @@ class TestDiscoverEntrypoints:
             factory.assert_called_once()
 
     def test_register_raises(self) -> None:
-        """If plugin.register() raises, the entry is skipped."""
+        """If plugin.register() raises, the exception propagates."""
         plugin = MagicMock()
         plugin.register.side_effect = ValueError("bad")
         factory = MagicMock(return_value=plugin)
@@ -199,7 +199,8 @@ class TestDiscoverEntrypoints:
 
         with patch("raghub.plugins.metadata.entry_points", return_value=entries):
             r = _reg()
-            assert r.discover_entrypoints() == 0
+            with pytest.raises(ValueError, match="bad"):
+                r.discover_entrypoints()
 
     def test_metadata_entry_points_raises(self) -> None:
         """If metadata.entry_points itself raises, we return 0."""
