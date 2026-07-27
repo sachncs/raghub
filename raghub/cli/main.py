@@ -24,6 +24,13 @@ import importlib.util
 
 import typer
 
+from raghub.cli.config import app as config_app
+from raghub.cli.format import make_rag, write_json
+from raghub.cli.ingest import register as register_ingest
+from raghub.cli.init import register as register_init
+from raghub.cli.query import register as register_query
+from raghub.cli.server import register as register_run
+from raghub.evaluation.cli import app as eval_app
 from raghub.utils import capture
 
 app = typer.Typer(
@@ -34,19 +41,10 @@ app = typer.Typer(
 
 # Sub-trees — these are the only Typer-group attachments. Each gets its own
 # help subtree under the main app.
-from raghub.cli.config import app as config_app
-from raghub.cli.format import make_rag, write_json
-from raghub.evaluation.cli import app as eval_app
-
 app.add_typer(config_app, name="config")
 app.add_typer(eval_app, name="eval")
 
 # Flat commands — registered as `@app.command(name="...")` directly on `app`.
-from raghub.cli.ingest import register as register_ingest
-from raghub.cli.init import register as register_init
-from raghub.cli.query import register as register_query
-from raghub.cli.server import register as register_run
-
 register_query(app)
 register_ingest(app)
 register_init(app)
