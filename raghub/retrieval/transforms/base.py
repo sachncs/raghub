@@ -12,6 +12,8 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
 
+from raghub.models import ConversationTurn
+
 QueryVariantKind = Literal["original", "hyde", "multi_query", "step_back", "sub"]
 
 
@@ -44,7 +46,7 @@ class QueryTransformer(Protocol):
         self,
         *,
         question: str,
-        history: list,
+        history: list[ConversationTurn],
     ) -> list[QueryVariant]:
         """Return the variants produced for ``question``.
 

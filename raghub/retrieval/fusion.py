@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 
 class RankFusion:
@@ -30,7 +31,7 @@ class RankFusion:
         self.method = method
         self.k = k
 
-    def fuse(self, lists: list[list[dict]]) -> list[dict]:
+    def fuse(self, lists: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
         """Fuse lists of result dictionaries keyed by ``chunk_id``.
 
         Args:
@@ -43,7 +44,7 @@ class RankFusion:
         """
         if self.method == "rrf":
             scores: dict[str, float] = {}
-            records: dict[str, dict] = {}
+            records: dict[str, dict[str, Any]] = {}
             for ranking in lists:
                 for rank, item in enumerate(ranking, start=1):
                     chunk_id = item["chunk_id"]
@@ -58,7 +59,7 @@ class RankFusion:
                 for key, score in sorted(scores.items(), key=lambda x: x[1], reverse=True)
             ]
         scores: dict[str, float] = {}
-        records: dict[str, dict] = {}
+        records_linear: dict[str, dict[str, Any]] = {}
         for ranking in lists:
             maximum = max((float(item.get("score", 0)) for item in ranking), default=0.0) or 1.0
             for item in ranking:
@@ -68,9 +69,9 @@ class RankFusion:
                         f"chunk_id must be str, got {type(key).__name__}"
                     )
                 scores[key] = scores.get(key, 0.0) + float(item.get("score", 0)) / maximum
-                records.setdefault(key, item)
+                records_linear.setdefault(key, item)
         return [
-            records[key] | {"score": score}
+            records_linear[key] | {"score": score}
             for key, score in sorted(scores.items(), key=lambda x: x[1], reverse=True)
         ]
 
@@ -89,7 +90,7 @@ def rrf(rankings: Sequence[Sequence[str]], *, k: int = 60) -> list[tuple[str, fl
     Raises:
         ValueError: When ``k < 1`` or any chunk id is not a ``str``.
     """
-    rows: list[list[dict]] = []
+    rows: list[list[dict[str, Any]]] = []
     for ranking in rankings:
         rows.append([{"chunk_id": item} for item in ranking])
     fused = RankFusion(k=k).fuse(rows)
