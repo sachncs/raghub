@@ -2,7 +2,7 @@
 
 * :class:`ContainerBuilder` / :func:`build_application` — legacy
   dependency-injection helpers that wire the
-  :class:`raghub.services.application.RagApplication`. New
+  :class:`raghub.services.RagApplication`. New
   code should prefer the public :class:`raghub.RAG` facade.
 * :class:`DocumentStateMachine` / :class:`DocumentState` — the
   document lifecycle state machine.
@@ -25,7 +25,7 @@ class ContainerBuilder:
 
     The builder is intentionally small — its only job is to load
     settings (when none are supplied) and delegate to
-    :func:`raghub.services.application.build_container`. Splitting it
+    :func:`raghub.services.build_container`. Splitting it
     into a class makes it easy to inject mocks during tests and
     keeps the legacy :func:`build_application` coroutine trivial.
 
@@ -52,7 +52,7 @@ class ContainerBuilder:
         Returns:
             A ready-to-use :class:`RagApplication`.
         """
-        from raghub.services.application import (
+        from raghub.services import (
             RagApplication,
             build_container,
         )

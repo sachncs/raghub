@@ -87,7 +87,7 @@ from raghub.models import (
     QueryResponse,
     UserPrincipal,
 )
-from raghub.services.application import RagApplication
+from raghub.services import RagApplication
 from raghub.utils import capture
 
 # ---------------------------------------------------------------------------

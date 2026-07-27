@@ -43,7 +43,7 @@ from raghub.models import (
     SearchResult,
     UserPrincipal,
 )
-from raghub.services.application import RagApplication
+from raghub.services import RagApplication
 
 
 class App:
