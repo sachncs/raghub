@@ -136,21 +136,30 @@ async def test_agentic_pipeline_runs_tool_and_synthesises_answer(store: InMemory
 
 
 @pytest.mark.asyncio
-async def test_agentic_pipeline_returns_failure_when_agent_exhausts_budget(store: InMemoryVectorStore) -> None:
-    """A budget breach surfaces as ``success=False`` with an error message.
+async def test_agentic_pipeline_raises_when_agent_exhausts_budget(store: InMemoryVectorStore) -> None:
+    """A budget breach raises :class:`AgentBudgetExceeded`.
+
+    Per the v0.7 no-swallowing contract, the pipeline propagates
+    agent budget failures as exceptions rather than capturing them
+    in ``PipelineResult.success``. The caller decides whether to
+    retry or surface the error.
 
     We construct the agent with a tight budget from the start
     rather than mutating it after construction, so the test does
     not leak state into other tests in the same module.
     """
+    from raghub.exceptions import AgentBudgetExceeded
+
     llm = ScriptedLlm(
         [json.dumps({"thought": "loop", "action": {"name": "echo", "args": {"m": "1"}}})] * 10
     )
     embedder = HashingEmbeddingProvider(dimension=16, model_name="t")
+    from raghub.retrieval.reranker import IdentityReranker
+
     pipe = RetrievalPipeline(
         embedding_provider=embedder,
         vector_store=store,
-        reranker=__import__("raghub.retrieval.reranker", fromlist=["IdentityReranker"]).IdentityReranker(),
+        reranker=IdentityReranker(),
     )
     registry = ToolRegistry()
     registry.register(EchoTool())
@@ -168,9 +177,8 @@ async def test_agentic_pipeline_returns_failure_when_agent_exhausts_budget(store
     )
     user = UserPrincipal(email="a@b.c", allowed_companies=["A"])
     context = PipelineContext(pipeline_name="query")
-    result = await pipeline.run(context, question="?", user=user)
-    assert result.success is False
-    assert "budget" in (result.error or "").lower()
+    with pytest.raises(AgentBudgetExceeded, match="budget"):
+        await pipeline.run(context, question="?", user=user)
 
 
 @pytest.mark.asyncio
