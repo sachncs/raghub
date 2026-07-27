@@ -75,3 +75,79 @@ def test_in_memory_repo_delete() -> None:
     repo.delete("b1")
     assert repo.get("b1") is None
     assert repo.list_by_source("file://z") == []
+
+
+def test_in_memory_repo_delete_unknown_is_noop() -> None:
+    """Deleting an unknown bundle is a no-op (no exception)."""
+    repo = InMemoryKnowledgeRepository()
+    repo.delete("nope")  # must not raise
+
+
+def test_in_memory_repo_save_overwrites_existing() -> None:
+    """Saving with the same bundle_id replaces the prior bundle."""
+    repo = InMemoryKnowledgeRepository()
+    repo.save(KnowledgeBundle(source_uri="file://a", bundle_id="b1"))
+    second = KnowledgeBundle(
+        source_uri="file://a", bundle_id="b1", metadata={"company": "Acme"}
+    )
+    repo.save(second)
+    assert repo.get("b1") is second
+
+
+def test_in_memory_repo_list_by_source_returns_matching() -> None:
+    repo = InMemoryKnowledgeRepository()
+    repo.save(KnowledgeBundle(source_uri="file://a", bundle_id="b1"))
+    repo.save(KnowledgeBundle(source_uri="file://a", bundle_id="b2"))
+    repo.save(KnowledgeBundle(source_uri="file://b", bundle_id="b3"))
+    bundles = repo.list_by_source("file://a")
+    assert {b.bundle_id for b in bundles} == {"b1", "b2"}
+
+
+def test_in_memory_repo_list_by_source_unknown_returns_empty() -> None:
+    repo = InMemoryKnowledgeRepository()
+    assert repo.list_by_source("file://nope") == []
+
+
+def test_okf_round_trip_preserves_empty_bundle() -> None:
+    """An empty bundle survives a dumps/loads cycle."""
+    bundle = KnowledgeBundle(source_uri="file://empty")
+    restored = loads(dumps(bundle))
+    assert restored.source_uri == "file://empty"
+    assert restored.sections == []
+
+
+def test_okf_round_trip_preserves_metadata() -> None:
+    """Bundle metadata is round-tripped through the OKF format."""
+    bundle = KnowledgeBundle(
+        source_uri="file://meta",
+        metadata={"company": "Acme", "owner": "alice"},
+    )
+    restored = loads(dumps(bundle))
+    assert restored.metadata["company"] == "Acme"
+    assert restored.metadata["owner"] == "alice"
+
+
+def test_okf_round_trip_preserves_multiple_sections() -> None:
+    """Multiple sections + multiple blocks per section round-trip."""
+    bundle = KnowledgeBundle(
+        source_uri="file://multi",
+        sections=[
+            DocumentSection(
+                index=0,
+                heading="Section 1",
+                blocks=[DocumentBlock(kind=BlockKind.TEXT, content="one")],
+            ),
+            DocumentSection(
+                index=1,
+                heading="Section 2",
+                blocks=[
+                    DocumentBlock(kind=BlockKind.TEXT, content="two"),
+                    DocumentBlock(kind=BlockKind.TEXT, content="three"),
+                ],
+            ),
+        ],
+    )
+    restored = loads(dumps(bundle))
+    assert len(restored.sections) == 2
+    assert [s.heading for s in restored.sections] == ["Section 1", "Section 2"]
+    assert [b.content for b in restored.sections[1].blocks] == ["two", "three"]
