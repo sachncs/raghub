@@ -135,7 +135,7 @@ class PromptBuilder:
     def build_messages(
         self,
         question: str,
-        context: list[dict] | None = None,
+        context: list[dict[str, Any]] | None = None,
         image_paths: list[str] | None = None,
         session_history: list[ConversationTurn] | None = None,
     ) -> dict[str, Any]:

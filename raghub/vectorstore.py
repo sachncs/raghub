@@ -68,7 +68,7 @@ class BaseVectorStore(ABC):
 
     @abstractmethod
     def search(
-        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
+        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict[str, Any] = ""
     ) -> list[dict[str, Any]]:
         """Search by vector with a metadata filter."""
 
@@ -79,7 +79,7 @@ class BaseVectorStore(ABC):
         query: str,
         vector: Sequence[float],
         top_k: int,
-        metadata_filter: str | dict = "",
+        metadata_filter: str | dict[str, Any] = "",
     ) -> list[dict[str, Any]]:
         """Hybrid search."""
 
@@ -208,7 +208,7 @@ class InMemoryVectorStore(BaseVectorStore):
         return float(np.dot(lhs, rhs) / denom)
 
     def search(
-        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
+        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict[str, Any] = ""
     ) -> list[dict[str, Any]]:
         """Cosine-similarity search with metadata pre-filtering."""
         if isinstance(metadata_filter, dict):
@@ -241,7 +241,7 @@ class InMemoryVectorStore(BaseVectorStore):
         query: str,
         vector: Sequence[float],
         top_k: int,
-        metadata_filter: str | dict = "",
+        metadata_filter: str | dict[str, Any] = "",
     ) -> list[dict[str, Any]]:
         """Hybrid search shim. The in-memory backend collapses to vector search."""
         return self.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
@@ -403,7 +403,7 @@ class QdrantVectorStore(VectorStore):
         *,
         vector: Sequence[float],
         top_k: int,
-        metadata_filter: str | dict = "",
+        metadata_filter: str | dict[str, Any] = "",
     ) -> list[dict[str, Any]]:
         """Run vector search with a canonical metadata filter."""
         from qdrant_client.http import models as qmodels
@@ -467,7 +467,7 @@ class QdrantVectorStore(VectorStore):
         query: str,
         vector: Sequence[float],
         top_k: int,
-        metadata_filter: str | dict = "",
+        metadata_filter: str | dict[str, Any] = "",
     ) -> list[dict[str, Any]]:
         """Run hybrid (vector + keyword) search against the collection.
 
@@ -492,7 +492,7 @@ class QdrantVectorStore(VectorStore):
 zvec_module = import_module("zvec") if find_spec("zvec") is not None else None
 
 
-def native_filter(metadata_filter: str | dict) -> str | None:
+def native_filter(metadata_filter: str | dict[str, Any]) -> str | None:
     """Translate a canonical metadata filter into a Zvec SQL fragment.
 
     Args:
@@ -635,7 +635,7 @@ class RealZvecBackend(BaseVectorStore):
         )
 
     def search(
-        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
+        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict[str, Any] = ""
     ) -> list[dict[str, Any]]:
         """Search the collection with an optional canonical metadata filter."""
         filter_clause = native_filter(metadata_filter)
@@ -658,12 +658,12 @@ class RealZvecBackend(BaseVectorStore):
         query: str,
         vector: Sequence[float],
         top_k: int,
-        metadata_filter: str | dict = "",
+        metadata_filter: str | dict[str, Any] = "",
     ) -> list[dict[str, Any]]:
         """Run dense search because this backend has no keyword channel."""
         return self.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
-    def matches_metadata(self, metadata_filter: str | dict) -> bool:
+    def matches_metadata(self, metadata_filter: str | dict[str, Any]) -> bool:
         """Return whether a metadata filter is supported by the Zvec adapter."""
         if metadata_filter in ("", None) or isinstance(metadata_filter, str):
             return True
@@ -770,7 +770,7 @@ class ZvecVectorStore(BaseVectorStore):
         self.backend.delete_version(document_id, version)
 
     def search(
-        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
+        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict[str, Any] = ""
     ) -> list[dict[str, Any]]:
         """Run vector search through the selected backend."""
         return self.backend.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
@@ -781,7 +781,7 @@ class ZvecVectorStore(BaseVectorStore):
         query: str,
         vector: Sequence[float],
         top_k: int,
-        metadata_filter: str | dict = "",
+        metadata_filter: str | dict[str, Any] = "",
     ) -> list[dict[str, Any]]:
         """Run hybrid search through the selected backend."""
         return self.backend.hybrid_search(

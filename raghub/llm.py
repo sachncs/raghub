@@ -81,7 +81,7 @@ class BaseLLMProvider(ABC):
         context: Sequence[str],
         question: str,
         image_paths: list[str] | None = None,
-        session_history: list[dict] | None = None,
+        session_history: list[dict[str, Any]] | None = None,
     ) -> str:
         """Generate an answer from a fully-constructed prompt.
 
@@ -110,7 +110,7 @@ class BaseLLMProvider(ABC):
         context: Sequence[str] = (),
         question: str,
         image_paths: list[str] | None = None,
-        session_history: list[dict] | None = None,
+        session_history: list[dict[str, Any]] | None = None,
     ) -> str:
         """Generate without blocking the event loop."""
         return await asyncio.to_thread(
@@ -144,7 +144,7 @@ class HeuristicLLMProvider(BaseLLMProvider):
         context: Sequence[str],
         question: str,
         image_paths: list[str] | None = None,
-        session_history: list[dict] | None = None,
+        session_history: list[dict[str, Any]] | None = None,
     ) -> str:
         """Return a fixed prefix built from the top context fragments.
 
@@ -247,7 +247,7 @@ class LiteLLMProvider(BaseLLMProvider):
         context: Sequence[str] = (),
         question: str,
         image_paths: list[str] | None = None,
-        session_history: list[dict] | None = None,
+        session_history: list[dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         """Assemble an OpenAI-style message list.
 
@@ -315,7 +315,7 @@ class LiteLLMProvider(BaseLLMProvider):
         context: Sequence[str] = (),
         question: str,
         image_paths: list[str] | None = None,
-        session_history: list[dict] | None = None,
+        session_history: list[dict[str, Any]] | None = None,
     ) -> str:
         """Generate a final string answer.
 
@@ -357,7 +357,7 @@ class LiteLLMProvider(BaseLLMProvider):
         context: Sequence[str] = (),
         question: str,
         image_paths: list[str] | None = None,
-        session_history: list[dict] | None = None,
+        session_history: list[dict[str, Any]] | None = None,
     ) -> str:
         """Generate a final answer with LiteLLM's native async client."""
         messages = self.build_messages(
@@ -419,7 +419,7 @@ class LiteLLMProvider(BaseLLMProvider):
         context: Sequence[str] = (),
         question: str,
         image_paths: list[str] | None = None,
-        session_history: list[dict] | None = None,
+        session_history: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[str]:
         """Async-stream the answer token-by-token.
 

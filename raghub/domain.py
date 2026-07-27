@@ -280,7 +280,7 @@ class ChunkRepository(ABC):
     @abstractmethod
     async def search(
         self, vector: list[float], top_k: int, metadata_filter: str = ""
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Vector search with an optional RBAC metadata filter."""
 
     @abstractmethod
@@ -288,7 +288,7 @@ class ChunkRepository(ABC):
         """Compact/optimize the underlying indexes."""
 
     @abstractmethod
-    async def health(self) -> dict:
+    async def health(self) -> dict[str, Any]:
         """Return a backend-native health snapshot."""
 
 
