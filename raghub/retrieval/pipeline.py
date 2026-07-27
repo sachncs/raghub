@@ -35,7 +35,7 @@ from raghub.embeddings import BaseEmbeddingProvider
 from raghub.interfaces.vectorstore import VectorStore
 from raghub.models import ChunkRecord, RetrievalHit, UserPrincipal
 from raghub.retrieval.fusion import rrf
-from raghub.retrieval.reranker import Reranker
+from raghub.retrieval.transforms.base import QueryVariant
 
 
 class RetrievalPipeline:
@@ -281,7 +281,7 @@ class RetrievalPipeline:
         self,
         *,
         user: UserPrincipal,
-        variants: list,
+        variants: list[QueryVariant],
         top_k: int,
     ) -> list[RetrievalHit]:
         """Embed and search each variant; fuse with weighted max-normalised scores.
