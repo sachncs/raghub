@@ -95,7 +95,7 @@ unusable.
 import os
 from typing import Any
 
-from raghub.documents import MarkerConverter, PlainTextConverter
+from raghub.documents import PlainTextConverter
 from raghub.embeddings import HashingEmbeddingProvider, LiteLLMEmbeddingProvider
 from raghub.exceptions import ConfigurationError
 from raghub.generation import InstructorStructuredOutputProvider
@@ -130,11 +130,13 @@ def has_llm_api_key() -> bool:
 def default_converter() -> DocumentConverter:
     """Return the default document converter.
 
-    Returns:
-        :class:`MarkerConverter` when Marker is importable;
-        :class:`PlainTextConverter` otherwise.
+    Since ``marker-pdf`` is now a required runtime dependency, this
+    always returns :class:`MarkerConverter`. Tests patch the
+    `raghub.documents.MarkerConverter` symbol via this re-import.
     """
-    return MarkerConverter()
+    from raghub.documents import MarkerConverter as _MarkerConverter
+
+    return _MarkerConverter()
 
 
 def default_chunker(
