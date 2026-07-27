@@ -488,7 +488,13 @@ class TestDefaultEmbedder:
                 result = default_embedder("gpt-4", 256)
                 assert result is mock_llm.return_value
 
-    def test_litellm_config_error_falls_back_to_hashing(self):
+    def test_litellm_config_error_propagates(self):
+        """Per the v0.7 no-swallow contract, ConfigurationError propagates.
+
+        The legacy fallback was a silent swallow that hid
+        misconfiguration. Operators must now set up an API key or
+        explicitly choose the hashing backend.
+        """
         from raghub.exceptions import ConfigurationError
 
         with (
@@ -499,11 +505,9 @@ class TestDefaultEmbedder:
             ),
         ):
             from raghub.rag import default_embedder
-            from raghub.embeddings import HashingEmbeddingProvider
 
-            result = default_embedder("gpt-4", 256)
-            assert isinstance(result, HashingEmbeddingProvider)
-            assert result.dimension == 256
+            with pytest.raises(ConfigurationError, match="fail"):
+                default_embedder("gpt-4", 256)
 
 
 @patch.dict("os.environ", {}, clear=True)
