@@ -306,10 +306,11 @@ def env_bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in TRUTHY
 
 
-TRANSFORM_NAMES = ("hyde", "multi_query", "step_back", "decompose")
+TransformName = Literal["hyde", "multi_query", "step_back", "decompose"]
+TRANSFORM_NAMES: tuple[TransformName, ...] = ("hyde", "multi_query", "step_back", "decompose")
 
 
-def csv_to_transforms(raw: str, default: list[str]) -> list[str]:
+def csv_to_transforms(raw: str, default: list[str]) -> list[TransformName]:
     """Parse a comma-separated env var into a validated transform list.
 
     Unknown names are dropped silently — config files are validated by
