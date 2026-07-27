@@ -167,12 +167,18 @@ class TestDiscoverEntrypoints:
             plugin.register.assert_called_once_with(r)
 
     def test_entry_point_load_raises(self) -> None:
-        """An entry whose load() raises is skipped silently."""
+        """An entry whose load() raises propagates.
+
+        Per the v0.7 no-swallow contract, plugin load failures
+        bubble up. Callers (the ``raghub`` console script, the
+        service container) decide whether to retry or surface.
+        """
         entries = [_make_entry("bad", load_side_effect=RuntimeError("fail"))]
 
         with patch("raghub.plugins.metadata.entry_points", return_value=entries):
             r = _reg()
-            assert r.discover_entrypoints() == 0
+            with pytest.raises(RuntimeError, match="fail"):
+                r.discover_entrypoints()
 
     def test_plugin_lacks_register(self) -> None:
         """A plugin that doesn't have a register method is skipped."""
