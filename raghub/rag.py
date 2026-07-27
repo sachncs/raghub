@@ -98,7 +98,6 @@ from typing import Any
 from raghub.documents import PlainTextConverter
 from raghub.embeddings import HashingEmbeddingProvider
 from raghub.exceptions import ConfigurationError
-from raghub.generation import InstructorStructuredOutputProvider
 from raghub.interfaces.chunker import Chunker
 from raghub.interfaces.converter import DocumentConverter
 from raghub.interfaces.embeddings import EmbeddingProvider
@@ -239,11 +238,13 @@ def default_structured() -> Any:
 
     Returns:
         :class:`InstructorStructuredOutputProvider` when Instructor
-        is installed and an LLM API key is set; ``None`` otherwise.
+        is installed; ``None`` otherwise.
     """
     if not has_llm_api_key():
         return None
-    return InstructorStructuredOutputProvider()
+    from raghub.generation import InstructorStructuredOutputProvider as _Instructor
+
+    return _Instructor()
 
 
 def default_telemetry() -> Any:
