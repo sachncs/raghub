@@ -28,12 +28,12 @@ from instructor.core.client import AsyncInstructor, Instructor
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 
-from raghub.interfaces.structured import StructuredOutputProvider
 from raghub.llm import BaseLLMProvider
 from raghub.models import (
     Citation,
     ConversationTurn,
     RetrievalHit,
+    StructuredOutputProvider,
 )
 
 T = TypeVar("T", bound=BaseModel)
@@ -43,7 +43,7 @@ class DefaultGenerator:
     """Generator combining retrieval, prompt building, and an LLM provider.
 
     This class is the simplest way to obtain a
-    :class:`raghub.interfaces.generator.Generator`-conforming object.
+    :class:`the generator protocol`-conforming object.
     For more sophisticated flows (multi-hop, routing, agent loops)
     construct your own :class:`Generator` implementation.
 

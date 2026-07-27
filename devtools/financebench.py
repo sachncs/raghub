@@ -17,12 +17,12 @@ import asyncio
 import statistics
 
 from raghub import RAG
-from raghub.evaluation.financebench import FinanceBenchEvaluator
+from raghub.evaluation.helper import FinanceBench
 
 
 async def _run(examples: int) -> None:
     rag = RAG()
-    evaluator = FinanceBenchEvaluator()
+    evaluator = FinanceBench()
 
     async def _factory(example: dict) -> str:
         question = example.get("question") or example.get("query") or ""

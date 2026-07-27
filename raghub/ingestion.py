@@ -52,10 +52,10 @@ from raghub.exceptions import (
     ConfigurationError,
     DocumentError,
 )
-from raghub.interfaces.chunker import Chunker
 from raghub.models import (
     Chunk,
     ChunkRecord,
+    Chunker,
     Classification,
     DocumentLifecycleStatus,
     DocumentRecord,

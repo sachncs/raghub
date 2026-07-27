@@ -61,7 +61,7 @@ class VectorSearchTool(BaseTool):
         """Initialise the tool.
 
         Args:
-            retrieval_pipeline: A :class:`raghub.retrieval.pipeline.RetrievalPipeline`.
+            retrieval_pipeline: A :class:`raghub.retrieval.helper.Retrieval`.
         """
         self.pipeline = retrieval_pipeline
 

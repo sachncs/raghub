@@ -45,12 +45,12 @@ from pypdf import PdfReader
 
 from raghub.core import DocumentStateMachine
 from raghub.exceptions import ConfigurationError, ConversionError, DocumentError
-from raghub.interfaces.converter import DocumentConverter
 from raghub.models import (
     BlockKind,
     ChunkRecord,
     Classification,
     DocumentBlock,
+    DocumentConverter,
     DocumentLifecycleStatus,
     DocumentSection,
     DocumentVersion,

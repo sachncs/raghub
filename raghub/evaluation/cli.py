@@ -6,12 +6,13 @@ a sub-typer (``raghub eval financebench``).
 
 from __future__ import annotations
 
+import asyncio
 import statistics
 from typing import Any
 
 import typer
 
-from raghub.evaluation.financebench import FinanceBenchEvaluator
+from raghub.evaluation.helper import FinanceBench, run
 from raghub.utils import write_json
 
 app = typer.Typer(help="Evaluation harnesses.", no_args_is_help=True)
@@ -22,10 +23,8 @@ def financebench(
     examples: int = typer.Option(10, "--examples", "-n", help="Number of examples (0 = all)."),
 ) -> None:
     """Run the FinanceBench evaluator and print a JSON summary."""
-    import asyncio
-
     async def runner() -> None:
-        evaluator = FinanceBenchEvaluator()
+        evaluator = FinanceBench()
         examples_list: list[dict[str, Any]] = []
         if examples:
             rows = await asyncio.to_thread(evaluator.ensure_examples)
@@ -34,7 +33,7 @@ def financebench(
         async def factory(_example: object) -> str:
             return ""
 
-        results = await evaluator.evaluate(examples_list, response_factory=factory)
+        results = await run(evaluator, examples_list, response_factory=factory)
         summary = {
             "benchmark": evaluator.benchmark,
             "count": len(results),
@@ -54,5 +53,3 @@ def financebench(
         )
 
     asyncio.run(runner())
-
-

@@ -30,8 +30,7 @@ from qdrant_client.http import models as qmodels
 from rank_bm25 import BM25Okapi
 
 from raghub.exceptions import VectorStoreError
-from raghub.interfaces.vectorstore import VectorStore
-from raghub.models import ChunkRecord
+from raghub.models import ChunkRecord, VectorStore
 
 sys.modules.setdefault("raghub.vectorstore.base", sys.modules[__name__])
 sys.modules.setdefault("raghub.vectorstore.memory", sys.modules[__name__])

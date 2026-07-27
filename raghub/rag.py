@@ -48,13 +48,10 @@ from raghub.api.helper import ResponseBuilder
 from raghub.config import Settings
 from raghub.conversation import InMemoryConversationStore
 from raghub.embeddings import BaseEmbeddingProvider, HashingEmbeddingProvider
-from raghub.evaluation.financebench import FinanceBenchEvaluator
+from raghub.evaluation.helper import FinanceBench
 from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
 from raghub.generation import DefaultGenerator
 from raghub.ingestion import ResumableBackgroundIngestionService, build_chonkie_chunker
-from raghub.interfaces.chunker import Chunker
-from raghub.interfaces.converter import DocumentConverter
-from raghub.interfaces.generator import Generator
 from raghub.knowledge import (
     GraphRagIndex,
     InMemoryKnowledgeRepository,
@@ -74,16 +71,18 @@ from raghub.models import (
 from raghub.observability import DEFAULT_METRICS_REGISTRY, PrometheusMetrics, RedactingTelemetry
 from raghub.pipeline import AgenticQueryPipeline, IngestPipeline, QueryCache, QueryPipeline
 from raghub.plugins import PluginRegistry
-from raghub.retrieval.colbert import ColbertLateInteraction
-from raghub.retrieval.long_context import LongContextRerankPass
-from raghub.retrieval.pipeline import RetrievalPipeline
-from raghub.retrieval.rerankers.factory import build_reranker
-from raghub.retrieval.transforms.base import QueryTransformer
-from raghub.retrieval.transforms.compose import ComposeTransformer
-from raghub.retrieval.transforms.decompose import DecomposeTransformer
-from raghub.retrieval.transforms.hyde import HydeTransformer
-from raghub.retrieval.transforms.multi_query import MultiQueryTransformer
-from raghub.retrieval.transforms.step_back import StepBackTransformer
+from raghub.retrieval.helper import (
+    Colbert as ColbertLateInteraction,
+    Compose as ComposeTransformer,
+    Context as LongContextRerankPass,
+    Decompose as DecomposeTransformer,
+    Hyde as HydeTransformer,
+    MultiQuery as MultiQueryTransformer,
+    Retrieval as RetrievalPipeline,
+    StepBack as StepBackTransformer,
+    Transformer as QueryTransformer,
+    build_reranker,
+)
 from raghub.utils import maybe_await_sync as maybe_await
 from raghub.vectorstore import InMemoryVectorStore
 
@@ -276,7 +275,7 @@ def default_transforms(
         multi_query_n: Number of rephrasings for ``multi_query``.
 
     Returns:
-        A :class:`raghub.retrieval.transforms.ComposeTransformer`.
+        A :class:`raghub.retrieval.helper.Compose`.
         Unknown names are dropped silently.
     """
     enabled = enabled or []
@@ -1167,7 +1166,7 @@ class RAG:
         if benchmark != "financebench":
             raise ConfigurationError(f"Unknown benchmark: {benchmark!r}")
 
-        evaluator = FinanceBenchEvaluator()
+        evaluator = FinanceBench()
         factory = response_factory
 
         async def coerce_answer(example: dict[str, Any]) -> Any:
