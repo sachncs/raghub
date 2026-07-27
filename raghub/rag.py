@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import os
 import tomllib
 from collections.abc import AsyncIterator, Callable, Sequence
 from pathlib import Path
@@ -46,10 +47,13 @@ from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
 from raghub.api.response import build_response
 from raghub.config import Settings
 from raghub.conversation import InMemoryConversationStore
+from raghub.embeddings import BaseEmbeddingProvider, HashingEmbeddingProvider
 from raghub.evaluation.financebench import FinanceBenchEvaluator
 from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
 from raghub.generation import DefaultGenerator
 from raghub.ingestion import ResumableBackgroundIngestionService, build_chonkie_chunker
+from raghub.interfaces.chunker import Chunker
+from raghub.interfaces.converter import DocumentConverter
 from raghub.interfaces.generator import Generator
 from raghub.knowledge import (
     GraphRagIndex,
@@ -58,13 +62,13 @@ from raghub.knowledge import (
     SourceManifest,
     sha256_bytes,
 )
+from raghub.llm import HeuristicLLMProvider
 from raghub.models import (
     ConversationTurn,
     EvaluationResult,
     PipelineContext,
     PipelineResult,
     Response,
-    RetrievalHit,
     deterministic_id,
 )
 from raghub.observability import DEFAULT_METRICS_REGISTRY, PrometheusMetrics, RedactingTelemetry
@@ -74,7 +78,16 @@ from raghub.retrieval.colbert import ColbertLateInteraction
 from raghub.retrieval.long_context import LongContextRerankPass
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.retrieval.rerankers.factory import build_reranker
+from raghub.retrieval.transforms import (
+    ComposeTransformer,
+    DecomposeTransformer,
+    HydeTransformer,
+    MultiQueryTransformer,
+    QueryTransformer,
+    StepBackTransformer,
+)
 from raghub.utils import maybe_await_sync as maybe_await
+from raghub.vectorstore import InMemoryVectorStore
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -91,27 +104,6 @@ top. The factories rely on the SDK constructors to raise
 :class:`ConfigurationError` when their respective backends are
 unusable.
 """
-
-import os
-from typing import Any
-
-from raghub.documents import PlainTextConverter
-from raghub.embeddings import BaseEmbeddingProvider, HashingEmbeddingProvider
-from raghub.exceptions import ConfigurationError
-from raghub.interfaces.chunker import Chunker
-from raghub.interfaces.converter import DocumentConverter
-from raghub.interfaces.embeddings import EmbeddingProvider
-from raghub.llm import HeuristicLLMProvider
-from raghub.observability import MetricsRegistry
-from raghub.retrieval.transforms import (
-    ComposeTransformer,
-    DecomposeTransformer,
-    HydeTransformer,
-    MultiQueryTransformer,
-    QueryTransformer,
-    StepBackTransformer,
-)
-from raghub.vectorstore import InMemoryVectorStore
 
 LLM_API_KEY_ENV_VARS = (
     "OPENAI_API_KEY",
@@ -257,6 +249,8 @@ def default_telemetry() -> Any:
     """
     from raghub.observability import (
         LangfuseTelemetryProvider as _LangfuseTelemetryProvider,
+    )
+    from raghub.observability import (
         NoOpTelemetry as _NoOpTelemetry,
     )
 
@@ -611,7 +605,7 @@ class RAG:
             ("generator", getattr(self, "generator", None)),
         ]
         failures: list[tuple[str, BaseException]] = []
-        for name, collaborator in collaborators:
+        for _, collaborator in collaborators:
             if collaborator is None:
                 continue
             close = getattr(collaborator, "close", None)
