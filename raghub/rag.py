@@ -102,7 +102,7 @@ from raghub.generation import InstructorStructuredOutputProvider
 from raghub.interfaces.chunker import Chunker
 from raghub.interfaces.converter import DocumentConverter
 from raghub.interfaces.embeddings import EmbeddingProvider
-from raghub.llm import HeuristicLLMProvider, LiteLLMProvider
+from raghub.llm import HeuristicLLMProvider
 from raghub.observability import LangfuseTelemetryProvider, NoOpTelemetry
 from raghub.retrieval.transforms import (
     ComposeTransformer,
@@ -202,7 +202,9 @@ def default_llm(llm_model: str) -> Any:
         return HeuristicLLMProvider()
     if not has_llm_api_key():
         return HeuristicLLMProvider()
-    return LiteLLMProvider(model=llm_model)
+    from raghub.llm import LiteLLMProvider as _LiteLLMProvider
+
+    return _LiteLLMProvider(model=llm_model)
 
 
 def default_vector_store(embedding_dim: int) -> Any:
