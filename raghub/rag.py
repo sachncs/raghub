@@ -102,7 +102,7 @@ from raghub.interfaces.chunker import Chunker
 from raghub.interfaces.converter import DocumentConverter
 from raghub.interfaces.embeddings import EmbeddingProvider
 from raghub.llm import HeuristicLLMProvider
-from raghub.observability import LangfuseTelemetryProvider, NoOpTelemetry
+from raghub.observability import MetricsRegistry
 from raghub.retrieval.transforms import (
     ComposeTransformer,
     DecomposeTransformer,
@@ -252,11 +252,16 @@ def default_telemetry() -> Any:
 
     Returns:
         :class:`LangfuseTelemetryProvider` when Langfuse is
-        configured; :class:`NoOpTelemetry` otherwise.
+        configured (env vars set); otherwise :class:`NoOpTelemetry`.
     """
-    if not LangfuseTelemetryProvider.is_configured():
-        return NoOpTelemetry()
-    return LangfuseTelemetryProvider()
+    from raghub.observability import (
+        LangfuseTelemetryProvider as _LangfuseTelemetryProvider,
+        NoOpTelemetry as _NoOpTelemetry,
+    )
+
+    if not _LangfuseTelemetryProvider.is_configured():
+        return _NoOpTelemetry()
+    return _LangfuseTelemetryProvider()
 
 
 def default_transforms(
