@@ -169,3 +169,84 @@ def test_dynamic_app_build_container_raises_without_jwt_secret(
     settings.jwt_secret = SecretStr("")
     with pytest.raises(RuntimeError, match="JWT_SECRET"):
         asyncio.run(build_container(settings))
+
+
+def test_dynamic_app_settings_load_rejects_short_jwt_secret_in_production(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``Settings.load("production")`` rejects a short JWT_SECRET at
+    the configuration layer — a regression that allowed the platform
+    to boot with a weak secret would surface here."""
+    from raghub.config import Settings
+
+    monkeypatch.setenv("JWT_SECRET", "short")
+    with pytest.raises(RuntimeError, match="32 bytes"):
+        Settings.load("production")
+
+
+def test_dynamic_app_raghub_users_adds_company_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``RAGHUB_USERS`` seeds the user store with extra accounts at
+    startup. The companies list must round-trip to the user record."""
+    import json
+
+    extra = {
+        "alice@example.com": {
+            "password": "secret",
+            "companies": ["Acme", "Globex"],
+            "is_admin": False,
+        }
+    }
+    monkeypatch.setenv("RAGHUB_USERS", json.dumps(extra))
+    app = _make_app(tmp_path)
+    users = asyncio.run(app.container.user_store.list_users())
+    target = next(u for u in users if u.email == "alice@example.com")
+    assert set(target.allowed_companies) == {"Acme", "Globex"}
+    assert target.is_admin is False
+
+
+def test_dynamic_app_raghub_users_admin_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The ``is_admin`` flag in ``RAGHUB_USERS`` is honored."""
+    import json
+
+    extra = {
+        "root@example.com": {
+            "password": "secret",
+            "is_admin": True,
+        }
+    }
+    monkeypatch.setenv("RAGHUB_USERS", json.dumps(extra))
+    app = _make_app(tmp_path)
+    users = asyncio.run(app.container.user_store.list_users())
+    target = next(u for u in users if u.email == "root@example.com")
+    assert target.is_admin is True
+
+
+def test_dynamic_app_health_reports_components(
+    tmp_path: Path,
+) -> None:
+    """The health payload includes every probed component."""
+    app = _make_app(tmp_path)
+    health = app.health()
+    assert "components" in health
+    assert "vectorstore" in health["components"]
+    assert "registry" in health["components"]
+
+
+def test_dynamic_app_query_against_real_user(
+    tmp_path: Path,
+) -> None:
+    """A logged-in user can issue a query and the response carries
+    the expected answer / citations fields."""
+    app = _make_app(tmp_path)
+    resp = asyncio.run(app.login("alice@acme.com", "password"))
+    response = asyncio.run(
+        app.query(token=resp.session_token, question="What is Acme?")
+    )
+    # The response shape is documented; the answer may be empty (no
+    # documents indexed) but the field must be present.
+    assert hasattr(response, "answer")
+    assert hasattr(response, "citations")
