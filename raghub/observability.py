@@ -71,7 +71,7 @@ try:
 
     LANGFUSE_AVAILABLE = True
     IMPORT_ERROR: Exception | None = None
-except Exception as exc:  # optional dep — propagate when explicitly requested
+except ImportError as exc:  # optional dep — propagate when explicitly requested
     langfuse_get_client = None
     LangfuseLegacy = None
     LANGFUSE_AVAILABLE = False
@@ -335,7 +335,7 @@ def try_import_submodule(module_name: str, target_name: str) -> Any:
 
     try:
         module = importlib.import_module(module_name)
-    except Exception:
+    except (ImportError, ModuleNotFoundError):
         return None
     return getattr(module, target_name, None)
 

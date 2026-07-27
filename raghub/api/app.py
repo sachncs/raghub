@@ -61,6 +61,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from loguru import logger as loguru_logger
 
 from raghub.api.admin import router as admin_router
 from raghub.api.dependencies import get_application
@@ -239,14 +240,14 @@ class Lifespan:
             if shutdown_app is not None:
                 try:
                     await shutdown_app()
-                except Exception:
-                    pass
+                except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+                    loguru_logger.warning("api.shutdown.failed", error=str(exc))
             background = getattr(app.state, "background_ingestion", None)
             if background is not None and hasattr(background, "shutdown"):
                 try:
                     background.shutdown()
-                except Exception:
-                    pass
+                except (RuntimeError, OSError, ConnectionError) as exc:
+                    loguru_logger.warning("background.shutdown.failed", error=str(exc))
 
 
 # ---------------------------------------------------------------------------
@@ -481,7 +482,8 @@ class RouteGroup:
                             status="ok",
                         )
                     )
-                except Exception as exc:
+                except (DocumentError, StorageError, ValueError, TypeError, OSError) as exc:
+                    loguru_logger.warning("api.batch_upload.item_failed", file=file.filename, error=str(exc))
                     results.append(
                         BatchIngestItem(
                             filename=file.filename or "upload.pdf",
