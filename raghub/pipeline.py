@@ -43,16 +43,6 @@ from raghub.conversation import InMemoryConversationStore
 from raghub.documents import PlainTextConverter
 from raghub.embeddings import BaseEmbeddingProvider
 from raghub.exceptions import PipelineError
-from raghub.interfaces.chunker import Chunker
-from raghub.interfaces.converter import DocumentConverter
-from raghub.interfaces.embeddings import EmbeddingProvider
-from raghub.interfaces.generator import Generator
-from raghub.interfaces.knowledge import KnowledgeRepository
-from raghub.interfaces.observability import TelemetryProvider
-from raghub.interfaces.pipeline import Pipeline
-from raghub.interfaces.retrieval import Reranker
-from raghub.interfaces.structured import StructuredOutputProvider
-from raghub.interfaces.vectorstore import VectorStore
 from raghub.knowledge import InMemoryKnowledgeRepository
 from raghub.llm import BaseLLMProvider
 from raghub.models import (
@@ -62,11 +52,11 @@ from raghub.models import (
     Classification,
     ConversationTurn,
     KnowledgeBundle,
+    Pipeline,
     PipelineContext,
     PipelineResult,
     RetrievalHit,
     UserPrincipal,
-    deterministic_id,
 )
 from raghub.observability import NoOpTelemetry
 

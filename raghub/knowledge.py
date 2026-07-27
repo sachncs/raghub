@@ -23,7 +23,6 @@ from typing import Any, cast
 
 from raghub.embeddings import BaseEmbeddingProvider
 from raghub.exceptions import KnowledgeError
-from raghub.interfaces.knowledge import KnowledgeRepository
 from raghub.llm import BaseLLMProvider
 from raghub.models import (
     BlockKind,
@@ -32,6 +31,7 @@ from raghub.models import (
     DocumentBlock,
     DocumentSection,
     KnowledgeBundle,
+    KnowledgeRepository,
     RetrievalHit,
 )
 from raghub.utils import capture

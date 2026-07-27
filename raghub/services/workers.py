@@ -1,7 +1,7 @@
 """In-process worker primitives for fire-and-forget tasks.
 
 This module ships three small abstractions matching the
-:class:`raghub.interfaces.workers.BackgroundWorker` and
+:class:`the background-worker protocol` and
 :class:`TaskQueue` interfaces:
 
 * :class:`SynchronousWorker` — runs the task inline on the caller thread.
@@ -21,12 +21,13 @@ This module ships three small abstractions matching the
 
 from __future__ import annotations
 
+
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from queue import Queue
 from typing import Any
 
-from raghub.interfaces.workers import BackgroundWorker, TaskQueue
+from raghub.models import BackgroundWorker, TaskQueue
 
 
 class SynchronousWorker(BackgroundWorker):

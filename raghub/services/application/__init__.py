@@ -46,8 +46,7 @@ from raghub.llm import BaseLLMProvider, build_llm_provider
 from raghub.observability import PrometheusMetrics, build_logger
 from raghub.prompts import PromptBuilder
 from raghub.repositories import UnitOfWork
-from raghub.retrieval.pipeline import RetrievalPipeline
-from raghub.retrieval.reranker import IdentityReranker
+from raghub.retrieval.helper import Identity as IdentityReranker, Retrieval as RetrievalPipeline
 from raghub.services.application.facade import ApplicationFacade
 from raghub.storage.image_store import FilesystemImageStore
 from raghub.storage.sqlite_session_store import SqliteSessionStore

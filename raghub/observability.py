@@ -11,7 +11,7 @@ module:
   for users who prefer in-process observability without a remote
   service.
 * :class:`NoOpTelemetry` — silent default satisfying the
-  :class:`raghub.interfaces.observability.TelemetryProvider` contract
+  :class:`the telemetry provider protocol` contract
   with zero I/O.
 * :class:`RedactingTelemetry` — wraps another provider and scrubs
   kwargs whose keys look like secrets before forwarding.
@@ -52,13 +52,8 @@ from prometheus_client import REGISTRY, CollectorRegistry, Counter, Histogram
 from prometheus_client.openmetrics.exposition import generate_latest
 
 from raghub.exceptions import ConfigurationError
-from raghub.interfaces.observability import (
-    Logger,
-    Metrics,
-    Span,
-    TelemetryProvider,
-)
 from raghub.utils import capture
+from raghub.models import Logger, Metrics, Span, TelemetryProvider
 
 T = TypeVar("T")
 

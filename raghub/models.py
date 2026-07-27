@@ -733,3 +733,327 @@ class BatchIngestResponse(BaseModel):
     """
 
     documents: list[BatchIngestItem] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Protocol contracts
+#
+# Replaces the former ``raghub/interfaces/`` package. Each Protocol
+# describes the public surface of one replaceable dependency family
+# (LLM, embeddings, retrieval, storage, observability, etc.). Concrete
+# classes throughout the codebase inherit from or satisfy these
+# Protocols; nothing is enforced at runtime beyond inheritance.
+# ---------------------------------------------------------------------------
+
+from collections.abc import AsyncIterator, Callable, Iterator, Sequence  # noqa: E402
+from contextlib import contextmanager  # noqa: E402
+from typing import Any, Protocol, TypeVar, runtime_checkable  # noqa: E402
+
+from pydantic import BaseModel as _BaseModelForStructuredProtocol  # noqa: E402
+
+T = TypeVar("T", bound=_BaseModelForStructuredProtocol)
+
+
+class Chunker(Protocol):
+    """Splits a :class:`KnowledgeBundle` (or raw text) into :class:`Chunk` records."""
+
+    chunk_size: int
+    chunk_overlap: int
+
+    def chunk(self, bundle: "KnowledgeBundle") -> list["Chunk"]: ...
+
+    def chunk_text(
+        self, text: str, *, document_id: str, version: int = 1
+    ) -> list["Chunk"]: ...
+
+
+class DocumentConverter(Protocol):
+    """Converts source bytes to a :class:`KnowledgeBundle`."""
+
+    def convert(
+        self,
+        *,
+        source_uri: str,
+        file_bytes: bytes,
+        mime_type: str = "",
+        language: str = "",
+        metadata: dict[str, Any] | None = None,
+    ) -> "KnowledgeBundle": ...
+
+
+class EmbeddingProvider(Protocol):
+    """Embeds text into a fixed-dimensional vector."""
+
+    model_name: str
+
+    def embed_text(self, text: str) -> list[float]: ...
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]: ...
+
+
+class Evaluator(Protocol):
+    """Scores model outputs against a benchmark dataset."""
+
+    benchmark: str
+
+    async def evaluate(
+        self,
+        examples: Sequence[dict[str, Any]],
+        *,
+        response_factory: Any,
+    ) -> list["EvaluationResult"]: ...
+
+
+class Generator(Protocol):
+    """Generates an answer from retrieved context."""
+
+    async def generate(
+        self,
+        *,
+        question: str,
+        context: Sequence["RetrievalHit"],
+        conversation: Sequence["ConversationTurn"] = (),
+    ) -> tuple[str, list["Citation"]]: ...
+
+    async def astream(
+        self,
+        *,
+        question: str,
+        context: Sequence["RetrievalHit"],
+        conversation: Sequence["ConversationTurn"] = (),
+    ) -> AsyncIterator[str]: ...
+
+
+class KnowledgeRepository(Protocol):
+    """Persists and retrieves :class:`KnowledgeBundle` objects."""
+
+    def save(self, bundle: "KnowledgeBundle") -> "KnowledgeBundle": ...
+
+    def get(self, bundle_id: str) -> "KnowledgeBundle" | None: ...
+
+    def list_by_source(self, source_uri: str) -> list["KnowledgeBundle"]: ...
+
+    def delete(self, bundle_id: str) -> None: ...
+
+
+class Logger(Protocol):
+    """Structured logger contract."""
+
+    def info(self, message: str, **kwargs: Any) -> None: ...
+    def warning(self, message: str, **kwargs: Any) -> None: ...
+    def error(self, message: str, **kwargs: Any) -> None: ...
+
+
+class Metrics(Protocol):
+    """Metrics recorder contract."""
+
+    def record_latency(self, name: str, value_ms: float, **labels: Any) -> None: ...
+    def increment(self, name: str, value: int = 1, **labels: Any) -> None: ...
+
+
+@runtime_checkable
+class Span(Protocol):
+    """A single open trace span."""
+
+    name: str
+
+    def end(self) -> None: ...
+    def set_attribute(self, key: str, value: Any) -> None: ...
+
+
+class TelemetryProvider(Logger, Metrics, Protocol):
+    """Combined observability surface: logging + metrics + spans + tokens."""
+
+    def start_span(self, name: str, **attrs: Any) -> "Span": ...
+    def end_span(self, span: "Span") -> None: ...
+    def record_tokens(
+        self,
+        name: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+        model: str = "",
+    ) -> None: ...
+
+    @contextmanager
+    def span(self, name: str, **attrs: Any) -> Iterator["Span"]:
+        s = self.start_span(name, **attrs)
+        try:
+            yield s
+        finally:
+            self.end_span(s)
+
+
+class StructuredOutputProvider(Protocol):
+    """Generates typed Pydantic outputs from context."""
+
+    async def generate(
+        self,
+        *,
+        response_model: type[T],
+        question: str,
+        context: Sequence["RetrievalHit"],
+    ) -> T: ...
+
+    async def astream(
+        self,
+        *,
+        response_model: type[T],
+        question: str,
+        context: Sequence["RetrievalHit"],
+    ) -> AsyncIterator[T]: ...
+
+
+class VectorStore(Protocol):
+    """Vector database contract."""
+
+    def create_collection(self) -> None: ...
+
+    def insert(
+        self,
+        chunks: Sequence["ChunkRecord"],
+        vectors: Sequence[list[float]],
+    ) -> None: ...
+
+    def upsert(
+        self,
+        chunks: Sequence["ChunkRecord"],
+        vectors: Sequence[list[float]],
+    ) -> None: ...
+
+    def delete(self, chunk_ids: Sequence[str]) -> None: ...
+    def delete_document(self, document_id: str) -> None: ...
+    def delete_version(self, document_id: str, version: int) -> None: ...
+
+    def search(
+        self,
+        *,
+        vector: Sequence[float],
+        top_k: int,
+        metadata_filter: str | dict[str, Any] = "",
+    ) -> list[dict[str, Any]]: ...
+
+    def hybrid_search(
+        self,
+        *,
+        query: str,
+        vector: Sequence[float],
+        top_k: int,
+        metadata_filter: str | dict[str, Any] = "",
+    ) -> list[dict[str, Any]]: ...
+
+    def optimize(self) -> None: ...
+    def health(self) -> dict[str, Any]: ...
+
+    def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]: ...
+
+
+class Retriever(Protocol):
+    """Retrieves authorized chunks for a user."""
+
+    def retrieve(
+        self,
+        *,
+        user: "UserPrincipal",
+        question: str,
+        top_k: int,
+    ) -> list["RetrievalHit"]: ...
+
+
+class Reranker(Protocol):
+    """Reorders retrieved results using a downstream signal."""
+
+    def rerank(
+        self,
+        *,
+        question: str,
+        hits: Sequence["RetrievalHit"],
+    ) -> list["RetrievalHit"]: ...
+
+
+class PromptBuilder(Protocol):
+    """Builds structured prompts without manual concatenation."""
+
+    def build_system_prompt(self) -> str: ...
+
+    def build_messages(
+        self,
+        *,
+        conversation: Sequence["ConversationTurn"],
+        retrieved_chunks: Sequence["ChunkRecord"],
+        question: str,
+    ) -> list[dict[str, str]]: ...
+
+
+class LLMProvider(Protocol):
+    """Generates responses from prompt sections."""
+
+    model_name: str
+
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        conversation: Sequence["ConversationTurn"],
+        context: Sequence[str],
+        question: str,
+        image_paths: list[str] | None = None,
+        session_history: list[dict[str, Any]] | None = None,
+    ) -> str: ...
+
+
+class Pipeline(Protocol):
+    """A deterministic, multi-stage computation."""
+
+    name: str
+
+    async def run(
+        self,
+        context: "PipelineContext",
+        **inputs: Any,
+    ) -> "PipelineResult": ...
+
+
+class BackgroundWorker(Protocol):
+    """Schedules background tasks."""
+
+    def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any: ...
+
+
+class TaskQueue(Protocol):
+    """Abstract task queue (e.g. Celery, RQ, SQS)."""
+
+    def enqueue(self, name: str, payload: dict[str, Any]) -> str: ...
+
+
+class DocumentRegistry(Protocol):
+    """Tracks versioned document state."""
+
+    def save_version(self, document: "DocumentVersion") -> "DocumentVersion": ...
+    def get_latest(self, document_id: str) -> "DocumentVersion" | None: ...
+    def list_accessible(self, companies: list[str]) -> list["DocumentVersion"]: ...
+    def archive(self, document_id: str) -> None: ...
+
+
+class ConversationStore(Protocol):
+    """Stores only turns, not context chunks."""
+
+    def append(self, session_id: str, turn: "ConversationTurn") -> None: ...
+    def load(self, session_id: str, limit: int = 20) -> list["ConversationTurn"]: ...
+    def clear(self, session_id: str) -> None: ...
+
+
+class SessionStore(Protocol):
+    """Stores session metadata."""
+
+    def create(self, user_id: str) -> "SessionRecord": ...
+    def resolve(self, token: str) -> "SessionRecord" | None: ...
+    def invalidate(self, token: str) -> None: ...
+
+
+class Plugin(Protocol):
+    """A discoverable plugin."""
+
+    name: str
+    version: str
+
+    def register(self, registry: Any) -> None: ...
