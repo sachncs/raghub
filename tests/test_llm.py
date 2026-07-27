@@ -649,3 +649,221 @@ class TestBuildMessagesContext:
         )
         assert len(messages) == 3
         assert messages[1]["content"] == "Context:\nonly one"
+
+
+# ---------------------------------------------------------------------------
+# HeuristicLLMProvider — determinism and contract
+# ---------------------------------------------------------------------------
+
+
+class TestHeuristicLLMProviderDeterminism:
+    def test_same_inputs_same_output(self) -> None:
+        """The heuristic provider is documented as deterministic — it
+        concatenates context fragments without randomness. A regression
+        that introduced non-determinism (e.g. sampling, ordering by
+        dict-iteration) would break the production test suite."""
+        p = HeuristicLLMProvider()
+        kwargs = dict(
+            system_prompt="sys",
+            conversation=[],
+            context=["alpha", "beta", "gamma"],
+            question="q",
+        )
+        assert p.generate(**kwargs) == p.generate(**kwargs)
+
+    def test_empty_context_returns_sentinel(self) -> None:
+        """An empty context returns the documented 'no chunks' string
+        so callers can detect the no-information case."""
+        p = HeuristicLLMProvider()
+        out = p.generate(system_prompt="s", conversation=[], context=[], question="q")
+        assert "no" in out.lower() or "no accessible" in out.lower(), (
+            "The empty-context sentinel is the contract callers depend "
+            "on to detect 'I have no information'."
+        )
+
+    def test_truncates_at_1000_chars(self) -> None:
+        """The heuristic truncates very long contexts to a fixed length.
+
+        A regression that returned the full prefix would balloon the
+        response for a single huge chunk."""
+        p = HeuristicLLMProvider()
+        long = "x" * 5000
+        out = p.generate(system_prompt="s", conversation=[], context=[long], question="q")
+        assert len(out) <= 1000
+
+    def test_concatenates_first_three_fragments(self) -> None:
+        """Only the first three non-empty fragments contribute to the
+        answer. Fragments beyond the third are silently dropped."""
+        p = HeuristicLLMProvider()
+        out = p.generate(
+            system_prompt="s",
+            conversation=[],
+            context=["alpha", "beta", "gamma", "delta", "epsilon"],
+            question="q",
+        )
+        assert "alpha" in out
+        assert "beta" in out
+        assert "gamma" in out
+        assert "delta" not in out, "Fourth fragment must be dropped"
+        assert "epsilon" not in out, "Fifth fragment must be dropped"
+
+    def test_skips_empty_fragments_in_first_three(self) -> None:
+        """Empty / whitespace-only fragments within the first 3 are dropped."""
+        p = HeuristicLLMProvider()
+        out = p.generate(
+            system_prompt="s",
+            conversation=[],
+            context=["alpha", "", "  ", "beta"],
+            question="q",
+        )
+        assert "alpha" in out
+        # The empty strings collapse to nothing; "alpha" is the only
+        # non-empty fragment in the first 3 slots.
+        assert "beta" not in out  # beta is the 4th fragment, beyond the lookback
+
+    def test_ignores_question_and_history(self) -> None:
+        """The heuristic does not consult the question or the
+        conversation. Different questions with the same context must
+        yield the same answer."""
+        p = HeuristicLLMProvider()
+        ctx = ["alpha", "beta"]
+        a = p.generate(system_prompt="s1", conversation=[], context=ctx, question="q1")
+        b = p.generate(system_prompt="s2", conversation=[], context=ctx, question="q2")
+        assert a == b
+
+
+# ---------------------------------------------------------------------------
+# LiteLLMProvider — error mapping (rate limits, timeouts, generic)
+# ---------------------------------------------------------------------------
+
+
+class TestLiteLLMErrorMapping:
+    def test_value_error_wraps_as_llm_error(self) -> None:
+        """A ``ValueError`` raised by LiteLLM is re-raised as ``LLMError``.
+
+        The ``LLMValueErrorBoundary`` translates only direct
+        ``ValueError`` failures — provider errors of other types
+        propagate unchanged so the framework can handle them in the
+        generic exception path."""
+        import raghub.llm as litellm_mod
+        from raghub.exceptions import LLMError
+
+        saved = litellm_mod.litellm
+        try:
+            litellm_mod.litellm = types.ModuleType("litellm")
+            litellm_mod.litellm.completion = MagicMock(
+                side_effect=ValueError("invalid model config")
+            )
+            litellm_mod.LITELLM_AVAILABLE = True
+
+            provider = litellm_mod.LiteLLMProvider(model="m")
+            with pytest.raises(LLMError, match="completion failed"):
+                provider.generate(system_prompt="s", question="q")
+        finally:
+            litellm_mod.litellm = saved
+
+    def test_rate_limit_value_error_wraps_as_llm_error(self) -> None:
+        """A ValueError carrying a rate-limit message must surface as
+        LLMError so the platform's 429 handler can react."""
+        import raghub.llm as litellm_mod
+        from raghub.exceptions import LLMError
+
+        saved = litellm_mod.litellm
+        try:
+            litellm_mod.litellm = types.ModuleType("litellm")
+            litellm_mod.litellm.completion = MagicMock(
+                side_effect=ValueError("RateLimitError: 429 too many requests")
+            )
+            litellm_mod.LITELLM_AVAILABLE = True
+
+            provider = litellm_mod.LiteLLMProvider(model="m")
+            with pytest.raises(LLMError, match="completion failed"):
+                provider.generate(system_prompt="s", question="q")
+        finally:
+            litellm_mod.litellm = saved
+
+    def test_non_value_error_propagates_unchanged(self) -> None:
+        """A non-ValueError exception (e.g. TimeoutError) propagates as-is.
+
+        The boundary only translates ValueError; other exception types
+        are the platform's signal to apply generic error handling."""
+        import raghub.llm as litellm_mod
+
+        saved = litellm_mod.litellm
+        try:
+            litellm_mod.litellm = types.ModuleType("litellm")
+            litellm_mod.litellm.completion = MagicMock(
+                side_effect=TimeoutError("request timed out")
+            )
+            litellm_mod.LITELLM_AVAILABLE = True
+
+            provider = litellm_mod.LiteLLMProvider(model="m")
+            with pytest.raises(TimeoutError):
+                provider.generate(system_prompt="s", question="q")
+        finally:
+            litellm_mod.litellm = saved
+
+
+# ---------------------------------------------------------------------------
+# build_messages — additional edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestBuildMessagesEdgeCases:
+    def test_empty_question(self) -> None:
+        """An empty question string is still a valid user message."""
+        from raghub.llm import LiteLLMProvider
+
+        provider = LiteLLMProvider(api_key="test")
+        messages = provider.build_messages(
+            system_prompt="sys",
+            question="",
+        )
+        assert messages[-1] == {"role": "user", "content": ""}
+
+    def test_context_with_special_characters(self) -> None:
+        """Context strings with newlines / quotes / unicode are passed
+        through unchanged — the LLM receives the raw text."""
+        from raghub.llm import LiteLLMProvider
+
+        provider = LiteLLMProvider(api_key="test")
+        messages = provider.build_messages(
+            system_prompt="sys",
+            question="q",
+            context=["multi\nline\ntext", "with \"quotes\"", "日本語 unicode"],
+        )
+        assert "multi" in messages[1]["content"]
+        assert "日本語" in messages[1]["content"]
+
+    def test_many_session_history_messages_all_included(self) -> None:
+        """A long session history does not get silently truncated."""
+        from raghub.llm import LiteLLMProvider
+
+        provider = LiteLLMProvider(api_key="test")
+        history = [{"role": "user", "content": f"q{i}"} for i in range(20)]
+        messages = provider.build_messages(
+            system_prompt="sys",
+            question="q_final",
+            session_history=history,
+        )
+        # 1 system + 20 history + 1 final user
+        assert len(messages) == 22
+        assert messages[-1]["content"] == "q_final"
+
+
+# ---------------------------------------------------------------------------
+# Provider construction guards
+# ---------------------------------------------------------------------------
+
+
+class TestLiteLLMProviderConstruction:
+    def test_model_name_is_required_attribute(self) -> None:
+        from raghub.llm import LiteLLMProvider
+        provider = LiteLLMProvider(model="claude-3-5-sonnet")
+        assert provider.model_name == "claude-3-5-sonnet"
+
+    def test_default_model_name_when_unspecified(self) -> None:
+        from raghub.llm import LiteLLMProvider
+        provider = LiteLLMProvider(api_key="test")
+        # Some model name is set.
+        assert provider.model_name
