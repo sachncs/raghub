@@ -461,18 +461,13 @@ class TestDefaultConverter:
             result = default_converter()
             assert result is mock_mc.return_value
 
-    def test_returns_plaintext_when_config_error(self):
-        from raghub.exceptions import ConfigurationError
+    def test_returns_marker_converter_when_initialised(self):
+        """Since marker-pdf is a required dep, default_converter always returns MarkerConverter."""
+        from raghub.rag import default_converter
+        from raghub.documents import MarkerConverter
 
-        with patch(
-            "raghub.documents.MarkerConverter",
-            side_effect=ConfigurationError("not configured"),
-        ):
-            from raghub.rag import default_converter
-            from raghub.documents import PlainTextConverter
-
-            result = default_converter()
-            assert isinstance(result, PlainTextConverter)
+        result = default_converter()
+        assert isinstance(result, MarkerConverter)
 
 
 @patch.dict("os.environ", {}, clear=True)
