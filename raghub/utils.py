@@ -155,7 +155,7 @@ def retry(
     for attempt in range(max_retries + 1):
         try:
             return fn()
-        except Exception as exc:
+        except (ConnectionError, TimeoutError, OSError) as exc:
             msg = str(exc).lower()
             if attempt < max_retries and any(k in msg for k in retryable_keywords):
                 time.sleep(base_delay * (2**attempt))

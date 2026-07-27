@@ -31,7 +31,7 @@ def try_load_tiktoken() -> Any:
     """Return the ``cl100k_base`` encoder, or ``None`` if unavailable."""
     try:
         import tiktoken
-    except Exception:  # pragma: no cover - optional dep
+    except ImportError:  # pragma: no cover - optional dep
         return None
     return tiktoken.get_encoding("cl100k_base")
 
