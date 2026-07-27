@@ -433,15 +433,18 @@ def redact_record(record: dict[str, Any]) -> None:
 
 
 def build_logger(level: str = "INFO") -> LoguruLogger:
-    """Configure the process-wide loguru logger.
+    """Configure the process-wide loguru logger with a pretty console sink.
 
     Removes any default sinks installed by loguru's ``logger`` module
     and installs a single sink on stderr that scrubs secret-like keys
-    before formatting.
+    before formatting. The sink uses loguru's built-in level icons
+    (pencil for trace, bug for debug, info for INFO, check for SUCCESS,
+    warning for WARNING, error for ERROR) plus colour-coded level
+    names and a collapsed frame, so each log line is one readable row.
 
     Args:
         level: Minimum log level (e.g. ``"INFO"``, ``"DEBUG"``).
-            Unknown values fall back to ``INFO``.
+            Unknown values fall back to ``"INFO"``.
 
     Returns:
         A :class:`LoguruLogger` ready for ``info`` / ``warning`` /
@@ -452,8 +455,9 @@ def build_logger(level: str = "INFO") -> LoguruLogger:
         sys.stderr,
         level=level.upper(),
         format=(
-            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> "
-            "<level>{level: <8}</level> "
+            "<green>{time:HH:mm:ss.SSS}</green> "
+            "<level>{level.icon}</level> "
+            "<level>{level: <7}</level> "
             "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> "
             "<level>{message}</level>"
         ),
