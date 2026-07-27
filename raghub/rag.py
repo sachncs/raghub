@@ -96,7 +96,7 @@ import os
 from typing import Any
 
 from raghub.documents import PlainTextConverter
-from raghub.embeddings import HashingEmbeddingProvider, LiteLLMEmbeddingProvider
+from raghub.embeddings import HashingEmbeddingProvider
 from raghub.exceptions import ConfigurationError
 from raghub.generation import InstructorStructuredOutputProvider
 from raghub.interfaces.chunker import Chunker
@@ -180,7 +180,9 @@ def default_embedder(embedding_model: str, embedding_dim: int) -> EmbeddingProvi
     """
     if not has_llm_api_key():
         return HashingEmbeddingProvider(dimension=embedding_dim, model_name=embedding_model)
-    return LiteLLMEmbeddingProvider(model=embedding_model)
+    from raghub.embeddings import LiteLLMEmbeddingProvider as _LiteLLMEmbeddingProvider
+
+    return _LiteLLMEmbeddingProvider(model=embedding_model)
 
 
 def default_llm(llm_model: str) -> Any:
