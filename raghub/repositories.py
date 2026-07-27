@@ -429,6 +429,36 @@ class SqliteSessionRepository(SessionRepository):
                 "[]",
             ),
         )
+
+    async def create_from_record(self, record: SessionRecord) -> None:
+        """Insert a full :class:`SessionRecord` including its history.
+
+        The default :meth:`create` writes an empty history column
+        (fresh sessions have empty history). The migration path
+        and any other consumer that already has history to persist
+        uses this method to insert a complete row.
+        """
+        conn = await self.conn()
+        await conn.execute(
+            """
+            INSERT INTO sessions (
+                session_id, user_id, token,
+                created_at, expires_at, last_seen_at,
+                history, overrides
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                record.session_id,
+                record.user_id,
+                record.token,
+                record.created_at.isoformat(),
+                record.expires_at.isoformat(),
+                record.last_seen_at.isoformat(),
+                json.dumps([t.model_dump(mode="json") for t in record.history]),
+                json.dumps(record.overrides or {}),
+            ),
+        )
         if self.db_manager is None:
             await conn.commit()
             await conn.close()

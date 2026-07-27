@@ -109,6 +109,38 @@ class SqliteSessionStore:
             await conn.commit()
             await conn.close()
 
+    async def create_session_record(self, session: SessionRecord) -> None:
+        """Insert a full :class:`SessionRecord` including its history.
+
+        The default :meth:`create_session` only writes a skeleton
+        (empty history) — fine for fresh sessions, but the migration
+        path and any other consumer that already has history to
+        persist uses this method to insert a complete row in one
+        statement.
+        """
+        conn = await self.conn()
+        await conn.execute(
+            """
+            INSERT INTO sessions (
+                session_id, user_id, token,
+                created_at, expires_at, last_seen_at,
+                history, overrides
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session.session_id,
+                session.user_id,
+                session.token,
+                session.created_at.isoformat(),
+                session.expires_at.isoformat(),
+                session.last_seen_at.isoformat(),
+                json.dumps([t.model_dump(mode="json") for t in session.history]),
+                json.dumps(session.overrides or {}),
+            ),
+        )
+        await self.maybe_commit_close(conn)
+
     async def create_session(self, user_id: str) -> SessionRecord:
         """Create and persist a new session.
 

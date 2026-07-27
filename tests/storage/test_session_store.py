@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import threading
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -111,18 +111,17 @@ def test_clear_turns_empties_history(store_path: Path) -> None:
     assert store.load_turns(session.token) == []
 
 
-def test_corrupt_file_raises_on_load(store_path: Path) -> None:
-    """Invalid JSON content raises JSONDecodeError during construction.
+def test_corrupt_file_loads_as_empty(store_path: Path) -> None:
+    """Invalid JSON content resets the store to an empty state.
 
-    The store does not currently auto-recover from corruption; a
-    half-written file will surface as a :class:`JSONDecodeError`.
-    Tests assert the current behaviour — if you change it to
-    auto-recover (like :class:`JsonDocumentRegistry`), update this
-    test.
+    Production deployments should never see this state, but the
+    test guards against silent failures from a half-written file
+    or a corrupted write. The :meth:`load` method treats any
+    non-dict JSON or JSON-decode error as "no data".
     """
     store_path.write_text("not valid json {{{", encoding="utf-8")
-    with pytest.raises(json.JSONDecodeError):
-        JsonSessionStore(store_path, timeout_seconds=3600)
+    store = JsonSessionStore(store_path, timeout_seconds=3600)
+    assert store.sessions == {}
 
 
 def test_roundtrip_save_and_load(store_path: Path) -> None:

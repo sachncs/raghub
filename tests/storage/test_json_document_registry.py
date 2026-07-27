@@ -234,8 +234,11 @@ def test_concurrent_reads_see_consistent_state(registry_path) -> None:
     assert errors == []
 
 
-def test_get_latest_returns_most_recently_appended(registry_path) -> None:
-    """``get_latest`` returns the last appended version (insertion order)."""
+def test_get_latest_returns_highest_version(registry_path) -> None:
+    """``get_latest`` walks the version list and returns the entry
+    with the largest ``version`` field — independent of insertion
+    order. Out-of-order saves do not change the result.
+    """
     reg = JsonDocumentRegistry(registry_path)
     reg.save_version(_make_record("doc-1", version=1))
     reg.save_version(_make_record("doc-1", version=3))
@@ -243,7 +246,9 @@ def test_get_latest_returns_most_recently_appended(registry_path) -> None:
 
     latest = reg.get_latest("doc-1")
     assert latest is not None
-    assert latest.version == 2
+    assert latest.version == 3
+    # Insertion order is still preserved for history-style iteration.
+    assert [v.version for v in reg.documents["doc-1"]] == [1, 3, 2]
 
 
 def test_checksum_index_resolves_to_id_and_version(registry_path) -> None:

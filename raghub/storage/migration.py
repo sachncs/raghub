@@ -71,4 +71,4 @@ async def migrate_from_json(
         disable=not show_progress,
         unit="session",
     ):
-        await session_repo.create(session)
+        await session_repo.create_from_record(session)
