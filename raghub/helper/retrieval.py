@@ -42,7 +42,7 @@ from pydantic import BaseModel, Field, SecretStr
 from raghub.config import LongContextConfig, Settings
 from raghub.core import allowed_company_filter
 from raghub.exceptions import GraphUnavailableError, RerankerError
-from raghub.llm import BaseLLMProvider, HeuristicLLMProvider
+from raghub.llm import BaseLLMProvider
 from raghub.models import (
     ChunkRecord,
     Classification,
@@ -1563,7 +1563,7 @@ class RerankerFactory:
             return Bge(model="BAAI/bge-reranker-v2-m3", top_k=cfg.top_k)
         if provider == "llm":
             return LlmJudge(
-                llm=self.llm or HeuristicLLMProvider(), top_k=cfg.top_k
+                llm=self.llm, top_k=cfg.top_k
             )
         if provider == "cascade":
             cheap = Bge(top_k=cfg.top_k)
@@ -1578,7 +1578,11 @@ class RerankerFactory:
                 spread_threshold=cfg.cascade_threshold,
             )
         if provider == "long_context":
-            return Context(self.llm or HeuristicLLMProvider(), cfg.long_context or _default_long_context())
+            if self.llm is None:
+                raise RerankerError(
+                    "long_context reranker requires an LLM via RerankerFactory(llm=...)"
+                )
+            return Context(self.llm, cfg.long_context or _default_long_context())
         raise RerankerError(f"Unknown reranker provider: {provider!r}")
 
 
@@ -1692,13 +1696,15 @@ def _build_reranker(method: str) -> Rerank:
     if method == "cohere":
         return Cohere()
     if method == "llm":
-        from raghub.llm import HeuristicLLMProvider
+        from raghub.llm import LiteLLMProvider
 
-        return LlmJudge(llm=HeuristicLLMProvider())
+        return LlmJudge(llm=LiteLLMProvider())
     if method == "cascade":
         return Cascade(cheap=Identity(), expensive=Identity())
     if method == "long_context":
-        return Context(_safe_llm(), _default_long_context())
+        from raghub.llm import LiteLLMProvider
+
+        return Context(LiteLLMProvider(), _default_long_context())
     if method == "colbert":
         return Colbert()
     raise RerankerError(f"Unknown reranker method: {method!r}")
@@ -1715,14 +1721,6 @@ def _build_transformer(method: str, llm: Any) -> Transformer:
     if method == "step_back":
         return StepBack(llm)
     raise RerankerError(f"Unknown transform method: {method!r}")
-
-
-def _safe_llm() -> Any:
-    """Return a usable LLM provider, falling back to the heuristic one."""
-    try:
-        return HeuristicLLMProvider()
-    except Exception:
-        return None
 
 
 __all__ = [

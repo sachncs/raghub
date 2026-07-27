@@ -5,14 +5,12 @@ This module ships:
 * :class:`BaseLLMProvider` — abstract base class.
 * :class:`LiteLLMProvider` — production LLM, backed by LiteLLM (any
   provider: OpenAI, NVIDIA, Anthropic, Bedrock, …).
-* :class:`HeuristicLLMProvider` — deterministic offline fallback.
 * :func:`build_llm_provider` — selects an implementation by model
   name and credential availability.
 
-:func:`build_llm_provider` resolves to :class:`HeuristicLLMProvider`
-when the model name is empty / ``"heuristic"`` *or* when no LLM API
-key is present in the environment, so the framework always runs
-offline.
+:func:`build_llm_provider` raises :class:`ConfigurationError` when
+no LLM API key is present in the environment — the offline fallback
+has been removed.
 """
 
 from __future__ import annotations
@@ -122,51 +120,6 @@ class BaseLLMProvider(ABC):
             image_paths=image_paths,
             session_history=session_history,
         )
-
-
-class HeuristicLLMProvider(BaseLLMProvider):
-    """Composes an answer from retrieved context without any model call."""
-
-    def __init__(self, model_name: str = "heuristic-llm") -> None:
-        """Initialise the heuristic provider.
-
-        Args:
-            model_name: Stable identifier surfaced as
-                :pyattr:`model_name`. Defaults to ``"heuristic-llm"``.
-        """
-        self.model_name = model_name
-
-    def generate(
-        self,
-        *,
-        system_prompt: str,
-        conversation: Sequence[ConversationTurn],
-        context: Sequence[str],
-        question: str,
-        image_paths: list[str] | None = None,
-        session_history: list[dict[str, Any]] | None = None,
-    ) -> str:
-        """Return a fixed prefix built from the top context fragments.
-
-        Args:
-            system_prompt: System instructions.
-            conversation: Recent in-window turns.
-            context: The retrieved chunks to summarise. At most the
-                first three non-empty fragments are consulted.
-            question: The user's question.
-            image_paths: Unused; the heuristic does not handle images.
-            session_history: Unused; the heuristic does not use history.
-
-        Returns:
-            A ``"<fragment1> <fragment2> <fragment3>"``-style prefix,
-            truncated to 1000 characters. The literal string
-            ``"No accessible source chunks were found for this question."``
-            is returned when ``context`` is empty.
-        """
-        if not context:
-            return "No accessible source chunks were found for this question."
-        prefix = " ".join(fragment.strip() for fragment in context[:3] if fragment.strip())
-        return prefix[:1000]
 
 
 class LLMValueErrorBoundary:
@@ -375,6 +328,10 @@ class LiteLLMProvider(BaseLLMProvider):
             "api_key": self.api_key,
             "api_base": self.api_base,
         }
+        if self.api_base:
+            # Custom OpenAI-compatible endpoint — tell litellm the
+            # protocol so it doesn't reject an unknown model name.
+            options["custom_llm_provider"] = "minimax"
         if self.timeout_seconds is not None:
             options["timeout"] = self.timeout_seconds
         with LLMValueErrorBoundary("LiteLLM async completion failed"):
@@ -445,6 +402,8 @@ class LiteLLMProvider(BaseLLMProvider):
             "api_key": self.api_key,
             "api_base": self.api_base,
         }
+        if self.api_base:
+            options["custom_llm_provider"] = "minimax"
         if self.timeout_seconds is not None:
             options["timeout"] = self.timeout_seconds
         with LLMValueErrorBoundary("LiteLLM streaming failed"):
@@ -490,28 +449,30 @@ def build_llm_provider(
 ) -> BaseLLMProvider:
     """Construct the appropriate LLM provider for ``model_name``.
 
-    Selection rules (highest priority first):
+    Selection rules:
 
-    1. If ``model_name`` is empty, ``"heuristic"``, or
-       ``"heuristic-llm"`` → :class:`HeuristicLLMProvider`.
-    2. If no LLM API key is present in the environment *and* no
-       no ``api_key`` is supplied → :class:`HeuristicLLMProvider`
-       (so the framework remains usable offline).
-    3. Otherwise → :class:`LiteLLMProvider`.
+    * ``model_name`` is empty or ``"heuristic-llm"`` →
+      :class:`LiteLLMProvider` (a configuration error, raised below).
+    * Otherwise → :class:`LiteLLMProvider`.
+
+    The provider requires a real LLM endpoint; the offline fallback
+    has been removed. Pass the credentials via the ``RAG_LLM_*`` env
+    vars (``RAG_LLM_API_KEY``, ``RAG_LLM_BASE_URL``,
+    ``RAG_LLM_MODEL``) or as the ``api_key`` argument below.
 
     Args:
-        model_name: The model identifier. Empty / ``"heuristic"`` /
-            unknown names resolve to :class:`HeuristicLLMProvider`.
-        api_key: Optional API key passed through to
-            :class:`LiteLLMProvider`. When provided, the key counts
-            as a present credential even if the env vars are unset.
+        model_name: The model identifier. Empty / unknown names raise
+            :class:`ConfigurationError` at construction time.
+        api_key: Optional API key passed through to the
+            :class:`LiteLLMProvider`.
 
     Returns:
         A ready-to-use provider instance.
     """
     name = (model_name or "").lower().strip()
-    if not name or name == "heuristic-llm" or name == "heuristic":
-        return HeuristicLLMProvider(model_name=model_name or "heuristic-llm")
-    if not api_key and not any_llm_api_key_present():
-        return HeuristicLLMProvider(model_name=model_name)
+    if not any_llm_api_key_present() and not api_key:
+        raise ConfigurationError(
+            "no LLM API key available: set RAG_LLM_API_KEY (or pass "
+            "`api_key=`) to build a real LLM provider."
+        )
     return LiteLLMProvider(model=model_name, api_key=api_key)
