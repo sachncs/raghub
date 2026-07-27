@@ -74,7 +74,7 @@ from raghub.helper.retrieval import (
     Retrieval as RetrievalPipeline,
 )
 from raghub.storage import ImageStore, Sessions
-from raghub.vectorstore import BaseVectorStore, ZvecVectorStore
+from raghub.vectorstore import BaseVectorStore, InMemoryVectorStore
 
 # ---------------------------------------------------------------------------
 # Mixin shared by every service
@@ -542,10 +542,8 @@ async def build_container(settings: Settings) -> RagContainer:
     nvidia_api_key = (
         settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
     )
-    vector_store: BaseVectorStore = ZvecVectorStore(
-        str(settings.zvec_dir),
-        embedding_dim=settings.embedding_dim,
-        require_zvec=settings.require_zvec,
+    vector_store: BaseVectorStore = build_vector_store(
+        settings, embedding_dim=settings.embedding_dim
     )
 
     db_path = str(settings.registry_path).replace(".json", ".db")

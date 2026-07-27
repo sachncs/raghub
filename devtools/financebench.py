@@ -2,38 +2,29 @@
 
 Builds a :class:`LiteLLMProvider` from the ``RAG_LLM_BASE_URL``,
 ``RAG_LLM_API_KEY`` and ``RAG_LLM_MODEL`` env vars; ingests a real
-corpus of FinanceBench source 10-K filings (downloaded from
-``github.com/patronus-ai/financebench``); runs every example through
-:class:`RAG`'s query path.
+corpus of FinanceBench source 10-K filings; runs every example through
+:class:`RAG`'s query path. Errors surface as exceptions — the script
+does not paper over them.
 
 The corpus is matched to the dataset — only the 10-K / 10-Q files
-matching a question's company + fiscal year are ingested. This keeps
-the in-process vector store small enough for a fast end-to-end run
-with the ``baseline`` chunk size.
+matching a question's company are ingested, keeping the in-process
+vector store small enough for a fast end-to-end run.
 
-Skips auth entirely (no :class:`RagApplication` login flow). The
-heuristic LLM fallback has been removed; the ``RAG_LLM_*`` env vars
-must point at a working endpoint.
+Skips auth entirely (no :class:`RagApplication` login flow).
 
 Usage::
 
-    RAG_LLM_BASE_URL=https://api.minimax.io/anthropic \\
-    RAG_LLM_API_KEY=... \\
-    RAG_LLM_MODEL="MiniMax-M3" \\
+    RAG_LLM_BASE_URL=... RAG_LLM_API_KEY=... RAG_LLM_MODEL=... \\
     python devtools/financebench.py
 
 ``--examples N`` runs the first N examples (default: all 150).
-``--pipeline NAME`` runs a single pipeline variant instead of the
-sweep; valid names: ``baseline``, ``small``, ``large``, ``hyde``.
-``--pdfs-dir DIR`` points at the directory of source PDFs (default:
+``--pipeline NAME`` runs a single pipeline variant; names:
+``baseline``, ``small``, ``large``, ``hyde``.
+``--pdfs-dir DIR`` points at the source 10-K PDFs (default:
 ``/tmp/raghub_fb_pdfs``).
 ``--data-dir DIR`` overrides the per-run data dir.
 ``--json PATH`` writes raw per-pipeline results to a JSON file.
-``--skip-download`` does not try to fetch the source PDFs.
-
-The script tries to match each question's company and (where
-present) ``doc_period`` field against the PDF filenames. PDFs whose
-company doesn't match any question are skipped.
+``--ingest-timeout SECS`` caps the ingest step (default: 600).
 """
 
 from __future__ import annotations
@@ -41,9 +32,27 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import multiprocessing
 import os
 import re
 import statistics
+import time
+from concurrent.futures import ProcessPoolExecutor
+
+# Hardcoded dev-only defaults for the sweep's local sandbox. These
+# point the pipeline at a per-run data dir under /tmp and silence the
+# noisy logs. Override via the shell or a sibling .env. The
+# RAG_LLM_* variables stay in .env — keys never go in source.
+_DEV_ENV_DEFAULTS = {
+    "RAG_PROFILE": "development",
+    "RAG_DATA_DIR": "/tmp/raghub_fb",
+    "RAG_LOG_LEVEL": "WARNING",
+    "RAG_ENVIRONMENT": "development",
+    "JWT_SECRET": "sweep-secret-sweep-secret-sweep-secret-sweep-secret-sweep",
+    "ALLOW_PASSWORDLESS": "0",
+}
+for _key, _value in _DEV_ENV_DEFAULTS.items():
+    os.environ.setdefault(_key, _value)
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,34 +64,8 @@ from raghub.llm import LiteLLMProvider
 from raghub.rag import RAG
 
 
-def _load_env(path: Path) -> None:
-    """Load KEY=VALUE pairs from ``path`` into the environment.
-
-    Lines starting with ``#`` and blank lines are skipped. Values
-    may be optionally quoted. Existing env vars take precedence
-    (we use ``os.environ.setdefault`` so the caller's CLI export
-    wins over the .env file).
-    """
-    if not path.is_file():
-        return
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
-            value = value[1:-1]
-        os.environ.setdefault(key, value)
-
-
 # Pipeline configurations: chunking size, top_k, and whether to use
-# the HyDE query transform. ``baseline`` matches the production
-# defaults; ``small`` and ``large`` vary the chunk size; ``hyde`` adds
-# a HyDE transform.
+# the HyDE query transform.
 PIPELINES: dict[str, dict[str, Any]] = {
     "baseline": {
         "chunk_size_words": 500,
@@ -123,7 +106,6 @@ class PipelineResult:
         token_overlap: Mean Jaccard overlap.
         numeric_within_tolerance: Mean numeric-tolerance score.
         answer_length: Mean predicted answer length (chars).
-        n_errors: Number of LLM errors during the run.
     """
 
     name: str
@@ -132,7 +114,6 @@ class PipelineResult:
     token_overlap: float = 0.0
     numeric_within_tolerance: float = 0.0
     answer_length: float = 0.0
-    n_errors: int = 0
 
 
 def _build_settings(pipeline: str, data_dir: str) -> Settings:
@@ -147,8 +128,6 @@ def _build_settings(pipeline: str, data_dir: str) -> Settings:
         "chunk_overlap_words": cfg["chunk_overlap_words"],
         "top_k": cfg["top_k"],
         "data_dir": data_dir,
-        "zvec_dir": f"{data_dir}/zvec",
-        "require_zvec": False,
         "allow_passwordless_login": False,
         "log_level": "WARNING",
     }
@@ -165,54 +144,131 @@ def _build_llm() -> LiteLLMProvider:
     model = os.environ.get("RAG_LLM_MODEL", "gpt-4o-mini")
     if not base_url or not api_key:
         raise RuntimeError(
-            "RAG_LLM_BASE_URL and RAG_LLM_API_KEY must both be set "
-            "(the heuristic fallback has been removed)."
+            "RAG_LLM_BASE_URL and RAG_LLM_API_KEY must both be set."
         )
     return LiteLLMProvider(model=model, api_key=api_key, api_base=base_url)
 
 
 def _normalise_company(name: str) -> str:
-    """Lower-case alphanumeric token used for filename matching."""
     return re.sub(r"[^a-z0-9]", "", name.lower())
 
 
 def _match_pdfs(
-    examples: list[dict[str, Any]], pdfs_dir: Path
+    examples: list[dict[str, Any]], pdfs_dir: Path, one_per_company: bool = True
 ) -> list[Path]:
-    """Return the PDFs whose filename mentions a question's company.
+    """Return the PDFs to ingest for ``examples``.
 
-    Each question is matched by a token derived from its ``company``
-    field. PDFs whose filename contains the token are kept; the rest
-    are skipped so the in-process vector store stays small.
+    The first matching PDF per company is kept (``one_per_company=True``)
+    to keep the vector store small. Pass ``one_per_company=False`` to
+    ingest every 10-K / 10-Q that mentions a question's company.
     """
     needed: set[str] = {
         _normalise_company(ex.get("company", "")) for ex in examples
     }
     needed.discard("")
-    pdfs = sorted(pdfs_dir.glob("*.pdf"))
     matched: list[Path] = []
-    for pdf in pdfs:
-        stem = _normalise_company(pdf.stem.split("_")[0])
-        if stem in needed:
+    seen_companies: set[str] = set()
+    for pdf in sorted(pdfs_dir.glob("*.pdf")):
+        company = _normalise_company(pdf.stem.split("_")[0])
+        if company in needed:
+            if one_per_company and company in seen_companies:
+                continue
             matched.append(pdf)
+            seen_companies.add(company)
     return matched
 
 
-def _stage_pdfs(pdfs: list[Path], staged_dir: Path) -> list[Path]:
-    """Copy the matched PDFs into ``staged_dir`` and return the new paths.
+def _stage_pdfs(pdfs: list[Path], staged_dir: Path) -> None:
+    """Replace the contents of ``staged_dir`` with the matched PDFs.
 
-    The pipeline's :meth:`RAG.ingest_directory_sync` walks the directory
-    and ingests everything it finds; staging them in a dedicated
-    directory keeps the in-process index scoped to the relevant
-    subset while still using the directory-walking code path (with its
-    ``tqdm`` progress bar).
+    Wipes any leftover PDFs from a previous run so the in-process
+    index never sees stale files.
     """
-    staged_dir.mkdir(parents=True, exist_ok=True)
     import shutil
 
+    staged_dir.mkdir(parents=True, exist_ok=True)
+    for old in staged_dir.iterdir():
+        old.unlink()
     for pdf in pdfs:
         shutil.copy2(pdf, staged_dir / pdf.name)
-    return sorted(staged_dir.glob("*.pdf"))
+
+
+def _build_pdf_converter() -> Any:
+    """Build a pypdf-based PDF converter inline.
+
+    The default :class:`MarkerConverter` fails to load its detection
+    model on this environment (``KeyError: 'encoder'``); the
+    :class:`PlainTextConverter` decodes bytes as UTF-8 and produces
+    garbage for PDF binary. This converter reads the PDF page-by-page
+    with pypdf, joins the text, and wraps it in a
+    :class:`KnowledgeBundle` the same way the rest of the pipeline
+    expects.
+    """
+    from io import BytesIO
+
+    from pypdf import PdfReader
+
+    from raghub.models import (
+        BlockKind,
+        DocumentBlock,
+        DocumentRecord,
+        DocumentSection,
+        KnowledgeBundle,
+        deterministic_id,
+    )
+
+    class PdfConverter:
+        """Pypdf-backed PDF text extractor."""
+
+        def convert(
+            self,
+            *,
+            source_uri: str,
+            file_bytes: bytes,
+            mime_type: str = "",
+            language: str = "",
+            metadata: dict[str, Any] | None = None,
+        ) -> KnowledgeBundle:
+            reader = PdfReader(BytesIO(file_bytes))
+            page_texts: list[str] = []
+            for page in reader.pages:
+                page_texts.append(page.extract_text() or "")
+            text = "\n\n".join(page_texts)
+            section = DocumentSection(
+                section_id=deterministic_id("section", source_uri, "auto"),
+                index=0,
+                heading="",
+                blocks=[DocumentBlock(kind=BlockKind.TEXT, content=text)],
+                page_numbers=list(range(1, len(page_texts) + 1)),
+                source_location=f"{source_uri}#0",
+            )
+            return KnowledgeBundle(
+                bundle_id=deterministic_id("bundle", source_uri),
+                source_uri=source_uri,
+                mime_type=mime_type or "application/pdf",
+                language=language,
+                metadata=metadata or {},
+                sections=[section],
+            )
+
+        async def aconvert(
+            self,
+            *,
+            source_uri: str,
+            file_bytes: bytes,
+            mime_type: str = "",
+            language: str = "",
+            metadata: dict[str, Any] | None = None,
+        ) -> KnowledgeBundle:
+            return self.convert(
+                source_uri=source_uri,
+                file_bytes=file_bytes,
+                mime_type=mime_type,
+                language=language,
+                metadata=metadata,
+            )
+
+    return PdfConverter()
 
 
 async def _run_pipeline(
@@ -221,70 +277,70 @@ async def _run_pipeline(
     data_dir: str,
     llm: LiteLLMProvider,
     pdfs_dir: Path,
+    ingest_timeout_secs: float,
 ) -> PipelineResult:
     """Index the matched PDFs, run every example, return aggregate metrics."""
+    t_total = time.perf_counter()
+    print(f"[{pipeline}] building settings...", flush=True)
     settings = _build_settings(pipeline, data_dir)
-    # Bypass the default Marker converter — its model loader
-    # (KeyError: 'encoder') fails on this environment. PlainText is
-    # enough for the FinanceBench QA evaluation; the LLM is the
-    # bottleneck, not the layout.
-    from raghub.documents import PlainTextConverter
+    print(f"[{pipeline}] building PDF converter...", flush=True)
+    converter = _build_pdf_converter()
+    print(f"[{pipeline}] constructing RAG facade...", flush=True)
+    rag = RAG(settings=settings, llm=llm, converter=converter)
+    print(f"[{pipeline}] calling RAG.initialize()...", flush=True)
+    rag.initialize()
+    print(f"[{pipeline}] RAG.initialize() done in {time.perf_counter() - t_total:.1f}s", flush=True)
 
-    rag = RAG(settings=settings, llm=llm, converter=PlainTextConverter())
-    try:
-        rag.initialize()
-    except Exception as exc:
-        try:
-            rag.shutdown()
-        except Exception:
-            pass
-        raise RuntimeError(f"initialize() failed: {type(exc).__name__}: {exc}") from exc
-
+    print(f"[{pipeline}] matching PDFs to {len(examples)} examples...", flush=True)
     pdfs = _match_pdfs(examples, pdfs_dir)
     if not pdfs:
         raise RuntimeError(
             f"no PDFs matched any of the {len(examples)} example companies; "
             f"check that {pdfs_dir} contains the right files."
         )
+    print(f"[{pipeline}] matched {len(pdfs)} PDFs in {time.perf_counter() - t_total:.1f}s", flush=True)
 
-    print(f"[sweep] {pipeline}: staging {len(pdfs)} PDFs", flush=True)
+    print(f"[{pipeline}] staging {len(pdfs)} PDFs...", flush=True)
     staged_dir = Path(data_dir) / "staged"
     _stage_pdfs(pdfs, staged_dir)
+    print(f"[{pipeline}] staging done in {time.perf_counter() - t_total:.1f}s", flush=True)
 
-    try:
+    print(f"[{pipeline}] ingesting {len(pdfs)} PDFs (timeout {ingest_timeout_secs}s)...", flush=True)
+    t0 = time.perf_counter()
+    async with asyncio.timeout(ingest_timeout_secs):
         await rag.ingest_directory_async(
             staged_dir,
             metadata={"source": "financebench-pdfs", "pipeline": pipeline},
             user=None,
             show_progress=True,
         )
-    except Exception as exc:
-        try:
-            rag.shutdown()
-        except Exception:
-            pass
-        raise RuntimeError(f"ingest failed: {type(exc).__name__}: {exc}") from exc
+    print(
+        f"[{pipeline}] ingest done in {time.perf_counter() - t0:.1f}s "
+        f"(total elapsed {time.perf_counter() - t_total:.1f}s)"
+    )
 
     evaluator = FinanceBench()
-    n_errors = 0
+    n_workers = max(1, min(8, (multiprocessing.cpu_count() or 1)))
+    print(
+        f"[{pipeline}] running {len(examples)} queries through rag.aquery() + LLM "
+        f"(up to {n_workers} concurrent)...",
+        flush=True,
+    )
+    t0 = time.perf_counter()
+
+    sem = asyncio.Semaphore(n_workers)
+
+    async def one_query(question: str) -> str:
+        async with sem:
+            return (await rag.aquery(question)).answer
 
     async def factory(example: dict[str, Any]) -> str:
-        nonlocal n_errors
         question = example.get("question") or example.get("query") or ""
-        try:
-            response = await rag.aquery(question)
-            return response.answer
-        except Exception as exc:
-            n_errors += 1
-            return f"[error: {type(exc).__name__}: {exc}]"
+        return await one_query(question)
 
-    try:
-        results = await evaluator.evaluate(examples, response_factory=factory)
-    finally:
-        try:
-            rag.shutdown()
-        except Exception:
-            pass
+    results = await evaluator.evaluate(examples, response_factory=factory)
+    print(f"[{pipeline}] queries done in {time.perf_counter() - t0:.1f}s")
+    rag.shutdown()
 
     if not results:
         return PipelineResult(name=pipeline)
@@ -302,15 +358,13 @@ async def _run_pipeline(
         answer_length=statistics.mean(
             len((r.details.get("predicted") or "")) for r in results
         ),
-        n_errors=n_errors,
     )
 
 
 def _print_table(results: list[PipelineResult]) -> None:
-    """Pretty-print the comparison table."""
     headers = [
         "pipeline", "n", "pass_rate", "token_overlap",
-        "numeric", "answer_len", "n_errors",
+        "numeric", "answer_len",
     ]
     rows = [
         [
@@ -320,7 +374,6 @@ def _print_table(results: list[PipelineResult]) -> None:
             f"{r.token_overlap:.3f}",
             f"{r.numeric_within_tolerance:.3f}",
             f"{r.answer_length:.0f}",
-            str(r.n_errors),
         ]
         for r in results
     ]
@@ -338,28 +391,32 @@ def _print_table(results: list[PipelineResult]) -> None:
 
 
 async def _async_main(args: argparse.Namespace) -> int:
-    """Run the sweep and print the comparison table."""
+    print(f"[main] building LLM provider from env...", flush=True)
     llm = _build_llm()
+    print(f"[main] loading {args.examples} FinanceBench examples...", flush=True)
     examples = FinanceBench().ensure_examples()[: args.examples]
     if not examples:
         print("no FinanceBench examples available; aborting")
         return 1
+    print(f"[main] loaded {len(examples)} examples", flush=True)
 
     pdfs_dir = Path(args.pdfs_dir)
     if not pdfs_dir.is_dir():
         print(f"PDF directory not found: {pdfs_dir}")
-        print("download with: curl -L github.com/patronus-ai/financebench/raw/main/pdfs.zip")
         return 1
+    print(f"[main] PDF source dir: {pdfs_dir}", flush=True)
 
     pipelines = [args.pipeline] if args.pipeline else list(PIPELINES)
     results: list[PipelineResult] = []
     for name in pipelines:
-        print(f"[sweep] running {name}...", flush=True)
-        try:
-            result = await _run_pipeline(name, examples, args.data_dir, llm, pdfs_dir)
-        except Exception as exc:
-            print(f"  ERROR: {exc}")
-            result = PipelineResult(name=name)
+        print(f"[main] === starting pipeline: {name} ===", flush=True)
+        t0 = time.perf_counter()
+        result = await _run_pipeline(
+            name, examples, args.data_dir, llm, pdfs_dir, args.ingest_timeout,
+        )
+        print(
+            f"[main] pipeline {name} done in {time.perf_counter() - t0:.1f}s"
+        )
         results.append(result)
     _print_table(results)
 
@@ -374,7 +431,6 @@ async def _async_main(args: argparse.Namespace) -> int:
                         "token_overlap": r.token_overlap,
                         "numeric_within_tolerance": r.numeric_within_tolerance,
                         "answer_length": r.answer_length,
-                        "n_errors": r.n_errors,
                     }
                     for r in results
                 ],
@@ -384,10 +440,23 @@ async def _async_main(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_env(path: Path) -> None:
+    """Load KEY=VALUE pairs from ``path`` into the environment."""
+    if not path.is_file():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        os.environ.setdefault(key, value)
+
+
 def main() -> None:
-    """Parse CLI args and run the async pipeline sweep."""
-    # Auto-load .env from a few standard locations so users can drop
-    # their LLM credentials in a file rather than exporting them inline.
     script_dir = Path(__file__).resolve().parent
     for candidate in [script_dir / ".env", script_dir.parent / ".env"]:
         _load_env(candidate)
@@ -396,34 +465,27 @@ def main() -> None:
         description="Run the FinanceBench sweep across pipeline configurations."
     )
     parser.add_argument(
-        "--examples",
-        type=int,
-        default=0,
+        "--examples", type=int, default=0,
         help="Number of FinanceBench examples (0 = all 150).",
     )
     parser.add_argument(
-        "--pipeline",
-        type=str,
-        default=None,
-        choices=list(PIPELINES),
+        "--pipeline", type=str, default=None, choices=list(PIPELINES),
         help="Run a single pipeline variant instead of the full sweep.",
     )
     parser.add_argument(
-        "--pdfs-dir",
-        type=str,
-        default="/tmp/raghub_fb_pdfs",
+        "--pdfs-dir", type=str, default="/tmp/raghub_fb_pdfs",
         help="Directory of source 10-K / 10-Q PDFs.",
     )
     parser.add_argument(
-        "--data-dir",
-        type=str,
-        default="/tmp/raghub_financebench",
+        "--data-dir", type=str, default="/tmp/raghub_financebench",
         help="Per-run data dir (default: /tmp/raghub_financebench).",
     )
     parser.add_argument(
-        "--json",
-        type=str,
-        default=None,
+        "--ingest-timeout", type=float, default=600.0,
+        help="Max seconds to wait for ingest (default: 600).",
+    )
+    parser.add_argument(
+        "--json", type=str, default=None,
         help="Optional path to write raw results as JSON.",
     )
     args = parser.parse_args()

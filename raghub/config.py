@@ -30,7 +30,6 @@ class Settings(BaseModel):
         data_dir: Root directory for derived state (registry, sessions).
         registry_path: Path to the JSON-backed document registry.
         sessions_path: Path to the JSON-backed session store.
-        zvec_dir: Directory used by the zvec vector store.
         chunk_size_words: Default chunk size used by the chunker.
         chunk_overlap_words: Default overlap used by the chunker.
         chunker_strategy: Chunking strategy name (``"recursive"``,
@@ -50,8 +49,6 @@ class Settings(BaseModel):
         log_level: Minimum log level (``"INFO"``, ``"DEBUG"``, …).
         worker_backend: ``"threadpool"`` or ``"asyncio"``.
         profile_path: Path to the YAML profile that was loaded.
-        require_zvec: Whether startup should fail when the zvec
-            backend is unavailable.
         jwt_secret: Secret used to sign JWTs. **Required in
             production.**
         nvidia_api_key: NVIDIA API key (only consumed by the NVIDIA
@@ -66,7 +63,6 @@ class Settings(BaseModel):
     data_dir: Path = Path("./data")
     registry_path: Path = Path("./data/registry.json")
     sessions_path: Path = Path("./data/sessions.json")
-    zvec_dir: Path = Path("./data/zvec")
     chunk_size_words: int = 800
     chunk_overlap_words: int = 100
     chunker_strategy: str = "recursive"
@@ -81,7 +77,6 @@ class Settings(BaseModel):
     profile_path: Path | None = None
     retrieval_mode: str = "sync"
     worker_backend: str = "threadpool"
-    require_zvec: bool = False
     jwt_secret: SecretStr = SecretStr("")
     nvidia_api_key: str = ""
     allow_passwordless_login: bool = False
@@ -116,7 +111,6 @@ class Settings(BaseModel):
         self.data_dir = Path(self.data_dir)
         self.registry_path = Path(self.registry_path)
         self.sessions_path = Path(self.sessions_path)
-        self.zvec_dir = Path(self.zvec_dir)
         if self.profile_path is not None:
             self.profile_path = Path(self.profile_path)
 
@@ -381,7 +375,6 @@ def _load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> 
         "sessions_path": Path(
             os.getenv("RAG_SESSIONS_PATH", payload.get("sessions_path", "./data/sessions.json"))
         ),
-        "zvec_dir": Path(os.getenv("RAG_ZVEC_DIR", payload.get("zvec_dir", "./data/zvec"))),
         "chunk_size_words": int(
             os.getenv("RAG_CHUNK_SIZE_WORDS", str(payload.get("chunk_size_words", 800)))
         ),
@@ -419,7 +412,6 @@ def _load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> 
         "worker_backend": os.getenv(
             "RAG_WORKER_BACKEND", payload.get("worker_backend", "threadpool")
         ),
-        "require_zvec": env_bool("RAG_REQUIRE_ZVEC", payload.get("require_zvec", False)),
         "jwt_secret": SecretStr(os.getenv("JWT_SECRET", "")),
         "nvidia_api_key": os.getenv("NVIDIA_API_KEY", payload.get("nvidia_api_key", "")),
         "allow_passwordless_login": env_bool(
