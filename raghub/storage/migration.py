@@ -27,6 +27,7 @@ import raghub.repositories as repositories
 import raghub.storage.json_registry as json_registry
 import raghub.storage.session_store as session_store
 
+
 async def migrate_from_json(
     db_path: str | Path,
     registry_path: str | Path,

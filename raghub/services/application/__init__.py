@@ -39,7 +39,7 @@ from raghub.auth import RBACAuthorizationService, SqliteUserStore
 from raghub.config import Settings
 from raghub.conversation import ConversationManager
 from raghub.documents import DocumentLifecycleManager
-from raghub.documents.parsers import ParserRegistry
+from raghub.documents.parsers.registry import ParserRegistry
 from raghub.embeddings import BaseEmbeddingProvider, build_embedding_provider
 from raghub.ingestion import DocumentIngestionService
 from raghub.llm import BaseLLMProvider, build_llm_provider

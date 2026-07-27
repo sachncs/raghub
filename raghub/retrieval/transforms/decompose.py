@@ -11,7 +11,6 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from raghub.exceptions import TransformError
 from raghub.models import ConversationTurn
 from raghub.retrieval.transforms.base import QueryVariant
 from raghub.utils import capture

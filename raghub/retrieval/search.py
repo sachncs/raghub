@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from raghub.models import ChunkRecord, Classification
-from raghub.retrieval.colbert import ColbertLateInteraction
+
 
 @dataclass
 class SearchFilters:

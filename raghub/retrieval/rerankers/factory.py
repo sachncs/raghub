@@ -8,11 +8,11 @@ from typing import Any
 from raghub.config import Settings
 from raghub.exceptions import RerankerError
 from raghub.llm import HeuristicLLMProvider
-from raghub.retrieval.reranker import IdentityReranker, Reranker
 from raghub.retrieval.rerankers.bge import BgeReranker
 from raghub.retrieval.rerankers.cascade import CascadeReranker
 from raghub.retrieval.rerankers.cohere import CohereReranker
 from raghub.retrieval.rerankers.llm import LLMReranker
+from raghub.retrieval.rerankers.reranker import IdentityReranker, Reranker
 
 
 class RerankerFactory:

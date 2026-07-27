@@ -27,6 +27,7 @@ import aiosqlite
 from raghub.models import ConversationTurn, SessionRecord
 from raghub.storage.database import DatabaseManager
 
+
 class SqliteSessionStore:
     """Async CRUD for the ``sessions`` table.
 

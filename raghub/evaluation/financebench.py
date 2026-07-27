@@ -21,11 +21,11 @@ from pathlib import Path
 from typing import Any
 
 from raghub.evaluation.harness import score_string
-from raghub.utils import capture
 from raghub.evaluation.metrics import evaluate_example
 from raghub.exceptions import EvaluationError
 from raghub.interfaces.evaluation import Evaluator
 from raghub.models import EvaluationResult
+from raghub.utils import capture
 
 hf_load_dataset: Any
 

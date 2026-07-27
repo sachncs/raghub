@@ -96,7 +96,7 @@ class BaseVectorStore(ABC):
         return []
 
 
-def matches_metadata_dict(record: "MemoryVectorRecord", filters: dict[str, Any]) -> bool:
+def matches_metadata_dict(record: MemoryVectorRecord, filters: dict[str, Any]) -> bool:
     """Return whether ``record`` matches every key/value in ``filters``."""
     for key, expected in filters.items():
         if not hasattr(record.chunk, key):
@@ -302,7 +302,6 @@ class QdrantVectorStore(VectorStore):
 
     def create_collection(self) -> None:
         """Create the Qdrant collection when it is absent."""
-        from qdrant_client.http import models as qmodels
 
         if not self.client.collection_exists(collection_name=self.collection):
             self.client.create_collection(
@@ -319,7 +318,6 @@ class QdrantVectorStore(VectorStore):
 
     def delete_version(self, document_id: str, version: int) -> None:
         """Delete chunks for one document version."""
-        from qdrant_client.http import models as qmodels
 
         self.client.delete(
             collection_name=self.collection,
@@ -352,7 +350,6 @@ class QdrantVectorStore(VectorStore):
 
     def upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> None:
         """Upsert ``chunks`` with their vectors."""
-        from qdrant_client.http import models as qmodels
 
         if len(chunks) != len(vectors):
             raise VectorStoreError("chunks and vectors length mismatch")
@@ -372,7 +369,6 @@ class QdrantVectorStore(VectorStore):
 
     def delete(self, chunk_ids: Sequence[str]) -> None:
         """Delete chunks by their stable Qdrant point ids."""
-        from qdrant_client.http import models as qmodels
 
         self.client.delete(
             collection_name=self.collection,
@@ -383,7 +379,6 @@ class QdrantVectorStore(VectorStore):
 
     def delete_document(self, document_id: str) -> None:
         """Delete every chunk for ``document_id``."""
-        from qdrant_client.http import models as qmodels
 
         self.client.delete(
             collection_name=self.collection,
@@ -406,7 +401,6 @@ class QdrantVectorStore(VectorStore):
         metadata_filter: str | dict[str, Any] = "",
     ) -> list[dict[str, Any]]:
         """Run vector search with a canonical metadata filter."""
-        from qdrant_client.http import models as qmodels
 
         if metadata_filter == "":
             query_filter = None

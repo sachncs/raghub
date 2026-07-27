@@ -274,7 +274,7 @@ class ApplicationFacade:
         container.query = self.query_svc
         container.health = self.health_svc
         self.auth = AuthCoordinator(self)
-        self._shutdown_coordinator = ShutdownCoordinator(container)
+        self.shutdown_coordinator = ShutdownCoordinator(container)
         self.preferences = PreferenceCoordinator(self)
 
     @staticmethod
@@ -415,4 +415,4 @@ class ApplicationFacade:
 
     async def shutdown(self) -> None:
         """Release all resources held by the application."""
-        await self._shutdown_coordinator.release()
+        await self.shutdown_coordinator.release()

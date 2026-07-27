@@ -18,8 +18,8 @@ from typing import Any
 import typer
 
 from raghub.auth import SqliteUserStore
-from raghub.utils import capture
 from raghub.cli.format import read_settings, write_json
+from raghub.utils import capture
 
 app = typer.Typer(help="Configuration commands.", no_args_is_help=True)
 tools = typer.Typer(help="Manage the tool_settings blob.", no_args_is_help=True)

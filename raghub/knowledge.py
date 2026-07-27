@@ -15,7 +15,7 @@ import json
 import math
 import re
 from abc import ABC, abstractmethod
-from collections import defaultdict, deque
+from collections import defaultdict
 from collections.abc import Iterable
 from hashlib import sha256
 from pathlib import Path

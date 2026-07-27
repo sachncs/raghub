@@ -8,12 +8,4 @@ the schema definitions stay co-located with the domain models.
 
 from __future__ import annotations
 
-from raghub.models import (
-    AuthLoginRequest,
-    AuthLoginResponse,
-    BatchIngestResponse,
-    DocumentUploadResponse,
-    QueryRequest,
-    QueryResponse,
-)
 

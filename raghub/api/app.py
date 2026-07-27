@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
-from collections.abc import AsyncIterator, Callable, Iterable
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any, ClassVar
 

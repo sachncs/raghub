@@ -78,14 +78,12 @@ from raghub.retrieval.colbert import ColbertLateInteraction
 from raghub.retrieval.long_context import LongContextRerankPass
 from raghub.retrieval.pipeline import RetrievalPipeline
 from raghub.retrieval.rerankers.factory import build_reranker
-from raghub.retrieval.transforms import (
-    ComposeTransformer,
-    DecomposeTransformer,
-    HydeTransformer,
-    MultiQueryTransformer,
-    QueryTransformer,
-    StepBackTransformer,
-)
+from raghub.retrieval.transforms.base import QueryTransformer
+from raghub.retrieval.transforms.compose import ComposeTransformer
+from raghub.retrieval.transforms.decompose import DecomposeTransformer
+from raghub.retrieval.transforms.hyde import HydeTransformer
+from raghub.retrieval.transforms.multi_query import MultiQueryTransformer
+from raghub.retrieval.transforms.step_back import StepBackTransformer
 from raghub.utils import maybe_await_sync as maybe_await
 from raghub.vectorstore import InMemoryVectorStore
 
