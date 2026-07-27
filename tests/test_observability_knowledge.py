@@ -541,7 +541,8 @@ class TestDefaultLLM:
                 result = default_llm("gpt-4")
                 assert result is mock_llm.return_value
 
-    def test_litellm_config_error_falls_back(self):
+    def test_litellm_config_error_propagates_for_llm(self):
+        """Per the v0.7 no-swallow contract, ConfigurationError propagates from default_llm."""
         from raghub.exceptions import ConfigurationError
 
         with (
@@ -552,10 +553,9 @@ class TestDefaultLLM:
             ),
         ):
             from raghub.rag import default_llm
-            from raghub.llm import HeuristicLLMProvider
 
-            result = default_llm("gpt-4")
-            assert isinstance(result, HeuristicLLMProvider)
+            with pytest.raises(ConfigurationError, match="fail"):
+                default_llm("gpt-4")
 
 
 @patch.dict("os.environ", {}, clear=True)
