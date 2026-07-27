@@ -59,7 +59,7 @@ from raghub.knowledge import (
     SourceManifest,
     sha256_bytes,
 )
-from raghub.llm import HeuristicLLMProvider
+from raghub.llm import LiteLLMProvider
 from raghub.models import (
     ConversationTurn,
     EvaluationResult,
@@ -181,16 +181,18 @@ def default_llm(llm_model: str) -> Any:
         llm_model: The configured LLM model name.
 
     Returns:
-        :class:`LiteLLMProvider` when LiteLLM is installed and
-        the configured model looks like a real provider; otherwise
-        :class:`HeuristicLLMProvider`. The heuristic provider is
-        deterministic and offline so the framework always runs.
+        :class:`LiteLLMProvider` for the configured model when an API
+        key is available. Raises :class:`ConfigurationError` when no
+        API key is set — the offline fallback has been removed.
     """
     model = (llm_model or "").lower()
-    if "heuristic" in model or not model:
-        return HeuristicLLMProvider()
     if not has_llm_api_key():
-        return HeuristicLLMProvider()
+        raise ConfigurationError(
+            f"no LLM API key is available; cannot build an LLM provider "
+            f"for model {llm_model!r}. Set RAG_LLM_API_KEY (and the "
+            f"RAG_LLM_BASE_URL / RAG_LLM_MODEL env vars) to a real "
+            f"endpoint."
+        )
     from raghub.llm import LiteLLMProvider as _LiteLLMProvider
 
     return _LiteLLMProvider(model=llm_model)
@@ -351,8 +353,8 @@ class RAG:
                 :class:`LiteLLMEmbeddingProvider` (with
                 :class:`HashingEmbeddingProvider` fallback).
             llm: LLM provider. Defaults to
-                :class:`LiteLLMProvider` (with
-                :class:`HeuristicLLMProvider` fallback).
+                :class:`LiteLLMProvider` (no offline fallback — an
+                API key is required).
             llm_timeout_seconds: Maximum completion time for the default generator.
             vector_store: Vector store. Defaults to
                 :class:`QdrantVectorStore` (with
@@ -402,7 +404,7 @@ class RAG:
         )
         self.reranker = reranker or build_reranker(self.settings, llm=self.llm)
         self.generator = cast(
-            Generator,
+            Any,
             generator or DefaultGenerator(llm=self.llm, timeout_seconds=llm_timeout_seconds),
         )
         self.structured = structured if structured is not None else default_structured()
@@ -451,7 +453,7 @@ class RAG:
         self.retrieval_pipeline = RetrievalPipeline(
             embedding_provider=self.embedder,
             vector_store=self.vector_store,
-            reranker=self.reranker,
+            rerank=self.reranker,
             hybrid=self.settings.hybrid,
         )
         # Phase 5.3: build the long-context pass when the config

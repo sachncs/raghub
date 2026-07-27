@@ -57,6 +57,7 @@ from raghub.models import (
     PipelineResult,
     RetrievalHit,
     UserPrincipal,
+    deterministic_id,
 )
 from raghub.observability import NoOpTelemetry
 
