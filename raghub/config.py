@@ -141,7 +141,7 @@ class Settings(BaseModel):
         return Settings(**merged)
 
     @classmethod
-    def load(cls, profile: str | None = None) -> "Settings":
+    def load(cls, profile: str | None = None) -> Settings:
         """Load from ``config/<profile>.yaml`` and environment variables.
 
         Args:
@@ -349,8 +349,12 @@ def read_toml_file(path: Path) -> dict[str, Any]:
     return tomllib.loads(path.read_text(encoding="utf-8")) or {}
 
 
-def load_from_env(profile: str | None = None) -> "Settings":
-    """Read YAML/TOML profile + env vars, then return a configured :class:`Settings`."""
+def _load_profile_payload(profile: str | None) -> tuple[str | None, Path, dict[str, Any]]:
+    """Read the YAML + TOML profile files into a single payload dict.
+
+    Returns:
+        Tuple of (selected_profile, profile_path, payload).
+    """
     base_dir = Path.cwd() / "config"
     selected_profile = profile or os.getenv("RAG_PROFILE", "development")
     profile_path = base_dir / f"{selected_profile}.yaml"
@@ -363,8 +367,12 @@ def load_from_env(profile: str | None = None) -> "Settings":
         if toml_payload:
             # TOML takes precedence over YAML when both are present.
             payload = {**payload, **toml_payload}
+    return selected_profile, profile_path, payload
 
-    env_payload: dict[str, Any] = {
+
+def _load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Build the env-driven payload for the simple ``Settings`` fields."""
+    return {
         "environment": os.getenv("RAG_ENV", selected_profile),
         "data_dir": Path(os.getenv("RAG_DATA_DIR", payload.get("data_dir", "./data"))),
         "registry_path": Path(
@@ -419,170 +427,209 @@ def load_from_env(profile: str | None = None) -> "Settings":
         in ("1", "true", "yes")
         or payload.get("allow_passwordless_login", True),
     }
-    # Advanced RAG (Phase 1.6) — keep flat env vars; nested blocks are
-    # built from them so config files can still express them as YAML.
-    advanced_payload: dict[str, Any] = {
-        "agent": AgentConfig(
-            enabled=env_bool("RAG_AGENT_ENABLED", payload.get("agent", {}).get("enabled", False)),
-            max_steps=int(
-                os.getenv("RAG_AGENT_MAX_STEPS", str(payload.get("agent", {}).get("max_steps", 8)))
-            ),
-            max_tool_calls=int(
-                os.getenv(
-                    "RAG_AGENT_MAX_TOOL_CALLS",
-                    str(payload.get("agent", {}).get("max_tool_calls", 10)),
-                )
-            ),
-            max_wall_seconds=float(
-                os.getenv(
-                    "RAG_AGENT_MAX_WALL_SECONDS",
-                    str(payload.get("agent", {}).get("max_wall_seconds", 30.0)),
-                )
-            ),
-            planner_model=os.getenv(
-                "RAG_AGENT_PLANNER_MODEL", payload.get("agent", {}).get("planner_model")
+
+
+def _load_agent_config(payload: dict[str, Any]) -> AgentConfig:
+    """Build :class:`AgentConfig` from env + payload."""
+    return AgentConfig(
+        enabled=env_bool("RAG_AGENT_ENABLED", payload.get("agent", {}).get("enabled", False)),
+        max_steps=int(
+            os.getenv("RAG_AGENT_MAX_STEPS", str(payload.get("agent", {}).get("max_steps", 8)))
+        ),
+        max_tool_calls=int(
+            os.getenv(
+                "RAG_AGENT_MAX_TOOL_CALLS",
+                str(payload.get("agent", {}).get("max_tool_calls", 10)),
             )
-            or None,
-            enable_streaming=env_bool(
-                "RAG_AGENT_STREAMING",
-                payload.get("agent", {}).get("enable_streaming", True),
+        ),
+        max_wall_seconds=float(
+            os.getenv(
+                "RAG_AGENT_MAX_WALL_SECONDS",
+                str(payload.get("agent", {}).get("max_wall_seconds", 30.0)),
+            )
+        ),
+        planner_model=os.getenv(
+            "RAG_AGENT_PLANNER_MODEL", payload.get("agent", {}).get("planner_model")
+        )
+        or None,
+        enable_streaming=env_bool(
+            "RAG_AGENT_STREAMING",
+            payload.get("agent", {}).get("enable_streaming", True),
+        ),
+    )
+
+
+def _load_web_search_config(payload: dict[str, Any]) -> WebSearchConfig:
+    """Build :class:`WebSearchConfig` from env + payload."""
+    return WebSearchConfig(
+        enabled=env_bool("RAG_WEB_ENABLED", payload.get("web_search", {}).get("enabled", False)),
+        max_results=int(
+            os.getenv(
+                "RAG_WEB_MAX_RESULTS",
+                str(payload.get("web_search", {}).get("max_results", 5)),
+            )
+        ),
+        timeout_seconds=float(
+            os.getenv(
+                "RAG_WEB_TIMEOUT_SECONDS",
+                str(payload.get("web_search", {}).get("timeout_seconds", 10.0)),
+            )
+        ),
+        safe_search=cast(
+            "Literal['strict', 'moderate', 'off']",
+            os.getenv(
+                "RAG_WEB_SAFE_SEARCH",
+                payload.get("web_search", {}).get("safe_search", "moderate"),
             ),
         ),
-        "web_search": WebSearchConfig(
-            enabled=env_bool("RAG_WEB_ENABLED", payload.get("web_search", {}).get("enabled", False)),
-            max_results=int(
-                os.getenv(
-                    "RAG_WEB_MAX_RESULTS",
-                    str(payload.get("web_search", {}).get("max_results", 5)),
-                )
-            ),
-            timeout_seconds=float(
-                os.getenv(
-                    "RAG_WEB_TIMEOUT_SECONDS",
-                    str(payload.get("web_search", {}).get("timeout_seconds", 10.0)),
-                )
-            ),
-            safe_search=cast(
-                "Literal['strict', 'moderate', 'off']",
-                os.getenv(
-                    "RAG_WEB_SAFE_SEARCH",
-                    payload.get("web_search", {}).get("safe_search", "moderate"),
-                ),
+    )
+
+
+def _load_reranker_config(payload: dict[str, Any]) -> RerankerConfig:
+    """Build :class:`RerankerConfig` from env + payload."""
+    return RerankerConfig(
+        provider=cast(
+            "Literal['none', 'cohere', 'bge', 'llm', 'cascade']",
+            os.getenv(
+                "RAG_RERANKER_PROVIDER",
+                payload.get("reranker", {}).get("provider", "none"),
             ),
         ),
-        "graph_search_enabled": env_bool(
-            "RAG_GRAPH_ENABLED", payload.get("graph_search_enabled", False)
+        top_k=int(
+            os.getenv("RAG_RERANKER_TOP_K", str(payload.get("reranker", {}).get("top_k", 20)))
         ),
-        "summary_search_enabled": env_bool(
-            "RAG_SUMMARY_ENABLED", payload.get("summary_search_enabled", False)
+        cascade_threshold=float(
+            os.getenv(
+                "RAG_RERANKER_CASCADE_THRESHOLD",
+                str(payload.get("reranker", {}).get("cascade_threshold", 0.05)),
+            )
         ),
-        "reranker": RerankerConfig(
-            provider=cast(
-                "Literal['none', 'cohere', 'bge', 'llm', 'cascade']",
-                os.getenv(
-                    "RAG_RERANKER_PROVIDER",
-                    payload.get("reranker", {}).get("provider", "none"),
-                ),
-            ),
-            top_k=int(
-                os.getenv("RAG_RERANKER_TOP_K", str(payload.get("reranker", {}).get("top_k", 20)))
-            ),
-            cascade_threshold=float(
-                os.getenv(
-                    "RAG_RERANKER_CASCADE_THRESHOLD",
-                    str(payload.get("reranker", {}).get("cascade_threshold", 0.05)),
-                )
-            ),
+    )
+
+
+def _load_long_context_config(payload: dict[str, Any]) -> LongContextConfig:
+    """Build :class:`LongContextConfig` from env + payload."""
+    return LongContextConfig(
+        enabled=env_bool(
+            "RAG_LONG_CONTEXT_ENABLED",
+            payload.get("long_context_pass", {}).get("enabled", False),
         ),
-        "long_context_pass": LongContextConfig(
-            enabled=env_bool(
-                "RAG_LONG_CONTEXT_ENABLED",
-                payload.get("long_context_pass", {}).get("enabled", False),
-            ),
-            candidate_k=int(
-                os.getenv(
-                    "RAG_LONG_CONTEXT_CANDIDATE_K",
-                    str(payload.get("long_context_pass", {}).get("candidate_k", 20)),
-                )
-            ),
+        candidate_k=int(
+            os.getenv(
+                "RAG_LONG_CONTEXT_CANDIDATE_K",
+                str(payload.get("long_context_pass", {}).get("candidate_k", 20)),
+            )
         ),
-        "hybrid": HybridConfig(
-            fusion=cast(
-                "Literal['rrf', 'linear']",
-                os.getenv(
-                    "RAG_HYBRID_FUSION",
-                    payload.get("hybrid", {}).get("fusion", "rrf"),
-                ),
-            ),
-            rrf_k=int(
-                os.getenv("RAG_HYBRID_RRF_K", str(payload.get("hybrid", {}).get("rrf_k", 60)))
-            ),
-            keyword_weight=float(
-                os.getenv(
-                    "RAG_HYBRID_KEYWORD_WEIGHT",
-                    str(payload.get("hybrid", {}).get("keyword_weight", 0.3)),
-                )
-            ),
-            vector_weight=float(
-                os.getenv(
-                    "RAG_HYBRID_VECTOR_WEIGHT",
-                    str(payload.get("hybrid", {}).get("vector_weight", 0.7)),
-                )
-            ),
-            colbert_enabled=env_bool(
-                "RAG_HYBRID_COLBERT",
-                payload.get("hybrid", {}).get("colbert_enabled", False),
+    )
+
+
+def _load_hybrid_config(payload: dict[str, Any]) -> HybridConfig:
+    """Build :class:`HybridConfig` from env + payload."""
+    return HybridConfig(
+        fusion=cast(
+            "Literal['rrf', 'linear']",
+            os.getenv(
+                "RAG_HYBRID_FUSION",
+                payload.get("hybrid", {}).get("fusion", "rrf"),
             ),
         ),
-        "query_transforms": QueryTransformsConfig(
-            enabled=csv_to_transforms(
-                os.getenv("RAG_TRANSFORMS_ENABLED", ""),
-                payload.get("query_transforms", {}).get("enabled", []),
-            ),
-            hyde_n=int(
-                os.getenv(
-                    "RAG_TRANSFORMS_HYDE_N",
-                    str(payload.get("query_transforms", {}).get("hyde_n", 1)),
-                )
-            ),
-            multi_query_n=int(
-                os.getenv(
-                    "RAG_TRANSFORMS_MULTI_QUERY_N",
-                    str(payload.get("query_transforms", {}).get("multi_query_n", 4)),
-                )
-            ),
+        rrf_k=int(
+            os.getenv("RAG_HYBRID_RRF_K", str(payload.get("hybrid", {}).get("rrf_k", 60)))
         ),
-    }
-    env_payload.update(advanced_payload)
+        keyword_weight=float(
+            os.getenv(
+                "RAG_HYBRID_KEYWORD_WEIGHT",
+                str(payload.get("hybrid", {}).get("keyword_weight", 0.3)),
+            )
+        ),
+        vector_weight=float(
+            os.getenv(
+                "RAG_HYBRID_VECTOR_WEIGHT",
+                str(payload.get("hybrid", {}).get("vector_weight", 0.7)),
+            )
+        ),
+        colbert_enabled=env_bool(
+            "RAG_HYBRID_COLBERT",
+            payload.get("hybrid", {}).get("colbert_enabled", False),
+        ),
+    )
+
+
+def _load_query_transforms_config(payload: dict[str, Any]) -> QueryTransformsConfig:
+    """Build :class:`QueryTransformsConfig` from env + payload."""
+    return QueryTransformsConfig(
+        enabled=csv_to_transforms(
+            os.getenv("RAG_TRANSFORMS_ENABLED", ""),
+            payload.get("query_transforms", {}).get("enabled", []),
+        ),
+        hyde_n=int(
+            os.getenv(
+                "RAG_TRANSFORMS_HYDE_N",
+                str(payload.get("query_transforms", {}).get("hyde_n", 1)),
+            )
+        ),
+        multi_query_n=int(
+            os.getenv(
+                "RAG_TRANSFORMS_MULTI_QUERY_N",
+                str(payload.get("query_transforms", {}).get("multi_query_n", 4)),
+            )
+        ),
+    )
+
+
+def _assert_production_invariants(settings: Settings) -> None:
+    """Raise ``RuntimeError`` if production-mode invariants are violated."""
+    if settings.environment != "production":
+        return
+    secret = settings.jwt_secret.get_secret_value()
+    if not secret:
+        raise RuntimeError("JWT_SECRET environment variable is required in production mode")
+    if len(secret.encode("utf-8")) < 32:
+        raise RuntimeError(
+            "JWT_SECRET must be at least 32 bytes long in production mode "
+            "(PyJWT rejects shorter keys for HS256)."
+        )
+    if settings.allow_passwordless_login:
+        raise RuntimeError(
+            "Passwordless login is forbidden in production mode. "
+            "Set RAG_ALLOW_PASSWORDLESS=0 or 'allow_passwordless_login: false' in config."
+        )
+
+
+def load_from_env(profile: str | None = None) -> Settings:
+    """Read YAML/TOML profile + env vars, then return a configured :class:`Settings`.
+
+    The function is the single orchestrator for config loading. The
+    actual field-by-field reading is split into ``_load_*`` helpers
+    below so each block stays under 80 lines.
+    """
+    selected_profile, profile_path, payload = _load_profile_payload(profile)
+    if selected_profile is None:
+        selected_profile = "development"
+    env_payload = _load_simple_env_payload(selected_profile, payload)
+    env_payload["agent"] = _load_agent_config(payload)
+    env_payload["web_search"] = _load_web_search_config(payload)
+    env_payload["reranker"] = _load_reranker_config(payload)
+    env_payload["long_context_pass"] = _load_long_context_config(payload)
+    env_payload["hybrid"] = _load_hybrid_config(payload)
+    env_payload["query_transforms"] = _load_query_transforms_config(payload)
+    env_payload["graph_search_enabled"] = env_bool(
+        "RAG_GRAPH_ENABLED", payload.get("graph_search_enabled", False)
+    )
+    env_payload["summary_search_enabled"] = env_bool(
+        "RAG_SUMMARY_ENABLED", payload.get("summary_search_enabled", False)
+    )
     settings = Settings(
         **env_payload,
         profile_path=profile_path if profile_path.exists() else None,
         extra={k: v for k, v in payload.items() if k not in env_payload},
     )
-    if settings.environment == "production":
-        # ``JWT_SECRET`` is mandatory in production: without it we
-        # cannot sign or verify tokens, and the system would silently
-        # accept forged credentials.
-        secret = settings.jwt_secret.get_secret_value()
-        if not secret:
-            raise RuntimeError("JWT_SECRET environment variable is required in production mode")
-        # ``JWT_SECRET`` must be at least 32 bytes for SHA-256
-        # signing; PyJWT emits an InsecureKeyLengthWarning otherwise.
-        if len(secret.encode("utf-8")) < 32:
-            raise RuntimeError(
-                "JWT_SECRET must be at least 32 bytes long in production mode "
-                "(PyJWT rejects shorter keys for HS256)."
-            )
-        if settings.allow_passwordless_login:
-            raise RuntimeError(
-                "Passwordless login is forbidden in production mode. "
-                "Set RAG_ALLOW_PASSWORDLESS=0 or 'allow_passwordless_login: false' in config."
-            )
+    _assert_production_invariants(settings)
     settings.ensure_dirs()
     return settings
 
 
-def load_settings(profile: str | None = None) -> "Settings":
+def load_settings(profile: str | None = None) -> Settings:
     """Backward-compat alias for :meth:`Settings.load`.
 
     Args:
