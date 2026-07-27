@@ -4,8 +4,8 @@ This package is the **single assembly point** for the entire RAG
 application. :func:`build_container` instantiates every collaborator
 (settings, logger, metrics, auth, RBAC, sessions, embeddings, LLM,
 vector store, ingestion, retrieval, parsers, image store) into a
-:class:`DynamicRagContainer`, then :class:`ApplicationFacade` (re-exported
-as :class:`DynamicRagApplication`) wraps that container with the
+:class:`RagContainer`, then :class:`ApplicationFacade` (re-exported
+as :class:`RagApplication`) wraps that container with the
 high-level facade methods the API and CLI call.
 
 The package is split into focused modules:
@@ -39,7 +39,7 @@ from raghub.auth import RBACAuthorizationService, SqliteUserStore
 from raghub.config import Settings
 from raghub.conversation import ConversationManager
 from raghub.documents import DocumentLifecycleManager
-from raghub.documents.parsers.registry import ParserRegistry
+from raghub.documents.parser import Catalog
 from raghub.embeddings import BaseEmbeddingProvider, build_embedding_provider
 from raghub.ingestion import DocumentIngestionService
 from raghub.llm import BaseLLMProvider, build_llm_provider
@@ -80,7 +80,7 @@ def seed_blocked(settings: Settings) -> bool:
 
 
 @dataclass
-class DynamicRagContainer:
+class RagContainer:
     """Composition root: every collaborator the application needs.
 
     Field roles:
@@ -142,7 +142,7 @@ class DynamicRagContainer:
     retrieval: RetrievalPipeline
     image_store: FilesystemImageStore
     user_store: SqliteUserStore
-    parser_registry: ParserRegistry
+    parser_registry: Catalog
     store: SqliteSessionStore
     uow: UnitOfWork
     auth: object = None
@@ -152,12 +152,12 @@ class DynamicRagContainer:
     rag_facade: object = None
 
 
-# ``DynamicRagApplication`` is the legacy class name; the new class
+# ``RagApplication`` is the legacy class name; the new class
 # lives in :mod:`raghub.services.application.facade` as
 # :class:`ApplicationFacade`. Re-export under the old name so external
-# callers (``from raghub.services.application import DynamicRagApplication``)
+# callers (``from raghub.services.application import RagApplication``)
 # keep working.
-DynamicRagApplication = ApplicationFacade
+RagApplication = ApplicationFacade
 
 
 async def _build_auth_components(settings: Settings) -> tuple[Any, Any, SqliteUserStore]:
@@ -233,7 +233,7 @@ def _build_pipeline_components(
         reranker=IdentityReranker(),
     )
     image_store = FilesystemImageStore(settings.data_dir / "images")
-    parser_registry = ParserRegistry()
+    parser_registry = Catalog()
     return {
         "prompt_builder": prompt_builder,
         "conversation": conversation,
@@ -257,8 +257,8 @@ async def _seed_demo_users(logger: Any, user_store: SqliteUserStore, settings: S
             info("seed.skipped", reason="production_or_wildcard_cors")
 
 
-async def build_container(settings: Settings) -> DynamicRagContainer:
-    """Construct a fully-wired :class:`DynamicRagContainer`.
+async def build_container(settings: Settings) -> RagContainer:
+    """Construct a fully-wired :class:`RagContainer`.
 
     The build is ordered so that every collaborator's dependencies are
     available when needed. The actual per-block construction is
@@ -277,7 +277,7 @@ async def build_container(settings: Settings) -> DynamicRagContainer:
         settings: The loaded application settings.
 
     Returns:
-        A populated :class:`DynamicRagContainer` ready to be wrapped
+        A populated :class:`RagContainer` ready to be wrapped
         by :class:`ApplicationFacade`.
 
     Raises:
@@ -294,7 +294,7 @@ async def build_container(settings: Settings) -> DynamicRagContainer:
     embeddings, llm = _build_provider_components(settings, nvidia_api_key)
     pipelines = _build_pipeline_components(uow, embeddings, vector_store, settings)
     await _seed_demo_users(logger, user_store, settings)
-    return DynamicRagContainer(
+    return RagContainer(
         settings=settings,
         logger=logger,
         metrics=PrometheusMetrics(),

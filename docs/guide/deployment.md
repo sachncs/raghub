@@ -192,7 +192,7 @@ Streamlit UI. The two flows are:
 
 The CLI equivalents (`raghub ingest <path>`) and the Streamlit
 "Upload" widget both wrap the HTTP surface. Anything that mutates
-the document registry must go through `DynamicRagApplication.
+the document registry must go through `RagApplication.
 upload_document` (the same entry point the API exposes).
 
 ## Demo users (Streamlit UI)

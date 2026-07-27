@@ -9,7 +9,7 @@ rather than adding new first-class adapters.
 
 - **`raghub.RAG` in FastAPI.** The current FastAPI app
   (`raghub.api.app:app`) is bound to the legacy
-  `DynamicRagApplication`. A v2 will mount the new facade behind
+  `RagApplication`. A v2 will mount the new facade behind
   thin route handlers, taking advantage of `UserPrincipal` at
   the request boundary.
 - **Disk-backed `KnowledgeRepository`.** The current

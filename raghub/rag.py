@@ -44,7 +44,7 @@ from pydantic import BaseModel
 from tqdm import tqdm
 
 from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
-from raghub.api.response import build_response
+from raghub.api.helper import ResponseBuilder
 from raghub.config import Settings
 from raghub.conversation import InMemoryConversationStore
 from raghub.embeddings import BaseEmbeddingProvider, HashingEmbeddingProvider
@@ -1006,7 +1006,7 @@ class RAG:
         )
         if not result.success:
             raise RagHubError(result.error or "query failed")
-        return build_response(result)
+        return ResponseBuilder.from_pipeline(result)
 
     async def astream(
         self,
@@ -1098,7 +1098,7 @@ class RAG:
         Yields:
             :class:`PlannerEvent` instances. SSE encoding is the
             caller's responsibility — the FastAPI route uses
-            :func:`raghub.api.streaming.sse_format`.
+            :meth:`raghub.api.helper.Sse.format`.
         """
 
         scoped = self.scoped_session_id(user, session_id)

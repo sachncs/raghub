@@ -30,7 +30,7 @@ raghub/
   telemetry/          LangfuseTelemetryProvider (v3+ SDK)
   evaluation/         FinanceBenchEvaluator + retrieval metrics
   plugins/            PluginRegistry + entry-point discovery
-  services/           DynamicRagApplication (legacy use-case facade)
+  services/           RagApplication (legacy use-case facade)
   repositories/       SQLite repositories (legacy)
   domain/             Active-record models (legacy)
   storage/            SQLite persistence, image store (legacy)

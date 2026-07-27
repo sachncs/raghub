@@ -207,7 +207,7 @@ passwordless login, structured-log level).
 ## API surface
 
 The package ships a FastAPI server bound to the new `RAG` facade.
-The legacy `DynamicRagApplication` is still reachable under
+The legacy `RagApplication` is still reachable under
 `/auth/login`, `/documents/upload`, `/query`, etc., but the
 `RAG` facade is the recommended path for new integrations. For an API
 wrapper of the facade, instantiate it in your own FastAPI routes.
