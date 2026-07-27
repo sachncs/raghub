@@ -701,9 +701,9 @@ class QueryResponse(BaseModel):
     """
 
     answer: str
-    citations: list[dict] = Field(default_factory=list)
-    source_chunks: list[dict] = Field(default_factory=list)
-    planner_trace: list[dict] | None = None
+    citations: list[dict[str, Any]] = Field(default_factory=list)
+    source_chunks: list[dict[str, Any]] = Field(default_factory=list)
+    planner_trace: list[dict[str, Any]] | None = None
     tools_invoked: list[str] = Field(default_factory=list)
     transforms_applied: list[str] = Field(default_factory=list)
 

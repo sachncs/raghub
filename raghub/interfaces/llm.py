@@ -30,7 +30,7 @@ class LLMProvider(Protocol):
         context: Sequence[str],
         question: str,
         image_paths: list[str] | None = None,
-        session_history: list[dict] | None = None,
+        session_history: list[dict[str, Any]] | None = None,
     ) -> str:
         """Return a generated answer.
 

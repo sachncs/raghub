@@ -177,7 +177,7 @@ class ConversationManager:
         session_token: str,
         question: str,
         answer: str,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Append a Q/A turn to the session referenced by ``session_token``.
 

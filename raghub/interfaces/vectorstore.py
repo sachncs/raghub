@@ -60,7 +60,7 @@ class VectorStore(Protocol):
         """
 
     def search(
-        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict = ""
+        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict[str, Any] = ""
     ) -> list[dict[str, Any]]:
         """Run filtered vector search.
 
@@ -81,7 +81,7 @@ class VectorStore(Protocol):
         query: str,
         vector: Sequence[float],
         top_k: int,
-        metadata_filter: str | dict = "",
+        metadata_filter: str | dict[str, Any] = "",
     ) -> list[dict[str, Any]]:
         """Run hybrid (vector + keyword) search.
 
