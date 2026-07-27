@@ -1,7 +1,7 @@
 """Retrieval-augmented generation framework.
 
 The package exposes a high-level :class:`raghub.RAG` facade (the
-spec entry point) plus the legacy :class:`raghub.services.application.RagApplication`
+spec entry point) plus the legacy :class:`raghub.services.RagApplication`
 and :func:`raghub.core.build_application` builders used by the
 FastAPI and Streamlit surfaces. Both APIs are stable; new code
 should prefer :class:`raghub.RAG`.

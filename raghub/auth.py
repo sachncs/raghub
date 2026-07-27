@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from raghub.exceptions import AuthenticationError, AuthorizationError
 from raghub.models import AuthLoginResponse, ConversationTurn, UserPrincipal
-from raghub.services import ServiceMixin
+from raghub.services import Mixin as ServiceMixin
 
 
 class UserRecord(BaseModel):
