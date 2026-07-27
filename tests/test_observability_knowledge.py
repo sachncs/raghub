@@ -586,7 +586,8 @@ class TestDefaultVectorStore:
             )
             assert result is mock_qdrant.return_value
 
-    def test_qdrant_config_error_falls_back(self):
+    def test_qdrant_config_error_propagates(self):
+        """Per the v0.7 no-swallow contract, ConfigurationError propagates from default_vector_store."""
         from raghub.exceptions import ConfigurationError
 
         with patch.dict("os.environ", {"QDRANT_URL": "http://localhost:6333"}, clear=True):
@@ -595,10 +596,9 @@ class TestDefaultVectorStore:
                 side_effect=ConfigurationError("fail"),
             ):
                 from raghub.rag import default_vector_store
-                from raghub.vectorstore import InMemoryVectorStore
 
-                result = default_vector_store(384)
-                assert isinstance(result, InMemoryVectorStore)
+                with pytest.raises(ConfigurationError, match="fail"):
+                    default_vector_store(384)
 
 
 @patch.dict("os.environ", {}, clear=True)
