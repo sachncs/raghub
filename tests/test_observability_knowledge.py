@@ -414,7 +414,13 @@ class TestBuildResponseWithStructured:
         assert resp.structured == {"name": "test", "value": 42}
         assert resp.metadata == {"pipeline_id": "p1", "structured": True}
 
-    def test_structured_model_dump_error_fallback(self):
+    def test_structured_model_dump_error_propagates(self):
+        """Per the v0.7 no-swallow contract, broken structured models propagate the error.
+
+        Callers decide how to handle — typically retry with a known-good
+        fallback model. The legacy fallback to ``str(model)`` was a
+        silent swallow that hid serialization failures in production.
+        """
         from raghub.api.response import build_response
 
         class BrokenModel:
@@ -438,10 +444,8 @@ class TestBuildResponseWithStructured:
                 "structured": structured,
             },
         )
-        resp = build_response(result)
-        assert resp.answer == "fallback-str"
-        assert resp.structured is None
-        assert resp.metadata == {"pipeline_id": "p1", "structured": True}
+        with pytest.raises(ValueError, match="broken"):
+            build_response(result)
 
 
 # =======================================================================
