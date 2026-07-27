@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import asyncio
 
-from raghub import RAG
+from raghub.rag import RAG
 from raghub.models import ChunkRecord, Classification, UserPrincipal
 
 
