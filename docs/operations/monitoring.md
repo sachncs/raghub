@@ -178,7 +178,7 @@ print(json.dumps(RAG().health(), indent=2))
 ```
 
 `GET /health` (FastAPI surface) is the liveness probe and
-returns whatever `DynamicRagApplication.health()` reports.
+returns whatever `RagApplication.health()` reports.
 
 ## See also
 

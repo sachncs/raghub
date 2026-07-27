@@ -2,7 +2,7 @@
 
 This package exposes the high-level service classes
 (:class:`AuthService`, :class:`DocumentService`, :class:`QueryService`,
-:class:`HealthService`), the :class:`DynamicRagApplication` facade, and
+:class:`HealthService`), the :class:`RagApplication` facade, and
 the in-process worker primitives used by background jobs.
 
 The :class:`ServiceMixin` defined here is mixed into every service so they
@@ -26,7 +26,7 @@ class ServiceMixin:
     containers in tests.
 
     Attributes:
-        container: The :class:`DynamicRagContainer` (or compatible stub)
+        container: The :class:`RagContainer` (or compatible stub)
             providing ``logger`` and ``metrics`` attributes.
     """
 

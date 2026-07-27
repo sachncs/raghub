@@ -5,7 +5,7 @@ RAGHub exposes two parallel surfaces:
 1. **`raghub.RAG`** — the recommended Python facade. Typed Pydantic
    models in, typed Pydantic models out.
 2. **FastAPI** (`uvicorn raghub.api.app:app`) — the legacy HTTP
-   surface, bound to `DynamicRagApplication`, with JWT bearer
+   surface, bound to `RagApplication`, with JWT bearer
    auth.
 
 ---
@@ -119,7 +119,7 @@ following endpoints. All endpoints except `/health` require
 
 ### `GET /health`
 
-Service liveness probe. Delegates to `DynamicRagApplication.health()`.
+Service liveness probe. Delegates to `RagApplication.health()`.
 
 ### `POST /auth/login`
 

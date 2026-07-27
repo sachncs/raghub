@@ -1,41 +1,39 @@
 """FastAPI reference server.
 
 Defines :func:`create_app`, which builds a :class:`FastAPI` instance
-bound to a fully-wired :class:`DynamicRagApplication`. The factory
+bound to a fully-wired :class:`RagApplication`. The factory
 wires in:
 
 * CORS middleware (origins from ``CORS_ORIGINS`` env, comma-separated).
   Wildcard origins combined with credentials are refused at startup
   because browsers reject the combination at runtime.
 * The :class:`RateLimiterMiddleware` (default 10 rps, burst 20).
-* The admin router from :mod:`raghub.api.admin`.
+* The :class:`RouteGroup` (v1, admin, preferences routers, all mounted
+  under ``/v1``).
 * Exception handlers for ``AuthenticationError`` (401),
   ``AuthorizationError`` (403), ``DocumentError`` (400), and
   ``StorageError`` (500).
 * A ``/metrics`` Prometheus endpoint registered via the
-  :class:`raghub.observability.PrometheusMetrics` instance
-  shared with the application container.
+  :class:`raghub.observability.PrometheusMetrics` instance shared with
+  the application container.
 * A shared :class:`BackgroundIngestionService` placed on
   ``app.state.background_ingestion`` for the ``/ingest/async`` endpoint.
 
-Also exposes :func:`require_bearer` (used by routes to extract the
-bearer token from the ``Authorization`` header), :func:`check_upload_size`
-(a pre-flight guard that rejects oversize uploads with HTTP 413
-before the multipart body is read into memory), and :func:`get_app`
-(a lazy singleton convenience used by tooling that needs the app
-without going through the FastAPI CLI).
+Helpers used by the route handlers — bearer parsing, application-facade
+lookup, SSE framing, response construction, secret redaction, and the
+token-bucket rate limiter — live in :mod:`raghub.api.helper`.
 
 Section map:
 
 * :class:`Lifespan` — FastAPI startup/shutdown context.
 * :func:`cors_origins_from_env` / :func:`validate_cors_for_credentials`
   — CORS configuration helpers.
-* :func:`check_upload_size` — pre-flight upload size guard.
-* :func:`_upload_content_length` — helper for parsing the
-  ``Content-Length`` header safely.
+* :func:`check_upload_size` / :func:`enforce_upload_limit` /
+  :func:`upload_content_length` — pre-flight upload size guards.
 * :class:`ExceptionHandlers` — installs handlers for the typed
   application errors.
-* :class:`RouteGroup` — registers the versioned ``/v1/*`` routes.
+* :class:`RouteGroup` — owns the versioned ``/v1/*`` routes plus the
+  admin and preferences sub-routers.
 * :func:`create_app` — the public factory.
 """
 
@@ -62,13 +60,22 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger as loguru_logger
+from pydantic import BaseModel, Field
 
-from raghub.api.admin import router as admin_router
-from raghub.api.dependencies import get_application
-from raghub.api.preferences import router as preferences_router
-from raghub.api.rate_limiter import RateLimiterMiddleware
-from raghub.api.streaming import sse_comment, sse_format
-from raghub.exceptions import AuthenticationError, AuthorizationError, DocumentError, StorageError
+from raghub.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    DocumentError,
+    StorageError,
+)
+from raghub.api.helper import (
+    App,
+    Auth,
+    Bearer,
+    RateLimiterMiddleware,
+    Redaction,
+    Sse,
+)
 from raghub.ingestion import BackgroundIngestionService
 from raghub.models import (
     AuthLoginRequest,
@@ -78,8 +85,9 @@ from raghub.models import (
     DocumentUploadResponse,
     QueryRequest,
     QueryResponse,
+    UserPrincipal,
 )
-from raghub.services.application import DynamicRagApplication
+from raghub.services.application import RagApplication
 from raghub.utils import capture
 
 # ---------------------------------------------------------------------------
@@ -208,16 +216,16 @@ def enforce_upload_limit(
 class Lifespan:
     """FastAPI startup/shutdown coordinator.
 
-    The class is instantiated with the :class:`DynamicRagApplication`
+    The class is instantiated with the :class:`RagApplication`
     facade and wired into the :class:`FastAPI` instance. On shutdown
-    it calls :meth:`DynamicRagApplication.shutdown` and then closes
+    it calls :meth:`RagApplication.shutdown` and then closes
     the shared background-ingestion service.
 
     Attributes:
         application: The application facade.
     """
 
-    def __init__(self, application: DynamicRagApplication) -> None:
+    def __init__(self, application: RagApplication) -> None:
         """Store the application facade for the lifespan handlers."""
         self.application = application
 
@@ -251,28 +259,6 @@ class Lifespan:
 
 
 # ---------------------------------------------------------------------------
-# Bearer / dependency helpers
-# ---------------------------------------------------------------------------
-
-
-def require_bearer(authorization: str | None) -> str:
-    """Extract the bearer token from an ``Authorization`` header.
-
-    Args:
-        authorization: The raw header value (``"Bearer xxx"``) or ``None``.
-
-    Returns:
-        The trimmed token string.
-
-    Raises:
-        HTTPException: 401 if the header is missing or not bearer-formatted.
-    """
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="Missing bearer token")
-    return authorization.split(" ", 1)[1].strip()
-
-
-# ---------------------------------------------------------------------------
 # Exception handlers
 # ---------------------------------------------------------------------------
 
@@ -287,6 +273,7 @@ class ExceptionHandlers:
         Args:
             app: The FastAPI instance.
         """
+
         @app.exception_handler(AuthenticationError)
         def authentication_error_handler(_: Any, exc: AuthenticationError) -> JSONResponse:
             """Return 401 for any :class:`AuthenticationError`."""
@@ -309,33 +296,80 @@ class ExceptionHandlers:
 
 
 # ---------------------------------------------------------------------------
-# Versioned routes
+# Preferences request/response models
+# ---------------------------------------------------------------------------
+
+
+class PreferencesResponse(BaseModel):
+    """Preferences for the authenticated user.
+
+    Attributes:
+        prefs: Mapping of preference key → JSON value. The reserved
+            key ``"tool_settings"`` carries the ChatGPT-style tool
+            toggles consumed by :func:`raghub.agent.resolve`.
+    """
+
+    prefs: dict[str, Any] = Field(default_factory=dict)
+
+
+class PreferencesPatch(BaseModel):
+    """Preferences update payload.
+
+    Attributes:
+        prefs: Replacement mapping for the supplied keys. Keys absent
+            from the payload are left unchanged on disk.
+    """
+
+    prefs: dict[str, Any] = Field(default_factory=dict)
+
+
+def user_store_or_503(app_service: RagApplication) -> Any:
+    """Return the configured user store or raise 503."""
+    store = getattr(app_service.container, "user_store", None)
+    if store is None:
+        raise HTTPException(status_code=503, detail="user store unavailable")
+    if not hasattr(store, "get_pref") or not hasattr(store, "set_pref"):
+        raise HTTPException(status_code=503, detail="user store lacks prefs API")
+    return store
+
+
+# ---------------------------------------------------------------------------
+# Versioned routes (v1) + admin + preferences
 # ---------------------------------------------------------------------------
 
 
 class RouteGroup:
-    """Register the ``/v1/*`` route group on the application.
+    """Register the ``/v1/*`` route group plus the admin and preferences sub-routers.
 
     Centralises every route definition so :func:`create_app` stays a
-    pure wiring step. The methods are pure builders; each one returns
-    the decorated route function so tests can introspect them.
+    pure wiring step. ``__init__`` triggers :meth:`build`, so a fresh
+    :class:`RouteGroup` always has every route already decorated onto
+    its three routers. :meth:`register_all` is the only step that
+    needs the live :class:`FastAPI` instance.
 
     Attributes:
-        router: The :class:`APIRouter` carrying every v1 route.
+        router: The :class:`APIRouter` carrying the v1 routes.
+        admin_router: The :class:`APIRouter` mounted under
+            ``/v1/admin`` for admin-only endpoints.
+        preferences_router: The :class:`APIRouter` mounted under
+            ``/v1`` for the per-user preferences endpoints.
     """
 
     def __init__(self) -> None:
-        """Create the underlying :class:`APIRouter`."""
+        """Create the routers and decorate every route on them."""
         self.router = APIRouter()
+        self.admin_router = APIRouter(prefix="/admin", tags=["admin"])
+        self.preferences_router = APIRouter()
+        self.build()
 
-    # ----- auth / session ----------------------------------------------
+    # ----- v1: auth / session -----------------------------------------
 
     def health(self) -> Callable[..., Any]:
-        """Liveness probe; delegates to :meth:`DynamicRagApplication.health`."""
+        """Liveness probe; delegates to :meth:`RagApplication.health`."""
 
         @self.router.get("/health")
         def handler(
-            app_service: DynamicRagApplication = Depends(get_application),
+            app_service: RagApplication = Depends(App.get),
         ) -> dict[str, Any]:
             """Report liveness."""
             return app_service.health()
@@ -348,7 +382,7 @@ class RouteGroup:
         @self.router.post("/auth/login", response_model=AuthLoginResponse)
         async def handler(
             payload: AuthLoginRequest,
-            app_service: DynamicRagApplication = Depends(get_application),
+            app_service: RagApplication = Depends(App.get),
         ) -> AuthLoginResponse:
             return await app_service.login(payload.email, payload.password)
 
@@ -359,10 +393,9 @@ class RouteGroup:
 
         @self.router.post("/auth/logout")
         async def handler(
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> dict[str, str]:
-            token = require_bearer(authorization)
             await app_service.logout(token)
             return {"status": "logged_out"}
 
@@ -373,10 +406,9 @@ class RouteGroup:
 
         @self.router.get("/session/history")
         async def handler(
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> dict[str, list[dict[str, Any]]]:
-            token = require_bearer(authorization)
             history = await app_service.history(token)
             return {"history": [turn.model_dump(mode="json") for turn in history]}
 
@@ -387,16 +419,15 @@ class RouteGroup:
 
         @self.router.delete("/session/history", status_code=204, response_class=Response)
         async def handler(
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> Response:
-            token = require_bearer(authorization)
             await app_service.clear_history(token)
             return Response(status_code=204)
 
         return handler
 
-    # ----- documents ---------------------------------------------------
+    # ----- v1: documents ----------------------------------------------
 
     def upload_document(self) -> Callable[..., Any]:
         """Upload a PDF document and synchronously index it."""
@@ -406,10 +437,9 @@ class RouteGroup:
             request: Request,
             file: UploadFile = File(...),
             company: str | None = Form(default=None),
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> DocumentUploadResponse:
-            token = require_bearer(authorization)
             enforce_upload_limit(request, app_service.container)
             content = await file.read()
             enforce_upload_limit(request, app_service.container, payload=content)
@@ -448,10 +478,9 @@ class RouteGroup:
             request: Request,
             files: list[UploadFile] = File(...),
             company: str | None = Form(default=None),
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> BatchIngestResponse:
-            token = require_bearer(authorization)
             enforce_upload_limit(request, app_service.container)
             results: list[BatchIngestItem] = []
             for file in files:
@@ -500,10 +529,9 @@ class RouteGroup:
 
         @self.router.get("/documents")
         async def handler(
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> dict[str, list[dict[str, Any]]]:
-            token = require_bearer(authorization)
             documents = await app_service.list_documents(token)
             return {"documents": [document.model_dump(mode="json") for document in documents]}
 
@@ -515,10 +543,9 @@ class RouteGroup:
         @self.router.get("/documents/{document_id}/status")
         async def handler(
             document_id: str,
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> dict[str, Any]:
-            token = require_bearer(authorization)
             document = await app_service.document_status(token, document_id)
             return document.model_dump(mode="json")
 
@@ -530,16 +557,15 @@ class RouteGroup:
         @self.router.delete("/documents/{document_id}", status_code=204, response_class=Response)
         async def handler(
             document_id: str,
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> Response:
-            token = require_bearer(authorization)
             await app_service.delete_document(token, document_id)
             return Response(status_code=204)
 
         return handler
 
-    # ----- query -------------------------------------------------------
+    # ----- v1: query ---------------------------------------------------
 
     def query(self) -> Callable[..., Any]:
         """Answer a question using the application service.
@@ -552,10 +578,9 @@ class RouteGroup:
         @self.router.post("/query", response_model=QueryResponse)
         async def handler(
             payload: QueryRequest,
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> QueryResponse:
-            token = require_bearer(authorization)
             if payload.tools_enabled is None and payload.agent is None and payload.web is None \
                     and payload.graph is None and payload.summaries is None \
                     and payload.reranker is None and payload.long_context_pass is None \
@@ -587,10 +612,9 @@ class RouteGroup:
             request: Request,
             file: UploadFile = File(...),
             company: str | None = Form(default=None),
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> dict[str, str]:
-            token = require_bearer(authorization)
             enforce_upload_limit(request, app_service.container)
             content = await file.read()
             enforce_upload_limit(request, app_service.container, payload=content)
@@ -606,7 +630,7 @@ class RouteGroup:
 
         return handler
 
-    # ----- streaming ---------------------------------------------------
+    # ----- v1: streaming ----------------------------------------------
 
     def query_stream(self) -> Callable[..., Any]:
         """Stream agent / planner events as Server-Sent Events."""
@@ -614,20 +638,19 @@ class RouteGroup:
         @self.router.post("/query/stream")
         async def handler(
             payload: QueryRequest,
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> StreamingResponse:
-            token = require_bearer(authorization)
             resolved_tools = (
                 set(payload.tools_enabled) if payload.tools_enabled else set()
             )
 
             async def gen() -> AsyncIterator[bytes]:
-                yield sse_comment("raghub-query-stream")
+                yield Sse.comment("raghub-query-stream")
                 user, _ = await app_service.auth_svc.resolve_user(token)
                 rag = app_service.container.rag_facade
                 if rag is None:
-                    yield sse_format("error", {"message": "RAG facade unavailable"})
+                    yield Sse.format("error", {"message": "RAG facade unavailable"})
                     return
                 async for event in rag.astream_agent(
                     payload.question,
@@ -643,7 +666,7 @@ class RouteGroup:
                     query_transforms=payload.query_transforms,
                     max_steps=payload.max_steps,
                 ):
-                    yield sse_format(event.kind, event.model_dump(mode="json"))
+                    yield Sse.format(event.kind, event.model_dump(mode="json"))
 
             return StreamingResponse(gen(), media_type="text/event-stream")
 
@@ -655,10 +678,9 @@ class RouteGroup:
         @self.router.post("/agent/run", response_model=QueryResponse)
         async def handler(
             payload: QueryRequest,
-            authorization: str | None = Header(default=None),
-            app_service: DynamicRagApplication = Depends(get_application),
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
         ) -> QueryResponse:
-            token = require_bearer(authorization)
             return await app_service.query_with_flags(
                 token=token,
                 question=payload.question,
@@ -676,12 +698,120 @@ class RouteGroup:
 
         return handler
 
-    def register_all(self, app: FastAPI, prefix: str) -> None:
-        """Build every route and mount the router under ``prefix``.
+    # ----- v1/admin ---------------------------------------------------
 
-        Args:
-            app: The FastAPI instance.
-            prefix: The URL prefix (e.g. ``"/v1"``).
+    def admin_documents(self) -> Callable[..., Any]:
+        """Admin-only: list every document in the registry."""
+
+        @self.admin_router.get("/documents")
+        async def handler(
+            _admin: UserPrincipal = Depends(Auth.admin),
+            app_service: RagApplication = Depends(App.get),
+        ) -> list[dict[str, Any]]:
+            docs = await app_service.container.uow.document_repo.list_all()
+            return [doc.model_dump(mode="json") for doc in docs]
+
+        return handler
+
+    def admin_users(self) -> Callable[..., Any]:
+        """Admin-only: list every user in the user store (sensitive fields redacted)."""
+
+        @self.admin_router.get("/users")
+        async def handler(
+            _admin: UserPrincipal = Depends(Auth.admin),
+            app_service: RagApplication = Depends(App.get),
+        ) -> list[dict[str, Any]]:
+            users = await app_service.container.user_store.list_users()
+            return [Redaction.user(user.model_dump(mode="json")) for user in users]
+
+        return handler
+
+    def admin_stats(self) -> Callable[..., Any]:
+        """Admin-only: high-level system counters."""
+
+        @self.admin_router.get("/stats")
+        async def handler(
+            _admin: UserPrincipal = Depends(Auth.admin),
+            app_service: RagApplication = Depends(App.get),
+        ) -> dict[str, Any]:
+            docs = await app_service.container.uow.document_repo.list_all()
+            users = await app_service.container.user_store.list_users()
+            vector_health = app_service.container.vector_store.health()
+            chunk_count = vector_health.get("chunks", 0)
+            return {
+                "document_count": len(docs),
+                "user_count": len(users),
+                "chunk_count": chunk_count,
+                "vector_store_size": vector_health.get("size", "unknown"),
+            }
+
+        return handler
+
+    # ----- v1/users/me/preferences ------------------------------------
+
+    def preferences_get(self) -> Callable[..., Any]:
+        """Return every stored preference for the authenticated user."""
+
+        @self.preferences_router.get(
+            "/users/me/preferences",
+            response_model=PreferencesResponse,
+        )
+        async def handler(
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
+        ) -> PreferencesResponse:
+            user_id = await Auth.user_id(app_service, token)
+            store = user_store_or_503(app_service)
+            prefs = await store.get_prefs(user_id)
+            return PreferencesResponse(prefs=prefs or {})
+
+        return handler
+
+    def preferences_patch(self) -> Callable[..., Any]:
+        """Upsert one or more preferences for the authenticated user."""
+
+        @self.preferences_router.patch(
+            "/users/me/preferences",
+            response_model=PreferencesResponse,
+        )
+        async def handler(
+            payload: PreferencesPatch,
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
+        ) -> PreferencesResponse:
+            user_id = await Auth.user_id(app_service, token)
+            store = user_store_or_503(app_service)
+            await store.set_prefs(user_id, dict(payload.prefs or {}))
+            prefs = await store.get_prefs(user_id)
+            return PreferencesResponse(prefs=prefs or {})
+
+        return handler
+
+    def preferences_delete(self) -> Callable[..., Any]:
+        """Delete a single preference by key."""
+
+        @self.preferences_router.delete(
+            "/users/me/preferences/{key}",
+            status_code=204,
+        )
+        async def handler(
+            key: str,
+            token: str = Depends(Bearer.dependency),
+            app_service: RagApplication = Depends(App.get),
+        ) -> None:
+            user_id = await Auth.user_id(app_service, token)
+            store = user_store_or_503(app_service)
+            await store.delete_pref(user_id, key)
+
+        return handler
+
+    # ----- wiring -----------------------------------------------------
+
+    def build(self) -> None:
+        """Decorate every route on the three routers.
+
+        Called once from :meth:`__init__`. Public so that tests can
+        re-decorate on a fresh router if they need to.
         """
         for builder in (
             self.health,
@@ -698,9 +828,27 @@ class RouteGroup:
             self.ingest_async,
             self.query_stream,
             self.agent_run,
+            self.admin_documents,
+            self.admin_users,
+            self.admin_stats,
+            self.preferences_get,
+            self.preferences_patch,
+            self.preferences_delete,
         ):
             builder()
+
+    def register_all(self, app: FastAPI, prefix: str) -> None:
+        """Mount the v1, admin, and preferences routers under ``prefix``.
+
+        Args:
+            app: The FastAPI instance.
+            prefix: The URL prefix (e.g. ``"/v1"``). The admin router
+                carries its own ``/admin`` segment on top of this
+                prefix, so admin endpoints land at ``/v1/admin/*``.
+        """
         app.include_router(self.router, prefix=prefix)
+        app.include_router(self.admin_router, prefix=prefix)
+        app.include_router(self.preferences_router, prefix=prefix)
 
 
 # ---------------------------------------------------------------------------
@@ -743,7 +891,7 @@ def root_health_route(app: FastAPI) -> None:
 
     @app.get("/health", include_in_schema=False)
     def handler() -> dict[str, str]:
-        """Mirrors ``GET /v1/health`` so Docker/Kubernetes probes skip the prefix."""
+        """Mirror ``GET /v1/health`` so Docker/Kubernetes probes skip the prefix."""
         return {"status": "ok"}
 
 
@@ -752,7 +900,7 @@ def root_health_route(app: FastAPI) -> None:
 # ---------------------------------------------------------------------------
 
 
-def create_app(application: DynamicRagApplication) -> FastAPI:
+def create_app(application: RagApplication) -> FastAPI:
     """Build a :class:`FastAPI` instance wired to ``application``.
 
     Args:
@@ -792,8 +940,6 @@ def create_app(application: DynamicRagApplication) -> FastAPI:
 
     ExceptionHandlers.install(app)
     RouteGroup().register_all(app, prefix="/v1")
-    app.include_router(admin_router, prefix="/v1")
-    app.include_router(preferences_router, prefix="/v1")
     root_health_route(app)
     return app
 
@@ -844,5 +990,3 @@ class AppFactory:
 
 
 app_singleton = AppFactory()
-
-

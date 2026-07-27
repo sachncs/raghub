@@ -36,7 +36,7 @@ mounted at `raghub.api.app:app` (the FastAPI routers):
 
 ```text
                       ┌─────────────────────────────────────────────┐
-                      │          DynamicRagApplication              │
+                      │          RagApplication              │
                       │  (use-case facade: DocumentService,         │
                       │   QueryService, AuthService, HealthService) │
                       └────────┬────────────────────────────────────┘
@@ -231,7 +231,7 @@ The legacy service stack (retained for backward compatibility) lives
 under:
 
 ```
-  auth/               bcrypt + JWT (DynamicRagApplication)
+  auth/               bcrypt + JWT (RagApplication)
   services/           DocumentService, QueryService, AuthService, HealthService
   repositories/       SQLite repositories + UnitOfWork
   storage/            SQLite persistence, JSON registry, image store

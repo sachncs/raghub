@@ -1,9 +1,8 @@
 """Top-level ``raghub`` CLI — Typer app composition + entry point.
 
-Single Typer app that pulls in every command via the ``register(app)``
-pattern. Each command lives in its own module under
-:mod:`raghub.cli.<command>` so the structure mirrors the public
-surface one-to-one.
+Single Typer app that pulls in every command from :mod:`raghub.cli.helper`.
+Each command is a class with a ``register(app)`` method; this module
+calls them in order.
 
 Usage (after install)::
 
@@ -20,16 +19,17 @@ Usage (after install)::
 from __future__ import annotations
 
 import importlib.metadata
-import importlib.util
 
 import typer
 
-from raghub.cli.config import app as config_app
-from raghub.cli.format import make_rag, write_json
-from raghub.cli.ingest import register as register_ingest
-from raghub.cli.init import register as register_init
-from raghub.cli.query import register as register_query
-from raghub.cli.server import register as register_run
+from raghub.cli.helper import (
+    CliConfig,
+    InitCommand,
+    IngestCommand,
+    QueryCommand,
+    ServerCommand,
+    ToolConfig,
+)
 from raghub.evaluation.cli import app as eval_app
 from raghub.utils import capture
 
@@ -41,20 +41,21 @@ app = typer.Typer(
 
 # Sub-trees — these are the only Typer-group attachments. Each gets its own
 # help subtree under the main app.
-app.add_typer(config_app, name="config")
+ToolConfig.register()
+app.add_typer(ToolConfig.app, name="config")
 app.add_typer(eval_app, name="eval")
 
 # Flat commands — registered as `@app.command(name="...")` directly on `app`.
-register_query(app)
-register_ingest(app)
-register_init(app)
-register_run(app)
+QueryCommand.register(app)
+IngestCommand.register(app)
+InitCommand.register(app)
+ServerCommand.register(app)
 
 
 @app.command(name="health")
 def health() -> None:
     """Print the framework liveness status as JSON."""
-    write_json(make_rag(None).health())
+    CliConfig.write_json(CliConfig.make_rag(None).health())
 
 
 @app.command(name="version")
@@ -69,5 +70,3 @@ def version() -> None:
 def main() -> None:
     """Entry point for the ``raghub`` console script."""
     raise typer.Exit(app())
-
-

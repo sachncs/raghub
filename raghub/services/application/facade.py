@@ -9,7 +9,7 @@ specifics:
   raghub.RAG dispatch.
 * :class:`ShutdownCoordinator` — collaborator teardown order.
 
-The legacy alias ``DynamicRagApplication`` points at
+The legacy alias ``RagApplication`` points at
 :class:`ApplicationFacade`; it is re-exported from
 :mod:`raghub.services.application.__init__`.
 """
@@ -86,7 +86,7 @@ class AuthCoordinator:
 
 
 class ShutdownCoordinator:
-    """Release collaborators held by the :class:`DynamicRagContainer`.
+    """Release collaborators held by the :class:`RagContainer`.
 
     The coordinator is intentionally stateless — every collaborator
     owns the resource it backs. The container is the single source of
@@ -282,7 +282,7 @@ class ApplicationFacade:
         """Construct a :class:`raghub.RAG` from the container's collaborators.
 
         Args:
-            container: The wired :class:`DynamicRagContainer`.
+            container: The wired :class:`RagContainer`.
 
         Returns:
             A configured :class:`raghub.RAG`, or ``None`` when the

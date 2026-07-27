@@ -2,7 +2,7 @@
 
 * :class:`ContainerBuilder` / :func:`build_application` — legacy
   dependency-injection helpers that wire the
-  :class:`raghub.services.application.DynamicRagApplication`. New
+  :class:`raghub.services.application.RagApplication`. New
   code should prefer the public :class:`raghub.RAG` facade.
 * :class:`DocumentStateMachine` / :class:`DocumentState` — the
   document lifecycle state machine.
@@ -21,7 +21,7 @@ from raghub.models import DocumentLifecycleStatus
 
 
 class ContainerBuilder:
-    """Asynchronously build a wired :class:`DynamicRagApplication`.
+    """Asynchronously build a wired :class:`RagApplication`.
 
     The builder is intentionally small — its only job is to load
     settings (when none are supplied) and delegate to
@@ -50,20 +50,20 @@ class ContainerBuilder:
         """Build a fully-wired application.
 
         Returns:
-            A ready-to-use :class:`DynamicRagApplication`.
+            A ready-to-use :class:`RagApplication`.
         """
         from raghub.services.application import (
-            DynamicRagApplication,
+            RagApplication,
             build_container,
         )
 
         settings = self.settings or Settings.load(self.profile)
         container = await build_container(settings)
-        return DynamicRagApplication(container)
+        return RagApplication(container)
 
 
 async def build_application(profile: str | None = None) -> Any:
-    """Build a fully wired :class:`DynamicRagApplication` from configuration.
+    """Build a fully wired :class:`RagApplication` from configuration.
 
     Args:
         profile: Optional settings profile name. Passed to
@@ -71,7 +71,7 @@ async def build_application(profile: str | None = None) -> Any:
             (e.g. ``"dev"``, ``"prod"``).
 
     Returns:
-        A ready-to-use :class:`DynamicRagApplication`.
+        A ready-to-use :class:`RagApplication`.
 
     Raises:
         RuntimeError: If ``JWT_SECRET`` is missing from settings or any

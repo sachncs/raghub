@@ -71,13 +71,13 @@ extension point.
 
 ## ADR-0004: Public API is `raghub.RAG`; legacy services preserved
 
-**Context:** the legacy `DynamicRagApplication`/`build_application`
+**Context:** the legacy `RagApplication`/`build_application`
 surface tied auth, storage, and pipelines to a single use-case
 facade — too many concerns in one import.
 
 **Decision:** the recommended entry point is `raghub.RAG`, a small
 DI container that wires pipelines against replaceable adapters.
-The legacy `DynamicRagApplication` and `build_application` remain
+The legacy `RagApplication` and `build_application` remain
 reachable from `raghub.__init__` for backward compatibility and
 power the FastAPI app at `raghub.api.app:app`.
 

@@ -144,7 +144,7 @@ uvicorn raghub.api.app:get_app --factory --host 0.0.0.0 --port 8000
 raghub run --host 0.0.0.0 --port 8000
 ```
 
-The legacy `DynamicRagApplication` is still reachable at
+The legacy `RagApplication` is still reachable at
 `/auth/login`, `/documents/upload`, `/query`, etc. The new `RAG`
 facade is the recommended path for new integrations. The `--factory`
 flag tells Uvicorn to call `get_app()` on each worker, which is the

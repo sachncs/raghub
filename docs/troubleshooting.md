@@ -174,7 +174,7 @@ PyJWT's `InsecureKeyLengthWarning` is treated as fatal in CI.
 
 ## FastAPI auth errors after upgrade
 
-The legacy `DynamicRagApplication` requires `JWT_SECRET` when
+The legacy `RagApplication` requires `JWT_SECRET` when
 `allow_passwordless_login=False`. Set both before booting the
 service:
 

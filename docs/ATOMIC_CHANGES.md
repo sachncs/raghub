@@ -864,7 +864,7 @@ Mount the new router at `/v1`.
 
 ### 8.3 [E] `raghub/services/application.py`
 
-`DynamicRagApplication.query` accepts the new `QueryRequest` fields and
+`RagApplication.query` accepts the new `QueryRequest` fields and
 forwards them into the resolved config.
 
 ### 8.4 [E] `raghub/cli/main.py`

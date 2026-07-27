@@ -82,7 +82,7 @@ exposed as `raghub-benchmark`.
 - **No `_` prefix** on public names; use the explicit module-level
   `__all__` to declare the public surface.
 - **Active-record domain pattern** for the legacy
-  `DynamicRagApplication`; the new `RAG` facade uses composable
+  `RagApplication`; the new `RAG` facade uses composable
   pipelines instead.
 - **Spec libraries** are first-class imports; the framework wires
   Marker, Chonkie, LiteLLM, Instructor, Qdrant, and Langfuse as

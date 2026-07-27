@@ -10,7 +10,7 @@ stable and remain importable; new code should prefer `RAG`.
 
 ```python
 from raghub.core.container import build_application
-from raghub.services.application import DynamicRagApplication
+from raghub.services.application import RagApplication
 
 app = asyncio.run(build_application())
 app.upload_document(token=..., filename=..., content=...)
@@ -28,7 +28,7 @@ result = rag.query("What is the revenue?")
 print(result.answer)
 ```
 
-`RAG` returns typed Pydantic models; `DynamicRagApplication`
+`RAG` returns typed Pydantic models; `RagApplication`
 returns dataclass/Record shapes from the legacy storage layer.
 
 ## Configuration
@@ -196,7 +196,7 @@ New code should use the new names: `ConfigurationError`,
 The legacy `Document` / `Chunk` / `Session` active-record models
 (in `raghub.domain`) and the SQLite repositories
 (`raghub.repositories.*`) remain in place for the
-`DynamicRagApplication` surface and continue to round-trip with
+`RagApplication` surface and continue to round-trip with
 the storage layer. New code should consume the **canonical**
 models in `raghub.models.canonical` (`Document`, `Chunk`,
 `KnowledgeBundle`, `Citation`, `PipelineContext`,
