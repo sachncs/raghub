@@ -47,13 +47,7 @@ class HybridSearchTool(BaseTool):
         self.vector_store = vector_store
 
     async def execute(
-        self,
-        context: ToolContext,
-        *,
-        query: str,
-        top_k: int = 5,
-        rrf_k: int = 60,
-        **_: Any,
+        self, context: ToolContext, **kwargs: Any
     ) -> ToolResult:
         """Fuse dense + sparse retrieval with reciprocal-rank fusion.
 
@@ -71,18 +65,18 @@ class HybridSearchTool(BaseTool):
         dense = self.pipeline.retrieve(
             user=as_admin_user(context.user),
             question=text,
-            top_k=int(top_k),
+            top_k=int(kwargs.get("top_k", 0)),
         )
         sparse_raw: list[dict[str, Any]] = []
         keyword_search = getattr(self.vector_store, "keyword_search", None)
         if callable(keyword_search):
-            sparse_raw = keyword_search(text, int(top_k) * 2)  
+            sparse_raw = keyword_search(text, int(kwargs.get("top_k", 0)) * 2)  
         fused = rrf(
             [
                 [h.chunk.chunk_id for h in dense],
                 [item["chunk"].chunk_id for item in sparse_raw],
             ],
-            k=int(rrf_k),
+            k=int(kwargs.get("rrf_k", 0)),
         )
         id_to_hit: dict[str, Any] = {h.chunk.chunk_id: h for h in dense}
         for item in sparse_raw:

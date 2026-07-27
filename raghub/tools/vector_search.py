@@ -66,7 +66,7 @@ class VectorSearchTool(BaseTool):
         self.pipeline = retrieval_pipeline
 
     async def execute(
-        self, context: ToolContext, *, query: str, top_k: int = 5, **_: Any
+        self, context: ToolContext, **kwargs: Any
     ) -> ToolResult:
         """Run the dense vector search and return the joined hit list.
 
@@ -89,7 +89,7 @@ class VectorSearchTool(BaseTool):
             return ToolResult(ok=False, error="vector_search: empty query")
         user = as_admin_user(context.user)
         hits = self.pipeline.retrieve(
-            user=user, question=text, top_k=int(top_k)
+            user=user, question=text, top_k=int(kwargs.get("top_k", 0))
         )
         if not hits:
             return ToolResult(content="(no hits)")

@@ -46,7 +46,7 @@ class SummarySearchTool(BaseTool):
         self.index = raptor_index
 
     async def execute(
-        self, context: ToolContext, *, query: str, top_k: int = 5, **_: Any
+        self, context: ToolContext, **kwargs: Any
     ) -> ToolResult:
         """Run the RAPTOR summary search.
 
@@ -59,7 +59,7 @@ class SummarySearchTool(BaseTool):
         """
         if self.index is None:
             return ToolResult(content="(no summary index configured)")
-        hits = self.index.search(query, top_k=int(top_k))
+        hits = self.index.search(query, top_k=int(kwargs.get("top_k", 0)))
         if not hits:
             return ToolResult(content="(no summaries matched)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)

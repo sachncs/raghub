@@ -45,13 +45,7 @@ class GraphSearchTool(BaseTool):
         self.index = graph_index
 
     async def execute(
-        self,
-        context: ToolContext,
-        *,
-        query: str,
-        mode: str = "local",
-        top_k: int = 5,
-        **_: Any,
+        self, context: ToolContext, **kwargs: Any
     ) -> ToolResult:
         """Run GraphRAG local or global search.
 
@@ -76,7 +70,7 @@ class GraphSearchTool(BaseTool):
             return ToolResult(
                 ok=False, error=f"graph_search: mode {mode!r} not supported by index"
             )
-        hits = fn(query, top_k=int(top_k))
+        hits = fn(query, top_k=int(kwargs.get("top_k", 0)))
         if not hits:
             return ToolResult(content="(no graph matches)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)
