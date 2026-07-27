@@ -496,3 +496,11 @@ async def run(
         raise
     except Exception as exc:  # pragma: no cover - defensive envelope
         raise EvaluationError(f"Evaluator {evaluator.benchmark!r} failed: {exc}") from exc
+
+
+__all__ = [
+    "Metrics",
+    "Scoring",
+    "FinanceBench",
+    "run",
+]

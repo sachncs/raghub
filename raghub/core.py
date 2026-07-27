@@ -1,14 +1,9 @@
 """Core domain services and policies.
 
-* :class:`ContainerBuilder` / :func:`build_application` — legacy
-  dependency-injection helpers that wire the
-  :class:`raghub.services.RagApplication`. New
-  code should prefer the public :class:`raghub.RAG` facade.
 * :class:`DocumentStateMachine` / :class:`DocumentState` — the
   document lifecycle state machine.
 * :class:`RbacGuard` / :func:`allowed_company_filter` /
-  :func:`can_access_company` — per-user RBAC checks and
-  compatibility shims.
+  :func:`can_access_company` — per-user RBAC checks.
 """
 
 from __future__ import annotations
@@ -16,68 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from raghub.config import Settings
 from raghub.models import DocumentLifecycleStatus
-
-
-class ContainerBuilder:
-    """Asynchronously build a wired :class:`RagApplication`.
-
-    The builder is intentionally small — its only job is to load
-    settings (when none are supplied) and delegate to
-    :func:`raghub.services.build_container`. Splitting it
-    into a class makes it easy to inject mocks during tests and
-    keeps the legacy :func:`build_application` coroutine trivial.
-
-    Attributes:
-        settings: The settings to build with. When ``None``, the
-            builder calls :func:`load_settings` with no profile.
-        profile: Optional profile name passed to :func:`load_settings`
-            when ``settings`` is ``None``.
-    """
-
-    def __init__(
-        self,
-        settings: Settings | None = None,
-        *,
-        profile: str | None = None,
-    ) -> None:
-        """Store the settings and optional profile name."""
-        self.settings = settings
-        self.profile = profile
-
-    async def build(self) -> Any:
-        """Build a fully-wired application.
-
-        Returns:
-            A ready-to-use :class:`RagApplication`.
-        """
-        from raghub.services import (
-            RagApplication,
-            build_container,
-        )
-
-        settings = self.settings or Settings.load(self.profile)
-        container = await build_container(settings)
-        return RagApplication(container)
-
-
-async def build_application(profile: str | None = None) -> Any:
-    """Build a fully wired :class:`RagApplication` from configuration.
-
-    Args:
-        profile: Optional settings profile name. Passed to
-            :func:`load_settings` to allow environment-specific overrides
-            (e.g. ``"dev"``, ``"prod"``).
-
-    Returns:
-        A ready-to-use :class:`RagApplication`.
-
-    Raises:
-        RuntimeError: If ``JWT_SECRET`` is missing from settings or any
-            required collaborator fails to initialise.
-    """
-    return await ContainerBuilder(profile=profile).build()
 
 
 @dataclass(frozen=True)

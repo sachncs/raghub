@@ -8,7 +8,7 @@ single ``from raghub.documents import …`` ergonomic for callers.
 The classes and functions here map onto the document lifecycle::
 
     DocumentLifecycleManager   - validate + apply status transitions.
-    new_version                 - mint a new :class:`DocumentVersion`.
+    new_version                 - mint a new :class:`DocumentRecord`.
     detect_mime_type            - extension + magic-byte MIME detection.
     validate_upload             - four-gate upload validator.
     ChunkingPlan                - word-window chunking configuration.
@@ -53,7 +53,7 @@ from raghub.models import (
     DocumentConverter,
     DocumentLifecycleStatus,
     DocumentSection,
-    DocumentVersion,
+    DocumentRecord,
     KnowledgeBundle,
     deterministic_id,
 )
@@ -62,7 +62,7 @@ from raghub.utils import capture
 
 # ---------------------------------------------------------------------------
 # Legacy module aliases — see :mod:`raghub.documents.__init__` for the matching
-# setdefault calls. Kept so legacy `from raghub.documents.directory import …`
+# setdefault calls. Prior `from raghub.documents import …`
 # style imports keep resolving while callers migrate.
 # ---------------------------------------------------------------------------
 
@@ -92,12 +92,12 @@ class DocumentLifecycleManager:
             self.machine = DocumentStateMachine()
 
     def transition(
-        self, document: DocumentVersion, status: DocumentLifecycleStatus
-    ) -> DocumentVersion:
+        self, document: DocumentRecord, status: DocumentLifecycleStatus
+    ) -> DocumentRecord:
         """Update ``document.status`` to ``status`` if the transition is legal.
 
         Args:
-            document: The :class:`DocumentVersion` to update.
+            document: The :class:`DocumentRecord` to update.
             status: The target lifecycle status.
 
         Returns:
@@ -119,15 +119,15 @@ class DocumentLifecycleManager:
 # ---------------------------------------------------------------------------
 
 
-def new_version(previous: DocumentVersion | None, **overrides: Any) -> DocumentVersion:
-    """Build a new :class:`DocumentVersion` from a previous record.
+def new_version(previous: DocumentRecord | None, **overrides: Any) -> DocumentRecord:
+    """Build a new :class:`DocumentRecord` from a previous record.
 
     Args:
         previous: The prior version, or ``None`` for a brand-new document.
         **overrides: Field overrides applied after the clone.
 
     Returns:
-        A fully-typed :class:`DocumentVersion` ready for persistence.
+        A fully-typed :class:`DocumentRecord` ready for persistence.
     """
     version_number = 1 if previous is None else previous.version + 1
     payload = previous.model_dump() if previous else {}
@@ -138,7 +138,7 @@ def new_version(previous: DocumentVersion | None, **overrides: Any) -> DocumentV
     if previous is not None:
         payload.setdefault("document_id", previous.document_id)
         payload.setdefault("created_at", previous.created_at)
-    return DocumentVersion.model_validate(payload)
+    return DocumentRecord.model_validate(payload)
 
 
 def datetime_now_utc() -> Any:
@@ -875,3 +875,29 @@ def convert_path(
         file_bytes=data,
         mime_type="application/pdf" if p.suffix.lower() == ".pdf" else "text/plain",
     )
+
+
+__all__ = [
+    "DocumentLifecycleManager",
+    "new_version",
+    "datetime_now_utc",
+    "detect_mime_type",
+    "validate_upload",
+    "ChunkingPlan",
+    "extract_pdf_pages",
+    "normalize_text",
+    "chunk_words",
+    "extract_pdf_text",
+    "extract_text_from_content",
+    "extract_pdf_metadata",
+    "build_chunk_records",
+    "MarkdownSection",
+    "markdown_to_document_blocks",
+    "normalise_markdown",
+    "build_marker_converter",
+    "PlainTextConverter",
+    "MarkerConverter",
+    "looks_like_pdf",
+    "select_converter_for_path",
+    "convert_path",
+]

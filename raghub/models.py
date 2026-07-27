@@ -1,7 +1,7 @@
 """Domain, canonical, and transport Pydantic models.
 
 This module defines the full Pydantic model surface used by RAGHub,
-consolidated from three previously-separate files:
+Domain, canonical, and transport Pydantic models for the framework:
 
 * **Domain** — runtime domain types (chunks, documents, users,
   sessions, turns, search results, lifecycle enums).
@@ -29,9 +29,11 @@ newly-constructed Pydantic models.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import AsyncIterator, Callable, Iterator, Sequence
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Protocol, TypeVar, runtime_checkable
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -230,9 +232,6 @@ class DocumentRecord(BaseModel):
     chunk_count: int = 0
     chunk_ids: list[str] = Field(default_factory=list)
     error: str | None = None
-
-
-DocumentVersion = DocumentRecord
 
 
 class ChunkRecord(BaseModel):
@@ -457,9 +456,7 @@ class Response(BaseModel):
 
     The spec requires that components exchange typed models rather
     than raw dictionaries. This class is the canonical :class:`Response`
-    used by the RAG facade; the legacy
-    :class:`raghub.models.SearchResponse` is retained for
-    backwards compatibility.
+    used by the RAG facade.
     """
 
     answer: str = ""
@@ -737,21 +734,9 @@ class BatchIngestResponse(BaseModel):
 
 # ---------------------------------------------------------------------------
 # Protocol contracts
-#
-# Replaces the former ``raghub/interfaces/`` package. Each Protocol
-# describes the public surface of one replaceable dependency family
-# (LLM, embeddings, retrieval, storage, observability, etc.). Concrete
-# classes throughout the codebase inherit from or satisfy these
-# Protocols; nothing is enforced at runtime beyond inheritance.
 # ---------------------------------------------------------------------------
 
-from collections.abc import AsyncIterator, Callable, Iterator, Sequence  # noqa: E402
-from contextlib import contextmanager  # noqa: E402
-from typing import Any, Protocol, TypeVar, runtime_checkable  # noqa: E402
-
-from pydantic import BaseModel as _BaseModelForStructuredProtocol  # noqa: E402
-
-T = TypeVar("T", bound=_BaseModelForStructuredProtocol)
+T = TypeVar("T", bound=BaseModel)
 
 
 class Chunker(Protocol):
@@ -1028,9 +1013,9 @@ class TaskQueue(Protocol):
 class DocumentRegistry(Protocol):
     """Tracks versioned document state."""
 
-    def save_version(self, document: "DocumentVersion") -> "DocumentVersion": ...
-    def get_latest(self, document_id: str) -> "DocumentVersion" | None: ...
-    def list_accessible(self, companies: list[str]) -> list["DocumentVersion"]: ...
+    def save_version(self, document: "DocumentRecord") -> "DocumentRecord": ...
+    def get_latest(self, document_id: str) -> "DocumentRecord" | None: ...
+    def list_accessible(self, companies: list[str]) -> list["DocumentRecord"]: ...
     def archive(self, document_id: str) -> None: ...
 
 

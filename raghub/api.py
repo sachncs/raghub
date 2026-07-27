@@ -1,43 +1,32 @@
-"""FastAPI reference server.
+"""api package.
 
-Defines :func:`create_app`, which builds a :class:`FastAPI` instance
-bound to a fully-wired :class:`RagApplication`. The factory
-wires in:
-
-* CORS middleware (origins from ``CORS_ORIGINS`` env, comma-separated).
-  Wildcard origins combined with credentials are refused at startup
-  because browsers reject the combination at runtime.
-* The :class:`RateLimiterMiddleware` (default 10 rps, burst 20).
-* The :class:`RouteGroup` (v1, admin, preferences routers, all mounted
-  under ``/v1``).
-* Exception handlers for ``AuthenticationError`` (401),
-  ``AuthorizationError`` (403), ``DocumentError`` (400), and
-  ``StorageError`` (500).
-* A ``/metrics`` Prometheus endpoint registered via the
-  :class:`raghub.observability.PrometheusMetrics` instance shared with
-  the application container.
-* A shared :class:`BackgroundIngestionService` placed on
-  ``app.state.background_ingestion`` for the ``/ingest/async`` endpoint.
-
-Helpers used by the route handlers — bearer parsing, application-facade
-lookup, SSE framing, response construction, secret redaction, and the
-token-bucket rate limiter — live in :mod:`raghub.api.helper`.
-
-Section map:
-
-* :class:`Lifespan` — FastAPI startup/shutdown context.
-* :func:`cors_origins_from_env` / :func:`validate_cors_for_credentials`
-  — CORS configuration helpers.
-* :func:`check_upload_size` / :func:`enforce_upload_limit` /
-  :func:`upload_content_length` — pre-flight upload size guards.
-* :class:`ExceptionHandlers` — installs handlers for the typed
-  application errors.
-* :class:`RouteGroup` — owns the versioned ``/v1/*`` routes plus the
-  admin and preferences sub-routers.
-* :func:`create_app` — the public factory.
+Implementation lives in :mod:`raghub.helper` (auth, sse, response, rate_limit); local entry-point modules: ['app'].
 """
 
 from __future__ import annotations
+
+from raghub.helper.auth import (
+    App,
+    Auth,
+    Bearer,
+)
+
+from raghub.helper.sse import (
+    Sse,
+)
+
+from raghub.helper.response import (
+    Redaction,
+    ResponseBuilder,
+)
+
+from raghub.helper.rate_limit import (
+    RateLimiterMiddleware,
+    TokenBucket,
+)
+# --- app.py content ---
+
+
 
 import importlib.metadata
 import os
@@ -68,14 +57,6 @@ from raghub.exceptions import (
     DocumentError,
     StorageError,
 )
-from raghub.api.helper import (
-    App,
-    Auth,
-    Bearer,
-    RateLimiterMiddleware,
-    Redaction,
-    Sse,
-)
 from raghub.ingestion import BackgroundIngestionService
 from raghub.models import (
     AuthLoginRequest,
@@ -87,7 +68,7 @@ from raghub.models import (
     QueryResponse,
     UserPrincipal,
 )
-from raghub.services import RagApplication
+from raghub.services import Facade as Facade
 from raghub.utils import capture
 
 # ---------------------------------------------------------------------------
@@ -216,16 +197,16 @@ def enforce_upload_limit(
 class Lifespan:
     """FastAPI startup/shutdown coordinator.
 
-    The class is instantiated with the :class:`RagApplication`
+    The class is instantiated with the :class:`Facade`
     facade and wired into the :class:`FastAPI` instance. On shutdown
-    it calls :meth:`RagApplication.shutdown` and then closes
+    it calls :meth:`Facade.shutdown` and then closes
     the shared background-ingestion service.
 
     Attributes:
         application: The application facade.
     """
 
-    def __init__(self, application: RagApplication) -> None:
+    def __init__(self, application: Facade) -> None:
         """Store the application facade for the lifespan handlers."""
         self.application = application
 
@@ -323,7 +304,7 @@ class PreferencesPatch(BaseModel):
     prefs: dict[str, Any] = Field(default_factory=dict)
 
 
-def user_store_or_503(app_service: RagApplication) -> Any:
+def user_store_or_503(app_service: Facade) -> Any:
     """Return the configured user store or raise 503."""
     store = getattr(app_service.container, "user_store", None)
     if store is None:
@@ -365,11 +346,11 @@ class RouteGroup:
     # ----- v1: auth / session -----------------------------------------
 
     def health(self) -> Callable[..., Any]:
-        """Liveness probe; delegates to :meth:`RagApplication.health`."""
+        """Liveness probe; delegates to :meth:`Facade.health`."""
 
         @self.router.get("/health")
         def handler(
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> dict[str, Any]:
             """Report liveness."""
             return app_service.health()
@@ -382,7 +363,7 @@ class RouteGroup:
         @self.router.post("/auth/login", response_model=AuthLoginResponse)
         async def handler(
             payload: AuthLoginRequest,
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> AuthLoginResponse:
             return await app_service.login(payload.email, payload.password)
 
@@ -394,7 +375,7 @@ class RouteGroup:
         @self.router.post("/auth/logout")
         async def handler(
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> dict[str, str]:
             await app_service.logout(token)
             return {"status": "logged_out"}
@@ -407,7 +388,7 @@ class RouteGroup:
         @self.router.get("/session/history")
         async def handler(
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> dict[str, list[dict[str, Any]]]:
             history = await app_service.history(token)
             return {"history": [turn.model_dump(mode="json") for turn in history]}
@@ -420,7 +401,7 @@ class RouteGroup:
         @self.router.delete("/session/history", status_code=204, response_class=Response)
         async def handler(
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> Response:
             await app_service.clear_history(token)
             return Response(status_code=204)
@@ -438,7 +419,7 @@ class RouteGroup:
             file: UploadFile = File(...),
             company: str | None = Form(default=None),
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> DocumentUploadResponse:
             enforce_upload_limit(request, app_service.container)
             content = await file.read()
@@ -479,7 +460,7 @@ class RouteGroup:
             files: list[UploadFile] = File(...),
             company: str | None = Form(default=None),
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> BatchIngestResponse:
             enforce_upload_limit(request, app_service.container)
             results: list[BatchIngestItem] = []
@@ -530,7 +511,7 @@ class RouteGroup:
         @self.router.get("/documents")
         async def handler(
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> dict[str, list[dict[str, Any]]]:
             documents = await app_service.list_documents(token)
             return {"documents": [document.model_dump(mode="json") for document in documents]}
@@ -544,7 +525,7 @@ class RouteGroup:
         async def handler(
             document_id: str,
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> dict[str, Any]:
             document = await app_service.document_status(token, document_id)
             return document.model_dump(mode="json")
@@ -558,7 +539,7 @@ class RouteGroup:
         async def handler(
             document_id: str,
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> Response:
             await app_service.delete_document(token, document_id)
             return Response(status_code=204)
@@ -572,14 +553,14 @@ class RouteGroup:
 
         Advanced-RAG flags (``agent``, ``web``, ``tools_enabled``
         etc.) are forwarded to the resolver when any of them are
-        supplied; otherwise the legacy fast path runs.
+        supplied; otherwise the early-exit path runs.
         """
 
         @self.router.post("/query", response_model=QueryResponse)
         async def handler(
             payload: QueryRequest,
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> QueryResponse:
             if payload.tools_enabled is None and payload.agent is None and payload.web is None \
                     and payload.graph is None and payload.summaries is None \
@@ -613,7 +594,7 @@ class RouteGroup:
             file: UploadFile = File(...),
             company: str | None = Form(default=None),
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> dict[str, str]:
             enforce_upload_limit(request, app_service.container)
             content = await file.read()
@@ -639,7 +620,7 @@ class RouteGroup:
         async def handler(
             payload: QueryRequest,
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> StreamingResponse:
             resolved_tools = (
                 set(payload.tools_enabled) if payload.tools_enabled else set()
@@ -679,7 +660,7 @@ class RouteGroup:
         async def handler(
             payload: QueryRequest,
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> QueryResponse:
             return await app_service.query_with_flags(
                 token=token,
@@ -706,7 +687,7 @@ class RouteGroup:
         @self.admin_router.get("/documents")
         async def handler(
             _admin: UserPrincipal = Depends(Auth.admin),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> list[dict[str, Any]]:
             docs = await app_service.container.uow.document_repo.list_all()
             return [doc.model_dump(mode="json") for doc in docs]
@@ -719,7 +700,7 @@ class RouteGroup:
         @self.admin_router.get("/users")
         async def handler(
             _admin: UserPrincipal = Depends(Auth.admin),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> list[dict[str, Any]]:
             users = await app_service.container.user_store.list_users()
             return [Redaction.user(user.model_dump(mode="json")) for user in users]
@@ -732,7 +713,7 @@ class RouteGroup:
         @self.admin_router.get("/stats")
         async def handler(
             _admin: UserPrincipal = Depends(Auth.admin),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> dict[str, Any]:
             docs = await app_service.container.uow.document_repo.list_all()
             users = await app_service.container.user_store.list_users()
@@ -758,7 +739,7 @@ class RouteGroup:
         )
         async def handler(
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> PreferencesResponse:
             user_id = await Auth.user_id(app_service, token)
             store = user_store_or_503(app_service)
@@ -777,7 +758,7 @@ class RouteGroup:
         async def handler(
             payload: PreferencesPatch,
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> PreferencesResponse:
             user_id = await Auth.user_id(app_service, token)
             store = user_store_or_503(app_service)
@@ -797,7 +778,7 @@ class RouteGroup:
         async def handler(
             key: str,
             token: str = Depends(Bearer.dependency),
-            app_service: RagApplication = Depends(App.get),
+            app_service: Facade = Depends(App.get),
         ) -> None:
             user_id = await Auth.user_id(app_service, token)
             store = user_store_or_503(app_service)
@@ -900,7 +881,7 @@ def root_health_route(app: FastAPI) -> None:
 # ---------------------------------------------------------------------------
 
 
-def create_app(application: RagApplication) -> FastAPI:
+def create_app(application: Facade) -> FastAPI:
     """Build a :class:`FastAPI` instance wired to ``application``.
 
     Args:
@@ -990,3 +971,8 @@ class AppFactory:
 
 
 app_singleton = AppFactory()
+
+
+
+
+__all__ = ['App', 'Auth', 'Bearer', 'RateLimiterMiddleware', 'Redaction', 'ResponseBuilder', 'Sse', 'TokenBucket']

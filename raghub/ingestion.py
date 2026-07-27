@@ -1,6 +1,6 @@
 """Document ingestion workflows.
 
-This module unifies four ingestion concerns that previously lived
+This module exposes four ingestion concerns:
 in separate files:
 
 * :class:`DocumentIngestionService` — synchronous ingestion over the
@@ -69,7 +69,7 @@ from raghub.repositories import UnitOfWork
 from raghub.utils import capture
 
 # ---------------------------------------------------------------------------
-# Chunker adapters (formerly raghub.ingestion.chunkers)
+# Chunkers
 # ---------------------------------------------------------------------------
 
 
@@ -691,7 +691,7 @@ class DocumentIngestionService:
 
 
 # ---------------------------------------------------------------------------
-# Background ingestion (formerly raghub.ingestion.background)
+# Background ingestion
 # ---------------------------------------------------------------------------
 
 
@@ -777,7 +777,7 @@ class BackgroundIngestionService:
 
 
 # ---------------------------------------------------------------------------
-# Persistent job store (formerly raghub.ingestion.jobs)
+# Persistent job store
 # ---------------------------------------------------------------------------
 
 
@@ -845,7 +845,7 @@ class PersistentJobStore:
 
 
 # ---------------------------------------------------------------------------
-# Resumable background ingestion (formerly raghub.ingestion.resumable)
+# Resumable background ingestion
 # ---------------------------------------------------------------------------
 
 

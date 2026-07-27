@@ -149,14 +149,13 @@ class HeuristicLLMProvider(BaseLLMProvider):
         """Return a fixed prefix built from the top context fragments.
 
         Args:
-            system_prompt: Ignored; kept for interface symmetry.
-            conversation: Ignored; kept for interface symmetry.
+            system_prompt: System instructions.
+            conversation: Recent in-window turns.
             context: The retrieved chunks to summarise. At most the
                 first three non-empty fragments are consulted.
-            question: Ignored; kept for interface symmetry.
-            image_paths: Ignored; the heuristic does not handle images.
-            session_history: Ignored; the heuristic does not use
-                history.
+            question: The user's question.
+            image_paths: Unused; the heuristic does not handle images.
+            session_history: Unused; the heuristic does not use history.
 
         Returns:
             A ``"<fragment1> <fragment2> <fragment3>"``-style prefix,
@@ -171,7 +170,7 @@ class HeuristicLLMProvider(BaseLLMProvider):
 
 
 class LLMValueErrorBoundary:
-    """Preserve legacy ``ValueError`` translation without catching provider errors."""
+    """Translate direct ``ValueError`` failures to :class:`LLMError`."""
 
     def __init__(self, message: str) -> None:
         """Store the domain-error message prefix."""
@@ -196,7 +195,7 @@ class LLMValueErrorBoundary:
 class LiteLLMProvider(BaseLLMProvider):
     """LLM provider backed by LiteLLM.
 
-    The provider is API-compatible with every LLM endpoint that
+    The provider wraps LiteLLM and so works with any provider that
     LiteLLM supports: OpenAI, NVIDIA, Anthropic, Bedrock, etc.
     """
 
@@ -496,7 +495,7 @@ def build_llm_provider(
     1. If ``model_name`` is empty, ``"heuristic"``, or
        ``"heuristic-llm"`` → :class:`HeuristicLLMProvider`.
     2. If no LLM API key is present in the environment *and* no
-       ``api_key`` was passed in → :class:`HeuristicLLMProvider`
+       no ``api_key`` is supplied → :class:`HeuristicLLMProvider`
        (so the framework remains usable offline).
     3. Otherwise → :class:`LiteLLMProvider`.
 

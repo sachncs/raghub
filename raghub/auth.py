@@ -325,7 +325,7 @@ class RBACAuthorizationService:
 
     Attributes:
         user_store: User store held for future admin-elevation flows.
-        logger: Optional loguru-compatible logger for audit events.
+        logger: Optional loguru-compatible logger.
     """
 
     def __init__(self, user_store: SqliteUserStore, logger: Any | None = None) -> None:
@@ -333,7 +333,7 @@ class RBACAuthorizationService:
 
         Args:
             user_store: Backing user store.
-            logger: Optional loguru-compatible logger for audit events.
+            logger: Optional loguru-compatible logger.
         """
         self.user_store = user_store
         self.logger = logger

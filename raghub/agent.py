@@ -31,15 +31,21 @@ from raghub.config import AgentConfig, Settings
 from raghub.exceptions import AgentBudgetExceeded, LLMError, ToolError
 from raghub.models import ConversationTurn, UserPrincipal
 from raghub.observability import NoOpTelemetry
-from raghub.tools.base import ToolContext, ToolResult
-from raghub.tools.date_today import DateTodayTool
-from raghub.tools.graph_search import GraphSearchTool
-from raghub.tools.hybrid_search import HybridSearchTool
-from raghub.tools.keyword_search import KeywordSearchTool
-from raghub.tools.registry import ToolRegistry
-from raghub.tools.summary_search import SummarySearchTool
-from raghub.tools.vector_search import VectorSearchTool
-from raghub.tools.web_search import WebSearchTool
+from raghub.tools import (
+    DateToday,
+    GraphSearch,
+    HybridSearch,
+    KeywordSearch,
+    SummarySearch,
+    VectorSearch,
+    WebSearch,
+    BaseTool,
+    Tool,
+    ToolContext,
+    ToolRegistry,
+    ToolResult,
+    as_admin_user,
+)
 from raghub.utils import capture
 
 # ---------------------------------------------------------------------------
@@ -371,16 +377,16 @@ def build_tool_registry(
 ) -> ToolRegistry:
     """Build the planner's tool catalog."""
     registry = ToolRegistry()
-    registry.register(VectorSearchTool(retrieval_pipeline))
-    registry.register(KeywordSearchTool(vector_store))
-    registry.register(HybridSearchTool(retrieval_pipeline, vector_store))
-    registry.register(DateTodayTool())
+    registry.register(VectorSearch(retrieval_pipeline))
+    registry.register(KeywordSearch(vector_store))
+    registry.register(HybridSearch(retrieval_pipeline, vector_store))
+    registry.register(DateToday())
     if settings.web_search.enabled:
-        registry.register(WebSearchTool(max_results=settings.web_search.max_results))
+        registry.register(WebSearch(max_results=settings.web_search.max_results))
     if settings.summary_search_enabled and raptor is not None:
-        registry.register(SummarySearchTool(raptor))
+        registry.register(SummarySearch(raptor))
     if settings.graph_search_enabled and graph is not None:
-        registry.register(GraphSearchTool(graph))
+        registry.register(GraphSearch(graph))
     return registry
 
 

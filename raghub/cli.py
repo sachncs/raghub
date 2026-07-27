@@ -1,28 +1,27 @@
-"""Top-level ``raghub`` CLI — Typer app composition + entry point.
+"""cli package.
 
-Single Typer app that pulls in every command from :mod:`raghub.cli.helper`.
-Each command is a class with a ``register(app)`` method; this module
-calls them in order.
-
-Usage (after install)::
-
-    raghub --help
-    raghub query "what is revenue?"
-    raghub ingest ./docs/report.pdf
-    raghub init -o raghub.yaml
-    raghub run --port 8000
-    raghub health
-    raghub config tools list --email alice@acme.com
-    raghub eval financebench --examples 5
+Implementation lives in :mod:`raghub.helper` (cli); local entry-point modules: ['main'].
 """
 
 from __future__ import annotations
+
+from raghub.helper.cli import (
+    CliConfig,
+    IngestCommand,
+    InitCommand,
+    QueryCommand,
+    ServerCommand,
+    ToolConfig,
+)
+# --- main.py content ---
+
+
 
 import importlib.metadata
 
 import typer
 
-from raghub.cli.helper import (
+from raghub.helper.cli import (
     CliConfig,
     InitCommand,
     IngestCommand,
@@ -30,7 +29,7 @@ from raghub.cli.helper import (
     ServerCommand,
     ToolConfig,
 )
-from raghub.evaluation.cli import app as eval_app
+from raghub.evaluation import app as eval_app
 from raghub.utils import capture
 
 app = typer.Typer(
@@ -70,3 +69,8 @@ def version() -> None:
 def main() -> None:
     """Entry point for the ``raghub`` console script."""
     raise typer.Exit(app())
+
+
+
+
+__all__ = ['CliConfig', 'IngestCommand', 'InitCommand', 'QueryCommand', 'ServerCommand', 'ToolConfig']

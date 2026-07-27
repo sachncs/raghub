@@ -1692,11 +1692,9 @@ def _build_reranker(method: str) -> Rerank:
     if method == "cohere":
         return Cohere()
     if method == "llm":
-        try:
-            from raghub.llm import HeuristicLLMProvider
-        except Exception:
-            HeuristicLLMProvider = None  # type: ignore
-        return LlmJudge(llm=HeuristicLLMProvider() if HeuristicLLMProvider else None)
+        from raghub.llm import HeuristicLLMProvider
+
+        return LlmJudge(llm=HeuristicLLMProvider())
     if method == "cascade":
         return Cascade(cheap=Identity(), expensive=Identity())
     if method == "long_context":
@@ -1725,3 +1723,46 @@ def _safe_llm() -> Any:
         return HeuristicLLMProvider()
     except Exception:
         return None
+
+
+__all__ = [
+    "Variant",
+    "Rerank",
+    "Transformer",
+    "Identity",
+    "record_rerank_latency_provider",
+    "Bge",
+    "Cohere",
+    "Cascade",
+    "extract_json_array",
+    "merge_with_rrf",
+    "LlmJudge",
+    "build_context_prompt",
+    "extract_json_object",
+    "reorder_candidates",
+    "record_context_latency",
+    "Context",
+    "Colbert",
+    "Fusion",
+    "rrf",
+    "linear_combine",
+    "extract_string_array",
+    "hyde_prompt",
+    "Hyde",
+    "multi_query_prompt",
+    "MultiQuery",
+    "decompose_prompt",
+    "Decompose",
+    "step_back_prompt",
+    "StepBack",
+    "Compose",
+    "SearchFilters",
+    "build_filter",
+    "Search",
+    "Retrieval",
+    "RerankerFactory",
+    "build_reranker",
+    "reranker",
+    "areranker",
+    "transform",
+]

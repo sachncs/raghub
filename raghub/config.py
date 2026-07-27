@@ -7,7 +7,7 @@ Settings are loaded with the following precedence (highest wins):
 3. Built-in defaults declared on :class:`Settings`.
 
 Production deployments must set ``JWT_SECRET`` and must disable
-passwordless login; :func:`load_settings` raises :class:`RuntimeError`
+passwordless login; :meth:`Settings.load` raises :class:`RuntimeError`
 when either invariant is violated.
 """
 
@@ -59,7 +59,7 @@ class Settings(BaseModel):
         allow_passwordless_login: Development-only convenience for
             issuing sessions without a password. **Must be ``False``
             in production.**
-        extra: Free-form config dict for forward-compatible settings.
+        extra: Free-form config dict for settings not yet on the model.
     """
 
     environment: str = "development"
@@ -251,7 +251,7 @@ class HybridConfig(BaseModel):
     """Hybrid retrieval fusion.
 
     Attributes:
-        fusion: ``"rrf"`` (default) or ``"linear"`` (legacy).
+        fusion: ``"rrf"`` (default) or ``"linear"`` (older weighted-sum).
         rrf_k: Standard RRF damping constant; 60 matches the literature.
         keyword_weight: Weight for the keyword channel when ``fusion == "linear"``.
         vector_weight: Weight for the dense channel when ``fusion == "linear"``.
@@ -628,16 +628,5 @@ def load_from_env(profile: str | None = None) -> Settings:
     settings.ensure_dirs()
     return settings
 
-
-def load_settings(profile: str | None = None) -> Settings:
-    """Backward-compat alias for :meth:`Settings.load`.
-
-    Args:
-        profile: Optional profile name forwarded to ``Settings.load``.
-
-    Returns:
-        The parsed :class:`Settings`.
-    """
-    return Settings.load(profile)
 
 

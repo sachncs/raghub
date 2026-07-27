@@ -1,10 +1,20 @@
-"""``raghub eval ...`` — evaluation harnesses for RAGHub.
+"""evaluation package.
 
-Exposes the Typer ``app`` so :mod:`raghub.cli.main` can attach it as
-a sub-typer (``raghub eval financebench``).
+Implementation lives in :mod:`raghub.helper` (evaluation); local entry-point modules: ['cli'].
 """
 
 from __future__ import annotations
+
+from raghub.helper.evaluation import (
+    FinanceBench,
+    Metrics,
+    Scoring,
+    TOKEN_RE,
+    run,
+)
+# --- cli.py content ---
+
+
 
 import asyncio
 import statistics
@@ -12,7 +22,7 @@ from typing import Any
 
 import typer
 
-from raghub.evaluation.helper import FinanceBench, run
+from raghub.helper.evaluation import FinanceBench, run
 from raghub.utils import write_json
 
 app = typer.Typer(help="Evaluation harnesses.", no_args_is_help=True)
@@ -53,3 +63,8 @@ def financebench(
         )
 
     asyncio.run(runner())
+
+
+
+
+__all__ = ['FinanceBench', 'Metrics', 'Scoring', 'TOKEN_RE', 'run']

@@ -17,7 +17,7 @@ import asyncio
 import statistics
 
 from raghub import RAG
-from raghub.evaluation.helper import FinanceBench
+from raghub.helper.evaluation import FinanceBench
 
 
 async def _run(examples: int) -> None:

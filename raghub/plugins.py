@@ -20,7 +20,7 @@ from typing import Any
 
 
 class PluginRegistry:
-    """Registry of pluggable components keyed by name and type."""
+    """Catalog of pluggable components keyed by name and type."""
 
     def __init__(self) -> None:
         """Initialise an empty registry."""

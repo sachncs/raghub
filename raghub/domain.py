@@ -2,7 +2,7 @@
 
 The classes here predate the canonical Pydantic models in
 :mod:`raghub.models`. New code should use the canonical models; the
-legacy wrappers are kept so existing call sites that pass
+wrappers for
 :class:`Chunk` / :class:`Document` / :class:`Session` keep working.
 
 The :class:`UnitOfWork` and :class:`DocumentRepository` /
