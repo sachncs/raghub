@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from raghub.api.schemas import (
+from raghub.models import (
     AuthLoginRequest,
     AuthLoginResponse,
     BatchIngestResponse,

@@ -10,7 +10,7 @@ import sys
 import pytest
 import yaml
 
-from raghub.cli import app
+from raghub.cli.main import app
 
 
 def _runner(argv: list[str]):

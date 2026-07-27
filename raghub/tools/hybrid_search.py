@@ -76,7 +76,7 @@ class HybridSearchTool(BaseTool):
                 [h.chunk.chunk_id for h in dense],
                 [item["chunk"].chunk_id for item in sparse_raw],
             ],
-            k=int(kwargs.get("rrf_k", 0)),
+            k=int(kwargs.get("rrf_k", 60)) or 60,
         )
         id_to_hit: dict[str, Any] = {h.chunk.chunk_id: h for h in dense}
         for item in sparse_raw:

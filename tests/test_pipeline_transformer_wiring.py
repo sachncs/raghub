@@ -25,12 +25,9 @@ from raghub.models import (
 )
 from raghub.pipeline import QueryPipeline
 from raghub.retrieval.pipeline import RetrievalPipeline
-from raghub.retrieval.transforms import (
-    ComposeTransformer,
-    HydeTransformer,
-    QueryVariant,
-)
-from raghub.retrieval.transforms.compose import ComposeTransformer as _Compose  # noqa: F401
+from raghub.retrieval.transforms.base import QueryVariant
+from raghub.retrieval.transforms.compose import ComposeTransformer
+from raghub.retrieval.transforms.hyde import HydeTransformer
 from raghub.vectorstore import InMemoryVectorStore
 
 

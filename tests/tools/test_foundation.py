@@ -9,11 +9,8 @@ from raghub.agent import (
     ResolvedConfig,
     resolve,
 )
-from raghub.tools import (
-    Tool,
-    ToolRegistry,
-    ToolResult,
-)
+from raghub.tools.base import Tool, ToolResult
+from raghub.tools.registry import ToolRegistry
 from raghub.config import AgentConfig, Settings
 from raghub.exceptions import ConfigurationError
 
