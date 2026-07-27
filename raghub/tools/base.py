@@ -57,9 +57,9 @@ class Tool(Protocol):
             arguments before invocation.
     """
 
-    name: str
-    description: str
-    json_schema: dict[str, Any]
+    name: ClassVar[str]
+    description: ClassVar[str]
+    json_schema: ClassVar[dict[str, Any]]
 
     async def run(self, args: dict[str, Any]) -> ToolResult:
         """Execute the tool.

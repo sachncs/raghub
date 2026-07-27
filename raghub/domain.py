@@ -16,7 +16,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
+
+import aiosqlite
 
 from raghub.models import (
     ChunkRecord,
@@ -385,11 +387,10 @@ class UnitOfWork:
             await self.db_manager.close()
 
 
-class DatabaseManager:
-    """Forward reference to :class:`raghub.storage.database.DatabaseManager`.
+class DatabaseManager(Protocol):
+    async def connect(self) -> aiosqlite.Connection: ...
 
-    Used as the type annotation on :class:`UnitOfWork.db_manager`. The
-    concrete implementation lives in :mod:`raghub.storage.database` and
-    is referenced here as a forward class so the domain module does not
-    need to import the storage tier (which would create a cycle).
-    """
+    @property
+    def connection(self) -> aiosqlite.Connection: ...
+
+    async def close(self) -> None: ...
