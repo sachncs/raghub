@@ -44,7 +44,7 @@ class KeywordSearchTool(BaseTool):
         self.vector_store = vector_store
 
     async def execute(
-        self, context: ToolContext, *, query: str, top_k: int = 5, **_: Any
+        self, context: ToolContext, **kwargs: Any
     ) -> ToolResult:
         """Run the keyword search and return the joined hit list.
 
@@ -65,7 +65,7 @@ class KeywordSearchTool(BaseTool):
                 ok=False,
                 error="keyword_search: vector store lacks keyword_search()",
             )
-        raw = keyword_search(text, int(top_k))
+        raw = keyword_search(text, int(kwargs.get("top_k", 0)))
         if not raw:
             return ToolResult(content="(no hits)")
         joined = "\n\n---\n\n".join(

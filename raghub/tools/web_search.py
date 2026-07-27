@@ -51,10 +51,7 @@ class WebSearchTool(BaseTool):
     async def execute(
         self,
         context: ToolContext,
-        *,
-        query: str,
-        max_results: int | None = None,
-        **_: Any,
+        **kwargs: Any,
     ) -> ToolResult:
         """Run a DuckDuckGo web search.
 
@@ -65,12 +62,13 @@ class WebSearchTool(BaseTool):
             query: The search query.
             max_results: Per-call override of the configured default.
         """
-        text = (query or "").strip()
+        text = (str(kwargs.get("query", "")) or "").strip()
         if not text:
             return ToolResult(ok=False, error="web_search: empty query")
         from duckduckgo_search import DDGS
 
-        n = int(max_results) if max_results is not None else self.default_max
+        max_results = kwargs.get("max_results")
+        n = int(max_results) if isinstance(max_results, int) else self.default_max
         n = max(1, min(n, 25))
         with DDGS() as ddgs:
             results = list(ddgs.text(text, max_results=n))
