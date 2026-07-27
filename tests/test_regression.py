@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from raghub import RAG
+from raghub.rag import RAG
 from raghub.config import Settings
 from raghub.embeddings import HashingEmbeddingProvider
 from raghub.generation import DefaultGenerator

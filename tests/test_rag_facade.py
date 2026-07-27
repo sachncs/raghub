@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from raghub import RAG
+from raghub.rag import RAG
 from raghub.plugins import PluginRegistry
 
 

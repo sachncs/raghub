@@ -11,7 +11,7 @@ import asyncio
 
 import pytest
 
-from raghub import RAG
+from raghub.rag import RAG
 from raghub.documents import PlainTextConverter
 from raghub.ingestion import WordWindowChunker
 from raghub.models import UserPrincipal
