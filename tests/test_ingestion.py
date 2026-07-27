@@ -443,7 +443,7 @@ class TestSubmitAsync:
 
 
 class TestIngest:
-    @patch("raghub.documents.validate_upload")
+    @patch("raghub.ingestion.validate_upload")
     async def test_happy_path(
         self,
         mock_validate: MagicMock,
@@ -490,7 +490,7 @@ class TestIngest:
         # pipeline run.
         mock_uow.document_repo.save.assert_called()
 
-    @patch("raghub.documents.validate_upload")
+    @patch("raghub.ingestion.validate_upload")
     async def test_dedup_ready_document_short_circuits(
         self,
         mock_validate: MagicMock,
@@ -520,7 +520,7 @@ class TestIngest:
         # Pipeline was not invoked on a dedup short-circuit.
         assert service.make_pipeline is None or service.make_pipeline.run.call_count == 0  # type: ignore[union-attr]
 
-    @patch("raghub.documents.validate_upload")
+    @patch("raghub.ingestion.validate_upload")
     async def test_dedup_non_ready_creates_new_version(
         self,
         mock_validate: MagicMock,
@@ -568,7 +568,7 @@ class TestIngest:
         assert result.document is not existing
         assert result.document.version == 2
 
-    @patch("raghub.documents.validate_upload")
+    @patch("raghub.ingestion.validate_upload")
     async def test_validation_failure_propagates(
         self,
         mock_validate: MagicMock,
@@ -586,7 +586,7 @@ class TestIngest:
                 organization="Acme",
             )
 
-    @patch("raghub.documents.validate_upload")
+    @patch("raghub.ingestion.validate_upload")
     async def test_virus_scan_rejection(
         self,
         mock_validate: MagicMock,
@@ -616,7 +616,7 @@ class TestIngest:
                 organization="Acme",
             )
 
-    @patch("raghub.documents.validate_upload")
+    @patch("raghub.ingestion.validate_upload")
     async def test_pipeline_failure_propagates_as_document_error(
         self,
         mock_validate: MagicMock,
@@ -656,7 +656,7 @@ class TestIngest:
                 organization="Acme",
             )
 
-    @patch("raghub.documents.validate_upload")
+    @patch("raghub.ingestion.validate_upload")
     async def test_pipeline_failure_with_prior_failed_record_persists_status(
         self,
         mock_validate: MagicMock,
@@ -708,7 +708,7 @@ class TestIngest:
         assert last_saved.status == DocumentLifecycleStatus.FAILED
         assert "Embedding failed" in (last_saved.error or "")
 
-    @patch("raghub.documents.validate_upload")
+    @patch("raghub.ingestion.validate_upload")
     async def test_ingestion_result_fields(
         self,
         mock_validate: MagicMock,
