@@ -111,7 +111,7 @@ from raghub.retrieval.transforms import (
     MultiQueryTransformer,
     StepBackTransformer,
 )
-from raghub.vectorstore import InMemoryVectorStore, QdrantVectorStore
+from raghub.vectorstore import InMemoryVectorStore
 
 LLM_API_KEY_ENV_VARS = (
     "OPENAI_API_KEY",
@@ -225,7 +225,9 @@ def default_vector_store(embedding_dim: int) -> Any:
     """
     if not os.getenv("QDRANT_URL"):
         return InMemoryVectorStore()
-    return QdrantVectorStore(
+    from raghub.vectorstore import QdrantVectorStore as _QdrantVectorStore
+
+    return _QdrantVectorStore(
         url=os.environ["QDRANT_URL"],
         api_key=os.getenv("QDRANT_API_KEY"),
         embedding_dim=embedding_dim,
