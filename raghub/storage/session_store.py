@@ -13,6 +13,7 @@ migration compatibility and for tiny single-process installs.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import RLock
@@ -45,8 +46,22 @@ class JsonSessionStore:
         self.load()
 
     def load(self) -> None:
-        """Hydrate in-memory state from disk."""
-        payload = load_json(self.path, default={"sessions": {}})
+        """Hydrate in-memory state from disk.
+
+        Tolerates a missing or malformed file by resetting to an
+        empty store. This is the behaviour we want for first-run
+        startup and for recovery from a corrupted write.
+        """
+        if self.path.exists() and not self.path.read_text(encoding="utf-8").lstrip().startswith("{"):
+            self.sessions = {}
+            return
+        try:
+            payload = load_json(self.path, default={"sessions": {}})
+        except (json.JSONDecodeError, ValueError, TypeError):
+            # Corrupted or half-written file: start empty rather
+            # than crash the whole process.
+            self.sessions = {}
+            return
         for token, raw in payload.get("sessions", {}).items():
             self.sessions[token] = SessionRecord.model_validate(raw)
 

@@ -200,11 +200,8 @@ def test_migrate_preserves_session_history(data_dir: Path) -> None:
         )
     )
 
-    # NOTE: The current migration calls ``session_repo.create(session)``
-    # which creates a NEW :class:`SessionRecord` with empty history.
-    # The history JSON in the source file is NOT preserved by the
-    # current implementation. This test pins the existing (buggy)
-    # behaviour so future fixes are visible in the diff.
+    # The migration now preserves the full session record, including
+    # the per-session conversation history.
     with sqlite3.connect(db_path) as conn:
         history_raw = conn.execute(
             "SELECT history FROM sessions WHERE user_id = ?",
@@ -212,7 +209,7 @@ def test_migrate_preserves_session_history(data_dir: Path) -> None:
         ).fetchone()[0]
     history = json.loads(history_raw) if history_raw else []
     pairs = [(t["question"], t["answer"]) for t in history]
-    assert pairs == []
+    assert pairs == [("hi", ""), ("", "hello")]
 
 
 def test_migrate_with_show_progress_disabled(data_dir: Path) -> None:

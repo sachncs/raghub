@@ -162,18 +162,25 @@ class JsonDocumentRegistry:
             return document
 
     def get_latest(self, document_id: str) -> DocumentVersion | None:
-        """Return the newest version of ``document_id``.
+        """Return the highest-versioned entry for ``document_id``.
+
+        Iterates the version list (which is append-ordered) and
+        returns the entry with the largest ``version`` field. The
+        list itself stays in insertion order so history-style
+        iteration is preserved; the lookup just walks the list.
 
         Args:
             document_id: The document id.
 
         Returns:
-            The latest :class:`DocumentVersion`, or ``None`` if the
-            document is unknown.
+            The latest :class:`DocumentVersion` by version number,
+            or ``None`` if the document is unknown.
         """
         with self.lock:
             versions = self.documents.get(document_id, [])
-            return versions[-1] if versions else None
+            if not versions:
+                return None
+            return max(versions, key=lambda v: v.version)
 
     def get_specific_version(self, document_id: str, version: int) -> DocumentVersion | None:
         """Return a specific historical version.
