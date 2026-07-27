@@ -8,7 +8,7 @@ concern of the framework:
   re-trim, and per-session tool/agent overrides.
 * :class:`SlidingWindowManager` — token-aware trimmer that keeps the
   newest contiguous slice of a history that fits within a budget.
-  Optional ``tiktoken`` dependency; falls back to whitespace counting
+  Optional ``gigatoken`` dependency; falls back to whitespace counting
   when unavailable.
 * :class:`InMemoryConversationStore` — a thread-safe in-process
   alternative to :class:`ConversationManager` for callers that do
@@ -27,13 +27,24 @@ from raghub.models import ConversationTurn, SessionRecord
 from raghub.repositories import UnitOfWork
 
 
-def try_load_tiktoken() -> Any:
-    """Return the ``cl100k_base`` encoder, or ``None`` if unavailable."""
+def try_load_gigatoken() -> Any:
+    """Return a ``gigatoken.Tokenizer`` for the configured HF repo.
+
+    Uses ``Qwen/Qwen3-8B`` by default — the vocab is downloaded
+    once on first call, cached under ``~/.cache/huggingface`` and
+    reused for every subsequent load. The function returns ``None``
+    if gigatoken is missing or the network is unavailable; the
+    sliding-window manager then falls back to a whitespace
+    approximation.
+    """
     try:
-        import tiktoken
+        import gigatoken as gt
     except ImportError:  # pragma: no cover - optional dep
         return None
-    return tiktoken.get_encoding("cl100k_base")
+    try:
+        return gt.Tokenizer("Qwen/Qwen3-8B")
+    except Exception:  # pragma: no cover - network / cache error
+        return None
 
 
 class SlidingWindowManager:
@@ -73,7 +84,7 @@ class SlidingWindowManager:
             attribute if they need to log a warning.
         """
         self.max_tokens = max_tokens
-        self.enc: Any = try_load_tiktoken()
+        self.enc: Any = try_load_gigatoken()
 
     def counttokenize(self, text: str) -> int:
         """Count tokens in a single string.

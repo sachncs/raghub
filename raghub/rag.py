@@ -199,30 +199,18 @@ def default_llm(llm_model: str) -> Any:
 
 
 def default_vector_store(embedding_dim: int) -> Any:
-    """Return the default vector store.
+    """Construct the default vector store.
 
     Args:
         embedding_dim: Expected output dimensionality of the embedder.
 
     Returns:
-        :class:`QdrantVectorStore` configured with the
-        ``QDRANT_URL`` and ``QDRANT_API_KEY`` environment variables
-        when ``QDRANT_URL`` is set and the optional dependency is
-        installed; otherwise :class:`InMemoryVectorStore`.
-
-    Raises:
-        ConfigurationError: Surfaced only when the optional SDK is
-            present but the constructor itself raises.
+        :class:`InMemoryVectorStore` for the in-process test/dev path.
+        The full pipeline factory :func:`raghub.vectorstore.build_vector_store`
+        is used by the rest of the framework and points at a SQLite-backed
+        store (sqlite-vector when installed, NumPy fallback otherwise).
     """
-    if not os.getenv("QDRANT_URL"):
-        return InMemoryVectorStore()
-    from raghub.vectorstore import QdrantVectorStore as _QdrantVectorStore
-
-    return _QdrantVectorStore(
-        url=os.environ["QDRANT_URL"],
-        api_key=os.getenv("QDRANT_API_KEY"),
-        embedding_dim=embedding_dim,
-    )
+    return InMemoryVectorStore()
 
 
 def default_structured() -> Any:
