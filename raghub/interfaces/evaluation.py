@@ -19,7 +19,7 @@ class Evaluator(Protocol):
 
     async def evaluate(
         self,
-        examples: Sequence[dict],
+        examples: Sequence[dict[str, Any]],
         *,
         response_factory: Any,
     ) -> list[EvaluationResult]:

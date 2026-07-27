@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
-from typing import Any
+from typing import Any, cast
 
 from raghub.agent import resolve
 from raghub.auth import AuthService
@@ -58,7 +58,7 @@ class AuthCoordinator:
             The :class:`AuthLoginResponse` produced by
             :meth:`AuthService.login`.
         """
-        return await self.facade.auth_svc.login(email, password)
+        return cast(AuthLoginResponse, await self.facade.auth_svc.login(email, password))
 
     async def logout(self, token: str) -> None:
         """Invalidate ``token`` in the session store.
@@ -79,7 +79,10 @@ class AuthCoordinator:
         Returns:
             A tuple of (UserPrincipal, history).
         """
-        return await self.facade.auth_svc.resolve_user(token)
+        return cast(
+            tuple[UserPrincipal, list[ConversationTurn]],
+            await self.facade.auth_svc.resolve_user(token),
+        )
 
 
 class ShutdownCoordinator:
@@ -199,7 +202,7 @@ class PreferenceCoordinator:
             response.metadata["resolved_config"] = resolved.to_dict()
             if top_k is not None:
                 response.metadata["requested_top_k"] = top_k
-            return response
+            return cast(QueryResponse, response)
 
         session = await container.store.get_by_token(token)
         principal = UserPrincipal(
@@ -271,7 +274,7 @@ class ApplicationFacade:
         container.query = self.query_svc
         container.health = self.health_svc
         self.auth = AuthCoordinator(self)
-        self.shutdown = ShutdownCoordinator(container)
+        self._shutdown_coordinator = ShutdownCoordinator(container)
         self.preferences = PreferenceCoordinator(self)
 
     @staticmethod
@@ -357,7 +360,10 @@ class ApplicationFacade:
 
     async def history(self, token: str) -> list[ConversationTurn]:
         """Return the full conversation history for ``token``."""
-        return await self.container.conversation.load(token)
+        return cast(
+            list[ConversationTurn],
+            await self.container.conversation.load(token),
+        )
 
     def health(self) -> dict[str, object]:
         """Run liveness checks and return a status dict."""
@@ -409,4 +415,4 @@ class ApplicationFacade:
 
     async def shutdown(self) -> None:
         """Release all resources held by the application."""
-        await self.shutdown.release()
+        await self._shutdown_coordinator.release()

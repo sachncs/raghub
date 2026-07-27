@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import Sequence
+from typing import cast
 
 import cohere
 from pydantic import SecretStr
@@ -80,7 +81,7 @@ class CohereReranker:
         """
         if self.client is None:
             self.client = cohere.Client(api_key=self.api_key.get_secret_value())
-        return self.client
+        return cast(cohere.Client, self.client)
 
     def rerank(
         self,

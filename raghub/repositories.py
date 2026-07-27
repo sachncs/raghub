@@ -113,14 +113,14 @@ class SqliteChunkRepository(ChunkRepository):
 
     async def search(
         self, vector: list[float], top_k: int, metadata_filter: str = ""
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         return self.store.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     async def optimize(self) -> None:
         """Trigger an optimisation pass on the underlying vector store."""
         self.store.optimize()
 
-    async def health(self) -> dict:
+    async def health(self) -> dict[str, Any]:
         """Return the health snapshot of the underlying vector store."""
         return self.store.health()
 

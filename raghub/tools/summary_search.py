@@ -59,7 +59,7 @@ class SummarySearchTool(BaseTool):
         """
         if self.index is None:
             return ToolResult(content="(no summary index configured)")
-        hits = self.index.search(query, top_k=int(kwargs.get("top_k", 0)))
+        hits = self.index.search(str(kwargs.get("query", "")), top_k=int(kwargs.get("top_k", 0)))
         if not hits:
             return ToolResult(content="(no summaries matched)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)

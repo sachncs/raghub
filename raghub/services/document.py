@@ -14,7 +14,7 @@ than ``Any`` flowing through the dynamic container.
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, cast
 
 from raghub.core import can_access_company
 from raghub.documents import detect_mime_type
@@ -37,6 +37,10 @@ async def upload_record_helper(result: IngestionResult | Any) -> DocumentRecord:
     return result.document
 
 
+def _raise_missing(document_id: str) -> DocumentRecord:
+    raise DocumentError(f"Unknown document id: {document_id}")
+
+
 async def list_all_records_helper(uow: Any) -> list[DocumentRecord]:
     """Return every document from the repository.
 
@@ -46,7 +50,7 @@ async def list_all_records_helper(uow: Any) -> list[DocumentRecord]:
     Returns:
         The full list of :class:`DocumentRecord`.
     """
-    return await uow.document_repo.list_all()
+    return cast(list[DocumentRecord], await uow.document_repo.list_all())
 
 
 async def document_by_id_helper(uow: Any, document_id: str) -> DocumentRecord:
@@ -60,7 +64,10 @@ async def document_by_id_helper(uow: Any, document_id: str) -> DocumentRecord:
         The matching :class:`DocumentRecord` (``None`` is converted
         into :class:`DocumentError` by the caller).
     """
-    return await uow.document_repo.get(document_id)
+    return cast(
+        DocumentRecord,
+        await uow.document_repo.get(document_id),
+    ) or _raise_missing(document_id)
 
 
 class DocumentService(ServiceMixin):

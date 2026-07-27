@@ -9,6 +9,7 @@ neighbours with relevant documents than a one-line question does.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from raghub.exceptions import TransformError
 from raghub.models import ConversationTurn
@@ -39,7 +40,7 @@ class HydeTransformer:
 
     name = "hyde"
 
-    def __init__(self, llm, *, n: int = 1) -> None:
+    def __init__(self, llm: Any, *, n: int = 1) -> None:
         """Initialise the transformer.
 
         Args:

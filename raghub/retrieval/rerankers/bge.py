@@ -101,7 +101,7 @@ class BgeReranker:
         """
         encoder = self.ensure_encoder()
         pairs = [(question, hit.chunk.text) for hit in hits]
-        scores = list(encoder.predict(pairs))
+        scores = list(encoder.predict(list(pairs)))
         ordered = sorted(
             zip(scores, hits, strict=True),
             key=lambda pair: pair[0],

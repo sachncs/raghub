@@ -8,7 +8,7 @@ implementations include :class:`raghub.documents.MarkerConverter`
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from raghub.models import KnowledgeBundle
 
@@ -28,7 +28,7 @@ class DocumentConverter(Protocol):
         file_bytes: bytes,
         mime_type: str = "",
         language: str = "",
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> KnowledgeBundle:
         """Convert ``file_bytes`` into a :class:`KnowledgeBundle`.
 

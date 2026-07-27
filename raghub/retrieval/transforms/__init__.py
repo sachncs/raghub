@@ -7,6 +7,17 @@ Re-exports the public surface so callers can do
 Concrete transforms (``HydeTransformer`` etc.) live in their own modules.
 """
 
+__all__ = [
+    "ComposeTransformer",
+    "DecomposeTransformer",
+    "HydeTransformer",
+    "MultiQueryTransformer",
+    "QueryTransformer",
+    "QueryVariant",
+    "QueryVariantKind",
+    "StepBackTransformer",
+]
+
 from raghub.retrieval.transforms.base import (
     QueryTransformer,
     QueryVariant,

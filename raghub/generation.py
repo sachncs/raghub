@@ -21,7 +21,7 @@ import asyncio
 import inspect
 import os
 from collections.abc import AsyncIterator, Sequence
-from typing import TypeVar, cast
+from typing import Callable, TypeVar, cast
 
 import instructor
 from instructor.core.client import AsyncInstructor, Instructor
@@ -246,24 +246,18 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
     def sync_instructor_client(self) -> Instructor:
         """Lazy sync client."""
         if self.client is None:
-            self.client = cast(
-                Instructor,
-                instructor.from_provider(
-                    f"litellm/{self.model}",
-                    async_client=False,
-                ),
+            self.client = instructor.from_provider(
+                f"litellm/{self.model}",
+                async_client=False,
             )
         return self.client
 
     def async_instructor_client(self) -> AsyncInstructor:
         """Lazy async client."""
         if self.client_async is None:
-            self.client_async = cast(
-                AsyncInstructor,
-                instructor.from_provider(
-                    f"litellm/{self.model}",
-                    async_client=True,
-                ),
+            self.client_async = instructor.from_provider(
+                f"litellm/{self.model}",
+                async_client=True,
             )
         return self.client_async
 
@@ -296,13 +290,14 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
             },
         ]
         if self.async_client:
-            client = self.async_instructor_client()
-            return await client.create(
+            client: AsyncInstructor | Instructor = self.async_instructor_client()
+            return await cast(AsyncInstructor, client).create(
                 messages=messages,
                 response_model=response_model,
             )
         client = self.sync_instructor_client()
-        return client.create(
+        return await asyncio.to_thread(
+            cast(Callable[..., T], client.create),
             messages=messages,
             response_model=response_model,
         )

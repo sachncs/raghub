@@ -23,7 +23,7 @@ import re
 import time
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
@@ -559,25 +559,25 @@ class Agent:
                         f"agent LLM call failed: {exc}"
                     ) from exc
 
-            turn = parse_turn(raw or "")
-            if isinstance(turn, PlannerAction):
+            parsed = parse_turn(raw or "")
+            if isinstance(parsed, PlannerAction):
                 yield PlannerEvent(
                     kind="thought",
                     step=step,
-                    payload={"thought": turn.thought},
+                    payload={"thought": parsed.thought},
                 )
-                if turn.name not in enabled:
+                if parsed.name not in enabled:
                     yield PlannerEvent(
                         kind="thought",
                         step=step,
                         payload={
-                            "error": f"unknown or disabled tool: {turn.name!r}",
+                            "error": f"unknown or disabled tool: {parsed.name!r}",
                         },
                     )
                     messages.append(
                         {
                             "role": "user",
-                            "content": f"Tool {turn.name!r} is not available. Try one of: {sorted(enabled)}.",
+                            "content": f"Tool {parsed.name!r} is not available. Try one of: {sorted(enabled)}.",
                         }
                     )
                     continue
@@ -585,14 +585,14 @@ class Agent:
                 yield PlannerEvent(
                     kind="tool_call",
                     step=step,
-                    payload={"name": turn.name, "args": turn.args},
+                    payload={"name": parsed.name, "args": parsed.args},
                 )
-                observation = await self.run_tool(turn, enabled, ctx)
+                observation = await self.run_tool(parsed, enabled, ctx)
                 yield PlannerEvent(
                     kind="tool_result",
                     step=step,
                     payload={
-                        "name": turn.name,
+                        "name": parsed.name,
                         "ok": observation.ok,
                         "content": observation.content,
                         "error": observation.error,
@@ -603,26 +603,26 @@ class Agent:
                     {
                         "role": "user",
                         "content": OBSERVATION_PROMPT.format(
-                            name=turn.name, observation=observation.content
+                            name=parsed.name, observation=observation.content
                         ),
                     }
                 )
                 continue
-            if isinstance(turn, PlannerFinal):
+            if isinstance(parsed, PlannerFinal):
                 yield PlannerEvent(
                     kind="thought",
                     step=step,
-                    payload={"thought": turn.thought},
+                    payload={"thought": parsed.thought},
                 )
                 yield PlannerEvent(
                     kind="answer_chunk",
                     step=step,
-                    payload={"text": turn.answer},
+                    payload={"text": parsed.answer},
                 )
                 yield PlannerEvent(
                     kind="final",
                     step=step,
-                    payload={"answer": turn.answer},
+                    payload={"answer": parsed.answer},
                 )
                 return
             yield PlannerEvent(
@@ -630,7 +630,7 @@ class Agent:
                 step=step,
                 payload={
                     "error": "parse_failed",
-                    "raw": getattr(turn, "raw", ""),
+                    "raw": getattr(parsed, "raw", ""),
                 },
             )
             messages.append(
@@ -684,7 +684,7 @@ class Agent:
         tool = enabled[action.name]
         with self.telemetry.span(f"agent.tool:{action.name}"):
             try:
-                return await tool.run(action.args, ctx)
+                return cast(ToolResult, await tool.run(action.args, ctx))
             except Exception as exc:
                 return ToolResult(
                     ok=False,

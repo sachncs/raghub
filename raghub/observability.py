@@ -43,12 +43,12 @@ import sys
 import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from typing import Any, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 from loguru import logger as loguru_logger
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SpanExportResult
-from prometheus_client import REGISTRY, Counter, Histogram
+from prometheus_client import REGISTRY, CollectorRegistry, Counter, Histogram
 from prometheus_client.openmetrics.exposition import generate_latest
 
 from raghub.exceptions import ConfigurationError
@@ -83,7 +83,7 @@ SECRET_KEY_RE = re.compile(
     r"(?i)(password|passwd|secret|api_key|apikey|access_token|refresh_token|jwt|authorization)"
 )
 
-known_collectors: dict[str, Counter | Histogram] = {}
+known_collectors: dict[str, object] = {}
 
 
 class MetricsRegistry:
@@ -181,7 +181,7 @@ class PrometheusMetrics:
 
         def safe_histogram(name: str, desc: str, buckets: list[float]) -> Histogram:
             existing = known_collectors.get(name)
-            if existing is not None and collector_registered(name):
+            if existing is not None and isinstance(existing, Histogram) and collector_registered(name):
                 return existing
             collector = Histogram(name, desc, buckets=buckets, registry=REGISTRY)
             known_collectors[name] = collector
@@ -189,7 +189,7 @@ class PrometheusMetrics:
 
         def safe_counter(name: str, desc: str, labels: list[str] | None = None) -> Counter:
             existing = known_collectors.get(name)
-            if existing is not None and collector_registered(name):
+            if existing is not None and isinstance(existing, Counter) and collector_registered(name):
                 return existing
             collector = Counter(name, desc, labels or [], registry=REGISTRY)
             known_collectors[name] = collector
@@ -322,8 +322,9 @@ class PrometheusMetrics:
             @app.get("/metrics")
             async def metrics() -> Response:
                 """Expose Prometheus metrics in OpenMetrics text format."""
+                payload = cast(Callable[[CollectorRegistry], bytes], generate_latest)(REGISTRY)
                 return Response(
-                    content=generate_latest(REGISTRY),
+                    content=payload,
                     media_type="text/plain",
                 )
 

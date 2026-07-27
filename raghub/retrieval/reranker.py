@@ -7,6 +7,8 @@ from collections.abc import Sequence
 from raghub.interfaces.retrieval import Reranker
 from raghub.models import RetrievalHit
 
+__all__ = ["IdentityReranker", "Reranker"]
+
 
 class IdentityReranker(Reranker):
     """No-op reranker."""

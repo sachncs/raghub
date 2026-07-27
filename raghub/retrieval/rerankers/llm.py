@@ -218,10 +218,10 @@ class LLMReranker:
         ordered: list[RetrievalHit] = []
         seen: set[int] = set()
         for item in parsed:
-            idx = item.get("index")
-            if not isinstance(idx, int) or idx < 0 or idx >= len(hits) or idx in seen:
+            index_value: Any = item.get("index")
+            if not isinstance(index_value, int) or index_value < 0 or index_value >= len(hits) or index_value in seen:
                 continue
-            ordered.append(hits[idx])
+            ordered.append(hits[index_value])
             seen.add(idx)
         # Any hit the model forgot → append in input order.
         for idx, hit in enumerate(hits):

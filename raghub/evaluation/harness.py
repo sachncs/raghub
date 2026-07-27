@@ -31,7 +31,7 @@ def score_string(predicted: str, expected: str) -> float:
 
 async def run_evaluator(
     evaluator: Evaluator,
-    examples: Sequence[dict],
+    examples: Sequence[dict[str, Any]],
     response_factory: Any,
 ) -> list[EvaluationResult]:
     """Run ``evaluator`` on ``examples`` with a shared error envelope.

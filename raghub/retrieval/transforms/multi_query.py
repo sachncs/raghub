@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+from typing import Any
 from collections.abc import Sequence
 
 from raghub.exceptions import TransformError
@@ -70,7 +71,7 @@ class MultiQueryTransformer:
 
     name = "multi_query"
 
-    def __init__(self, llm, *, n: int = 4) -> None:
+    def __init__(self, llm: Any, *, n: int = 4) -> None:
         """Initialise the transformer.
 
         Args:
