@@ -59,7 +59,7 @@ class HybridSearchTool(BaseTool):
             top_k: Maximum hits per channel.
             rrf_k: RRF damping constant.
         """
-        text = (query or context.question or "").strip()
+        text = (str(kwargs.get("query", "")) or context.question or "").strip()
         if not text:
             return ToolResult(ok=False, error="hybrid_search: empty query")
         dense = self.pipeline.retrieve(

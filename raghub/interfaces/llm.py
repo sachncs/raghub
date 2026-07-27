@@ -8,7 +8,7 @@ in :mod:`raghub.llm`.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Any, Protocol
 
 from raghub.models import ConversationTurn
 

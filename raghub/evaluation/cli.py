@@ -7,6 +7,7 @@ a sub-typer (``raghub eval financebench``).
 from __future__ import annotations
 
 import statistics
+from typing import Any
 
 import typer
 
@@ -25,7 +26,7 @@ def financebench(
 
     async def runner() -> None:
         evaluator = FinanceBenchEvaluator()
-        examples_list: list = []
+        examples_list: list[dict[str, Any]] = []
         if examples:
             rows = await asyncio.to_thread(evaluator.ensure_examples)
             examples_list.extend(rows[:examples])

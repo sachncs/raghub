@@ -19,7 +19,7 @@ from collections import defaultdict, deque
 from collections.abc import Iterable
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from raghub.embeddings import BaseEmbeddingProvider
 from raghub.exceptions import KnowledgeError
@@ -342,7 +342,7 @@ class RaptorIndex(KnowledgeIndex):
     def __init__(
         self,
         *,
-        llm: BaseEmbeddingProvider | BaseLLMProvider | None = None,
+        llm: BaseLLMProvider | None = None,
         embedder: BaseEmbeddingProvider | None = None,
         depth: int = 2,
         cluster_size: int = 5,
@@ -507,11 +507,14 @@ async def summarise_async(
     if not joined:
         return ""
     joined = joined[:max_chars]
-    return await llm.async_generate(
-        system_prompt="You summarise passages.",
-        conversation=[],
-        context=[],
-        question=SUMMARY_PROMPT.format(passages=joined),
+    return cast(
+        str,
+        await llm.async_generate(
+            system_prompt="You summarise passages.",
+            conversation=[],
+            context=[],
+            question=SUMMARY_PROMPT.format(passages=joined),
+        ),
     )
 
 
@@ -647,7 +650,7 @@ class GraphRagIndex(KnowledgeIndex):
     def __init__(
         self,
         *,
-        llm: BaseEmbeddingProvider | BaseLLMProvider | None = None,
+        llm: BaseLLMProvider | None = None,
         embedder: BaseEmbeddingProvider | None = None,
         hop_limit: int = 2,
     ) -> None:
@@ -903,6 +906,8 @@ class GraphRagIndex(KnowledgeIndex):
 
     async def drive_summarisation(self) -> None:
         """Async body of :meth:`summarise_communities`."""
+        if self.llm is None:
+            return
         for idx, community in enumerate(self.communities):
             entities = sorted(community)
             relations: list[str] = []

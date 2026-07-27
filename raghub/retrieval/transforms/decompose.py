@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Sequence
+from typing import Any
 
 from raghub.exceptions import TransformError
 from raghub.models import ConversationTurn
@@ -72,7 +73,7 @@ class DecomposeTransformer:
 
     name = "decompose"
 
-    def __init__(self, llm) -> None:
+    def __init__(self, llm: Any) -> None:
         """Initialise the transformer.
 
         Args:

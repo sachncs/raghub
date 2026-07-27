@@ -706,6 +706,7 @@ class QueryResponse(BaseModel):
     planner_trace: list[dict[str, Any]] | None = None
     tools_invoked: list[str] = Field(default_factory=list)
     transforms_applied: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class BatchIngestItem(BaseModel):

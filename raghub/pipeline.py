@@ -34,7 +34,7 @@ from collections.abc import AsyncIterator, Sequence
 from contextlib import AbstractContextManager
 from hashlib import sha256
 from types import TracebackType
-from typing import Any
+from typing import Any, cast
 
 from tqdm import tqdm
 
@@ -58,6 +58,7 @@ from raghub.llm import BaseLLMProvider
 from raghub.models import (
     Chunk,
     ChunkRecord,
+    Citation,
     Classification,
     ConversationTurn,
     KnowledgeBundle,
@@ -102,7 +103,7 @@ class DurationTimer(AbstractContextManager["DurationTimer"]):
 # ---------------------------------------------------------------------------
 
 
-def canonical_filters(filters: dict | str | None) -> tuple:
+def canonical_filters(filters: dict[str, Any] | str | None) -> tuple[tuple[str, Any], ...]:
     """Flatten ``filters`` into a hashable tuple."""
     if filters is None:
         return ()
@@ -121,20 +122,20 @@ class QueryCache:
 
     def __init__(self, ttl_seconds: int = 300) -> None:
         self.ttl = ttl_seconds
-        self.store: dict[tuple, tuple[float, PipelineResult]] = {}
+        self.store: dict[tuple[Any, ...], tuple[float, PipelineResult]] = {}
 
     def make_key(
         self,
         question: str,
         user_id: str | None,
-        filters: dict | str | None,
+        filters: dict[str, Any] | str | None,
         *,
         top_k: int = 5,
         response_model: Any | None = None,
         session_id: str | None = None,
         history: Sequence[Any] = (),
         scope: Any = None,
-    ) -> tuple:
+    ) -> tuple[Any, ...]:
         """Build the cache key for the given query context."""
         model_key = ""
         if response_model is not None:
@@ -173,7 +174,7 @@ class QueryCache:
         self,
         question: str,
         user_id: str | None = None,
-        filters: dict | str | None = None,
+        filters: dict[str, Any] | str | None = None,
         *,
         top_k: int = 5,
         response_model: Any | None = None,
@@ -205,7 +206,7 @@ class QueryCache:
         self,
         question: str,
         user_id: str | None,
-        filters: dict | str | None,
+        filters: dict[str, Any] | str | None,
         result: PipelineResult,
         *,
         top_k: int = 5,
@@ -261,11 +262,12 @@ class ConversationRouter:
         """Store the backing conversation store reference."""
         self.store = store
 
-    def load_history(self, session_id: str | None, limit: int = 20) -> list[Any]:
+    def load_history(self, session_id: str | None, limit: int = 20) -> list[ConversationTurn]:
+
         """Return the recent turns for ``session_id``."""
         if not session_id:
             return []
-        return self.store.load(session_id, limit=limit)
+        return cast(list[ConversationTurn], self.store.load(session_id, limit=limit))
 
     def record_turn(
         self,
@@ -312,7 +314,7 @@ class PipelineResultBuilder:
             pipeline_name=self.pipeline_name,
             success=False,
             error=error,
-            outputs=outputs,
+            outputs=outputs or {},
         )
 
 
@@ -494,7 +496,7 @@ class IngestPipeline(Pipeline):
 
                 with self.telemetry.span("ingest.chunk"):
                     raw_chunks = self.chunker.chunk(bundle)
-                    chunks: list = []
+                    chunks: list[Chunk] = []
                     for chunk in tqdm(
                         raw_chunks,
                         desc="Chunking",
@@ -562,7 +564,7 @@ class QueryPipeline(Pipeline):
         transformer: Any | None = None,
         retrieval_pipeline: Any | None = None,
         long_context_pass: Any | None = None,
-        agentic_pipeline: Any | None = None,
+        agentic_pipeline: AgenticQueryPipeline | None = None,
     ) -> None:
         """Initialise the query pipeline."""
         self.embedder = embedder
@@ -580,7 +582,7 @@ class QueryPipeline(Pipeline):
         self.long_context_pass = long_context_pass
         self.agentic_pipeline = agentic_pipeline
 
-    def metadata_filter_for_user(self, user: Any) -> dict | str:
+    def metadata_filter_for_user(self, user: Any) -> dict[str, Any] | str:
         """Derive a metadata filter for the vector store from a user."""
         if user is None:
             return ""
@@ -606,14 +608,14 @@ class QueryPipeline(Pipeline):
         """Body of :meth:`run` separated so the timing ``finally`` is obvious."""
         question: str = inputs["question"]
         top_k: int = int(inputs.get("top_k", 5))
-        user_filter: dict | str = inputs.get("metadata_filter") or {}
+        user_filter: dict[str, Any] | str = inputs.get("metadata_filter") or {}
         user: Any | None = inputs.get("user")
         session_id: str | None = inputs.get("session_id")
         response_model = inputs.get("response_model")
         record: bool = bool(inputs.get("record", True))
         tools_enabled: set[str] | None = inputs.get("tools_enabled")
 
-        history: list = []
+        history: list[ConversationTurn] = []
         if session_id:
             history = self.conversation_store.load(session_id, limit=20)
 
@@ -721,7 +723,7 @@ class QueryPipeline(Pipeline):
                     )
 
             answer: Any
-            citations: list = []
+            citations: list[Citation] = []
             with self.telemetry.span("query.generate"):
                 answer, citations = await self.generator.generate(
                     question=question,
@@ -795,7 +797,7 @@ class QueryPipeline(Pipeline):
         """Stream the answer token-by-token."""
         question: str = inputs["question"]
         top_k: int = int(inputs.get("top_k", 5))
-        user_filter: dict | str = inputs.get("metadata_filter") or {}
+        user_filter: dict[str, Any] | str = inputs.get("metadata_filter") or {}
         user: Any | None = inputs.get("user")
         session_id: str | None = inputs.get("session_id")
         rbac_filter = self.metadata_filter_for_user(user)
@@ -835,7 +837,7 @@ class QueryPipeline(Pipeline):
                     hits = await self.long_context_pass.rerank(
                         question=question, hits=hits
                     )
-            history: list = []
+            history: list[ConversationTurn] = []
             if session_id:
                 history = self.conversation_store.load(session_id, limit=20)
             astream = getattr(self.generator, "astream", None)
@@ -962,7 +964,7 @@ class AgenticQueryPipeline:
                     conversation=history,
                 )
                 if not generator_citations:
-                    generator_citations = citations
+                    generator_citations = cast(list[Citation], citations)
                 answer = agent_answer
 
             return PipelineResult(

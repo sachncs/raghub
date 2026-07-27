@@ -461,7 +461,7 @@ def build_chunk_records(
     records: list[ChunkRecord] = []
     parsed_sections = extract_text_from_content(file_bytes, file_name, mime_type)
 
-    metadata: dict = {}
+    metadata: dict[str, Any] = {}
     if mime_type == "application/pdf":
         metadata.update(extract_pdf_metadata(file_bytes))
 
@@ -676,7 +676,7 @@ class PlainTextConverter(DocumentConverter):
         file_bytes: bytes,
         mime_type: str = "",
         language: str = "",
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> KnowledgeBundle:
         """Convert plain text to a single-section bundle.
 
@@ -726,7 +726,7 @@ class MarkerConverter(DocumentConverter):
         file_bytes: bytes,
         mime_type: str = "",
         language: str = "",
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> KnowledgeBundle:
         """Convert source bytes into a canonical knowledge bundle."""
         if not file_bytes:

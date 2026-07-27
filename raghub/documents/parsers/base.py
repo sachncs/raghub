@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class ParsedSection:
     section_index: int
     source_location: str
     text: str
-    metadata: dict
+    metadata: dict[str, Any]
 
 
 class FileParser(ABC):

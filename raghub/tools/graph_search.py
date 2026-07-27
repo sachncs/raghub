@@ -60,6 +60,8 @@ class GraphSearchTool(BaseTool):
         """
         if self.index is None:
             return ToolResult(content="(no graph index configured)")
+        mode = str(kwargs.get("mode", "local"))
+        query = str(kwargs.get("query", ""))
         if mode == "local":
             fn = getattr(self.index, "search_local", None)
         elif mode == "global":

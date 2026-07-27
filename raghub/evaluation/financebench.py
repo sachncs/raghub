@@ -47,7 +47,7 @@ CACHE_DIR = Path(
 )
 
 
-def load_jsonl_file(path: Path) -> list[dict]:
+def load_jsonl_file(path: Path) -> list[dict[str, Any]]:
     """Load FinanceBench examples from a local JSONL/JSON file.
 
     Args:
@@ -68,7 +68,7 @@ def load_jsonl_file(path: Path) -> list[dict]:
     return [raw] if isinstance(raw, dict) else raw
 
 
-def load_huggingface_dataset(dataset_name: str, split: str) -> list[dict]:
+def load_huggingface_dataset(dataset_name: str, split: str) -> list[dict[str, Any]]:
     """Load FinanceBench from the HuggingFace Hub.
 
     Args:
@@ -122,9 +122,9 @@ class FinanceBenchEvaluator(Evaluator):
         self.dataset_name = dataset_name
         self.split = split
         self.tolerance = tolerance
-        self.examples: list[dict] | None = None
+        self.examples: list[dict[str, Any]] | None = None
 
-    def ensure_loaded_examples(self) -> list[dict]:
+    def ensure_loaded_examples(self) -> list[dict[str, Any]]:
         """Load the FinanceBench dataset from local cache or HuggingFace.
 
         The dataset is cached in ``~/.cache/raghub/financebench/``
@@ -152,7 +152,7 @@ class FinanceBenchEvaluator(Evaluator):
             self.examples = load_jsonl_file(cached)
         return self.examples
 
-    def ensure_examples(self) -> list[dict]:
+    def ensure_examples(self) -> list[dict[str, Any]]:
         """Backwards-compatible alias for :meth:`ensure_loaded_examples`.
 
         Some legacy call sites (including the ``raghub eval`` CLI)
@@ -168,7 +168,7 @@ class FinanceBenchEvaluator(Evaluator):
 
     async def evaluate(
         self,
-        examples: Sequence[dict] | None = None,
+        examples: Sequence[dict[str, Any]] | None = None,
         *,
         response_factory: Any,
     ) -> list[EvaluationResult]:

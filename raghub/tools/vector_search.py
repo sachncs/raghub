@@ -70,21 +70,12 @@ class VectorSearchTool(BaseTool):
     ) -> ToolResult:
         """Run the dense vector search and return the joined hit list.
 
-        See :meth:`BaseTool.execute` for the argument contract.
-
-        Args:
-            context: Per-invocation context. ``context.user`` drives RBAC.
-            query: The query string.
-            top_k: Maximum hits.
-        """
-        """Run the search.
-
         Args:
             context: Per-invocation context. ``context.user`` drives RBAC.
             query: The search query. Defaults to ``context.question`` when ``None``.
             top_k: Maximum hits.
         """
-        text = (query or context.question or "").strip()
+        text = (str(kwargs.get("query", "")) or context.question or "").strip()
         if not text:
             return ToolResult(ok=False, error="vector_search: empty query")
         user = as_admin_user(context.user)

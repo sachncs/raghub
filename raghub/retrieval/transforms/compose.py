@@ -56,7 +56,7 @@ class ComposeTransformer:
             QueryVariant(text=question, kind="original", weight=ORIGINAL_WEIGHT)
         ]
         for t in self.transformers:
-            produced = await t.transform(question=question, history=history)
+            produced = await t.transform(question=question, history=list(history))
             variants.extend(produced)
         return variants
 

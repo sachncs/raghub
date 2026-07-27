@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import yaml
 from pydantic import BaseModel, Field, SecretStr
@@ -318,8 +318,11 @@ def csv_to_transforms(raw: str, default: list[str]) -> list[TransformName]:
     typo doesn't prevent startup.
     """
     if not raw:
-        return [name for name in default if name in TRANSFORM_NAMES]
-    out: list[str] = []
+        return cast(
+            list[TransformName],
+            [name for name in default if name in TRANSFORM_NAMES],
+        )
+    out: list[TransformName] = []
     for chunk in raw.split(","):
         name = chunk.strip().lower()
         if name and name in TRANSFORM_NAMES and name not in out:
@@ -459,9 +462,12 @@ def load_from_env(profile: str | None = None) -> "Settings":
                     str(payload.get("web_search", {}).get("timeout_seconds", 10.0)),
                 )
             ),
-            safe_search=os.getenv(
-                "RAG_WEB_SAFE_SEARCH",
-                payload.get("web_search", {}).get("safe_search", "moderate"),
+            safe_search=cast(
+                "Literal['strict', 'moderate', 'off']",
+                os.getenv(
+                    "RAG_WEB_SAFE_SEARCH",
+                    payload.get("web_search", {}).get("safe_search", "moderate"),
+                ),
             ),
         ),
         "graph_search_enabled": env_bool(
@@ -471,9 +477,12 @@ def load_from_env(profile: str | None = None) -> "Settings":
             "RAG_SUMMARY_ENABLED", payload.get("summary_search_enabled", False)
         ),
         "reranker": RerankerConfig(
-            provider=os.getenv(
-                "RAG_RERANKER_PROVIDER",
-                payload.get("reranker", {}).get("provider", "none"),
+            provider=cast(
+                "Literal['none', 'cohere', 'bge', 'llm', 'cascade']",
+                os.getenv(
+                    "RAG_RERANKER_PROVIDER",
+                    payload.get("reranker", {}).get("provider", "none"),
+                ),
             ),
             top_k=int(
                 os.getenv("RAG_RERANKER_TOP_K", str(payload.get("reranker", {}).get("top_k", 20)))
@@ -498,9 +507,12 @@ def load_from_env(profile: str | None = None) -> "Settings":
             ),
         ),
         "hybrid": HybridConfig(
-            fusion=os.getenv(
-                "RAG_HYBRID_FUSION",
-                payload.get("hybrid", {}).get("fusion", "rrf"),
+            fusion=cast(
+                "Literal['rrf', 'linear']",
+                os.getenv(
+                    "RAG_HYBRID_FUSION",
+                    payload.get("hybrid", {}).get("fusion", "rrf"),
+                ),
             ),
             rrf_k=int(
                 os.getenv("RAG_HYBRID_RRF_K", str(payload.get("hybrid", {}).get("rrf_k", 60)))

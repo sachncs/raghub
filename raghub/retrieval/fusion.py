@@ -58,7 +58,7 @@ class RankFusion:
                 records[key] | {"score": score}
                 for key, score in sorted(scores.items(), key=lambda x: x[1], reverse=True)
             ]
-        scores: dict[str, float] = {}
+        linear_scores: dict[str, float] = {}
         records_linear: dict[str, dict[str, Any]] = {}
         for ranking in lists:
             maximum = max((float(item.get("score", 0)) for item in ranking), default=0.0) or 1.0
@@ -68,11 +68,11 @@ class RankFusion:
                     raise ValueError(
                         f"chunk_id must be str, got {type(key).__name__}"
                     )
-                scores[key] = scores.get(key, 0.0) + float(item.get("score", 0)) / maximum
+                linear_scores[key] = linear_scores.get(key, 0.0) + float(item.get("score", 0)) / maximum
                 records_linear.setdefault(key, item)
         return [
             records_linear[key] | {"score": score}
-            for key, score in sorted(scores.items(), key=lambda x: x[1], reverse=True)
+            for key, score in sorted(linear_scores.items(), key=lambda x: x[1], reverse=True)
         ]
 
 

@@ -56,7 +56,7 @@ class KeywordSearchTool(BaseTool):
             query: The query string.
             top_k: Maximum number of hits to return.
         """
-        text = (query or context.question or "").strip()
+        text = (str(kwargs.get("query", "")) or context.question or "").strip()
         if not text:
             return ToolResult(ok=False, error="keyword_search: empty query")
         keyword_search = getattr(self.vector_store, "keyword_search", None)

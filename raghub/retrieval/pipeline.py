@@ -34,6 +34,7 @@ from raghub.core import allowed_company_filter
 from raghub.embeddings import BaseEmbeddingProvider
 from raghub.interfaces.vectorstore import VectorStore
 from raghub.models import ChunkRecord, RetrievalHit, UserPrincipal
+from raghub.interfaces.retrieval import Reranker
 from raghub.retrieval.fusion import rrf
 from raghub.retrieval.transforms.base import QueryVariant
 
@@ -321,7 +322,7 @@ class RetrievalPipeline:
         if (
             len(variants) == 1
             and variants[0].kind == "original"
-            and getattr(variants[0], "text", "")
+            and getattr(variants[0], "text", "") != ""
         ):
             return self.retrieve(user=user, question=variants[0].text, top_k=top_k)
 

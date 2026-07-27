@@ -8,6 +8,7 @@ answer from the model is enough.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from raghub.exceptions import TransformError
 from raghub.models import ConversationTurn
@@ -37,7 +38,7 @@ class StepBackTransformer:
 
     name = "step_back"
 
-    def __init__(self, llm) -> None:
+    def __init__(self, llm: Any) -> None:
         """Initialise the transformer.
 
         Args:

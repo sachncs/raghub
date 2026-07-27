@@ -96,7 +96,7 @@ import os
 from typing import Any
 
 from raghub.documents import PlainTextConverter
-from raghub.embeddings import HashingEmbeddingProvider
+from raghub.embeddings import BaseEmbeddingProvider, HashingEmbeddingProvider
 from raghub.exceptions import ConfigurationError
 from raghub.interfaces.chunker import Chunker
 from raghub.interfaces.converter import DocumentConverter
@@ -108,6 +108,7 @@ from raghub.retrieval.transforms import (
     DecomposeTransformer,
     HydeTransformer,
     MultiQueryTransformer,
+    QueryTransformer,
     StepBackTransformer,
 )
 from raghub.vectorstore import InMemoryVectorStore
@@ -165,7 +166,7 @@ def default_chunker(
     )
 
 
-def default_embedder(embedding_model: str, embedding_dim: int) -> EmbeddingProvider:
+def default_embedder(embedding_model: str, embedding_dim: int) -> BaseEmbeddingProvider:
     """Return the default embedding provider.
 
     Args:
@@ -287,7 +288,7 @@ def default_transforms(
         Unknown names are dropped silently.
     """
     enabled = enabled or []
-    transformers = []
+    transformers: list[QueryTransformer] = []
     for name in enabled:
         if name == "hyde":
             transformers.append(HydeTransformer(llm, n=hyde_n))
@@ -911,7 +912,7 @@ class RAG:
         get_overrides = getattr(self.conversation_store, "get_overrides", None)
         if not callable(get_overrides):
             return None
-        return get_overrides(scoped_session_id)
+        return cast(dict[str, Any] | None, get_overrides(scoped_session_id))
 
     async def aquery(
         self,
@@ -1167,8 +1168,8 @@ class RAG:
         self,
         benchmark: str = "financebench",
         *,
-        response_factory: Callable[[dict], Any] | None = None,
-        examples: Sequence[dict] | None = None,
+        response_factory: Callable[[dict[str, Any]], Any] | None = None,
+        examples: Sequence[dict[str, Any]] | None = None,
     ) -> list[EvaluationResult]:
         """Run a benchmark evaluation."""
         if benchmark != "financebench":
@@ -1177,7 +1178,7 @@ class RAG:
         evaluator = FinanceBenchEvaluator()
         factory = response_factory
 
-        async def coerce_answer(example: dict) -> Any:
+        async def coerce_answer(example: dict[str, Any]) -> Any:
             """Coerce the result of ``response_factory`` to a coroutine.
 
             Args:
@@ -1376,7 +1377,7 @@ class RAG:
         *,
         user: Any | None = None,
         limit: int = 50,
-    ) -> list:
+    ) -> list[ConversationTurn]:
         """Return the most recent conversation turns for a session.
 
         Args:
