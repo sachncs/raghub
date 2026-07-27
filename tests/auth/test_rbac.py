@@ -207,3 +207,64 @@ def test_service_accepts_logger() -> None:
     logger = _RecordingLogger()
     service = RBACAuthorizationService(store, logger=logger)
     assert service.logger is logger
+
+
+# ---------------------------------------------------------------------------
+# Cross-cutting RBAC invariants
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_admin_can_access_unrelated_company() -> None:
+    """An admin user with one allow-list entry can still access any company.
+
+    This is the documented 'admin bypasses tenant scope' contract."""
+    service, _ = _service()
+    user = UserPrincipal(
+        email="a@b.com",
+        allowed_companies=["my-own-company"],
+        is_admin=True,
+    )
+    for company in ["anywhere", "other-tenant", "totally-different"]:
+        assert await service.check_access(user, company) is True
+
+
+@pytest.mark.asyncio
+async def test_non_admin_cannot_access_unrelated_company() -> None:
+    """A non-admin with one allow-list entry is denied for every other company."""
+    service, _ = _service()
+    user = UserPrincipal(
+        email="u@b.com",
+        allowed_companies=["acme"],
+        is_admin=False,
+    )
+    for company in ["globex", "initech", "totally-different"]:
+        assert await service.check_access(user, company) is False
+
+
+@pytest.mark.asyncio
+async def test_company_match_is_exact() -> None:
+    """Substring matches must NOT be permitted — 'acme' must not
+    match 'acme-eu' or 'bigacme'."""
+    service, _ = _service()
+    user = UserPrincipal(
+        email="u@b.com", allowed_companies=["acme"], is_admin=False
+    )
+    assert await service.check_access(user, "acme") is True
+    assert await service.check_access(user, "acme-eu") is False
+    assert await service.check_access(user, "bigacme") is False
+
+
+@pytest.mark.asyncio
+async def test_check_access_is_deterministic() -> None:
+    """Repeated calls with the same input produce the same result.
+
+    A regression that introduced randomness in the auth path would
+    be a real RBAC bug — users must be deterministically authorised."""
+    service, _ = _service()
+    user = UserPrincipal(
+        email="u@b.com", allowed_companies=["acme"], is_admin=False
+    )
+    for _ in range(10):
+        assert await service.check_access(user, "acme") is True
+        assert await service.check_access(user, "globex") is False
