@@ -186,7 +186,7 @@ def loads(payload: str) -> KnowledgeBundle:
 # ---------------------------------------------------------------------------
 
 
-class InMemoryKnowledgeRepository(KnowledgeRepository):
+class MemoryRepo(KnowledgeRepository):
     """Threadsafe-ish :class:`KnowledgeRepository` for tests and dev."""
 
     def __init__(self) -> None:

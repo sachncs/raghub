@@ -84,7 +84,7 @@ from raghub.helper.retrieval import (
 from raghub.ingestion import ResumableBackgroundIngestionService, build_chonkie_chunker
 from raghub.knowledge import (
     GraphRagIndex,
-    InMemoryKnowledgeRepository,
+    MemoryRepo,
     RaptorIndex,
     SourceManifest,
     sha256_bytes,
@@ -103,7 +103,7 @@ from raghub.observability import DEFAULT_METRICS_REGISTRY, PrometheusMetrics, Re
 from raghub.pipeline import AgenticQueryPipeline, IngestPipeline, QueryCache, QueryPipeline
 from raghub.plugins import PluginRegistry
 from raghub.utils import maybe_await_sync as maybe_await
-from raghub.vectorstore import InMemoryVectorStore
+from raghub.vectorstore import MemoryStore
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -221,12 +221,12 @@ def default_vector_store(embedding_dim: int) -> Any:
         embedding_dim: Expected output dimensionality of the embedder.
 
     Returns:
-        :class:`InMemoryVectorStore` for the in-process test/dev path.
+        :class:`MemoryStore` for the in-process test/dev path.
         The full pipeline factory :func:`raghub.vectorstore.build_vector_store`
         is used by the rest of the framework and points at a SQLite-backed
         store (sqlite-vector when installed, NumPy fallback otherwise).
     """
-    return InMemoryVectorStore(embedding_dim=embedding_dim)
+    return MemoryStore(embedding_dim=embedding_dim)
 
 
 def default_structured() -> Any:
@@ -414,13 +414,13 @@ class RAG:
             llm_timeout_seconds: Maximum completion time for the default generator.
             vector_store: Vector store. Defaults to
                 :class:`QdrantVectorStore` (with
-                :class:`InMemoryVectorStore` fallback).
+                :class:`MemoryStore` fallback).
             generator: Answer generator. Defaults to
                 :class:`DefaultGenerator` wrapping ``llm``.
             reranker: Reranker. Defaults to
                 :class:`IdentityReranker`.
             knowledge_repo: Knowledge repository. Defaults to
-                :class:`InMemoryKnowledgeRepository`.
+                :class:`MemoryRepo`.
             structured: Structured-output provider. Defaults to
                 :class:`InstructorStructuredOutputProvider`; falls
                 back to ``None`` when Instructor is not installed.
@@ -445,7 +445,7 @@ class RAG:
         self.settings = settings or Settings.load()
         self.registry = registry or PluginRegistry()
 
-        self.knowledge_repo = knowledge_repo or InMemoryKnowledgeRepository()
+        self.knowledge_repo = knowledge_repo or MemoryRepo()
         self.vector_store = vector_store or default_vector_store(self.settings.embedding_dim)
         self.embedder = embedder or default_embedder(
             self.settings.embedding_model, self.settings.embedding_dim

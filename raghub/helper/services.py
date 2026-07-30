@@ -7,7 +7,7 @@ Consolidates every support file in the old
     Document             - document management (was DocumentService).
     Health               - liveness aggregation (was HealthService).
     Query                - RAG hot path (was QueryService).
-    Synchronous / ThreadPool / InMemoryQueue
+    Synchronous / ThreadPool / MemoryQueue
                           - in-process worker + queue primitives.
     RagContainer         - composition root for every collaborator.
     Facade               - high-level facade aggregating every public action
@@ -38,7 +38,7 @@ from raghub.agent import resolve
 from raghub.config import Settings
 
 if TYPE_CHECKING:
-    from raghub.auth import RBACAuthorizationService, SqliteUserStore
+    from raghub.auth import RBACAuthorizationService, SqliteUsers
 
 from raghub.conversation import ConversationManager
 from raghub.core import can_access_company
@@ -404,7 +404,7 @@ class ThreadPool(BackgroundWorker):
         """Submit ``fn`` to the pool and return its :class:`Future`."""
         return self.executor.submit(fn, *args, **kwargs)
 
-class InMemoryQueue(TaskQueue):
+class MemoryQueue(TaskQueue):
     """In-memory queue shim intended for Celery/RQ migration.
 
     Process-local; does not survive restarts.
@@ -447,7 +447,7 @@ class RagContainer:
     logger: object
     metrics: object
     authorization: RBACAuthorizationService
-    registry: SqliteUserStore
+    registry: SqliteUsers
     conversation: ConversationManager
     embeddings: Embedder
     llm: BaseLLMProvider
@@ -456,7 +456,7 @@ class RagContainer:
     ingestion: DocumentIngestionService
     retrieval: RetrievalPipeline
     image_store: ImageStore
-    user_store: SqliteUserStore
+    user_store: SqliteUsers
     parser_registry: Catalog
     store: Sessions
     uow: UnitOfWork
@@ -478,7 +478,7 @@ def parse_seed_users_json(raw: str) -> Any:
 
     return json_import.loads(raw)
 
-async def seed_demo_users(user_store: SqliteUserStore) -> None:
+async def seed_demo_users(user_store: SqliteUsers) -> None:
     """Seed demo users from ``RAGHUB_USERS`` or the default list."""
     users_env = os.getenv("RAGHUB_USERS", "").strip()
     if users_env:
@@ -528,10 +528,10 @@ async def build_container(settings: Settings) -> RagContainer:
     """
     from contextlib import suppress
 
-    from raghub.auth import RBACAuthorizationService, SqliteUserStore
+    from raghub.auth import RBACAuthorizationService, SqliteUsers
 
     logger = build_logger(settings.log_level)
-    user_store = SqliteUserStore(settings.data_dir / "users.db")
+    user_store = SqliteUsers(settings.data_dir / "users.db")
     await user_store.initialize()
     jwt_secret = settings.jwt_secret.get_secret_value()
     if not jwt_secret:
@@ -934,7 +934,7 @@ __all__ = [
     "Facade",
     "Facade",
     "Health",
-    "InMemoryQueue",
+    "MemoryQueue",
     "Mixin",
     "Preference",
     "Query",

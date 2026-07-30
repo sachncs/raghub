@@ -5,9 +5,9 @@ defined in :mod:`raghub.domain`. The four classes ship in a single
 file because they share the SQLite persistence concern and are
 always wired together by :class:`UnitOfWork`:
 
-* :class:`SqliteChunkRepository` — chunk + embedding persistence
+* :class:`ChunkStore` — chunk + embedding persistence
   through a vector store.
-* :class:`SqliteDocumentRepository` — versioned document rows.
+* :class:`DocStore` — versioned document rows.
 * :class:`SqliteSessionRepository` — session rows.
 * :class:`UnitOfWork` — the transaction coordinator that ties them
   to a single :class:`DatabaseManager`.
@@ -81,7 +81,7 @@ INSERT {mode} INTO documents (
 """
 
 
-class SqliteChunkRepository(ChunkRepository):
+class ChunkStore(ChunkRepository):
     """Store chunk records and embeddings in a vector store."""
 
     def __init__(self, vector_store: Store) -> None:
@@ -125,7 +125,7 @@ class SqliteChunkRepository(ChunkRepository):
         return self.store.health()
 
 
-class SqliteDocumentRepository(DocumentRepository):
+class DocStore(DocumentRepository):
     """Persist versioned documents in SQLite.
 
     Schema:
@@ -500,8 +500,8 @@ class UnitOfWork(BaseUnitOfWork):
         self.initialized = False
         self.db_manager = DatabaseManager(db_path)
 
-        doc_repo = SqliteDocumentRepository(db_path, db_manager=self.db_manager)
-        chunk_repo = SqliteChunkRepository(vector_store)
+        doc_repo = DocStore(db_path, db_manager=self.db_manager)
+        chunk_repo = ChunkStore(vector_store)
         sess_repo = SqliteSessionRepository(db_path, session_timeout, db_manager=self.db_manager)
         super().__init__(
             document_repo=doc_repo,
