@@ -83,10 +83,10 @@ from raghub.helper.retrieval import (
 )
 from raghub.ingestion import ResumableBatch, build_chonkie_chunker
 from raghub.knowledge import (
-    GraphRagIndex,
+    GraphIndex,
+    Manifest,
     MemoryRepo,
-    RaptorIndex,
-    SourceManifest,
+    Raptor,
     sha256_bytes,
 )
 from raghub.models import (
@@ -164,8 +164,8 @@ def default_chunker(
         embedding_model_chunker: Embedding model for semantic/late chunkers.
 
     Returns:
-        :class:`ChonkieChunker` when Chonkie is available;
-        :class:`WordWindowChunker` otherwise.
+        :class:`Chonkie` when Chonkie is available;
+        :class:`WordChunker` otherwise.
     """
     return build_chonkie_chunker(
         chunker_strategy,
@@ -404,7 +404,7 @@ class RAG:
                 :class:`Marker` (with
                 :class:`PlainTextConverter` fallback).
             chunker: Chunker. Defaults to Chonkie (with
-                :class:`WordWindowChunker` fallback).
+                :class:`WordChunker` fallback).
             embedder: Embedding provider. Defaults to
                 :class:`LiteLLMEmbedder` (with
                 :class:`Hasher` fallback).
@@ -526,14 +526,14 @@ class RAG:
         self.graph = None
         if self.settings.summary_search_enabled:
 
-            self.raptor = RaptorIndex(
+            self.raptor = Raptor(
                 llm=self.llm,
                 embedder=self.embedder,
                 depth=2,
             )
         if self.settings.graph_search_enabled:
 
-            self.graph = GraphRagIndex(llm=self.llm, embedder=self.embedder)
+            self.graph = GraphIndex(llm=self.llm, embedder=self.embedder)
 
         # Phase 7.8 + 7.11: build the agent + tool registry + the
         # agentic pipeline. The agent is wired only when the
@@ -585,7 +585,7 @@ class RAG:
             agentic_pipeline=self.agentic_pipeline,
         )
 
-        self.manifest: SourceManifest = manifest or SourceManifest(
+        self.manifest: Manifest = manifest or Manifest(
             self.settings.data_dir / "manifest.json"
         )
         self.background_ingestion = background_service

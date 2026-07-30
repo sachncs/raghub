@@ -401,12 +401,12 @@ class IngestPipeline(Pipeline):
         graph: Any | None = None,
     ) -> None:
         """Initialise the ingest pipeline."""
-        from raghub.ingestion import WordWindowChunker
+        from raghub.ingestion import WordChunker
 
         if embedder is None or vector_store is None:
             raise PipelineError("IngestPipeline requires embedder and vector_store")
         self.converter = converter or PlainTextConverter()
-        self.chunker = chunker or WordWindowChunker()
+        self.chunker = chunker or WordChunker()
         self.embedder = embedder
         self.vector_store = vector_store
         self.knowledge_repo = knowledge_repo or MemoryRepo()
