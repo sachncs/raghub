@@ -46,12 +46,10 @@ from contextlib import contextmanager
 from typing import Any, TypeVar, cast
 
 from loguru import logger as loguru_logger
-from opentelemetry.sdk.trace import ReadableSpan
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SpanExportResult
 from prometheus_client import REGISTRY, CollectorRegistry, Counter, Histogram
 from prometheus_client.openmetrics.exposition import generate_latest
 
-from raghub.exceptions import ConfigurationError
+from raghub.exceptions import ConfigurationError, OptionalDependencyMissing
 from raghub.models import Logger, Metrics, Span, TelemetryProvider
 from raghub.utils import capture
 
@@ -969,7 +967,7 @@ class RedactingTelemetry(TelemetryProvider):
         self.inner.record_tokens(name, prompt_tokens, completion_tokens, model)
 
 
-class SafeConsoleSpanExporter(ConsoleSpanExporter):
+class SafeConsoleSpanExporter:
     """Console exporter that survives a closed-stdout shutdown.
 
     The default :class:`ConsoleSpanExporter` raises
@@ -979,26 +977,44 @@ class SafeConsoleSpanExporter(ConsoleSpanExporter):
     that swallows the error and returns a ``FAILURE`` result.
     """
 
-    def export(self, spans: Sequence[ReadableSpan]) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Lazy-import the parent :class:`ConsoleSpanExporter`."""
+        try:
+            from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+        except ImportError:
+            raise OptionalDependencyMissing(
+                "opentelemetry-sdk",
+                "pip install raghub[otel]",
+            ) from None
+        self._parent = ConsoleSpanExporter(*args, **kwargs)
+
+    def export(self, spans: Sequence[Any]) -> Any:
         """Forward to the parent exporter; suppress closed-stdout errors.
 
         Args:
             spans: The batch of spans to export.
 
         Returns:
-            The parent's return value (:class:`SpanExportResult.SUCCESS`
-            on success) or :class:`SpanExportResult.FAILURE` on a
-            closed-stdout error.
+            The parent's return value or ``SpanExportResult.FAILURE``
+            on a closed-stdout error.
         """
-        result, error = capture(super().export, spans)
+        result, error = capture(self._parent.export, spans)
         if error is None:
             return result
         if "closed file" in str(error):
             return self.failed_export_result()
         raise error
 
+    def shutdown(self) -> None:
+        """Forward shutdown to the parent exporter."""
+        self._parent.shutdown()
+
     def failed_export_result(self) -> Any:
-        """Return :class:`SpanExportResult.FAILURE` without importing OTel types."""
+        """Return the OTel FAILURE result without importing it at module load."""
+        try:
+            from opentelemetry.sdk.trace.export import SpanExportResult
+        except ImportError:
+            return None
         return SpanExportResult.FAILURE
 
 

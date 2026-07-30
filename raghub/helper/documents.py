@@ -41,10 +41,13 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from pypdf import PdfReader
-
 from raghub.core import DocumentStateMachine
-from raghub.exceptions import ConfigurationError, ConversionError, DocumentError
+from raghub.exceptions import (
+    ConfigurationError,
+    ConversionError,
+    DocumentError,
+    OptionalDependencyMissing,
+)
 from raghub.models import (
     BlockKind,
     ChunkRecord,
@@ -286,6 +289,13 @@ def extract_pdf_pages(pdf_bytes: bytes) -> list[tuple[int, str]]:
     Returns:
         A list of ``(page_number, text)`` tuples.
     """
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        raise OptionalDependencyMissing(
+            "pypdf",
+            "pip install raghub[pdf]",
+        ) from None
     reader = PdfReader(BytesIO(pdf_bytes))
     pages: list[tuple[int, str]] = []
     for page_index, page in enumerate(reader.pages, start=1):
@@ -413,6 +423,10 @@ def extract_pdf_metadata(pdf_bytes: bytes) -> dict[str, str]:
         A dict with ``title``, ``author``, ``producer``, and
         ``creator`` keys (empty strings when missing).
     """
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return {}
     reader, error = capture(PdfReader, BytesIO(pdf_bytes))
     if error is not None:
         return {}

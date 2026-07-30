@@ -36,10 +36,9 @@ from threading import RLock
 from typing import Any
 from uuid import uuid4
 
-import aiosqlite
 from tqdm import tqdm
 
-from raghub.exceptions import AuthenticationError, StorageError
+from raghub.exceptions import AuthenticationError, OptionalDependencyMissing, StorageError
 from raghub.models import (
     ConversationTurn,
     DocumentLifecycleStatus,
@@ -47,6 +46,18 @@ from raghub.models import (
     SessionRecord,
 )
 from raghub.utils import atomic_write_json, capture, load_json
+
+
+def _is_aiosqlite_row(row: Any) -> bool:
+    """Return ``True`` when ``row`` is an :class:`aiosqlite.Row`.
+
+    Defers the import so the module loads without ``aiosqlite``.
+    """
+    try:
+        import aiosqlite
+    except ImportError:
+        return False
+    return isinstance(row, aiosqlite.Row)
 
 SQLITE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
@@ -122,11 +133,18 @@ class Database:
     def __init__(self, db_path: str | Path) -> None:
         """Store the db path; lazy-connect on first :meth:`connect`."""
         self.db_path = str(db_path)
-        self.conn: aiosqlite.Connection | None = None
+        self.conn: Any | None = None
 
-    async def connect(self) -> aiosqlite.Connection:
+    async def connect(self) -> Any:
         """Open (or reuse) the underlying aiosqlite connection."""
         if self.conn is None:
+            try:
+                import aiosqlite
+            except ImportError:
+                raise OptionalDependencyMissing(
+                    "aiosqlite",
+                    "pip install raghub[auth]",
+                ) from None
             self.conn = await aiosqlite.connect(
                 self.db_path, isolation_level=None
             )
@@ -145,7 +163,7 @@ class Database:
             self.conn = None
 
     @property
-    def connection(self) -> aiosqlite.Connection:
+    def connection(self) -> Any:
         """Return the live connection or raise if not yet connected."""
         if self.conn is None:
             raise RuntimeError("Database not connected. Call connect() first.")
@@ -533,15 +551,22 @@ class Sessions:
         """
         return JsonSessions(path, timeout_seconds)
 
-    async def conn(self) -> aiosqlite.Connection:
+    async def conn(self) -> Any:
         """Return a usable connection (shared or fresh)."""
+        try:
+            import aiosqlite
+        except ImportError:
+            raise OptionalDependencyMissing(
+                "aiosqlite",
+                "pip install raghub[auth]",
+            ) from None
         if self.db is not None:
             return self.db.connection
         conn = await aiosqlite.connect(self.db_path)
         conn.row_factory = aiosqlite.Row
         return conn
 
-    async def maybe_commit_close(self, conn: aiosqlite.Connection) -> None:
+    async def maybe_commit_close(self, conn: Any) -> None:
         """Commit and close ``conn`` unless we share a manager."""
         if self.db is None:
             await conn.commit()
@@ -720,7 +745,7 @@ class Sessions:
         await self.maybe_commit_close(conn)
         if row is None:
             return {}
-        raw = row[0] if not isinstance(row, aiosqlite.Row) else row["overrides"]
+        raw = row[0] if not _is_aiosqlite_row(row) else row["overrides"]
         if not raw:
             return {}
         decoded = json.loads(raw)
@@ -798,7 +823,7 @@ class Sessions:
             await self.delete_session(session.session_id)
 
     @staticmethod
-    def row_to_session(row: aiosqlite.Row) -> SessionRecord:
+    def row_to_session(row: Any) -> SessionRecord:
         """Hydrate a :class:`SessionRecord` from a SQLite row."""
         row_keys = row.keys() if hasattr(row, "keys") else row
         history_raw = row["history"] if "history" in row_keys else "[]"
