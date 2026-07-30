@@ -4,7 +4,7 @@ This module ships:
 
 * :class:`BaseLLMProvider` — abstract base class.
 * :class:`HeuristicProvider` — offline fallback, no API key needed.
-* :class:`LiteLLMProvider` — production LLM, backed by LiteLLM (any
+* :class:`LiteLLM` — production LLM, backed by LiteLLM (any
   provider: OpenAI, NVIDIA, Anthropic, Bedrock, …).
 * :func:`build_llm_provider` — selects an implementation by model
   name and credential availability.
@@ -196,7 +196,7 @@ class HeuristicProvider(BaseLLMProvider):
         return best
 
 
-class LiteLLMProvider(BaseLLMProvider):
+class LiteLLM(BaseLLMProvider):
     """LLM provider backed by LiteLLM.
 
     The provider wraps LiteLLM and so works with any provider that
@@ -568,7 +568,7 @@ def build_llm_provider(
     Selection rules:
 
     * No API key available → :class:`HeuristicProvider` (offline).
-    * Otherwise → :class:`LiteLLMProvider`.
+    * Otherwise → :class:`LiteLLM`.
 
     Pass credentials via the ``RAG_LLM_*`` env vars (``RAG_LLM_API_KEY``,
     ``RAG_LLM_BASE_URL``, ``RAG_LLM_MODEL``) or as the ``api_key`` argument.
@@ -576,11 +576,11 @@ def build_llm_provider(
     Args:
         model_name: The model identifier.
         api_key: Optional API key passed through to the
-            :class:`LiteLLMProvider`.
+            :class:`LiteLLM`.
 
     Returns:
         A ready-to-use provider instance.
     """
     if not any_llm_api_key_present() and not api_key:
         return HeuristicProvider()
-    return LiteLLMProvider(model=model_name, api_key=api_key)
+    return LiteLLM(model=model_name, api_key=api_key)
