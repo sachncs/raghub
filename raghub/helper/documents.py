@@ -160,7 +160,7 @@ def datetime_now_utc() -> Any:
 # ---------------------------------------------------------------------------
 
 
-MIME_TYPES_BY_EXTENSION: dict[str, str] = {
+MIME_TYPES: dict[str, str] = {
     ".pdf": "application/pdf",
     ".html": "text/html",
     ".htm": "text/html",
@@ -213,7 +213,7 @@ def detect_mime_type(filename: str, content: bytes) -> str:
         DocumentError: If a magic-byte mismatch is detected.
     """
     ext = Path(filename).suffix.lower()
-    mime = MIME_TYPES_BY_EXTENSION.get(ext, "application/octet-stream")
+    mime = MIME_TYPES.get(ext, "application/octet-stream")
 
     expected_magic = MAGIC_BYTES.get(mime)
     if expected_magic and not content.startswith(expected_magic):
@@ -254,7 +254,7 @@ def validate_upload(filename: str, content: bytes, max_bytes: int) -> str:
 
     mime_type = detect_mime_type(filename, content)
 
-    supported_mimes = set(MIME_TYPES_BY_EXTENSION.values())
+    supported_mimes = set(MIME_TYPES.values())
     if mime_type not in supported_mimes:
         raise DocumentError(f"Unsupported file type: {mime_type}")
 
@@ -513,7 +513,7 @@ HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 TABLE_LINE_RE = re.compile(r"^\s*\|.*\|\s*$")
 FENCE_RE = re.compile(r"^(```|~~~)\s*(\S+)?\s*$")
 IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
-EQUATION_BLOCK_RE = re.compile(r"^\$\$(.*)\$\$\s*$", re.DOTALL)
+EQUATION_RE = re.compile(r"^\$\$(.*)\$\$\s*$", re.DOTALL)
 INLINE_EQUATION_RE = re.compile(r"\$([^$\n]+)\$")
 
 
@@ -565,7 +565,7 @@ class MarkdownSection:
                 self.blocks.append(DocumentBlock(kind=BlockKind.TABLE, content=raw_line.strip()))
                 continue
 
-            equation_match = EQUATION_BLOCK_RE.match(raw_line.strip())
+            equation_match = EQUATION_RE.match(raw_line.strip())
             if equation_match:
                 self.flush_text_buffer()
                 self.blocks.append(
