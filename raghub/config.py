@@ -72,7 +72,7 @@ class Settings(BaseModel):
     session_timeout_seconds: int = 3600
     max_upload_bytes: int = 20 * 1024 * 1024
     embedding_model: str = "hashing-bge"
-    llm_model: str = "heuristic-llm"
+    llm_model: str = "gpt-4o-mini"
     log_level: str = "INFO"
     profile_path: Path | None = None
     retrieval_mode: str = "sync"
@@ -406,7 +406,7 @@ def load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> d
         "embedding_model": os.getenv(
             "RAG_EMBEDDING_MODEL", payload.get("embedding_model", "hashing-bge")
         ),
-        "llm_model": os.getenv("RAG_LLM_MODEL", payload.get("llm_model", "heuristic-llm")),
+        "llm_model": os.getenv("RAG_LLM_MODEL", payload.get("llm_model", "gpt-4o-mini")),
         "retrieval_mode": os.getenv("RAG_RETRIEVAL_MODE", payload.get("retrieval_mode", "sync")),
         "log_level": os.getenv("RAG_LOG_LEVEL", payload.get("log_level", "INFO")),
         "worker_backend": os.getenv(

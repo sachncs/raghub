@@ -3,14 +3,11 @@
 This module ships:
 
 * :class:`BaseLLMProvider` — abstract base class.
+* :class:`HeuristicProvider` — offline fallback, no API key needed.
 * :class:`LiteLLMProvider` — production LLM, backed by LiteLLM (any
   provider: OpenAI, NVIDIA, Anthropic, Bedrock, …).
 * :func:`build_llm_provider` — selects an implementation by model
   name and credential availability.
-
-:func:`build_llm_provider` raises :class:`ConfigurationError` when
-no LLM API key is present in the environment — the offline fallback
-has been removed.
 """
 
 from __future__ import annotations
@@ -143,6 +140,59 @@ class LLMValueErrorBoundary:
         if exception_type is ValueError and exception is not None:
             raise LLMError(f"{self.message}: {exception}") from exception
         return False
+
+
+class HeuristicProvider(BaseLLMProvider):
+    """Offline LLM provider that answers from context directly.
+
+    Uses a simple heuristic — extracts the most relevant sentence from
+    the context, or returns a canned response when no context is given.
+    No API key or network access required.
+    """
+
+    model_name: str = "heuristic"
+
+    def generate(
+        self,
+        *,
+        system_prompt: str = "",
+        conversation: Sequence[ConversationTurn] = (),
+        context: Sequence[str] = (),
+        question: str,
+        image_paths: list[str] | None = None,
+        session_history: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Generate an answer from context using simple heuristics.
+
+        Args:
+            system_prompt: Ignored by this provider.
+            conversation: Prior conversation turns (ignored).
+            context: Retrieved source chunks.
+            question: The user's question.
+            image_paths: Ignored by this provider.
+            session_history: Ignored by this provider.
+
+        Returns:
+            The first relevant sentence from context, or a default
+            message if no context is available.
+        """
+        if not context:
+            return "No context was retrieved. Configure an LLM API key for full answer generation."
+        # Heuristic: pick the sentence most relevant to the question
+        question_lower = question.lower()
+        question_words = set(question_lower.split())
+        scored: list[tuple[int, str]] = []
+        for chunk in context:
+            for sentence in chunk.split("."):
+                stripped = sentence.strip()
+                if not stripped:
+                    continue
+                lowered = stripped.lower()
+                score = sum(1 for w in question_words if w in lowered)
+                scored.append((score, stripped))
+        scored.sort(key=lambda x: -x[0])
+        best = scored[0][1] if scored else context[0][:500]
+        return best
 
 
 class LiteLLMProvider(BaseLLMProvider):
@@ -491,18 +541,14 @@ def build_llm_provider(
 
     Selection rules:
 
-    * ``model_name`` is empty or ``"heuristic-llm"`` →
-      :class:`LiteLLMProvider` (a configuration error, raised below).
+    * No API key available → :class:`HeuristicProvider` (offline).
     * Otherwise → :class:`LiteLLMProvider`.
 
-    The provider requires a real LLM endpoint; the offline fallback
-    has been removed. Pass the credentials via the ``RAG_LLM_*`` env
-    vars (``RAG_LLM_API_KEY``, ``RAG_LLM_BASE_URL``,
-    ``RAG_LLM_MODEL``) or as the ``api_key`` argument below.
+    Pass credentials via the ``RAG_LLM_*`` env vars (``RAG_LLM_API_KEY``,
+    ``RAG_LLM_BASE_URL``, ``RAG_LLM_MODEL``) or as the ``api_key`` argument.
 
     Args:
-        model_name: The model identifier. Empty / unknown names raise
-            :class:`ConfigurationError` at construction time.
+        model_name: The model identifier.
         api_key: Optional API key passed through to the
             :class:`LiteLLMProvider`.
 
@@ -510,8 +556,5 @@ def build_llm_provider(
         A ready-to-use provider instance.
     """
     if not any_llm_api_key_present() and not api_key:
-        raise ConfigurationError(
-            "no LLM API key available: set RAG_LLM_API_KEY (or pass "
-            "`api_key=`) to build a real LLM provider."
-        )
+        return HeuristicProvider()
     return LiteLLMProvider(model=model_name, api_key=api_key)
