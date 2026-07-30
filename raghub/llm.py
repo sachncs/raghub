@@ -27,6 +27,14 @@ from raghub.exceptions import ConfigurationError, LLMError
 from raghub.models import ConversationTurn
 from raghub.utils import aretry, retry
 
+__all__ = [
+    "HeuristicProvider",
+    "LLM_API_KEY_ENV_VARS",
+    "LiteLLM",
+    "any_llm_api_key_present",
+    "build_llm",
+]
+
 # Module-level flag retained so existing tests that patch
 # ``raghub.llm.LITELLM_AVAILABLE = False`` can simulate a missing
 # optional dependency even though the package is now required.
