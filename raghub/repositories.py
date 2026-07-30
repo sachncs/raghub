@@ -40,6 +40,12 @@ from raghub.models import (
 from raghub.storage import Sessions
 from raghub.vectorstore import Store
 
+__all__ = [
+    "ChunkStore",
+    "DocStore",
+    "UnitOfWork",
+]
+
 MAX_INSERT_RETRIES = 3
 RETRY_BASE_DELAY = 0.05
 
