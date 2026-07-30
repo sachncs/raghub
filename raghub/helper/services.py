@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 from raghub.conversation import ConversationManager
 from raghub.core import can_access_company
 from raghub.documents import Catalog, Lifecycle, detect_mime_type
-from raghub.embeddings import Embedder, build_embedding_provider
+from raghub.embeddings import Embedder, build_embedder
 from raghub.exceptions import AuthorizationError, DocumentError
 from raghub.helper.retrieval import (
     Identity as IdentityReranker,
@@ -52,7 +52,7 @@ from raghub.helper.retrieval import (
     Retrieval as RetrievalPipeline,
 )
 from raghub.ingestion import IngestionResult, Ingestor
-from raghub.llm import BaseLLMProvider, build_llm_provider
+from raghub.llm import BaseLLMProvider, build_llm
 from raghub.models import (
     AuthLoginResponse,
     BackgroundWorker,
@@ -73,7 +73,7 @@ from raghub.observability import PrometheusMetrics, build_logger
 from raghub.prompts import PromptBuilder
 from raghub.repositories import UnitOfWork
 from raghub.storage import ImageStore, Sessions
-from raghub.vectorstore import Store, build_vector_store
+from raghub.vectorstore import Store, build_store
 
 # ---------------------------------------------------------------------------
 # Mixin shared by every service
@@ -541,7 +541,7 @@ async def build_container(settings: Settings) -> RagContainer:
     nvidia_api_key = (
         settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
     )
-    vector_store: Store = build_vector_store(
+    vector_store: Store = build_store(
         settings, embedding_dim=settings.embedding_dim
     )
 
@@ -558,12 +558,12 @@ async def build_container(settings: Settings) -> RagContainer:
     )
     await raw_session_store.initialize()
 
-    embeddings: Embedder = build_embedding_provider(
+    embeddings: Embedder = build_embedder(
         settings.embedding_model,
         settings.embedding_dim,
         nvidia_api_key,
     )
-    llm: BaseLLMProvider = build_llm_provider(settings.llm_model, nvidia_api_key)
+    llm: BaseLLMProvider = build_llm(settings.llm_model, nvidia_api_key)
 
     prompt_builder = PromptBuilder()
     conversation = ConversationManager(uow)

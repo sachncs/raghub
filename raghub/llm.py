@@ -6,7 +6,7 @@ This module ships:
 * :class:`HeuristicProvider` — offline fallback, no API key needed.
 * :class:`LiteLLM` — production LLM, backed by LiteLLM (any
   provider: OpenAI, NVIDIA, Anthropic, Bedrock, …).
-* :func:`build_llm_provider` — selects an implementation by model
+* :func:`build_llm` — selects an implementation by model
   name and credential availability.
 """
 
@@ -559,7 +559,7 @@ class LiteLLM(BaseLLMProvider):
             }
 
 
-def build_llm_provider(
+def build_llm(
     model_name: str,
     api_key: str | None = None,
 ) -> BaseLLMProvider:
