@@ -44,14 +44,14 @@ from raghub.errors import (
     ConfigurationError,
     DocumentError,
 )
-from raghub.helper.documents import (
+from raghub.lifecycle import (
     ChunkingPlan,
     Lifecycle,
     chunk_words,
     normalize_text,
     validate_upload,
 )
-from raghub.helper.documents import (
+from raghub.lifecycle import (
     PlainTextConverter as default_converter,
 )
 from raghub.models import (

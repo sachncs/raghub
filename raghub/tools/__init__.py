@@ -439,7 +439,7 @@ class HybridSearch(Tool):
         self, context: ToolContext, **kwargs: Any
     ) -> ToolResult:
         """Fuse dense + sparse retrieval with reciprocal-rank fusion."""
-        from raghub.helper.retrieval import rrf
+        from raghub.retrieval import rrf
 
         text = (
             str(kwargs.get("query", "")) or context.question or ""
