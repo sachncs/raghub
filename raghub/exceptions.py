@@ -156,6 +156,17 @@ class DynamicRagError(RagHubError):
     continue to work.
     """
 
+    def __init__(self, *args: object) -> None:
+        """Emit a one-shot deprecation warning when instantiated."""
+        import warnings
+
+        warnings.warn(
+            "DynamicRagError is deprecated; use RagHubError instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args)
+
 
 class AuthenticationError(DynamicRagError):
     """Raised when authentication fails (bad credentials, expired token)."""
