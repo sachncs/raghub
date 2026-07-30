@@ -448,7 +448,7 @@ class LiteLLM(BaseLLMProvider):
                     raise
                 except Exception as exc:
                     raise LLMError(f"LLM async completion failed: {exc}") from exc
-            response = self.normalise_litellm_response(response_dict)
+            response = self.normalise_response(response_dict)
         try:
             choices = response["choices"] if isinstance(response, dict) else response.choices
             choice = choices[0]
@@ -475,7 +475,7 @@ class LiteLLM(BaseLLMProvider):
         return response.json()
 
     @staticmethod
-    def normalise_litellm_response(response: Any) -> dict[str, Any]:
+    def normalise_response(response: Any) -> dict[str, Any]:
         """Return a plain dict view of a litellm response (pydantic or not)."""
         if isinstance(response, dict):
             return response

@@ -104,7 +104,7 @@ class PipelineResult:
         pass_rate: Fraction whose answer passed
             ``numeric >= 0.99 or overlap >= 0.6``.
         token_overlap: Mean Jaccard overlap.
-        numeric_within_tolerance: Mean numeric-tolerance score.
+        within_tolerance: Mean numeric-tolerance score.
         answer_length: Mean predicted answer length (chars).
     """
 
@@ -112,7 +112,7 @@ class PipelineResult:
     n: int = 0
     pass_rate: float = 0.0
     token_overlap: float = 0.0
-    numeric_within_tolerance: float = 0.0
+    within_tolerance: float = 0.0
     answer_length: float = 0.0
 
 
@@ -354,7 +354,7 @@ async def _run_pipeline(
         n=len(results),
         pass_rate=statistics.mean(1.0 if r.passed else 0.0 for r in results),
         token_overlap=metrics_avg.get("token_overlap", 0.0),
-        numeric_within_tolerance=metrics_avg.get("numeric_within_tolerance", 0.0),
+        within_tolerance=metrics_avg.get("within_tolerance", 0.0),
         answer_length=statistics.mean(
             len((r.details.get("predicted") or "")) for r in results
         ),
@@ -372,7 +372,7 @@ def _print_table(results: list[PipelineResult]) -> None:
             str(r.n),
             f"{r.pass_rate:.3f}",
             f"{r.token_overlap:.3f}",
-            f"{r.numeric_within_tolerance:.3f}",
+            f"{r.within_tolerance:.3f}",
             f"{r.answer_length:.0f}",
         ]
         for r in results
@@ -429,7 +429,7 @@ async def _async_main(args: argparse.Namespace) -> int:
                         "n": r.n,
                         "pass_rate": r.pass_rate,
                         "token_overlap": r.token_overlap,
-                        "numeric_within_tolerance": r.numeric_within_tolerance,
+                        "within_tolerance": r.within_tolerance,
                         "answer_length": r.answer_length,
                     }
                     for r in results

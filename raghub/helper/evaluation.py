@@ -519,8 +519,8 @@ class FinanceBench(Evaluator):
             else:
                 predicted = out
             overlap = Scoring.jaccard(str(predicted), str(gold))
-            numeric = self.numeric_within_tolerance(str(predicted), str(gold))
-            metrics = {"token_overlap": overlap, "numeric_within_tolerance": numeric}
+            numeric = self.within_tolerance(str(predicted), str(gold))
+            metrics = {"token_overlap": overlap, "within_tolerance": numeric}
             # Add retrieval-quality metrics when the response
             # factory returned the tuple form.
             if contexts is not None and retrieved_ids is not None:
@@ -699,7 +699,7 @@ class FramesBenchmark(Evaluator):
             "company": row.get("company", ""),
         }
 
-    def numeric_within_tolerance(self, predicted: str, gold: str) -> float:
+    def within_tolerance(self, predicted: str, gold: str) -> float:
         """Return 1.0 if the predicted number is within tolerance of gold.
 
         For FRAMES many gold answers contain a single token
