@@ -40,6 +40,34 @@ def test_precision_at_k_bounds(retrieved: list[str], relevant: list[str], k: int
 @given(
     retrieved=st.lists(st.text(min_size=1, max_size=10), min_size=0, max_size=20),
     relevant=st.lists(st.text(min_size=1, max_size=10), min_size=0, max_size=10),
+    k=st.integers(min_value=1, max_value=20),
+)
+def test_f1_at_k_bounds(retrieved: list[str], relevant: list[str], k: int) -> None:
+    """F1@K is always in [0, 1] (or 0 when precision+recall is zero)."""
+    value = Metrics.f1_at_k(retrieved, relevant, k)
+    assert 0.0 <= value <= 1.0
+
+
+@given(
+    answer=st.text(min_size=0, max_size=200),
+    contexts=st.lists(st.text(min_size=0, max_size=200), min_size=0, max_size=5),
+)
+def test_completeness_bounds(answer: str, contexts: list[str]) -> None:
+    """Completeness is always in [0, 1] (with the right edge cases)."""
+    value = Metrics.completeness(answer, contexts)
+    assert 0.0 <= value <= 1.0
+
+
+@given(text=st.text(min_size=0, max_size=500))
+def test_coherence_bounds(text: str) -> None:
+    """Coherence is always in [0, 1] (0.5 for single sentence, 0.0 for empty)."""
+    value = Metrics.coherence(text)
+    assert 0.0 <= value <= 1.0
+
+
+@given(
+    retrieved=st.lists(st.text(min_size=1, max_size=10), min_size=0, max_size=20),
+    relevant=st.lists(st.text(min_size=1, max_size=10), min_size=0, max_size=10),
 )
 def test_mrr_bounds(retrieved: list[str], relevant: list[str]) -> None:
     """MRR is always in [0, 1] (or 0 when no relevant item is found)."""
