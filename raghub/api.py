@@ -47,6 +47,7 @@ from raghub.helper.response import (
     Redaction,
     ResponseBuilder,
 )
+from raghub.helper.services import Facade as Facade
 from raghub.helper.sse import (
     Sse,
 )
@@ -61,7 +62,6 @@ from raghub.models import (
     QueryResponse,
     User,
 )
-from raghub.services import Facade as Facade
 from raghub.utils import capture
 
 # ---------------------------------------------------------------------------

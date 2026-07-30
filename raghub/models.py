@@ -46,7 +46,6 @@ __all__ = [
     "Citation",
     "Classification",
     "ConversationTurn",
-    "deterministic_id",
     "Document",
     "DocumentLifecycleStatus",
     "DocumentRecord",
@@ -69,6 +68,7 @@ __all__ = [
     "SessionRecord",
     "User",
     "Visibility",
+    "deterministic_id",
 ]
 
 # ---------------------------------------------------------------------------

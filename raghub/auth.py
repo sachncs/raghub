@@ -33,8 +33,8 @@ except ImportError:
 
 from pydantic import BaseModel, Field
 
+from raghub.helper.services import Mixin as ServiceMixin
 from raghub.models import AuthLoginResponse, ConversationTurn, User
-from raghub.services import Mixin as ServiceMixin
 
 __all__ = [
     "AuthService",
