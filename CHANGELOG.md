@@ -8,6 +8,96 @@ Each entry below lists the originating Git commit (short SHA) and its
 ISO 8601 timestamp with timezone. Entries are ordered from newest to
 oldest.
 
+## [0.5.0] - 2026-07-30
+
+### Changed (BREAKING)
+
+The v0.5 release is a renaming-and-restructuring refactor. There are
+**no backward-compat aliases** — code importing the old names will
+fail to import. The migration is mechanical (see
+`docs/migration.md`).
+
+#### Module renames
+
+| Old | New |
+|---|---|
+| `raghub.exceptions` | `raghub.errors` |
+| `raghub.embeddings` | `raghub.embedder` |
+| `raghub.repositories` | `raghub.repos` |
+| `raghub.vectorstore` | `raghub.store` |
+| `raghub.observability` | `raghub.telemetry` |
+| `raghub.generation` | `raghub.gen` |
+| `raghub.conversation` | `raghub.conv` |
+| `raghub.ingestion` | `raghub.ingest` |
+| `raghub.documents` (top-level) | `raghub.parsers` |
+| `raghub.helper.documents` | `raghub.lifecycle` |
+| `raghub.helper.retrieval` | `raghub.retrieval` |
+| `raghub.helper.services` | `raghub.services` |
+| `raghub.helper.storage` | `raghub.stores` |
+| `raghub.helper.tools` | `raghub.tools` |
+| `raghub.helper.evaluation` | `raghub.eval` |
+
+The four re-export wrappers (`raghub.retrieval`, `raghub.services`,
+`raghub.storage`, `raghub.tools`) were deleted.
+
+#### Class renames
+
+36 classes renamed to single-word forms. Notable ones:
+`UserPrincipal → User`, `InMemoryVectorStore → MemoryStore`,
+`SqliteVectorStore → SqliteStore`, `LiteLLMProvider → LiteLLM`,
+`HashingEmbeddingProvider → Hasher`, `RaptorIndex → Raptor`,
+`GraphRagIndex → GraphIndex`, `AgenticQueryPipeline → AgentPipeline`,
+`DocumentLifecycleManager → Lifecycle`, `RBACAuthorizationService → Authz`,
+`ChonkieChunker → Chonkie`, `WordWindowChunker → WordChunker`,
+`MarkerConverter → Marker`, `DocumentIngestionService → Ingestor`,
+`BackgroundIngestionService → Batch`,
+`ResumableBackgroundIngestionService → Resumable`,
+`InstructorStructuredOutputProvider → Instructor`,
+`OptionalDependencyMissing → MissingDep`, `PipelineContext → PipelineCtx`.
+
+Three classes were renamed to make room for the renamed base
+classes: `Generator` Protocol → `GeneratorProtocol`,
+`Tool` Protocol → `ToolProtocol`,
+`SessionStore` Protocol → `SessionStoreProtocol`.
+Base classes that previously collided: `BaseLLMProvider → Generator`,
+`BaseTool → Tool`, `SqliteSessionRepository → SessionStore`.
+The `Section` dataclass in `documents.py` was renamed to
+`ParsedSection` to make room for `MarkdownSection → Section`.
+
+#### Function, constant, and field renames
+
+~32 function/method names, 9 constant names, and 1 field
+(`ChunkRecord.hash → ChunkRecord.checksum`) shortened.
+
+### Removed dependencies
+
+`qdrant-client`, `zvec`, `sentence-transformers`, and `bge-reranker`
+are no longer installed. The vector store is now SQLite-backed
+(`SqliteStore`); reranking is local-only or via Cohere/LLM-as-judge.
+
+### Added
+
+- `HeuristicProvider` LLM fallback — `RAG()` works without an API
+  key. Returns a sentence from the retrieved context as the
+  answer.
+- `PlainTextConverter` fallback in `default_converter()` — `RAG()`
+  works without `marker-pdf` (PDFs become garbled until the `[pdf]`
+  extra is installed).
+- `VectorStoreError` raised on dimension mismatch in `vector_store.insert()`.
+- `ChunkRecord.checksum` is required and computed at construction
+  (SHA-256 of the chunk text).
+- `MemoryStore` and `SqliteStore` `insert()` / `upsert()` return
+  `int` (row count).
+- `Retry` / `aretry` decorators applied to LLM and vector-store writes.
+- Pydantic validators on `RetrievalHit`, `Response`, `PipelineResult`.
+- `PRAGMA foreign_keys = ON` + `INSERT OR IGNORE` in `SqliteStore`.
+- `_env_int` / `_env_float` helpers raise `ConfigurationError` on
+  bad input with the offending value and env var name.
+- `__all__` declared on 18 modules.
+- 13 test files restored (325 tests now passing).
+- CI workflow (`.github/workflows/ci.yml`): ruff + pytest matrix on
+  Python 3.12 and 3.13.
+
 ## [0.6.0] - 2026-07-26
 
 ### Changed (BREAKING)

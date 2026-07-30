@@ -417,15 +417,14 @@ Reports are written to `devtools/report.json`.
 
 ## Roadmap
 
-- **v0.4.0** — Released: RAG facade, multi-tenant RBAC fail-closed, opaque
-  session tokens, loguru-backed observability, tqdm progress bars,
-  canonical ingestion pipeline, fail-closed CORS + admin redaction,
-  single canonical `RAG()` entry point. `pip-audit --strict` clean
-  against `requirements-lock.txt`.
-- **v0.5.0** — Planned: per-tenant rate limits, expanded reranker
-  registry (cross-encoder, Cohere), streaming-first ingestion UI.
-- **v0.6.0** — Planned: ZVec-backed config presets, query-cache
-  topology, Postgres backend for `DocumentRepository`.
+- **v0.5.0** — Released: comprehensive renaming refactor (modules,
+  classes, functions, constants), single-word names, themed
+  subpackages for retrieval/services/stores/tools/eval/lifecycle,
+  offline `RAG()` via `HeuristicProvider` (no API key required),
+  PDF fallback to `PlainTextConverter` when marker-pdf is missing,
+  `__all__` declared on every public module, 325 tests passing.
+- **v0.6.0** — Planned: per-tenant rate limits, expanded reranker
+  registry, streaming-first ingestion UI, group ABAC.
 
 ## Contributing
 
