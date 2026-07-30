@@ -39,18 +39,20 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from raghub.documents import (
+from raghub.embeddings import Embedder
+from raghub.exceptions import (
+    ConfigurationError,
+    DocumentError,
+)
+from raghub.helper.documents import (
     ChunkingPlan,
     Lifecycle,
     chunk_words,
     normalize_text,
     validate_upload,
 )
-from raghub.documents import PlainTextConverter as default_converter
-from raghub.embeddings import Embedder
-from raghub.exceptions import (
-    ConfigurationError,
-    DocumentError,
+from raghub.helper.documents import (
+    PlainTextConverter as default_converter,
 )
 from raghub.models import (
     Chunk,

@@ -42,9 +42,9 @@ if TYPE_CHECKING:
 
 from raghub.conversation import ConversationManager
 from raghub.core import can_access_company
-from raghub.documents import Catalog, Lifecycle, detect_mime_type
 from raghub.embeddings import Embedder, build_embedder
 from raghub.exceptions import AuthorizationError, DocumentError
+from raghub.helper.documents import Catalog, Lifecycle, detect_mime_type
 from raghub.helper.retrieval import (
     Identity as IdentityReranker,
 )

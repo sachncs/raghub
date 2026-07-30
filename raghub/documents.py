@@ -15,14 +15,19 @@ from typing import Any
 
 from raghub.exceptions import MissingDep
 from raghub.helper.documents import (
+    ChunkingPlan,
     Lifecycle,
     Marker,
+    chunk_words,
+    normalize_text,
+    validate_upload,
 )
 from raghub.utils import capture
 
 __all__ = [
     "HTML",
     "Catalog",
+    "ChunkingPlan",
     "Csv",
     "Image",
     "Lifecycle",
@@ -31,7 +36,10 @@ __all__ = [
     "Pdf",
     "Section",
     "Txt",
+    "chunk_words",
+    "normalize_text",
     "parse",
+    "validate_upload",
 ]
 
 
