@@ -72,7 +72,7 @@ structure that matters.
 
 **RAGHub evidence:** `BlockKind` has TEXT, TABLE, EQUATION, IMAGE,
 CODE, METADATA — but only TEXT blocks are extracted in
-`chunks_from_knowledge_bundle()`. Tables and images are silently
+`get_chunks()`. Tables and images are silently
 dropped.
 
 ### Assumption: "Embeddings are required"

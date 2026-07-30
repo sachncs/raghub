@@ -86,7 +86,7 @@ Replace any of these through the constructor or via the registry.
 file_bytes
   └─► converter.convert()      ── creates KnowledgeBundle (OKF)
         └─► knowledge_repo.save(bundle)
-              └─► chunks_from_knowledge_bundle()
+              └─► get_chunks()
                     └─► embedder.embed_texts(texts)
                           └─► vector_store.upsert(chunks, vectors)
 ```
