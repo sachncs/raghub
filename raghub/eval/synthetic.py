@@ -26,6 +26,49 @@ from typing import Any
 from raghub.llm import Generator
 
 
+def chunk_text(chunk: Any) -> str:
+    """Extract the text from a chunk-like object.
+
+    Args:
+        chunk: An object with a ``.text`` attribute, or a string.
+
+    Returns:
+        The chunk's text content.
+
+    Raises:
+        ValueError: When ``chunk`` has neither a ``.text`` attribute
+            nor is a string.
+    """
+    if isinstance(chunk, str):
+        return chunk
+    text = getattr(chunk, "text", None)
+    if text is None:
+        raise ValueError(
+            f"corpus item has no .text attribute: {chunk!r}"
+        )
+    return text
+
+
+def chunk_id(chunk: Any) -> str:
+    """Extract a stable id from a chunk-like object.
+
+    Args:
+        chunk: An object with a ``.chunk_id`` or ``.id`` attribute,
+            or a string.
+
+    Returns:
+        The chunk's id (from ``.chunk_id`` first, then ``.id``,
+        then a hash-based fallback).
+    """
+    if isinstance(chunk, str):
+        return f"chunk-{hash(chunk)}"
+    return str(
+        getattr(chunk, "chunk_id", None)
+        or getattr(chunk, "id", None)
+        or f"chunk-{id(chunk)}"
+    )
+
+
 class SyntheticDataset:
     """Generate (question, contexts, answer) triples from a corpus.
 
@@ -95,24 +138,24 @@ class SyntheticDataset:
 
         for _ in range(self.n_questions):
             chunk = rng.choice(self.corpus)
-            text = self._chunk_text(chunk)
-            chunk_id = self._chunk_id(chunk)
+            text = chunk_text(chunk)
+            cid = chunk_id(chunk)
 
-            question = await self._generate_question(text)
-            answer = await self._generate_answer(text, question)
+            question = await self.generate_question(text)
+            answer = await self.generate_answer(text, question)
 
             examples.append(
                 {
                     "question": question,
                     "answer": answer,
                     "contexts": [text],
-                    "relevant_ids": [chunk_id],
+                    "relevant_ids": [cid],
                 }
             )
 
         return examples
 
-    async def _generate_question(self, text: str) -> str:
+    async def generate_question(self, text: str) -> str:
         """Run the question-generation prompt and return the cleaned response."""
         prompt = self.QUESTION_PROMPT.format(passage=text)
         response = await self.llm.async_generate(
@@ -121,9 +164,9 @@ class SyntheticDataset:
             context=(),
             question=prompt,
         )
-        return self._clean_response(response)
+        return clean_response(response)
 
-    async def _generate_answer(self, text: str, question: str) -> str:
+    async def generate_answer(self, text: str, question: str) -> str:
         """Run the answer-generation prompt and return the cleaned response."""
         prompt = self.ANSWER_PROMPT.format(passage=text, question=question)
         response = await self.llm.async_generate(
@@ -132,41 +175,24 @@ class SyntheticDataset:
             context=(),
             question=prompt,
         )
-        return self._clean_response(response)
-
-    @staticmethod
-    def _clean_response(text: str) -> str:
-        """Strip leading/trailing whitespace and common prompt prefixes."""
-        text = (text or "").strip()
-        # Strip leading "Answer:" / "Question:" prefixes if the LLM
-        # echoed the prompt.
-        for prefix in ("Answer:", "Question:", "answer:", "question:"):
-            if text.startswith(prefix):
-                text = text[len(prefix) :].strip()
-        return text
-
-    @staticmethod
-    def _chunk_text(chunk: Any) -> str:
-        """Extract the text from a chunk-like object."""
-        if isinstance(chunk, str):
-            return chunk
-        text = getattr(chunk, "text", None)
-        if text is None:
-            raise ValueError(
-                f"corpus item has no .text attribute: {chunk!r}"
-            )
-        return text
-
-    @staticmethod
-    def _chunk_id(chunk: Any) -> str:
-        """Extract a stable id from a chunk-like object."""
-        if isinstance(chunk, str):
-            return f"chunk-{hash(chunk)}"
-        return str(
-            getattr(chunk, "chunk_id", None)
-            or getattr(chunk, "id", None)
-            or f"chunk-{id(chunk)}"
-        )
+        return clean_response(response)
 
 
-__all__ = ["SyntheticDataset"]
+def clean_response(text: str) -> str:
+    """Strip leading/trailing whitespace and common prompt prefixes.
+
+    Args:
+        text: The LLM's raw response.
+
+    Returns:
+        The cleaned text with leading ``"Answer:"`` / ``"Question:"``
+        prefixes stripped (LLMs often echo the prompt).
+    """
+    text = (text or "").strip()
+    for prefix in ("Answer:", "Question:", "answer:", "question:"):
+        if text.startswith(prefix):
+            text = text[len(prefix) :].strip()
+    return text
+
+
+__all__ = ["SyntheticDataset", "chunk_id", "chunk_text", "clean_response"]
