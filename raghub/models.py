@@ -659,7 +659,7 @@ class QueryRequest(BaseModel):
         graph: Shortcut for the GraphRAG summary tool.
         summaries: Shortcut for the RAPTOR summary tool.
         reranker: Per-request reranker override (``"none"|"cohere"|
-            "bge"|"llm"|"cascade"``). ``None`` defers to resolver.
+            "llm"|"cascade"``). ``None`` defers to resolver.
         long_context_pass: Per-request toggle for the long-context
             second-pass rerank.
         query_transforms: Per-request list of transform names
@@ -745,11 +745,15 @@ class Chunker(Protocol):
     chunk_size: int
     chunk_overlap: int
 
-    def chunk(self, bundle: "KnowledgeBundle") -> list["Chunk"]: ...
+    def chunk(self, bundle: KnowledgeBundle) -> list[Chunk]:
+        """Split a knowledge bundle into chunks."""
+        ...
 
     def chunk_text(
         self, text: str, *, document_id: str, version: int = 1
-    ) -> list["Chunk"]: ...
+    ) -> list[Chunk]:
+        """Split raw text into chunks."""
+        ...
 
 
 class DocumentConverter(Protocol):
@@ -763,7 +767,9 @@ class DocumentConverter(Protocol):
         mime_type: str = "",
         language: str = "",
         metadata: dict[str, Any] | None = None,
-    ) -> "KnowledgeBundle": ...
+    ) -> KnowledgeBundle:
+        """Convert source bytes to a KnowledgeBundle."""
+        ...
 
 
 class EmbeddingProvider(Protocol):
@@ -771,9 +777,13 @@ class EmbeddingProvider(Protocol):
 
     model_name: str
 
-    def embed_text(self, text: str) -> list[float]: ...
+    def embed_text(self, text: str) -> list[float]:
+        """Embed a single text string."""
+        ...
 
-    def embed_texts(self, texts: list[str]) -> list[list[float]]: ...
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        """Embed multiple text strings."""
+        ...
 
 
 class Evaluator(Protocol):
@@ -786,7 +796,9 @@ class Evaluator(Protocol):
         examples: Sequence[dict[str, Any]],
         *,
         response_factory: Any,
-    ) -> list["EvaluationResult"]: ...
+    ) -> list[EvaluationResult]:
+        """Score model outputs against a benchmark."""
+        ...
 
 
 class Generator(Protocol):
@@ -796,44 +808,66 @@ class Generator(Protocol):
         self,
         *,
         question: str,
-        context: Sequence["RetrievalHit"],
-        conversation: Sequence["ConversationTurn"] = (),
-    ) -> tuple[str, list["Citation"]]: ...
+        context: Sequence[RetrievalHit],
+        conversation: Sequence[ConversationTurn] = (),
+    ) -> tuple[str, list[Citation]]:
+        """Generate an answer from retrieved context."""
+        ...
 
     async def astream(
         self,
         *,
         question: str,
-        context: Sequence["RetrievalHit"],
-        conversation: Sequence["ConversationTurn"] = (),
-    ) -> AsyncIterator[str]: ...
+        context: Sequence[RetrievalHit],
+        conversation: Sequence[ConversationTurn] = (),
+    ) -> AsyncIterator[str]:
+        """Stream-generated answer tokens."""
+        ...
 
 
 class KnowledgeRepository(Protocol):
     """Persists and retrieves :class:`KnowledgeBundle` objects."""
 
-    def save(self, bundle: "KnowledgeBundle") -> "KnowledgeBundle": ...
+    def save(self, bundle: KnowledgeBundle) -> KnowledgeBundle:
+        """Persist a knowledge bundle."""
+        ...
 
-    def get(self, bundle_id: str) -> "KnowledgeBundle" | None: ...
+    def get(self, bundle_id: str) -> KnowledgeBundle | None:
+        """Retrieve a bundle by id."""
+        ...
 
-    def list_by_source(self, source_uri: str) -> list["KnowledgeBundle"]: ...
+    def list_by_source(self, source_uri: str) -> list[KnowledgeBundle]:
+        """List bundles by source URI."""
+        ...
 
-    def delete(self, bundle_id: str) -> None: ...
+    def delete(self, bundle_id: str) -> None:
+        """Delete a bundle by id."""
+        ...
 
 
 class Logger(Protocol):
     """Structured logger contract."""
 
-    def info(self, message: str, **kwargs: Any) -> None: ...
-    def warning(self, message: str, **kwargs: Any) -> None: ...
-    def error(self, message: str, **kwargs: Any) -> None: ...
+    def info(self, message: str, **kwargs: Any) -> None:
+        """Log an info-level message."""
+        ...
+    def warning(self, message: str, **kwargs: Any) -> None:
+        """Log a warning-level message."""
+        ...
+    def error(self, message: str, **kwargs: Any) -> None:
+        """Log an error-level message."""
+        ...
 
 
 class Metrics(Protocol):
     """Metrics recorder contract."""
 
-    def record_latency(self, name: str, value_ms: float, **labels: Any) -> None: ...
-    def increment(self, name: str, value: int = 1, **labels: Any) -> None: ...
+    def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
+        """Record a latency metric."""
+        ...
+    def increment(self, name: str, value: int = 1, **labels: Any) -> None:
+        """Increment a counter metric."""
+        ...
 
 
 @runtime_checkable
@@ -842,25 +876,36 @@ class Span(Protocol):
 
     name: str
 
-    def end(self) -> None: ...
-    def set_attribute(self, key: str, value: Any) -> None: ...
+    def end(self) -> None:
+        """End the span."""
+        ...
+    def set_attribute(self, key: str, value: Any) -> None:
+        """Set a span attribute."""
+        ...
 
 
 class TelemetryProvider(Logger, Metrics, Protocol):
     """Combined observability surface: logging + metrics + spans + tokens."""
 
-    def start_span(self, name: str, **attrs: Any) -> "Span": ...
-    def end_span(self, span: "Span") -> None: ...
+    def start_span(self, name: str, **attrs: Any) -> Span:
+        """Start a new trace span."""
+        ...
+    def end_span(self, span: Span) -> None:
+        """End a trace span."""
+        ...
     def record_tokens(
         self,
         name: str,
         prompt_tokens: int,
         completion_tokens: int,
         model: str = "",
-    ) -> None: ...
+    ) -> None:
+        """Record token usage."""
+        ...
 
     @contextmanager
-    def span(self, name: str, **attrs: Any) -> Iterator["Span"]:
+    def span(self, name: str, **attrs: Any) -> Iterator[Span]:
+        """Context manager wrapping a trace span."""
         s = self.start_span(name, **attrs)
         try:
             yield s
@@ -876,38 +921,54 @@ class StructuredOutputProvider(Protocol):
         *,
         response_model: type[T],
         question: str,
-        context: Sequence["RetrievalHit"],
-    ) -> T: ...
+        context: Sequence[RetrievalHit],
+    ) -> T:
+        """Generate a structured Pydantic output."""
+        ...
 
     async def astream(
         self,
         *,
         response_model: type[T],
         question: str,
-        context: Sequence["RetrievalHit"],
-    ) -> AsyncIterator[T]: ...
+        context: Sequence[RetrievalHit],
+    ) -> AsyncIterator[T]:
+        """Stream structured Pydantic outputs."""
+        ...
 
 
 class VectorStore(Protocol):
     """Vector database contract."""
 
-    def create_collection(self) -> None: ...
+    def create_collection(self) -> None:
+        """Create the vector collection."""
+        ...
 
     def insert(
         self,
-        chunks: Sequence["ChunkRecord"],
+        chunks: Sequence[ChunkRecord],
         vectors: Sequence[list[float]],
-    ) -> None: ...
+    ) -> None:
+        """Insert chunks with their vectors."""
+        ...
 
     def upsert(
         self,
-        chunks: Sequence["ChunkRecord"],
+        chunks: Sequence[ChunkRecord],
         vectors: Sequence[list[float]],
-    ) -> None: ...
+    ) -> None:
+        """Insert or update chunks with vectors."""
+        ...
 
-    def delete(self, chunk_ids: Sequence[str]) -> None: ...
-    def delete_document(self, document_id: str) -> None: ...
-    def delete_version(self, document_id: str, version: int) -> None: ...
+    def delete(self, chunk_ids: Sequence[str]) -> None:
+        """Delete chunks by ids."""
+        ...
+    def delete_document(self, document_id: str) -> None:
+        """Delete all chunks for a document."""
+        ...
+    def delete_version(self, document_id: str, version: int) -> None:
+        """Delete a specific document version."""
+        ...
 
     def search(
         self,
@@ -915,7 +976,9 @@ class VectorStore(Protocol):
         vector: Sequence[float],
         top_k: int,
         metadata_filter: str | dict[str, Any] = "",
-    ) -> list[dict[str, Any]]: ...
+    ) -> list[dict[str, Any]]:
+        """Search by vector similarity."""
+        ...
 
     def hybrid_search(
         self,
@@ -924,12 +987,20 @@ class VectorStore(Protocol):
         vector: Sequence[float],
         top_k: int,
         metadata_filter: str | dict[str, Any] = "",
-    ) -> list[dict[str, Any]]: ...
+    ) -> list[dict[str, Any]]:
+        """Search by vector similarity and keyword."""
+        ...
 
-    def optimize(self) -> None: ...
-    def health(self) -> dict[str, Any]: ...
+    def optimize(self) -> None:
+        """Optimize the vector store."""
+        ...
+    def health(self) -> dict[str, Any]:
+        """Return vector store health status."""
+        ...
 
-    def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]: ...
+    def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
+        """Search by keyword."""
+        ...
 
 
 class Retriever(Protocol):
@@ -938,10 +1009,12 @@ class Retriever(Protocol):
     def retrieve(
         self,
         *,
-        user: "UserPrincipal",
+        user: UserPrincipal,
         question: str,
         top_k: int,
-    ) -> list["RetrievalHit"]: ...
+    ) -> list[RetrievalHit]:
+        """Retrieve authorized chunks for a user."""
+        ...
 
 
 class Reranker(Protocol):
@@ -951,22 +1024,28 @@ class Reranker(Protocol):
         self,
         *,
         question: str,
-        hits: Sequence["RetrievalHit"],
-    ) -> list["RetrievalHit"]: ...
+        hits: Sequence[RetrievalHit],
+    ) -> list[RetrievalHit]:
+        """Rerank retrieved hits."""
+        ...
 
 
 class PromptBuilder(Protocol):
     """Builds structured prompts without manual concatenation."""
 
-    def build_system_prompt(self) -> str: ...
+    def build_system_prompt(self) -> str:
+        """Build a system prompt."""
+        ...
 
     def build_messages(
         self,
         *,
-        conversation: Sequence["ConversationTurn"],
-        retrieved_chunks: Sequence["ChunkRecord"],
+        conversation: Sequence[ConversationTurn],
+        retrieved_chunks: Sequence[ChunkRecord],
         question: str,
-    ) -> list[dict[str, str]]: ...
+    ) -> list[dict[str, str]]:
+        """Build a message list for the LLM."""
+        ...
 
 
 class LLMProvider(Protocol):
@@ -978,12 +1057,14 @@ class LLMProvider(Protocol):
         self,
         *,
         system_prompt: str,
-        conversation: Sequence["ConversationTurn"],
+        conversation: Sequence[ConversationTurn],
         context: Sequence[str],
         question: str,
         image_paths: list[str] | None = None,
         session_history: list[dict[str, Any]] | None = None,
-    ) -> str: ...
+    ) -> str:
+        """Generate a response from prompt sections."""
+        ...
 
 
 class Pipeline(Protocol):
@@ -993,46 +1074,72 @@ class Pipeline(Protocol):
 
     async def run(
         self,
-        context: "PipelineContext",
+        context: PipelineContext,
         **inputs: Any,
-    ) -> "PipelineResult": ...
+    ) -> PipelineResult:
+        """Run the pipeline with the given context."""
+        ...
 
 
 class BackgroundWorker(Protocol):
     """Schedules background tasks."""
 
-    def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any: ...
+    def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Submit a background task."""
+        ...
 
 
 class TaskQueue(Protocol):
     """Abstract task queue (e.g. Celery, RQ, SQS)."""
 
-    def enqueue(self, name: str, payload: dict[str, Any]) -> str: ...
+    def enqueue(self, name: str, payload: dict[str, Any]) -> str:
+        """Enqueue a task."""
+        ...
 
 
 class DocumentRegistry(Protocol):
     """Tracks versioned document state."""
 
-    def save_version(self, document: "DocumentRecord") -> "DocumentRecord": ...
-    def get_latest(self, document_id: str) -> "DocumentRecord" | None: ...
-    def list_accessible(self, companies: list[str]) -> list["DocumentRecord"]: ...
-    def archive(self, document_id: str) -> None: ...
+    def save_version(self, document: DocumentRecord) -> DocumentRecord:
+        """Persist a document version."""
+        ...
+    def get_latest(self, document_id: str) -> DocumentRecord | None:
+        """Get the latest document version."""
+        ...
+    def list_accessible(self, companies: list[str]) -> list[DocumentRecord]:
+        """List accessible documents for companies."""
+        ...
+    def archive(self, document_id: str) -> None:
+        """Archive a document."""
+        ...
 
 
 class ConversationStore(Protocol):
     """Stores only turns, not context chunks."""
 
-    def append(self, session_id: str, turn: "ConversationTurn") -> None: ...
-    def load(self, session_id: str, limit: int = 20) -> list["ConversationTurn"]: ...
-    def clear(self, session_id: str) -> None: ...
+    def append(self, session_id: str, turn: ConversationTurn) -> None:
+        """Append a turn to a session."""
+        ...
+    def load(self, session_id: str, limit: int = 20) -> list[ConversationTurn]:
+        """Load turns from a session."""
+        ...
+    def clear(self, session_id: str) -> None:
+        """Clear all turns for a session."""
+        ...
 
 
 class SessionStore(Protocol):
     """Stores session metadata."""
 
-    def create(self, user_id: str) -> "SessionRecord": ...
-    def resolve(self, token: str) -> "SessionRecord" | None: ...
-    def invalidate(self, token: str) -> None: ...
+    def create(self, user_id: str) -> SessionRecord:
+        """Create a new session."""
+        ...
+    def resolve(self, token: str) -> SessionRecord | None:
+        """Resolve a session token."""
+        ...
+    def invalidate(self, token: str) -> None:
+        """Invalidate a session token."""
+        ...
 
 
 class Plugin(Protocol):
@@ -1041,4 +1148,6 @@ class Plugin(Protocol):
     name: str
     version: str
 
-    def register(self, registry: Any) -> None: ...
+    def register(self, registry: Any) -> None:
+        """Register the plugin with a registry."""
+        ...

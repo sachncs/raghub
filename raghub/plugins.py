@@ -17,6 +17,18 @@ from collections.abc import Callable
 from importlib import metadata
 from typing import Any
 
+from raghub.models import (
+    Chunker,
+    DocumentConverter,
+    EmbeddingProvider,
+    Evaluator,
+    Generator,
+    KnowledgeRepository,
+    Logger,
+    Metrics,
+    StructuredOutputProvider,
+    VectorStore,
+)
 
 
 class PluginRegistry:

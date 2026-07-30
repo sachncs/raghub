@@ -24,6 +24,7 @@ import aiosqlite
 
 from raghub.domain import (
     ChunkRepository,
+    DatabaseManager,
     DocumentRepository,
     SessionRepository,
 )
@@ -36,7 +37,7 @@ from raghub.models import (
     DocumentRecord,
     SessionRecord,
 )
-from raghub.storage import Database, Sessions
+from raghub.storage import Sessions
 from raghub.vectorstore import BaseVectorStore
 
 MAX_INSERT_RETRIES = 3

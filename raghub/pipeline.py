@@ -47,16 +47,25 @@ from raghub.knowledge import InMemoryKnowledgeRepository
 from raghub.llm import BaseLLMProvider
 from raghub.models import (
     Chunk,
+    Chunker,
     ChunkRecord,
     Citation,
     Classification,
     ConversationTurn,
+    DocumentConverter,
+    EmbeddingProvider,
+    Generator,
     KnowledgeBundle,
+    KnowledgeRepository,
     Pipeline,
     PipelineContext,
     PipelineResult,
+    Reranker,
     RetrievalHit,
+    StructuredOutputProvider,
+    TelemetryProvider,
     UserPrincipal,
+    VectorStore,
     deterministic_id,
 )
 from raghub.observability import NoOpTelemetry
