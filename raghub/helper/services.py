@@ -801,9 +801,9 @@ class Facade:
         """Construct a :class:`raghub.RAG` from the container's collaborators."""
         if not RAG_FACADE_AVAILABLE:
             return None
-        import importlib as _importlib
+        import importlib
 
-        rag_module = _importlib.import_module("raghub.rag")
+        rag_module = importlib.import_module("raghub.rag")
         return rag_module.RAG(
             settings=container.settings,
             embedder=container.embeddings,

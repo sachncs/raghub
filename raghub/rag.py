@@ -143,9 +143,9 @@ def default_converter() -> DocumentConverter:
     always returns :class:`Marker`. Tests patch the
     `raghub.documents.Marker` symbol via this re-import.
     """
-    from raghub.documents import Marker as _Marker
+    from raghub.documents import Marker
 
-    return _Marker()
+    return Marker()
 
 
 def default_chunker(
@@ -189,9 +189,9 @@ def default_embedder(embedding_model: str, embedding_dim: int) -> Embedder:
     """
     if not has_llm_api_key():
         return Hasher(dimension=embedding_dim, model_name=embedding_model)
-    from raghub.embeddings import LiteLLMEmbedder as _LiteLLMEmbedder
+    from raghub.embeddings import LiteLLMEmbedder
 
-    return _LiteLLMEmbedder(model=embedding_model)
+    return LiteLLMEmbedder(model=embedding_model)
 
 
 def default_llm(llm_model: str) -> Any:
@@ -209,9 +209,9 @@ def default_llm(llm_model: str) -> Any:
         from raghub.llm import HeuristicProvider
 
         return HeuristicProvider()
-    from raghub.llm import LiteLLM as _LiteLLM
+    from raghub.llm import LiteLLM
 
-    return _LiteLLM(model=llm_model)
+    return LiteLLM(model=llm_model)
 
 
 def default_vector_store(embedding_dim: int) -> Any:
@@ -238,9 +238,9 @@ def default_structured() -> Any:
     """
     if not has_llm_api_key():
         return None
-    from raghub.generation import Instructor as _Instructor
+    from raghub.generation import Instructor
 
-    return _Instructor()
+    return Instructor()
 
 
 def default_telemetry() -> Any:
@@ -317,18 +317,18 @@ def ingest_one_worker(
         vector store after ``ingest`` completes. The vectors match the
         ``embedding_dim`` of the embedder that produced them.
     """
-    import json as _json
-    from pathlib import Path as _P
+    import json
+    from pathlib import Path
 
-    from raghub.config import Settings as _S
+    from raghub.config import Settings
 
-    settings_dict = _json.loads(_P(settings_path).read_text(encoding="utf-8"))
-    settings = _S.model_validate(settings_dict)
+    settings_dict = json.loads(Path(settings_path).read_text(encoding="utf-8"))
+    settings = Settings.model_validate(settings_dict)
     # Each worker re-uses the process-pool's environment for the LLM
     # creds. The vector store is local to the worker (an in-memory
     # list) — the parent process owns the merged, durable index.
     rag = RAG(settings=settings)
-    rag.ingest(_P(pdf_path), metadata=metadata, user=None)
+    rag.ingest(Path(pdf_path), metadata=metadata, user=None)
     # Pull the chunks + vectors back out of the worker's store.
     vector_store = rag.vector_store
     chunks: list[Any] = []
@@ -915,12 +915,12 @@ class RAG:
         ``Settings`` object so any env-var-driven defaults are picked
         up.
         """
-        import json as _json
+        import json
         import tempfile
 
         path = Path(tempfile.mkstemp(prefix="rag-settings-", suffix=".json")[1])
         path.write_text(
-            _json.dumps(
+            json.dumps(
                 self.settings.model_dump(mode="json"),
                 default=str,
             ),

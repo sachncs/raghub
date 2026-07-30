@@ -177,7 +177,7 @@ class Metrics:
             appears in the question (or one of them is empty);
             ``0.0`` if the sets are disjoint.
         """
-        _STOPWORDS = frozenset(
+        STOPWORDS = frozenset(
             {
                 "a", "an", "and", "are", "as", "at", "be", "by",
                 "for", "from", "how", "i", "in", "is", "it", "of",
@@ -185,8 +185,8 @@ class Metrics:
                 "what", "when", "where", "which", "who", "why", "with",
             }
         )
-        pred = {t for t in Metrics.tokenize(predicted) if t not in _STOPWORDS}
-        q = {t for t in Metrics.tokenize(question) if t not in _STOPWORDS}
+        pred = {t for t in Metrics.tokenize(predicted) if t not in STOPWORDS}
+        q = {t for t in Metrics.tokenize(question) if t not in STOPWORDS}
         if not pred or not q:
             return 0.0
         return len(pred & q) / len(pred | q)
@@ -210,7 +210,7 @@ class Metrics:
             A value in ``[0, 1]``. ``1.0`` when every claim is
             supported; ``0.0`` when no claim is supported.
         """
-        _STOPWORDS = frozenset(
+        STOPWORDS = frozenset(
             {
                 "a", "an", "and", "are", "as", "at", "be", "by",
                 "for", "from", "how", "i", "in", "is", "it", "of",
@@ -231,7 +231,7 @@ class Metrics:
         supported = 0
         considered = 0
         for claim in claims:
-            tokens = {t for t in Metrics.tokenize(claim) if t not in _STOPWORDS}
+            tokens = {t for t in Metrics.tokenize(claim) if t not in STOPWORDS}
             if not tokens:
                 continue
             considered += 1
@@ -655,11 +655,11 @@ class FramesBenchmark(Evaluator):
     def load_tsv(self, path: Path) -> list[dict[str, Any]]:
         """Parse a TSV / CSV file with the FRAMES schema."""
         try:
-            import csv as _csv
+            import csv
         except ImportError:  # pragma: no cover - stdlib
             return []
         with path.open("r", encoding="utf-8", newline="") as fh:
-            reader = _csv.DictReader(fh, delimiter="\t" if path.suffix == ".tsv" else ",")
+            reader = csv.DictReader(fh, delimiter="\t" if path.suffix == ".tsv" else ",")
             return [row for row in reader]
 
     def normalise_row(self, row: dict[str, Any]) -> dict[str, Any]:
@@ -678,9 +678,9 @@ class FramesBenchmark(Evaluator):
             # the list. Try ``ast.literal_eval`` (the cheap path)
             # first, fall back to a JSON parse for the edge case
             # where someone hands us a real JSON-encoded list.
-            import ast as _ast
+            import ast
             try:
-                links = _ast.literal_eval(raw_links)
+                links = ast.literal_eval(raw_links)
             except (ValueError, SyntaxError):
                 try:
                     links = json.loads(raw_links)

@@ -306,7 +306,7 @@ class Chonkie(Chunker):
                             owner=bundle.metadata.get("owner", ""),
                             department=bundle.metadata.get("department", ""),
                             text=text,
-                            hash=sha256(text.encode("utf-8")).hexdigest(),
+                            checksum=sha256(text.encode("utf-8")).hexdigest(),
                             metadata={
                                 "chunker": "chonkie",
                                 "strategy": getattr(self.inner, "__class__", type(None)).__name__,
@@ -832,7 +832,7 @@ class PersistentJobStore:
             return None
         return {"job_id": row[0], "status": row[1], "result": row[2]}
 
-    def all(self) -> Iterable[dict[str, Any]]:
+    def all_jobs(self) -> Iterable[dict[str, Any]]:
         """Yield every persisted job."""
         for row in self.conn.execute(
             "SELECT job_id, status, result FROM ingestion_jobs"

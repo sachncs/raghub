@@ -453,7 +453,7 @@ class Raptor(KnowledgeIndex):
                         owner=group[0].owner,
                         department="",
                         text=summary_text,
-                        hash=sha256(summary_text.encode("utf-8")).hexdigest(),
+                        checksum=sha256(summary_text.encode("utf-8")).hexdigest(),
                         metadata={
                             "vector": vec,
                             "raptor_level": level_idx,
@@ -579,7 +579,7 @@ def chunk_to_record(chunk: Chunk, vector: list[float], *, level: int) -> ChunkRe
         owner=chunk.owner,
         department=chunk.department,
         text=chunk.text,
-        hash=sha256(chunk.text.encode("utf-8")).hexdigest(),
+        checksum=sha256(chunk.text.encode("utf-8")).hexdigest(),
         metadata={**chunk.metadata, "vector": vector, "raptor_level": level},
     )
 
@@ -692,7 +692,7 @@ class GraphIndex(KnowledgeIndex):
                 owner=chunk.owner,
                 department=chunk.department,
                 text=chunk.text,
-                hash=sha256(chunk.text.encode("utf-8")).hexdigest(),
+                checksum=sha256(chunk.text.encode("utf-8")).hexdigest(),
                 metadata={**chunk.metadata, "vector": vector},
             )
             self.chunks[chunk.chunk_id] = record
@@ -774,7 +774,7 @@ class GraphIndex(KnowledgeIndex):
                 owner="",
                 department="",
                 text=summary,
-                hash=sha256(summary.encode("utf-8")).hexdigest(),
+                checksum=sha256(summary.encode("utf-8")).hexdigest(),
                 metadata={
                     "graphrag_community": True,
                     "entities": sorted(communities),

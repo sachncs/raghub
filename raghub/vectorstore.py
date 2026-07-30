@@ -587,7 +587,7 @@ class SqliteStore(Store):
                         classification=classification,
                         text=text,
                         source_location=source_location,
-                        hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                        checksum=hashlib.sha256(text.encode("utf-8")).hexdigest(),
                     ),
                     score,
                 )
@@ -641,7 +641,7 @@ class SqliteStore(Store):
                 "chunk": ChunkRecord(
                     chunk_id=cid, document_id=did, version=ver,
                     classification=cls, text=txt, source_location=sloc,
-                    hash=hashlib.sha256(txt.encode("utf-8")).hexdigest(),
+                    checksum=hashlib.sha256(txt.encode("utf-8")).hexdigest(),
                 ),
                 "score": 1.0,
                 "chunk_id": cid,

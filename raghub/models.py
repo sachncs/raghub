@@ -267,7 +267,7 @@ class ChunkRecord(BaseModel):
     classification: Classification = Classification.INTERNAL
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     embedding_model: str = ""
-    hash: str
+    checksum: str
     text: str
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -407,7 +407,7 @@ class Chunk(ChunkRecord):
 class Embedding(BaseModel):
     """A typed vector with provenance.
 
-    Separate from the in-place ``ChunkRecord.hash`` style so adapters
+    Separate from the in-place ``ChunkRecord.checksum`` style so adapters
     can exchange embeddings without leaking the wire-format parent.
 
     Attributes:
