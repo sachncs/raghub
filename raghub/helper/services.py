@@ -31,8 +31,6 @@ import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
-from __future__ import annotations
-
 from queue import Queue
 from typing import TYPE_CHECKING, Any, cast
 
@@ -41,6 +39,7 @@ from raghub.config import Settings
 
 if TYPE_CHECKING:
     from raghub.auth import RBACAuthorizationService, SqliteUserStore
+
 from raghub.conversation import ConversationManager
 from raghub.core import can_access_company
 from raghub.documents import Catalog, DocumentLifecycleManager, detect_mime_type

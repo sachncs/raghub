@@ -5,8 +5,6 @@ Implementation lives in :mod:`raghub.helper` (documents); local entry-point modu
 
 from __future__ import annotations
 
-# --- parser.py content ---
-# --- parser.py content ---
 import io
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -15,13 +13,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from bs4 import BeautifulSoup
-from docx import Document
-from openpyxl import load_workbook
-from PIL import Image as PillowImage
-from pptx import Presentation
-from pypdf import PdfReader
-
+from raghub.exceptions import OptionalDependencyMissing
 from raghub.helper.documents import (
     EQUATION_BLOCK_RE,
     FENCE_RE,
@@ -122,6 +114,13 @@ class Pdf(File):
             metadata dict contains ``width`` and ``height`` (from the
             page's media box) when available.
         """
+        try:
+            from pypdf import PdfReader
+        except ImportError:
+            raise OptionalDependencyMissing(
+                "pypdf",
+                "pip install raghub[pdf]",
+            ) from None
         reader = PdfReader(BytesIO(file_bytes))
         sections: list[Section] = []
         for i, page in enumerate(reader.pages, start=1):
@@ -160,6 +159,13 @@ class HTML(File):
             section metadata includes a ``headings`` list with the
             text of every ``<h1>``, ``<h2>``, and ``<h3>`` element.
         """
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            raise OptionalDependencyMissing(
+                "beautifulsoup4",
+                "pip install raghub[docs]",
+            ) from None
         soup = BeautifulSoup(file_bytes, "lxml")
         body = soup.find("body") or soup
         text = body.get_text(separator=" ", strip=True)
@@ -194,6 +200,13 @@ class Image(File):
             ``text`` contains the OCR result, or ``""`` if
             :mod:`pytesseract` is unavailable or fails.
         """
+        try:
+            from PIL import Image as PillowImage
+        except ImportError:
+            raise OptionalDependencyMissing(
+                "Pillow",
+                "pip install raghub[docs]",
+            ) from None
         image = PillowImage.open(BytesIO(file_bytes))
         pytesseract_module, import_error = capture(import_module, "pytesseract")
         text = ""
@@ -248,6 +261,13 @@ class Office(File):
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/msword",
         ) or ext in ("docx", "doc"):
+            try:
+                from docx import Document
+            except ImportError:
+                raise OptionalDependencyMissing(
+                    "python-docx",
+                    "pip install raghub[docs]",
+                ) from None
             doc = Document(io.BytesIO(file_bytes))
             text_parts = [para.text for para in doc.paragraphs]
             sections.append(
@@ -263,6 +283,13 @@ class Office(File):
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/vnd.ms-excel",
         ) or ext in ("xlsx", "xls"):
+            try:
+                from openpyxl import load_workbook
+            except ImportError:
+                raise OptionalDependencyMissing(
+                    "openpyxl",
+                    "pip install raghub[docs]",
+                ) from None
             wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
             for i, ws_name in enumerate(wb.sheetnames, start=1):
                 ws = wb[ws_name]
@@ -284,6 +311,13 @@ class Office(File):
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "application/vnd.ms-powerpoint",
         ) or ext in ("pptx", "ppt"):
+            try:
+                from pptx import Presentation
+            except ImportError:
+                raise OptionalDependencyMissing(
+                    "python-pptx",
+                    "pip install raghub[docs]",
+                ) from None
             prs = Presentation(io.BytesIO(file_bytes))
             for i, slide in enumerate(prs.slides, start=1):
                 texts = [shape.text for shape in slide.shapes if hasattr(shape, "text")]

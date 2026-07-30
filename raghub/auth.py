@@ -20,11 +20,19 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-import aiosqlite
-import bcrypt
+from raghub.exceptions import AuthenticationError, AuthorizationError, OptionalDependencyMissing
+
+try:
+    import aiosqlite
+    import bcrypt
+except ImportError:
+    raise OptionalDependencyMissing(
+        "aiosqlite",
+        "pip install raghub[auth]"
+    ) from None
+
 from pydantic import BaseModel, Field
 
-from raghub.exceptions import AuthenticationError, AuthorizationError
 from raghub.models import AuthLoginResponse, ConversationTurn, UserPrincipal
 from raghub.services import Mixin as ServiceMixin
 

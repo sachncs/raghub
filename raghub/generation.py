@@ -21,13 +21,11 @@ import asyncio
 import inspect
 import os
 from collections.abc import AsyncIterator, Callable, Sequence
-from typing import TypeVar, cast
+from typing import Any, TypeVar, cast
 
-import instructor
-from instructor.core.client import AsyncInstructor, Instructor
-from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 
+from raghub.exceptions import OptionalDependencyMissing
 from raghub.llm import BaseLLMProvider
 from raghub.models import (
     Citation,
@@ -239,21 +237,35 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
         self.model = model
         self.api_key = api_key
         self.async_client = async_client
-        self.client: Instructor | None = None
-        self.client_async: AsyncInstructor | None = None
+        self.client: Any = None
+        self.client_async: Any = None
 
-    def sync_instructor_client(self) -> Instructor:
+    def sync_instructor_client(self) -> Any:
         """Lazy sync client."""
         if self.client is None:
+            try:
+                import instructor
+            except ImportError:
+                raise OptionalDependencyMissing(
+                    "instructor",
+                    "pip install raghub[structured]",
+                ) from None
             self.client = instructor.from_provider(
                 f"litellm/{self.model}",
                 async_client=False,
             )
         return self.client
 
-    def async_instructor_client(self) -> AsyncInstructor:
+    def async_instructor_client(self) -> Any:
         """Lazy async client."""
         if self.client_async is None:
+            try:
+                import instructor
+            except ImportError:
+                raise OptionalDependencyMissing(
+                    "instructor",
+                    "pip install raghub[structured]",
+                ) from None
             self.client_async = instructor.from_provider(
                 f"litellm/{self.model}",
                 async_client=True,
@@ -277,6 +289,13 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
         Returns:
             A populated ``response_model`` instance.
         """
+        try:
+            from openai.types.chat import ChatCompletionMessageParam
+        except ImportError:
+            raise OptionalDependencyMissing(
+                "openai",
+                "pip install raghub[structured]",
+            ) from None
         context_text = "\n\n".join(f"[{i + 1}] {hit.chunk.text}" for i, hit in enumerate(context))
         messages: list[ChatCompletionMessageParam] = [
             {
@@ -289,8 +308,8 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
             },
         ]
         if self.async_client:
-            client: AsyncInstructor | Instructor = self.async_instructor_client()
-            return await cast(AsyncInstructor, client).create(
+            client = self.async_instructor_client()
+            return await cast(Callable[..., T], client.create)(
                 messages=messages,
                 response_model=response_model,
             )
