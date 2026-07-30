@@ -36,6 +36,12 @@ from pydantic import BaseModel, Field
 from raghub.models import AuthLoginResponse, ConversationTurn, User
 from raghub.services import Mixin as ServiceMixin
 
+__all__ = [
+    "AuthService",
+    "SqliteUsers",
+    "UserRecord",
+]
+
 
 class UserRecord(BaseModel):
     """Pydantic model representing a single user.
