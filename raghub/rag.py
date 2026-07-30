@@ -122,6 +122,7 @@ unusable.
 """
 
 LLM_API_KEY_ENV_VARS = (
+    "RAG_LLM_API_KEY",
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
     "NVIDIA_API_KEY",
