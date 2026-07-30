@@ -86,7 +86,7 @@ dev = [
 ]
 
 [project.scripts]
-raghub = "raghub.cli.main:main"
+raghub = "raghub.cli:main"
 raghub-financebench = "raghub.evaluation.cli:app"
 
 [project.entry-points."raghub.plugins"]

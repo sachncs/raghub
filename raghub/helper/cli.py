@@ -29,7 +29,6 @@ import typer
 import uvicorn
 import yaml
 
-from raghub.auth import SqliteUserStore
 from raghub.config import Settings
 from raghub.rag import RAG
 from raghub.utils import capture
@@ -109,6 +108,8 @@ class ToolConfig:
         """
         settings = CliConfig.read_settings(None)
         db_path = Path(settings.data_dir) / "users.db"
+        from raghub.auth import SqliteUserStore
+
         store = SqliteUserStore(db_path)
         await store.initialize()
         return store
