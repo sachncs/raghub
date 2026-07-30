@@ -36,6 +36,11 @@ from raghub.models import (
 
 T = TypeVar("T", bound=BaseModel)
 
+__all__ = [
+    "DefaultGenerator",
+    "Instructor",
+]
+
 
 class DefaultGenerator:
     """Generator combining retrieval, prompt building, and an LLM provider.
