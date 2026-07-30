@@ -1,8 +1,8 @@
 """Tests for the RagasAdapter.
 
 The adapter wraps the optional ``[ragas]`` extra. Most tests
-exercise the data-translation helpers (``_build_dataset``,
-``_extract_scores``) which don't require ragas to be installed.
+exercise the data-translation helpers (``build_dataset``,
+``extract_scores``) which don't require ragas to be installed.
 The full evaluate() path is gated behind a pytest.importorskip
 on ragas.
 """
@@ -69,7 +69,7 @@ def test_build_dataset_translates_examples():
             "ground_truth": "",
         },
     ]
-    dataset = adapter._build_dataset(examples)
+    dataset = adapter.build_dataset(examples)
     rows = list(dataset)
     assert len(rows) == 2
     assert rows[0]["question"] == "q1"
@@ -83,7 +83,7 @@ def test_build_dataset_handles_missing_fields():
     from raghub.eval.ragas import RagasAdapter
 
     adapter = RagasAdapter.__new__(RagasAdapter)
-    rows = list(adapter._build_dataset([{"question": "q"}]))
+    rows = list(adapter.build_dataset([{"question": "q"}]))
     assert rows[0]["answer"] == ""
     assert rows[0]["contexts"] == []
     assert rows[0]["ground_truth"] == ""
@@ -101,7 +101,7 @@ def test_extract_scores_returns_per_row_list():
             "context_recall": [0.3, 0.3, 0.3],
         }
     )
-    scores = RagasAdapter._extract_scores(fake, 3)
+    scores = RagasAdapter.extract_scores(fake, 3)
     assert scores["faithfulness"] == [1.0, 0.5, 0.0]
     assert scores["answer_relevancy"] == [0.8, 0.6, 0.4]
     assert len(scores["context_precision"]) == 3
@@ -112,7 +112,7 @@ def test_extract_scores_zeros_missing_metrics():
     from raghub.eval.ragas import RagasAdapter
 
     fake = _FakeRagasResult({})  # no metrics at all
-    scores = RagasAdapter._extract_scores(fake, 5)
+    scores = RagasAdapter.extract_scores(fake, 5)
     assert scores["faithfulness"] == [0.0] * 5
     assert scores["answer_relevancy"] == [0.0] * 5
 
@@ -122,7 +122,7 @@ def test_extract_scores_handles_corrupt_values():
     from raghub.eval.ragas import RagasAdapter
 
     fake = _FakeRagasResult({"faithfulness": ["nope", "still nope"]})
-    scores = RagasAdapter._extract_scores(fake, 2)
+    scores = RagasAdapter.extract_scores(fake, 2)
     assert scores["faithfulness"] == [0.0, 0.0]
 
 
@@ -201,13 +201,12 @@ RAGAS_AVAILABLE = _safe_import_ragas()
 
 
 @pytest.mark.skipif(not RAGAS_AVAILABLE, reason="ragas not installed")
-@pytest.mark.skipif(not RAGAS_AVAILABLE, reason="ragas not installed")
 def test_evaluate_calls_ragas_evaluate_with_metric_instances(monkeypatch):
     """``evaluate()`` builds the dataset and invokes ragas.evaluate."""
     from raghub.eval.ragas import RagasAdapter
 
     fake_ragas = _FakeRagasModule()
-    monkeypatch.setattr("raghub.eval.ragas._import_ragas", lambda: fake_ragas)
+    monkeypatch.setattr("raghub.eval.ragas.import_ragas", lambda: fake_ragas)
 
     # Bypass the __init__ import check; set the bits the adapter
     # actually uses.
@@ -215,7 +214,7 @@ def test_evaluate_calls_ragas_evaluate_with_metric_instances(monkeypatch):
     adapter.metric_names = ("faithfulness", "answer_relevancy")
     adapter.llm = None
     adapter.embeddings = None
-    adapter._metric_instances = [object(), object()]
+    adapter.metric_instances = [object(), object()]
 
     async def factory(example):
         return ("the answer", ["ctx"], ["id1"], ["id1"])
@@ -243,13 +242,13 @@ def test_evaluate_wraps_ragas_failure_in_configuration_error(monkeypatch):
     from raghub.eval.ragas import RagasAdapter
 
     fake_ragas = _FakeRagasModule(raise_on_evaluate=RuntimeError("boom"))
-    monkeypatch.setattr("raghub.eval.ragas._import_ragas", lambda: fake_ragas)
+    monkeypatch.setattr("raghub.eval.ragas.import_ragas", lambda: fake_ragas)
 
     adapter = RagasAdapter.__new__(RagasAdapter)
     adapter.metric_names = ("faithfulness",)
     adapter.llm = None
     adapter.embeddings = None
-    adapter._metric_instances = [object()]
+    adapter.metric_instances = [object()]
 
     async def factory(example):
         return ("a", ["c"], ["id1"], ["id1"])
@@ -280,7 +279,7 @@ def test_evaluate_mark_pass_when_all_metrics_above_threshold():
     adapter.metric_names = ("faithfulness", "answer_relevancy")
     adapter.llm = None
     adapter.embeddings = None
-    adapter._metric_instances = [object(), object()]
+    adapter.metric_instances = [object(), object()]
 
     async def factory(ex):
         return ("a", ["c"], ["id"], ["id"])
@@ -313,7 +312,7 @@ def test_evaluate_mark_fail_when_any_metric_below_threshold():
     adapter.metric_names = ("faithfulness", "answer_relevancy")
     adapter.llm = None
     adapter.embeddings = None
-    adapter._metric_instances = [object(), object()]
+    adapter.metric_instances = [object(), object()]
 
     async def factory(ex):
         return ("a", ["c"], ["id"], ["id"])
@@ -333,7 +332,7 @@ def test_evaluate_metric_names_have_ragas_prefix():
     adapter.metric_names = ("faithfulness", "answer_relevancy")
     adapter.llm = None
     adapter.embeddings = None
-    adapter._metric_instances = [object(), object()]
+    adapter.metric_instances = [object(), object()]
 
     async def factory(ex):
         return ("a", ["c"], ["id"], ["id"])
