@@ -42,8 +42,8 @@ from raghub.agent import Agent, AgentTrace
 from raghub.conv import MemoryConversations
 from raghub.embedder import Embedder
 from raghub.errors import PipelineError, VectorStoreError
-from raghub.helper.documents import PlainTextConverter
 from raghub.knowledge import MemoryRepo
+from raghub.lifecycle import PlainTextConverter
 from raghub.llm import Generator
 from raghub.models import (
     Chunk,
@@ -54,7 +54,7 @@ from raghub.models import (
     ConversationTurn,
     DocumentConverter,
     EmbeddingProvider,
-GeneratorProtocol,
+    GeneratorProtocol,
     KnowledgeBundle,
     KnowledgeRepository,
     Pipeline,

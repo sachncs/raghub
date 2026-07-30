@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from raghub.errors import MissingDep
-from raghub.helper.documents import (
+from raghub.lifecycle import (
     ChunkingPlan,
     Lifecycle,
     Marker,

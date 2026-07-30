@@ -44,15 +44,8 @@ from raghub.conv import ConversationManager
 from raghub.core import can_access_company
 from raghub.embedder import Embedder, build_embedder
 from raghub.errors import AuthorizationError, DocumentError
-from raghub.helper.documents import Catalog, Lifecycle, detect_mime_type
-from raghub.helper.retrieval import (
-    Identity as IdentityReranker,
-)
-from raghub.helper.retrieval import (
-    Retrieval as RetrievalPipeline,
-)
-from raghub.helper.storage import ImageStore, Sessions
 from raghub.ingest import IngestionResult, Ingestor
+from raghub.lifecycle import Catalog, Lifecycle, detect_mime_type
 from raghub.llm import Generator, build_llm
 from raghub.models import (
     AuthLoginResponse,
@@ -65,7 +58,14 @@ from raghub.models import (
 )
 from raghub.prompts import PromptBuilder
 from raghub.repos import UnitOfWork
+from raghub.retrieval import (
+    Identity as IdentityReranker,
+)
+from raghub.retrieval import (
+    Retrieval as RetrievalPipeline,
+)
 from raghub.store import Store, build_store
+from raghub.stores import ImageStore, Sessions
 
 # `Facade` is the public class; `RagApplication` was a prior name.
 # ``from raghub.services import Facade`` without churn. Define a

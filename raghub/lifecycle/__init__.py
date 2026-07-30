@@ -3,7 +3,7 @@
 Everything that used to live in :mod:`raghub.documents.__init__` (apart
 from the parser classes, which moved to :mod:`raghub.documents.parser`).
 The split keeps the public package surface thin while preserving the
-single ``from raghub.docs import …`` ergonomic for callers.
+single ``from raghub.parsers import …`` ergonomic for callers.
 
 The classes and functions here map onto the document lifecycle::
 
@@ -64,7 +64,7 @@ from raghub.utils import capture
 
 # ---------------------------------------------------------------------------
 # Legacy module aliases — see :mod:`raghub.documents.__init__` for the matching
-# setdefault calls. Prior `from raghub.docs import …`
+# setdefault calls. Prior `from raghub.parsers import …`
 # style imports keep resolving while callers migrate.
 # ---------------------------------------------------------------------------
 

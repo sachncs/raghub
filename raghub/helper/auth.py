@@ -17,8 +17,8 @@ from typing import cast
 
 from fastapi import Depends, Header, HTTPException, Request
 
-from raghub.helper.services import Facade
 from raghub.models import User
+from raghub.services import Facade
 
 
 class App:

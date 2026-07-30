@@ -48,39 +48,9 @@ from raghub.config import Settings
 from raghub.conv import MemoryConversations
 from raghub.embedder import Embedder, Hasher
 from raghub.errors import ConfigurationError, IngestionError, RagHubError, ValidationError
+from raghub.eval import FinanceBench
 from raghub.gen import DefaultGenerator
-from raghub.helper.eval import FinanceBench
 from raghub.helper.response import ResponseBuilder
-from raghub.helper.retrieval import (
-    Colbert as ColbertLateInteraction,
-)
-from raghub.helper.retrieval import (
-    Compose as ComposeTransformer,
-)
-from raghub.helper.retrieval import (
-    Context as LongContextRerankPass,
-)
-from raghub.helper.retrieval import (
-    Decompose as DecomposeTransformer,
-)
-from raghub.helper.retrieval import (
-    Hyde as HydeTransformer,
-)
-from raghub.helper.retrieval import (
-    MultiQuery as MultiQueryTransformer,
-)
-from raghub.helper.retrieval import (
-    Retrieval as RetrievalPipeline,
-)
-from raghub.helper.retrieval import (
-    StepBack as StepBackTransformer,
-)
-from raghub.helper.retrieval import (
-    Transformer as QueryTransformer,
-)
-from raghub.helper.retrieval import (
-    build_reranker,
-)
 from raghub.ingest import Resumable, build_chonkie_chunker
 from raghub.knowledge import (
     GraphIndex,
@@ -101,6 +71,36 @@ from raghub.models import (
 )
 from raghub.pipeline import AgentPipeline, IngestPipeline, QueryCache, QueryPipeline
 from raghub.plugins import PluginRegistry
+from raghub.retrieval import (
+    Colbert as ColbertLateInteraction,
+)
+from raghub.retrieval import (
+    Compose as ComposeTransformer,
+)
+from raghub.retrieval import (
+    Context as LongContextRerankPass,
+)
+from raghub.retrieval import (
+    Decompose as DecomposeTransformer,
+)
+from raghub.retrieval import (
+    Hyde as HydeTransformer,
+)
+from raghub.retrieval import (
+    MultiQuery as MultiQueryTransformer,
+)
+from raghub.retrieval import (
+    Retrieval as RetrievalPipeline,
+)
+from raghub.retrieval import (
+    StepBack as StepBackTransformer,
+)
+from raghub.retrieval import (
+    Transformer as QueryTransformer,
+)
+from raghub.retrieval import (
+    build_reranker,
+)
 from raghub.store import MemoryStore
 from raghub.telemetry import DEFAULT_METRICS_REGISTRY, PrometheusMetrics, RedactingTelemetry
 from raghub.utils import maybe_await_sync as maybe_await
@@ -149,7 +149,7 @@ def default_converter() -> DocumentConverter:
     always returns :class:`Marker`. Tests patch the
     `raghub.documents.Marker` symbol via this re-import.
     """
-    from raghub.docs import Marker
+    from raghub.parsers import Marker
 
     return Marker()
 

@@ -31,7 +31,6 @@ from raghub.domain import (
 from raghub.domain import (
     UnitOfWork as BaseUnitOfWork,
 )
-from raghub.helper.storage import Sessions
 from raghub.models import (
     ChunkRecord,
     DocumentLifecycleStatus,
@@ -39,6 +38,7 @@ from raghub.models import (
     SessionRecord,
 )
 from raghub.store import Store
+from raghub.stores import Sessions
 
 __all__ = [
     "ChunkStore",
