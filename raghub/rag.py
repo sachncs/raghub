@@ -81,7 +81,7 @@ from raghub.helper.retrieval import (
 from raghub.helper.retrieval import (
     build_reranker,
 )
-from raghub.ingestion import ResumableBatch, build_chonkie_chunker
+from raghub.ingestion import Resumable, build_chonkie_chunker
 from raghub.knowledge import (
     GraphIndex,
     Manifest,
@@ -431,7 +431,7 @@ class RAG:
             registry: Optional plugin registry.
             background_service: Optional background ingestion
                 service. A
-                :class:`ResumableBatch` is
+                :class:`Resumable` is
                 instantiated on demand when callers invoke
                 :meth:`ingest_async`.
             manifest: Optional source manifest. Defaults to a
@@ -1502,7 +1502,7 @@ class RAG:
     ) -> str:
         """Submit an ingest job to the background service."""
         if self.background_ingestion is None:
-            self.background_ingestion = ResumableBatch(
+            self.background_ingestion = Resumable(
                 db_path=self.settings.data_dir / "ingestion_jobs.db"
             )
 
