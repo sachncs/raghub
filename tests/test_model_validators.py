@@ -8,7 +8,6 @@ from pydantic import ValidationError
 from raghub.models import (
     ChunkRecord,
     Citation,
-    Classification,
     PipelineResult,
     Response,
     SearchResult,

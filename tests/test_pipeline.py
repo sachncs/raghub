@@ -14,8 +14,6 @@ stack against real in-memory backends. They verify:
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -30,7 +28,7 @@ from raghub.models import (
     PipelineCtx,
     User,
 )
-from raghub.pipeline import IngestPipeline, QueryPipeline, get_chunks
+from raghub.pipeline import IngestPipeline, QueryPipeline
 from raghub.store import MemoryStore
 
 
