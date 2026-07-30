@@ -26,6 +26,10 @@ from raghub.domain import Session
 from raghub.models import ConversationTurn, SessionRecord
 from raghub.repositories import UnitOfWork
 
+__all__ = [
+    "MemoryConversations",
+]
+
 
 def try_load_gigatoken() -> Any:
     """Return a ``gigatoken.Tokenizer`` for the configured HF repo.
