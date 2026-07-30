@@ -464,7 +464,7 @@ class LlmJudge:
         return __import__("asyncio").run(self.arerank(question=question, hits=hits))
 
 
-CONTEXT_SYSTEM_PROMPT = (
+CONTEXT = (
     "You re-rank retrieved passages. For every candidate, produce a "
     "relevance score in [0, 1] and a one-sentence rationale. Reply "
     "with JSON only — no prose, no markdown."
@@ -586,7 +586,7 @@ class Context:
         started = time.perf_counter()
         try:
             raw = await self.llm.async_generate(
-                system_prompt=CONTEXT_SYSTEM_PROMPT,
+                system_prompt=CONTEXT,
                 conversation=[],
                 context=[],
                 question=context_prompt(question, candidates),
@@ -821,7 +821,7 @@ def extract_string_array(raw: str) -> list[str]:
     return [str(item).strip() for item in parsed if str(item).strip()]
 
 
-HYDE_SYSTEM_PROMPT = (
+HYDE = (
     "You generate hypothetical passages for retrieval. Reply with the "
     "passage only — no preamble, no heading, no commentary."
 )
@@ -869,7 +869,7 @@ class Hyde:
         variants: list[Variant] = []
         for _ in range(self.n):
             text = await self.llm.async_generate(
-                system_prompt=HYDE_SYSTEM_PROMPT,
+                system_prompt=HYDE,
                 conversation=list(history),
                 context=[],
                 question=prompt,
@@ -880,7 +880,7 @@ class Hyde:
         return variants
 
 
-MULTI_QUERY_SYSTEM_PROMPT = (
+MULTI_QUERY = (
     "You generate alternative phrasings of a question for retrieval. "
     "Reply with a JSON array of strings only — no prose, no preamble."
 )
@@ -924,7 +924,7 @@ class MultiQuery:
     ) -> list[Variant]:
         """Generate ``n`` alternative phrasings."""
         raw = await self.llm.async_generate(
-            system_prompt=MULTI_QUERY_SYSTEM_PROMPT,
+            system_prompt=MULTI_QUERY,
             conversation=list(history),
             context=[],
             question=multi_query_prompt(question, self.n),
@@ -936,7 +936,7 @@ class MultiQuery:
         ]
 
 
-DECOMPOSE_SYSTEM_PROMPT = (
+DECOMPOSE = (
     "You decompose compound questions into independent sub-questions "
     "for retrieval. Reply with a JSON array of strings only — no prose."
 )
@@ -976,7 +976,7 @@ class Decompose:
     ) -> list[Variant]:
         """Produce sub-question variants."""
         raw = await self.llm.async_generate(
-            system_prompt=DECOMPOSE_SYSTEM_PROMPT,
+            system_prompt=DECOMPOSE,
             conversation=list(history),
             context=[],
             question=decompose_prompt(question),
@@ -985,7 +985,7 @@ class Decompose:
         return [Variant(text=q, kind="sub") for q in sub_questions]
 
 
-STEP_BACK_SYSTEM_PROMPT = (
+STEP_BACK = (
     "You reframe a specific question as a more abstract, principle-"
     "level question. Reply with one sentence only — no preamble."
 )
@@ -1025,7 +1025,7 @@ class StepBack:
     ) -> list[Variant]:
         """Produce the abstract reformulation."""
         abstract = await self.llm.async_generate(
-            system_prompt=STEP_BACK_SYSTEM_PROMPT,
+            system_prompt=STEP_BACK,
             conversation=list(history),
             context=[],
             question=step_back_prompt(question),

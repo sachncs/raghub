@@ -598,7 +598,7 @@ Passage:
 {passage}
 """
 
-SUMMARISE_COMMUNITY_PROMPT = """Summarise the following entity / relation cluster
+COMMUNITY_PROMPT = """Summarise the following entity / relation cluster
 in one short paragraph (2-4 sentences). Reply with the paragraph only.
 
 Entities:
@@ -919,7 +919,7 @@ class GraphIndex(KnowledgeIndex):
                 for target in self.graph[source]:
                     if target in community:
                         relations.append(f"{source} ↔ {target}")
-            prompt = SUMMARISE_COMMUNITY_PROMPT.format(
+            prompt = COMMUNITY_PROMPT.format(
                 entities=", ".join(entities[:30]),
                 relations="; ".join(relations[:30]) or "(no relations)",
             )
