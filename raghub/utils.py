@@ -151,6 +151,50 @@ def retry(
     raise RuntimeError("unreachable")
 
 
+async def aretry(
+    fn: Callable[[], Awaitable[T]],
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    retryable_keywords: tuple[str, ...] = (
+        "timeout",
+        "rate limit",
+        "429",
+        "503",
+        "500",
+        "server error",
+        "try again",
+    ),
+) -> T:
+    """Async version of :func:`retry` for use inside coroutines.
+
+    Uses :func:`asyncio.sleep` instead of :func:`time.sleep` so the
+    event loop stays responsive during back-off waits.
+
+    Args:
+        fn: A zero-argument callable returning an awaitable.
+        max_retries: Maximum number of retries **after** the first attempt.
+        base_delay: Initial sleep in seconds. Doubles each attempt; no cap.
+        retryable_keywords: Lower-cased substrings that mark an error as transient.
+
+    Returns:
+        Whatever ``fn()`` returns on a successful attempt.
+
+    Raises:
+        Exception: The most recent exception from ``fn``, re-raised once
+            the retry budget is exhausted.
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            return await fn()
+        except (ConnectionError, TimeoutError, OSError) as exc:
+            msg = str(exc).lower()
+            if attempt < max_retries and any(k in msg for k in retryable_keywords):
+                await asyncio.sleep(base_delay * (2**attempt))
+            else:
+                raise
+    raise RuntimeError("unreachable")
+
+
 async def maybe_await(value: T | Awaitable[T]) -> T:
     """Await ``value`` if it is awaitable; otherwise return it as-is.
 

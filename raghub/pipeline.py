@@ -69,6 +69,7 @@ from raghub.models import (
     deterministic_id,
 )
 from raghub.observability import NoOpTelemetry
+from raghub.utils import retry as retry_sync
 
 # ---------------------------------------------------------------------------
 # DurationTimer
@@ -516,7 +517,11 @@ class IngestPipeline(Pipeline):
 
                 with self.telemetry.span("ingest.upsert", count=len(chunks)):
                     if chunks:
-                        written = self.vector_store.upsert(chunks, vectors)
+                        written = retry_sync(
+                            lambda: self.vector_store.upsert(chunks, vectors),
+                            max_retries=2,
+                            base_delay=0.5,
+                        )
                         if written != len(chunks):
                             raise VectorStoreError(
                                 f"vector store wrote {written} of "
