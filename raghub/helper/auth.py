@@ -13,11 +13,11 @@ Class summary::
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import cast
 
 from fastapi import Depends, Header, HTTPException, Request
 
-from raghub.models import ConversationTurn, RetrievalHit, UserPrincipal
+from raghub.models import UserPrincipal
 from raghub.services import Facade
 
 
@@ -115,6 +115,6 @@ class Auth:
 
 __all__ = [
     "App",
-    "Bearer",
     "Auth",
+    "Bearer",
 ]

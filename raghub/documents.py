@@ -5,9 +5,24 @@ Implementation lives in :mod:`raghub.helper` (documents); local entry-point modu
 
 from __future__ import annotations
 
+# --- parser.py content ---
+# --- parser.py content ---
+import io
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from importlib import import_module
+from io import BytesIO
+from pathlib import Path
+from typing import Any
+
+from bs4 import BeautifulSoup
+from docx import Document
+from openpyxl import load_workbook
+from PIL import Image as PillowImage
+from pptx import Presentation
+from pypdf import PdfReader
+
 from raghub.helper.documents import (
-    ChunkingPlan,
-    DocumentLifecycleManager,
     EQUATION_BLOCK_RE,
     FENCE_RE,
     HEADING_RE,
@@ -16,12 +31,14 @@ from raghub.helper.documents import (
     MAGIC_BYTES,
     MARKER_AVAILABLE,
     MIME_TYPES_BY_EXTENSION,
+    TABLE_LINE_RE,
+    ChunkingPlan,
+    DocumentLifecycleManager,
     MarkdownSection,
     MarkerConverter,
     MarkerImportError,
     MarkerPdfConverter,
     PlainTextConverter,
-    TABLE_LINE_RE,
     build_chunk_records,
     build_marker_converter,
     chunk_words,
@@ -43,32 +60,6 @@ from raghub.helper.documents import (
     self_module,
     validate_upload,
 )
-
-
-# --- parser.py content ---
-
-
-
-
-# --- parser.py content ---
-
-
-
-import io
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from importlib import import_module
-from io import BytesIO
-from pathlib import Path
-from typing import Any
-
-from bs4 import BeautifulSoup
-from docx import Document
-from openpyxl import load_workbook
-from PIL import Image as PillowImage
-from pptx import Presentation
-from pypdf import PdfReader
-
 from raghub.utils import capture
 
 
@@ -515,8 +506,6 @@ def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
     return Catalog().parse(file_bytes, file_name, mime_type)
 
 __all__ = [
-    "ChunkingPlan",
-    "DocumentLifecycleManager",
     "EQUATION_BLOCK_RE",
     "FENCE_RE",
     "HEADING_RE",
@@ -525,12 +514,14 @@ __all__ = [
     "MAGIC_BYTES",
     "MARKER_AVAILABLE",
     "MIME_TYPES_BY_EXTENSION",
+    "TABLE_LINE_RE",
+    "ChunkingPlan",
+    "DocumentLifecycleManager",
     "MarkdownSection",
     "MarkerConverter",
     "MarkerImportError",
     "MarkerPdfConverter",
     "PlainTextConverter",
-    "TABLE_LINE_RE",
     "build_chunk_records",
     "build_marker_converter",
     "chunk_words",

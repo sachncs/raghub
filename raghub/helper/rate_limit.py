@@ -99,6 +99,6 @@ class RateLimiterMiddleware:
 
 
 __all__ = [
-    "TokenBucket",
     "RateLimiterMiddleware",
+    "TokenBucket",
 ]

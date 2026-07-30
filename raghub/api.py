@@ -5,29 +5,7 @@ Implementation lives in :mod:`raghub.helper` (auth, sse, response, rate_limit); 
 
 from __future__ import annotations
 
-from raghub.helper.auth import (
-    App,
-    Auth,
-    Bearer,
-)
-
-from raghub.helper.sse import (
-    Sse,
-)
-
-from raghub.helper.response import (
-    Redaction,
-    ResponseBuilder,
-)
-
-from raghub.helper.rate_limit import (
-    RateLimiterMiddleware,
-    TokenBucket,
-)
 # --- app.py content ---
-
-
-
 import importlib.metadata
 import os
 from collections.abc import AsyncIterator, Callable
@@ -40,7 +18,6 @@ from fastapi import (
     FastAPI,
     File,
     Form,
-    Header,
     HTTPException,
     Request,
     Response,
@@ -56,6 +33,22 @@ from raghub.exceptions import (
     AuthorizationError,
     DocumentError,
     StorageError,
+)
+from raghub.helper.auth import (
+    App,
+    Auth,
+    Bearer,
+)
+from raghub.helper.rate_limit import (
+    RateLimiterMiddleware,
+    TokenBucket,
+)
+from raghub.helper.response import (
+    Redaction,
+    ResponseBuilder,
+)
+from raghub.helper.sse import (
+    Sse,
 )
 from raghub.ingestion import BackgroundIngestionService
 from raghub.models import (

@@ -32,7 +32,8 @@ import yaml
 from raghub.auth import SqliteUserStore
 from raghub.config import Settings
 from raghub.rag import RAG
-from raghub.utils import capture, write_json as write_json_impl
+from raghub.utils import capture
+from raghub.utils import write_json as write_json_impl
 
 
 class CliConfig:
@@ -152,7 +153,7 @@ class ToolConfig:
                 "--json",
                 help=(
                     'JSON object, e.g. \'{"agent_enabled": true,'
-                    ' "reranker": "bge"}\'.'
+                    ' "reranker": "cohere"}\'.'
                 ),
             ),
         ) -> None:
@@ -358,9 +359,9 @@ ToolConfig.register()
 
 __all__ = [
     "CliConfig",
-    "ToolConfig",
     "IngestCommand",
     "InitCommand",
     "QueryCommand",
     "ServerCommand",
+    "ToolConfig",
 ]

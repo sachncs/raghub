@@ -54,8 +54,8 @@ from raghub.exceptions import (
 )
 from raghub.models import (
     Chunk,
-    ChunkRecord,
     Chunker,
+    ChunkRecord,
     Classification,
     DocumentLifecycleStatus,
     DocumentRecord,

@@ -48,7 +48,6 @@ from raghub.models import (
 )
 from raghub.utils import atomic_write_json, capture, load_json
 
-
 SQLITE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
     document_id TEXT PRIMARY KEY,
@@ -522,7 +521,7 @@ class Sessions:
     @classmethod
     def json(
         cls, path: Path, timeout_seconds: int = 3600
-    ) -> "JsonSessions":
+    ) -> JsonSessions:
         """Construct a JSON-backed session store."
 
         Args:
@@ -873,10 +872,10 @@ async def migrate_from_json(
 
 __all__ = [
     "Database",
-    "ImageStore",
-    "Snapshot",
     "Documents",
+    "ImageStore",
     "JsonSessions",
     "Sessions",
+    "Snapshot",
     "migrate_from_json",
 ]
