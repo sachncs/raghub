@@ -6,7 +6,8 @@ import asyncio
 
 import pytest
 
-from raghub.eval import LlmJudge, _parse_score
+from raghub.errors import ConfigurationError
+from raghub.eval import LlmJudge, QualityGate, _parse_score
 
 # ---------------------------------------------------------------------------
 # Pure parser tests (_parse_score)
@@ -207,3 +208,139 @@ def test_llm_judge_self_loop_does_not_exist() -> None:
     # ``answer_relevance`` method.
     assert not hasattr(judge, "faithfulness_sync")
     assert not hasattr(judge, "answer_relevance_sync")
+
+# ---------------------------------------------------------------------------
+# QualityGate tests
+# ---------------------------------------------------------------------------
+
+
+def test_quality_gate_constructor_with_thresholds() -> None:
+    """The constructor accepts a metric-name → threshold mapping."""
+    gate = QualityGate({"recall_at_5": 0.7, "faithfulness": 0.8})
+    assert gate.thresholds["recall_at_5"] == (0.7, "min")
+    assert gate.thresholds["faithfulness"] == (0.8, "min")
+
+
+def test_quality_gate_passes_when_all_above_threshold() -> None:
+    """A metric above its threshold passes silently."""
+    gate = QualityGate({"recall_at_5": 0.7})
+    gate.check({"recall_at_5": 0.9})
+
+
+def test_quality_gate_raises_when_below_threshold() -> None:
+    """A metric below its threshold raises ConfigurationError."""
+    gate = QualityGate({"recall_at_5": 0.7})
+    with pytest.raises(ConfigurationError, match="recall_at_5"):
+        gate.check({"recall_at_5": 0.5})
+
+
+def test_quality_gate_error_message_includes_value_and_threshold() -> None:
+    """The error message includes the actual value and the threshold."""
+    gate = QualityGate({"recall_at_5": 0.7})
+    with pytest.raises(ConfigurationError) as exc_info:
+        gate.check({"recall_at_5": 0.5})
+    assert "0.500" in str(exc_info.value)
+    assert "0.7" in str(exc_info.value)
+
+
+def test_quality_gate_max_mode_passes_when_below_threshold() -> None:
+    """In max mode, the metric must be <= threshold."""
+    gate = QualityGate({"latency_ms": 200}, default_mode="max")
+    gate.check({"latency_ms": 150})
+
+
+def test_quality_gate_max_mode_raises_when_above_threshold() -> None:
+    """In max mode, a metric above the threshold raises."""
+    gate = QualityGate({"latency_ms": 200}, default_mode="max")
+    with pytest.raises(ConfigurationError, match="latency_ms"):
+        gate.check({"latency_ms": 250})
+
+
+def test_quality_gate_per_metric_mode_override() -> None:
+    """A per-metric mode override beats the default."""
+    gate = QualityGate({"high": 0.5, "low": 100.0}, default_mode="min")
+    gate.add("high", 0.5, mode="min")  # explicit
+    gate.add("low", 100.0, mode="max")  # explicit override
+    gate.check({"high": 0.6, "low": 50.0})
+
+
+def test_quality_gate_fluent_builder() -> None:
+    """``add()`` returns self for chaining."""
+    gate = QualityGate().add("recall_at_5", 0.7).add("faithfulness", 0.8)
+    assert gate.thresholds["recall_at_5"] == (0.7, "min")
+    assert gate.thresholds["faithfulness"] == (0.8, "min")
+
+
+def test_quality_gate_fluent_builder_with_max_mode() -> None:
+    """The fluent builder accepts a per-metric mode override."""
+    gate = QualityGate().add("recall_at_5", 0.7).add("latency_ms", 200, mode="max")
+    gate.check({"recall_at_5": 0.9, "latency_ms": 150})
+
+
+def test_quality_gate_missing_metric_raises() -> None:
+    """A threshold for a metric not in the input dict raises."""
+    gate = QualityGate({"recall_at_5": 0.7})
+    with pytest.raises(ConfigurationError, match="missing"):
+        gate.check({})
+
+
+def test_quality_gate_equality_at_threshold_passes() -> None:
+    """A metric exactly at its threshold passes (min mode)."""
+    gate = QualityGate({"recall_at_5": 0.7})
+    gate.check({"recall_at_5": 0.7})  # exactly at threshold; not strictly less
+
+
+def test_quality_gate_equality_at_threshold_passes_max() -> None:
+    """A metric exactly at its threshold passes (max mode)."""
+    gate = QualityGate({"latency_ms": 200}, default_mode="max")
+    gate.check({"latency_ms": 200})
+
+
+def test_quality_gate_invalid_default_mode_raises() -> None:
+    """Constructing with an invalid default_mode raises ConfigurationError."""
+    with pytest.raises(ConfigurationError, match="default_mode"):
+        QualityGate({"x": 0.5}, default_mode="invalid")
+
+
+def test_quality_gate_invalid_add_mode_raises() -> None:
+    """Adding a threshold with an invalid mode raises ConfigurationError."""
+    with pytest.raises(ConfigurationError, match="mode"):
+        QualityGate().add("y", 0.5, mode="invalid")
+
+
+def test_quality_gate_report_returns_pass_status() -> None:
+    """``report()`` returns a (value, threshold, passed, mode) tuple per metric."""
+    gate = QualityGate({"recall_at_5": 0.7})
+    report = gate.report({"recall_at_5": 0.9, "extra": 1.0})
+    assert report["recall_at_5"] == (0.9, 0.7, True, "min")
+
+
+def test_quality_gate_report_marks_fail_for_below_threshold() -> None:
+    """``report()`` marks the metric as failed when below the threshold."""
+    gate = QualityGate({"recall_at_5": 0.7})
+    report = gate.report({"recall_at_5": 0.5})
+    assert report["recall_at_5"] == (0.5, 0.7, False, "min")
+
+
+def test_quality_gate_report_marks_fail_for_missing() -> None:
+    """``report()`` marks a missing metric as failed (value is None)."""
+    gate = QualityGate({"recall_at_5": 0.7})
+    report = gate.report({})
+    assert report["recall_at_5"] == (None, 0.7, False, "min")
+
+
+def test_quality_gate_report_max_mode() -> None:
+    """``report()`` evaluates max mode correctly."""
+    gate = QualityGate({"latency_ms": 200}, default_mode="max")
+    assert gate.report({"latency_ms": 150})["latency_ms"] == (150.0, 200.0, True, "max")
+    assert gate.report({"latency_ms": 250})["latency_ms"] == (250.0, 200.0, False, "max")
+
+
+def test_quality_gate_multiple_breaches_reported_together() -> None:
+    """When multiple metrics breach, the error names all of them."""
+    gate = QualityGate({"recall_at_5": 0.7, "faithfulness": 0.8})
+    with pytest.raises(ConfigurationError) as exc_info:
+        gate.check({"recall_at_5": 0.5, "faithfulness": 0.5})
+    msg = str(exc_info.value)
+    assert "recall_at_5" in msg
+    assert "faithfulness" in msg
