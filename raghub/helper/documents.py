@@ -46,7 +46,7 @@ from raghub.exceptions import (
     ConfigurationError,
     ConversionError,
     DocumentError,
-    OptionalDependencyMissing,
+    MissingDep,
 )
 from raghub.models import (
     BlockKind,
@@ -292,7 +292,7 @@ def extract_pdf_pages(pdf_bytes: bytes) -> list[tuple[int, str]]:
     try:
         from pypdf import PdfReader
     except ImportError:
-        raise OptionalDependencyMissing(
+        raise MissingDep(
             "pypdf",
             "pip install raghub[pdf]",
         ) from None

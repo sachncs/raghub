@@ -59,9 +59,9 @@ from raghub.models import (
     Classification,
     DocumentLifecycleStatus,
     DocumentRecord,
-    PipelineContext,
+    PipelineCtx,
     PipelineResult,
-    UserPrincipal,
+    User,
     deterministic_id,
 )
 from raghub.pipeline import IngestPipeline
@@ -516,7 +516,7 @@ def record_from_pipeline(
     *,
     file_name: str,
     mime_type: str,
-    owner: UserPrincipal,
+    owner: User,
     organization: str,
     classification: Classification,
     checksum: str,
@@ -594,7 +594,7 @@ class DocumentIngestionService:
         *,
         file_name: str,
         file_bytes: bytes,
-        owner: UserPrincipal,
+        owner: User,
         organization: str,
         department: str = "",
         tags: list[str] | None = None,
@@ -619,7 +619,7 @@ class DocumentIngestionService:
         *,
         file_name: str,
         file_bytes: bytes,
-        owner: UserPrincipal,
+        owner: User,
         organization: str,
         department: str = "",
         tags: list[str] | None = None,
@@ -653,7 +653,7 @@ class DocumentIngestionService:
         if previous is not None and previous.status == DocumentLifecycleStatus.READY:
             return IngestionResult(document=previous, chunk_ids=list(previous.chunk_ids))
 
-        context = PipelineContext(pipeline_name="ingest", metadata={"user_id": owner.email})
+        context = PipelineCtx(pipeline_name="ingest", metadata={"user_id": owner.email})
         if self.make_pipeline is None:
             self.make_pipeline = self.build_pipeline()
         result = await self.make_pipeline.run(

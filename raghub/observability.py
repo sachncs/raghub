@@ -49,7 +49,7 @@ from loguru import logger as loguru_logger
 from prometheus_client import REGISTRY, CollectorRegistry, Counter, Histogram
 from prometheus_client.openmetrics.exposition import generate_latest
 
-from raghub.exceptions import ConfigurationError, OptionalDependencyMissing
+from raghub.exceptions import ConfigurationError, MissingDep
 from raghub.models import Logger, Metrics, Span, TelemetryProvider
 from raghub.utils import capture
 
@@ -982,7 +982,7 @@ class SafeConsoleSpanExporter:
         try:
             from opentelemetry.sdk.trace.export import ConsoleSpanExporter
         except ImportError:
-            raise OptionalDependencyMissing(
+            raise MissingDep(
                 "opentelemetry-sdk",
                 "pip install raghub[otel]",
             ) from None

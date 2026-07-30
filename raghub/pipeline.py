@@ -10,7 +10,7 @@ single-responsibility split legible.
 Section map:
 
 * :class:`DurationTimer` — context manager that records pipeline
-  wall-clock duration onto the ``PipelineContext.metadata``.
+  wall-clock duration onto the ``PipelineCtx.metadata``.
 * :class:`QueryCache` — TTL-based in-memory query cache.
 * :class:`ConversationRouter` — facade over a pluggable conversation
   store.
@@ -58,13 +58,13 @@ from raghub.models import (
     KnowledgeBundle,
     KnowledgeRepository,
     Pipeline,
-    PipelineContext,
+    PipelineCtx,
     PipelineResult,
     Reranker,
     RetrievalHit,
     StructuredOutputProvider,
     TelemetryProvider,
-    UserPrincipal,
+    User,
     VectorStore,
     deterministic_id,
 )
@@ -294,7 +294,7 @@ class ConversationRouter:
 class PipelineResultBuilder:
     """Fluent builder for :class:`PipelineResult` records."""
 
-    def __init__(self, context: PipelineContext, pipeline_name: str) -> None:
+    def __init__(self, context: PipelineCtx, pipeline_name: str) -> None:
         """Store the context and pipeline name for subsequent builds."""
         self.context = context
         self.pipeline_name = pipeline_name
@@ -372,7 +372,7 @@ def sha256_checksum(file_bytes: bytes) -> str:
 
 
 def primary_company(user: Any) -> str:
-    """Return the primary company for a :class:`UserPrincipal`."""
+    """Return the primary company for a :class:`User`."""
     if user is None:
         return ""
     companies = getattr(user, "allowed_companies", None) or []
@@ -426,7 +426,7 @@ class IngestPipeline(Pipeline):
 
     async def run(
         self,
-        context: PipelineContext,
+        context: PipelineCtx,
         **inputs: Any,
     ) -> PipelineResult:
         """Run the ingest pipeline."""
@@ -603,7 +603,7 @@ class QueryPipeline(Pipeline):
 
     async def run(
         self,
-        context: PipelineContext,
+        context: PipelineCtx,
         **inputs: Any,
     ) -> PipelineResult:
         """Run the query pipeline."""
@@ -612,7 +612,7 @@ class QueryPipeline(Pipeline):
 
     async def run_inner(
         self,
-        context: PipelineContext,
+        context: PipelineCtx,
         inputs: dict[str, Any],
     ) -> PipelineResult:
         """Body of :meth:`run` separated so the timing ``finally`` is obvious."""
@@ -801,7 +801,7 @@ class QueryPipeline(Pipeline):
 
     async def stream(
         self,
-        context: PipelineContext,
+        context: PipelineCtx,
         **inputs: Any,
     ) -> AsyncIterator[str]:
         """Stream the answer token-by-token."""
@@ -928,13 +928,13 @@ class AgenticQueryPipeline:
 
     async def run(
         self,
-        context: PipelineContext,
+        context: PipelineCtx,
         **inputs: Any,
     ) -> PipelineResult:
         """Run the agentic pipeline."""
         with DurationTimer(context):
             question: str = inputs["question"]
-            user: UserPrincipal | None = inputs.get("user")
+            user: User | None = inputs.get("user")
             session_id: str | None = inputs.get("session_id")
             tools_enabled: set[str] | None = inputs.get("tools_enabled")
             history: Sequence[ConversationTurn] = list(inputs.get("history") or [])
@@ -997,12 +997,12 @@ class AgenticQueryPipeline:
 
     async def astream(
         self,
-        context: PipelineContext,
+        context: PipelineCtx,
         **inputs: Any,
     ) -> Any:
         """Async-iterate :class:`raghub.agent.PlannerEvent`."""
         question: str = inputs["question"]
-        user: UserPrincipal | None = inputs.get("user")
+        user: User | None = inputs.get("user")
         session_id: str | None = inputs.get("session_id")
         tools_enabled: set[str] | None = inputs.get("tools_enabled")
         history: Sequence[ConversationTurn] = list(inputs.get("history") or [])

@@ -8,7 +8,7 @@ Domain, canonical, and transport Pydantic models for the framework:
 * **Canonical** — spec-mandated aliases (``Document`` /
   ``Chunk`` / ``SearchResult`` / ``Query`` / ``Response``) plus
   the new higher-level types (``Citation``, ``DocumentSection``,
-  ``DocumentBlock``, ``KnowledgeBundle``, ``PipelineContext``,
+  ``DocumentBlock``, ``KnowledgeBundle``, ``PipelineCtx``,
   ``PipelineResult``, ``Embedding``, ``EvaluationResult``).
 * **API** — the FastAPI request/response wire types.
 * **Long-context** — ``RankedItem`` / ``RankedList`` for the
@@ -120,7 +120,7 @@ class Classification(str, Enum):
 # ---------------------------------------------------------------------------
 
 
-class UserPrincipal(BaseModel):
+class User(BaseModel):
     """Authenticated user principal.
 
     Attributes:
@@ -522,7 +522,7 @@ class KnowledgeBundle(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class PipelineContext(BaseModel):
+class PipelineCtx(BaseModel):
     """Per-invocation state passed to every stage of a pipeline.
 
     Attributes:
@@ -1038,7 +1038,7 @@ class Retriever(Protocol):
     def retrieve(
         self,
         *,
-        user: UserPrincipal,
+        user: User,
         question: str,
         top_k: int,
     ) -> list[RetrievalHit]:
@@ -1103,7 +1103,7 @@ class Pipeline(Protocol):
 
     async def run(
         self,
-        context: PipelineContext,
+        context: PipelineCtx,
         **inputs: Any,
     ) -> PipelineResult:
         """Run the pipeline with the given context."""

@@ -13,7 +13,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from raghub.exceptions import OptionalDependencyMissing
+from raghub.exceptions import MissingDep
 from raghub.helper.documents import (
     EQUATION_BLOCK_RE,
     FENCE_RE,
@@ -117,7 +117,7 @@ class Pdf(File):
         try:
             from pypdf import PdfReader
         except ImportError:
-            raise OptionalDependencyMissing(
+            raise MissingDep(
                 "pypdf",
                 "pip install raghub[pdf]",
             ) from None
@@ -162,7 +162,7 @@ class HTML(File):
         try:
             from bs4 import BeautifulSoup
         except ImportError:
-            raise OptionalDependencyMissing(
+            raise MissingDep(
                 "beautifulsoup4",
                 "pip install raghub[docs]",
             ) from None
@@ -203,7 +203,7 @@ class Image(File):
         try:
             from PIL import Image as PillowImage
         except ImportError:
-            raise OptionalDependencyMissing(
+            raise MissingDep(
                 "Pillow",
                 "pip install raghub[docs]",
             ) from None
@@ -264,7 +264,7 @@ class Office(File):
             try:
                 from docx import Document
             except ImportError:
-                raise OptionalDependencyMissing(
+                raise MissingDep(
                     "python-docx",
                     "pip install raghub[docs]",
                 ) from None
@@ -286,7 +286,7 @@ class Office(File):
             try:
                 from openpyxl import load_workbook
             except ImportError:
-                raise OptionalDependencyMissing(
+                raise MissingDep(
                     "openpyxl",
                     "pip install raghub[docs]",
                 ) from None
@@ -314,7 +314,7 @@ class Office(File):
             try:
                 from pptx import Presentation
             except ImportError:
-                raise OptionalDependencyMissing(
+                raise MissingDep(
                     "python-pptx",
                     "pip install raghub[docs]",
                 ) from None

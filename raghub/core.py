@@ -130,7 +130,7 @@ class RbacGuard:
     coordinating teardown.
 
     Attributes:
-        user: The :class:`UserPrincipal` (or any duck-typed object
+        user: The :class:`User` (or any duck-typed object
             with ``is_admin`` and ``allowed_companies``).
     """
 
@@ -138,7 +138,7 @@ class RbacGuard:
         """Store the user reference.
 
         Args:
-            user: The :class:`UserPrincipal` (or duck-typed object)
+            user: The :class:`User` (or duck-typed object)
                 whose RBAC attributes drive the guard.
         """
         self.user = user
@@ -180,7 +180,7 @@ def allowed_company_filter(user: Any) -> dict[str, list[str]]:
     """Return the canonical company metadata filter for ``user``.
 
     Args:
-        user: The :class:`UserPrincipal`.
+        user: The :class:`User`.
 
     Returns:
         The filter dict (see :meth:`RbacGuard.company_filter`).
@@ -192,7 +192,7 @@ def can_access_company(user: Any, company: str) -> bool:
     """Return whether ``user`` may access documents scoped to ``company``.
 
     Args:
-        user: The :class:`UserPrincipal`.
+        user: The :class:`User`.
         company: The tenant string.
 
     Returns:

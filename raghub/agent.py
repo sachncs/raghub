@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 
 from raghub.config import AgentConfig, Settings
 from raghub.exceptions import AgentBudgetExceeded, LLMError, ToolError
-from raghub.models import ConversationTurn, UserPrincipal
+from raghub.models import ConversationTurn, User
 from raghub.observability import NoOpTelemetry
 from raghub.tools import (
     DateToday,
@@ -440,7 +440,7 @@ class Agent:
         question: str,
         history: Sequence[ConversationTurn] | None = None,
         tools_enabled: set[str] | None = None,
-        user: UserPrincipal | None = None,
+        user: User | None = None,
         session_id: str | None = None,
         session_overrides: dict[str, Any] | None = None,
     ) -> AgentTrace:
@@ -473,7 +473,7 @@ class Agent:
         question: str,
         history: Sequence[ConversationTurn] | None = None,
         tools_enabled: set[str] | None = None,
-        user: UserPrincipal | None = None,
+        user: User | None = None,
         session_id: str | None = None,
         session_overrides: dict[str, Any] | None = None,
     ) -> AsyncIterator[PlannerEvent]:
@@ -494,7 +494,7 @@ class Agent:
         question: str,
         history: list[ConversationTurn],
         tools_enabled: set[str] | None,
-        user: UserPrincipal | None,
+        user: User | None,
         session_id: str | None,
         session_overrides: dict[str, Any] | None,
     ) -> AsyncIterator[PlannerEvent]:

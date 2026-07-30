@@ -22,7 +22,7 @@ Multi-user isolation
 --------------------
 
 Conversation history is keyed by both ``session_id`` **and** the
-caller's ``UserPrincipal``. The facade namespaces keys internally
+caller's ``User``. The facade namespaces keys internally
 so that two callers who happen to share or guess a ``session_id``
 cannot read each other's history. :meth:`conversation_history`
 and :meth:`clear_conversation` both accept a ``user`` argument;
@@ -94,7 +94,7 @@ from raghub.models import (
     ConversationTurn,
     DocumentConverter,
     EvaluationResult,
-    PipelineContext,
+    PipelineCtx,
     PipelineResult,
     Response,
     deterministic_id,
@@ -697,7 +697,7 @@ class RAG:
             metadata: Optional extra metadata.
             force: When ``True``, bypass incremental-indexing dedup
                 and always re-embed.
-            user: Optional :class:`UserPrincipal`. When set, the
+            user: Optional :class:`User`. When set, the
                 user's email is recorded as the chunk owner and the
                 user's primary company is used as the document
                 tenant.
@@ -743,7 +743,7 @@ class RAG:
         Args:
             directory: Directory to walk.
             metadata: Optional per-file metadata.
-            user: Optional :class:`UserPrincipal`.
+            user: Optional :class:`User`.
             show_progress: When ``True`` (default), wrap the file loop
                 in a :class:`tqdm.tqdm` progress bar. Suppress with
                 ``False`` for non-interactive callers.
@@ -804,7 +804,7 @@ class RAG:
         Args:
             directory: Directory to walk.
             metadata: Optional per-file metadata.
-            user: Optional :class:`UserPrincipal`.
+            user: Optional :class:`User`.
             show_progress: When ``True`` (default), wrap the file loop
                 in a :class:`tqdm.tqdm` progress bar. Suppress with
                 ``False`` for non-interactive callers.
@@ -939,7 +939,7 @@ class RAG:
         user: Any | None = None,
     ) -> PipelineResult:
         """Run a single ingest pipeline asynchronously."""
-        context = PipelineContext(
+        context = PipelineCtx(
             pipeline_name="ingest",
             metadata={"user_id": getattr(user, "email", None)} if user is not None else {},
         )
@@ -1037,7 +1037,7 @@ class RAG:
         for tests that exercise the in-process store anonymously).
 
         Args:
-            user: The :class:`UserPrincipal` (or any duck-typed
+            user: The :class:`User` (or any duck-typed
                 object with ``user_id`` / ``email`` attributes).
             session_id: The caller-supplied session id.
 
@@ -1105,7 +1105,7 @@ class RAG:
 
         Args:
             question: The user's question.
-            user: Optional :class:`UserPrincipal` for RBAC and per-user
+            user: Optional :class:`User` for RBAC and per-user
                 tool defaults.
             session_id: Optional session id; conversation history is
                 loaded from the conversation store.
@@ -1135,7 +1135,7 @@ class RAG:
         if not question or not question.strip():
             raise ValidationError("query() requires a non-empty question")
         scoped = self.scoped_session_id(user, session_id)
-        context = PipelineContext(
+        context = PipelineCtx(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
         )
@@ -1208,7 +1208,7 @@ class RAG:
         observability.
         """
         scoped = self.scoped_session_id(user, session_id)
-        context = PipelineContext(
+        context = PipelineCtx(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
         )
@@ -1263,7 +1263,7 @@ class RAG:
 
         Args:
             question: The user's question.
-            user: Optional :class:`UserPrincipal` for RBAC.
+            user: Optional :class:`User` for RBAC.
             session_id: Optional session id.
             tools_enabled, agent, web, graph, summaries, reranker,
             long_context_pass, query_transforms, max_steps: Same
@@ -1307,7 +1307,7 @@ class RAG:
                     payload={"text": piece},
                 )
             return
-        context = PipelineContext(
+        context = PipelineCtx(
             pipeline_name="query_agent",
             metadata={
                 "session_id": scoped or "",
@@ -1411,7 +1411,7 @@ class RAG:
         Args:
             directory: Directory to walk.
             metadata: Optional per-file metadata.
-            user: Optional :class:`UserPrincipal`.
+            user: Optional :class:`User`.
             show_progress: When ``True`` (default), wrap the file loop
                 in a :class:`tqdm.tqdm` progress bar.
 
@@ -1548,7 +1548,7 @@ class RAG:
 
         Args:
             session_id: The caller-supplied session id.
-            user: Optional :class:`UserPrincipal` whose
+            user: Optional :class:`User` whose
                 ``user_id`` / ``email`` scopes the lookup. When
                 omitted, the lookup uses the raw ``session_id`` and
                 will only return history created with ``user=None``
@@ -1572,7 +1572,7 @@ class RAG:
 
         Args:
             session_id: The caller-supplied session id.
-            user: Optional :class:`UserPrincipal` whose
+            user: Optional :class:`User` whose
                 ``user_id`` / ``email`` scopes the delete. When
                 omitted, the raw ``session_id`` is used.
         """

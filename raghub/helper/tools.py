@@ -21,7 +21,7 @@ Concrete tools (one class per format family, no ``Tool`` suffix):
 
 Helpers::
 
-    as_admin_user   - resolve :class:`UserPrincipal` to an admin
+    as_admin_user   - resolve :class:`User` to an admin
                       equivalent (synthetic when ``None``).
 """
 
@@ -36,7 +36,7 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 from pydantic import BaseModel, Field
 
 from raghub.exceptions import ConfigurationError
-from raghub.models import UserPrincipal
+from raghub.models import User
 
 # ---------------------------------------------------------------------------
 # Tool contract
@@ -99,7 +99,7 @@ class ToolContext:
     """Per-invocation context passed to every tool.
 
     Attributes:
-        user: The :class:`UserPrincipal` driving RBAC. ``None`` for
+        user: The :class:`User` driving RBAC. ``None`` for
             unauthenticated callers.
         session_id: Scoped session id (``user::raw_session``).
         session_overrides: Session-scoped overrides copied from the
@@ -275,10 +275,10 @@ class ToolRegistry:
 # ---------------------------------------------------------------------------
 
 
-def as_admin_user(user: UserPrincipal | None) -> UserPrincipal:
+def as_admin_user(user: User | None) -> User:
     """Return ``user`` or a synthetic admin principal.
 
-    The retrieval pipeline requires a :class:`UserPrincipal`; the
+    The retrieval pipeline requires a :class:`User`; the
     RBAC layer treats an admin as "see everything", which is the
     safe default for an unauthenticated tool call.
 
@@ -291,7 +291,7 @@ def as_admin_user(user: UserPrincipal | None) -> UserPrincipal:
         principal with ``is_admin=True``.
     """
     if user is None:
-        return UserPrincipal(
+        return User(
             user_id="__agent__", email="__agent__@local", is_admin=True
         )
     return user

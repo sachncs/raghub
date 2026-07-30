@@ -180,7 +180,7 @@ class TelemetryError(RagHubError):
     """
 
 
-class OptionalDependencyMissing(ImportError):
+class MissingDep(ImportError):
     """Raised when an optional runtime dependency is not installed.
 
     Subclasses :class:`ImportError` so existing handlers that catch
