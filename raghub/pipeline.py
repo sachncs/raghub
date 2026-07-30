@@ -71,6 +71,13 @@ from raghub.models import (
 from raghub.observability import NoOpTelemetry
 from raghub.utils import retry as retry_sync
 
+__all__ = [
+    "AgentPipeline",
+    "IngestPipeline",
+    "QueryCache",
+    "QueryPipeline",
+]
+
 # ---------------------------------------------------------------------------
 # DurationTimer
 # ---------------------------------------------------------------------------
