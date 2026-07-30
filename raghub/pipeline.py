@@ -1052,7 +1052,7 @@ def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
                 owner="",
                 department="",
                 text=text,
-                hash=sha256(text.encode("utf-8")).hexdigest(),
+                checksum=sha256(text.encode("utf-8")).hexdigest(),
                 metadata={"source_tool": name, **hit.get("metadata", {})},
             )
             hits.append(

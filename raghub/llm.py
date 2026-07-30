@@ -244,7 +244,7 @@ class LiteLLM(BaseLLMProvider):
         self.direct_client: Any = None
         if self.api_base:
             try:
-                import httpx as _httpx
+                import httpx
 
                 headers = (
                     {"authorization": f"Bearer {self.api_key}"}
@@ -256,7 +256,7 @@ class LiteLLM(BaseLLMProvider):
                 base = self.api_base.rstrip("/")
                 if not base.endswith("/v1"):
                     base = f"{base}/v1"
-                self.direct_client = _httpx.AsyncClient(
+                self.direct_client = httpx.AsyncClient(
                     base_url=base,
                     headers=headers,
                     timeout=timeout_seconds or 60.0,

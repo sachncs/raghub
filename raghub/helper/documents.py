@@ -496,7 +496,7 @@ def build_chunk_records(
                     department=department,
                     classification=classification,
                     embedding_model=embedding_model,
-                    hash=sha256(chunk_text.encode("utf-8")).hexdigest(),
+                    checksum=sha256(chunk_text.encode("utf-8")).hexdigest(),
                     text=chunk_text,
                     metadata=metadata,
                 )
