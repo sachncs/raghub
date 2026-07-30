@@ -23,7 +23,7 @@ from raghub.errors import ConfigurationError, MissingDep
 from raghub.models import EvaluationResult, Evaluator
 
 
-def _import_ragas() -> Any:
+def import_ragas() -> Any:
     """Import ragas lazily; raise ``MissingDep`` when not installed.
 
     Returns:
@@ -42,7 +42,7 @@ def _import_ragas() -> Any:
     return ragas
 
 
-def _load_metric(metric_name: str) -> Any:
+def load_metric(metric_name: str) -> Any:
     """Load a ragas metric by name, with a friendly error on unknown names.
 
     Args:
@@ -123,10 +123,10 @@ class RagasAdapter(Evaluator):
         self.embeddings = embeddings
         # Eagerly import ragas so MissingDep surfaces at construction
         # rather than at the first evaluate() call.
-        _import_ragas()
-        self._metric_instances = [_load_metric(name) for name in self.metric_names]
+        import_ragas()
+        self.metric_instances = [load_metric(name) for name in self.metric_names]
 
-    def _build_dataset(self, examples: list[dict[str, Any]]) -> Any:
+    def build_dataset(self, examples: list[dict[str, Any]]) -> Any:
         """Translate RAGHub examples into a ragas Dataset.
 
         Args:
@@ -174,7 +174,7 @@ class RagasAdapter(Evaluator):
         Raises:
             ConfigurationError: When ragas evaluation fails.
         """
-        ragas = _import_ragas()
+        ragas = import_ragas()
         rows = list(examples) if examples is not None else []
 
         # Drive the response_factory so the consumer can swap the
@@ -193,9 +193,9 @@ class RagasAdapter(Evaluator):
             example.setdefault("contexts", [])
             example.setdefault("ground_truth", "")
 
-        dataset = self._build_dataset(rows)
+        dataset = self.build_dataset(rows)
 
-        kwargs: dict[str, Any] = {"metrics": self._metric_instances}
+        kwargs: dict[str, Any] = {"metrics": self.metric_instances}
         if self.llm is not None:
             kwargs["llm"] = self.llm
         if self.embeddings is not None:
@@ -206,7 +206,7 @@ class RagasAdapter(Evaluator):
         except Exception as exc:
             raise ConfigurationError(f"ragas evaluation failed: {exc}") from exc
 
-        scores = self._extract_scores(result, len(rows))
+        scores = self.extract_scores(result, len(rows))
 
         outcomes: list[EvaluationResult] = []
         for idx, example in enumerate(rows):
@@ -228,7 +228,7 @@ class RagasAdapter(Evaluator):
         return outcomes
 
     @staticmethod
-    def _extract_scores(result: Any, n: int) -> dict[str, list[float]]:
+    def extract_scores(result: Any, n: int) -> dict[str, list[float]]:
         """Pull per-row scores out of a ragas EvaluationResult.
 
         RAGAS returns a wrapper whose ``scores`` attribute is a dict
@@ -251,4 +251,4 @@ class RagasAdapter(Evaluator):
         return scores
 
 
-__all__ = ["RagasAdapter"]
+__all__ = ["RagasAdapter", "import_ragas", "load_metric"]
