@@ -54,6 +54,20 @@ from raghub.helper.documents import (
 )
 from raghub.utils import capture
 
+__all__ = [
+    "Catalog",
+    "Csv",
+    "HTML",
+    "Image",
+    "Lifecycle",
+    "Marker",
+    "Office",
+    "Pdf",
+    "Section",
+    "Txt",
+    "parse",
+]
+
 
 @dataclass(frozen=True)
 class Section:
@@ -538,42 +552,3 @@ def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
         A list of :class:`Section` produced by the matched parser.
     """
     return Catalog().parse(file_bytes, file_name, mime_type)
-
-__all__ = [
-    "EQUATION_RE",
-    "FENCE_RE",
-    "HEADING_RE",
-    "IMAGE_RE",
-    "INLINE_EQUATION_RE",
-    "MAGIC_BYTES",
-    "MARKER",
-    "MIME_TYPES",
-    "TABLE_LINE_RE",
-    "ChunkingPlan",
-    "Lifecycle",
-    "MarkdownSection",
-    "Marker",
-    "MarkerImportError",
-    "MarkerPdfConverter",
-    "PlainTextConverter",
-    "build_chunk_records",
-    "build_marker_converter",
-    "chunk_words",
-    "convert_path",
-    "datetime_now_utc",
-    "detect_mime_type",
-    "extract_pdf_metadata",
-    "extract_pdf_pages",
-    "extract_pdf_text",
-    "extract_text",
-    "looks_like_pdf",
-    "marker_create_model_dict",
-    "md_to_blocks",
-    "new_version",
-    "normalise_markdown",
-    "normalize_text",
-    "pick_converter",
-    "rendered_text",
-    "self_module",
-    "validate_upload",
-]
