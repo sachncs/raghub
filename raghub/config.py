@@ -43,7 +43,7 @@ class Settings(BaseModel):
         session_timeout_seconds: Session inactivity timeout.
         max_upload_bytes: Maximum accepted upload size.
         embedding_model: Embedding model name (``"hashing-bge"``,
-            ``"nvidia/..."``, ``"sentence-transformers/..."``).
+            ``"nvidia/..."``).
         llm_model: LLM model name.
         retrieval_mode: ``"sync"`` or ``"background"``.
         log_level: Minimum log level (``"INFO"``, ``"DEBUG"``, …).
@@ -204,7 +204,7 @@ class RerankerConfig(BaseModel):
     """Cross-encoder / listwise reranker selection.
 
     Attributes:
-        provider: ``"none"`` (identity) / ``"cohere"`` / ``"bge"`` /
+        provider: ``"none"`` (identity) / ``"cohere"`` /
             ``"llm"`` / ``"cascade"``.
         top_k: Maximum number of hits the reranker is asked to score.
         cascade_threshold: For ``"cascade"`` — when the cheap reranker's
@@ -212,7 +212,7 @@ class RerankerConfig(BaseModel):
             reranker is invoked as well.
     """
 
-    provider: Literal["none", "cohere", "bge", "llm", "cascade"] = "none"
+    provider: Literal["none", "cohere", "llm", "cascade"] = "none"
     top_k: int = 20
     cascade_threshold: float = 0.05
 
@@ -343,7 +343,7 @@ def read_toml_file(path: Path) -> dict[str, Any]:
     return tomllib.loads(path.read_text(encoding="utf-8")) or {}
 
 
-def _load_profile_payload(profile: str | None) -> tuple[str | None, Path, dict[str, Any]]:
+def load_profile_payload(profile: str | None) -> tuple[str | None, Path, dict[str, Any]]:
     """Read the YAML + TOML profile files into a single payload dict.
 
     Returns:
@@ -364,7 +364,7 @@ def _load_profile_payload(profile: str | None) -> tuple[str | None, Path, dict[s
     return selected_profile, profile_path, payload
 
 
-def _load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
+def load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Build the env-driven payload for the simple ``Settings`` fields."""
     return {
         "environment": os.getenv("RAG_ENV", selected_profile),
@@ -421,7 +421,7 @@ def _load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> 
     }
 
 
-def _load_agent_config(payload: dict[str, Any]) -> AgentConfig:
+def load_agent_config(payload: dict[str, Any]) -> AgentConfig:
     """Build :class:`AgentConfig` from env + payload."""
     return AgentConfig(
         enabled=env_bool("RAG_AGENT_ENABLED", payload.get("agent", {}).get("enabled", False)),
@@ -451,7 +451,7 @@ def _load_agent_config(payload: dict[str, Any]) -> AgentConfig:
     )
 
 
-def _load_web_search_config(payload: dict[str, Any]) -> WebSearchConfig:
+def load_web_search_config(payload: dict[str, Any]) -> WebSearchConfig:
     """Build :class:`WebSearchConfig` from env + payload."""
     return WebSearchConfig(
         enabled=env_bool("RAG_WEB_ENABLED", payload.get("web_search", {}).get("enabled", False)),
@@ -477,11 +477,11 @@ def _load_web_search_config(payload: dict[str, Any]) -> WebSearchConfig:
     )
 
 
-def _load_reranker_config(payload: dict[str, Any]) -> RerankerConfig:
+def load_reranker_config(payload: dict[str, Any]) -> RerankerConfig:
     """Build :class:`RerankerConfig` from env + payload."""
     return RerankerConfig(
         provider=cast(
-            "Literal['none', 'cohere', 'bge', 'llm', 'cascade']",
+            "Literal['none', 'cohere', 'llm', 'cascade']",
             os.getenv(
                 "RAG_RERANKER_PROVIDER",
                 payload.get("reranker", {}).get("provider", "none"),
@@ -499,7 +499,7 @@ def _load_reranker_config(payload: dict[str, Any]) -> RerankerConfig:
     )
 
 
-def _load_long_context_config(payload: dict[str, Any]) -> LongContextConfig:
+def load_long_context_config(payload: dict[str, Any]) -> LongContextConfig:
     """Build :class:`LongContextConfig` from env + payload."""
     return LongContextConfig(
         enabled=env_bool(
@@ -515,7 +515,7 @@ def _load_long_context_config(payload: dict[str, Any]) -> LongContextConfig:
     )
 
 
-def _load_hybrid_config(payload: dict[str, Any]) -> HybridConfig:
+def load_hybrid_config(payload: dict[str, Any]) -> HybridConfig:
     """Build :class:`HybridConfig` from env + payload."""
     return HybridConfig(
         fusion=cast(
@@ -547,7 +547,7 @@ def _load_hybrid_config(payload: dict[str, Any]) -> HybridConfig:
     )
 
 
-def _load_query_transforms_config(payload: dict[str, Any]) -> QueryTransformsConfig:
+def load_query_transforms_config(payload: dict[str, Any]) -> QueryTransformsConfig:
     """Build :class:`QueryTransformsConfig` from env + payload."""
     return QueryTransformsConfig(
         enabled=csv_to_transforms(
@@ -569,7 +569,7 @@ def _load_query_transforms_config(payload: dict[str, Any]) -> QueryTransformsCon
     )
 
 
-def _assert_production_invariants(settings: Settings) -> None:
+def assert_production_invariants(settings: Settings) -> None:
     """Raise ``RuntimeError`` if production-mode invariants are violated."""
     if settings.environment != "production":
         return
@@ -595,16 +595,16 @@ def load_from_env(profile: str | None = None) -> Settings:
     actual field-by-field reading is split into ``_load_*`` helpers
     below so each block stays under 80 lines.
     """
-    selected_profile, profile_path, payload = _load_profile_payload(profile)
+    selected_profile, profile_path, payload = load_profile_payload(profile)
     if selected_profile is None:
         selected_profile = "development"
-    env_payload = _load_simple_env_payload(selected_profile, payload)
-    env_payload["agent"] = _load_agent_config(payload)
-    env_payload["web_search"] = _load_web_search_config(payload)
-    env_payload["reranker"] = _load_reranker_config(payload)
-    env_payload["long_context_pass"] = _load_long_context_config(payload)
-    env_payload["hybrid"] = _load_hybrid_config(payload)
-    env_payload["query_transforms"] = _load_query_transforms_config(payload)
+    env_payload = load_simple_env_payload(selected_profile, payload)
+    env_payload["agent"] = load_agent_config(payload)
+    env_payload["web_search"] = load_web_search_config(payload)
+    env_payload["reranker"] = load_reranker_config(payload)
+    env_payload["long_context_pass"] = load_long_context_config(payload)
+    env_payload["hybrid"] = load_hybrid_config(payload)
+    env_payload["query_transforms"] = load_query_transforms_config(payload)
     env_payload["graph_search_enabled"] = env_bool(
         "RAG_GRAPH_ENABLED", payload.get("graph_search_enabled", False)
     )
@@ -616,7 +616,7 @@ def load_from_env(profile: str | None = None) -> Settings:
         profile_path=profile_path if profile_path.exists() else None,
         extra={k: v for k, v in payload.items() if k not in env_payload},
     )
-    _assert_production_invariants(settings)
+    assert_production_invariants(settings)
     settings.ensure_dirs()
     return settings
 
