@@ -90,6 +90,29 @@ class Metrics:
         return sum(1 for r in top if r in relevant) / k
 
     @staticmethod
+    def f1_at_k(retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int) -> float:
+        """F1@K — harmonic mean of precision@k and recall@k.
+
+        Returns ``0.0`` when either precision or recall is zero
+        (the harmonic mean collapses to zero); the underlying
+        :meth:`precision_at_k` / :meth:`recall_at_k` methods handle
+        degenerate edge cases (empty top-k, empty relevant set).
+
+        Args:
+            retrieved_ids: Ordered list of retrieved item ids.
+            relevant_ids: Iterable of ids considered relevant.
+            k: Cutoff.
+
+        Returns:
+            A value in ``[0.0, 1.0]``.
+        """
+        precision = Metrics.precision_at_k(retrieved_ids, relevant_ids, k)
+        recall = Metrics.recall_at_k(retrieved_ids, relevant_ids, k)
+        if precision + recall == 0.0:
+            return 0.0
+        return 2.0 * precision * recall / (precision + recall)
+
+    @staticmethod
     def mean_reciprocal_rank(retrieved_ids: Sequence[str], relevant_ids: Iterable[str]) -> float:
         """Mean Reciprocal Rank (MRR) — 1 / rank of first relevant hit.
 
@@ -295,6 +318,68 @@ class Metrics:
         return matched / total
 
     @staticmethod
+    def completeness(answer: str, contexts: Sequence[str]) -> float:
+        """Fraction of context tokens that appear in the answer.
+
+        Inverse of :meth:`context_recall` in spirit: rewards the
+        answer for using the retrieved evidence. Empty answer
+        returns ``0.0`` (no evidence used); empty context returns
+        ``1.0`` (vacuously complete).
+
+        Args:
+            answer: The generated answer.
+            contexts: Sequence of retrieved context strings.
+
+        Returns:
+            A value in ``[0.0, 1.0]``.
+        """
+        answer_tokens = Metrics.tokenize(answer)
+        context_tokens: set[str] = set()
+        for c in contexts:
+            context_tokens |= Metrics.tokenize(c)
+        if not context_tokens:
+            return 1.0
+        if not answer_tokens:
+            return 0.0
+        return len(answer_tokens & context_tokens) / len(context_tokens)
+
+    @staticmethod
+    def coherence(text: str) -> float:
+        """Sentence-level coherence proxy.
+
+        Splits ``text`` on sentence-ending punctuation and measures
+        the fraction of consecutive sentence pairs that share at
+        least one content token (topical continuity). Empty text
+        returns ``0.0``; a single sentence returns ``0.5`` (neutral
+        score — no internal incoherence but no evidence of
+        continuity either).
+
+        Note: this is a deterministic proxy. Higher-fidelity
+        coherence requires an LLM-as-a-judge (see :class:`LlmJudge`).
+
+        Args:
+            text: The generated answer.
+
+        Returns:
+            A value in ``[0.0, 1.0]``.
+        """
+        text = (text or "").strip()
+        if not text:
+            return 0.0
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+        if len(sentences) < 2:
+            return 0.5
+        from itertools import pairwise
+
+        shared = 0
+        for prev, curr in pairwise(sentences):
+            prev_tokens = Metrics.tokenize(prev)
+            curr_tokens = Metrics.tokenize(curr)
+            if prev_tokens and curr_tokens and (prev_tokens & curr_tokens):
+                shared += 1
+        return shared / (len(sentences) - 1)
+
+    @staticmethod
     def faithfulness(answer: str, contexts: Sequence[str]) -> float:
         """Fraction of answer tokens grounded in the retrieved context."""
         return Metrics.context_recall(answer, contexts)
@@ -346,11 +431,14 @@ class Metrics:
         metrics: dict[str, float] = {
             f"recall_at_{k}": Metrics.recall_at_k(retrieved_ids, relevant_ids, k),
             f"precision_at_{k}": Metrics.precision_at_k(retrieved_ids, relevant_ids, k),
+            f"f1_at_{k}": Metrics.f1_at_k(retrieved_ids, relevant_ids, k),
             f"hit_rate_at_{k}": Metrics.hit_rate_at_k(retrieved_ids, relevant_ids, k),
             "mrr": Metrics.mean_reciprocal_rank(retrieved_ids, relevant_ids),
             "map": Metrics.mean_average_precision(retrieved_ids, relevant_ids),
             "context_recall": Metrics.context_recall(answer, contexts),
             "context_precision": Metrics.context_precision(question, contexts),
+            "completeness": Metrics.completeness(answer, contexts),
+            "coherence": Metrics.coherence(answer),
             "faithfulness": Metrics.faithfulness(answer, contexts),
             "faithfulness_claims": Metrics.faithfulness_claims(answer, contexts),
             "answer_relevance": Metrics.answer_relevance(answer, question),
