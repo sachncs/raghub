@@ -3,7 +3,7 @@
 | Number | Date | Title | Status |
 |---|---|---|---|
 | ADR-0001 | 2024-Q4 | LLM and embedding provider is LiteLLM | Accepted |
-| ADR-0002 | 2024-Q4 | Vector store package is `raghub.vectorstore` (singular) | Accepted |
+| ADR-0002 | 2024-Q4 | Vector store package is `raghub.store` (singular) | Accepted |
 | ADR-0003 | 2024-Q4 | OKF is the canonical persisted knowledge representation | Accepted |
 | ADR-0004 | 2024-Q4 | Public API is `raghub.RAG`; legacy services preserved | Accepted |
 | ADR-0005 | 2024-Q4 | Telemetry scrubbing is the default | Accepted |
@@ -29,8 +29,8 @@ which is a thin wrapper around NVIDIA's hosted models and locks the
 project into a single provider.
 
 **Decision:** the canonical LLM and embedding providers are
-`raghub.llm.litellm.LiteLLMProvider` and
-`raghub.embeddings.litellm.LiteLLMEmbeddingProvider`. Both work with
+`raghub.llm.litellm.LiteLLM` and
+`raghub.embedder.litellm.LiteLLMEmbedder`. Both work with
 any LiteLLM-supported model (OpenAI, Anthropic, NVIDIA, Bedrock,
 Cohere, Voyage, Groq).
 
@@ -38,20 +38,20 @@ Cohere, Voyage, Groq).
 the box; the dependency on `langchain-nvidia-ai-endpoints` was
 removed. When no API key is configured, `default_llm` /
 `default_embedder` fall back to the offline
-`HeuristicLLMProvider` / `HashingEmbeddingProvider` so the facade
+`HeuristicLLMProvider` / `Hasher` so the facade
 runs anywhere.
 
-## ADR-0002: Vector store package is `raghub.vectorstore` (singular)
+## ADR-0002: Vector store package is `raghub.store` (singular)
 
-**Context:** two parallel packages (`raghub.vectorstore` singular
-and `raghub.vectorstores` plural) confused importers.
+**Context:** two parallel packages (`raghub.store` singular
+and `raghub.stores` plural) confused importers.
 
-**Decision:** one package: `raghub.vectorstore`. Qdrant lives at
-`raghub.vectorstore.qdrant`; ZVec at `raghub.vectorstore.zvec`;
-InMemory at `raghub.vectorstore.memory`.
+**Decision:** one package: `raghub.store`. Qdrant lives at
+`raghub.store.qdrant`; ZVec at `raghub.store.zvec`;
+InMemory at `raghub.store.memory`.
 
 **Consequences:** the duplicate plural package was merged; legacy
-imports of `raghub.vectorstores.*` were redirected.
+imports of `raghub.stores.*` were redirected.
 
 ## ADR-0003: OKF is the canonical persisted knowledge representation
 
@@ -65,7 +65,7 @@ between pipelines.
 `to_okf` / `from_okf`.
 
 **Consequences:** bundles can be cached, replayed, and inspected by
-third-party tools. The `InMemoryKnowledgeRepository` lives at
+third-party tools. The `MemoryRepo` lives at
 `raghub.knowledge.repository`; a disk-backed variant is an obvious
 extension point.
 
@@ -208,7 +208,7 @@ full answer before yielding chunks.
 
 **Decision:** `QueryPipeline.stream` calls
 `Generator.astream` → `DefaultGenerator.astream` →
-`LiteLLMProvider.astream`, with
+`LiteLLM.astream`, with
 `stream_options={"include_usage": True}` so token usage is
 populated as the stream completes.
 
@@ -250,7 +250,7 @@ graceful degradation keeps `RAG` usable offline.
 **Context:** in-process background ingestion lost state on
 crash; pending jobs were silently dropped.
 
-**Decision:** `ResumableBackgroundIngestionService` writes every
+**Decision:** `ResumableBatch` writes every
 status transition to a SQLite ledger via `PersistentJobStore`.
 On startup, `restore_from_store()` rehydrates the in-memory map.
 

@@ -27,9 +27,9 @@ Pre-retrieval rewrites that improve recall on hard queries. All transforms share
 ### HyDE — Hypothetical Document Embeddings
 
 ```python
-from raghub.retrieval.transforms import HydeTransformer
+from raghub.retrieval import Hyde
 
-hyde = HydeTransformer(llm, n=1)
+hyde = Hyde(llm, n=1)
 variants = await hyde.transform(question="What drove Q3 SaaS bookings?", history=[])
 ```
 
@@ -38,9 +38,9 @@ Generates a short LLM-authored paragraph that *would* answer the question; embed
 ### Multi-query
 
 ```python
-from raghub.retrieval.transforms import MultiQueryTransformer
+from raghub.retrieval import MultiQuery
 
-mq = MultiQueryTransformer(llm, n=4)
+mq = MultiQuery(llm, n=4)
 variants = await mq.transform(question="revenue growth", history=[])
 ```
 
@@ -49,9 +49,9 @@ LLM rewrites the question into four alternative phrasings; each is embedded and 
 ### Step-back
 
 ```python
-from raghub.retrieval.transforms import StepBackTransformer
+from raghub.retrieval import StepBack
 
-sb = StepBackTransformer(llm)
+sb = StepBack(llm)
 variants = await sb.transform(question="Why did operating margin expand?", history=[])
 ```
 
@@ -60,9 +60,9 @@ LLM produces the abstract higher-level question (e.g. *"What economic forces dri
 ### Decomposition
 
 ```python
-from raghub.retrieval.transforms import DecomposeTransformer
+from raghub.retrieval import Decompose
 
-dc = DecomposeTransformer(llm)
+dc = Decompose(llm)
 variants = await dc.transform(question="Compare Acme and Globex Q3 revenue", history=[])
 ```
 
@@ -71,9 +71,9 @@ LLM splits multi-hop questions into independent sub-questions.
 ### Composition
 
 ```python
-from raghub.retrieval.transforms import ComposeTransformer
+from raghub.retrieval import Compose
 
-composer = ComposeTransformer([hyde, mq, sb, dc])
+composer = Compose([hyde, mq, sb, dc])
 variants = await composer.transform(question="...", history=[])
 ```
 
@@ -87,7 +87,7 @@ The original question (weight 1.5) is always prepended. Each failing transform i
 
 ### BM25 with TF fallback
 
-`InMemoryVectorStore.keyword_search` uses `rank_bm25.BM25Okapi` when the optional dependency is installed; otherwise it falls back to a naive TF / chunk-length score.
+`MemoryStore.keyword_search` uses `rank_bm25.BM25Okapi` when the optional dependency is installed; otherwise it falls back to a naive TF / chunk-length score.
 
 ```python
 # Add the optional dependency for production-quality keyword scoring:
@@ -108,17 +108,16 @@ Set `settings.hybrid.colbert_enabled = True` and the `RetrievalPipeline.retrieve
 
 ## Rerankers
 
-Four implementations ship under `raghub.retrieval.rerankers`:
+Four implementations ship under `raghub.retrieval`:
 
-| Provider | Dependencies | When to use |
-| --- | --- | --- |
-| `none` (IdentityReranker) | none | default; no reranking |
-| `bge` (`BgeReranker`) | `pip install 'raghub[rerank]'` (sentence-transformers) | Local, ~2 GB model |
-| `cohere` (`CohereReranker`) | `pip install 'raghub[rerank]'` (cohere) | API, needs key |
-| `llm` (`LLMReranker`) | none (uses existing LLM) | Zero-deps; slow |
-| `cascade` | both bge and cohere | Cheap then expensive |
+| Provider | Class | Dependencies | When to use |
+| --- | --- | --- | --- |
+| `none` | `Identity` | none | default; no reranking |
+| `cohere` | `Cohere` | `pip install 'raghub[rerank]'` (cohere) | API, needs key |
+| `llm` | `LlmJudge` | none (uses existing LLM) | Zero-deps; slow |
+| `cascade` | `Cascade` | both cohere and an LLM | Cheap then expensive |
 
-Configure via `AppSettings.reranker.provider`. Each reranker reports its wall-clock to Prometheus under `raghub_rerank_latency_seconds{provider=...}`.
+Configure via `Settings.reranker.provider`. Each reranker reports its wall-clock to Prometheus under `raghub_rerank_latency_seconds{provider=...}`.
 
 ---
 
@@ -159,14 +158,14 @@ RAPTOR builds a tree of summaries over the chunk embeddings:
 1. Cluster the leaf chunks (KMeans with the corpus-derived k).
 2. Summarise each cluster with the LLM.
 3. Embed the summaries.
-4. Recurse up to `RaptorIndex(depth=...)` levels.
+4. Recurse up to `Raptor(depth=...)` levels.
 
 `RetrievalPipeline.search` then matches the query against every level in one flat pass — high-level questions ("what is this corpus about?") retrieve the abstract summaries, specific questions ("what was Q3 revenue?") retrieve the leaf chunks.
 
 ```python
-from raghub.knowledge.structures.raptor import RaptorIndex
+from raghub.knowledge.structures.raptor import Raptor
 
-raptor = RaptorIndex(llm=llm, embedder=embedder, depth=2, cluster_size=5)
+raptor = Raptor(llm=llm, embedder=embedder, depth=2, cluster_size=5)
 raptor.add_chunks(chunks, vectors)  # called per ingest
 hits = raptor.search("Q3 SaaS bookings", top_k=5)
 ```
@@ -190,9 +189,9 @@ Two query modes:
 * `search(query, top_k)` — combined, deduplicated.
 
 ```python
-from raghub.knowledge.structures.graphrag import GraphRagIndex
+from raghub.knowledge.structures.graphrag import GraphIndex
 
-graph = GraphRagIndex(llm=llm, embedder=embedder, hop_limit=2)
+graph = GraphIndex(llm=llm, embedder=embedder, hop_limit=2)
 graph.add_chunks(chunks, vectors)
 hits = graph.search_local("Acme Q3 revenue", top_k=5)
 ```

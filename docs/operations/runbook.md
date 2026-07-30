@@ -100,7 +100,7 @@ curl -fsS -X DELETE \
 Symptom: `/documents/upload` returns 202 but
 `/documents/{id}/status` stays at `pending` for hours.
 
-Fix: check `BackgroundIngestionService` worker count in the API
+Fix: check `Batch` worker count in the API
 logs (`max_workers=2` by default). Bump it by overriding the
 container with an explicit `BACKGROUND_INGEST_WORKERS` env var (see
 `scaling.md`), or throttle the upload rate.

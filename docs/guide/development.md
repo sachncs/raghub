@@ -179,15 +179,15 @@ Embedding and LLM providers reach the facade through the
 
 1. **Use LiteLLM** — any new provider LiteLLM supports works
    out of the box. Configure it with
-   `LiteLLMProvider(model="<provider>/<model>")` and pass to the
+   `LiteLLM(model="<provider>/<model>")` and pass to the
    constructor.
 2. **Write an adapter** — implement the interface, optionally
    register it as a plugin, and pass to the facade constructor.
 
 ## Adding a new vector store
 
-Implement `raghub.interfaces.vectorstore.VectorStore`. The
-simplest starter is `raghub.vectorstore.memory.InMemoryVectorStore`
+Implement `raghub.store.Store`. The
+simplest starter is `raghub.store.memory.MemoryStore`
 — copy that. To activate for the default facade, extend
 `default_vector_store()` or publish as a plugin.
 

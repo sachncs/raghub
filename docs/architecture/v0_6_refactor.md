@@ -58,7 +58,7 @@ generation → pipelines → services → api/cli**.
 
 The ``raghub.interfaces`` package is the leaf: pure Protocols
 with zero runtime dependencies on other ``raghub.*`` modules.
-Concrete implementations (e.g. ``RaptorIndex``, ``CohereReranker``)
+Concrete implementations (e.g. ``Raptor``, ``CohereReranker``)
 import the relevant Protocol and the dependency-injection seam
 that uses them.
 
@@ -86,7 +86,7 @@ that uses them.
 | `GraphUnavailableError` | Graph-backed feature (RAPTOR / GraphRAG) requested but missing dep |
 | `TransformError` | Query transform (HyDE / multi-query / decompose) failure |
 | `TelemetryError` | Telemetry provider failure (non-fatal at boundaries) |
-| `OptionalDependencyMissing` | Optional runtime dep not installed |
+| `MissingDep` | Optional runtime dep not installed |
 | `PipelineFailed` | Orchestration pipeline step failure |
 | `StreamingFormatError` | SSE event formatting failure |
 | `TokenBudgetExceeded` | Operation exceeded its token budget |

@@ -64,17 +64,17 @@ DI container that wires:
 | `settings` | `AppSettings` | from `load_settings()` |
 | `registry` | `PluginRegistry` | empty |
 | `converter` | `DocumentConverter` | `MarkerConverter` → `PlainTextConverter` fallback |
-| `chunker` | `Chunker` | `ChonkieChunker` → `WordWindowChunker` fallback |
-| `embedder` | `EmbeddingProvider` | `LiteLLMEmbeddingProvider` → `HashingEmbeddingProvider` fallback |
-| `llm` | `LLMProvider` | `LiteLLMProvider` → `HeuristicLLMProvider` fallback |
-| `vector_store` | `VectorStore` | `QdrantVectorStore` (when `QDRANT_URL` set) → `InMemoryVectorStore` fallback |
+| `chunker` | `Chunker` | `Chonkie` → `WordChunker` fallback |
+| `embedder` | `EmbeddingProvider` | `LiteLLMEmbedder` → `Hasher` fallback |
+| `llm` | `LLMProvider` | `LiteLLM` → `HeuristicLLMProvider` fallback |
+| `vector_store` | `VectorStore` | `SqliteStore` (when `QDRANT_URL` set) → `MemoryStore` fallback |
 | `generator` | `Generator` | `DefaultGenerator` wrapping `llm` |
-| `structured` | `StructuredOutputProvider` | `InstructorStructuredOutputProvider` (when key + Instructor present) else `None` |
+| `structured` | `StructuredOutputProvider` | `Instructor` (when key + Instructor present) else `None` |
 | `telemetry` | `TelemetryProvider` | `RedactingTelemetry(LangfuseTelemetryProvider)` → `RedactingTelemetry(NoOpTelemetry)` |
 | `reranker` | `Reranker` | `IdentityReranker` |
-| `knowledge_repo` | `KnowledgeRepository` | `InMemoryKnowledgeRepository` |
-| `conversation_store` | `ConversationStore` | `InMemoryConversationStore` |
-| `manifest` | `SourceManifest` | `data/manifest.json` |
+| `knowledge_repo` | `KnowledgeRepository` | `MemoryRepo` |
+| `conversation_store` | `ConversationStore` | `MemoryConversations` |
+| `manifest` | `Manifest` | `data/manifest.json` |
 
 Replace any of these through the constructor or via the registry.
 
@@ -97,7 +97,7 @@ prior checksum. If the prior checksum matches, no re-embedding
 happens — the existing chunks are returned with
 `outputs["incremental"] = True`.
 
-Multi-user tenancy: when a `UserPrincipal` is supplied, the chunk
+Multi-user tenancy: when a `User` is supplied, the chunk
 `owner` is set to the user's email and the primary
 `allowed_companies` entry becomes the document tenant.
 
@@ -146,16 +146,16 @@ okf = to_okf(bundle)   # dict[str, Any]
 restored = from_okf(okf)
 ```
 
-`InMemoryKnowledgeRepository` keeps bundles keyed by
+`MemoryRepo` keeps bundles keyed by
 `bundle_id = deterministic_id("bundle", source_uri, checksum)`.
 
 ## Vector stores
 
 | Store | Where | When it is used |
 |---|---|---|
-| `QdrantVectorStore` | `raghub.vectorstore.qdrant` | When `QDRANT_URL` is set and `qdrant-client` is installed |
-| `InMemoryVectorStore` | `raghub.vectorstore.memory` | When no `QDRANT_URL` (test, local dev) |
-| `ZVecVectorStore`     | `raghub.vectorstore.zvec`   | Retained for the legacy surface when `require_zvec` is `True` (production profile) |
+| `SqliteStore` | `raghub.store.qdrant` | When `QDRANT_URL` is set and `qdrant-client` is installed |
+| `MemoryStore` | `raghub.store.memory` | When no `QDRANT_URL` (test, local dev) |
+| `ZVecVectorStore`     | `raghub.store.zvec`   | Retained for the legacy surface when `require_zvec` is `True` (production profile) |
 
 All backends share the `VectorStore` interface defined in
 [`raghub.interfaces.vectorstore`](https://github.com/sachncs/raghub/blob/main/raghub/interfaces/vectorstore.py):
@@ -165,7 +165,7 @@ All backends share the `VectorStore` interface defined in
 
 | Provider | Where | When |
 |---|---|---|
-| `LiteLLMProvider` | `raghub.llm.litellm` | Any LiteLLM model (OpenAI, Anthropic, NVIDIA, Bedrock, Cohere, Voyage, …) |
+| `LiteLLM` | `raghub.llm.litellm` | Any LiteLLM model (OpenAI, Anthropic, NVIDIA, Bedrock, Cohere, Voyage, …) |
 | `HeuristicLLMProvider` | `raghub.llm.heuristic` | Offline / test; deterministic |
 
 Both expose `generate`, `astream`, and `last_usage`; the
@@ -175,8 +175,8 @@ Both expose `generate`, `astream`, and `last_usage`; the
 
 | Provider | When |
 |---|---|
-| `LiteLLMEmbeddingProvider` | API key set (`OPENAI_API_KEY`, `NVIDIA_API_KEY`, etc.) |
-| `HashingEmbeddingProvider` | No API key (offline; deterministic) |
+| `LiteLLMEmbedder` | API key set (`OPENAI_API_KEY`, `NVIDIA_API_KEY`, etc.) |
+| `Hasher` | No API key (offline; deterministic) |
 | `SentenceTransformerEmbeddingProvider` | Optional explicit choice |
 
 ## Telemetry
@@ -190,7 +190,7 @@ Both expose `generate`, `astream`, and `last_usage`; the
 
 ## Security and multi-tenancy
 
-- `UserPrincipal` carries `allowed_companies` and `is_admin`.
+- `User` carries `allowed_companies` and `is_admin`.
 - The retrieval layer enforces RBAC; `AuthorizationError` is raised
   only by the legacy FastAPI surface when JWT auth fails.
 - `JWT_SECRET` must be ≥ 32 bytes in production (PyJWT's
@@ -209,10 +209,10 @@ raghub/
   api/                RAG facade, FastAPI app, Streamlit helper
   cli/                Console scripts
   config/             AppSettings + load_settings
-  models/             Pydantic DTOs (UserPrincipal, Chunk, Citation, …)
+  models/             Pydantic DTOs (User, Chunk, Citation, …)
   interfaces/         Protocol contracts (converter, embedder, llm, …)
   converters/         Marker, plaintext, markdown, OKF normaliser
-  knowledge/          OKF bundles, InMemoryKnowledgeRepository
+  knowledge/          OKF bundles, MemoryRepo
   ingestion/          IngestPipeline, QueryPipeline, background jobs
   embeddings/         LiteLLM, SentenceTransformers, hashing
   vectorstore/        Qdrant, ZVec, InMemory

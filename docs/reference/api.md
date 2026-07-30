@@ -68,7 +68,7 @@ rag = RAG(
 |---|---|
 | `rag.query(question, *, user=None, session_id=None, top_k=5, metadata_filter=None, response_model=None)` | Synchronous. Blocks on the async path; safe to call outside an event loop. |
 | `rag.aquery(...)` | Async equivalent. |
-| `rag.astream(question, ...)` | `async for chunk in rag.astream(...): ...` — real token stream through `QueryPipeline.stream` → `DefaultGenerator.astream` → `LiteLLMProvider.astream`. |
+| `rag.astream(question, ...)` | `async for chunk in rag.astream(...): ...` — real token stream through `QueryPipeline.stream` → `DefaultGenerator.astream` → `LiteLLM.astream`. |
 
 ### Diagnostics and conversation
 
@@ -188,7 +188,7 @@ Clear conversation history. Returns `204`.
 ### `POST /ingest/async`
 
 Multipart form with `file`. Returns `{"job_id": "..."}`; the job is
-processed by the `BackgroundIngestionService` mounted at
+processed by the `Batch` mounted at
 `app.state.background_ingestion`.
 
 ### `/admin/*`
@@ -223,20 +223,20 @@ All public models live in `raghub.models`:
 
 ```python
 from raghub.models import (
-    UserPrincipal,             # the principal carrying allowed_companies
+    User,             # the principal carrying allowed_companies
     Chunk, Document,           # canonical models
     KnowledgeBundle,           # OKF representation
     Citation, SearchResult,
-    PipelineContext, PipelineResult,
+    PipelineCtx, PipelineResult,
     EvaluationResult,
     ConversationTurn,
 )
 ```
 
-`UserPrincipal`:
+`User`:
 
 ```python
-UserPrincipal(
+User(
     user_id: str,
     email: str,
     allowed_companies: list[str] = [],

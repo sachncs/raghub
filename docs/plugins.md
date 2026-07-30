@@ -140,18 +140,18 @@ The full set of extension points mapped to the spec libraries:
 | Spec component | Interface | Default implementation |
 |---|---|---|
 | Document conversion | `DocumentConverter` | `MarkerConverter` (Marker) → `PlainTextConverter` fallback |
-| Chunking | `Chunker` | `ChonkieChunker` (Chonkie) → `WordWindowChunker` fallback |
-| Embeddings | `EmbeddingProvider` | `LiteLLMEmbeddingProvider` → `HashingEmbeddingProvider` fallback |
-| LLM | `LLMProvider` | `LiteLLMProvider` → `HeuristicLLMProvider` fallback |
-| Vector store | `VectorStore` | `QdrantVectorStore` (when `QDRANT_URL` set) → `InMemoryVectorStore` fallback |
+| Chunking | `Chunker` | `Chonkie` (Chonkie) → `WordChunker` fallback |
+| Embeddings | `EmbeddingProvider` | `LiteLLMEmbedder` → `Hasher` fallback |
+| LLM | `LLMProvider` | `LiteLLM` → `HeuristicLLMProvider` fallback |
+| Vector store | `VectorStore` | `SqliteStore` (when `QDRANT_URL` set) → `MemoryStore` fallback |
 | Generator | `Generator` | `DefaultGenerator` wrapping the LLM |
 | Reranker | `Reranker` | `IdentityReranker` |
-| Structured output | `StructuredOutputProvider` | `InstructorStructuredOutputProvider`; `None` when unavailable |
+| Structured output | `StructuredOutputProvider` | `Instructor`; `None` when unavailable |
 | Telemetry | `TelemetryProvider` | `LangfuseTelemetryProvider` → `NoOpTelemetry` fallback (wrapped in `RedactingTelemetry`) |
-| Conversation store | `ConversationStore` | `InMemoryConversationStore` |
-| Knowledge repo | `KnowledgeRepository` | `InMemoryKnowledgeRepository` |
-| Source manifest | `SourceManifest` | `./data/manifest.json` |
-| Background ingestion | `BackgroundIngestionService` | `ResumableBackgroundIngestionService` (lazy) |
+| Conversation store | `ConversationStore` | `MemoryConversations` |
+| Knowledge repo | `KnowledgeRepository` | `MemoryRepo` |
+| Source manifest | `Manifest` | `./data/manifest.json` |
+| Background ingestion | `Batch` | `ResumableBatch` (lazy) |
 
 Every slot has an interface module under `raghub.interfaces/`. To
 replace a collaborator, write a class implementing the interface

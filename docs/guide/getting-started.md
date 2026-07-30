@@ -74,15 +74,15 @@ is no path by which unauthorised content can leak into the prompt.
 
 ```python
 from raghub import RAG
-from raghub.models import UserPrincipal
+from raghub.models import User
 
 rag = RAG()
 
-alice = UserPrincipal(user_id="alice", email="alice@acme.com",
+alice = User(user_id="alice", email="alice@acme.com",
                       allowed_companies=["Apple"])
-bob   = UserPrincipal(user_id="bob",   email="bob@acme.com",
+bob   = User(user_id="bob",   email="bob@acme.com",
                       allowed_companies=["Microsoft"])
-admin = UserPrincipal(user_id="admin", email="admin@acme.com",
+admin = User(user_id="admin", email="admin@acme.com",
                       is_admin=True)
 
 rag.query("revenue", user=alice)   # sees Apple chunks only
@@ -97,7 +97,7 @@ still get isolated sessions.
 ## Conversational memory
 
 Pass `session_id=` to `query`, `aquery`, or `astream` and the
-in-process `InMemoryConversationStore` keeps a per-session history
+in-process `MemoryConversations` keeps a per-session history
 of the most recent turns. Follow-up questions are answered with
 that history prepended to the prompt:
 
@@ -118,7 +118,7 @@ asyncio.run(main())
 Plug in your own store via the `ConversationStore` protocol:
 
 ```python
-from raghub.conversation.memory import ConversationStore
+from raghub.conv.memory import ConversationStore
 
 class RedisConversationStore:
     def __init__(self, redis): self._redis = redis
@@ -135,7 +135,7 @@ rag.query_pipeline.conversation_store = rag.conversation_store
 
 `RAG.astream` is a real token stream — it routes through
 `QueryPipeline.stream` → `DefaultGenerator.astream` →
-`LiteLLMProvider.astream`, so the first byte reaches the caller
+`LiteLLM.astream`, so the first byte reaches the caller
 without waiting for the full answer:
 
 ```python
@@ -143,7 +143,7 @@ async for chunk in rag.astream("What was the revenue?"):
     print(chunk, end="", flush=True)
 ```
 
-The `LiteLLMProvider` is constructed with
+The `LiteLLM` is constructed with
 `stream_options={"include_usage": True}` so usage counters are
 populated on every stream.
 
@@ -178,9 +178,8 @@ and the call returns the regular free-form answer.
 `AppSettings` precedence (highest first):
 
 1. Constructor arguments to `RAG(...)`.
-2. Environment variables (`RAG_*`, `JWT_SECRET`, `NVIDIA_API_KEY`,
-   `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `LANGFUSE_PUBLIC_KEY`,
-   `LANGFUSE_SECRET_KEY`, `QDRANT_URL`).
+2. Environment variables (`RAG_*`, `JWT_SECRET`, `RAG_LLM_API_KEY`,
+   `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`).
 3. TOML config (`config/<profile>.toml`).
 4. YAML config (`config/<profile>.yaml`).
 5. Built-in defaults.
@@ -214,7 +213,7 @@ wrapper of the facade, instantiate it in your own FastAPI routes.
 
 ```bash
 # Run the FastAPI server (port 8000)
-uvicorn raghub.api.app:get_app --factory --reload
+uvicorn raghub.api:get_app --factory --reload
 
 # Run the Streamlit UI (port 8501)
 streamlit run streamlit_app.py
@@ -243,10 +242,10 @@ Health summary:
 print(rag.health())
 # {
 #   "status": "ok",
-#   "vector_store": "InMemoryVectorStore",
-#   "embedder": "HashingEmbeddingProvider",
+#   "vector_store": "MemoryStore",
+#   "embedder": "Hasher",
 #   "llm": "HeuristicLLMProvider",
-#   "chunker": "WordWindowChunker",
+#   "chunker": "WordChunker",
 #   "converter": "PlainTextConverter",
 #   "telemetry": "RedactingTelemetry",
 #   "structured": "NoneType",
