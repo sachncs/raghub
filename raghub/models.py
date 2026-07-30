@@ -38,6 +38,39 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
 
+__all__ = [
+    "AuthLoginRequest",
+    "AuthLoginResponse",
+    "Chunk",
+    "ChunkRecord",
+    "Citation",
+    "Classification",
+    "ConversationTurn",
+    "deterministic_id",
+    "Document",
+    "DocumentLifecycleStatus",
+    "DocumentRecord",
+    "DocumentUploadResponse",
+    "Embedding",
+    "EvaluationResult",
+    "KnowledgeBundle",
+    "PipelineCtx",
+    "PipelineResult",
+    "Query",
+    "QueryRequest",
+    "QueryResponse",
+    "RankedItem",
+    "RankedList",
+    "Response",
+    "RetrievalHit",
+    "SearchRequest",
+    "SearchResponse",
+    "SearchResult",
+    "SessionRecord",
+    "User",
+    "Visibility",
+]
+
 # ---------------------------------------------------------------------------
 # Identity helpers
 # ---------------------------------------------------------------------------
