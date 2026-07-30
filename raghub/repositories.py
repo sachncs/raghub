@@ -31,13 +31,13 @@ from raghub.domain import (
 from raghub.domain import (
     UnitOfWork as BaseUnitOfWork,
 )
+from raghub.helper.storage import Sessions
 from raghub.models import (
     ChunkRecord,
     DocumentLifecycleStatus,
     DocumentRecord,
     SessionRecord,
 )
-from raghub.storage import Sessions
 from raghub.vectorstore import Store
 
 __all__ = [
