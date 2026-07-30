@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from raghub.models import Classification, ChunkRecord
+
+from raghub.models import ChunkRecord, Classification
 
 
 @pytest.fixture

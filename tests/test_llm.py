@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 import tempfile
 import types
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -25,7 +25,6 @@ from raghub.llm import (
     any_llm_api_key_present,
     build_llm,
 )
-
 
 # ---------------------------------------------------------------------------
 # any_llm_api_key_present

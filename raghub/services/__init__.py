@@ -46,7 +46,6 @@ from raghub.embedder import Embedder, build_embedder
 from raghub.errors import AuthorizationError, DocumentError
 from raghub.ingest import IngestionResult, Ingestor
 from raghub.lifecycle import Lifecycle, detect_mime_type
-from raghub.parsers import Catalog
 from raghub.llm import Generator, build_llm
 from raghub.models import (
     AuthLoginResponse,
@@ -57,6 +56,7 @@ from raghub.models import (
     TaskQueue,
     User,
 )
+from raghub.parsers import Catalog
 from raghub.prompts import PromptBuilder
 from raghub.repos import UnitOfWork
 from raghub.retrieval import (

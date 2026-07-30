@@ -24,7 +24,9 @@ def test_rag_from_config(tmp_path: Path) -> None:
         "environment: development\nchunk_size_words: 200\nchunk_overlap_words: 10\n",
         encoding="utf-8",
     )
-    rag = RAG.from_config(cfg); rag.converter = PlainTextConverter(); rag.ingest_pipeline.converter = rag.converter
+    rag = RAG.from_config(cfg)
+    rag.converter = PlainTextConverter()
+    rag.ingest_pipeline.converter = rag.converter
     assert rag.settings.environment == "development"
     assert rag.settings.chunk_size_words == 200
 
@@ -95,7 +97,7 @@ def test_rag_evaluate_calls_evaluator() -> None:
                 EvaluationResult(benchmark="financebench", example_id="0", predicted="y")
             ]
 
-    monkey = rag.evaluate.__func__.__globals__.get("FinanceBench")
+    _monkey = rag.evaluate.__func__.__globals__.get("FinanceBench")
     original = rag.evaluate.__globals__.get("FinanceBench")
     rag_evaluate_globals = rag.evaluate.__globals__
     rag_evaluate_globals["FinanceBench"] = _FakeEvaluator
@@ -146,7 +148,9 @@ def test_rag_from_config_toml(tmp_path: Path) -> None:
     pytest.skip("RAG.from_config constructs via default_converter which requires marker-pdf")
     cfg = tmp_path / "rag.toml"
     cfg.write_text('environment = "development"\n', encoding="utf-8")
-    rag = RAG.from_config(cfg); rag.converter = PlainTextConverter(); rag.ingest_pipeline.converter = rag.converter
+    rag = RAG.from_config(cfg)
+    rag.converter = PlainTextConverter()
+    rag.ingest_pipeline.converter = rag.converter
     assert rag.settings.environment == "development"
 
 

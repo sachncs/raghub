@@ -15,7 +15,6 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
 from io import BytesIO
 from unittest.mock import MagicMock
 

@@ -657,7 +657,7 @@ class TestFacetedSearchEngineSearch:
 
 class TestFacetedSearchEngineMatchesFilters:
     def test_classification_filter_pass(self) -> None:
-        engine = Search(
+        Search(
             vector_store=MemoryStore(embedding_dim=2),
             embedding_provider=FakeEmbeddingProvider(),
         )
@@ -668,7 +668,7 @@ class TestFacetedSearchEngineMatchesFilters:
         )
 
     def test_classification_filter_fail(self) -> None:
-        engine = Search(
+        Search(
             vector_store=MemoryStore(embedding_dim=2),
             embedding_provider=FakeEmbeddingProvider(),
         )

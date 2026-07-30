@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from raghub.models import Classification, ChunkRecord
+from raghub.models import ChunkRecord, Classification
 
 os.environ.setdefault("JWT_SECRET", "test-secret-must-be-32-bytes-or-longer-for-sha256")
 os.environ.setdefault("RAG_ALLOW_PASSWORDLESS", "0")
