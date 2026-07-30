@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test-core:
+    name: Test (core, Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Lint (ruff)
+        run: ruff check raghub/ tests/
+      - name: Test (core deps only)
+        run: pytest tests/ --no-cov -q
+      - name: Test (with coverage gate)
+        run: pytest tests/ --cov=raghub --cov-report=term-missing --cov-fail-under=85 -q
+      - name: Doctype smoke
+        run: |
+          python -c "from raghub import RAG, Settings, RagHubError, MissingDep; print('public API imports OK')"
+          raghub --help
+
+  test-optional-extras:
+    name: Test (with optional extras)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install with extras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,structured,auth,docs,otel]"
+      - name: Lint
+        run: ruff check raghub/ tests/
+      - name: Test
+        run: pytest tests/ --no-cov -q
