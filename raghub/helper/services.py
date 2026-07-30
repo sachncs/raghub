@@ -26,25 +26,28 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
-import json
 import os
 import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
-from pathlib import Path
 from queue import Queue
 from typing import Any, cast
 
 from raghub.agent import resolve
+from raghub.auth import RBACAuthorizationService, SqliteUserStore
 from raghub.config import Settings
 from raghub.conversation import ConversationManager
 from raghub.core import can_access_company
-from raghub.documents import detect_mime_type
-from raghub.documents import DocumentLifecycleManager
-from raghub.documents import Catalog
+from raghub.documents import Catalog, DocumentLifecycleManager, detect_mime_type
 from raghub.embeddings import BaseEmbeddingProvider, build_embedding_provider
 from raghub.exceptions import AuthorizationError, DocumentError
+from raghub.helper.retrieval import (
+    Identity as IdentityReranker,
+)
+from raghub.helper.retrieval import (
+    Retrieval as RetrievalPipeline,
+)
 from raghub.ingestion import DocumentIngestionService, IngestionResult
 from raghub.llm import BaseLLMProvider, build_llm_provider
 from raghub.models import (
@@ -57,24 +60,17 @@ from raghub.models import (
     UserPrincipal,
 )
 
-
 # `Facade` is the public class; `RagApplication` was a prior name.
 # ``from raghub.services import Facade`` without churn. Define a
 # placeholder up front so partial-init cycles (api → helper.auth →
 # services → helper.services) resolve at every intermediate step; the real
 # alias lands at the bottom once ``Facade`` exists.
 # placeholder removed; Facade alias defined near the bottom.
-
-
 from raghub.observability import PrometheusMetrics, build_logger
 from raghub.prompts import PromptBuilder
 from raghub.repositories import UnitOfWork
-from raghub.helper.retrieval import (
-    Identity as IdentityReranker,
-    Retrieval as RetrievalPipeline,
-)
 from raghub.storage import ImageStore, Sessions
-from raghub.vectorstore import BaseVectorStore, InMemoryVectorStore
+from raghub.vectorstore import BaseVectorStore, build_vector_store
 
 # ---------------------------------------------------------------------------
 # Mixin shared by every service
@@ -529,8 +525,6 @@ async def build_container(settings: Settings) -> RagContainer:
     """
     from contextlib import suppress
 
-    from raghub.auth import RBACAuthorizationService, SqliteUserStore
-
     logger = build_logger(settings.log_level)
     user_store = SqliteUserStore(settings.data_dir / "users.db")
     await user_store.initialize()
@@ -930,28 +924,28 @@ class Facade:
 # via the star-import in :mod:`raghub.services`.
 
 __all__ = [
-    "Mixin",
-    "upload_record_helper",
-    "raise_missing_document",
-    "list_all_records_helper",
-    "document_by_id_helper",
+    "Auth",
     "Document",
-    "probe_vector_store",
-    "probe_embedder",
-    "aggregate_status",
+    "Facade",
+    "Facade",
     "Health",
+    "InMemoryQueue",
+    "Mixin",
+    "Preference",
     "Query",
+    "RagContainer",
+    "Shutdown",
     "Synchronous",
     "ThreadPool",
-    "InMemoryQueue",
-    "RagContainer",
-    "seed_blocked",
-    "parse_seed_users_json",
-    "seed_demo_users",
+    "aggregate_status",
     "build_container",
-    "Auth",
-    "Shutdown",
-    "Preference",
-    "Facade",
-    "Facade",
+    "document_by_id_helper",
+    "list_all_records_helper",
+    "parse_seed_users_json",
+    "probe_embedder",
+    "probe_vector_store",
+    "raise_missing_document",
+    "seed_blocked",
+    "seed_demo_users",
+    "upload_record_helper",
 ]
