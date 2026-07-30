@@ -16,14 +16,13 @@ openssl rand -base64 48          # generate JWT_SECRET
 # 2. Build the images.
 docker compose -f docker-compose.yml build
 
-# 3. Start the production stack (api + ui + qdrant).
+# 3. Start the production stack (api + ui).
 docker compose -f docker-compose.yml --profile production up -d
 
 # 4. Verify health.
 docker compose -f docker-compose.yml --profile production ps
 curl -fsS http://127.0.0.1:8000/health
 curl -fsS http://127.0.0.1:8501/_stcore/health
-curl -fsS http://127.0.0.1:6333/healthz
 ```
 
 For local development, use the explicit dev override:
@@ -77,9 +76,7 @@ Three named volumes are managed by Compose:
 
 | Volume | Service | Backing |
 |---|---|---|
-| `raghub_data`           | api, ui | SQLite registry, sessions, image cache |
-| `raghub_qdrant_data`    | qdrant  | Vector index |
-| `raghub_qdrant_snapshots` | qdrant | Local snapshot history |
+| `raghub_data`           | api, ui | SQLite registry, sessions, image cache, vector store |
 
 `docker compose down` keeps the volumes; `down -v` removes them.
 See [`operations/backup.md`](../operations/backup.md) for the
@@ -142,12 +139,11 @@ in `.env`.
 | `RAG_LLM_MODEL` | LLM model id |
 | `RAG_LOG_LEVEL` | Log level |
 | `JWT_SECRET` | Opaque session-token signing secret (≥ 32 bytes in production). 0.4.0 no longer issues JWTs; this secret signs the UUID session tokens minted by `SqliteSessionStore`. |
-| `NVIDIA_API_KEY` | NVIDIA provider credential |
-| `OPENAI_API_KEY` | OpenAI credential |
-| `ANTHROPIC_API_KEY` | Anthropic credential |
-| `GROQ_API_KEY` | Groq credential |
-| `LITELLM_API_KEY` | Generic LiteLLM credential |
-| `QDRANT_URL` | Qdrant endpoint (set automatically by compose) |
+| `RAG_LLM_API_KEY` | Preferred unified LLM credential (any provider) |
+| `OPENAI_API_KEY` | OpenAI credential (fallback) |
+| `ANTHROPIC_API_KEY` | Anthropic credential (fallback) |
+| `GROQ_API_KEY` | Groq credential (fallback) |
+| `LITELLM_API_KEY` | Generic LiteLLM credential (fallback) |
 | `LANGFUSE_PUBLIC_KEY` | Langfuse public key |
 | `LANGFUSE_SECRET_KEY` | Langfuse secret key |
 | `LANGFUSE_HOST` | Langfuse self-hosted endpoint |
@@ -173,7 +169,7 @@ in `.env`.
   start.
 * `RAG_ALLOW_PASSWORDLESS=false` is set in `.env`.
 * `CORS_ORIGINS` is the real frontend origin, not the wildcard.
-* The Qdrant volume (`raghub_qdrant_data`) is on durable storage.
+* The `raghub_data` volume is on durable storage.
 * `docker compose -f docker-compose.yml --profile production ps`
   reports every service as `healthy`.
 * The `raghub_data` volume is included in the daily backup (see
@@ -216,7 +212,7 @@ environment variable (a JSON object of email →
 * The `RAG` facade is designed for embedding in your own service.
   Wiring it in FastAPI is a thin shim around its sync and async
   methods; no auth or storage is added by the facade.
-* The legacy FastAPI app at `raghub.api.app:get_app` (Uvicorn
+* The FastAPI app at `raghub.api:get_app` (Uvicorn
   `--factory`) remains the canonical multi-tenant HTTP surface
   until a v2 is shipped.
 * The Dockerfile builds a wheel and installs it with

@@ -47,7 +47,7 @@ Two options:
    service with `replicas: 1`.
 
 To bump the background ingestion pool, override the
-`BackgroundIngestionService` at runtime by setting the env var that
+`Batch` at runtime by setting the env var that
 `create_app` reads (`BACKGROUND_INGEST_WORKERS` is the conventional
 name; the default is `2`).
 
@@ -93,7 +93,7 @@ Two pools matter in production:
 
 - **Uvicorn workers.** The default `CMD` runs a single uvicorn
   process. For higher query concurrency, run with multiple workers
-  by overriding the entry point: `uvicorn raghub.api.app:get_app
+  by overriding the entry point: `uvicorn raghub.api:get_app
   --factory --workers 4`. Each worker has its own application
   instance and SQLite connections.
 - **Qdrant client.** `qdrant-client` keeps an HTTP/2 connection

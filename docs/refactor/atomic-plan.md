@@ -38,7 +38,7 @@ Tracking convention: `[x]` = done, `[ ]` = pending. Update the box as each atomi
 
 ## Helper / cleanup commits (test fixes required by the flat modules)
 
-- test: update tests/test_litellm_embedding.py to use the flat raghub.embeddings
+- test: update tests/test_litellm_embedding.py to use the flat raghub.embedder
 - refactor: drop stale raghub/agent/ directory and tests/agent/ folder
 - test: drop the duplicate tests/agent/ folder (moved to tests/tools/)
 
@@ -118,7 +118,7 @@ Only 12 sites should retain try/except:
 - [x] I.3 `raghub/api/admin.py` route handlers
 - [x] I.4 `raghub/api/preferences.py` route handlers
 - [x] I.5 `raghub/pipeline.py` `IngestPipeline.run`, `QueryPipeline.run`
-- [x] I.6 `raghub/pipeline.py` `AgenticQueryPipeline`
+- [x] I.6 `raghub/pipeline.py` `AgentPipeline`
 - [x] I.7 `raghub/services/workers.py` worker loop
 - [x] I.8 `raghub/cli/main.py` CLI entry
 - [x] I.9 `raghub/observability/metrics.py` `record_rerank_latency` (label validation)
@@ -218,7 +218,7 @@ raghub/
 ├── config.py              # Settings
 ├── exceptions.py
 ├── utils.py               # retry + DurationTimer + maybe_await
-├── auth.py                # SqliteUserStore + RBAC + AuthService
+├── auth.py                # SqliteUsers + RBAC + AuthService
 ├── core.py                # Container + RBAC service + doc state
 ├── conversation.py
 ├── repositories.py
@@ -226,8 +226,8 @@ raghub/
 ├── models.py
 ├── embeddings.py
 ├── llm.py
-├── generation.py          # DefaultGenerator + InstructorStructuredOutputProvider
-├── knowledge.py           # manifest + OKF + repository + KnowledgeIndex + RaptorIndex + GraphRagIndex
+├── generation.py          # DefaultGenerator + Instructor
+├── knowledge.py           # manifest + OKF + repository + KnowledgeIndex + Raptor + GraphIndex
 ├── vectorstore.py
 ├── observability.py       # logging + metrics + redact + noop + tracing + langfuse
 ├── ingestion.py

@@ -82,11 +82,11 @@ raghub query "What was the revenue guidance?"
 | Concern | Library | Default behaviour |
 |---|---|---|
 | Document conversion | Marker | Falls back to `PlainTextConverter` when Marker is missing |
-| Chunking | Chonkie | Falls back to `WordWindowChunker` when Chonkie is missing |
+| Chunking | Chonkie | Falls back to `WordChunker` when Chonkie is missing |
 | LLM | LiteLLM | Falls back to `HeuristicLLMProvider` (offline, deterministic) |
-| Embeddings | LiteLLM | Falls back to `HashingEmbeddingProvider` (offline) |
+| Embeddings | LiteLLM | Falls back to `Hasher` (offline) |
 | Structured output | Instructor | Returns `None` when Instructor is missing or no API key |
-| Vector store | Qdrant | Falls back to `InMemoryVectorStore` when `QDRANT_URL` is unset |
+| Vector store | Qdrant | Falls back to `MemoryStore` when `QDRANT_URL` is unset |
 | Telemetry | Langfuse v3+ | Falls back to `NoOpTelemetry` when Langfuse is missing or unconfigured |
 | Knowledge format | OKF (Open Knowledge Format) | Canonical persisted representation |
 

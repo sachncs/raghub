@@ -11,7 +11,7 @@ is missing.
 The `RAG` facade tries LiteLLM first; when LiteLLM is missing or
 no LLM API key is configured, it falls back to the offline
 `HeuristicLLMProvider`. If you explicitly passed
-`LiteLLMProvider(...)` to the constructor, install it:
+`LiteLLM(...)` to the constructor, install it:
 
 ```bash
 pip install litellm
@@ -29,7 +29,7 @@ pip install marker-pdf
 ## `ConfigurationError: chonkie is not installed`
 
 The default chunker uses Chonkie when available; it falls back to
-`WordWindowChunker` otherwise. Install Chonkie for token-aware
+`WordChunker` otherwise. Install Chonkie for token-aware
 chunking:
 
 ```bash
@@ -51,17 +51,18 @@ chunker_strategy: recursive       # or token, sentence, semantic, late, table, c
 embedding_model_chunker: minishlab/potion-base-8M  # for semantic/late
 ```
 
-## `ConfigurationError: qdrant-client is not installed`
+## `ConfigurationError: marker-pdf is not installed`
 
-The facade tries Qdrant first; when `qdrant-client` is missing or
-`QDRANT_URL` is not set, it falls back to `InMemoryVectorStore`.
-Install Qdrant for production:
+PDF parsing is optional. When `marker-pdf` is missing,
+`default_converter()` falls back to `PlainTextConverter` with a
+`UserWarning`. Install the `[pdf]` extra for full PDF support:
 
 ```bash
-pip install qdrant-client
-# In your environment:
-export QDRANT_URL=...
+pip install 'raghub[pdf]'
 ```
+
+The fallback returns plain-text bytes for whatever bytes it gets;
+PDFs ingested this way will not be parsed correctly.
 
 ## `ConfigurationError: instructor is not installed`
 
@@ -154,7 +155,7 @@ rag.evaluate(benchmark="financebench", examples=examples)
 
 ## `RAG.query` returns no chunks for a user
 
-When the caller supplies a `UserPrincipal` with an empty
+When the caller supplies a `User` with an empty
 `allowed_companies` (and is not admin), the retrieval layer
 filters to `{"company": []}` which matches nothing. The user
 receives an empty result set, not a 403. Give the user at least
@@ -202,7 +203,7 @@ sink.
 ## Multi-user isolation isn't visible from the UI
 
 The Streamlit UI signs the caller in as a demo user; the
-session's `UserPrincipal` is what the facade's RBAC sees. Sign
+session's `User` is what the facade's RBAC sees. Sign
 in with a non-admin user (e.g. `alice@acme.com`) and confirm
 the companies box shows `Apple`. All retrieved chunks should
 have `chunk.company == "Apple"`.
@@ -211,17 +212,17 @@ have `chunk.company == "Apple"`.
 
 `RAG.astream` requires the underlying LLM to expose an `astream`
 method. The default `HeuristicLLMProvider` does not stream by
-default — switch to a real `LiteLLMProvider` for true streaming:
+default — switch to a real `LiteLLM` for true streaming:
 
 ```python
-from raghub.llm.litellm import LiteLLMProvider
+from raghub.llm.litellm import LiteLLM
 
 rag = RAG()
-rag.llm = LiteLLMProvider(model="nvidia/llama-3.3-nemotron-super-49b-v1.5")
+rag.llm = LiteLLM(model="nvidia/llama-3.3-nemotron-super-49b-v1.5")
 ```
 
 The facade's `QueryPipeline.stream` will then route through
-`LiteLLMProvider.astream` with
+`LiteLLM.astream` with
 `stream_options={"include_usage": True}`.
 
 ## Performance regressions after a config change

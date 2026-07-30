@@ -240,12 +240,12 @@ Backed by `user_preferences` table (1.9).
 
 Test: `tests/auth/test_user_prefs_crud.py`.
 
-### 1.11 [E] `raghub/auth/rbac.py` (or wherever UserPrincipal is defined)
+### 1.11 [E] `raghub/auth/rbac.py` (or wherever User is defined)
 
-Extend `UserPrincipal` (no DB change — purely additive Pydantic field):
+Extend `User` (no DB change — purely additive Pydantic field):
 
 ```python
-class UserPrincipal(BaseModel):
+class User(BaseModel):
     ...existing...
     tool_settings: dict[str, Any] = Field(default_factory=dict)
 ```
@@ -610,7 +610,7 @@ Test: `tests/knowledge/structures/test_base.py`.
 ### 6.2 ★[N] `raghub/knowledge/structures/raptor.py`
 
 ```python
-class RaptorIndex:
+class Raptor:
     def __init__(self, *, llm, embedder, depth: int = 2,
                  cluster_per_level: int = 8): ...
     def build(self, chunks, vectors): ...   # synchronous (ingest-time)
@@ -627,7 +627,7 @@ Test: `tests/knowledge/structures/test_raptor.py`.
 ### 6.3 [N] `raghub/knowledge/structures/graphrag.py`
 
 ```python
-class GraphRagIndex:
+class GraphIndex:
     def __init__(self, *, llm, embedder): ...
     def build(self, chunks, vectors):
         triples = self._extract_triples(chunks)         # Instructor + Pydantic
@@ -642,13 +642,13 @@ Test: `tests/knowledge/structures/test_graphrag.py` (skipped if deps missing).
 
 ### 6.4 [N] `raghub/agent/tools/summary_search.py` (Phase 7 wiring)
 
-Wraps `RaptorIndex.search` as a tool.
+Wraps `Raptor.search` as a tool.
 
 Test: `tests/agent/test_tools_summary_search.py`.
 
 ### 6.5 [N] `raghub/agent/tools/graph_search.py` (Phase 7 wiring)
 
-Wraps `GraphRagIndex.search_local` (and optional `search_global`).
+Wraps `GraphIndex.search_local` (and optional `search_global`).
 
 Test: `tests/agent/test_tools_graph_search.py`.
 
@@ -789,7 +789,7 @@ Test: `tests/agent/test_builder.py`.
 ### 7.9 ★[N] `raghub/pipelines/agentic.py`
 
 ```python
-class AgenticQueryPipeline:
+class AgentPipeline:
     name = "query_agent"
     def __init__(self, *, agent: Agent, embedder, vector_store, generator,
                  reranker=None, structured=None, telemetry=None,
@@ -807,7 +807,7 @@ Test: `tests/pipelines/test_agentic_pipeline.py`.
 
 `QueryPipeline` becomes the **fast-path only**. `run` checks the resolved
 config; if `agent_enabled` or any tool is requested, it forwards to a
-configured `AgenticQueryPipeline`:
+configured `AgentPipeline`:
 
 ```python
 if self.agentic_pipeline is not None and (
@@ -817,7 +817,7 @@ if self.agentic_pipeline is not None and (
 # ... existing fast path unchanged ...
 ```
 
-Constructor param `agentic_pipeline: AgenticQueryPipeline | None = None`.
+Constructor param `agentic_pipeline: AgentPipeline | None = None`.
 
 Test: `tests/pipelines/test_query_pipeline_dispatch.py`.
 
@@ -1105,9 +1105,8 @@ external packages can ship their own.
 
 ```toml
 [project.entry-points."raghub.rerankers"]
-cohere = "raghub.retrieval.rerankers.cohere:CohereReranker"
-bge    = "raghub.retrieval.rerankers.bge:BgeReranker"
-llm    = "raghub.retrieval.rerankers.llm:LLMReranker"
+cohere = "raghub.retrieval:Cohere"
+llm    = "raghub.retrieval:LlmJudge"
 
 [project.entry-points."raghub.tools"]
 web_search      = "raghub.agent.tools.web_search:WebSearchTool"

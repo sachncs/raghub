@@ -1,229 +1,116 @@
-# Migration Guide
+# Migration Guide — v0.4 → v0.5
 
-This guide covers the changes between the legacy single-service
-RAG application and the new `raghub.RAG` facade. Both APIs are
-stable and remain importable; new code should prefer `RAG`.
+The v0.5 release renames almost every public symbol to a
+single-word form. There are **no backward-compat aliases** — the
+old names simply do not exist anymore. Code that imported them
+must be updated.
 
-## Public API
+## Module renames
 
-### Before
-
-```python
-from raghub.core.container import build_application
-from raghub.services.application import RagApplication
-
-app = asyncio.run(build_application())
-app.upload_document(token=..., filename=..., content=...)
-result = app.query(token=..., question=...)
-```
-
-### After
-
-```python
-from raghub import RAG
-
-rag = RAG()
-rag.ingest("path/to/doc.pdf")             # or bytes / directory
-result = rag.query("What is the revenue?")
-print(result.answer)
-```
-
-`RAG` returns typed Pydantic models; `RagApplication`
-returns dataclass/Record shapes from the legacy storage layer.
-
-## Configuration
-
-### Before
-
-```python
-from raghub.config.settings import load_settings
-settings = load_settings(profile="dev")
-```
-
-### After
-
-```python
-from raghub import RAG
-rag = RAG.from_config("raghub.yaml")
-# or with TOML:
-rag = RAG.from_config("raghub.toml")
-# or with runtime overrides:
-settings = load_settings(profile="dev")
-settings = settings.override(chunk_size_words=400)
-rag = RAG(settings=settings)
-```
-
-The precedence is now: env > TOML > YAML > defaults.
-
-## Vector store packages
-
-### Before
-
-Two parallel packages: `raghub.vectorstore` (singular, legacy)
-and `raghub.vectorstores` (plural, new).
-
-### After
-
-A single package: `raghub.vectorstore` (singular). The Qdrant
-adapter moved from `raghub.vectorstores.qdrant` to
-`raghub.vectorstore.qdrant`. Imports of the plural package are
-removed.
-
-## Prompt builders
-
-### Before
-
-Two parallel classes: `raghub.prompts.builder.PromptBuilder`
-(used in production) and `raghub.prompts.builder.TemplatePromptBuilder`
-(legacy stub).
-
-### After
-
-A single class: `raghub.prompts.builder.PromptBuilder`.
-`TemplatePromptBuilder` is removed. New code relies on
-`DefaultGenerator` (in `raghub.generation.generator`) to assemble
-prompts.
-
-## LLM providers
-
-### Before
-
-`raghub.llm.nvidia.NvidiaLLMProvider` (deleted) was a thin
-wrapper around the langchain NVIDIA SDK.
-
-### After
-
-`raghub.llm.litellm.LiteLLMProvider` is the canonical LLM
-provider. It works with any LiteLLM-supported model (OpenAI,
-NVIDIA, Anthropic, Bedrock, Cohere, Voyage, Groq). Update any
-direct imports of `NvidiaLLMProvider` to
-`LiteLLMProvider(model="nvidia/<model>")`.
-
-When no LLM API key is set, `default_llm()` falls back to the
-deterministic offline `HeuristicLLMProvider` so the facade still
-starts.
-
-## Embedding providers
-
-### Before
-
-`raghub.embeddings.nvidia.NvidiaEmbeddingProvider` (deleted).
-
-### After
-
-`raghub.embeddings.litellm.LiteLLMEmbeddingProvider` is the
-canonical embedding provider. Update direct imports of
-`NvidiaEmbeddingProvider` to
-`LiteLLMEmbeddingProvider(model="nvidia/embed-qa-4")`.
-
-When no API key is set, `default_embedder()` falls back to the
-offline `HashingEmbeddingProvider`.
-
-## Telemetry
-
-### Before
-
-`LangfuseTelemetryProvider` used the v2 SDK and called
-`langfuse.score()` for every log event.
-
-### After
-
-The provider uses the documented Langfuse v3+ API
-(`get_client()` and `start_as_current_observation`) and emits
-proper spans. The default `RAG(...)` constructor automatically
-wires Langfuse as the default telemetry provider when
-credentials are present, and always wraps the underlying
-provider in `RedactingTelemetry` to scrub secret-looking kwargs.
-
-## CLI
-
-### Before
-
-```bash
-python -m raghub.cli login EMAIL PASSWORD
-python -m raghub.cli health
-```
-
-### After
-
-```bash
-python -m raghub.cli init -o raghub.yaml
-python -m raghub.cli ingest ./documents
-python -m raghub.cli query "What is the revenue?"
-python -m raghub.cli eval financebench --examples 25
-```
-
-The legacy `login` / `health` commands are replaced by:
-- `login` → `POST /auth/login` (FastAPI) or the Streamlit
-  sign-in panel.
-- `health` → `raghub health` (which calls `RAG.health()`).
-
-The new `init` and `eval` commands are new.
-
-## Console scripts
-
-### Before
-
-`raghub-financebench` pointed at `evaluate_financebench:main`,
-which is `async def main` and would fail at install time. The
-`evaluate_financebench.py` script at the repo root is **gone**.
-
-### After
-
-`raghub-financebench` points at
-`raghub.cli.eval_cmd:main` (a sync shim). It works out of the
-box. Equivalently:
-
-```bash
-raghub eval financebench --examples 25
-```
-
-## Exceptions
-
-The exception hierarchy was extended. The legacy aliases
-(`DynamicRagError`, `DocumentError`, `IndexingError`, `PromptError`,
-`LLMError`, `StorageError`, `AuthenticationError`,
-`AuthorizationError`) are preserved and subclass the new
-`RagHubError` base.
-
-New code should use the new names: `ConfigurationError`,
-`ConversionError`, `KnowledgeError`, `IngestionError`,
-`EmbeddingError`, `VectorStoreError`, `RetrievalError`,
-`GenerationError`, `PipelineError`, `EvaluationError`.
-
-## Storage and active-record models
-
-The legacy `Document` / `Chunk` / `Session` active-record models
-(in `raghub.domain`) and the SQLite repositories
-(`raghub.repositories.*`) remain in place for the
-`RagApplication` surface and continue to round-trip with
-the storage layer. New code should consume the **canonical**
-models in `raghub.models.canonical` (`Document`, `Chunk`,
-`KnowledgeBundle`, `Citation`, `PipelineContext`,
-`PipelineResult`, `EvaluationResult`) which exchange across the
-`RAG` facade boundary.
-
-## Backgrounding
-
-`BackgroundIngestionService` (in `raghub.ingestion.background`)
-is the in-memory worker pool used by the legacy FastAPI
-`/ingest/async` endpoint. The new `RAG.ingest_async(...)` path
-wraps a `ResumableBackgroundIngestionService` (in
-`raghub.ingestion.resumable`) which writes every status
-transition to a SQLite ledger via `PersistentJobStore` so the
-queue survives a crash.
-
-## CLI ↔ Python parity
-
-| Old (still supported) | New (recommended) |
+| Old | New |
 |---|---|
-| `python -m raghub.cli login` | `POST /auth/login` |
-| `python -m raghub.cli health` | `raghub health` |
-| (none) | `raghub init -o raghub.yaml` |
-| `python -m raghub.cli ingest` | `raghub ingest ...` |
-| `python -m raghub.cli query` | `raghub query "..."` |
-| `python -m raghub.cli eval financebench` | `raghub eval financebench --examples 25` |
+| `raghub.exceptions` | `raghub.errors` |
+| `raghub.embeddings` | `raghub.embedder` |
+| `raghub.repositories` | `raghub.repos` |
+| `raghub.vectorstore` | `raghub.store` |
+| `raghub.observability` | `raghub.telemetry` |
+| `raghub.generation` | `raghub.gen` |
+| `raghub.conversation` | `raghub.conv` |
+| `raghub.ingestion` | `raghub.ingest` |
+| `raghub.documents` (top-level parser classes) | `raghub.parsers` |
+| `raghub.helper.evaluation` | `raghub.eval` |
+| `raghub.helper.documents` (lifecycle / chunking) | `raghub.lifecycle` |
+| `raghub.helper.retrieval` | `raghub.retrieval` |
+| `raghub.helper.services` | `raghub.services` |
+| `raghub.helper.storage` | `raghub.stores` |
+| `raghub.helper.tools` | `raghub.tools` |
 
-The legacy CLI shims (`login`, `health`) are replaced by the
-FastAPI `/auth/login` endpoint and by `raghub health`; new code
-should use the new commands.
+The four re-export wrappers (`raghub.retrieval`,
+`raghub.services`, `raghub.storage`, `raghub.tools`) were
+deleted — import directly from the canonical paths above.
+
+## Class renames
+
+| Old | New |
+|---|---|
+| `OptionalDependencyMissing` | `MissingDep` |
+| `UserPrincipal` | `User` |
+| `PipelineContext` | `PipelineCtx` |
+| `BaseEmbeddingProvider` | `Embedder` |
+| `HashingEmbeddingProvider` | `Hasher` |
+| `LiteLLMEmbeddingProvider` | `LiteLLMEmbedder` |
+| `LiteLLMProvider` | `LiteLLM` |
+| `BaseLLMProvider` | `Generator` |
+| `BaseVectorStore` | `Store` |
+| `InMemoryVectorStore` | `MemoryStore` |
+| `SqliteVectorStore` | `SqliteStore` |
+| `InMemoryKnowledgeRepository` | `MemoryRepo` |
+| `InMemoryConversationStore` | `MemoryConversations` |
+| `InMemoryQueue` | `MemoryQueue` |
+| `SqliteUserStore` | `SqliteUsers` |
+| `SqliteChunkRepository` | `ChunkStore` |
+| `SqliteDocumentRepository` | `DocStore` |
+| `SqliteSessionRepository` | `SessionStore` |
+| `DocumentLifecycleManager` | `Lifecycle` |
+| `MarkerConverter` | `Marker` |
+| `DocumentIngestionService` | `Ingestor` |
+| `BackgroundIngestionService` | `Batch` |
+| `ResumableBackgroundIngestionService` | `Resumable` |
+| `RBACAuthorizationService` | `Authz` |
+| `ChonkieChunker` | `Chonkie` |
+| `WordWindowChunker` | `WordChunker` |
+| `RaptorIndex` | `Raptor` |
+| `GraphRagIndex` | `GraphIndex` |
+| `SourceManifest` | `Manifest` |
+| `InstructorStructuredOutputProvider` | `Instructor` |
+| `AgenticQueryPipeline` | `AgentPipeline` |
+| `Section` dataclass in `raghub.documents` | `ParsedSection` |
+| `MarkdownSection` | `Section` |
+| `BaseTool` | `Tool` |
+
+The `*Protocol` classes with the same short name were renamed
+with a `Protocol` suffix to make room for the concrete classes
+above: `GeneratorProtocol`, `ToolProtocol`,
+`SessionStoreProtocol`.
+
+## Field rename
+
+`ChunkRecord.hash` is now `ChunkRecord.checksum` (also required;
+no default empty string).
+
+## Function and constant renames
+
+Function renames: `assert_production_invariants → production_check`,
+`build_embedding_provider → build_embedder`,
+`build_vector_store → build_store`, `build_llm_provider → build_llm`,
+`ingest_directory_concurrent → ingest_dir`,
+`chunks_from_knowledge_bundle → get_chunks`, plus 25+ more.
+See `git log --oneline` for the full list.
+
+Constant renames: `SUMMARISE_COMMUNITY_PROMPT → COMMUNITY_PROMPT`,
+`MULTI_QUERY_SYSTEM_PROMPT → MULTI_QUERY`,
+`HYDE_SYSTEM_PROMPT → HYDE`, `MARKER_AVAILABLE → MARKER`, plus 5
+more.
+
+## Behavioural changes
+
+- `RAG()` no longer requires an LLM API key. When no key is
+  configured, `default_llm()` returns `HeuristicProvider` (sentence
+  extraction from context).
+- `default_converter()` returns `Marker` when `marker-pdf` is
+  installed; otherwise falls back to `PlainTextConverter` with a
+  `UserWarning`. Install `raghub[pdf]` for PDF support.
+- `vectorstore.insert()` and `upsert()` now return `int` (rows
+  written). Mismatched dimensions raise `VectorStoreError`.
+- `ChunkRecord.checksum` is required; the field is computed as
+  `sha256(chunk.text).hexdigest()` at construction.
+- Legacy exception aliases (`AuthenticationError`,
+  `AuthorizationError`, `ValidationError`, `LLMError`, …) emit a
+  `DeprecationWarning` when instantiated. New code should catch
+  `RagHubError` (or the canonical subclass).
+
+## Removed dependencies
+
+`qdrant-client`, `zvec`, `sentence-transformers`, and `bge-reranker`
+are no longer installed. The vector store is now SQLite-backed
+(`SqliteStore`); reranking is local-only.

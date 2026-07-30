@@ -11,7 +11,7 @@ RAG
 ```
 
 `RAG.telemetry` always exposes the protocol defined by
-`raghub.interfaces.observability.TelemetryProvider`. The default
+`raghub.telemetry.TelemetryProvider`. The default
 constructor wraps the underlying provider in
 `RedactingTelemetry` so secret-looking kwargs are scrubbed before
 forwarding to the sink.
@@ -47,7 +47,7 @@ pipeline forwards it through `telemetry.record_tokens`.
 
 ## Token usage
 
-`LiteLLMProvider.generate` and `LiteLLMProvider.astream`
+`LiteLLM.generate` and `LiteLLM.astream`
 populate `self.last_usage` (prompt / completion / model).
 `DefaultGenerator.record_tokens()` exposes that counter;
 `QueryPipeline.run` and `QueryPipeline.stream` call it and pipe
@@ -69,7 +69,7 @@ so `record_tokens` doesn't run on every chunk.
 
 ## Secret redaction
 
-`RedactingTelemetry` (in `raghub.observability.redact`) walks the
+`RedactingTelemetry` (in `raghub.telemetry`) walks the
 kwarg dict recursively and replaces any value whose key matches
 the regex
 `re.compile(r"(password|secret|api_key|token|jwt|authorization)", re.I)`
@@ -85,7 +85,7 @@ Construct the facade with a custom telemetry provider:
 
 ```python
 from raghub import RAG
-from raghub.observability.noop import NoOpTelemetry
+from raghub.telemetry import NoOpTelemetry
 
 rag = RAG(telemetry=NoOpTelemetry())
 ```
@@ -93,8 +93,8 @@ rag = RAG(telemetry=NoOpTelemetry())
 …or with the redaction wrapper around any backend:
 
 ```python
-from raghub.observability.redact import RedactingTelemetry
-from raghub.telemetry.langfuse import LangfuseTelemetryProvider
+from raghub.telemetry import RedactingTelemetry
+from raghub.telemetry import LangfuseTelemetryProvider
 
 rag = RAG(telemetry=RedactingTelemetry(LangfuseTelemetryProvider()))
 ```
@@ -111,11 +111,11 @@ Uvicorn's `--factory`) continues to expose:
 - `raghub_error_total` (Counter, label `error_type`) — error count
 
 These are wired through
-`raghub.observability.metrics.PrometheusMetrics` (registered via
+`raghub.telemetry.metrics.PrometheusMetrics` (registered via
 `metrics.register_app(app)` in `create_app`) and
-`raghub.observability.tracing.Tracer` (constructor takes the OTLP
+`raghub.telemetry.tracing.Tracer` (constructor takes the OTLP
 endpoint via `tracer.add_otlp_exporter(...)`).
-`raghub.observability.logging.LoguruTelemetryProvider` provides the
+`raghub.telemetry.logging.LoguruTelemetryProvider` provides the
 loguru-backed span/logger surface; `RedactingTelemetry` is the
 default wrapper that scrubs secret-like kwargs.
 
@@ -136,7 +136,7 @@ container.
 
 ## Structured logging
 
-`build_logger()` in `raghub.observability.logging` configures
+`build_logger()` in `raghub.telemetry.logging` configures
 `loguru`. The recommended key log events are `ingest.start`,
 `ingest.stop`, `query.start`, `query.stop`, `cli.ingest.start`,
 `cli.run.starting`, and `error`-classed events emitted from the
@@ -166,10 +166,10 @@ print(json.dumps(RAG().health(), indent=2))
 ```json
 {
   "status": "ok",
-  "vector_store": "InMemoryVectorStore",
-  "embedder":     "HashingEmbeddingProvider",
+  "vector_store": "MemoryStore",
+  "embedder":     "Hasher",
   "llm":          "HeuristicLLMProvider",
-  "chunker":      "WordWindowChunker",
+  "chunker":      "WordChunker",
   "converter":    "PlainTextConverter",
   "telemetry":    "RedactingTelemetry",
   "structured":   "NoneType",

@@ -8,15 +8,15 @@ rather than adding new first-class adapters.
 ## In progress
 
 - **`raghub.RAG` in FastAPI.** The current FastAPI app
-  (`raghub.api.app:app`) is bound to the legacy
-  `RagApplication`. A v2 will mount the new facade behind
-  thin route handlers, taking advantage of `UserPrincipal` at
+  (`raghub.api:get_app`) is bound to the legacy
+  `Facade`. A v2 will mount the new facade behind
+  thin route handlers, taking advantage of `User` at
   the request boundary.
 - **Disk-backed `KnowledgeRepository`.** The current
-  `InMemoryKnowledgeRepository` is a starting point; an OKF-on-
+  `MemoryRepo` is a starting point; an OKF-on-
   disk variant would let bundles survive restarts and be
   inspected offline.
-- **`SecureReadUser` / group ABAC.** `UserPrincipal.allowed_groups`
+- **`SecureReadUser` / group ABAC.** `User.allowed_groups`
   is already in the model. Wiring groups through the retrieval
   filter is straightforward; the contract is in
   [the architecture decisions](architecture/decisions.md).
@@ -27,7 +27,7 @@ rather than adding new first-class adapters.
 ## Considered — open questions
 
 - **SQL-backed conversation store.** The default
-  `InMemoryConversationStore` is fine for a single process. For
+  `MemoryConversations` is fine for a single process. For
   multi-worker deployments behind a load balancer, a Redis- or
   SQLite-backed store that respects the `ConversationStore`
   protocol is needed (it would be a plugin, no facade change).
@@ -62,7 +62,7 @@ rather than adding new first-class adapters.
 ## Observability follow-ups
 
 - Token-level cost attribution per `session_id` is already
-  feasible from `LiteLLMProvider.last_usage`. Persisting those
+  feasible from `LiteLLM.last_usage`. Persisting those
   counters in a structured log sink and surfacing in Langfuse is
   the next step.
 - Trace sampling. The current `RedactingTelemetry` wraps every
