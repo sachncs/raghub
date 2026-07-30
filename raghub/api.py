@@ -28,7 +28,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger as loguru_logger
 from pydantic import BaseModel, Field
 
-from raghub.exceptions import (
+from raghub.errors import (
     AuthenticationError,
     AuthorizationError,
     DocumentError,
@@ -51,7 +51,7 @@ from raghub.helper.services import Facade as Facade
 from raghub.helper.sse import (
     Sse,
 )
-from raghub.ingestion import Batch
+from raghub.ingest import Batch
 from raghub.models import (
     AuthLoginRequest,
     AuthLoginResponse,

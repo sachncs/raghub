@@ -38,7 +38,7 @@ from raghub.models import (
     DocumentRecord,
     SessionRecord,
 )
-from raghub.vectorstore import Store
+from raghub.store import Store
 
 __all__ = [
     "ChunkStore",

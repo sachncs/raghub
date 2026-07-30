@@ -35,7 +35,7 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
-from raghub.exceptions import ConfigurationError
+from raghub.errors import ConfigurationError
 from raghub.models import User
 
 # ---------------------------------------------------------------------------

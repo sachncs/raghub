@@ -25,7 +25,7 @@ from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
 
-from raghub.exceptions import MissingDep
+from raghub.errors import MissingDep
 from raghub.llm import Generator
 from raghub.models import (
     Citation,

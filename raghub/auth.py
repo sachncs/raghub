@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from raghub.exceptions import AuthenticationError, AuthorizationError, MissingDep
+from raghub.errors import AuthenticationError, AuthorizationError, MissingDep
 
 try:
     import aiosqlite

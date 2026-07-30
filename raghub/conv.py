@@ -24,7 +24,7 @@ from typing import Any, Protocol
 
 from raghub.domain import Session
 from raghub.models import ConversationTurn, SessionRecord
-from raghub.repositories import UnitOfWork
+from raghub.repos import UnitOfWork
 
 __all__ = [
     "MemoryConversations",

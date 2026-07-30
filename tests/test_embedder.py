@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from raghub.embeddings import Hasher
+from raghub.embedder import Hasher
 
 
 def test_hasher_returns_correct_dimension():

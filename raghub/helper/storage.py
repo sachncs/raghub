@@ -38,7 +38,7 @@ from uuid import uuid4
 
 from tqdm import tqdm
 
-from raghub.exceptions import AuthenticationError, MissingDep, StorageError
+from raghub.errors import AuthenticationError, MissingDep, StorageError
 from raghub.models import (
     ConversationTurn,
     DocumentLifecycleStatus,
@@ -865,7 +865,7 @@ async def migrate_from_json(
         sessions_path: Path to the source JSON sessions file.
         show_progress: Wrap each step in a :class:`tqdm.tqdm` bar.
     """
-    import raghub.repositories as repositories
+    import raghub.repos as repositories
 
     registry = repositories.DocStore(db_path)
     await registry.initialize()

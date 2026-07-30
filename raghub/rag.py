@@ -45,11 +45,11 @@ from tqdm import tqdm
 
 from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
 from raghub.config import Settings
-from raghub.conversation import MemoryConversations
-from raghub.embeddings import Embedder, Hasher
-from raghub.exceptions import ConfigurationError, IngestionError, RagHubError, ValidationError
-from raghub.generation import DefaultGenerator
-from raghub.helper.evaluation import FinanceBench
+from raghub.conv import MemoryConversations
+from raghub.embedder import Embedder, Hasher
+from raghub.errors import ConfigurationError, IngestionError, RagHubError, ValidationError
+from raghub.gen import DefaultGenerator
+from raghub.helper.eval import FinanceBench
 from raghub.helper.response import ResponseBuilder
 from raghub.helper.retrieval import (
     Colbert as ColbertLateInteraction,
@@ -81,7 +81,7 @@ from raghub.helper.retrieval import (
 from raghub.helper.retrieval import (
     build_reranker,
 )
-from raghub.ingestion import Resumable, build_chonkie_chunker
+from raghub.ingest import Resumable, build_chonkie_chunker
 from raghub.knowledge import (
     GraphIndex,
     Manifest,
@@ -99,11 +99,11 @@ from raghub.models import (
     Response,
     deterministic_id,
 )
-from raghub.observability import DEFAULT_METRICS_REGISTRY, PrometheusMetrics, RedactingTelemetry
 from raghub.pipeline import AgentPipeline, IngestPipeline, QueryCache, QueryPipeline
 from raghub.plugins import PluginRegistry
+from raghub.store import MemoryStore
+from raghub.telemetry import DEFAULT_METRICS_REGISTRY, PrometheusMetrics, RedactingTelemetry
 from raghub.utils import maybe_await_sync as maybe_await
-from raghub.vectorstore import MemoryStore
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -149,7 +149,7 @@ def default_converter() -> DocumentConverter:
     always returns :class:`Marker`. Tests patch the
     `raghub.documents.Marker` symbol via this re-import.
     """
-    from raghub.documents import Marker
+    from raghub.docs import Marker
 
     return Marker()
 
@@ -195,7 +195,7 @@ def default_embedder(embedding_model: str, embedding_dim: int) -> Embedder:
     """
     if not has_llm_api_key():
         return Hasher(dimension=embedding_dim, model_name=embedding_model)
-    from raghub.embeddings import LiteLLMEmbedder
+    from raghub.embedder import LiteLLMEmbedder
 
     return LiteLLMEmbedder(model=embedding_model)
 
@@ -244,7 +244,7 @@ def default_structured() -> Any:
     """
     if not has_llm_api_key():
         return None
-    from raghub.generation import Instructor
+    from raghub.gen import Instructor
 
     return Instructor()
 
@@ -256,10 +256,10 @@ def default_telemetry() -> Any:
         :class:`LangfuseTelemetryProvider` when Langfuse is
         configured (env vars set); otherwise :class:`NoOpTelemetry`.
     """
-    from raghub.observability import (
+    from raghub.telemetry import (
         LangfuseTelemetryProvider as _LangfuseTelemetryProvider,
     )
-    from raghub.observability import (
+    from raghub.telemetry import (
         NoOpTelemetry as _NoOpTelemetry,
     )
 

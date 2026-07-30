@@ -41,8 +41,8 @@ from pydantic import BaseModel, Field, SecretStr
 
 from raghub.config import LongContextConfig, Settings
 from raghub.core import allowed_company_filter
-from raghub.embeddings import Embedder
-from raghub.exceptions import GraphUnavailableError, RerankerError
+from raghub.embedder import Embedder
+from raghub.errors import GraphUnavailableError, RerankerError
 from raghub.models import (
     ChunkRecord,
     Classification,
@@ -51,7 +51,7 @@ from raghub.models import (
     RetrievalHit,
     User,
 )
-from raghub.observability import record_long_context, record_rerank_latency
+from raghub.telemetry import record_long_context, record_rerank_latency
 from raghub.utils import capture
 
 VariantKind = Literal["original", "hyde", "multi_query", "step_back", "sub"]

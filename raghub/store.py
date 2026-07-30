@@ -24,7 +24,7 @@ import numpy as np
 from rank_bm25 import BM25Okapi
 
 from raghub.config import Settings
-from raghub.exceptions import VectorStoreError
+from raghub.errors import VectorStoreError
 from raghub.models import ChunkRecord
 
 sys.modules.setdefault("raghub.vectorstore.base", sys.modules[__name__])

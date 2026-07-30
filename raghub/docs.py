@@ -13,7 +13,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from raghub.exceptions import MissingDep
+from raghub.errors import MissingDep
 from raghub.helper.documents import (
     ChunkingPlan,
     Lifecycle,
