@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 
-def test_rag_ingest_and_query_roundtrip():
+def _rag():
     from raghub import RAG
+    from raghub.lifecycle import PlainTextConverter
 
-    rag = RAG()
+    return RAG(converter=PlainTextConverter())
+
+
+def test_rag_ingest_and_query_roundtrip():
+    rag = _rag()
     rag.ingest(b"Revenue grew 12 percent in Q3 2024.")
     rag.ingest(b"The team expanded to 50 engineers.")
     result = rag.query("revenue")
@@ -20,10 +25,9 @@ def test_rag_ingest_and_query_roundtrip():
 
 
 def test_rag_empty_query_raises():
-    from raghub import RAG
     from raghub.errors import ValidationError
 
-    rag = RAG()
+    rag = _rag()
     try:
         rag.query("")
     except ValidationError as exc:
@@ -33,10 +37,9 @@ def test_rag_empty_query_raises():
 
 
 def test_rag_empty_ingest_raises():
-    from raghub import RAG
     from raghub.errors import IngestionError
 
-    rag = RAG()
+    rag = _rag()
     try:
         rag.ingest(b"")
     except IngestionError as exc:

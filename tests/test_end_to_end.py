@@ -31,8 +31,7 @@ def _user(email: str, *companies: str, is_admin: bool = False) -> User:
 
 @pytest.fixture
 def rag() -> RAG:
-    r = RAG()
-    r.converter = PlainTextConverter()
+    r = RAG(converter=PlainTextConverter())
     r.ingest_pipeline.converter = r.converter
     return r
 
