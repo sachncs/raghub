@@ -440,6 +440,9 @@ class SqliteStore(Store):
                     classification TEXT,
                     text TEXT NOT NULL,
                     source_location TEXT,
+                    company TEXT DEFAULT '',
+                    owner TEXT DEFAULT '',
+                    department TEXT DEFAULT '',
                     vector BLOB NOT NULL
                 )
                 """
@@ -476,7 +479,7 @@ class SqliteStore(Store):
         if metadata_filter is None or metadata_filter == "":
             return list(
                 self.conn.execute(
-                    f"SELECT chunk_id, document_id, version, classification, text, source_location, vector "
+                    f"SELECT chunk_id, document_id, version, classification, text, source_location, company, owner, department, vector "
                     f"FROM {self.collection}"
                 )
             )
@@ -490,7 +493,7 @@ class SqliteStore(Store):
             params = []
         return list(
             self.conn.execute(
-                f"SELECT chunk_id, document_id, version, classification, text, source_location, vector "
+                f"SELECT chunk_id, document_id, version, classification, text, source_location, company, owner, department, vector "
                 f"FROM {self.collection} WHERE {clauses}",
                 params,
             )
@@ -518,8 +521,8 @@ class SqliteStore(Store):
             cursor = self.conn.executemany(
                 f"""
                 INSERT OR IGNORE INTO {self.collection}
-                (chunk_id, document_id, version, classification, text, source_location, vector)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (chunk_id, document_id, version, classification, text, source_location, company, owner, department, vector)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
@@ -529,6 +532,9 @@ class SqliteStore(Store):
                         chunk.classification.value,
                         chunk.text,
                         chunk.source_location,
+                        chunk.company,
+                        chunk.owner,
+                        chunk.department,
                         self.pack(vector),
                     )
                     for chunk, vector in zip(chunks, vectors, strict=True)
@@ -581,7 +587,7 @@ class SqliteStore(Store):
         query = np.asarray(vector, dtype=np.float32)
         denom = float(np.linalg.norm(query)) or 1.0
         scored: list[tuple[Any, float]] = []
-        for chunk_id, document_id, version, classification, text, source_location, blob in rows:
+        for chunk_id, document_id, version, classification, text, source_location, company, owner, department, blob in rows:
             v = np.frombuffer(blob, dtype=np.float32)
             d = float(np.linalg.norm(v)) or 1.0
             score = float(np.dot(query, v) / (denom * d))
@@ -594,6 +600,9 @@ class SqliteStore(Store):
                         classification=classification,
                         text=text,
                         source_location=source_location,
+                        company=company or "",
+                        owner=owner or "",
+                        department=department or "",
                         checksum=hashlib.sha256(text.encode("utf-8")).hexdigest(),
                     ),
                     score,
@@ -638,7 +647,7 @@ class SqliteStore(Store):
         with self.lock:
             rows = list(
                 self.conn.execute(
-                    f"SELECT chunk_id, document_id, version, classification, text, source_location, vector "
+                    f"SELECT chunk_id, document_id, version, classification, text, source_location, company, owner, department, vector "
                     f"FROM {self.collection} WHERE text LIKE ?",
                     (f"%{query}%",),
                 )
@@ -648,6 +657,7 @@ class SqliteStore(Store):
                 "chunk": ChunkRecord(
                     chunk_id=cid, document_id=did, version=ver,
                     classification=cls, text=txt, source_location=sloc,
+                    company=co or "", owner=ow or "", department=dp or "",
                     checksum=hashlib.sha256(txt.encode("utf-8")).hexdigest(),
                 ),
                 "score": 1.0,
@@ -655,7 +665,7 @@ class SqliteStore(Store):
                 "document_id": did,
                 "version": ver,
             }
-            for cid, did, ver, cls, txt, sloc, _ in rows[:top_k]
+            for cid, did, ver, cls, txt, sloc, co, ow, dp, _ in rows[:top_k]
         ]
 
     def health(self) -> dict[str, Any]:
