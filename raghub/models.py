@@ -267,7 +267,7 @@ class ChunkRecord(BaseModel):
     classification: Classification = Classification.INTERNAL
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     embedding_model: str = ""
-    hash: str = ""
+    hash: str
     text: str
     metadata: dict[str, Any] = Field(default_factory=dict)
 
