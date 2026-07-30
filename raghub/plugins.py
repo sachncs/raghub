@@ -22,7 +22,7 @@ from raghub.models import (
     DocumentConverter,
     EmbeddingProvider,
     Evaluator,
-    Generator,
+    GeneratorProtocol,
     KnowledgeRepository,
     Logger,
     Metrics,
@@ -41,7 +41,7 @@ class PluginRegistry:
         self.embedders: dict[str, EmbeddingProvider] = {}
         self.vector_stores: dict[str, VectorStore] = {}
         self.knowledge_repos: dict[str, KnowledgeRepository] = {}
-        self.generators: dict[str, Generator] = {}
+        self.generators: dict[str, GeneratorProtocol] = {}
         self.structured: dict[str, StructuredOutputProvider] = {}
         self.telemetry_loggers: dict[str, Logger] = {}
         self.telemetry_metrics: dict[str, Metrics] = {}
@@ -72,7 +72,7 @@ class PluginRegistry:
         """Register a knowledge repository under ``name``."""
         self.knowledge_repos[name] = repo
 
-    def register_generator(self, name: str, generator: Generator) -> None:
+    def register_generator(self, name: str, generator: GeneratorProtocol) -> None:
         """Register a generator under ``name``."""
         self.generators[name] = generator
 
@@ -117,7 +117,7 @@ class PluginRegistry:
         """Return the named knowledge repository or raise :class:`KeyError`."""
         return self.knowledge_repos[name]
 
-    def get_generator(self, name: str) -> Generator:
+    def get_generator(self, name: str) -> GeneratorProtocol:
         """Return the named generator or raise :class:`KeyError`."""
         return self.generators[name]
 

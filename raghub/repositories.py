@@ -8,7 +8,7 @@ always wired together by :class:`UnitOfWork`:
 * :class:`ChunkStore` — chunk + embedding persistence
   through a vector store.
 * :class:`DocStore` — versioned document rows.
-* :class:`SqliteSessionRepository` — session rows.
+* :class:`SessionStore` — session rows.
 * :class:`UnitOfWork` — the transaction coordinator that ties them
   to a single :class:`DatabaseManager`.
 """
@@ -401,7 +401,7 @@ class DocStore(DocumentRepository):
         return DocumentRecord(**data)
 
 
-class SqliteSessionRepository(SessionRepository):
+class SessionStore(SessionRepository):
     """Adapt the SQLite session store to the session repository interface."""
 
     def __init__(
@@ -508,7 +508,7 @@ class UnitOfWork(BaseUnitOfWork):
 
         doc_repo = DocStore(db_path, db_manager=self.db_manager)
         chunk_repo = ChunkStore(vector_store)
-        sess_repo = SqliteSessionRepository(db_path, session_timeout, db_manager=self.db_manager)
+        sess_repo = SessionStore(db_path, session_timeout, db_manager=self.db_manager)
         super().__init__(
             document_repo=doc_repo,
             chunk_repo=chunk_repo,

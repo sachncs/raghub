@@ -5,7 +5,7 @@ retrieval layer and the response surface:
 
 * :class:`DefaultGenerator` — orchestrates prompt construction,
   LLM invocation, and citation attachment. Wraps any
-  :class:`raghub.llm.BaseLLMProvider` and returns ``(answer,
+  :class:`raghub.llm.Generator` and returns ``(answer,
   citations)`` tuples.
 * :class:`Instructor` — coerces LLM
   output into typed Pydantic models via Instructor v1+.
@@ -26,7 +26,7 @@ from typing import Any, TypeVar, cast
 from pydantic import BaseModel
 
 from raghub.exceptions import MissingDep
-from raghub.llm import BaseLLMProvider
+from raghub.llm import Generator
 from raghub.models import (
     Citation,
     ConversationTurn,
@@ -48,9 +48,9 @@ class DefaultGenerator:
     This class is the simplest way to obtain a
     :class:`the generator protocol`-conforming object.
     For more sophisticated flows (multi-hop, routing, agent loops)
-    construct your own :class:`Generator` implementation.
+    construct your own :class:`GeneratorProtocol` implementation.
 
-    When the underlying :class:`BaseLLMProvider` exposes a token
+    When the underlying :class:`Generator` exposes a token
     counter (via the optional ``token_usage`` / ``last_usage``
     attribute), the generator records token usage back to the caller
     so observability pipelines can attribute cost.
@@ -59,7 +59,7 @@ class DefaultGenerator:
     def __init__(
         self,
         *,
-        llm: BaseLLMProvider,
+        llm: Generator,
         system_prompt: str = (
             "You are a retrieval-augmented assistant. Answer the user's "
             "question using the supplied context. Cite sources inline as "

@@ -44,7 +44,7 @@ from raghub.embeddings import Embedder
 from raghub.exceptions import PipelineError, VectorStoreError
 from raghub.helper.documents import PlainTextConverter
 from raghub.knowledge import MemoryRepo
-from raghub.llm import BaseLLMProvider
+from raghub.llm import Generator
 from raghub.models import (
     Chunk,
     Chunker,
@@ -54,7 +54,7 @@ from raghub.models import (
     ConversationTurn,
     DocumentConverter,
     EmbeddingProvider,
-    Generator,
+GeneratorProtocol,
     KnowledgeBundle,
     KnowledgeRepository,
     Pipeline,
@@ -572,7 +572,7 @@ class QueryPipeline(Pipeline):
         *,
         embedder: EmbeddingProvider,
         vector_store: VectorStore,
-        generator: Generator,
+        generator: GeneratorProtocol,
         reranker: Reranker | None = None,
         structured: StructuredOutputProvider | None = None,
         telemetry: TelemetryProvider | None = None,
@@ -917,8 +917,8 @@ class AgentPipeline:
         agent: Agent,
         embedder: Embedder,
         vector_store: VectorStore,
-        generator: Generator,
-        llm: BaseLLMProvider | None = None,
+        generator: GeneratorProtocol,
+        llm: Generator | None = None,
         telemetry: TelemetryProvider | None = None,
         long_context_pass: Any | None = None,
     ) -> None:

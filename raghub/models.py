@@ -862,7 +862,7 @@ class Evaluator(Protocol):
         ...
 
 
-class Generator(Protocol):
+class GeneratorProtocol(Protocol):
     """Generates an answer from retrieved context."""
 
     async def generate(
@@ -1189,7 +1189,7 @@ class ConversationStore(Protocol):
         ...
 
 
-class SessionStore(Protocol):
+class SessionStoreProtocol(Protocol):
     """Stores session metadata."""
 
     def create(self, user_id: str) -> SessionRecord:
