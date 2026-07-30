@@ -23,6 +23,7 @@ import numpy as np
 from rank_bm25 import BM25Okapi
 
 from raghub.config import Settings
+from raghub.exceptions import VectorStoreError
 from raghub.models import ChunkRecord
 
 sys.modules.setdefault("raghub.vectorstore.base", sys.modules[__name__])
@@ -165,8 +166,15 @@ class MemoryVectorRecord:
 class InMemoryVectorStore(BaseVectorStore):
     """Cosine-similarity vector store with BM25 keyword search."""
 
-    def __init__(self) -> None:
-        """Initialise an empty store with a re-entrant lock."""
+    def __init__(self, embedding_dim: int) -> None:
+        """Initialise an empty store with a re-entrant lock.
+
+        Args:
+            embedding_dim: Dimensionality of vectors that will be
+                inserted. Mismatched dimensions raise
+                :class:`VectorStoreError` on insert.
+        """
+        self.embedding_dim = embedding_dim
         self.lock = RLock()
         self.records: dict[str, MemoryVectorRecord] = {}
 
@@ -186,7 +194,17 @@ class InMemoryVectorStore(BaseVectorStore):
 
         Returns:
             Number of rows written (equals ``len(chunks)``).
+
+        Raises:
+            VectorStoreError: When a vector's dimension does not match
+                ``self.embedding_dim``.
         """
+        for vector in vectors:
+            if len(vector) != self.embedding_dim:
+                raise VectorStoreError(
+                    f"vector dimension mismatch: expected {self.embedding_dim}, "
+                    f"got {len(vector)}"
+                )
         written = 0
         with self.lock:
             for chunk, vector in zip(chunks, vectors, strict=True):
@@ -476,7 +494,17 @@ class SqliteVectorStore(BaseVectorStore):
 
         Returns:
             ``cursor.rowcount`` after commit (number of rows written).
+
+        Raises:
+            VectorStoreError: When a vector's dimension does not match
+                ``self.embedding_dim``.
         """
+        for vector in vectors:
+            if len(vector) != self.embedding_dim:
+                raise VectorStoreError(
+                    f"vector dimension mismatch: expected {self.embedding_dim}, "
+                    f"got {len(vector)}"
+                )
         with self.lock:
             cursor = self.conn.executemany(
                 f"""

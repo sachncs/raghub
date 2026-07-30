@@ -225,7 +225,7 @@ def default_vector_store(embedding_dim: int) -> Any:
         is used by the rest of the framework and points at a SQLite-backed
         store (sqlite-vector when installed, NumPy fallback otherwise).
     """
-    return InMemoryVectorStore()
+    return InMemoryVectorStore(embedding_dim=embedding_dim)
 
 
 def default_structured() -> Any:
