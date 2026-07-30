@@ -45,7 +45,7 @@ from tqdm import tqdm
 
 from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
 from raghub.config import Settings
-from raghub.conversation import InMemoryConversationStore
+from raghub.conversation import MemoryConversations
 from raghub.embeddings import Embedder, Hasher
 from raghub.exceptions import ConfigurationError, IngestionError, RagHubError, ValidationError
 from raghub.generation import DefaultGenerator
@@ -100,7 +100,7 @@ from raghub.models import (
     deterministic_id,
 )
 from raghub.observability import DEFAULT_METRICS_REGISTRY, PrometheusMetrics, RedactingTelemetry
-from raghub.pipeline import AgenticQueryPipeline, IngestPipeline, QueryCache, QueryPipeline
+from raghub.pipeline import AgentPipeline, IngestPipeline, QueryCache, QueryPipeline
 from raghub.plugins import PluginRegistry
 from raghub.utils import maybe_await_sync as maybe_await
 from raghub.vectorstore import MemoryStore
@@ -233,12 +233,12 @@ def default_structured() -> Any:
     """Return the default structured-output provider.
 
     Returns:
-        :class:`InstructorStructuredOutputProvider` when Instructor
+        :class:`Instructor` when Instructor
         is installed; ``None`` otherwise.
     """
     if not has_llm_api_key():
         return None
-    from raghub.generation import InstructorStructuredOutputProvider as _Instructor
+    from raghub.generation import Instructor as _Instructor
 
     return _Instructor()
 
@@ -422,7 +422,7 @@ class RAG:
             knowledge_repo: Knowledge repository. Defaults to
                 :class:`MemoryRepo`.
             structured: Structured-output provider. Defaults to
-                :class:`InstructorStructuredOutputProvider`; falls
+                :class:`Instructor`; falls
                 back to ``None`` when Instructor is not installed.
             telemetry: Telemetry provider. Defaults to Langfuse
                 (when credentials are present); falls back to
@@ -487,7 +487,7 @@ class RAG:
             raptor=getattr(self, "raptor", None),
             graph=getattr(self, "graph", None),
         )
-        self.conversation_store: Any = InMemoryConversationStore()
+        self.conversation_store: Any = MemoryConversations()
 
         self.query_cache: QueryCache | None = (
             QueryCache(ttl_seconds=self.settings.query_cache_ttl_seconds)
@@ -560,7 +560,7 @@ class RAG:
                 settings=self.settings.agent,
                 telemetry=self.telemetry,
             )
-            self.agentic_pipeline = AgenticQueryPipeline(
+            self.agentic_pipeline = AgentPipeline(
                 agent=self.agent,
                 embedder=self.embedder,
                 vector_store=self.vector_store,

@@ -7,7 +7,7 @@ retrieval layer and the response surface:
   LLM invocation, and citation attachment. Wraps any
   :class:`raghub.llm.BaseLLMProvider` and returns ``(answer,
   citations)`` tuples.
-* :class:`InstructorStructuredOutputProvider` — coerces LLM
+* :class:`Instructor` — coerces LLM
   output into typed Pydantic models via Instructor v1+.
 
 Both classes are domain-coupled (their entire purpose is
@@ -204,7 +204,7 @@ class DefaultGenerator:
             }
 
 
-class InstructorStructuredOutputProvider(StructuredOutputProvider):
+class Instructor(StructuredOutputProvider):
     """Generate typed Pydantic outputs via Instructor.
 
     Backed by LiteLLM through Instructor's ``from_provider`` factory
