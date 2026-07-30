@@ -31,12 +31,16 @@ import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
+from __future__ import annotations
+
 from queue import Queue
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from raghub.agent import resolve
-from raghub.auth import RBACAuthorizationService, SqliteUserStore
 from raghub.config import Settings
+
+if TYPE_CHECKING:
+    from raghub.auth import RBACAuthorizationService, SqliteUserStore
 from raghub.conversation import ConversationManager
 from raghub.core import can_access_company
 from raghub.documents import Catalog, DocumentLifecycleManager, detect_mime_type
@@ -524,6 +528,8 @@ async def build_container(settings: Settings) -> RagContainer:
         RuntimeError: When ``JWT_SECRET`` is missing.
     """
     from contextlib import suppress
+
+    from raghub.auth import RBACAuthorizationService, SqliteUserStore
 
     logger = build_logger(settings.log_level)
     user_store = SqliteUserStore(settings.data_dir / "users.db")
