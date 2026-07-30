@@ -8,7 +8,7 @@ in separate files:
   callers all hit this).
 * :class:`Batch` / :class:`IngestionJob` —
   thread-pool-backed fire-and-forget ingestion with status tracking.
-* :class:`ResumableBatch` — extends the
+* :class:`Resumable` — extends the
   background service with a SQLite ledger so jobs survive restarts.
 * :class:`PersistentJobStore` — the SQLite-backed job ledger used
   by the resumable service.
@@ -850,7 +850,7 @@ class PersistentJobStore:
 # ---------------------------------------------------------------------------
 
 
-class ResumableBatch(Batch):
+class Resumable(Batch):
     """Background ingestion with a persistent job ledger."""
 
     def __init__(self, *, db_path: str | Path, max_workers: int = 2) -> None:
