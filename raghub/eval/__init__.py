@@ -30,7 +30,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from raghub.errors import EvaluationError
+from raghub.errors import ConfigurationError, EvaluationError
 from raghub.models import EvaluationResult, Evaluator
 from raghub.utils import capture
 
@@ -1028,11 +1028,128 @@ async def run(
         raise EvaluationError(f"Evaluator {evaluator.benchmark!r} failed: {exc}") from exc
 
 
+# ---------------------------------------------------------------------------
+# Quality gate
+# ---------------------------------------------------------------------------
+
+
+class QualityGate:
+    """Threshold checker for a metrics dict.
+
+    Each threshold is either a "minimum" (``mode="min"``, the metric
+    must be ``>= threshold``) or a "maximum" (``mode="max"``, the
+    metric must be ``<= threshold``). :meth:`check` raises
+    :class:`ConfigurationError` if any metric breaches its threshold
+    or is missing; :meth:`report` returns a structured summary
+    suitable for logging or CI output.
+
+    Args:
+        thresholds: Optional initial mapping of metric name → minimum
+            threshold. Use :meth:`add` to set per-metric mode.
+        default_mode: Default mode for entries added via the
+            constructor. Use ``"min"`` for quality metrics (higher
+            is better) and ``"max"`` for cost metrics (lower is
+            better).
+
+    >>> gate = QualityGate({"recall_at_5": 0.7, "faithfulness": 0.8})
+    >>> gate.check({"recall_at_5": 0.9, "faithfulness": 0.95})
+    >>> gate.check({"recall_at_5": 0.5, "faithfulness": 0.95})  # raises
+    """
+
+    VALID_MODES = ("min", "max")
+
+    def __init__(
+        self,
+        thresholds: dict[str, float] | None = None,
+        *,
+        default_mode: str = "min",
+    ) -> None:
+        """Store the thresholds and the default mode."""
+        if default_mode not in self.VALID_MODES:
+            raise ConfigurationError(
+                f"QualityGate default_mode must be 'min' or 'max', "
+                f"got {default_mode!r}"
+            )
+        self.default_mode = default_mode
+        self.thresholds: dict[str, tuple[float, str]] = {}
+        if thresholds:
+            for name, value in thresholds.items():
+                self.add(name, value)
+
+    def add(
+        self,
+        metric: str,
+        threshold: float,
+        *,
+        mode: str | None = None,
+    ) -> QualityGate:
+        """Add or replace a threshold. Returns self for chaining."""
+        chosen_mode = mode or self.default_mode
+        if chosen_mode not in self.VALID_MODES:
+            raise ConfigurationError(
+                f"QualityGate mode for {metric!r} must be 'min' or 'max', "
+                f"got {chosen_mode!r}"
+            )
+        self.thresholds[metric] = (threshold, chosen_mode)
+        return self
+
+    def check(self, metrics: dict[str, float]) -> None:
+        """Raise :class:`ConfigurationError` if any metric breaches its threshold.
+
+        Args:
+            metrics: Per-metric value mapping (as returned by
+                :meth:`Metrics.evaluate`).
+
+        Raises:
+            ConfigurationError: When at least one metric is missing
+                or out of bounds.
+        """
+        breaches: list[str] = []
+        for name, (threshold, mode) in self.thresholds.items():
+            value = metrics.get(name)
+            if value is None:
+                breaches.append(f"{name}: missing (threshold: {threshold})")
+                continue
+            if mode == "min" and value < threshold:
+                breaches.append(f"{name}: {value:.3f} < {threshold}")
+            elif mode == "max" and value > threshold:
+                breaches.append(f"{name}: {value:.3f} > {threshold}")
+        if breaches:
+            raise ConfigurationError(
+                f"QualityGate failed: {'; '.join(breaches)}"
+            )
+
+    def report(
+        self, metrics: dict[str, float]
+    ) -> dict[str, tuple[float | None, float, bool, str]]:
+        """Return a structured per-metric report (no raising).
+
+        Args:
+            metrics: Per-metric value mapping.
+
+        Returns:
+            A dict of metric name → ``(value, threshold, passed, mode)``
+            tuples. ``value`` is ``None`` when the metric is missing.
+        """
+        result: dict[str, tuple[float | None, float, bool, str]] = {}
+        for name, (threshold, mode) in self.thresholds.items():
+            value = metrics.get(name)
+            if value is None:
+                passed = False
+            elif mode == "min":
+                passed = value >= threshold
+            else:
+                passed = value <= threshold
+            result[name] = (value, threshold, passed, mode)
+        return result
+
+
 __all__ = [
     "FinanceBench",
     "FramesBenchmark",
     "LlmJudge",
     "Metrics",
+    "QualityGate",
     "Scoring",
     "_parse_score",
     "run",
