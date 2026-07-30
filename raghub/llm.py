@@ -25,6 +25,7 @@ import litellm
 
 from raghub.exceptions import ConfigurationError, LLMError
 from raghub.models import ConversationTurn
+from raghub.utils import aretry, retry
 
 # Module-level flag retained so existing tests that patch
 # ``raghub.llm.LITELLM_AVAILABLE = False`` can simulate a missing
@@ -375,7 +376,13 @@ class LiteLLMProvider(BaseLLMProvider):
             options["timeout"] = self.timeout_seconds
         with LLMValueErrorBoundary("LiteLLM completion failed"):
             try:
-                response_dict = litellm.completion(**options)
+                response_dict = retry(
+                    lambda: litellm.completion(**options),
+                    max_retries=2,
+                    base_delay=0.5,
+                )
+            except LLMError:
+                raise
             except Exception as exc:
                 raise LLMError(f"LLM completion failed: {exc}") from exc
         try:
@@ -432,7 +439,13 @@ class LiteLLMProvider(BaseLLMProvider):
                 options["timeout"] = self.timeout_seconds
             with LLMValueErrorBoundary("LiteLLM async completion failed"):
                 try:
-                    response_dict = await litellm.acompletion(**options)
+                    response_dict = await aretry(
+                        lambda: litellm.acompletion(**options),
+                        max_retries=2,
+                        base_delay=0.5,
+                    )
+                except LLMError:
+                    raise
                 except Exception as exc:
                     raise LLMError(f"LLM async completion failed: {exc}") from exc
             response = self.normalise_litellm_response(response_dict)
