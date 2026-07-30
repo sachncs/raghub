@@ -18,7 +18,6 @@ def test_rag_default_construction() -> None:
 
 def test_rag_from_config(tmp_path: Path) -> None:
     """A facade can be built from a YAML config."""
-    pytest.skip("RAG.from_config constructs via default_converter which requires marker-pdf")
     cfg = tmp_path / "rag.yaml"
     cfg.write_text(
         "environment: development\nchunk_size_words: 200\nchunk_overlap_words: 10\n",
@@ -145,7 +144,6 @@ def test_plugin_registry_records() -> None:
 
 def test_rag_from_config_toml(tmp_path: Path) -> None:
     """from_config with a .toml file exercises the tomllib path."""
-    pytest.skip("RAG.from_config constructs via default_converter which requires marker-pdf")
     cfg = tmp_path / "rag.toml"
     cfg.write_text('environment = "development"\n', encoding="utf-8")
     rag = RAG.from_config(cfg)
