@@ -875,10 +875,10 @@ class FramesBenchmark(Evaluator):
 # ---------------------------------------------------------------------------
 
 
-_SCORE_RE = re.compile(r"(-?)([0-1](?:\.\d+)?|0\.\d+)(?![0-9])")
+SCORE_RE = re.compile(r"(-?)([0-1](?:\.\d+)?|0\.\d+)(?![0-9])")
 
 
-def _parse_score(text: str) -> float | None:
+def parse_score(text: str) -> float | None:
     """Extract the first 0..1 float from an LLM-as-judge response.
 
     Args:
@@ -889,7 +889,7 @@ def _parse_score(text: str) -> float | None:
         parsable number is found. A leading negative sign is
         accepted so the clamp can map ``-0.5`` to ``0.0``.
     """
-    match = _SCORE_RE.search(text or "")
+    match = SCORE_RE.search(text or "")
     if not match:
         return None
     sign, digits = match.group(1), match.group(2)
@@ -906,7 +906,7 @@ class LlmJudge:
     Wraps a :class:`raghub.llm.Generator` and uses prompt templates to
     score a ``(question, answer, contexts)`` triple on a 0-1 scale. The
     judge LLM is expected to reply with a single number; the response
-    is parsed by :func:`_parse_score` and clamped to ``[0.0, 1.0]``.
+    is parsed by :func:`parse_score` and clamped to ``[0.0, 1.0]``.
 
     Args:
         llm: The generator used as the judge. Note: the same LLM
@@ -945,7 +945,7 @@ class LlmJudge:
         self.llm = llm
         self.max_retries = max_retries
 
-    async def _score_once(self, prompt_template: str, **kwargs: str) -> float | None:
+    async def score_once(self, prompt_template: str, **kwargs: str) -> float | None:
         """Run a single prompt, parse the response, or return None on failure."""
         prompt = prompt_template.format(**kwargs)
         try:
@@ -957,12 +957,12 @@ class LlmJudge:
             )
         except Exception:
             return None
-        return _parse_score(response)
+        return parse_score(response)
 
     async def score(self, prompt_template: str, **kwargs: str) -> float:
         """Run a prompt with retries; return 0.0 if all attempts fail to parse."""
         for _ in range(self.max_retries + 1):
-            value = await self._score_once(prompt_template, **kwargs)
+            value = await self.score_once(prompt_template, **kwargs)
             if value is not None:
                 return value
         return 0.0
@@ -1190,8 +1190,8 @@ async def ab_test(
     results_a = await run(evaluator, examples, response_factory=factory_a)
     results_b = await run(evaluator, examples, response_factory=factory_b)
 
-    metrics_a = _aggregate_metrics(results_a)
-    metrics_b = _aggregate_metrics(results_b)
+    metrics_a = aggregate_metrics(results_a)
+    metrics_b = aggregate_metrics(results_b)
 
     if gate is not None:
         gate.check(metrics_a)
@@ -1202,12 +1202,14 @@ async def ab_test(
         for name in set(metrics_a) | set(metrics_b)
     }
 
-    wins_a = sum(1 for d in diffs.values() if d > 0.0)
-    wins_b = sum(1 for d in diffs.values() if d < 0.0)
-    if wins_a > wins_b:
-        winner = "a"
-    elif wins_b > wins_a:
+    # diffs[name] > 0  means B is better on that metric
+    # diffs[name] < 0  means A is better on that metric
+    wins_b = sum(1 for d in diffs.values() if d > 0.0)
+    wins_a = sum(1 for d in diffs.values() if d < 0.0)
+    if wins_b > wins_a:
         winner = "b"
+    elif wins_a > wins_b:
+        winner = "a"
     else:
         winner = "tie"
 
@@ -1216,11 +1218,11 @@ async def ab_test(
         "b_metrics": metrics_b,
         "metric_diffs": diffs,
         "winner": winner,
-        "gate_passed": gate is None,
+        "gate_passed": True,  # gate.check() runs above; if it passed, we're here
     }
 
 
-def _aggregate_metrics(results: list[Any]) -> dict[str, float]:
+def aggregate_metrics(results: list[Any]) -> dict[str, float]:
     """Average every metric across all results."""
     if not results:
         return {}
@@ -1235,7 +1237,8 @@ __all__ = [
     "Metrics",
     "QualityGate",
     "Scoring",
-    "_parse_score",
     "ab_test",
+    "aggregate_metrics",
+    "parse_score",
     "run",
 ]
