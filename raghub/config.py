@@ -655,7 +655,7 @@ def load_query_transforms_config(payload: dict[str, Any]) -> QueryTransformsConf
     )
 
 
-def assert_production_invariants(settings: Settings) -> None:
+def production_check(settings: Settings) -> None:
     """Raise ``RuntimeError`` if production-mode invariants are violated."""
     if settings.environment != "production":
         return
@@ -702,7 +702,7 @@ def load_from_env(profile: str | None = None) -> Settings:
         profile_path=profile_path if profile_path.exists() else None,
         extra={k: v for k, v in payload.items() if k not in env_payload},
     )
-    assert_production_invariants(settings)
+    production_check(settings)
     settings.ensure_dirs()
     return settings
 

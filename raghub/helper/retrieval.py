@@ -139,7 +139,7 @@ class Identity:
         return list(hits)
 
 
-def record_rerank_latency_provider(provider: str, seconds: float) -> None:
+def rerank_latency(provider: str, seconds: float) -> None:
     """Push a histogram observation when Prometheus is wired up."""
     record_rerank_latency(provider, seconds)
 
@@ -201,7 +201,7 @@ class Cohere:
             return []
         started = time.perf_counter()
         ordered = self.score(question, hits)
-        record_rerank_latency_provider(self.name, time.perf_counter() - started)
+        rerank_latency(self.name, time.perf_counter() - started)
         return ordered
 
     async def arerank(
@@ -454,7 +454,7 @@ class LlmJudge:
             return []
         started = time.perf_counter()
         ordered = await self.do_rerank(question, list(hits))
-        record_rerank_latency_provider(self.name, time.perf_counter() - started)
+        rerank_latency(self.name, time.perf_counter() - started)
         return ordered
 
     def rerank(
@@ -1681,8 +1681,8 @@ __all__ = [
     "merge_with_rrf",
     "multi_query_prompt",
     "record_context_latency",
-    "record_rerank_latency_provider",
     "reorder_candidates",
+    "rerank_latency",
     "reranker",
     "rrf",
     "step_back_prompt",
