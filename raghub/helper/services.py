@@ -111,25 +111,25 @@ class Mixin:
 # Document service
 # ---------------------------------------------------------------------------
 
-async def upload_record_helper(result: IngestionResult | Any) -> DocumentRecord:
+async def upload_record(result: IngestionResult | Any) -> DocumentRecord:
     """Return the :class:`DocumentRecord` carried by an ingestion result."""
     return result.document
 
-def raise_missing_document(document_id: str) -> DocumentRecord:
+def missing_doc(document_id: str) -> DocumentRecord:
     """Raise :class:`DocumentError` for an unknown document id."""
     raise DocumentError(f"Unknown document id: {document_id}")
 
-async def list_all_records_helper(uow: Any) -> list[DocumentRecord]:
+async def list_records(uow: Any) -> list[DocumentRecord]:
     """Return every document from the repository."""
     return cast(list[DocumentRecord], await uow.document_repo.list_all())
 
-async def document_by_id_helper(uow: Any, document_id: str) -> DocumentRecord:
+async def get_doc(uow: Any, document_id: str) -> DocumentRecord:
     """Return a single document by id or raise :class:`DocumentError`."""
     record = cast(
         DocumentRecord, await uow.document_repo.get(document_id)
     )
     if record is None:
-        raise_missing_document(document_id)
+        missing_doc(document_id)
     return record
 
 class Document(Mixin):
@@ -169,7 +169,7 @@ class Document(Mixin):
             owner=user,
             organization=target_company,
         )
-        document = await upload_record_helper(result)
+        document = await upload_record(result)
 
         self.emit_metric("document_ingest_latency_ms", started)
         self.log(
@@ -188,7 +188,7 @@ class Document(Mixin):
         auth: Any = self.container.auth
         user, _ = await auth.resolve_user(token)
         if user.is_admin:
-            return await list_all_records_helper(self.container.uow)
+            return await list_records(self.container.uow)
         results: list[DocumentRecord] = []
         for org in user.allowed_companies:
             docs = await self.container.uow.document_repo.list_by_organization(org)
@@ -207,7 +207,7 @@ class Document(Mixin):
         """
         auth: Any = self.container.auth
         user, _ = await auth.resolve_user(token)
-        document = await document_by_id_helper(self.container.uow, document_id)
+        document = await get_doc(self.container.uow, document_id)
         if not can_access_company(user, document.organization):
             raise AuthorizationError("Forbidden")
         return document
@@ -472,7 +472,7 @@ def seed_blocked(settings: Settings) -> bool:
         return True
     return os.getenv("CORS_ORIGINS", "").strip() == "*"
 
-def parse_seed_users_json(raw: str) -> Any:
+def parse_users(raw: str) -> Any:
     """Parse the ``RAGHUB_USERS`` env var as JSON."""
     import json as json_import
 
@@ -482,7 +482,7 @@ async def seed_demo_users(user_store: SqliteUsers) -> None:
     """Seed demo users from ``RAGHUB_USERS`` or the default list."""
     users_env = os.getenv("RAGHUB_USERS", "").strip()
     if users_env:
-        seed_users = parse_seed_users_json(users_env)
+        seed_users = parse_users(users_env)
         if isinstance(seed_users, dict):
             for email, cfg in seed_users.items():
                 if not isinstance(cfg, dict):
@@ -944,13 +944,13 @@ __all__ = [
     "ThreadPool",
     "aggregate_status",
     "build_container",
-    "document_by_id_helper",
-    "list_all_records_helper",
-    "parse_seed_users_json",
+    "get_doc",
+    "list_records",
+    "missing_doc",
+    "parse_users",
     "probe_embedder",
     "probe_vector_store",
-    "raise_missing_document",
     "seed_blocked",
     "seed_demo_users",
-    "upload_record_helper",
+    "upload_record",
 ]
