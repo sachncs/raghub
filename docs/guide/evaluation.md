@@ -133,7 +133,7 @@ score = await judge.answer_relevance(answer, question)  # 0..1
 ```
 
 LlmJudge uses two prompts that ask the model to score the answer
-on a 0-1 scale. The response is parsed by `_parse_score` (regex
+on a 0-1 scale. The response is parsed by `parse_score` (regex
 extraction + clamping). Negative signs are accepted so `-0.5`
 clamps to `0.0`. `max_retries` (default 1) controls the retry
 budget on parse failure.

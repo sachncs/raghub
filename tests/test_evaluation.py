@@ -1,4 +1,4 @@
-"""Tests for the LlmJudge evaluator and the _parse_score helper."""
+"""Tests for the LlmJudge evaluator and the parse_score helper."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from raghub.errors import ConfigurationError
 from raghub.eval import LlmJudge, QualityGate, ab_test, parse_score
 
 # ---------------------------------------------------------------------------
-# Pure parser tests (_parse_score)
+# Pure parser tests (parse_score)
 # ---------------------------------------------------------------------------
 
 
