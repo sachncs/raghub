@@ -519,7 +519,7 @@ class FinanceBench(Evaluator):
             else:
                 predicted = out
             overlap = Scoring.jaccard(str(predicted), str(gold))
-            numeric = self.within_tolerance(str(predicted), str(gold))
+            numeric = Metrics.within_tolerance(str(predicted), str(gold))
             metrics = {"token_overlap": overlap, "within_tolerance": numeric}
             # Add retrieval-quality metrics when the response
             # factory returned the tuple form.

@@ -363,6 +363,7 @@ def get_chunks(
                     owner=bundle.metadata.get("owner", ""),
                     department=bundle.metadata.get("department", ""),
                     text=text,
+                    checksum=sha256(text.encode("utf-8")).hexdigest(),
                     metadata={
                         "block_kind": "text",
                         "block_id": block.block_id,

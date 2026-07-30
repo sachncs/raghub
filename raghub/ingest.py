@@ -458,6 +458,7 @@ class WordChunker(Chunker):
                     company=company,
                     owner=owner,
                     text=chunk_text,
+                    checksum=sha256(chunk_text.encode("utf-8")).hexdigest(),
                 )
             )
         return result

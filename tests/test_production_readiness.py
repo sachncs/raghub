@@ -27,10 +27,8 @@ from raghub.pipeline import QueryCache
 
 def _load_services():
     """Load :mod:`raghub.services` after pre-binding the missing
-    collaborator. ``raghub.services.__init__`` imports
-    :class:`Catalog` from ``raghub.lifecycle`` even though it actually
-    lives in ``raghub.parsers`` — pre-binding it in ``raghub.lifecycle``
-    lets the module import cleanly for these unit tests.
+    collaborator. The production bug was fixed but the pre-binding
+    remains as a safety net.
     """
     import raghub.lifecycle as _lc
     from raghub.lifecycle import Lifecycle, detect_mime_type
