@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from raghub.errors import ConfigurationError
-from raghub.eval import LlmJudge, QualityGate, _parse_score, ab_test
+from raghub.eval import LlmJudge, QualityGate, ab_test, parse_score
 
 # ---------------------------------------------------------------------------
 # Pure parser tests (_parse_score)
@@ -17,48 +17,48 @@ from raghub.eval import LlmJudge, QualityGate, _parse_score, ab_test
 
 def test_parse_score_plain_decimal() -> None:
     """A bare ``0.85`` parses to 0.85."""
-    assert _parse_score("0.85") == 0.85
+    assert parse_score("0.85") == 0.85
 
 
 def test_parse_score_with_surrounding_text() -> None:
     """A number embedded in prose is extracted."""
-    assert _parse_score("The score is 0.7") == 0.7
+    assert parse_score("The score is 0.7") == 0.7
 
 
 def test_parse_score_clamps_above_one() -> None:
     """Values above 1.0 are clamped to 1.0."""
-    assert _parse_score("1.5") == 1.0
+    assert parse_score("1.5") == 1.0
 
 
 def test_parse_score_clamps_negative_to_zero() -> None:
     """Negative values are clamped to 0.0."""
-    assert _parse_score("-0.5") == 0.0
-    assert _parse_score("-1.0") == 0.0
+    assert parse_score("-0.5") == 0.0
+    assert parse_score("-1.0") == 0.0
 
 
 def test_parse_score_returns_none_when_no_number() -> None:
     """A response without a 0..1 float returns None."""
-    assert _parse_score("I cannot score this") is None
-    assert _parse_score("") is None
-    assert _parse_score("today is 2024") is None
+    assert parse_score("I cannot score this") is None
+    assert parse_score("") is None
+    assert parse_score("today is 2024") is None
 
 
 def test_parse_score_ignores_year_like_numbers() -> None:
     """Years like 2024 are out of range and not picked up."""
-    assert _parse_score("the year 2024") is None
+    assert parse_score("the year 2024") is None
 
 
 def test_parse_score_integer_zero_and_one() -> None:
     """Plain ``0`` and ``1`` parse correctly."""
-    assert _parse_score("0") == 0.0
-    assert _parse_score("1") == 1.0
-    assert _parse_score("0.0") == 0.0
-    assert _parse_score("1.0") == 1.0
+    assert parse_score("0") == 0.0
+    assert parse_score("1") == 1.0
+    assert parse_score("0.0") == 0.0
+    assert parse_score("1.0") == 1.0
 
 
 def test_parse_score_negative_one_clamped() -> None:
     """``-1.0`` clamps to 0.0."""
-    assert _parse_score("-1.0") == 0.0
+    assert parse_score("-1.0") == 0.0
 
 
 # ---------------------------------------------------------------------------
