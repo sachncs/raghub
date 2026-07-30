@@ -328,17 +328,86 @@
 | **6** | Polish | ~5 | ✅ done |
 | **Total** | | ~120 unique files | ✅ all phases |
 
+## Follow-up Pass — Items 2-8
+
+### Item 2 — Un-skip `RAG.from_config` tests
+- [x] Root cause was `default_converter()` constructing `Marker()` and
+  raising `ConfigurationError` when `marker-pdf` missing. Fixed in
+  Item 4.
+- [x] Both `test_rag_from_config` and `test_rag_from_config_toml` now pass.
+- [x] Skip decorators removed.
+
+### Item 3 — Address the 3 still-skipped items
+- [x] Phase 4.3 `INSERT OR IGNORE` dedup test added
+  (`test_insert_or_ignore_skips_duplicates` in `tests/test_sqlite_store.py`).
+- [x] Phase 4.3 2-thread concurrent test added
+  (`test_concurrent_inserts_are_safe` using `threading.Barrier`).
+- [x] Phase 4.4 YAML-on-disk test added
+  (`test_settings_load_from_yaml_file` writes a real YAML and
+  asserts every field lands).
+
+### Item 4 — Fix `default_converter()` to detect marker-pdf
+- [x] `default_converter()` in `raghub/rag.py` catches both
+  `MissingDep` and `ConfigurationError` and falls back to
+  `PlainTextConverter` with a `UserWarning`.
+
+### Item 5 — Tighten deprecation surface
+- [x] `DynamicRagError.__init__` uses a `_REPLACEMENTS` dict so each
+  subclass warns with its specific replacement
+  (`DocumentError → IngestionError`, `LLMError → GenerationError`, etc.).
+- [x] Verified: warning fires for all 10 legacy classes (DynamicRagError,
+  AuthenticationError, AuthorizationError, DocumentError, IndexingError,
+  PromptError, LLMError, StorageError, ValidationError, RateLimitError).
+
+### Item 6 — CI config
+- [x] `.github/workflows/ci.yml` created with two jobs:
+  - `test-core`: matrix on Python 3.12 and 3.13. Installs `[dev]`
+    only. Runs ruff check, pytest (no coverage), pytest with
+    `--cov-fail-under=85`, and a doctype smoke test.
+  - `test-optional-extras`: Python 3.12. Installs
+    `[dev,structured,auth,docs,otel]` (skips `[pdf]`'s torch dep).
+    Runs ruff + pytest.
+
+### Item 7 — Documentation audit
+- [x] 17 docs files updated: old module paths → new paths, old class
+  names → new names, Qdrant references removed (vector store is now
+  SQLite-backed), `ChunkRecord.hash` → `ChunkRecord.checksum`.
+- [x] `docs/migration.md` rewritten as the v0.4 → v0.5 migration
+  guide (was describing a much earlier refactor).
+- [x] Operational docs (`backup.md`, `deployment.md`, `scaling.md`,
+  `runbook.md`) updated to remove Qdrant-specific procedures.
+
+### Item 8 — Open-source readiness
+- [x] `CONTRIBUTING.md`: branch `main` → `master`, removed stale
+  `FINANCEBENCH_EVAL` section, updated dev setup to `pip install -e .[dev]`.
+- [x] `SECURITY.md`: branch `main` → `master`.
+- [x] `ROADMAP.md`: complete rewrite removing all stale references.
+- [x] `CHANGELOG.md`: full `[0.5.0] - 2026-07-30` entry describing the
+  renaming refactor, dependency removals, and new features.
+- [x] `README.md` roadmap section: v0.5.0 marked released.
+- [x] `pyproject.toml`: version bumped 0.4.0 → 0.5.0.
+
 ## Final State
 
 - `pip install raghub` installs **10 core deps** (was 33)
 - `RAG()` works **without any API key** via `HeuristicProvider`
+- `default_converter()` falls back to `PlainTextConverter` when `marker-pdf` is missing
 - `raghub --help` exits 0
-- **323 tests passing** (was 34) — 13 test files restored from `865e194` and adapted to current API
+- **328 tests passing** (was 34) — 13 test files restored + 3 new tests added (dedup, concurrent, YAML-on-disk) + 2 un-skipped (RAG.from_config now works without marker-pdf)
 - **ruff clean** on all of `raghub/` and `tests/`
 - All renames applied, **no backward-compat aliases** (per user request)
 - `__all__` declared on 18 modules
 - 10 modules renamed to single-word names (errors, embedder, repos, store, telemetry, gen, conv, ingest, parsers, eval)
 - 6 themed subpackages created: retrieval, services, stores, tools, eval, lifecycle
+- 7 protocol collisions resolved via `*Protocol` suffix
+- Legacy exception aliases emit meaningful `DeprecationWarning` with class-specific replacement guidance
+- `INSERT OR IGNORE` + 2-thread concurrent safety tests pass
+- YAML-on-disk config loading test passes
+- CI workflow (`.github/workflows/ci.yml`): ruff + pytest on Python 3.12 and 3.13, plus an extras-only job
+- `docs/` audited and updated to current API (17 files, migration.md rewritten)
+- `CONTRIBUTING.md`, `SECURITY.md`, `ROADMAP.md` updated to current state (master branch, current class names)
+- `CHANGELOG.md` has full [0.5.0] entry describing the refactor
+- Version bumped 0.4.0 → 0.5.0
 - Bugs surfaced and fixed by the restored tests:
   - `FinanceBench.evaluate` calling `self.within_tolerance` (didn't exist on self)
   - `MemoryStore.matches_metadata_dict` exact-equality breaking RBAC list filters
