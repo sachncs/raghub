@@ -26,6 +26,32 @@ Legacy names (``AuthenticationError``, ``AuthorizationError``,
 
 from __future__ import annotations
 
+__all__ = [
+    "AgentBudgetExceeded",
+    "CacheMiss",
+    "ConfigurationError",
+    "ConversionError",
+    "EmbeddingError",
+    "EvaluationError",
+    "GenerationError",
+    "GraphUnavailableError",
+    "IngestionError",
+    "KnowledgeError",
+    "MissingDep",
+    "PipelineError",
+    "PipelineFailed",
+    "RagHubError",
+    "RerankerError",
+    "RetrievalError",
+    "StreamingFormatError",
+    "TelemetryError",
+    "TokenBudgetExceeded",
+    "ToolError",
+    "TransformError",
+    "VectorStoreError",
+    "WebSearchError",
+]
+
 
 class RagHubError(Exception):
     """Base class for all package errors.
