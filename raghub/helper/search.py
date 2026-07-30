@@ -2,7 +2,7 @@
 
 Each module-level function builds a configured :class:`Tool`, asks
 it for a fresh :class:`ToolContext` (admin-equivalent unless a
-``user=`` override is supplied), and synchronously :meth:`BaseTool.call`
+``user=`` override is supplied), and synchronously :meth:`Tool.call`
 once. The concrete :class:`Tool` subclasses remain reachable from
 :mod:`raghub.tools` for :class:`ToolRegistry`-based agent registration.
 

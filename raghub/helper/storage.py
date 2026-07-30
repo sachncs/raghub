@@ -882,7 +882,7 @@ async def migrate_from_json(
     ):
         await registry.save(doc)
 
-    session_repo = repositories.SqliteSessionRepository(db_path)
+    session_repo = repositories.SessionStore(db_path)
     await session_repo.initialize()
 
     json_sessions = Sessions.json(Path(sessions_path), timeout_seconds=3600)

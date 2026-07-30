@@ -3,10 +3,10 @@
 Defines the tool contract and every concrete tool class in one helper file.
 Class summary::
 
-    Tool            - :class:`Protocol` describing the planner-facing contract.
+    ToolProtocol    - :class:`Protocol` describing the planner-facing contract.
     ToolResult      - structured Pydantic result returned by a tool.
     ToolContext     - per-invocation state (user, session, question).
-    BaseTool        - reusable :class:`ABC` implementing :class:`Tool`.
+    Tool            - reusable :class:`ABC` implementing :class:`ToolProtocol`.
     ToolRegistry    - name -> tool lookup.
 
 Concrete tools (one class per format family, no ``Tool`` suffix):
@@ -64,7 +64,7 @@ class ToolResult(BaseModel):
 
 
 @runtime_checkable
-class Tool(Protocol):
+class ToolProtocol(Protocol):
     """Async tool the planner can invoke.
 
     Attributes:
@@ -116,7 +116,7 @@ class ToolContext:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class BaseTool(Tool, ABC):
+class Tool(ToolProtocol, ABC):
     """Reusable :class:`Tool` base class.
 
     Concrete tools override :meth:`execute` and declare the
@@ -226,7 +226,7 @@ class ToolRegistry:
         """Initialise an empty registry."""
         self.tools: dict[str, Tool] = {}
 
-    def register(self, tool: Tool) -> None:
+    def register(self, tool: ToolProtocol) -> None:
         """Add (or replace) ``tool`` under its :attr:`Tool.name`."""
         self.tools[tool.name] = tool
 
@@ -234,7 +234,7 @@ class ToolRegistry:
         """Remove a tool by name. No-op when absent."""
         self.tools.pop(name, None)
 
-    def get(self, name: str) -> Tool:
+    def get(self, name: str)  -> ToolProtocol:
         """Return the tool registered under ``name``.
 
         Raises:
@@ -244,7 +244,7 @@ class ToolRegistry:
             raise ConfigurationError(f"Tool {name!r} is not registered")
         return self.tools[name]
 
-    def try_get(self, name: str) -> Tool | None:
+    def try_get(self, name: str) -> ToolProtocol | None:
         """Return the tool registered under ``name`` or ``None``."""
         return self.tools.get(name)
 
@@ -302,7 +302,7 @@ def as_admin_user(user: User | None) -> User:
 # ---------------------------------------------------------------------------
 
 
-class DateToday(BaseTool):
+class DateToday(Tool):
     """UTC date stub.
 
     Attributes:
@@ -331,7 +331,7 @@ class DateToday(BaseTool):
         )
 
 
-class GraphSearch(BaseTool):
+class GraphSearch(Tool):
     """GraphRAG local + global search.
 
     Attributes:
@@ -407,7 +407,7 @@ class GraphSearch(BaseTool):
         )
 
 
-class HybridSearch(BaseTool):
+class HybridSearch(Tool):
     """Dense + sparse fused retrieval.
 
     Attributes:
@@ -502,7 +502,7 @@ class HybridSearch(BaseTool):
         )
 
 
-class KeywordSearch(BaseTool):
+class KeywordSearch(Tool):
     """BM25 keyword search.
 
     Attributes:
@@ -573,7 +573,7 @@ class KeywordSearch(BaseTool):
         )
 
 
-class SummarySearch(BaseTool):
+class SummarySearch(Tool):
     """Search the RAPTOR summary tree.
 
     Attributes:
@@ -633,7 +633,7 @@ class SummarySearch(BaseTool):
         )
 
 
-class VectorSearch(BaseTool):
+class VectorSearch(Tool):
     """Top-K dense retrieval scoped to the user's RBAC filter.
 
     Attributes:
@@ -697,7 +697,7 @@ class VectorSearch(BaseTool):
         )
 
 
-class WebSearch(BaseTool):
+class WebSearch(Tool):
     """DuckDuckGo web search.
 
     Attributes:
@@ -766,7 +766,6 @@ class WebSearch(BaseTool):
 
 
 __all__ = [
-    "BaseTool",
     "DateToday",
     "GraphSearch",
     "HybridSearch",
@@ -774,6 +773,7 @@ __all__ = [
     "SummarySearch",
     "Tool",
     "ToolContext",
+    "ToolProtocol",
     "ToolRegistry",
     "ToolResult",
     "VectorSearch",

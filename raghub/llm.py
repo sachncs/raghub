@@ -2,7 +2,7 @@
 
 This module ships:
 
-* :class:`BaseLLMProvider` — abstract base class.
+* :class:`Generator` — abstract base class.
 * :class:`HeuristicProvider` — offline fallback, no API key needed.
 * :class:`LiteLLM` — production LLM, backed by LiteLLM (any
   provider: OpenAI, NVIDIA, Anthropic, Bedrock, …).
@@ -29,6 +29,7 @@ from raghub.utils import aretry, retry
 
 __all__ = [
     "LLM_API_KEY_ENV_VARS",
+    "Generator",
     "HeuristicProvider",
     "LiteLLM",
     "any_llm_api_key_present",
@@ -65,7 +66,7 @@ def any_llm_api_key_present() -> bool:
     return any(os.getenv(name) for name in LLM_API_KEY_ENV_VARS)
 
 
-class BaseLLMProvider(ABC):
+class Generator(ABC):
     """Abstract LLM provider.
 
     All concrete providers (NVIDIA, heuristic, …) implement
@@ -151,7 +152,7 @@ class LLMValueErrorBoundary:
         return False
 
 
-class HeuristicProvider(BaseLLMProvider):
+class HeuristicProvider(Generator):
     """Offline LLM provider that answers from context directly.
 
     Uses a simple heuristic — extracts the most relevant sentence from
@@ -204,7 +205,7 @@ class HeuristicProvider(BaseLLMProvider):
         return best
 
 
-class LiteLLM(BaseLLMProvider):
+class LiteLLM(Generator):
     """LLM provider backed by LiteLLM.
 
     The provider wraps LiteLLM and so works with any provider that
@@ -570,7 +571,7 @@ class LiteLLM(BaseLLMProvider):
 def build_llm(
     model_name: str,
     api_key: str | None = None,
-) -> BaseLLMProvider:
+) -> Generator:
     """Construct the appropriate LLM provider for ``model_name``.
 
     Selection rules:

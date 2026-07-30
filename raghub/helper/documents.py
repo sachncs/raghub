@@ -18,7 +18,7 @@ The classes and functions here map onto the document lifecycle::
     extract_text   - MIME-keyed dispatcher (now thin; the rich
                                   format-aware parse lives in parser.py).
     build_chunk_records         - one-stop factory for :class:`ChunkRecord`.
-    MarkdownSection, normalise_markdown
+    Section, normalise_markdown
                                 - Markdown → :class:`KnowledgeBundle`.
     PlainTextConverter          - text/binary → :class:`KnowledgeBundle`.
     Marker             - PDF → :class:`KnowledgeBundle` (marker-pdf).
@@ -517,7 +517,7 @@ EQUATION_RE = re.compile(r"^\$\$(.*)\$\$\s*$", re.DOTALL)
 INLINE_EQUATION_RE = re.compile(r"\$([^$\n]+)\$")
 
 
-class MarkdownSection:
+class Section:
     """State machine that turns Markdown text into a list of :class:`DocumentBlock`.
 
     The class encapsulates the per-line scanner so the public
@@ -636,10 +636,10 @@ class MarkdownSection:
 def md_to_blocks(markdown: str) -> tuple[list[DocumentBlock], str]:
     """Return ``(blocks, trailing_text)`` for a Markdown snippet.
 
-    Thin convenience wrapper around :class:`MarkdownSection`; see the
+    Thin convenience wrapper around :class:`Section`; see the
     class docstring for the block-construction semantics.
     """
-    return MarkdownSection().parse(markdown)
+    return Section().parse(markdown)
 
 
 def normalise_markdown(
@@ -700,14 +700,14 @@ models_module, models_error = capture(import_module, "marker.models")
 output_module, output_error = capture(import_module, "marker.output")
 MarkerImportError = pdf_error or models_error or output_error
 MARKER = MarkerImportError is None
-MarkerPdfConverter: Any = getattr(pdf_module, "PdfConverter", None)
+PdfConverter: Any = getattr(pdf_module, "PdfConverter", None)
 marker_create_model_dict: Any = getattr(models_module, "create_model_dict", None)
 rendered_text: Any = getattr(output_module, "text_from_rendered", None)
 
 
 def build_marker_converter(*, device: str | None = None) -> Any:
     """Construct a Marker PDF converter for ``device``."""
-    if not MARKER or MarkerPdfConverter is None:
+    if not MARKER or PdfConverter is None:
         raise ConfigurationError(
             "marker-pdf is not installed; install it via "
             "`pip install 'raghub[pdf]'` or set a custom converter."
@@ -715,7 +715,7 @@ def build_marker_converter(*, device: str | None = None) -> Any:
     kwargs: dict[str, Any] = {}
     if marker_create_model_dict is not None:
         kwargs["artifact_dict"] = marker_create_model_dict(device=device)
-    return MarkerPdfConverter(**kwargs)
+    return PdfConverter(**kwargs)
 
 
 class PlainTextConverter(DocumentConverter):
@@ -893,9 +893,9 @@ def convert_path(
 __all__ = [
     "ChunkingPlan",
     "Lifecycle",
-    "MarkdownSection",
     "Marker",
     "PlainTextConverter",
+    "Section",
     "build_chunk_records",
     "build_marker_converter",
     "chunk_words",

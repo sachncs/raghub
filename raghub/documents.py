@@ -33,8 +33,8 @@ __all__ = [
     "Lifecycle",
     "Marker",
     "Office",
+    "ParsedSection",
     "Pdf",
-    "Section",
     "Txt",
     "chunk_words",
     "normalize_text",
@@ -44,7 +44,7 @@ __all__ = [
 
 
 @dataclass(frozen=True)
-class Section:
+class ParsedSection:
     """A single parsed chunk of a document.
 
     Attributes:
@@ -67,7 +67,7 @@ class File(ABC):
     """Abstract base for all document parsers."""
 
     @abstractmethod
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
+    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Parse ``file_bytes`` into a list of :class:`Section`.
 
         Args:
@@ -85,7 +85,7 @@ class File(ABC):
 class Pdf(File):
     """PDF file using :mod:`pypdf`."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
+    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Parse a PDF into one section per page.
 
         Args:
@@ -110,11 +110,11 @@ class Pdf(File):
                 "pip install raghub[pdf]",
             ) from None
         reader = PdfReader(BytesIO(file_bytes))
-        sections: list[Section] = []
+        sections: list[ParsedSection] = []
         for i, page in enumerate(reader.pages, start=1):
             text = page.extract_text() or ""
             sections.append(
-                Section(
+                ParsedSection(
                     section_index=i,
                     source_location=f"page {i}",
                     text=text,
@@ -132,7 +132,7 @@ class Pdf(File):
 class HTML(File):
     """HTML file using :mod:`BeautifulSoup`."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
+    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Parse an HTML document into a single section.
 
         Args:
@@ -158,7 +158,7 @@ class HTML(File):
         body = soup.find("body") or soup
         text = body.get_text(separator=" ", strip=True)
         return [
-            Section(
+            ParsedSection(
                 section_index=0,
                 source_location="full file",
                 text=text,
@@ -172,7 +172,7 @@ class HTML(File):
 class Image(File):
     """PNG/JPEG/GIF/BMP/TIFF/WebP image."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
+    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Decode an image and extract its metadata (and optional OCR text).
 
         Args:
@@ -210,7 +210,7 @@ class Image(File):
             "exif": {k: str(v) for k, v in exif_data.items()} if exif_data else {},
         }
         return [
-            Section(
+            ParsedSection(
                 section_index=0,
                 source_location="image",
                 text=text,
@@ -222,7 +222,7 @@ class Image(File):
 class Office(File):
     """DOCX/XLSX/PPTX (also DOC/XLS/PPT) document."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
+    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Dispatch an Office document to its format-specific parser.
 
         Args:
@@ -243,7 +243,7 @@ class Office(File):
             Empty when the extension/MIME pair is not an Office type.
         """
         ext = file_name.lower().rsplit(".", 1)[-1] if "." in file_name else ""
-        sections: list[Section] = []
+        sections: list[ParsedSection] = []
 
         if mime_type in (
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -259,7 +259,7 @@ class Office(File):
             doc = Document(io.BytesIO(file_bytes))
             text_parts = [para.text for para in doc.paragraphs]
             sections.append(
-                Section(
+                ParsedSection(
                     section_index=0,
                     source_location="document",
                     text="\n".join(text_parts),
@@ -286,7 +286,7 @@ class Office(File):
                     row_text = " | ".join(str(c) if c is not None else "" for c in row)
                     rows.append(row_text)
                 sections.append(
-                    Section(
+                    ParsedSection(
                         section_index=i,
                         source_location=f"worksheet {ws_name}",
                         text="\n".join(rows),
@@ -310,7 +310,7 @@ class Office(File):
             for i, slide in enumerate(prs.slides, start=1):
                 texts = [shape.text for shape in slide.shapes if hasattr(shape, "text")]
                 sections.append(
-                    Section(
+                    ParsedSection(
                         section_index=i,
                         source_location=f"slide {i}",
                         text="\n".join(texts),
@@ -324,7 +324,7 @@ class Office(File):
 class Csv(File):
     """CSV file (UTF-8 decoded, no structural splitting)."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
+    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Decode CSV bytes as UTF-8 and emit one whole-file section.
 
         Args:
@@ -339,7 +339,7 @@ class Csv(File):
         """
         text = file_bytes.decode("utf-8", errors="replace")
         return [
-            Section(
+            ParsedSection(
                 section_index=0,
                 source_location="full file",
                 text=text,
@@ -351,7 +351,7 @@ class Csv(File):
 class Txt(File):
     """Plain text file."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
+    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Decode text bytes as UTF-8 and emit one whole-file section.
 
         Args:
@@ -366,7 +366,7 @@ class Txt(File):
         """
         text = file_bytes.decode("utf-8", errors="replace")
         return [
-            Section(
+            ParsedSection(
                 section_index=0,
                 source_location="full file",
                 text=text,
@@ -471,7 +471,7 @@ class Catalog:
         ext = Path(file_name).suffix.lower() if "." in file_name else ""
         return self.entries.get(ext)
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
+    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Dispatch to the appropriate parser, or fall back to UTF-8.
 
         Args:
@@ -495,7 +495,7 @@ class Catalog:
             # decoder from raising on invalid byte sequences, at the
             # cost of substituting the Unicode replacement character.
             return [
-                Section(
+                ParsedSection(
                     section_index=0,
                     source_location="unknown",
                     text=file_bytes.decode("utf-8", errors="replace"),
@@ -510,7 +510,7 @@ class Catalog:
 
 # The single user-facing dispatch. Callers should reach for ``parse``
 # rather than instantiating their own :class:`Catalog`.
-def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
+def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
     """Parse any file via a fresh default catalog.
 
     This is the canonical entry point. Concrete :class:`File`

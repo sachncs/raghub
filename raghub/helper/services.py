@@ -53,7 +53,7 @@ from raghub.helper.retrieval import (
 )
 from raghub.helper.storage import ImageStore, Sessions
 from raghub.ingestion import IngestionResult, Ingestor
-from raghub.llm import BaseLLMProvider, build_llm
+from raghub.llm import Generator, build_llm
 from raghub.models import (
     AuthLoginResponse,
     BackgroundWorker,
@@ -450,7 +450,7 @@ class RagContainer:
     registry: SqliteUsers
     conversation: ConversationManager
     embeddings: Embedder
-    llm: BaseLLMProvider
+    llm: Generator
     vector_store: Store
     prompt_builder: PromptBuilder
     ingestion: Ingestor
@@ -563,7 +563,7 @@ async def build_container(settings: Settings) -> RagContainer:
         settings.embedding_dim,
         nvidia_api_key,
     )
-    llm: BaseLLMProvider = build_llm(settings.llm_model, nvidia_api_key)
+    llm: Generator = build_llm(settings.llm_model, nvidia_api_key)
 
     prompt_builder = PromptBuilder()
     conversation = ConversationManager(uow)

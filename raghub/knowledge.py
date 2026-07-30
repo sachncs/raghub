@@ -23,7 +23,7 @@ from typing import Any, cast
 
 from raghub.embeddings import Embedder
 from raghub.exceptions import KnowledgeError
-from raghub.llm import BaseLLMProvider
+from raghub.llm import Generator
 from raghub.models import (
     BlockKind,
     Chunk,
@@ -350,7 +350,7 @@ class Raptor(KnowledgeIndex):
     def __init__(
         self,
         *,
-        llm: BaseLLMProvider | None = None,
+        llm: Generator | None = None,
         embedder: Embedder | None = None,
         depth: int = 2,
         cluster_size: int = 5,
@@ -660,7 +660,7 @@ class GraphIndex(KnowledgeIndex):
     def __init__(
         self,
         *,
-        llm: BaseLLMProvider | None = None,
+        llm: Generator | None = None,
         embedder: Embedder | None = None,
         hop_limit: int = 2,
     ) -> None:

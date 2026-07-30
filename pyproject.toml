@@ -165,11 +165,6 @@ ignore = [
     "UP047",
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"tests/test_hypothesis_properties.py" = ["E402"]
-"tests/test_cli_commands.py" = ["E402", "RUF003", "SIM117"]
-"tests/test_production_readiness.py" = ["E402"]
-
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
