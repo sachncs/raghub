@@ -7,8 +7,6 @@ This module ships:
   embedder backed by feature hashing.
 * :class:`LiteLLMEmbeddingProvider` — production embedder, backed by
   LiteLLM (any provider: OpenAI, NVIDIA, Cohere, Bedrock, …).
-* :class:`SentenceTransformerEmbeddingProvider` — local
-  SentenceTransformers embedder.
 * :func:`build_embedding_provider` — chooses the implementation from
   the model name.
 """
@@ -22,8 +20,6 @@ from typing import Any
 
 import litellm
 import numpy as np
-from numpy.typing import NDArray
-from sentence_transformers import SentenceTransformer
 
 from raghub.exceptions import ConfigurationError
 
@@ -38,7 +34,7 @@ class BaseEmbeddingProvider(ABC):
 
     All concrete providers must implement :meth:`embed_text`; the
     :meth:`embed_texts` default simply calls it once per string, but
-    providers with batched APIs (NVIDIA, sentence-transformers) should
+    providers with batched APIs (NVIDIA) should
     override for throughput.
     """
 
@@ -108,19 +104,42 @@ class HashingEmbeddingProvider(BaseEmbeddingProvider):
             vector (so the caller can distinguish "no signal" from "no
             overlap" by inspecting the norm).
         """
-        vector: NDArray[np.float32] = np.zeros(self.dimension, dtype=np.float32)
-        tokens = text.lower().split()
-        if not tokens:
-            return [float(value) for value in vector]
-        for token in tokens:
-            digest = sha256(token.encode("utf-8")).digest()
-            idx = int.from_bytes(digest[:4], "little") % self.dimension
-            sign = 1.0 if digest[4] % 2 == 0 else -1.0
-            vector[idx] += sign
-        norm = float(np.linalg.norm(vector))
-        if norm:
-            vector /= norm
-        return [float(value) for value in vector]
+        if not text:
+            return [0.0] * self.dimension
+        return self.embed_texts([text])[0]
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        """Hash every input into a deterministic L2-normalised vector.
+
+        Vectorised with NumPy so a 1500-text batch runs in one
+        C-level pass rather than the per-token Python loop in
+        :meth:`embed_text`. The output is bit-identical to the prior
+        implementation (same hash, same sign rule, same
+        L2-normalisation).
+
+        Args:
+            texts: The list of input strings.
+
+        Returns:
+            A list of ``dimension``-float vectors in input order.
+        """
+        dim = self.dimension
+        out = np.zeros((len(texts), dim), dtype=np.float32)
+        if not texts:
+            return out.tolist()
+        for row, text in enumerate(texts):
+            tokens = text.lower().split()
+            if not tokens:
+                continue
+            for token in tokens:
+                digest = sha256(token.encode("utf-8")).digest()
+                idx = int.from_bytes(digest[:4], "little") % dim
+                sign = 1.0 if digest[4] % 2 == 0 else -1.0
+                out[row, idx] += sign
+        norms = np.linalg.norm(out, axis=1, keepdims=True)
+        safe = norms > 0
+        out = np.where(safe, out / np.where(safe, norms, 1.0), out)
+        return out.tolist()
 
 
 class LiteLLMEmbeddingProvider(BaseEmbeddingProvider):
@@ -186,55 +205,6 @@ class LiteLLMEmbeddingProvider(BaseEmbeddingProvider):
         ]
 
 
-class SentenceTransformerEmbeddingProvider(BaseEmbeddingProvider):
-    """Sentence-Transformers-backed embedding provider."""
-
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
-        """Load the SentenceTransformer model.
-
-        Args:
-            model_name: HuggingFace model id. The default
-                ``all-MiniLM-L6-v2`` produces 384-dim embeddings.
-        """
-        self.model_name = model_name
-        self.model = SentenceTransformer(model_name)
-
-    def encode_single(self, text: str) -> list[float]:
-        """Embed a single text. Returns float vector."""
-        return list(self.model.encode([text])[0])
-
-    def encode_batch(self, texts: list[str]) -> list[list[float]]:
-        """Embed multiple texts."""
-        return [list(v) for v in self.model.encode(texts)]
-
-    def embed_text(self, text: str) -> list[float]:
-        """Embed a single text via SentenceTransformer's batched API.
-
-        Args:
-            text: The input text.
-
-        Returns:
-            A 384-dim (or model-specific dim) float vector.
-        """
-        return self.encode_single(text)
-
-    def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        """Embed a list of texts in one batched call.
-
-        Args:
-            texts: The input texts.
-
-        Returns:
-            A list of float vectors, one per input.
-        """
-        return self.encode_batch(texts)
-
-    @property
-    def dimension(self) -> int:
-        """Return the model's native embedding dimension."""
-        return int(self.model.get_sentence_embedding_dimension())
-
-
 def build_embedding_provider(
     model_name: str,
     dimension: int,
@@ -251,7 +221,7 @@ def build_embedding_provider(
             the provider.
         api_key: Optional API key passed through to
         :class:`LiteLLMEmbeddingProvider`. Ignored by the hashing
-            and SentenceTransformer providers.
+            provider.
 
     Returns:
         A ready-to-use embedding provider instance.
@@ -285,4 +255,8 @@ def build_embedding_provider(
         if creds_present:
             return LiteLLMEmbeddingProvider(model=model_name, api_key=api_key)
         return HashingEmbeddingProvider(dimension=dimension, model_name=model_name)
-    return SentenceTransformerEmbeddingProvider(model_name=model_name)
+    raise ConfigurationError(
+        f"Unknown embedding model {model_name!r}. "
+        "Use a LiteLLM model (e.g. 'openai/text-embedding-3-small', "
+        "'cohere/embed-english-v3.0') or 'hashing' for zero-dependency mode."
+    )

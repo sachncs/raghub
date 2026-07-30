@@ -193,9 +193,9 @@ class OptionalDependencyMissing(ImportError):
 
         Args:
             package: The distribution name that was not found
-                (e.g. ``"qdrant-client"``).
+                (e.g. ``"chonkie"``).
             hint: A user-friendly install command
-                (e.g. ``"pip install qdrant-client"``).
+                (e.g. ``"pip install chonkie"``).
         """
         super().__init__(f"{hint}; the {package!r} distribution is not installed")
         self.package = package
