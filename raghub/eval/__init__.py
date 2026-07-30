@@ -1144,6 +1144,90 @@ class QualityGate:
         return result
 
 
+# ---------------------------------------------------------------------------
+# A/B testing
+# ---------------------------------------------------------------------------
+
+
+async def ab_test(
+    *,
+    rag_a: Any,
+    rag_b: Any,
+    examples: list[dict[str, Any]],
+    evaluator: Evaluator,
+    gate: QualityGate | None = None,
+) -> dict[str, Any]:
+    """Run two RAG instances against the same dataset, report per-metric diffs.
+
+    Args:
+        rag_a: The "control" RAG instance.
+        rag_b: The "treatment" RAG instance.
+        examples: Per-example records with ``question`` (and any
+            other keys the evaluator expects).
+        evaluator: The evaluator to score both runs.
+        gate: Optional :class:`QualityGate`. When set, the run fails
+            when either RAG's metrics breach the gate's thresholds.
+
+    Returns:
+        A dict with keys:
+        - ``a_metrics``: per-metric averages for rag_a.
+        - ``b_metrics``: per-metric averages for rag_b.
+        - ``metric_diffs``: ``b - a`` for each metric.
+        - ``winner``: ``"a"``, ``"b"``, or ``"tie"``.
+        - ``gate_passed``: ``True`` when no gate was supplied; when
+            a gate was supplied, ``True`` when both A and B passed.
+
+    Raises:
+        ConfigurationError: When a gate is supplied and either RAG's
+            metrics breach it.
+    """
+    async def factory_a(ex: dict[str, Any]) -> Any:
+        return await rag_a.aquery(ex["question"])
+
+    async def factory_b(ex: dict[str, Any]) -> Any:
+        return await rag_b.aquery(ex["question"])
+
+    results_a = await run(evaluator, examples, response_factory=factory_a)
+    results_b = await run(evaluator, examples, response_factory=factory_b)
+
+    metrics_a = _aggregate_metrics(results_a)
+    metrics_b = _aggregate_metrics(results_b)
+
+    if gate is not None:
+        gate.check(metrics_a)
+        gate.check(metrics_b)
+
+    diffs = {
+        name: metrics_b.get(name, 0.0) - metrics_a.get(name, 0.0)
+        for name in set(metrics_a) | set(metrics_b)
+    }
+
+    wins_a = sum(1 for d in diffs.values() if d > 0.0)
+    wins_b = sum(1 for d in diffs.values() if d < 0.0)
+    if wins_a > wins_b:
+        winner = "a"
+    elif wins_b > wins_a:
+        winner = "b"
+    else:
+        winner = "tie"
+
+    return {
+        "a_metrics": metrics_a,
+        "b_metrics": metrics_b,
+        "metric_diffs": diffs,
+        "winner": winner,
+        "gate_passed": gate is None,
+    }
+
+
+def _aggregate_metrics(results: list[Any]) -> dict[str, float]:
+    """Average every metric across all results."""
+    if not results:
+        return {}
+    keys = {k for r in results for k in r.metrics}
+    return {k: sum(r.metrics.get(k, 0.0) for r in results) / len(results) for k in keys}
+
+
 __all__ = [
     "FinanceBench",
     "FramesBenchmark",
@@ -1152,5 +1236,6 @@ __all__ = [
     "QualityGate",
     "Scoring",
     "_parse_score",
+    "ab_test",
     "run",
 ]
