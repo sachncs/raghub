@@ -15,14 +15,14 @@ from typing import Any
 
 from raghub.exceptions import MissingDep
 from raghub.helper.documents import (
-    EQUATION_BLOCK_RE,
+    EQUATION_RE,
     FENCE_RE,
     HEADING_RE,
     IMAGE_RE,
     INLINE_EQUATION_RE,
     MAGIC_BYTES,
     MARKER,
-    MIME_TYPES_BY_EXTENSION,
+    MIME_TYPES,
     TABLE_LINE_RE,
     ChunkingPlan,
     Lifecycle,
@@ -540,14 +540,14 @@ def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[Section]:
     return Catalog().parse(file_bytes, file_name, mime_type)
 
 __all__ = [
-    "EQUATION_BLOCK_RE",
+    "EQUATION_RE",
     "FENCE_RE",
     "HEADING_RE",
     "IMAGE_RE",
     "INLINE_EQUATION_RE",
     "MAGIC_BYTES",
     "MARKER",
-    "MIME_TYPES_BY_EXTENSION",
+    "MIME_TYPES",
     "TABLE_LINE_RE",
     "ChunkingPlan",
     "Lifecycle",
