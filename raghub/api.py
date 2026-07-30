@@ -50,7 +50,7 @@ from raghub.helper.response import (
 from raghub.helper.sse import (
     Sse,
 )
-from raghub.ingestion import BackgroundIngestionService
+from raghub.ingestion import Batch
 from raghub.models import (
     AuthLoginRequest,
     AuthLoginResponse,
@@ -899,7 +899,7 @@ def create_app(application: Facade) -> FastAPI:
     if callable(register):
         register(app)
 
-    app.state.background_ingestion = BackgroundIngestionService(max_workers=2)
+    app.state.background_ingestion = Batch(max_workers=2)
 
     cors_origins = cors_origins_from_env()
     validate_cors_for_credentials(cors_origins)

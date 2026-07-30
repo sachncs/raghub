@@ -3,12 +3,12 @@
 This module exposes four ingestion concerns:
 in separate files:
 
-* :class:`DocumentIngestionService` — synchronous ingestion over the
+* :class:`Ingestor` — synchronous ingestion over the
   canonical ingest pipeline (the public API / CLI / streamlit
   callers all hit this).
-* :class:`BackgroundIngestionService` / :class:`IngestionJob` —
+* :class:`Batch` / :class:`IngestionJob` —
   thread-pool-backed fire-and-forget ingestion with status tracking.
-* :class:`ResumableBackgroundIngestionService` — extends the
+* :class:`ResumableBatch` — extends the
   background service with a SQLite ledger so jobs survive restarts.
 * :class:`PersistentJobStore` — the SQLite-backed job ledger used
   by the resumable service.
@@ -41,7 +41,7 @@ from uuid import uuid4
 
 from raghub.documents import (
     ChunkingPlan,
-    DocumentLifecycleManager,
+    Lifecycle,
     chunk_words,
     normalize_text,
     validate_upload,
@@ -551,7 +551,7 @@ def record_from_pipeline(
     )
 
 
-class DocumentIngestionService:
+class Ingestor:
     """Thin wrapper over :class:`raghub.pipelines.rag.IngestPipeline`.
 
     The service is constructed once and reused for many uploads. It is
@@ -565,7 +565,7 @@ class DocumentIngestionService:
         *,
         uow: UnitOfWork,
         embedding_provider: Embedder,
-        lifecycle_manager: DocumentLifecycleManager,
+        lifecycle_manager: Lifecycle,
         max_upload_bytes: int,
         virus_scan_hook: VirusScanHook | None = None,
         pipeline: IngestPipeline | None = None,
@@ -599,10 +599,10 @@ class DocumentIngestionService:
         department: str = "",
         tags: list[str] | None = None,
         classification: Classification = Classification.INTERNAL,
-        background_service: BackgroundIngestionService | None = None,
+        background_service: Batch | None = None,
     ) -> str:
         """Submit ``ingest`` to a background thread pool."""
-        svc = background_service or BackgroundIngestionService()
+        svc = background_service or Batch()
         return svc.submit(
             self.ingest,
             file_name=file_name,
@@ -714,7 +714,7 @@ class IngestionJob:
         self.result = result
 
 
-class BackgroundIngestionService:
+class Batch:
     """Queues ingestion jobs for async processing.
 
     A thin wrapper around :class:`ThreadPoolExecutor` that adds job
@@ -736,7 +736,7 @@ class BackgroundIngestionService:
     def submit(self, fn: Any, *args: Any, **kwargs: Any) -> str:
         """Submit a callable for background execution."""
         if self.closed:
-            raise RuntimeError("BackgroundIngestionService is shut down")
+            raise RuntimeError("Batch is shut down")
         job_id = str(uuid4())
         self.jobs[job_id] = IngestionJob(job_id, "pending")
         self.executor.submit(self.run_job, job_id, fn, args, kwargs)
@@ -850,7 +850,7 @@ class PersistentJobStore:
 # ---------------------------------------------------------------------------
 
 
-class ResumableBackgroundIngestionService(BackgroundIngestionService):
+class ResumableBatch(Batch):
     """Background ingestion with a persistent job ledger."""
 
     def __init__(self, *, db_path: str | Path, max_workers: int = 2) -> None:
