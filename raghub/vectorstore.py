@@ -411,6 +411,7 @@ class SqliteVectorStore(BaseVectorStore):
         os.makedirs(self.dir_path(), exist_ok=True)
         self.conn = sqlite3.connect(self.db_path(), check_same_thread=False)
         self.conn.execute("PRAGMA journal_mode = WAL")
+        self.conn.execute("PRAGMA foreign_keys = ON")
         self.lock = RLock()
         self.setup_schema()
 
@@ -509,7 +510,7 @@ class SqliteVectorStore(BaseVectorStore):
         with self.lock:
             cursor = self.conn.executemany(
                 f"""
-                INSERT OR REPLACE INTO {self.collection}
+                INSERT OR IGNORE INTO {self.collection}
                 (chunk_id, document_id, version, classification, text, source_location, vector)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
