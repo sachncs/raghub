@@ -263,11 +263,12 @@ class TestSearch:
         results = store.search(vector=[0.1, 0.2], top_k=5, metadata_filter={"company": "Acme"})
         assert [r["chunk_id"] for r in results] == ["c1"]
 
-    def test_dict_filter_with_list_filters_all_out(self) -> None:
-        """List-shaped filters are exact-equality; a company string never
-        equals a list of strings, so the filter rejects everything.
-        This pins the current (strict) behaviour so any future change
-        to list-membership semantics is visible in the diff.
+    def test_dict_filter_with_list_matches_any(self) -> None:
+        """List-shaped filters use membership semantics: a chunk's
+        field matches when its value is one of the list elements.
+
+        This is the contract relied on by RBAC: ``{"company": [...]}``
+        from ``allowed_company_filter`` means "any of these companies".
         """
         store = MemoryStore(embedding_dim=2)
         store.insert(
@@ -280,6 +281,20 @@ class TestSearch:
         )
         results = store.search(
             vector=[0.1, 0.2], top_k=5, metadata_filter={"company": ["Acme", "Beta"]}
+        )
+        assert sorted(r["chunk_id"] for r in results) == ["c1", "c2"]
+
+    def test_dict_filter_with_empty_list_matches_nothing(self) -> None:
+        """An empty list in a filter rejects everything — the RBAC
+        contract for users with no allowed_companies.
+        """
+        store = MemoryStore(embedding_dim=2)
+        store.insert(
+            [make_chunk(chunk_id="c1", company="Acme")],
+            [[0.1, 0.2]],
+        )
+        results = store.search(
+            vector=[0.1, 0.2], top_k=5, metadata_filter={"company": []}
         )
         assert results == []
 

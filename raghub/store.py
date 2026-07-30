@@ -43,12 +43,22 @@ __all__ = [
 
 
 def matches_metadata_dict(record: MemoryVectorRecord, filters: dict[str, Any]) -> bool:
-    """Return whether ``record.chunk`` satisfies every entry in ``filters``."""
+    """Return whether ``record.chunk`` satisfies every entry in ``filters``.
+
+    When ``expected`` is a list, the chunk's field must equal one of
+    the list's elements (semantics used by RBAC filters where
+    ``{"company": ["Apple", "Microsoft"]}`` means "any of these
+    companies is acceptable").
+    """
     chunk = record.chunk
     for key, expected in filters.items():
         if not hasattr(chunk, key):
             return False
-        if getattr(chunk, key) != expected:
+        actual = getattr(chunk, key)
+        if isinstance(expected, list):
+            if actual not in expected:
+                return False
+        elif actual != expected:
             return False
     return True
 
