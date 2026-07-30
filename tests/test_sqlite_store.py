@@ -44,3 +44,51 @@ def test_health_returns_ok(sqlite_store):
     h = sqlite_store.health()
     assert h["status"] == "ok"
     assert "chunks" in h
+
+
+def test_insert_or_ignore_skips_duplicates(sqlite_store, sample_chunks, sample_vectors):
+    """Re-inserting the same chunk_id is a no-op (INSERT OR IGNORE).
+
+    Returns ``0`` rows written for the duplicate, leaving the original
+    row untouched.
+    """
+    written1 = sqlite_store.insert(sample_chunks, sample_vectors)
+    assert written1 == 1
+    dupe = sample_chunks[0].model_copy(update={"text": "different text"})
+    written2 = sqlite_store.insert([dupe], sample_vectors)
+    assert written2 == 0
+    row = sqlite_store.conn.execute(
+        "SELECT text FROM raghub WHERE chunk_id = ?", (sample_chunks[0].chunk_id,)
+    ).fetchone()
+    assert row[0] == sample_chunks[0].text
+
+
+def test_concurrent_inserts_are_safe(sqlite_store, sample_chunks):
+    """Two threads inserting distinct chunks must not corrupt the index.
+
+    Uses a :class:`threading.Barrier` to maximise the chance of interleaving.
+    """
+    import threading
+
+    barrier = threading.Barrier(2)
+    results: list[int] = []
+
+    def insert_chunks(offset: int) -> None:
+        chunks = [
+            sample_chunks[0].model_copy(update={"chunk_id": f"thread-{offset}-{i}"})
+            for i in range(5)
+        ]
+        vectors = [[0.01 * (offset + i)] * 384 for i in range(5)]
+        barrier.wait()
+        results.append(sqlite_store.insert(chunks, vectors))
+
+    t1 = threading.Thread(target=insert_chunks, args=(0,))
+    t2 = threading.Thread(target=insert_chunks, args=(10,))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert sorted(results) == [5, 5]
+    count = sqlite_store.conn.execute("SELECT COUNT(*) FROM raghub").fetchone()[0]
+    assert count == 10
