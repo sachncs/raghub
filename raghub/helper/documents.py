@@ -52,13 +52,12 @@ from raghub.models import (
     DocumentBlock,
     DocumentConverter,
     DocumentLifecycleStatus,
-    DocumentSection,
     DocumentRecord,
+    DocumentSection,
     KnowledgeBundle,
     deterministic_id,
 )
 from raghub.utils import capture
-
 
 # ---------------------------------------------------------------------------
 # Legacy module aliases — see :mod:`raghub.documents.__init__` for the matching
@@ -878,26 +877,26 @@ def convert_path(
 
 
 __all__ = [
+    "ChunkingPlan",
     "DocumentLifecycleManager",
-    "new_version",
+    "MarkdownSection",
+    "MarkerConverter",
+    "PlainTextConverter",
+    "build_chunk_records",
+    "build_marker_converter",
+    "chunk_words",
+    "convert_path",
     "datetime_now_utc",
     "detect_mime_type",
-    "validate_upload",
-    "ChunkingPlan",
+    "extract_pdf_metadata",
     "extract_pdf_pages",
-    "normalize_text",
-    "chunk_words",
     "extract_pdf_text",
     "extract_text_from_content",
-    "extract_pdf_metadata",
-    "build_chunk_records",
-    "MarkdownSection",
-    "markdown_to_document_blocks",
-    "normalise_markdown",
-    "build_marker_converter",
-    "PlainTextConverter",
-    "MarkerConverter",
     "looks_like_pdf",
+    "markdown_to_document_blocks",
+    "new_version",
+    "normalise_markdown",
+    "normalize_text",
     "select_converter_for_path",
-    "convert_path",
+    "validate_upload",
 ]

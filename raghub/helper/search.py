@@ -112,10 +112,10 @@ def hybrid(
 
 __all__ = [
     "date",
-    "vector",
-    "keyword",
     "graph",
-    "summary",
-    "web",
     "hybrid",
+    "keyword",
+    "summary",
+    "vector",
+    "web",
 ]

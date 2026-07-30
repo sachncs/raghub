@@ -21,5 +21,4 @@ from raghub.helper.tools import (
     as_admin_user,
 )
 
-
 __all__ = ['BaseTool', 'DateToday', 'GraphSearch', 'HybridSearch', 'KeywordSearch', 'SummarySearch', 'Tool', 'ToolContext', 'ToolRegistry', 'ToolResult', 'VectorSearch', 'WebSearch', 'as_admin_user']

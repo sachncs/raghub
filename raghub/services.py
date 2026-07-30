@@ -6,6 +6,7 @@ Implementation lives in :mod:`raghub.helper` (services); local entry-point modul
 from __future__ import annotations
 
 from raghub.helper.services import (
+    RAG_FACADE_AVAILABLE,
     Auth,
     Document,
     Facade,
@@ -14,7 +15,6 @@ from raghub.helper.services import (
     Mixin,
     Preference,
     Query,
-    RAG_FACADE_AVAILABLE,
     RagContainer,
     Shutdown,
     Synchronous,
@@ -32,5 +32,4 @@ from raghub.helper.services import (
     upload_record_helper,
 )
 
-
-__all__ = ['Auth', 'Document', 'Facade', 'Health', 'InMemoryQueue', 'Mixin', 'Preference', 'Query', 'RAG_FACADE_AVAILABLE', 'RagContainer', 'Shutdown', 'Synchronous', 'ThreadPool', 'aggregate_status', 'build_container', 'document_by_id_helper', 'list_all_records_helper', 'parse_seed_users_json', 'probe_embedder', 'probe_vector_store', 'raise_missing_document', 'seed_blocked', 'seed_demo_users', 'upload_record_helper']
+__all__ = ['RAG_FACADE_AVAILABLE', 'Auth', 'Document', 'Facade', 'Health', 'InMemoryQueue', 'Mixin', 'Preference', 'Query', 'RagContainer', 'Shutdown', 'Synchronous', 'ThreadPool', 'aggregate_status', 'build_container', 'document_by_id_helper', 'list_all_records_helper', 'parse_seed_users_json', 'probe_embedder', 'probe_vector_store', 'raise_missing_document', 'seed_blocked', 'seed_demo_users', 'upload_record_helper']
