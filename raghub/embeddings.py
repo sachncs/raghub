@@ -23,6 +23,13 @@ import numpy as np
 
 from raghub.exceptions import ConfigurationError
 
+__all__ = [
+    "Embedder",
+    "Hasher",
+    "LiteLLMEmbedder",
+    "build_embedder",
+]
+
 # Module-level flag retained so existing tests that patch
 # ``raghub.embeddings.LITELLM_AVAILABLE = False`` can simulate a
 # missing optional dependency even though the package is now required.
