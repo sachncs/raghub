@@ -191,10 +191,8 @@ await rag.aquery("and growth?", user=alice, session_id="alice-s1")
 | Setting | Env Variable | Default | Description |
 |---------|--------------|---------|-------------|
 | `RAGHUB_USERS` | yes | inline demo users | JSON path or inline JSON for the user directory (Streamlit UI) |
-| `RAGHUB_STORE_BACKEND` | yes | `memory` | `memory` / `file` / `qdrant` / `zvec` |
-| LLM provider keys | yes | unset | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `NVIDIA_API_KEY` |
+| `RAG_LLM_API_KEY` | yes | unset | LLM provider key (OpenAI, Anthropic, NVIDIA, etc.) |
 | `JWT_SECRET` | yes | random | Opaque session-token signing secret (≥32 bytes) |
-| `QDRANT_URL` | yes | unset | Qdrant server URL |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | yes | unset | Langfuse credentials |
 | Constructor kwargs | no | — | Passed to `RAG(...)` (highest precedence) |
 
