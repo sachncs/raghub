@@ -133,7 +133,11 @@
   - `InMemoryConversationStore` → `MemoryConversations`
   - `InstructorStructuredOutputProvider` → `Instructor`
   - `AgenticQueryPipeline` → `AgentPipeline`
-- [x] Skipped (collisions with protocol classes that already use the short name): `BaseLLMProvider → Generator` (collides with `Generator(Protocol)`), `BaseTool → Tool` (collides with `Tool(Protocol)`), `BaseChunker → Chunker` (collides with `Chunker(Protocol)`), `BaseConverter → Converter` (collides with `DocumentConverter(Protocol)`), `SqliteSessionRepository → SessionStore` (collides with `SessionStore(Protocol)`), `MarkdownSection → Section` (collides with `Section` dataclass in `documents.py`), `MarkerPdfConverter → PdfConverter` (was a type alias, not a class)
+- [x] All 7 collisions resolved in a follow-up pass:
+  - Renamed protocol classes with `*Protocol` suffix: `Generator(Protocol)` → `GeneratorProtocol`, `Tool(Protocol)` → `ToolProtocol`, `SessionStore(Protocol)` → `SessionStoreProtocol`
+  - Renamed base classes to short names: `BaseLLMProvider` → `Generator`, `BaseTool` → `Tool`, `SqliteSessionRepository` → `SessionStore`, `MarkdownSection` → `Section` (and renamed the colliding `Section` dataclass in `documents.py` → `ParsedSection`)
+  - Renamed `MarkerPdfConverter` local variable → `PdfConverter`
+  - `BaseChunker` / `BaseConverter` never existed (only their Protocols); no rename needed
 - [x] No backward-compat aliases (user explicitly declined)
 
 ### 2.2 Shorten all function and method names > 25 chars
@@ -153,7 +157,17 @@
 - [x] Skipped: `ALL_LICENSE_WIKI_LINKS` (didn't exist)
 
 ### 2.4 Rename modules to short single-word names
-- [x] Skipped: existing module names (`vectorstore.py`, `embeddings.py`, `repositories.py`, `exceptions.py`, `observability.py`, `generation.py`, `conversation.py`, `ingestion.py`, `documents.py`, `helper/evaluation.py`) were deemed already short enough. Renaming would require updating every import across the codebase for minimal readability gain.
+- [x] All 10 module renames applied:
+  - `exceptions.py` → `errors.py`
+  - `embeddings.py` → `embedder.py`
+  - `repositories.py` → `repos.py`
+  - `vectorstore.py` → `store.py`
+  - `observability.py` → `telemetry.py`
+  - `generation.py` → `gen.py`
+  - `conversation.py` → `conv.py`
+  - `ingestion.py` → `ingest.py`
+  - `documents.py` → `parsers.py`
+  - `helper/evaluation.py` → `helper/eval.py`
 
 ### 2.5 Make remaining private `_STOPWORDS` public
 - [x] `helper/evaluation.py`: `_STOPWORDS` → `STOPWORDS`
@@ -190,7 +204,14 @@
 - [x] Added top-level exports: `RAG`, `Settings`, `RagHubError`, `MissingDep`
 
 ### 3.4 Move helper/ files into themed subpackages
-- [x] Skipped: `helper/` files remain at `raghub/helper/` because converting files into packages requires adding `__init__.py` + renaming `helper/foo.py` to `helper/foo/__init__.py` (or similar), which provides no real readability gain over the current flat-module layout. The existing structure already separates concerns clearly.
+- [x] All helper modules converted to themed subpackages:
+  - `helper/retrieval.py` → `retrieval/` (package)
+  - `helper/services.py` → `services/` (package)
+  - `helper/storage.py` → `stores/` (package)
+  - `helper/tools.py` → `tools/` (package)
+  - `helper/eval.py` → `eval/` (package)
+  - `helper/documents.py` → `lifecycle/` (package; renamed top-level `docs.py` → `parsers.py` to avoid naming conflict)
+  - `helper/` keeps only the shallow helpers: `auth.py`, `cli.py`, `rate_limit.py`, `response.py`, `search.py`, `sse.py`
 
 ---
 
@@ -202,7 +223,20 @@
 - [x] Added `sample_chunk`, `sample_chunks`, `sample_vectors` fixtures
 
 ### 4.2 Restore well-written test files from 865e194
-- [x] Skipped restoring the 13 deleted test files (most used class/import names that no longer exist after Phase 2 renames; rewriting each by hand would have been ~13 atomic commits of busywork). Replaced with a fresh, smaller suite (7 files, 34 tests) covering the same critical paths but updated to current names.
+- [x] All 13 deleted test files restored from commit `865e194` and adapted to current class/module/function names:
+  - `tests/test_vectorstore_memory.py` → `tests/test_store_memory.py` (renamed for store.py module)
+  - `tests/test_embeddings.py` (extended existing `tests/test_embedder.py`)
+  - `tests/test_llm.py`
+  - `tests/test_pipeline.py`
+  - `tests/test_rag_facade.py`
+  - `tests/test_config_validation.py`
+  - `tests/test_ingestion.py`
+  - `tests/test_services.py`
+  - `tests/test_exceptions.py`
+  - `tests/test_hypothesis_properties.py`
+  - `tests/test_production_readiness.py`
+  - `tests/test_end_to_end.py`
+  - `tests/test_storage_database.py`
 
 ### 4.3 Write SqliteVectorStore tests (new)
 - [x] `tests/test_sqlite_store.py`:
@@ -237,8 +271,8 @@
 - [x] `tests/test_model_validators.py`: ChunkRecord.checksum required, RetrievalHit chunk_id-match, Response citation/source consistency, PipelineResult error-required-on-failure
 
 ### 4.7 Remove stale pyproject.toml test references
-- [x] Removed stale `[tool.ruff.lint.per-file-ignores]` entries for files that no longer exist (`tests/test_hypothesis_properties.py`, `tests/test_cli_commands.py`, `tests/test_production_readiness.py`)
-- [x] `--cov-fail-under=85` left in place (matches current 34-test suite; will need to be raised as more tests are added)
+- [x] All stale `[tool.ruff.lint.per-file-ignores]` entries removed (entire `[tool.ruff.lint.per-file-ignores]` table dropped since no per-file exemptions were needed after the test restorations)
+- [x] `--cov-fail-under=85` left in place
 
 ---
 
@@ -299,8 +333,14 @@
 - `pip install raghub` installs **10 core deps** (was 33)
 - `RAG()` works **without any API key** via `HeuristicProvider`
 - `raghub --help` exits 0
-- **34 tests passing** in `tests/`
-- **ruff clean** on all of `raghub/`
+- **323 tests passing** (was 34) — 13 test files restored from `865e194` and adapted to current API
+- **ruff clean** on all of `raghub/` and `tests/`
 - All renames applied, **no backward-compat aliases** (per user request)
 - `__all__` declared on 18 modules
-- Re-export wrappers deleted; canonical `raghub.helper.*` paths used everywhere
+- 10 modules renamed to single-word names (errors, embedder, repos, store, telemetry, gen, conv, ingest, parsers, eval)
+- 6 themed subpackages created: retrieval, services, stores, tools, eval, lifecycle
+- Bugs surfaced and fixed by the restored tests:
+  - `FinanceBench.evaluate` calling `self.within_tolerance` (didn't exist on self)
+  - `MemoryStore.matches_metadata_dict` exact-equality breaking RBAC list filters
+  - `WordChunker.chunk_text` not setting `Chunk.checksum`
+  - `IngestPipeline.run` incremental path not setting `Chunk.checksum`
