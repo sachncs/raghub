@@ -8,13 +8,13 @@ within 48 hours and provide a timeline for resolution.
 
 ## Supported Versions
 
-Security patches are released for the latest tag on the `main`
+Security patches are released for the latest tag on the `master`
 branch. The release workflow uses OIDC trusted publishing; there
 is no long-lived PyPI API token in CI.
 
 | Branch | Status |
 |---|---|
-| `main` | Supported — current release line |
+| `master` | Supported — current release line |
 | Older tags | Best effort |
 
 ## Hardening checklist (production)

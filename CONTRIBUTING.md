@@ -3,8 +3,9 @@
 ## Development Setup
 
 ```bash
-./setup.sh
+python -m venv .venv
 source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
 ## Code Style
@@ -13,33 +14,20 @@ source .venv/bin/activate
 - No underscore prefix on public names
 - No inline comments in code
 - Type hints everywhere
+- Single-word class names preferred; protocols use a `Protocol` suffix
+  when they collide with concrete classes (`GeneratorProtocol`,
+  `ToolProtocol`, `SessionStoreProtocol`)
 
 ## Before Submitting
 
-1. Run tests: `python -m pytest tests/ -v`
+1. Run tests: `pytest tests/ -q`
 2. Run linter: `ruff check raghub/ tests/`
-3. Run type checker: `mypy raghub/`
-4. Ensure all FinanceBench tests pass: `FINANCEBENCH_EVAL=1 python -m pytest tests/test_financebench.py -xvs`
-
-## Test Environment Variables
-
-The following environment variables gate optional / slow test suites.
-Set them only when you want the corresponding tests to run; they
-default to **off** so the local `pytest` run stays fast.
-
-| Variable                     | Effect                                                                 |
-|------------------------------|------------------------------------------------------------------------|
-| `FINANCEBENCH_EVAL=1`         | Runs the `tests/test_financebench.py` evaluation suite against the downloaded FinanceBench dataset. |
-
-Example:
-
-```bash
-FINANCEBENCH_EVAL=1 pytest -q tests/test_financebench.py
-```
+3. Run coverage gate: `pytest tests/ --cov=raghub --cov-fail-under=85`
+4. CI runs on push to `master` and on PRs; both jobs must pass.
 
 ## Pull Request Process
 
-1. Create a feature branch from `main`
-2. Make your changes
-3. Ensure all checks pass
-4. Open a PR against `main`
+1. Create a feature branch from `master`
+2. Make your changes in atomic commits
+3. Ensure all checks pass locally
+4. Open a PR against `master`
