@@ -40,9 +40,9 @@ from tqdm import tqdm
 
 from raghub.agent import Agent, AgentTrace
 from raghub.conversation import MemoryConversations
-from raghub.documents import PlainTextConverter
 from raghub.embeddings import Embedder
 from raghub.exceptions import PipelineError, VectorStoreError
+from raghub.helper.documents import PlainTextConverter
 from raghub.knowledge import MemoryRepo
 from raghub.llm import BaseLLMProvider
 from raghub.models import (
