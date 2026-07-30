@@ -47,7 +47,7 @@ from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
 from raghub.config import Settings
 from raghub.conversation import InMemoryConversationStore
 from raghub.embeddings import BaseEmbeddingProvider, HashingEmbeddingProvider
-from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
+from raghub.exceptions import ConfigurationError, IngestionError, RagHubError, ValidationError
 from raghub.generation import DefaultGenerator
 from raghub.helper.evaluation import FinanceBench
 from raghub.helper.response import ResponseBuilder
@@ -719,10 +719,15 @@ class RAG:
             uri = source_uri or "bytes://memory"
         if not file_bytes:
             raise IngestionError(f"ingest({source!r}) received empty bytes; nothing to index.")
-        return cast(
+        result = cast(
             PipelineResult,
             maybe_await(self.ingest_one_async(file_bytes, uri, mime_type, metadata, force, user)),
         )
+        if not result.success:
+            raise IngestionError(
+                f"ingest({source!r}) failed: {result.error}"
+            )
+        return result
 
     def ingest_directory_sync(
         self,
@@ -1122,7 +1127,12 @@ class RAG:
 
         Returns:
             A typed :class:`Response`.
+
+        Raises:
+            ValidationError: When ``question`` is empty or whitespace-only.
         """
+        if not question or not question.strip():
+            raise ValidationError("query() requires a non-empty question")
         scoped = self.scoped_session_id(user, session_id)
         context = PipelineContext(
             pipeline_name="query",
