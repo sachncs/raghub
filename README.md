@@ -33,14 +33,14 @@ indexed every chunk.
 
 | Concern | Library |
 |---|---|
-| Document Conversion | [Marker](https://github.com/datalab-to/marker) |
+| Document Conversion | [Marker](https://github.com/datalab-to/marker) (optional `[pdf]`) |
 | Knowledge Format | Open Knowledge Format (OKF) |
 | Chunking | [Chonkie](https://github.com/chonkie-inc/chonkie) |
 | LLM + Embeddings | [LiteLLM](https://github.com/BerriAI/litellm) |
-| Structured Outputs | [Instructor](https://github.com/567-labs/instructor) |
-| Vector Store | [Qdrant](https://github.com/qdrant/qdrant) (ZVec optional) |
-| Observability | [Langfuse](https://github.com/langfuse/langfuse) |
-| Benchmark | [FinanceBench](https://github.com/patronus-ai/financebench) |
+| Structured Outputs | [Instructor](https://github.com/567-labs/instructor) (optional `[structured]`) |
+| Vector Store | SQLite (in-process) |
+| Observability | Langfuse (optional `[langfuse]`) / Prometheus / OpenTelemetry |
+| Benchmark | FinanceBench |
 
 ## Features
 
@@ -73,7 +73,7 @@ See [`docs/ADVANCED_RAG.md`](docs/ADVANCED_RAG.md) for the full reference.
 
 ```bash
 pip install raghub
-pip install "raghub[api,ui,zvec]"   # optional extras
+pip install "raghub[api,ui,structured,langfuse,pdf]"   # optional extras
 ```
 
 ### From source
@@ -89,9 +89,20 @@ pip install -e ".[dev,api,ui]"
 | `dev` | pytest, ruff, mypy, hypothesis, types-PyYAML, interrogate, mkdocs, build, bandit, pip-audit |
 | `api` | FastAPI, uvicorn, python-multipart |
 | `ui` | Streamlit |
-| `zvec` | [ZVec](https://github.com/zilliztech/zvec) vector store (opt-in) |
+| `pdf` | marker-pdf, pypdf |
+| `graph` | python-igraph, leidenalg, scikit-learn |
+| `rerank` | cohere, ragatouille, rank-bm25 |
+| `web` | duckduckgo-search |
+| `docs` | beautifulsoup4, Pillow, openpyxl, python-docx, python-pptx |
+| `auth` | bcrypt, aiosqlite |
+| `otel` | opentelemetry-api, opentelemetry-sdk, opentelemetry-instrumentation-fastapi |
+| `langfuse` | langfuse |
+| `tiktoken` | tiktoken |
+| `structured` | instructor |
+| `eval` | datasets |
+| `all` | everything |
 
-All spec libraries (Marker, Chonkie, LiteLLM, Instructor, Qdrant, Langfuse, datasets) are installed by default. For a minimal environment use `pip install -e ".[dev]"`. The `zvec` extra pulls a native extension and is no longer part of the default install.
+Core deps only: pydantic, numpy, PyYAML, chonkie, litellm, loguru, tqdm, typer, prometheus-client, rank-bm25. Optional extras add the rest.
 
 ## Quick Start
 
@@ -99,17 +110,28 @@ All spec libraries (Marker, Chonkie, LiteLLM, Instructor, Qdrant, Langfuse, data
 
 ```python
 from raghub import RAG
-from raghub.models import UserPrincipal
 
 rag = RAG()
-alice = UserPrincipal(user_id="alice", email="alice@x", allowed_companies=["Apple"])
-rag.ingest(open("report.pdf", "rb").read(), source_uri="file://report.pdf", user=alice)
-response = await rag.aquery("What was the revenue?", user=alice, session_id="alice-s1")
-print(response.answer)
-print(response.citations)
+rag.ingest(b"Revenue grew 12 percent in Q3 2024.")
+print(rag.query("revenue").answer)
 ```
 
-No API keys required — RAGHub falls back to deterministic in-process providers for all spec libraries.
+Or with async:
+
+```python
+import asyncio
+from raghub import RAG
+
+async def main():
+    rag = RAG()
+    rag.ingest(b"Revenue grew 12 percent in Q3 2024.")
+    result = await rag.aquery("revenue")
+    print(result.answer)
+
+asyncio.run(main())
+```
+
+No API keys required — RAGHub falls back to `HeuristicProvider` for offline use. Set `RAG_LLM_API_KEY` (or any provider-specific env var) for real LLM completions.
 
 ### CLI
 
@@ -155,19 +177,31 @@ module-level singleton.
 
 Settings live in :mod:`raghub.config` and are loaded by
 :meth:`Settings.load` from environment variables plus an optional
-profile. There is no `.env` file or Docker layer — every config
-value is read from `os.environ` at process start, and missing
-required values (e.g. `JWT_SECRET` in production) raise
-immediately. See `Settings.load()` for the full env-var contract.
+profile. Every config value is read from `os.environ` at process
+start, and missing required values (e.g. `JWT_SECRET` in
+production) raise immediately. See `Settings.load()` for the full
+env-var contract.
+
+Profile search order (first match wins):
+
+1. `RAG_CONFIG_DIR` env var (explicit override)
+2. `./config` relative to CWD
+3. `~/.config/raghub` (XDG-style user config)
+4. Bundled `config/` shipped with the package
+
+Real credentials belong in `.env` (gitignored). See `.env.example`
+for the template used by `devtools/financebench.py`.
 
 ## Multi-User & RBAC
 
-Every public query method accepts a `UserPrincipal`. The retrieval layer is filtered to the user's `allowed_companies`; admins see everything. The LLM is given only the authorised context — there is no path by which unauthorised content can leak into the prompt.
+Every public query method accepts a `User`. The retrieval layer is filtered to the user's `allowed_companies`; admins see everything. The LLM is given only the authorised context — there is no path by which unauthorised content can leak into the prompt.
 
 ```python
-alice = UserPrincipal(user_id="alice", email="alice@x", allowed_companies=["Apple"])
-bob   = UserPrincipal(user_id="bob",   email="bob@x",   allowed_companies=["Microsoft"])
-admin = UserPrincipal(user_id="admin", email="admin@x", is_admin=True)
+from raghub.models import User
+
+alice = User(user_id="alice", email="alice@x", allowed_companies=["Apple"])
+bob   = User(user_id="bob",   email="bob@x",   allowed_companies=["Microsoft"])
+admin = User(user_id="admin", email="admin@x", is_admin=True)
 
 rag.query("revenue", user=alice)   # Apple-only chunks
 rag.query("revenue", user=bob)     # Microsoft-only chunks
@@ -178,7 +212,7 @@ A user with no `allowed_companies` and no `is_admin` sees no documents (the filt
 
 ## Conversational RAG
 
-Every public query method accepts a `session_id`. The pipeline loads the most recent turns from `InMemoryConversationStore` (or a custom `ConversationStore`) and prepends them to the prompt so the LLM can answer follow-up questions.
+Every public query method accepts a `session_id`. The pipeline loads the most recent turns from `MemoryConversations` (or a custom `ConversationStore`) and prepends them to the prompt so the LLM can answer follow-up questions.
 
 ```python
 await rag.aquery("revenue", user=alice, session_id="alice-s1")
@@ -191,7 +225,9 @@ await rag.aquery("and growth?", user=alice, session_id="alice-s1")
 | Setting | Env Variable | Default | Description |
 |---------|--------------|---------|-------------|
 | `RAGHUB_USERS` | yes | inline demo users | JSON path or inline JSON for the user directory (Streamlit UI) |
-| `RAG_LLM_API_KEY` | yes | unset | LLM provider key (OpenAI, Anthropic, NVIDIA, etc.) |
+| `RAG_LLM_API_KEY` | yes | unset | LLM provider key (preferred; falls back to `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `NVIDIA_API_KEY`, `GROQ_API_KEY`, `LITELLM_API_KEY`) |
+| `RAG_LLM_BASE_URL` | yes | unset | OpenAI-compatible base URL (e.g. `https://api.openai.com/v1`) |
+| `RAG_LLM_MODEL` | yes | `gpt-4o-mini` | Model name passed to LiteLLM |
 | `JWT_SECRET` | yes | random | Opaque session-token signing secret (≥32 bytes) |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | yes | unset | Langfuse credentials |
 | Constructor kwargs | no | — | Passed to `RAG(...)` (highest precedence) |
@@ -203,28 +239,28 @@ Precedence (highest first): constructor arguments → env vars → built-in defa
 | Symbol | Type | Description |
 |--------|------|-------------|
 | `raghub.RAG` | class | Single facade; lazy-imports every collaborator |
-| `raghub.build_application` | function | Legacy application builder |
-| `raghub.models.UserPrincipal` | model | Per-user identity with `allowed_companies` and `is_admin` |
-| `raghub.api.app:get_app` | factory | FastAPI app factory (use `uvicorn raghub.api.app:get_app --factory`) |
-| `raghub.plugins.registry.PluginRegistry` | class | Register converters, chunkers, vector stores, etc. |
-| `raghub.evaluation.FinanceBenchEvaluator` | class | Recall@K, Precision@K, MRR, Faithfulness, Context Recall/Precision, Answer Correctness |
-| `raghub.cli.main` | CLI | `raghub init / ingest / query / health / version` |
-| `raghub.cli.eval_cmd.main` | CLI | `raghub-financebench --examples N` |
+| `raghub.config.Settings` | class | Typed configuration loaded from env + YAML |
+| `raghub.models.User` | model | Per-user identity with `allowed_companies` and `is_admin` |
+| `raghub.api:get_app` | factory | FastAPI app factory (use `uvicorn raghub.api:get_app --factory`) |
+| `raghub.plugins.PluginRegistry` | class | Register converters, chunkers, vector stores, etc. |
+| `raghub.helper.evaluation.FinanceBench` | class | Recall@K, Precision@K, MRR, Faithfulness, Context Recall/Precision, Answer Correctness |
+| `raghub.cli:main` | CLI | `raghub init / ingest / query / health / version` |
+| `raghub-financebench` | CLI | `raghub-financebench --examples N` |
 
 ## Examples
 
 Plugins register converters, chunkers, embedders, vector stores, retrievers, rerankers, generators, telemetry providers, and evaluators on `PluginRegistry`. They are discovered via entry points (`group="raghub.plugins"`) and can be registered programmatically:
 
 ```python
-from raghub.plugins.registry import PluginRegistry
-from raghub.converters.marker import MarkerConverter
+from raghub.plugins import PluginRegistry
+from raghub.documents import Marker
 
 registry = PluginRegistry()
-registry.register_converter("marker", MarkerConverter())
+registry.register_converter("marker", Marker())
 rag = RAG(registry=registry)
 ```
 
-Structured output with Pydantic:
+Structured output with Pydantic (requires `pip install raghub[structured]`):
 
 ```python
 from pydantic import BaseModel
@@ -235,40 +271,50 @@ class Revenue(BaseModel):
 
 result = await rag.aquery(
     "What was 2024 revenue?",
-    user=alice,
     response_model=Revenue,
 )
-print(result.amount, result.currency)
+print(result.structured.amount, result.structured.currency)
 ```
 
 ## Project Structure
 
 ```
 raghub/
-├── src/raghub/
-│   ├── api/                # RAG facade, FastAPI, Streamlit
-│   ├── config/             # YAML / TOML configuration
-│   ├── models/             # Typed Pydantic domain models (Document, Chunk, Citation)
-│   ├── interfaces/         # Protocol contracts (DocumentConverter, VectorStore)
-│   ├── converters/         # Marker, plain-text, OKF normaliser
-│   ├── knowledge/          # OKF serialisation + InMemoryKnowledgeRepository
-│   ├── ingestion/          # IngestPipeline (convert → chunk → embed → upsert)
-│   ├── embeddings/         # LiteLLM, SentenceTransformers, hashing
-│   ├── vectorstore/        # Qdrant, ZVec, InMemory
-│   ├── llm/                # LiteLLM, Heuristic
-│   ├── structured/         # Instructor
-│   ├── retrieval/          # Pipeline, IdentityReranker
-│   ├── generation/         # DefaultGenerator (citations, astream, token usage)
-│   ├── pipelines/          # IngestPipeline, QueryPipeline
-│   ├── observability/      # NoOpTelemetry, RedactingTelemetry, StructlogTelemetryProvider
-│   ├── telemetry/          # LangfuseTelemetryProvider, NoopSpan, LangfuseSpan
-│   ├── evaluation/         # FinanceBenchEvaluator, retrieval metrics
-│   ├── plugins/            # PluginRegistry, entry-point discovery
- │   └── cli/                # CLI commands (health, ingest, query, init, eval)
- ├── tests/                  # Run `pytest --collect-only` for the current count
- ├── devtools/               # Bench harness, lock builder, example scripts
- ├── streamlit_app.py        # Demo Streamlit UI
- └── pyproject.toml
+├── raghub/                 # The library
+│   ├── __init__.py         # Public entry: from raghub import RAG
+│   ├── rag.py              # Single RAG(...) facade
+│   ├── config.py           # Settings (env + YAML)
+│   ├── models.py           # Pydantic domain models
+│   ├── exceptions.py       # Typed error hierarchy
+│   ├── llm.py              # LiteLLMProvider, HeuristicProvider
+│   ├── embeddings.py       # Hasher, LiteLLMEmbedder
+│   ├── vectorstore.py      # MemoryStore, SqliteStore
+│   ├── ingestion.py        # Chunker, Ingestor, Resumable
+│   ├── pipeline.py         # IngestPipeline, QueryPipeline
+│   ├── generation.py       # DefaultGenerator, Instructor
+│   ├── retrieval.py is replaced by raghub/helper/retrieval.py
+│   ├── helper/             # Internal collaborators
+│   │   ├── retrieval.py    # Rerankers, transformers, fusion
+│   │   ├── services.py     # RagContainer, Facade
+│   │   ├── storage.py      # Database, Sessions, ImageStore
+│   │   ├── tools.py        # ToolRegistry + 7 built-in tools
+│   │   ├── documents.py    # Lifecycle, ChunkingPlan, Marker
+│   │   ├── evaluation.py   # Metrics, FinanceBench
+│   │   ├── cli.py          # CLI command classes
+│   │   ├── auth.py         # FastAPI auth helpers
+│   │   └── sse.py          # SSE framing
+│   ├── knowledge.py        # RAPTOR, GraphRAG
+│   ├── conversation.py     # MemoryConversations, SlidingWindow
+│   ├── observability.py    # Telemetry providers, Prometheus metrics
+│   ├── agent.py            # ReAct planner + tools
+│   ├── auth.py             # UserStore, AuthService, Authz
+│   ├── repositories.py     # ChunkStore, DocStore, SessionStore
+│   ├── cli.py              # raghub CLI entry
+│   └── api.py              # FastAPI app
+├── tests/                  # 34+ tests, no hard count
+├── devtools/               # Bench harness, lock builder
+├── streamlit_app.py        # Demo Streamlit UI
+└── pyproject.toml
 ```
 
 ## Development
@@ -355,15 +401,15 @@ Reports are written to `devtools/report.json`.
 | Category | Technology |
 |----------|------------|
 | Language | Python 3.12+ |
-| Document conversion | Marker |
+| Document conversion | Marker (optional `[pdf]`) |
 | Chunking | Chonkie |
 | LLM / embeddings | LiteLLM |
-| Structured output | Instructor |
-| Vector store | Qdrant (ZVec optional) |
-| Observability | Langfuse, OpenTelemetry, Prometheus, structlog |
+| Structured output | Instructor (optional `[structured]`) |
+| Vector store | SQLite (in-process) |
+| Observability | Langfuse, OpenTelemetry, Prometheus, loguru |
 | Knowledge format | Open Knowledge Format (OKF) |
-| Web framework | FastAPI |
-| Demo UI | Streamlit |
+| Web framework | FastAPI (optional `[api]`) |
+| Demo UI | Streamlit (optional `[ui]`) |
 | Evaluation | FinanceBench |
 | Lint / format | ruff |
 | Type check | mypy (strict optional) |
