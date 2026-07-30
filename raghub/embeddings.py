@@ -7,7 +7,7 @@ This module ships:
   embedder backed by feature hashing.
 * :class:`LiteLLMEmbedder` — production embedder, backed by
   LiteLLM (any provider: OpenAI, NVIDIA, Cohere, Bedrock, …).
-* :func:`build_embedding_provider` — chooses the implementation from
+* :func:`build_embedder` — chooses the implementation from
   the model name.
 """
 
@@ -205,7 +205,7 @@ class LiteLLMEmbedder(Embedder):
         ]
 
 
-def build_embedding_provider(
+def build_embedder(
     model_name: str,
     dimension: int,
     api_key: str | None = None,

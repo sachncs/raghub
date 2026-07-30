@@ -471,7 +471,7 @@ CONTEXT_SYSTEM_PROMPT = (
 )
 
 
-def build_context_prompt(question: str, hits: Sequence[RetrievalHit]) -> str:
+def context_prompt(question: str, hits: Sequence[RetrievalHit]) -> str:
     """Assemble the long-context prompt."""
     lines = [f"Question: {question}", "", "Candidates:"]
     for idx, hit in enumerate(hits):
@@ -589,7 +589,7 @@ class Context:
                 system_prompt=CONTEXT_SYSTEM_PROMPT,
                 conversation=[],
                 context=[],
-                question=build_context_prompt(question, candidates),
+                question=context_prompt(question, candidates),
             )
             parsed = extract_json_object(raw or "")
             if parsed is None:
@@ -1669,9 +1669,9 @@ __all__ = [
     "Transformer",
     "Variant",
     "areranker",
-    "build_context_prompt",
     "build_filter",
     "build_reranker",
+    "context_prompt",
     "decompose_prompt",
     "extract_json_array",
     "extract_json_object",

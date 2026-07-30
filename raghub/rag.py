@@ -222,7 +222,7 @@ def default_vector_store(embedding_dim: int) -> Any:
 
     Returns:
         :class:`MemoryStore` for the in-process test/dev path.
-        The full pipeline factory :func:`raghub.vectorstore.build_vector_store`
+        The full pipeline factory :func:`raghub.vectorstore.build_store`
         is used by the rest of the framework and points at a SQLite-backed
         store (sqlite-vector when installed, NumPy fallback otherwise).
     """

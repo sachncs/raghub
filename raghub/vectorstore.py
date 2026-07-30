@@ -669,7 +669,7 @@ class SqliteStore(Store):
 # ---------------------------------------------------------------------------
 
 
-def build_vector_store(
+def build_store(
     settings: Settings,
     *,
     embedding_dim: int | None = None,
@@ -686,7 +686,7 @@ def build_vector_store(
     from raghub.config import Settings
 
     if not isinstance(settings, Settings):
-        raise TypeError(f"build_vector_store: expected Settings, got {type(settings).__name__}")
+        raise TypeError(f"build_store: expected Settings, got {type(settings).__name__}")
     dim = embedding_dim if embedding_dim is not None else settings.embedding_dim
     override = os.environ.get("RAG_VECTORSTORE_PATH")
     path = override or str(settings.data_dir / "vectorstore.sqlite")
@@ -698,7 +698,7 @@ __all__ = [
     "MemoryVectorRecord",
     "SqliteStore",
     "Store",
-    "build_vector_store",
+    "build_store",
     "matches_metadata_dict",
     "matches_metadata_string",
 ]
