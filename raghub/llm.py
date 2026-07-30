@@ -23,7 +23,7 @@ from typing import Any, Literal, Self
 
 import litellm
 
-from raghub.exceptions import ConfigurationError, LLMError
+from raghub.errors import ConfigurationError, LLMError
 from raghub.models import ConversationTurn
 from raghub.utils import aretry, retry
 

@@ -40,10 +40,10 @@ from raghub.config import Settings
 if TYPE_CHECKING:
     from raghub.auth import Authz, SqliteUsers
 
-from raghub.conversation import ConversationManager
+from raghub.conv import ConversationManager
 from raghub.core import can_access_company
-from raghub.embeddings import Embedder, build_embedder
-from raghub.exceptions import AuthorizationError, DocumentError
+from raghub.embedder import Embedder, build_embedder
+from raghub.errors import AuthorizationError, DocumentError
 from raghub.helper.documents import Catalog, Lifecycle, detect_mime_type
 from raghub.helper.retrieval import (
     Identity as IdentityReranker,
@@ -52,7 +52,7 @@ from raghub.helper.retrieval import (
     Retrieval as RetrievalPipeline,
 )
 from raghub.helper.storage import ImageStore, Sessions
-from raghub.ingestion import IngestionResult, Ingestor
+from raghub.ingest import IngestionResult, Ingestor
 from raghub.llm import Generator, build_llm
 from raghub.models import (
     AuthLoginResponse,
@@ -63,6 +63,9 @@ from raghub.models import (
     TaskQueue,
     User,
 )
+from raghub.prompts import PromptBuilder
+from raghub.repos import UnitOfWork
+from raghub.store import Store, build_store
 
 # `Facade` is the public class; `RagApplication` was a prior name.
 # ``from raghub.services import Facade`` without churn. Define a
@@ -70,10 +73,7 @@ from raghub.models import (
 # services → helper.services) resolve at every intermediate step; the real
 # alias lands at the bottom once ``Facade`` exists.
 # placeholder removed; Facade alias defined near the bottom.
-from raghub.observability import PrometheusMetrics, build_logger
-from raghub.prompts import PromptBuilder
-from raghub.repositories import UnitOfWork
-from raghub.vectorstore import Store, build_store
+from raghub.telemetry import PrometheusMetrics, build_logger
 
 # ---------------------------------------------------------------------------
 # Mixin shared by every service

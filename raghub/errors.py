@@ -152,7 +152,7 @@ class DynamicRagError(RagHubError):
     """Alias for :class:`RagHubError`.
 
     New code should prefer :class:`RagHubError`. This alias is kept so
-    existing imports (``from raghub.exceptions import DynamicRagError``)
+    existing imports (``from raghub.errors import DynamicRagError``)
     continue to work.
     """
 

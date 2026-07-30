@@ -21,8 +21,8 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
 
-from raghub.embeddings import Embedder
-from raghub.exceptions import KnowledgeError
+from raghub.embedder import Embedder
+from raghub.errors import KnowledgeError
 from raghub.llm import Generator
 from raghub.models import (
     BlockKind,

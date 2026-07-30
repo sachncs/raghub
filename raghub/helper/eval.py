@@ -30,7 +30,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from raghub.exceptions import EvaluationError
+from raghub.errors import EvaluationError
 from raghub.models import EvaluationResult, Evaluator
 from raghub.utils import capture
 

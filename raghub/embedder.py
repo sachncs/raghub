@@ -21,7 +21,7 @@ from typing import Any
 import litellm
 import numpy as np
 
-from raghub.exceptions import ConfigurationError
+from raghub.errors import ConfigurationError
 
 __all__ = [
     "Embedder",

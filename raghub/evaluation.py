@@ -12,7 +12,7 @@ from typing import Any
 
 import typer
 
-from raghub.helper.evaluation import (
+from raghub.helper.eval import (
     TOKEN_RE,
     FinanceBench,
     FramesBenchmark,

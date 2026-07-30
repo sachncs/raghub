@@ -39,9 +39,9 @@ from typing import Any, cast
 from tqdm import tqdm
 
 from raghub.agent import Agent, AgentTrace
-from raghub.conversation import MemoryConversations
-from raghub.embeddings import Embedder
-from raghub.exceptions import PipelineError, VectorStoreError
+from raghub.conv import MemoryConversations
+from raghub.embedder import Embedder
+from raghub.errors import PipelineError, VectorStoreError
 from raghub.helper.documents import PlainTextConverter
 from raghub.knowledge import MemoryRepo
 from raghub.llm import Generator
@@ -68,7 +68,7 @@ GeneratorProtocol,
     VectorStore,
     deterministic_id,
 )
-from raghub.observability import NoOpTelemetry
+from raghub.telemetry import NoOpTelemetry
 from raghub.utils import retry as retry_sync
 
 __all__ = [
@@ -408,7 +408,7 @@ class IngestPipeline(Pipeline):
         graph: Any | None = None,
     ) -> None:
         """Initialise the ingest pipeline."""
-        from raghub.ingestion import WordChunker
+        from raghub.ingest import WordChunker
 
         if embedder is None or vector_store is None:
             raise PipelineError("IngestPipeline requires embedder and vector_store")

@@ -491,7 +491,7 @@ def _env_int(name: str, default: int) -> int:
     try:
         return int(raw)
     except ValueError as exc:
-        from raghub.exceptions import ConfigurationError
+        from raghub.errors import ConfigurationError
 
         raise ConfigurationError(
             f"{name}={raw!r} is not a valid integer"
@@ -518,7 +518,7 @@ def _env_float(name: str, default: float) -> float:
     try:
         return float(raw)
     except ValueError as exc:
-        from raghub.exceptions import ConfigurationError
+        from raghub.errors import ConfigurationError
 
         raise ConfigurationError(
             f"{name}={raw!r} is not a valid float"

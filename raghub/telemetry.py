@@ -49,7 +49,7 @@ from loguru import logger as loguru_logger
 from prometheus_client import REGISTRY, CollectorRegistry, Counter, Histogram
 from prometheus_client.openmetrics.exposition import generate_latest
 
-from raghub.exceptions import ConfigurationError, MissingDep
+from raghub.errors import ConfigurationError, MissingDep
 from raghub.models import Logger, Metrics, Span, TelemetryProvider
 from raghub.utils import capture
 

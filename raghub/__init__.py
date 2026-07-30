@@ -13,7 +13,7 @@ work without a separate ``raghub.rag`` import.
 """
 
 from raghub.config import Settings
-from raghub.exceptions import MissingDep, RagHubError
+from raghub.errors import MissingDep, RagHubError
 
 __all__ = ["RAG", "MissingDep", "RagHubError", "Settings"]
 

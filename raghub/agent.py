@@ -28,7 +28,7 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel, Field
 
 from raghub.config import AgentConfig, Settings
-from raghub.exceptions import AgentBudgetExceeded, LLMError, ToolError
+from raghub.errors import AgentBudgetExceeded, LLMError, ToolError
 from raghub.helper.tools import (
     DateToday,
     GraphSearch,
@@ -42,7 +42,7 @@ from raghub.helper.tools import (
     WebSearch,
 )
 from raghub.models import ConversationTurn, User
-from raghub.observability import NoOpTelemetry
+from raghub.telemetry import NoOpTelemetry
 from raghub.utils import capture
 
 __all__ = [

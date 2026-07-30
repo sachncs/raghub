@@ -39,8 +39,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from raghub.embeddings import Embedder
-from raghub.exceptions import (
+from raghub.embedder import Embedder
+from raghub.errors import (
     ConfigurationError,
     DocumentError,
 )
@@ -67,7 +67,7 @@ from raghub.models import (
     deterministic_id,
 )
 from raghub.pipeline import IngestPipeline
-from raghub.repositories import UnitOfWork
+from raghub.repos import UnitOfWork
 from raghub.utils import capture
 
 __all__ = [

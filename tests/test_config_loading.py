@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from raghub.config import Settings
-from raghub.exceptions import ConfigurationError
+from raghub.errors import ConfigurationError
 
 
 def test_settings_default_loading():

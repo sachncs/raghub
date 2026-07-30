@@ -21,7 +21,7 @@ def test_rag_ingest_and_query_roundtrip():
 
 def test_rag_empty_query_raises():
     from raghub import RAG
-    from raghub.exceptions import ValidationError
+    from raghub.errors import ValidationError
 
     rag = RAG()
     try:
@@ -34,7 +34,7 @@ def test_rag_empty_query_raises():
 
 def test_rag_empty_ingest_raises():
     from raghub import RAG
-    from raghub.exceptions import IngestionError
+    from raghub.errors import IngestionError
 
     rag = RAG()
     try:

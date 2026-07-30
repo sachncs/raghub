@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from raghub.exceptions import VectorStoreError
-from raghub.vectorstore import SqliteStore
+from raghub.errors import VectorStoreError
+from raghub.store import SqliteStore
 
 
 @pytest.fixture
