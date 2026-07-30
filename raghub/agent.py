@@ -45,6 +45,14 @@ from raghub.tools import (
 )
 from raghub.utils import capture
 
+__all__ = [
+    "Agent",
+    "AgentTrace",
+    "PlannerEvent",
+    "build_tool_registry",
+    "resolve",
+]
+
 # ---------------------------------------------------------------------------
 # Planner events
 # ---------------------------------------------------------------------------
