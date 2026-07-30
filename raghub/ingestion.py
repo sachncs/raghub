@@ -68,6 +68,15 @@ from raghub.pipeline import IngestPipeline
 from raghub.repositories import UnitOfWork
 from raghub.utils import capture
 
+__all__ = [
+    "Batch",
+    "Chonkie",
+    "Ingestor",
+    "Resumable",
+    "WordChunker",
+    "build_chonkie_chunker",
+]
+
 # ---------------------------------------------------------------------------
 # Chunkers
 # ---------------------------------------------------------------------------
