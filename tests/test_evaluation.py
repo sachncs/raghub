@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import pytest
 
 from raghub.errors import ConfigurationError
-from raghub.eval import LlmJudge, QualityGate, _parse_score
+from raghub.eval import LlmJudge, QualityGate, _parse_score, ab_test
 
 # ---------------------------------------------------------------------------
 # Pure parser tests (_parse_score)
@@ -344,3 +345,226 @@ def test_quality_gate_multiple_breaches_reported_together() -> None:
     msg = str(exc_info.value)
     assert "recall_at_5" in msg
     assert "faithfulness" in msg
+
+
+# ---------------------------------------------------------------------------
+# ab_test harness tests
+# ---------------------------------------------------------------------------
+
+
+class _FakeEvaluator:
+    """Mimics the Evaluator protocol without any dataset loading."""
+
+    benchmark: str = "fake"
+
+    async def evaluate(self, examples, *, response_factory):
+        results = []
+        from raghub.eval import Metrics
+        from raghub.models import EvaluationResult
+
+        for example in examples:
+            out = await response_factory(example)
+            if isinstance(out, tuple) and len(out) == 4:
+                answer, contexts, retrieved_ids, relevant_ids = out
+            elif isinstance(out, dict):
+                answer = out.get("answer", "")
+                contexts = out.get("contexts", []) or []
+                retrieved_ids = out.get("retrieved_ids", []) or []
+                relevant_ids = out.get("relevant_ids", []) or list(
+                    example.get("relevant_ids", [])
+                )
+            else:
+                answer = out
+                retrieved_ids = []
+                relevant_ids = list(example.get("relevant_ids", []))
+                contexts = []
+            metrics = Metrics.evaluate(
+                retrieved_ids=retrieved_ids,
+                relevant_ids=relevant_ids,
+                answer=answer,
+                contexts=contexts,
+                question=example.get("question", ""),
+                ground_truth=str(example.get("answer", "")),
+                k=5,
+            )
+            results.append(
+                EvaluationResult(
+                    benchmark=self.benchmark,
+                    example_id=str(example.get("id", "")),
+                    metrics=metrics,
+                    passed=True,
+                    predicted=answer,
+                )
+            )
+        return results
+
+
+class _FakeRAG:
+    """Minimal RAG stub that responds from ``aquery`` with a simple dict.
+
+    The :func:`ab_test` factory wraps the dict in a tuple expected
+    by :class:`_FakeEvaluator`. Keeping the response shape simple
+    avoids the SearchResult / ChunkRecord validation that the
+    real Response path requires.
+    """
+
+    def __init__(self, answer: str = "Paris", contexts: list[str] | None = None) -> None:
+        self.answer = answer
+        self.contexts = contexts or ["Capital of France is Paris."]
+        self.aquery_call_log: list[str] = []
+
+    async def aquery(self, question: str) -> Any:
+        """Return a dict that matches the (answer, contexts, retrieved_ids, relevant_ids) contract."""
+        self.aquery_call_log.append(question)
+        return {
+            "answer": self.answer,
+            "contexts": list(self.contexts),
+            "retrieved_ids": ["c1"],
+            "relevant_ids": ["c1"],
+        }
+
+
+def test_ab_test_runs_both_rags_and_reports_diffs() -> None:
+    """ab_test invokes both A and B and returns per-metric diffs."""
+    rag_a = _FakeRAG(answer="Paris")
+    rag_b = _FakeRAG(answer="Paris")
+    examples = [
+        {"question": "q1", "answer": "Paris", "contexts": ["the capital"]},
+        {"question": "q2", "answer": "Paris", "contexts": ["the capital"]},
+    ]
+
+    async def runner() -> dict:
+        return await ab_test(
+            rag_a=rag_a,
+            rag_b=rag_b,
+            examples=examples,
+            evaluator=_FakeEvaluator(),
+        )
+
+    result = asyncio.run(runner())
+    assert "a_metrics" in result
+    assert "b_metrics" in result
+    assert "metric_diffs" in result
+    assert "winner" in result
+    assert "gate_passed" in result
+    assert result["gate_passed"] is True
+    assert result["winner"] == "tie"
+
+
+def test_ab_test_winner_b_when_better() -> None:
+    """When B's metrics are higher across the board, winner is 'b'."""
+    rag_a = _FakeRAG(answer="Paris")
+    rag_b = _FakeRAG(answer="Paris")
+    examples = [
+        {"question": "q1", "answer": "Paris", "contexts": ["the capital"]},
+    ]
+
+    # B's stub returns more relevant contexts, so its metrics should
+    # score higher than A's.
+    rag_a.contexts = ["unrelated garbage"]
+    rag_b.contexts = ["the capital of France is Paris"]
+
+    result = asyncio.run(
+        ab_test(
+            rag_a=rag_a,
+            rag_b=rag_b,
+            examples=examples,
+            evaluator=_FakeEvaluator(),
+        )
+    )
+    assert result["winner"] == "b"
+
+
+def test_ab_test_winner_a_when_a_better() -> None:
+    """When A's metrics are higher across the board, winner is 'a'."""
+    rag_a = _FakeRAG(answer="Paris")
+    rag_b = _FakeRAG(answer="Paris")
+    examples = [
+        {"question": "q1", "answer": "Paris", "contexts": ["the capital"]},
+    ]
+
+    rag_a.contexts = ["the capital of France is Paris"]
+    rag_b.contexts = ["unrelated garbage"]
+
+    result = asyncio.run(
+        ab_test(
+            rag_a=rag_a,
+            rag_b=rag_b,
+            examples=examples,
+            evaluator=_FakeEvaluator(),
+        )
+    )
+    assert result["winner"] == "a"
+
+
+def test_ab_test_empty_examples_returns_tie() -> None:
+    """Empty examples produce no metrics; the winner is 'tie'."""
+    rag_a = _FakeRAG()
+    rag_b = _FakeRAG()
+    result = asyncio.run(
+        ab_test(
+            rag_a=rag_a,
+            rag_b=rag_b,
+            examples=[],
+            evaluator=_FakeEvaluator(),
+        )
+    )
+    assert result["winner"] == "tie"
+    assert result["gate_passed"] is True
+
+
+def test_ab_test_gate_passed_when_metrics_above_threshold() -> None:
+    """A gate with a low threshold passes both RAGs."""
+    rag_a = _FakeRAG()
+    rag_b = _FakeRAG()
+    gate = QualityGate({"recall_at_5": 0.0})  # trivially passes
+    result = asyncio.run(
+        ab_test(
+            rag_a=rag_a,
+            rag_b=rag_b,
+            examples=[{"question": "q", "answer": "a", "contexts": ["c"]}],
+            evaluator=_FakeEvaluator(),
+            gate=gate,
+        )
+    )
+    assert result["gate_passed"] is True
+
+
+def test_ab_test_gate_raises_when_a_below_threshold() -> None:
+    """A gate raises ConfigurationError when A's metrics breach it."""
+    from raghub.errors import ConfigurationError
+
+    rag_a = _FakeRAG()
+    rag_b = _FakeRAG()
+    gate = QualityGate({"recall_at_5": 999.0})  # impossible threshold
+    with pytest.raises(ConfigurationError, match="QualityGate failed"):
+        asyncio.run(
+            ab_test(
+                rag_a=rag_a,
+                rag_b=rag_b,
+                examples=[{"question": "q", "answer": "a", "contexts": ["c"]}],
+                evaluator=_FakeEvaluator(),
+                gate=gate,
+            )
+        )
+
+
+def test_ab_test_calls_each_rag_once_per_example() -> None:
+    """Each RAG is queried exactly once per example."""
+    rag_a = _FakeRAG()
+    rag_b = _FakeRAG()
+    examples = [
+        {"question": "q1", "answer": "a", "contexts": ["c"]},
+        {"question": "q2", "answer": "a", "contexts": ["c"]},
+        {"question": "q3", "answer": "a", "contexts": ["c"]},
+    ]
+    asyncio.run(
+        ab_test(
+            rag_a=rag_a,
+            rag_b=rag_b,
+            examples=examples,
+            evaluator=_FakeEvaluator(),
+        )
+    )
+    assert len(rag_a.aquery_call_log) == 3
+    assert len(rag_b.aquery_call_log) == 3
