@@ -38,11 +38,11 @@ from raghub.agent import resolve
 from raghub.config import Settings
 
 if TYPE_CHECKING:
-    from raghub.auth import RBACAuthorizationService, SqliteUsers
+    from raghub.auth import Authz, SqliteUsers
 
 from raghub.conversation import ConversationManager
 from raghub.core import can_access_company
-from raghub.documents import Catalog, DocumentLifecycleManager, detect_mime_type
+from raghub.documents import Catalog, Lifecycle, detect_mime_type
 from raghub.embeddings import Embedder, build_embedding_provider
 from raghub.exceptions import AuthorizationError, DocumentError
 from raghub.helper.retrieval import (
@@ -51,7 +51,7 @@ from raghub.helper.retrieval import (
 from raghub.helper.retrieval import (
     Retrieval as RetrievalPipeline,
 )
-from raghub.ingestion import DocumentIngestionService, IngestionResult
+from raghub.ingestion import IngestionResult, Ingestor
 from raghub.llm import BaseLLMProvider, build_llm_provider
 from raghub.models import (
     AuthLoginResponse,
@@ -446,14 +446,14 @@ class RagContainer:
     settings: Settings
     logger: object
     metrics: object
-    authorization: RBACAuthorizationService
+    authorization: Authz
     registry: SqliteUsers
     conversation: ConversationManager
     embeddings: Embedder
     llm: BaseLLMProvider
     vector_store: Store
     prompt_builder: PromptBuilder
-    ingestion: DocumentIngestionService
+    ingestion: Ingestor
     retrieval: RetrievalPipeline
     image_store: ImageStore
     user_store: SqliteUsers
@@ -528,7 +528,7 @@ async def build_container(settings: Settings) -> RagContainer:
     """
     from contextlib import suppress
 
-    from raghub.auth import RBACAuthorizationService, SqliteUsers
+    from raghub.auth import Authz, SqliteUsers
 
     logger = build_logger(settings.log_level)
     user_store = SqliteUsers(settings.data_dir / "users.db")
@@ -536,7 +536,7 @@ async def build_container(settings: Settings) -> RagContainer:
     jwt_secret = settings.jwt_secret.get_secret_value()
     if not jwt_secret:
         raise RuntimeError("JWT_SECRET must be configured")
-    authorization = RBACAuthorizationService(user_store, logger=logger)
+    authorization = Authz(user_store, logger=logger)
 
     nvidia_api_key = (
         settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
@@ -567,8 +567,8 @@ async def build_container(settings: Settings) -> RagContainer:
 
     prompt_builder = PromptBuilder()
     conversation = ConversationManager(uow)
-    lifecycle = DocumentLifecycleManager()
-    ingestion = DocumentIngestionService(
+    lifecycle = Lifecycle()
+    ingestion = Ingestor(
         uow=uow,
         embedding_provider=embeddings,
         lifecycle_manager=lifecycle,

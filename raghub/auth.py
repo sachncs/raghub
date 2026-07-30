@@ -5,7 +5,7 @@ coupled:
 
 * :class:`UserRecord` / :class:`SqliteUsers` — the SQLite-backed
   user CRUD store with bcrypt password hashing.
-* :class:`RBACAuthorizationService` — admin-only authorisation checks
+* :class:`Authz` — admin-only authorisation checks
   used by API dependencies.
 * :class:`AuthService` — login / logout / token resolution used by
   the API and CLI.
@@ -328,7 +328,7 @@ class SqliteUsers:
             await db.commit()
 
 
-class RBACAuthorizationService:
+class Authz:
     """Authorisation checks used by admin-only API dependencies.
 
     Attributes:

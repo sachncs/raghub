@@ -81,7 +81,7 @@ from raghub.helper.retrieval import (
 from raghub.helper.retrieval import (
     build_reranker,
 )
-from raghub.ingestion import ResumableBackgroundIngestionService, build_chonkie_chunker
+from raghub.ingestion import ResumableBatch, build_chonkie_chunker
 from raghub.knowledge import (
     GraphRagIndex,
     MemoryRepo,
@@ -140,12 +140,12 @@ def default_converter() -> DocumentConverter:
     """Return the default document converter.
 
     Since ``marker-pdf`` is now a required runtime dependency, this
-    always returns :class:`MarkerConverter`. Tests patch the
-    `raghub.documents.MarkerConverter` symbol via this re-import.
+    always returns :class:`Marker`. Tests patch the
+    `raghub.documents.Marker` symbol via this re-import.
     """
-    from raghub.documents import MarkerConverter as _MarkerConverter
+    from raghub.documents import Marker as _Marker
 
-    return _MarkerConverter()
+    return _Marker()
 
 
 def default_chunker(
@@ -401,7 +401,7 @@ class RAG:
             settings: Configuration; default uses
                 :func:`load_settings`.
             converter: Document converter. Defaults to
-                :class:`MarkerConverter` (with
+                :class:`Marker` (with
                 :class:`PlainTextConverter` fallback).
             chunker: Chunker. Defaults to Chonkie (with
                 :class:`WordWindowChunker` fallback).
@@ -431,7 +431,7 @@ class RAG:
             registry: Optional plugin registry.
             background_service: Optional background ingestion
                 service. A
-                :class:`ResumableBackgroundIngestionService` is
+                :class:`ResumableBatch` is
                 instantiated on demand when callers invoke
                 :meth:`ingest_async`.
             manifest: Optional source manifest. Defaults to a
@@ -855,7 +855,6 @@ class RAG:
         reliable; this method picks up the same per-file work in
         parallel processes.
         """
-        import contextlib
         import multiprocessing as mp
         from concurrent.futures import ProcessPoolExecutor
 
@@ -1503,7 +1502,7 @@ class RAG:
     ) -> str:
         """Submit an ingest job to the background service."""
         if self.background_ingestion is None:
-            self.background_ingestion = ResumableBackgroundIngestionService(
+            self.background_ingestion = ResumableBatch(
                 db_path=self.settings.data_dir / "ingestion_jobs.db"
             )
 

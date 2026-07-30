@@ -7,7 +7,7 @@ single ``from raghub.documents import …`` ergonomic for callers.
 
 The classes and functions here map onto the document lifecycle::
 
-    DocumentLifecycleManager   - validate + apply status transitions.
+    Lifecycle   - validate + apply status transitions.
     new_version                 - mint a new :class:`DocumentRecord`.
     detect_mime_type            - extension + magic-byte MIME detection.
     validate_upload             - four-gate upload validator.
@@ -21,7 +21,7 @@ The classes and functions here map onto the document lifecycle::
     MarkdownSection, normalise_markdown
                                 - Markdown → :class:`KnowledgeBundle`.
     PlainTextConverter          - text/binary → :class:`KnowledgeBundle`.
-    MarkerConverter             - PDF → :class:`KnowledgeBundle` (marker-pdf).
+    Marker             - PDF → :class:`KnowledgeBundle` (marker-pdf).
     select_converter_for_path, convert_path
                                 - file → :class:`KnowledgeBundle`.
     looks_like_pdf              - ``%PDF-`` magic-byte check.
@@ -78,7 +78,7 @@ self_module = sys.modules[__name__]
 
 
 @dataclass
-class DocumentLifecycleManager:
+class Lifecycle:
     """Validate and apply document-status transitions.
 
     Attributes:
@@ -756,7 +756,7 @@ class PlainTextConverter(DocumentConverter):
         )
 
 
-class MarkerConverter(DocumentConverter):
+class Marker(DocumentConverter):
     """Convert documents with Marker's PDF pipeline."""
 
     def __init__(self, *, device: str | None = None) -> None:
@@ -787,7 +787,7 @@ class MarkerConverter(DocumentConverter):
         """Convert source bytes into a canonical knowledge bundle."""
         if not file_bytes:
             raise ConfigurationError(
-                "MarkerConverter.convert received empty bytes; nothing to convert."
+                "Marker.convert received empty bytes; nothing to convert."
             )
         if not looks_like_pdf(file_bytes):
             return PlainTextConverter().convert(
@@ -856,11 +856,11 @@ def select_converter_for_path(path: Path) -> DocumentConverter:
         path: File system path.
 
     Returns:
-        A :class:`MarkerConverter` for PDFs and a
+        A :class:`Marker` for PDFs and a
         :class:`PlainTextConverter` for everything else.
     """
     if path.suffix.lower() == ".pdf":
-        converter, error = capture(MarkerConverter)
+        converter, error = capture(Marker)
         return PlainTextConverter() if error is not None else converter
     return PlainTextConverter()
 
@@ -892,9 +892,9 @@ def convert_path(
 
 __all__ = [
     "ChunkingPlan",
-    "DocumentLifecycleManager",
+    "Lifecycle",
     "MarkdownSection",
-    "MarkerConverter",
+    "Marker",
     "PlainTextConverter",
     "build_chunk_records",
     "build_marker_converter",
