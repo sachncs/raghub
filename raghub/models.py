@@ -36,7 +36,7 @@ from enum import Enum
 from typing import Any, Protocol, TypeVar, runtime_checkable
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Identity helpers
@@ -285,6 +285,16 @@ class RetrievalHit(BaseModel):
     score: float
     chunk: ChunkRecord
 
+    @model_validator(mode="after")
+    def _verify_chunk_id_matches(self) -> RetrievalHit:
+        """Confirm ``chunk.chunk_id`` matches ``chunk_id``."""
+        if self.chunk.chunk_id != self.chunk_id:
+            raise ValueError(
+                f"RetrievalHit.chunk_id ({self.chunk_id!r}) does not match "
+                f"chunk.chunk_id ({self.chunk.chunk_id!r})"
+            )
+        return self
+
 
 class SearchRequest(BaseModel):
     """Search input to the retrieval pipeline.
@@ -468,6 +478,18 @@ class Response(BaseModel):
     planner_trace: list[dict[str, Any]] | None = None
     tools_invoked: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _citations_match_source_chunks(self) -> Response:
+        """Confirm every citation's chunk_id appears in source_chunks."""
+        source_ids = {sr.chunk_id for sr in self.source_chunks}
+        for citation in self.citations:
+            if citation.chunk_id not in source_ids:
+                raise ValueError(
+                    f"Citation chunk_id {citation.chunk_id!r} is not "
+                    f"present in source_chunks"
+                )
+        return self
+
 
 class KnowledgeBundle(BaseModel):
     """A persisted Open Knowledge Format bundle.
@@ -536,6 +558,13 @@ class PipelineResult(BaseModel):
     outputs: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
     finished_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @model_validator(mode="after")
+    def _error_required_on_failure(self) -> PipelineResult:
+        """Confirm ``error`` is set when ``success`` is ``False``."""
+        if not self.success and not self.error:
+            raise ValueError("PipelineResult.error is required when success=False")
+        return self
 
 
 class EvaluationResult(BaseModel):
