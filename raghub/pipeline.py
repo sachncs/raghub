@@ -18,7 +18,7 @@ Section map:
   :class:`PipelineResult` records.
 * :class:`IngestPipeline` — convert → chunk → embed → index.
 * :class:`QueryPipeline` — embed → retrieve → rerank → generate.
-* :class:`AgenticQueryPipeline` — agent-driven query pipeline.
+* :class:`AgentPipeline` — agent-driven query pipeline.
 * :func:`chunks_from_knowledge_bundle` / :func:`primary_company` /
   :func:`sha256_checksum` — small ingest helpers.
 * :func:`citations_from_trace` / :func:`hits_from_trace` —
@@ -39,7 +39,7 @@ from typing import Any, cast
 from tqdm import tqdm
 
 from raghub.agent import Agent, AgentTrace
-from raghub.conversation import InMemoryConversationStore
+from raghub.conversation import MemoryConversations
 from raghub.documents import PlainTextConverter
 from raghub.embeddings import Embedder
 from raghub.exceptions import PipelineError, VectorStoreError
@@ -574,7 +574,7 @@ class QueryPipeline(Pipeline):
         transformer: Any | None = None,
         retrieval_pipeline: Any | None = None,
         long_context_pass: Any | None = None,
-        agentic_pipeline: AgenticQueryPipeline | None = None,
+        agentic_pipeline: AgentPipeline | None = None,
     ) -> None:
         """Initialise the query pipeline."""
         self.embedder = embedder
@@ -584,7 +584,7 @@ class QueryPipeline(Pipeline):
         self.structured = structured
         self.telemetry = telemetry or NoOpTelemetry()
         if conversation_store is None:
-            conversation_store = InMemoryConversationStore()
+            conversation_store = MemoryConversations()
         self.conversation_store = conversation_store
         self.cache = cache
         self.transformer = transformer
@@ -895,11 +895,11 @@ class QueryPipeline(Pipeline):
 
 
 # ---------------------------------------------------------------------------
-# AgenticQueryPipeline
+# AgentPipeline
 # ---------------------------------------------------------------------------
 
 
-class AgenticQueryPipeline:
+class AgentPipeline:
     """Query pipeline powered by the ReAct agent."""
 
     name = "query_agent"
@@ -917,7 +917,7 @@ class AgenticQueryPipeline:
     ) -> None:
         """Initialise the agentic pipeline."""
         if agent is None:
-            raise ValueError("AgenticQueryPipeline requires an Agent")
+            raise ValueError("AgentPipeline requires an Agent")
         self.agent = agent
         self.embedder = embedder
         self.vector_store = vector_store

@@ -10,7 +10,7 @@ concern of the framework:
   newest contiguous slice of a history that fits within a budget.
   Optional ``gigatoken`` dependency; falls back to whitespace counting
   when unavailable.
-* :class:`InMemoryConversationStore` — a thread-safe in-process
+* :class:`MemoryConversations` — a thread-safe in-process
   alternative to :class:`ConversationManager` for callers that do
   not want the SQLite dependency.
 """
@@ -343,7 +343,7 @@ class ConversationStore(Protocol):
         """Replace session-scoped tool/agent overrides."""
 
 
-class InMemoryConversationStore:
+class MemoryConversations:
     """Thread-safe in-process :class:`ConversationStore`.
 
     Args:
