@@ -25,7 +25,7 @@ from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
 
-from raghub.exceptions import OptionalDependencyMissing
+from raghub.exceptions import MissingDep
 from raghub.llm import BaseLLMProvider
 from raghub.models import (
     Citation,
@@ -246,7 +246,7 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
             try:
                 import instructor
             except ImportError:
-                raise OptionalDependencyMissing(
+                raise MissingDep(
                     "instructor",
                     "pip install raghub[structured]",
                 ) from None
@@ -262,7 +262,7 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
             try:
                 import instructor
             except ImportError:
-                raise OptionalDependencyMissing(
+                raise MissingDep(
                     "instructor",
                     "pip install raghub[structured]",
                 ) from None
@@ -292,7 +292,7 @@ class InstructorStructuredOutputProvider(StructuredOutputProvider):
         try:
             from openai.types.chat import ChatCompletionMessageParam
         except ImportError:
-            raise OptionalDependencyMissing(
+            raise MissingDep(
                 "openai",
                 "pip install raghub[structured]",
             ) from None

@@ -49,7 +49,7 @@ from raghub.models import (
     ConversationTurn,
     RankedList,
     RetrievalHit,
-    UserPrincipal,
+    User,
 )
 from raghub.observability import record_long_context, record_rerank_latency
 from raghub.utils import capture
@@ -1226,7 +1226,7 @@ class Retrieval:
         self.hybrid = hybrid or default_hybrid_config()
 
     def retrieve(
-        self, *, user: UserPrincipal, question: str, top_k: int
+        self, *, user: User, question: str, top_k: int
     ) -> list[RetrievalHit]:
         """Retrieve authorised, deduplicated chunks relevant to ``question``."""
         metadata_filter = allowed_company_filter(user)
@@ -1360,7 +1360,7 @@ class Retrieval:
         return fused
 
     def hybrid_search(
-        self, *, user: UserPrincipal, question: str, top_k: int
+        self, *, user: User, question: str, top_k: int
     ) -> list[RetrievalHit]:
         """RBAC-filtered vector hits fused with keyword hits."""
         vector_results = self.retrieve(user=user, question=question, top_k=top_k)
@@ -1369,7 +1369,7 @@ class Retrieval:
     def retrieve_variants(
         self,
         *,
-        user: UserPrincipal,
+        user: User,
         variants: list[Variant],
         top_k: int,
     ) -> list[RetrievalHit]:
@@ -1419,7 +1419,7 @@ class Retrieval:
     def retrieve_hybrid_v2(
         self,
         *,
-        user: UserPrincipal,
+        user: User,
         question: str,
         top_k: int,
         colbert: Any | None = None,

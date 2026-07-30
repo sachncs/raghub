@@ -20,20 +20,20 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from raghub.exceptions import AuthenticationError, AuthorizationError, OptionalDependencyMissing
+from raghub.exceptions import AuthenticationError, AuthorizationError, MissingDep
 
 try:
     import aiosqlite
     import bcrypt
 except ImportError:
-    raise OptionalDependencyMissing(
+    raise MissingDep(
         "aiosqlite",
         "pip install raghub[auth]"
     ) from None
 
 from pydantic import BaseModel, Field
 
-from raghub.models import AuthLoginResponse, ConversationTurn, UserPrincipal
+from raghub.models import AuthLoginResponse, ConversationTurn, User
 from raghub.services import Mixin as ServiceMixin
 
 
@@ -346,7 +346,7 @@ class RBACAuthorizationService:
         self.user_store = user_store
         self.logger = logger
 
-    async def check_access(self, user: UserPrincipal, required_company: str) -> bool:
+    async def check_access(self, user: User, required_company: str) -> bool:
         """Return whether ``user`` may access ``required_company``.
 
         Args:
@@ -372,7 +372,7 @@ class RBACAuthorizationService:
                 )
         return allowed
 
-    async def filter_companies(self, user: UserPrincipal) -> list[str]:
+    async def filter_companies(self, user: User) -> list[str]:
         """Return the set of companies ``user`` may access.
 
         Admins see an empty list (a sentinel meaning "everything").
@@ -388,7 +388,7 @@ class RBACAuthorizationService:
             return []
         return list(user.allowed_companies)
 
-    async def require_admin(self, user: UserPrincipal) -> None:
+    async def require_admin(self, user: User) -> None:
         """Raise :class:`AuthorizationError` unless ``user.is_admin``.
 
         Args:
@@ -460,14 +460,14 @@ class AuthService(ServiceMixin):
         if session is not None:
             await self.container.store.delete_session(session.session_id)
 
-    async def resolve_user(self, token: str) -> tuple[UserPrincipal, list[ConversationTurn]]:
+    async def resolve_user(self, token: str) -> tuple[User, list[ConversationTurn]]:
         """Resolve a bearer token to (principal, conversation history).
 
         Args:
             token: The bearer token.
 
         Returns:
-            A tuple of :class:`UserPrincipal` and the session's
+            A tuple of :class:`User` and the session's
             conversation history.
 
         Raises:
@@ -482,7 +482,7 @@ class AuthService(ServiceMixin):
         if record is None:
             self.log("audit.token.invalid", user_id=session.user_id, reason="user_deleted")
             raise AuthenticationError("User not found")
-        user = UserPrincipal(
+        user = User(
             user_id=record.user_id,
             email=record.email,
             allowed_companies=record.allowed_companies,

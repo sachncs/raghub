@@ -60,7 +60,7 @@ from raghub.models import (
     DocumentRecord,
     QueryResponse,
     TaskQueue,
-    UserPrincipal,
+    User,
 )
 
 # `Facade` is the public class; `RagApplication` was a prior name.
@@ -635,10 +635,10 @@ class Auth:
 
     async def resolve_user(
         self, token: str
-    ) -> tuple[UserPrincipal, list[ConversationTurn]]:
+    ) -> tuple[User, list[ConversationTurn]]:
         """Resolve a bearer token to a principal plus history."""
         return cast(
-            tuple[UserPrincipal, list[ConversationTurn]],
+            tuple[User, list[ConversationTurn]],
             await self.facade.auth_svc.resolve_user(token),
         )
 
@@ -729,7 +729,7 @@ class Preference:
             return cast(QueryResponse, response)
 
         session = await container.store.get_by_token(token)
-        principal = UserPrincipal(
+        principal = User(
             user_id=user.user_id,
             email=user.email,
             allowed_companies=user.allowed_companies,
@@ -829,7 +829,7 @@ class Facade:
 
     async def resolve_user(
         self, token: str
-    ) -> tuple[UserPrincipal, list[ConversationTurn]]:
+    ) -> tuple[User, list[ConversationTurn]]:
         """Resolve a bearer token to a principal plus conversation history."""
         return await self.auth.resolve_user(token)
 

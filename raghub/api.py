@@ -59,7 +59,7 @@ from raghub.models import (
     DocumentUploadResponse,
     QueryRequest,
     QueryResponse,
-    UserPrincipal,
+    User,
 )
 from raghub.services import Facade as Facade
 from raghub.utils import capture
@@ -679,7 +679,7 @@ class RouteGroup:
 
         @self.admin_router.get("/documents")
         async def handler(
-            _admin: UserPrincipal = Depends(Auth.admin),
+            _admin: User = Depends(Auth.admin),
             app_service: Facade = Depends(App.get),
         ) -> list[dict[str, Any]]:
             docs = await app_service.container.uow.document_repo.list_all()
@@ -692,7 +692,7 @@ class RouteGroup:
 
         @self.admin_router.get("/users")
         async def handler(
-            _admin: UserPrincipal = Depends(Auth.admin),
+            _admin: User = Depends(Auth.admin),
             app_service: Facade = Depends(App.get),
         ) -> list[dict[str, Any]]:
             users = await app_service.container.user_store.list_users()
@@ -705,7 +705,7 @@ class RouteGroup:
 
         @self.admin_router.get("/stats")
         async def handler(
-            _admin: UserPrincipal = Depends(Auth.admin),
+            _admin: User = Depends(Auth.admin),
             app_service: Facade = Depends(App.get),
         ) -> dict[str, Any]:
             docs = await app_service.container.uow.document_repo.list_all()

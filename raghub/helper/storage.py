@@ -38,7 +38,7 @@ from uuid import uuid4
 
 from tqdm import tqdm
 
-from raghub.exceptions import AuthenticationError, OptionalDependencyMissing, StorageError
+from raghub.exceptions import AuthenticationError, MissingDep, StorageError
 from raghub.models import (
     ConversationTurn,
     DocumentLifecycleStatus,
@@ -141,7 +141,7 @@ class Database:
             try:
                 import aiosqlite
             except ImportError:
-                raise OptionalDependencyMissing(
+                raise MissingDep(
                     "aiosqlite",
                     "pip install raghub[auth]",
                 ) from None
@@ -556,7 +556,7 @@ class Sessions:
         try:
             import aiosqlite
         except ImportError:
-            raise OptionalDependencyMissing(
+            raise MissingDep(
                 "aiosqlite",
                 "pip install raghub[auth]",
             ) from None

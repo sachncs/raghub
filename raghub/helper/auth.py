@@ -17,7 +17,7 @@ from typing import cast
 
 from fastapi import Depends, Header, HTTPException, Request
 
-from raghub.models import UserPrincipal
+from raghub.models import User
 from raghub.services import Facade
 
 
@@ -67,7 +67,7 @@ class Auth:
     """Bearer-token resolution plus admin authorisation.
 
     Two static methods cover everything the route handlers need: a
-    dependency that yields the resolved :class:`UserPrincipal` after
+    dependency that yields the resolved :class:`User` after
     verifying the admin role, and a small helper that maps a token
     back to its owning user id.
     """
@@ -76,7 +76,7 @@ class Auth:
     async def admin(
         authorization: str | None = Header(default=None),
         app_service: Facade = Depends(App.get),
-    ) -> UserPrincipal:
+    ) -> User:
         """Resolve the bearer token and require an admin principal.
 
         Args:
@@ -84,7 +84,7 @@ class Auth:
             app_service: The application facade (FastAPI dependency).
 
         Returns:
-            The authenticated :class:`UserPrincipal`.
+            The authenticated :class:`User`.
 
         Raises:
             HTTPException: 401 for missing / invalid bearer tokens,

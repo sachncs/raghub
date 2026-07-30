@@ -43,7 +43,7 @@ except Exception as exc:
     ) from exc
 
 from raghub import RAG
-from raghub.models import UserPrincipal
+from raghub.models import User
 
 # ---------------------------------------------------------------------------
 # Demo user directory
@@ -229,12 +229,12 @@ class UserState:
 
     Attributes:
         email: The signed-in user's email.
-        principal: The :class:`UserPrincipal` used for RBAC.
+        principal: The :class:`User` used for RBAC.
         session_id: The scoped session id used by the agent loop.
     """
 
     email: str
-    principal: UserPrincipal
+    principal: User
     session_id: str
 
 
@@ -317,7 +317,7 @@ def render_login(rag: RAG) -> None:
         if cfg is None or cfg.get("password") != password:
             st.error("Invalid credentials")
             return
-        principal = UserPrincipal(
+        principal = User(
             user_id=email,
             email=email,
             allowed_companies=cfg.get("companies", []),
