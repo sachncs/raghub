@@ -82,7 +82,7 @@ def cors_origins_from_env() -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
-def validate_cors_for_credentials(origins: list[str]) -> None:
+def validate_cors(origins: list[str]) -> None:
     """Refuse to start with ``allow_credentials=True`` + wildcard origins.
 
     Browsers reject ``Access-Control-Allow-Origin: *`` together with
@@ -249,12 +249,12 @@ class ExceptionHandlers:
         """
 
         @app.exception_handler(AuthenticationError)
-        def authentication_error_handler(_: Any, exc: AuthenticationError) -> JSONResponse:
+        def auth_error(_: Any, exc: AuthenticationError) -> JSONResponse:
             """Return 401 for any :class:`AuthenticationError`."""
             return JSONResponse(status_code=401, content={"detail": str(exc)})
 
         @app.exception_handler(AuthorizationError)
-        def authorization_error_handler(_: Any, exc: AuthorizationError) -> JSONResponse:
+        def authz_error(_: Any, exc: AuthorizationError) -> JSONResponse:
             """Return 403 for any :class:`AuthorizationError`."""
             return JSONResponse(status_code=403, content={"detail": str(exc)})
 
@@ -902,7 +902,7 @@ def create_app(application: Facade) -> FastAPI:
     app.state.background_ingestion = Batch(max_workers=2)
 
     cors_origins = cors_origins_from_env()
-    validate_cors_for_credentials(cors_origins)
+    validate_cors(cors_origins)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
