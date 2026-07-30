@@ -41,7 +41,7 @@ from tqdm import tqdm
 from raghub.agent import Agent, AgentTrace
 from raghub.conversation import InMemoryConversationStore
 from raghub.documents import PlainTextConverter
-from raghub.embeddings import BaseEmbeddingProvider
+from raghub.embeddings import Embedder
 from raghub.exceptions import PipelineError, VectorStoreError
 from raghub.knowledge import InMemoryKnowledgeRepository
 from raghub.llm import BaseLLMProvider
@@ -908,7 +908,7 @@ class AgenticQueryPipeline:
         self,
         *,
         agent: Agent,
-        embedder: BaseEmbeddingProvider,
+        embedder: Embedder,
         vector_store: VectorStore,
         generator: Generator,
         llm: BaseLLMProvider | None = None,

@@ -47,7 +47,7 @@ from raghub.documents import (
     validate_upload,
 )
 from raghub.documents import PlainTextConverter as default_converter
-from raghub.embeddings import BaseEmbeddingProvider
+from raghub.embeddings import Embedder
 from raghub.exceptions import (
     ConfigurationError,
     DocumentError,
@@ -564,7 +564,7 @@ class DocumentIngestionService:
         self,
         *,
         uow: UnitOfWork,
-        embedding_provider: BaseEmbeddingProvider,
+        embedding_provider: Embedder,
         lifecycle_manager: DocumentLifecycleManager,
         max_upload_bytes: int,
         virus_scan_hook: VirusScanHook | None = None,

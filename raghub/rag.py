@@ -46,7 +46,7 @@ from tqdm import tqdm
 from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
 from raghub.config import Settings
 from raghub.conversation import InMemoryConversationStore
-from raghub.embeddings import BaseEmbeddingProvider, HashingEmbeddingProvider
+from raghub.embeddings import Embedder, Hasher
 from raghub.exceptions import ConfigurationError, IngestionError, RagHubError, ValidationError
 from raghub.generation import DefaultGenerator
 from raghub.helper.evaluation import FinanceBench
@@ -175,7 +175,7 @@ def default_chunker(
     )
 
 
-def default_embedder(embedding_model: str, embedding_dim: int) -> BaseEmbeddingProvider:
+def default_embedder(embedding_model: str, embedding_dim: int) -> Embedder:
     """Return the default embedding provider.
 
     Args:
@@ -183,15 +183,15 @@ def default_embedder(embedding_model: str, embedding_dim: int) -> BaseEmbeddingP
         embedding_dim: Output vector dimensionality.
 
     Returns:
-        :class:`LiteLLMEmbeddingProvider` when LiteLLM is
+        :class:`LiteLLMEmbedder` when LiteLLM is
         installed and an API key is configured; otherwise
-        :class:`HashingEmbeddingProvider` for offline operation.
+        :class:`Hasher` for offline operation.
     """
     if not has_llm_api_key():
-        return HashingEmbeddingProvider(dimension=embedding_dim, model_name=embedding_model)
-    from raghub.embeddings import LiteLLMEmbeddingProvider as _LiteLLMEmbeddingProvider
+        return Hasher(dimension=embedding_dim, model_name=embedding_model)
+    from raghub.embeddings import LiteLLMEmbedder as _LiteLLMEmbedder
 
-    return _LiteLLMEmbeddingProvider(model=embedding_model)
+    return _LiteLLMEmbedder(model=embedding_model)
 
 
 def default_llm(llm_model: str) -> Any:
@@ -201,7 +201,7 @@ def default_llm(llm_model: str) -> Any:
         llm_model: The configured LLM model name.
 
     Returns:
-        :class:`LiteLLMProvider` for the configured model when an API
+        :class:`LiteLLM` for the configured model when an API
         key is available; :class:`HeuristicProvider` (offline fallback)
         otherwise.
     """
@@ -209,9 +209,9 @@ def default_llm(llm_model: str) -> Any:
         from raghub.llm import HeuristicProvider
 
         return HeuristicProvider()
-    from raghub.llm import LiteLLMProvider as _LiteLLMProvider
+    from raghub.llm import LiteLLM as _LiteLLM
 
-    return _LiteLLMProvider(model=llm_model)
+    return _LiteLLM(model=llm_model)
 
 
 def default_vector_store(embedding_dim: int) -> Any:
@@ -406,10 +406,10 @@ class RAG:
             chunker: Chunker. Defaults to Chonkie (with
                 :class:`WordWindowChunker` fallback).
             embedder: Embedding provider. Defaults to
-                :class:`LiteLLMEmbeddingProvider` (with
-                :class:`HashingEmbeddingProvider` fallback).
+                :class:`LiteLLMEmbedder` (with
+                :class:`Hasher` fallback).
             llm: LLM provider. Defaults to
-                :class:`LiteLLMProvider` when an API key is available;
+                :class:`LiteLLM` when an API key is available;
                 :class:`HeuristicProvider` (offline fallback) otherwise.
             llm_timeout_seconds: Maximum completion time for the default generator.
             vector_store: Vector store. Defaults to

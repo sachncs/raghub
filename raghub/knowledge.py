@@ -21,7 +21,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
 
-from raghub.embeddings import BaseEmbeddingProvider
+from raghub.embeddings import Embedder
 from raghub.exceptions import KnowledgeError
 from raghub.llm import BaseLLMProvider
 from raghub.models import (
@@ -343,7 +343,7 @@ class RaptorIndex(KnowledgeIndex):
         self,
         *,
         llm: BaseLLMProvider | None = None,
-        embedder: BaseEmbeddingProvider | None = None,
+        embedder: Embedder | None = None,
         depth: int = 2,
         cluster_size: int = 5,
         max_summary_chars: int = 1500,
@@ -653,7 +653,7 @@ class GraphRagIndex(KnowledgeIndex):
         self,
         *,
         llm: BaseLLMProvider | None = None,
-        embedder: BaseEmbeddingProvider | None = None,
+        embedder: Embedder | None = None,
         hop_limit: int = 2,
     ) -> None:
         """Initialise the index."""

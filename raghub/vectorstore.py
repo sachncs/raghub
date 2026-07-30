@@ -80,7 +80,7 @@ def matches_metadata_string(record: MemoryVectorRecord, filter_string: str) -> b
 # ---------------------------------------------------------------------------
 
 
-class BaseVectorStore(ABC):
+class Store(ABC):
     """Abstract base for every vector-store adapter."""
 
     @abstractmethod
@@ -164,7 +164,7 @@ class MemoryVectorRecord:
     vector: list[float]
 
 
-class InMemoryVectorStore(BaseVectorStore):
+class InMemoryVectorStore(Store):
     """Cosine-similarity vector store with BM25 keyword search."""
 
     def __init__(self, embedding_dim: int) -> None:
@@ -389,7 +389,7 @@ elif find_spec("sqlitevector") is not None:
     SQLITE_VECTOR_PKG = "sqlitevector"
 
 
-class SqliteVectorStore(BaseVectorStore):
+class SqliteVectorStore(Store):
     """Vector store backed by SQLite.
 
     Prefers the ``sqlite-vector`` extension package when installed
@@ -673,7 +673,7 @@ def build_vector_store(
     settings: Settings,
     *,
     embedding_dim: int | None = None,
-) -> BaseVectorStore:
+) -> Store:
     """Return the configured vector store.
 
     The factory always returns a :class:`SqliteVectorStore` pointed at
@@ -694,10 +694,10 @@ def build_vector_store(
 
 
 __all__ = [
-    "BaseVectorStore",
     "InMemoryVectorStore",
     "MemoryVectorRecord",
     "SqliteVectorStore",
+    "Store",
     "build_vector_store",
     "matches_metadata_dict",
     "matches_metadata_string",

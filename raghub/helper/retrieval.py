@@ -41,7 +41,7 @@ from pydantic import BaseModel, Field, SecretStr
 
 from raghub.config import LongContextConfig, Settings
 from raghub.core import allowed_company_filter
-from raghub.embeddings import BaseEmbeddingProvider
+from raghub.embeddings import Embedder
 from raghub.exceptions import GraphUnavailableError, RerankerError
 from raghub.models import (
     ChunkRecord,
@@ -1207,7 +1207,7 @@ class Retrieval:
     def __init__(
         self,
         *,
-        embedding_provider: BaseEmbeddingProvider,
+        embedding_provider: Embedder,
         vector_store: Any,
         rerank: Rerank,
         hybrid: Any | None = None,
@@ -1621,15 +1621,15 @@ def reranker_from_method(method: str) -> Rerank:
     if method == "cohere":
         return Cohere()
     if method == "llm":
-        from raghub.llm import LiteLLMProvider
+        from raghub.llm import LiteLLM
 
-        return LlmJudge(llm=LiteLLMProvider())
+        return LlmJudge(llm=LiteLLM())
     if method == "cascade":
         return Cascade(cheap=Identity(), expensive=Identity())
     if method == "long_context":
-        from raghub.llm import LiteLLMProvider
+        from raghub.llm import LiteLLM
 
-        return Context(LiteLLMProvider(), default_long_context())
+        return Context(LiteLLM(), default_long_context())
     if method == "colbert":
         return Colbert()
     raise RerankerError(f"Unknown reranker method: {method!r}")

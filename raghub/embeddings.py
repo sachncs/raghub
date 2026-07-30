@@ -2,10 +2,10 @@
 
 This module ships:
 
-* :class:`BaseEmbeddingProvider` — abstract base class.
-* :class:`HashingEmbeddingProvider` — zero-dependency deterministic
+* :class:`Embedder` — abstract base class.
+* :class:`Hasher` — zero-dependency deterministic
   embedder backed by feature hashing.
-* :class:`LiteLLMEmbeddingProvider` — production embedder, backed by
+* :class:`LiteLLMEmbedder` — production embedder, backed by
   LiteLLM (any provider: OpenAI, NVIDIA, Cohere, Bedrock, …).
 * :func:`build_embedding_provider` — chooses the implementation from
   the model name.
@@ -29,7 +29,7 @@ from raghub.exceptions import ConfigurationError
 LITELLM_AVAILABLE = True
 
 
-class BaseEmbeddingProvider(ABC):
+class Embedder(ABC):
     """Abstract embedding provider.
 
     All concrete providers must implement :meth:`embed_text`; the
@@ -66,7 +66,7 @@ class BaseEmbeddingProvider(ABC):
         return [self.embed_text(text) for text in texts]
 
 
-class HashingEmbeddingProvider(BaseEmbeddingProvider):
+class Hasher(Embedder):
     """Feature-hashing embedder producing deterministic L2-normalised vectors.
 
     The provider hashes each whitespace-delimited, lower-cased token into a
@@ -142,7 +142,7 @@ class HashingEmbeddingProvider(BaseEmbeddingProvider):
         return out.tolist()
 
 
-class LiteLLMEmbeddingProvider(BaseEmbeddingProvider):
+class LiteLLMEmbedder(Embedder):
     """Embedding provider backed by LiteLLM."""
 
     model_name: str
@@ -209,7 +209,7 @@ def build_embedding_provider(
     model_name: str,
     dimension: int,
     api_key: str | None = None,
-) -> BaseEmbeddingProvider:
+) -> Embedder:
     """Construct the appropriate embedding provider for ``model_name``.
 
     Args:
@@ -220,7 +220,7 @@ def build_embedding_provider(
         dimension: Output vector dimensionality; passed through to
             the provider.
         api_key: Optional API key passed through to
-        :class:`LiteLLMEmbeddingProvider`. Ignored by the hashing
+        :class:`LiteLLMEmbedder`. Ignored by the hashing
             provider.
 
     Returns:
@@ -228,7 +228,7 @@ def build_embedding_provider(
     """
     name = (model_name or "").lower().strip()
     if "hashing" in name:
-        return HashingEmbeddingProvider(dimension=dimension, model_name=model_name)
+        return Hasher(dimension=dimension, model_name=model_name)
     needs_remote = "litellm" in name or any(
         name.startswith(prefix)
         for prefix in (
@@ -253,8 +253,8 @@ def build_embedding_provider(
             )
         )
         if creds_present:
-            return LiteLLMEmbeddingProvider(model=model_name, api_key=api_key)
-        return HashingEmbeddingProvider(dimension=dimension, model_name=model_name)
+            return LiteLLMEmbedder(model=model_name, api_key=api_key)
+        return Hasher(dimension=dimension, model_name=model_name)
     raise ConfigurationError(
         f"Unknown embedding model {model_name!r}. "
         "Use a LiteLLM model (e.g. 'openai/text-embedding-3-small', "

@@ -38,7 +38,7 @@ from raghub.models import (
     SessionRecord,
 )
 from raghub.storage import Sessions
-from raghub.vectorstore import BaseVectorStore
+from raghub.vectorstore import Store
 
 MAX_INSERT_RETRIES = 3
 RETRY_BASE_DELAY = 0.05
@@ -84,7 +84,7 @@ INSERT {mode} INTO documents (
 class SqliteChunkRepository(ChunkRepository):
     """Store chunk records and embeddings in a vector store."""
 
-    def __init__(self, vector_store: BaseVectorStore) -> None:
+    def __init__(self, vector_store: Store) -> None:
         """Store ``vector_store`` for chunk persistence."""
         self.store = vector_store
 
@@ -492,7 +492,7 @@ class UnitOfWork(BaseUnitOfWork):
     """Coordinate repositories over a shared SQLite transaction."""
 
     def __init__(
-        self, db_path: str, vector_store: BaseVectorStore, session_timeout: int = 3600
+        self, db_path: str, vector_store: Store, session_timeout: int = 3600
     ) -> None:
         self.db_path = db_path
         self.vector_store = vector_store
