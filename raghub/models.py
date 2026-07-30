@@ -482,12 +482,11 @@ class Citation(BaseModel):
     source_uri: str = ""
 
 
-class SearchResult(BaseModel):
-    """Spec-named alias for :class:`RetrievalHit`."""
+class SearchResult(RetrievalHit):
+    """Spec-named alias for :class:`RetrievalHit`.
 
-    chunk_id: str
-    score: float
-    chunk: ChunkRecord
+    Inherits the chunk_id-match validator from :class:`RetrievalHit`.
+    """
 
 
 class Query(SearchRequest):
