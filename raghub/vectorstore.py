@@ -88,14 +88,24 @@ class BaseVectorStore(ABC):
     @abstractmethod
     def insert(
         self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> None:
-        """Insert chunks paired with their precomputed embedding vectors."""
+    ) -> int:
+        """Insert chunks paired with their precomputed embedding vectors.
+
+        Returns:
+            The number of rows written. Should equal ``len(chunks)``
+            on success; backends that dedup by primary key may return
+            a smaller value when the same ``chunk_id`` appears twice.
+        """
 
     @abstractmethod
     def upsert(
         self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> None:
-        """Insert-or-update chunks by primary key."""
+    ) -> int:
+        """Insert-or-update chunks by primary key.
+
+        Returns:
+            The number of rows written (inserts + updates).
+        """
 
     @abstractmethod
     def delete(self, chunk_ids: Sequence[str]) -> None:
@@ -166,19 +176,25 @@ class InMemoryVectorStore(BaseVectorStore):
 
     def insert(
         self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> None:
+    ) -> int:
         """Insert or overwrite chunks by ``chunk_id``.
 
         The BM25 index is *not* rebuilt on every insert — that would
         make the per-chunk cost O(N) and turn a 1500-chunk ingest into
         a ~1M iteration job. Call :meth:`rebuild_index` once after a
         batch insert (the directory ingest path does this for you).
+
+        Returns:
+            Number of rows written (equals ``len(chunks)``).
         """
+        written = 0
         with self.lock:
             for chunk, vector in zip(chunks, vectors, strict=True):
                 self.records[chunk.chunk_id] = MemoryVectorRecord(
                     chunk=chunk, vector=vector
                 )
+                written += 1
+        return written
 
     def rebuild_index(self) -> None:
         """Rebuild the BM25 index over the current record set."""
@@ -186,9 +202,9 @@ class InMemoryVectorStore(BaseVectorStore):
 
     def upsert(
         self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> None:
+    ) -> int:
         """Insert-or-update alias. Delegates to :meth:`insert`."""
-        self.insert(chunks, vectors)
+        return self.insert(chunks, vectors)
 
     def delete(self, chunk_ids: Sequence[str]) -> None:
         """Delete chunks by ``chunk_id``."""
@@ -455,10 +471,14 @@ class SqliteVectorStore(BaseVectorStore):
 
     def insert(
         self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> None:
-        """Insert or overwrite chunks."""
+    ) -> int:
+        """Insert or overwrite chunks.
+
+        Returns:
+            ``cursor.rowcount`` after commit (number of rows written).
+        """
         with self.lock:
-            self.conn.executemany(
+            cursor = self.conn.executemany(
                 f"""
                 INSERT OR REPLACE INTO {self.collection}
                 (chunk_id, document_id, version, classification, text, source_location, vector)
@@ -478,12 +498,13 @@ class SqliteVectorStore(BaseVectorStore):
                 ],
             )
             self.conn.commit()
+            return cursor.rowcount
 
     def upsert(
         self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> None:
+    ) -> int:
         """Insert-or-update alias. Delegates to :meth:`insert`."""
-        self.insert(chunks, vectors)
+        return self.insert(chunks, vectors)
 
     def delete(self, chunk_ids: Sequence[str]) -> None:
         """Delete chunks by ``chunk_id``."""

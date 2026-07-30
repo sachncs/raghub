@@ -42,7 +42,7 @@ from raghub.agent import Agent, AgentTrace
 from raghub.conversation import InMemoryConversationStore
 from raghub.documents import PlainTextConverter
 from raghub.embeddings import BaseEmbeddingProvider
-from raghub.exceptions import PipelineError
+from raghub.exceptions import PipelineError, VectorStoreError
 from raghub.knowledge import InMemoryKnowledgeRepository
 from raghub.llm import BaseLLMProvider
 from raghub.models import (
@@ -516,7 +516,12 @@ class IngestPipeline(Pipeline):
 
                 with self.telemetry.span("ingest.upsert", count=len(chunks)):
                     if chunks:
-                        self.vector_store.upsert(chunks, vectors)
+                        written = self.vector_store.upsert(chunks, vectors)
+                        if written != len(chunks):
+                            raise VectorStoreError(
+                                f"vector store wrote {written} of "
+                                f"{len(chunks)} chunks"
+                            )
                         if self.raptor is not None:
                             with self.telemetry.span("ingest.raptor"):
                                 self.raptor.add_chunks(chunks, vectors)

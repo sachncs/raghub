@@ -889,9 +889,8 @@ class RAG:
         n_inserted = 0
         for chunks, vectors in worker_outputs:
             if chunks and getattr(vector_store, "insert", None):
-                with contextlib.suppress(Exception):
-                    vector_store.insert(chunks, vectors)
-                    n_inserted += len(chunks)
+                written = vector_store.insert(chunks, vectors)
+                n_inserted += written
         rebuild = getattr(vector_store, "rebuild_index", None)
         if callable(rebuild):
             rebuild()
