@@ -107,6 +107,12 @@ from raghub.vectorstore import MemoryStore
 
 T = TypeVar("T", bound=BaseModel)
 
+__all__ = [
+    "LLM_API_KEY_ENV_VARS",
+    "RAG",
+    "has_llm_api_key",
+]
+
 """Default factories for the RAG facade's optional dependencies.
 
 Each ``default_*`` method is a thin wrapper that picks the best
