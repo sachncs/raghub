@@ -346,10 +346,19 @@ def read_toml_file(path: Path) -> dict[str, Any]:
 def load_profile_payload(profile: str | None) -> tuple[str | None, Path, dict[str, Any]]:
     """Read the YAML + TOML profile files into a single payload dict.
 
+    Search order for the profile directory:
+
+    1. ``RAG_CONFIG_DIR`` environment variable.
+    2. ``./config`` relative to the current working directory.
+    3. ``~/.config/raghub`` (XDG user config dir).
+    4. The bundled ``config/`` shipped with the package.
+
     Returns:
-        Tuple of (selected_profile, profile_path, payload).
+        Tuple of (selected_profile, profile_path, payload). The
+        ``profile_path`` is the YAML path searched; it may not exist.
+        Missing files simply contribute an empty payload.
     """
-    base_dir = Path.cwd() / "config"
+    base_dir = _resolve_config_dir()
     selected_profile = profile or os.getenv("RAG_PROFILE", "development")
     profile_path = base_dir / f"{selected_profile}.yaml"
     toml_path = base_dir / f"{selected_profile}.toml"
@@ -362,6 +371,37 @@ def load_profile_payload(profile: str | None) -> tuple[str | None, Path, dict[st
             # TOML takes precedence over YAML when both are present.
             payload = {**payload, **toml_payload}
     return selected_profile, profile_path, payload
+
+
+def _resolve_config_dir() -> Path:
+    """Return the directory to search for profile YAML/TOML files.
+
+    Resolution order:
+    1. ``RAG_CONFIG_DIR`` env var (explicit override).
+    2. ``./config`` (CWD-relative).
+    3. ``~/.config/raghub`` (XDG-style user config).
+    4. ``config/`` shipped with the package (read-only default).
+    """
+    env = os.getenv("RAG_CONFIG_DIR")
+    if env:
+        return Path(env)
+    cwd_dir = Path.cwd() / "config"
+    if cwd_dir.is_dir():
+        return cwd_dir
+    xdg_dir = Path.home() / ".config" / "raghub"
+    if xdg_dir.is_dir():
+        return xdg_dir
+    try:
+        from importlib.resources import files
+
+        bundled = files("raghub").joinpath("config")
+        if bundled.is_dir():
+            return Path(str(bundled))
+    except (ModuleNotFoundError, FileNotFoundError):
+        pass
+    # Final fallback: return the CWD-relative path even if it
+    # doesn't exist yet — the caller treats missing files as no-ops.
+    return cwd_dir
 
 
 def load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
