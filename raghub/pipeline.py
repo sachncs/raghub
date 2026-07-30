@@ -19,7 +19,7 @@ Section map:
 * :class:`IngestPipeline` — convert → chunk → embed → index.
 * :class:`QueryPipeline` — embed → retrieve → rerank → generate.
 * :class:`AgentPipeline` — agent-driven query pipeline.
-* :func:`chunks_from_knowledge_bundle` / :func:`primary_company` /
+* :func:`get_chunks` / :func:`primary_company` /
   :func:`sha256_checksum` — small ingest helpers.
 * :func:`citations_from_trace` / :func:`hits_from_trace` —
   agent-trace → citation/hit coercion.
@@ -324,7 +324,7 @@ class PipelineResultBuilder:
 # ---------------------------------------------------------------------------
 
 
-def chunks_from_knowledge_bundle(
+def get_chunks(
     bundle: KnowledgeBundle, document_id: str, company: str = ""
 ) -> list[Chunk]:
     """Materialise the :class:`Chunk` list for a bundle's sections."""
@@ -466,7 +466,7 @@ class IngestPipeline(Pipeline):
 
                 existing = self.knowledge_repo.get(bundle_id) if not force else None
                 if existing is not None and existing.checksum == checksum:
-                    prior_chunks = chunks_from_knowledge_bundle(
+                    prior_chunks = get_chunks(
                         existing, document_id, company=tenant_company
                     )
                     if self.vectors_already_indexed(prior_chunks):

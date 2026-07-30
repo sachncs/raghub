@@ -31,16 +31,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import contextlib
 import hashlib
 import json
-import multiprocessing
 import os
-import re
 import statistics
 import time
 import unicodedata
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -49,7 +45,6 @@ from bs4 import BeautifulSoup
 from raghub.config import Settings
 from raghub.evaluation import FramesBenchmark
 from raghub.rag import RAG
-
 
 # ---------------------------------------------------------------------------
 # Phase 1: Wikipedia pre-fetch
@@ -179,7 +174,7 @@ async def _run_pipeline(
     rag.initialize()
     print(f"[frames] ingesting corpus with {max_workers} workers", flush=True)
     t0 = time.perf_counter()
-    await rag.ingest_directory_concurrent(
+    await rag.ingest_dir(
         corpus_dir,
         metadata={"source": "frames-wikipedia"},
         user=None,
@@ -251,7 +246,7 @@ async def _judge_faithfulness(
             context=[],
         )
 
-    for row, result in zip(rows, results):
+    for row, result in zip(rows, results, strict=False):
         predicted = result.details.get("predicted", "")
         if not predicted:
             continue

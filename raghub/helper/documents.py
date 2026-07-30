@@ -15,14 +15,14 @@ The classes and functions here map onto the document lifecycle::
     extract_pdf_pages/text/metadata
                                 - pypdf-backed PDF extraction.
     chunk_words, normalize_text - word-window chunker.
-    extract_text_from_content   - MIME-keyed dispatcher (now thin; the rich
+    extract_text   - MIME-keyed dispatcher (now thin; the rich
                                   format-aware parse lives in parser.py).
     build_chunk_records         - one-stop factory for :class:`ChunkRecord`.
     MarkdownSection, normalise_markdown
                                 - Markdown → :class:`KnowledgeBundle`.
     PlainTextConverter          - text/binary → :class:`KnowledgeBundle`.
     Marker             - PDF → :class:`KnowledgeBundle` (marker-pdf).
-    select_converter_for_path, convert_path
+    pick_converter, convert_path
                                 - file → :class:`KnowledgeBundle`.
     looks_like_pdf              - ``%PDF-`` magic-byte check.
 """
@@ -357,7 +357,7 @@ def extract_pdf_text(pdf_bytes: bytes) -> list[tuple[int, str, str]]:
     return pages
 
 
-def extract_text_from_content(
+def extract_text(
     file_bytes: bytes,
     file_name: str,
     mime_type: str,
@@ -476,7 +476,7 @@ def build_chunk_records(
         and embedded.
     """
     records: list[ChunkRecord] = []
-    parsed_sections = extract_text_from_content(file_bytes, file_name, mime_type)
+    parsed_sections = extract_text(file_bytes, file_name, mime_type)
 
     metadata: dict[str, Any] = {}
     if mime_type == "application/pdf":
@@ -633,7 +633,7 @@ class MarkdownSection:
             )
 
 
-def markdown_to_document_blocks(markdown: str) -> tuple[list[DocumentBlock], str]:
+def md_to_blocks(markdown: str) -> tuple[list[DocumentBlock], str]:
     """Return ``(blocks, trailing_text)`` for a Markdown snippet.
 
     Thin convenience wrapper around :class:`MarkdownSection`; see the
@@ -666,7 +666,7 @@ def normalise_markdown(
     """
     metadata = metadata or {}
     page_numbers = page_numbers or []
-    blocks, flat = markdown_to_document_blocks(markdown)
+    blocks, flat = md_to_blocks(markdown)
 
     if not blocks and flat:
         blocks = [DocumentBlock(kind=BlockKind.TEXT, content=flat)]
@@ -699,15 +699,15 @@ pdf_module, pdf_error = capture(import_module, "marker.converters.pdf")
 models_module, models_error = capture(import_module, "marker.models")
 output_module, output_error = capture(import_module, "marker.output")
 MarkerImportError = pdf_error or models_error or output_error
-MARKER_AVAILABLE = MarkerImportError is None
+MARKER = MarkerImportError is None
 MarkerPdfConverter: Any = getattr(pdf_module, "PdfConverter", None)
 marker_create_model_dict: Any = getattr(models_module, "create_model_dict", None)
-marker_text_from_rendered: Any = getattr(output_module, "text_from_rendered", None)
+rendered_text: Any = getattr(output_module, "text_from_rendered", None)
 
 
 def build_marker_converter(*, device: str | None = None) -> Any:
     """Construct a Marker PDF converter for ``device``."""
-    if not MARKER_AVAILABLE or MarkerPdfConverter is None:
+    if not MARKER or MarkerPdfConverter is None:
         raise ConfigurationError(
             "marker-pdf is not installed; install it via "
             "`pip install 'raghub[pdf]'` or set a custom converter."
@@ -761,7 +761,7 @@ class Marker(DocumentConverter):
 
     def __init__(self, *, device: str | None = None) -> None:
         """Initialise the converter for an optional device."""
-        if not MARKER_AVAILABLE:
+        if not MARKER:
             raise ConfigurationError(
                 "marker-pdf is not installed; install it via "
                 "`pip install 'raghub[pdf]'` or set a custom converter."
@@ -769,7 +769,7 @@ class Marker(DocumentConverter):
         self.device = device
         self.converter: Any | None = None
 
-    def marker_converter_instance(self) -> Any:
+    def get_marker(self) -> Any:
         """Return the lazily constructed Marker converter."""
         if self.converter is None:
             self.converter = build_marker_converter(device=self.device)
@@ -807,7 +807,7 @@ class Marker(DocumentConverter):
             raise ConversionError(f"Marker conversion failed: {temporary_error}") from temporary_error
         temporary.write(file_bytes)
         temporary.close()
-        rendered, conversion_error = capture(self.marker_converter_instance(), temporary.name)
+        rendered, conversion_error = capture(self.get_marker(), temporary.name)
         capture(os.unlink, temporary.name)
         if conversion_error is not None:
             if isinstance(conversion_error, ConfigurationError):
@@ -818,8 +818,8 @@ class Marker(DocumentConverter):
 
         text_content = getattr(rendered, "markdown", None) or str(rendered)
         images: dict[str, Any] = {}
-        if marker_text_from_rendered is not None:
-            extracted, extraction_error = capture(marker_text_from_rendered, rendered)
+        if rendered_text is not None:
+            extracted, extraction_error = capture(rendered_text, rendered)
             if extraction_error is None:
                 text_content, format_name, images = extracted
             else:
@@ -849,7 +849,7 @@ def looks_like_pdf(file_bytes: bytes) -> bool:
     return file_bytes[:5] == b"%PDF-"
 
 
-def select_converter_for_path(path: Path) -> DocumentConverter:
+def pick_converter(path: Path) -> DocumentConverter:
     """Pick a converter for ``path`` based on its extension.
 
     Args:
@@ -881,7 +881,7 @@ def convert_path(
         The canonical :class:`KnowledgeBundle`.
     """
     p = Path(path)
-    active = converter or select_converter_for_path(p)
+    active = converter or pick_converter(p)
     data = p.read_bytes()
     return active.convert(
         source_uri=str(p.resolve()),
@@ -905,12 +905,12 @@ __all__ = [
     "extract_pdf_metadata",
     "extract_pdf_pages",
     "extract_pdf_text",
-    "extract_text_from_content",
+    "extract_text",
     "looks_like_pdf",
-    "markdown_to_document_blocks",
+    "md_to_blocks",
     "new_version",
     "normalise_markdown",
     "normalize_text",
-    "select_converter_for_path",
+    "pick_converter",
     "validate_upload",
 ]

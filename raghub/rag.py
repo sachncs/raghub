@@ -304,7 +304,7 @@ def ingest_one_worker(
     metadata: dict[str, Any] | None,
     embedder_signature: tuple[str, int],
 ) -> tuple[list[Any], list[list[float]]]:
-    """Worker entry-point for :meth:`RAG.ingest_directory_concurrent`.
+    """Worker entry-point for :meth:`RAG.ingest_dir`.
 
     Each subprocess reconstructs a minimal :class:`RAG` from the
     settings serialised at ``settings_path`` and re-ingests a single
@@ -832,7 +832,7 @@ class RAG:
             outputs={"batch": list(results)},
         )
 
-    async def ingest_directory_concurrent(
+    async def ingest_dir(
         self,
         directory: Path,
         metadata: dict[str, Any] | None,
