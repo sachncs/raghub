@@ -43,7 +43,7 @@ from raghub.conversation import InMemoryConversationStore
 from raghub.documents import PlainTextConverter
 from raghub.embeddings import Embedder
 from raghub.exceptions import PipelineError, VectorStoreError
-from raghub.knowledge import InMemoryKnowledgeRepository
+from raghub.knowledge import MemoryRepo
 from raghub.llm import BaseLLMProvider
 from raghub.models import (
     Chunk,
@@ -409,7 +409,7 @@ class IngestPipeline(Pipeline):
         self.chunker = chunker or WordWindowChunker()
         self.embedder = embedder
         self.vector_store = vector_store
-        self.knowledge_repo = knowledge_repo or InMemoryKnowledgeRepository()
+        self.knowledge_repo = knowledge_repo or MemoryRepo()
         self.telemetry = telemetry or NoOpTelemetry()
         self.raptor = raptor
         self.graph = graph

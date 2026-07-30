@@ -3,7 +3,7 @@
 The auth domain in one file because the components are tightly
 coupled:
 
-* :class:`UserRecord` / :class:`SqliteUserStore` — the SQLite-backed
+* :class:`UserRecord` / :class:`SqliteUsers` — the SQLite-backed
   user CRUD store with bcrypt password hashing.
 * :class:`RBACAuthorizationService` — admin-only authorisation checks
   used by API dependencies.
@@ -61,7 +61,7 @@ class UserRecord(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class SqliteUserStore:
+class SqliteUsers:
     """Async CRUD wrapper around the ``users`` SQLite table.
 
     Each method opens a fresh :mod:`aiosqlite` connection. This is
@@ -336,7 +336,7 @@ class RBACAuthorizationService:
         logger: Optional loguru-compatible logger.
     """
 
-    def __init__(self, user_store: SqliteUserStore, logger: Any | None = None) -> None:
+    def __init__(self, user_store: SqliteUsers, logger: Any | None = None) -> None:
         """Initialise the service.
 
         Args:

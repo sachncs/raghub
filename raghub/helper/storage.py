@@ -867,7 +867,7 @@ async def migrate_from_json(
     """
     import raghub.repositories as repositories
 
-    registry = repositories.SqliteDocumentRepository(db_path)
+    registry = repositories.DocStore(db_path)
     await registry.initialize()
 
     documents = Documents(Path(registry_path))

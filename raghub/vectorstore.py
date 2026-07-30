@@ -1,7 +1,7 @@
 """Vector-store implementations.
 
 The module exposes the abstract contract, an in-process
-``InMemoryVectorStore`` (cosine + BM25), and a ``SqliteVectorStore``
+``MemoryStore`` (cosine + BM25), and a ``SqliteStore``
 that uses the ``sqlite-vector`` package from
 ``github.com/sqliteai/sqlite-vector`` when installed, or a SQLite +
 NumPy fallback when not.
@@ -164,7 +164,7 @@ class MemoryVectorRecord:
     vector: list[float]
 
 
-class InMemoryVectorStore(Store):
+class MemoryStore(Store):
     """Cosine-similarity vector store with BM25 keyword search."""
 
     def __init__(self, embedding_dim: int) -> None:
@@ -389,7 +389,7 @@ elif find_spec("sqlitevector") is not None:
     SQLITE_VECTOR_PKG = "sqlitevector"
 
 
-class SqliteVectorStore(Store):
+class SqliteStore(Store):
     """Vector store backed by SQLite.
 
     Prefers the ``sqlite-vector`` extension package when installed
@@ -676,7 +676,7 @@ def build_vector_store(
 ) -> Store:
     """Return the configured vector store.
 
-    The factory always returns a :class:`SqliteVectorStore` pointed at
+    The factory always returns a :class:`SqliteStore` pointed at
     ``settings.data_dir / "vectorstore.sqlite"``. The path can be
     overridden via the ``RAG_VECTORSTORE_PATH`` env var. When the
     ``sqlite-vector`` package is installed the store benefits from
@@ -690,13 +690,13 @@ def build_vector_store(
     dim = embedding_dim if embedding_dim is not None else settings.embedding_dim
     override = os.environ.get("RAG_VECTORSTORE_PATH")
     path = override or str(settings.data_dir / "vectorstore.sqlite")
-    return SqliteVectorStore(path=path, embedding_dim=dim)
+    return SqliteStore(path=path, embedding_dim=dim)
 
 
 __all__ = [
-    "InMemoryVectorStore",
+    "MemoryStore",
     "MemoryVectorRecord",
-    "SqliteVectorStore",
+    "SqliteStore",
     "Store",
     "build_vector_store",
     "matches_metadata_dict",

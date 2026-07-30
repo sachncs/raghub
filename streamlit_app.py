@@ -99,16 +99,16 @@ async def user_store():
     """Build the user store wired to the active profile's data dir.
 
     Returns:
-        An initialised :class:`SqliteUserStore`.
+        An initialised :class:`SqliteUsers`.
     """
     from pathlib import Path
 
-    from raghub.auth import SqliteUserStore
+    from raghub.auth import SqliteUsers
     from raghub.config import Settings; _settings_legacy = Settings  # noop back-compat
 from raghub.config import Settings
 
     settings = Settings.load()
-    store = SqliteUserStore(Path(settings.data_dir) / "users.db")
+    store = SqliteUsers(Path(settings.data_dir) / "users.db")
     await store.initialize()
     return store
 

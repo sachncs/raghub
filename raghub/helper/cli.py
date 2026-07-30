@@ -104,13 +104,13 @@ class ToolConfig:
         """Build and initialise the user store for the active profile.
 
         Returns:
-            The initialised :class:`raghub.auth.SqliteUserStore`.
+            The initialised :class:`raghub.auth.SqliteUsers`.
         """
         settings = CliConfig.read_settings(None)
         db_path = Path(settings.data_dir) / "users.db"
-        from raghub.auth import SqliteUserStore
+        from raghub.auth import SqliteUsers
 
-        store = SqliteUserStore(db_path)
+        store = SqliteUsers(db_path)
         await store.initialize()
         return store
 
