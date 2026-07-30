@@ -29,6 +29,13 @@ from raghub.models import ChunkRecord
 
 sys.modules.setdefault("raghub.vectorstore.base", sys.modules[__name__])
 
+__all__ = [
+    "MemoryStore",
+    "SqliteStore",
+    "Store",
+    "build_store",
+]
+
 
 # ---------------------------------------------------------------------------
 # Metadata helpers
@@ -691,14 +698,3 @@ def build_store(
     override = os.environ.get("RAG_VECTORSTORE_PATH")
     path = override or str(settings.data_dir / "vectorstore.sqlite")
     return SqliteStore(path=path, embedding_dim=dim)
-
-
-__all__ = [
-    "MemoryStore",
-    "MemoryVectorRecord",
-    "SqliteStore",
-    "Store",
-    "build_store",
-    "matches_metadata_dict",
-    "matches_metadata_string",
-]
