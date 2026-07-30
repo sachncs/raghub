@@ -21,6 +21,7 @@ reusable.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -30,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from raghub.exceptions import EvaluationError
-from raghub.models import Evaluator, EvaluationResult
+from raghub.models import EvaluationResult, Evaluator
 from raghub.utils import capture
 
 TOKEN_RE = re.compile(r"\w+")
@@ -105,6 +106,143 @@ class Metrics:
             if rid in relevant:
                 return 1.0 / i
         return 0.0
+
+    @staticmethod
+    def hit_rate_at_k(retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int) -> float:
+        """Hit rate@K — ``1.0`` if any retrieved item is in the relevant set.
+
+        Args:
+            retrieved_ids: Ordered list of retrieved item ids.
+            relevant_ids: Iterable of ids considered relevant.
+            k: Cutoff.
+
+        Returns:
+            A value in ``[0, 1]``. ``1.0`` when the relevant set is
+            empty (vacuously retrieved) or at least one relevant item
+            is in the top-k; otherwise ``0.0``.
+        """
+        relevant = set(relevant_ids)
+        if not relevant:
+            return 1.0
+        top = set(retrieved_ids[:k])
+        return 1.0 if any(rid in relevant for rid in top) else 0.0
+
+    @staticmethod
+    def mean_average_precision(
+        retrieved_ids: Sequence[str], relevant_ids: Iterable[str]
+    ) -> float:
+        """Mean Average Precision (MAP) for a single query.
+
+        Computes the AP for a single ranked list:
+
+            AP = (1 / |relevant|) * sum_{k=1..N} Precision@k * rel(k)
+
+        where ``rel(k)`` is 1 if the k-th retrieved item is in
+        ``relevant_ids`` and 0 otherwise.
+
+        Args:
+            retrieved_ids: Ordered list of retrieved item ids.
+            relevant_ids: Iterable of ids considered relevant.
+
+        Returns:
+            A value in ``[0, 1]``. ``0.0`` when no relevant ids are
+            present (or none of the top-k items are relevant).
+        """
+        relevant = set(relevant_ids)
+        if not relevant:
+            return 0.0
+        score = 0.0
+        hits = 0
+        for k, rid in enumerate(retrieved_ids, start=1):
+            if rid in relevant:
+                hits += 1
+                score += hits / k
+        return score / len(relevant)
+
+    @staticmethod
+    def answer_relevance(predicted: str, question: str) -> float:
+        """Deterministic answer-relevance heuristic (Anyscale).
+
+        Computes the Jaccard overlap between the lower-cased token
+        set of ``predicted`` and the question's content words. Skips
+        common stopwords so an answer like "I don't know" doesn't
+        score high just because it shares words with the question.
+
+        Args:
+            predicted: The generated answer.
+            question: The user's question.
+
+        Returns:
+            A value in ``[0, 1]``. ``1.0`` if every predicted token
+            appears in the question (or one of them is empty);
+            ``0.0`` if the sets are disjoint.
+        """
+        _STOPWORDS = frozenset(
+            {
+                "a", "an", "and", "are", "as", "at", "be", "by",
+                "for", "from", "how", "i", "in", "is", "it", "of",
+                "on", "or", "that", "the", "this", "to", "was",
+                "what", "when", "where", "which", "who", "why", "with",
+            }
+        )
+        pred = {t for t in Metrics.tokenize(predicted) if t not in _STOPWORDS}
+        q = {t for t in Metrics.tokenize(question) if t not in _STOPWORDS}
+        if not pred or not q:
+            return 0.0
+        return len(pred & q) / len(pred | q)
+
+    @staticmethod
+    def faithfulness_claims(answer: str, contexts: Sequence[str]) -> float:
+        """Deterministic faithfulness via claim-substring check.
+
+        Splits ``answer`` into sentence-level claims and counts the
+        fraction whose longest non-stopword n-gram also appears
+        somewhere in ``contexts``. A claim without any content word
+        (e.g. "Yes.") is ignored. Empty ``answer`` is reported as
+        ``1.0`` (no unsupported claim); empty ``contexts`` is ``0.0``
+        (no evidence to support anything).
+
+        Args:
+            answer: The generated answer.
+            contexts: Sequence of retrieved context strings.
+
+        Returns:
+            A value in ``[0, 1]``. ``1.0`` when every claim is
+            supported; ``0.0`` when no claim is supported.
+        """
+        _STOPWORDS = frozenset(
+            {
+                "a", "an", "and", "are", "as", "at", "be", "by",
+                "for", "from", "how", "i", "in", "is", "it", "of",
+                "on", "or", "that", "the", "this", "to", "was",
+                "what", "when", "where", "which", "who", "why", "with",
+            }
+        )
+        text = (answer or "").strip()
+        if not text:
+            return 1.0
+        if not contexts:
+            return 0.0
+        ctx_tokens = set()
+        for c in contexts:
+            ctx_tokens |= Metrics.tokenize(c or "")
+        # Naive sentence splitter on .!? followed by whitespace.
+        claims = [c.strip() for c in re.split(r"(?<=[.!?])\s+", text) if c.strip()]
+        supported = 0
+        considered = 0
+        for claim in claims:
+            tokens = {t for t in Metrics.tokenize(claim) if t not in _STOPWORDS}
+            if not tokens:
+                continue
+            considered += 1
+            # The claim is "supported" if any of its non-stopword tokens
+            # appears in the union of retrieved contexts. We avoid the
+            # brittle "all tokens must be present" check.
+            if tokens & ctx_tokens:
+                supported += 1
+        if considered == 0:
+            return 1.0
+        return supported / considered
 
     @staticmethod
     def context_recall(answer: str, contexts: Sequence[str]) -> float:
@@ -208,10 +346,14 @@ class Metrics:
         metrics: dict[str, float] = {
             f"recall_at_{k}": Metrics.recall_at_k(retrieved_ids, relevant_ids, k),
             f"precision_at_{k}": Metrics.precision_at_k(retrieved_ids, relevant_ids, k),
+            f"hit_rate_at_{k}": Metrics.hit_rate_at_k(retrieved_ids, relevant_ids, k),
             "mrr": Metrics.mean_reciprocal_rank(retrieved_ids, relevant_ids),
+            "map": Metrics.mean_average_precision(retrieved_ids, relevant_ids),
             "context_recall": Metrics.context_recall(answer, contexts),
             "context_precision": Metrics.context_precision(question, contexts),
             "faithfulness": Metrics.faithfulness(answer, contexts),
+            "faithfulness_claims": Metrics.faithfulness_claims(answer, contexts),
+            "answer_relevance": Metrics.answer_relevance(answer, question),
         }
         if ground_truth:
             metrics["answer_correctness"] = Metrics.answer_correctness(answer, ground_truth)
@@ -355,11 +497,17 @@ class FinanceBench(Evaluator):
             A list of :class:`EvaluationResult`.
         """
         rows = list(examples) if examples is not None else self.ensure_examples()
+        # Run all factory calls concurrently. The factory must be
+        # **stateless** (no shared per-call state) so concurrent calls
+        # don't race. We rely on the per-row metric computation below
+        # being independent of the call order.
+        outs = await asyncio.gather(
+            *(response_factory(example) for example in rows)
+        )
         results: list[EvaluationResult] = []
-        for idx, example in enumerate(rows):
+        for idx, (example, out) in enumerate(zip(rows, outs, strict=True)):
             question = example.get("question") or example.get("query") or ""
             gold = example.get("answer") or example.get("evidence_text") or ""
-            out = await response_factory(example)
             contexts: list[str] = []
             retrieved_ids: list[str] = []
             relevant_ids: list[str] = list(example.get("relevant_ids", [])) or [
@@ -400,7 +548,169 @@ class FinanceBench(Evaluator):
             )
         return results
 
+
+class FramesBenchmark(Evaluator):
+    """FRAMES — multi-hop RAG benchmark (Krishna et al. 2024).
+
+    Loads the 824-question FRAMES test split from
+    ``huggingface.co/datasets/google/frames-benchmark``. The dataset
+    is multi-hop: each question references 2-15 Wikipedia articles
+    (the ``wiki_links`` field). The benchmark therefore exercises
+    retrieval quality (recall@k, hit_rate@k, MRR, MAP) in addition
+    to answer correctness.
+
+    Attributes:
+        benchmark: The benchmark identifier persisted on every result.
+    """
+
+    benchmark: str = "frames"
+
+    DEFAULT_NAME = "google/frames-benchmark"
+    DEFAULT_SPLIT = "test"
+    CACHE_DIR = Path(
+        os.getenv(
+            "RAGHUB_FRAMES_CACHE",
+            str(Path.home() / ".cache" / "raghub" / "frames"),
+        )
+    )
+
+    def __init__(
+        self,
+        *,
+        dataset_path: Path | None = None,
+        dataset_name: str = DEFAULT_NAME,
+        split: str = DEFAULT_SPLIT,
+        tolerance: float = 0.05,
+    ) -> None:
+        """Initialise the evaluator.
+
+        Args:
+            dataset_path: Optional local file (TSV/CSV/JSONL). When set,
+                takes precedence over the HuggingFace dataset.
+            dataset_name: HuggingFace dataset id.
+            split: Dataset split.
+            tolerance: Relative tolerance for numeric answers
+                (``abs(pred - gold) / max(|gold|, 1)``).
+        """
+        self.dataset_path = dataset_path
+        self.dataset_name = dataset_name
+        self.split = split
+        self.tolerance = tolerance
+        self.examples: list[dict[str, Any]] | None = None
+
+    def ensure_examples(self) -> list[dict[str, Any]]:
+        """Load the FRAMES test split from local cache or HuggingFace.
+
+        The dataset is cached at
+        ``~/.cache/raghub/frames/frames.jsonl`` after the first
+        download. Each row is normalised to the canonical
+        ``Evaluator`` schema: ``question`` (from ``Prompt``),
+        ``answer`` (from ``Answer``), ``wiki_links`` (a Python
+        list of Wikipedia URLs), ``reasoning_types`` (e.g.
+        ``"Multiple constraints | Numerical reasoning"``), and
+        ``id`` (the row index).
+
+        Returns:
+            A list of example dicts, one per FRAMES question.
+        """
+        if self.examples is not None:
+            return self.examples
+        if self.dataset_path is not None:
+            self.examples = self.load_local(Path(self.dataset_path))
+            if self.examples:
+                return self.examples
+        FramesBenchmark.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cached = FramesBenchmark.CACHE_DIR / f"{self.split}.jsonl"
+        if not cached.exists():
+            self.examples = self.load_huggingface(self.dataset_name, self.split)
+            cached.write_text(
+                "\n".join(json.dumps(ex) for ex in self.examples),
+                encoding="utf-8",
+            )
+        else:
+            self.examples = self.load_local(cached)
+        return self.examples
+
+    def load_local(self, path: Path) -> list[dict[str, Any]]:
+        """Read a FRAMES-style file (TSV/CSV/JSONL) from disk."""
+        if not path.exists():
+            return []
+        if path.suffix.lower() == ".jsonl":
+            return [
+                self.normalise_row(json.loads(line))
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+        if path.suffix.lower() in {".tsv", ".csv"}:
+            rows = self.load_tsv(path)
+            return [self.normalise_row(r) for r in rows]
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return []
+        if isinstance(data, list):
+            return [self.normalise_row(r) for r in data]
+        return [self.normalise_row(data)]
+
+    def load_tsv(self, path: Path) -> list[dict[str, Any]]:
+        """Parse a TSV / CSV file with the FRAMES schema."""
+        try:
+            import csv as _csv
+        except ImportError:  # pragma: no cover - stdlib
+            return []
+        with path.open("r", encoding="utf-8", newline="") as fh:
+            reader = _csv.DictReader(fh, delimiter="\t" if path.suffix == ".tsv" else ",")
+            return [row for row in reader]
+
+    def normalise_row(self, row: dict[str, Any]) -> dict[str, Any]:
+        """Map a FRAMES row to the canonical ``Evaluator`` schema."""
+        raw_links = row.get("wiki_links")
+        if raw_links is None:
+            # Fall back to the per-column Wikipedia columns.
+            per_col = [
+                row.get(f"wikipedia_link_{i}")
+                for i in range(1, 11)
+            ]
+            per_col.append(row.get("wikipedia_link_11+"))
+            links = [u for u in per_col if u]
+        elif isinstance(raw_links, str):
+            # The HF TSV stores the list as a Python ``repr()`` of
+            # the list. Try ``ast.literal_eval`` (the cheap path)
+            # first, fall back to a JSON parse for the edge case
+            # where someone hands us a real JSON-encoded list.
+            import ast as _ast
+            try:
+                links = _ast.literal_eval(raw_links)
+            except (ValueError, SyntaxError):
+                try:
+                    links = json.loads(raw_links)
+                except json.JSONDecodeError:
+                    links = []
+        elif isinstance(raw_links, list):
+            links = raw_links
+        else:
+            links = []
+        return {
+            "id": row.get("Unnamed: 0", row.get("id")),
+            "question": row.get("Prompt") or row.get("question") or "",
+            "answer": row.get("Answer") or row.get("answer") or "",
+            "wiki_links": [str(u) for u in links if isinstance(u, str)],
+            "reasoning_types": row.get("reasoning_types", ""),
+            "company": row.get("company", ""),
+        }
+
     def numeric_within_tolerance(self, predicted: str, gold: str) -> float:
+        """Return 1.0 if the predicted number is within tolerance of gold.
+
+        For FRAMES many gold answers contain a single token
+        (e.g. ``"37th"``). We try :class:`Metrics.first_number` for
+        both, fall back to Jaccard on the digits-only version of
+        the strings, and otherwise use the binary-within-tolerance
+        check.
+        """
+        p_raw = Scoring.first_number(predicted)
+        g_raw = Scoring.first_number(gold)
+        p_parsed, _ = capture(float, p_raw) if p_raw else (None, None)
         """Return 1.0 if the predicted number is within tolerance of gold.
 
         Args:
@@ -499,8 +809,9 @@ async def run(
 
 
 __all__ = [
+    "FinanceBench",
+    "FramesBenchmark",
     "Metrics",
     "Scoring",
-    "FinanceBench",
     "run",
 ]

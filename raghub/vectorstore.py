@@ -22,8 +22,8 @@ from typing import Any
 import numpy as np
 from rank_bm25 import BM25Okapi
 
-from raghub.exceptions import VectorStoreError
-from raghub.models import ChunkRecord, VectorStore
+from raghub.config import Settings
+from raghub.models import ChunkRecord
 
 sys.modules.setdefault("raghub.vectorstore.base", sys.modules[__name__])
 
@@ -33,7 +33,7 @@ sys.modules.setdefault("raghub.vectorstore.base", sys.modules[__name__])
 # ---------------------------------------------------------------------------
 
 
-def matches_metadata_dict(record: "MemoryVectorRecord", filters: dict[str, Any]) -> bool:
+def matches_metadata_dict(record: MemoryVectorRecord, filters: dict[str, Any]) -> bool:
     """Return whether ``record.chunk`` satisfies every entry in ``filters``."""
     chunk = record.chunk
     for key, expected in filters.items():
@@ -44,7 +44,7 @@ def matches_metadata_dict(record: "MemoryVectorRecord", filters: dict[str, Any])
     return True
 
 
-def matches_metadata_string(record: "MemoryVectorRecord", filter_string: str) -> bool:
+def matches_metadata_string(record: MemoryVectorRecord, filter_string: str) -> bool:
     """Apply the legacy SQL-style filter string against ``record.chunk``."""
     if not filter_string:
         return True
@@ -167,13 +167,22 @@ class InMemoryVectorStore(BaseVectorStore):
     def insert(
         self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
     ) -> None:
-        """Insert or overwrite chunks by ``chunk_id``."""
+        """Insert or overwrite chunks by ``chunk_id``.
+
+        The BM25 index is *not* rebuilt on every insert — that would
+        make the per-chunk cost O(N) and turn a 1500-chunk ingest into
+        a ~1M iteration job. Call :meth:`rebuild_index` once after a
+        batch insert (the directory ingest path does this for you).
+        """
         with self.lock:
             for chunk, vector in zip(chunks, vectors, strict=True):
                 self.records[chunk.chunk_id] = MemoryVectorRecord(
                     chunk=chunk, vector=vector
                 )
-        self._rebuild_bm25()
+
+    def rebuild_index(self) -> None:
+        """Rebuild the BM25 index over the current record set."""
+        self.rebuild_bm25()
 
     def upsert(
         self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
@@ -186,7 +195,7 @@ class InMemoryVectorStore(BaseVectorStore):
         with self.lock:
             for cid in chunk_ids:
                 self.records.pop(cid, None)
-        self._rebuild_bm25()
+        self.rebuild_bm25()
 
     def delete_document(self, document_id: str) -> None:
         """Delete every chunk that belongs to ``document_id``."""
@@ -209,15 +218,15 @@ class InMemoryVectorStore(BaseVectorStore):
             ]
         self.delete(stale)
 
-    def _rebuild_bm25(self) -> None:
+    def rebuild_bm25(self) -> None:
         with self.lock:
             if not self.records:
-                self._bm25 = None
+                self.bm25 = None
                 return
             corpus = [rec.chunk.text.split() for rec in self.records.values()]
-        self._bm25 = BM25Okapi(corpus)
+        self.bm25 = BM25Okapi(corpus)
 
-    def _materialize(self, hits: list[tuple[MemoryVectorRecord, float]]) -> list[dict[str, Any]]:
+    def materialize(self, hits: list[tuple[MemoryVectorRecord, float]]) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for rec, score in hits:
             out.append(
@@ -261,7 +270,7 @@ class InMemoryVectorStore(BaseVectorStore):
                 (rec, self.compute_score(vector, rec.vector)) for rec in records
             ]
         scored.sort(key=lambda pair: pair[1], reverse=True)
-        return self._materialize(scored[:top_k])
+        return self.materialize(scored[:top_k])
 
     def hybrid_search(
         self,
@@ -288,19 +297,18 @@ class InMemoryVectorStore(BaseVectorStore):
             ids = [rec.chunk.chunk_id for rec in records]
             if not ids:
                 return []
-            id_to_idx = {cid: i for i, cid in enumerate(ids)}
             dense_scores = np.array(
                 [self.compute_score(vector, rec.vector) for rec in records]
             )
-            if getattr(self, "_bm25", None) is not None:
-                bm25_scores = np.array(self._bm25.get_scores(query.split()))
+            if getattr(self, "bm25", None) is not None:
+                bm25_scores = np.array(self.bm25.get_scores(query.split()))
             else:
                 bm25_scores = np.zeros_like(dense_scores)
             dense_ranks = (-dense_scores).argsort().argsort()
             bm25_ranks = (-bm25_scores).argsort().argsort()
             rrf = 1.0 / (60.0 + dense_ranks) + 1.0 / (60.0 + bm25_ranks)
             order = np.argsort(-rrf)[:top_k]
-        return self._materialize([(records[i], float(rrf[i])) for i in order])
+        return self.materialize([(records[i], float(rrf[i])) for i in order])
 
     def optimize(self) -> None:
         """No-op for the in-process backend."""
@@ -309,11 +317,10 @@ class InMemoryVectorStore(BaseVectorStore):
     def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
         """Pure BM25 keyword search."""
         with self.lock:
-            if not self.records or getattr(self, "_bm25", None) is None:
+            if not self.records or self.bm25 is None:
                 return []
             chunk_ids = list(self.records.keys())
-            id_to_idx = {cid: i for i, cid in enumerate(chunk_ids)}
-            scores = self._bm25.get_scores(query.split())
+            scores = self.bm25.get_scores(query.split())
             order = np.argsort(-scores)[:top_k]
             return [
                 {
@@ -340,11 +347,11 @@ class InMemoryVectorStore(BaseVectorStore):
 # at github.com/sqliteai/sqlite-vector is not on PyPI as of writing; the
 # wrapper tries the package first, then falls back to plain SQLite +
 # NumPy cosine so the rest of the pipeline keeps working without it.
-_SQLITE_VECTOR_PKG: str | None = None
+SQLITE_VECTOR_PKG: str | None = None
 if find_spec("sqlite_vector") is not None:
-    _SQLITE_VECTOR_PKG = "sqlite_vector"
+    SQLITE_VECTOR_PKG = "sqlite_vector"
 elif find_spec("sqlitevector") is not None:
-    _SQLITE_VECTOR_PKG = "sqlitevector"
+    SQLITE_VECTOR_PKG = "sqlitevector"
 
 
 class SqliteVectorStore(BaseVectorStore):
@@ -366,22 +373,22 @@ class SqliteVectorStore(BaseVectorStore):
         self.path = path
         self.embedding_dim = embedding_dim
         self.collection = collection
-        os.makedirs(self._dir(), exist_ok=True)
-        self._conn = sqlite3.connect(self._db_path(), check_same_thread=False)
-        self._conn.execute("PRAGMA journal_mode = WAL")
-        self._lock = RLock()
-        self._setup_schema()
+        os.makedirs(self.dir_path(), exist_ok=True)
+        self.conn = sqlite3.connect(self.db_path(), check_same_thread=False)
+        self.conn.execute("PRAGMA journal_mode = WAL")
+        self.lock = RLock()
+        self.setup_schema()
 
-    def _dir(self) -> str:
+    def dir_path(self) -> str:
         head, _ = os.path.split(self.path)
         return head or "."
 
-    def _db_path(self) -> str:
+    def db_path(self) -> str:
         return self.path
 
-    def _setup_schema(self) -> None:
-        with self._lock:
-            self._conn.execute(
+    def setup_schema(self) -> None:
+        with self.lock:
+            self.conn.execute(
                 f"""
                 CREATE TABLE IF NOT EXISTS {self.collection} (
                     chunk_id TEXT PRIMARY KEY,
@@ -394,38 +401,38 @@ class SqliteVectorStore(BaseVectorStore):
                 )
                 """
             )
-            self._conn.execute(
+            self.conn.execute(
                 f"""
                 CREATE INDEX IF NOT EXISTS {self.collection}_doc
                     ON {self.collection}(document_id, version)
                 """
             )
-            self._conn.commit()
+            self.conn.commit()
 
     @property
     def backend(self) -> str:
         """Identifier of the active backend."""
-        return _SQLITE_VECTOR_PKG or "sqlite-fallback"
+        return SQLITE_VECTOR_PKG or "sqlite-fallback"
 
     def create_collection(self) -> None:
         """No-op: schema is created at construction time."""
         return None
 
     @staticmethod
-    def _pack(vector: Sequence[float]) -> bytes:
+    def pack(vector: Sequence[float]) -> bytes:
         return np.asarray(vector, dtype=np.float32).tobytes()
 
     @staticmethod
-    def _unpack(blob: bytes) -> list[float]:
+    def unpack(blob: bytes) -> list[float]:
         return np.frombuffer(blob, dtype=np.float32).tolist()
 
-    def _rows(
+    def rows(
         self,
         metadata_filter: str | dict[str, Any] | None,
     ) -> list[tuple[str, str, int, str, str, str, bytes]]:
         if metadata_filter is None or metadata_filter == "":
             return list(
-                self._conn.execute(
+                self.conn.execute(
                     f"SELECT chunk_id, document_id, version, classification, text, source_location, vector "
                     f"FROM {self.collection}"
                 )
@@ -439,7 +446,7 @@ class SqliteVectorStore(BaseVectorStore):
             clauses = metadata_filter
             params = []
         return list(
-            self._conn.execute(
+            self.conn.execute(
                 f"SELECT chunk_id, document_id, version, classification, text, source_location, vector "
                 f"FROM {self.collection} WHERE {clauses}",
                 params,
@@ -450,8 +457,8 @@ class SqliteVectorStore(BaseVectorStore):
         self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
     ) -> None:
         """Insert or overwrite chunks."""
-        with self._lock:
-            self._conn.executemany(
+        with self.lock:
+            self.conn.executemany(
                 f"""
                 INSERT OR REPLACE INTO {self.collection}
                 (chunk_id, document_id, version, classification, text, source_location, vector)
@@ -465,12 +472,12 @@ class SqliteVectorStore(BaseVectorStore):
                         chunk.classification.value,
                         chunk.text,
                         chunk.source_location,
-                        self._pack(vector),
+                        self.pack(vector),
                     )
                     for chunk, vector in zip(chunks, vectors, strict=True)
                 ],
             )
-            self._conn.commit()
+            self.conn.commit()
 
     def upsert(
         self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
@@ -480,37 +487,37 @@ class SqliteVectorStore(BaseVectorStore):
 
     def delete(self, chunk_ids: Sequence[str]) -> None:
         """Delete chunks by ``chunk_id``."""
-        with self._lock:
-            self._conn.executemany(
+        with self.lock:
+            self.conn.executemany(
                 f"DELETE FROM {self.collection} WHERE chunk_id = ?",
                 [(cid,) for cid in chunk_ids],
             )
-            self._conn.commit()
+            self.conn.commit()
 
     def delete_document(self, document_id: str) -> None:
         """Delete every chunk that belongs to ``document_id``."""
-        with self._lock:
-            self._conn.execute(
+        with self.lock:
+            self.conn.execute(
                 f"DELETE FROM {self.collection} WHERE document_id = ?",
                 (document_id,),
             )
-            self._conn.commit()
+            self.conn.commit()
 
     def delete_version(self, document_id: str, version: int) -> None:
         """Delete every chunk that belongs to one ``(document_id, version)`` pair."""
         with self.lock:
-            self._conn.execute(
+            self.conn.execute(
                 f"DELETE FROM {self.collection} "
                 "WHERE document_id = ? AND version = ?",
                 (document_id, version),
             )
-            self._conn.commit()
+            self.conn.commit()
 
     def search(
         self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict[str, Any] = ""
     ) -> list[dict[str, Any]]:
         """Cosine-similarity search with metadata pre-filtering."""
-        rows = self._rows(metadata_filter)
+        rows = self.rows(metadata_filter)
         if not rows:
             return []
         query = np.asarray(vector, dtype=np.float32)
@@ -564,14 +571,14 @@ class SqliteVectorStore(BaseVectorStore):
 
     def optimize(self) -> None:
         """Force a checkpoint."""
-        with self._lock:
-            self._conn.commit()
+        with self.lock:
+            self.conn.commit()
 
     def keyword_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
         """Substring match over the indexed text."""
-        with self._lock:
+        with self.lock:
             rows = list(
-                self._conn.execute(
+                self.conn.execute(
                     f"SELECT chunk_id, document_id, version, classification, text, source_location, vector "
                     f"FROM {self.collection} WHERE text LIKE ?",
                     (f"%{query}%",),
@@ -593,8 +600,8 @@ class SqliteVectorStore(BaseVectorStore):
 
     def health(self) -> dict[str, Any]:
         """Return liveness information for the health endpoint."""
-        with self._lock:
-            count = self._conn.execute(
+        with self.lock:
+            count = self.conn.execute(
                 f"SELECT COUNT(*) FROM {self.collection}"
             ).fetchone()[0]
         return {
@@ -610,7 +617,7 @@ class SqliteVectorStore(BaseVectorStore):
 
 
 def build_vector_store(
-    settings: "Settings",
+    settings: Settings,
     *,
     embedding_dim: int | None = None,
 ) -> BaseVectorStore:
@@ -629,10 +636,7 @@ def build_vector_store(
         raise TypeError(f"build_vector_store: expected Settings, got {type(settings).__name__}")
     dim = embedding_dim if embedding_dim is not None else settings.embedding_dim
     override = os.environ.get("RAG_VECTORSTORE_PATH")
-    if override:
-        path = override
-    else:
-        path = str(settings.data_dir / "vectorstore.sqlite")
+    path = override or str(settings.data_dir / "vectorstore.sqlite")
     return SqliteVectorStore(path=path, embedding_dim=dim)
 
 

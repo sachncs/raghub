@@ -35,14 +35,14 @@ import re
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field, SecretStr
 
 from raghub.config import LongContextConfig, Settings
 from raghub.core import allowed_company_filter
+from raghub.embeddings import BaseEmbeddingProvider
 from raghub.exceptions import GraphUnavailableError, RerankerError
-from raghub.llm import BaseLLMProvider
 from raghub.models import (
     ChunkRecord,
     Classification,
@@ -142,75 +142,6 @@ class Identity:
 def record_rerank_latency_provider(provider: str, seconds: float) -> None:
     """Push a histogram observation when Prometheus is wired up."""
     record_rerank_latency(provider, seconds)
-
-
-class Bge:
-    """Local cross-encoder reranker (default: ``BAAI/bge-reranker-v2-m3``).
-
-    Attributes:
-        name: ``"bge"``.
-    """
-
-    name = "bge"
-
-    def __init__(
-        self,
-        *,
-        model: str = "BAAI/bge-reranker-v2-m3",
-        top_k: int = 20,
-        encoder: Any | None = None,
-    ) -> None:
-        """Initialise the reranker.
-
-        Args:
-            model: HuggingFace model id or local path.
-            top_k: Maximum candidates scored.
-            encoder: Optional pre-built CrossEncoder (skips model load).
-        """
-        self.model = model
-        self.top_k = top_k
-        self.encoder = encoder
-
-    def ensure_encoder(self) -> Any:
-        """Return the underlying :class:`sentence_transformers.CrossEncoder`."""
-        if self.encoder is None:
-            from sentence_transformers import CrossEncoder
-
-            self.encoder = CrossEncoder(self.model)
-        return self.encoder
-
-    def rerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
-        """Reorder ``hits`` by descending cross-encoder score."""
-        if not hits:
-            return []
-        started = time.perf_counter()
-        ordered = self.score(question, hits)
-        record_rerank_latency_provider(self.name, time.perf_counter() - started)
-        return ordered
-
-    async def arerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
-        """Async shim that pushes the sync rerank onto a worker thread."""
-        return await __import__("asyncio").to_thread(
-            self.rerank, question=question, hits=list(hits)
-        )
-
-    def score(
-        self, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
-        """Score every ``(question, chunk)`` pair and sort by score."""
-        encoder = self.ensure_encoder()
-        pairs = [(question, hit.chunk.text) for hit in hits]
-        scores = list(encoder.predict(list(pairs)))
-        ordered = sorted(
-            zip(scores, hits, strict=True),
-            key=lambda pair: pair[0],
-            reverse=True,
-        )
-        return [hit for _, hit in ordered[: self.top_k]]
 
 
 class Cohere:
@@ -1292,7 +1223,7 @@ class Retrieval:
         self.embedding_provider = embedding_provider
         self.vector_store = vector_store
         self.rerank = rerank
-        self.hybrid = hybrid or _default_hybrid_config()
+        self.hybrid = hybrid or default_hybrid_config()
 
     def retrieve(
         self, *, user: UserPrincipal, question: str, top_k: int
@@ -1559,21 +1490,17 @@ class RerankerFactory:
                 model="rerank-english-v3.0",
                 top_k=cfg.top_k,
             )
-        if provider == "bge":
-            return Bge(model="BAAI/bge-reranker-v2-m3", top_k=cfg.top_k)
         if provider == "llm":
             return LlmJudge(
                 llm=self.llm, top_k=cfg.top_k
             )
         if provider == "cascade":
-            cheap = Bge(top_k=cfg.top_k)
             expensive: Rerank
             if self.cohere_api_key is None and not os.getenv("COHERE_API_KEY"):
-                expensive = cheap
-            else:
-                expensive = Cohere(api_key=self.cohere_api_key, top_k=cfg.top_k)
+                return Identity()
+            expensive = Cohere(api_key=self.cohere_api_key, top_k=cfg.top_k)
             return Cascade(
-                cheap=cheap,
+                cheap=Identity(),
                 expensive=expensive,
                 spread_threshold=cfg.cascade_threshold,
             )
@@ -1582,7 +1509,7 @@ class RerankerFactory:
                 raise RerankerError(
                     "long_context reranker requires an LLM via RerankerFactory(llm=...)"
                 )
-            return Context(self.llm, cfg.long_context or _default_long_context())
+            return Context(self.llm, cfg.long_context or default_long_context())
         raise RerankerError(f"Unknown reranker provider: {provider!r}")
 
 
@@ -1601,17 +1528,17 @@ def build_reranker(
 # ---------------------------------------------------------------------------
 
 
-def _default_hybrid_config() -> Any:
+def default_hybrid_config() -> Any:
     """Construct a default ``HybridConfig`` (or duck-typed stand-in)."""
     try:
         from raghub.config import HybridConfig
 
         return HybridConfig()
     except Exception:
-        return _HybridConfigShim()
+        return HybridConfigShim()
 
 
-class _HybridConfigShim:
+class HybridConfigShim:
     """Last-resort shim if the real config class is unavailable."""
 
     fusion = "rrf"
@@ -1620,7 +1547,7 @@ class _HybridConfigShim:
     long_context: Any = None
 
 
-def _default_long_context() -> LongContextConfig:
+def default_long_context() -> LongContextConfig:
     """Return a disabled :class:`LongContextConfig` for fallback construction."""
     return LongContextConfig(enabled=False, candidate_k=5, allowlist_models=[])
 
@@ -1641,13 +1568,13 @@ def reranker(
     Args:
         question: The user query.
         hits: The candidate hits to reorder.
-        method: Reranker name. One of ``identity``, ``bge``, ``cohere``,
+        method: Reranker name. One of ``identity``, ``cohere``,
             ``llm``, ``cascade``, ``long_context``.
 
     Returns:
         The hits reordered by descending relevance.
     """
-    impl = _build_reranker(method)
+    impl = reranker_from_method(method)
     return impl.rerank(question=question, hits=list(hits))
 
 
@@ -1658,7 +1585,7 @@ async def areranker(
     method: str = "identity",
 ) -> list[RetrievalHit]:
     """Asynchronously rerank ``hits`` using the named ``method``."""
-    impl = _build_reranker(method)
+    impl = reranker_from_method(method)
     return await impl.arerank(question=question, hits=list(hits))
 
 
@@ -1683,16 +1610,14 @@ async def transform(
     """
     if llm is None:
         raise RerankerError("transform(...) requires an LLM via llm=...")
-    impl = _build_transformer(method, llm)
+    impl = transformer_from_method(method, llm)
     return await impl.transform(question=question, history=list(history))
 
 
-def _build_reranker(method: str) -> Rerank:
+def reranker_from_method(method: str) -> Rerank:
     """Construct a reranker by name. Settings-driven factory has its own path."""
     if method == "identity":
         return Identity()
-    if method == "bge":
-        return Bge()
     if method == "cohere":
         return Cohere()
     if method == "llm":
@@ -1704,13 +1629,13 @@ def _build_reranker(method: str) -> Rerank:
     if method == "long_context":
         from raghub.llm import LiteLLMProvider
 
-        return Context(LiteLLMProvider(), _default_long_context())
+        return Context(LiteLLMProvider(), default_long_context())
     if method == "colbert":
         return Colbert()
     raise RerankerError(f"Unknown reranker method: {method!r}")
 
 
-def _build_transformer(method: str, llm: Any) -> Transformer:
+def transformer_from_method(method: str, llm: Any) -> Transformer:
     """Construct a transformer by name."""
     if method == "hyde":
         return Hyde(llm)
@@ -1724,43 +1649,42 @@ def _build_transformer(method: str, llm: Any) -> Transformer:
 
 
 __all__ = [
-    "Variant",
-    "Rerank",
-    "Transformer",
-    "Identity",
-    "record_rerank_latency_provider",
-    "Bge",
-    "Cohere",
     "Cascade",
-    "extract_json_array",
-    "merge_with_rrf",
-    "LlmJudge",
-    "build_context_prompt",
-    "extract_json_object",
-    "reorder_candidates",
-    "record_context_latency",
-    "Context",
+    "Cohere",
     "Colbert",
+    "Compose",
+    "Context",
+    "Decompose",
     "Fusion",
-    "rrf",
-    "linear_combine",
+    "Hyde",
+    "Identity",
+    "LlmJudge",
+    "MultiQuery",
+    "Rerank",
+    "RerankerFactory",
+    "Retrieval",
+    "Search",
+    "SearchFilters",
+    "StepBack",
+    "Transformer",
+    "Variant",
+    "areranker",
+    "build_context_prompt",
+    "build_filter",
+    "build_reranker",
+    "decompose_prompt",
+    "extract_json_array",
+    "extract_json_object",
     "extract_string_array",
     "hyde_prompt",
-    "Hyde",
+    "linear_combine",
+    "merge_with_rrf",
     "multi_query_prompt",
-    "MultiQuery",
-    "decompose_prompt",
-    "Decompose",
-    "step_back_prompt",
-    "StepBack",
-    "Compose",
-    "SearchFilters",
-    "build_filter",
-    "Search",
-    "Retrieval",
-    "RerankerFactory",
-    "build_reranker",
+    "record_context_latency",
+    "record_rerank_latency_provider",
+    "reorder_candidates",
     "reranker",
-    "areranker",
+    "rrf",
+    "step_back_prompt",
     "transform",
 ]

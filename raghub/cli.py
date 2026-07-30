@@ -5,31 +5,20 @@ Implementation lives in :mod:`raghub.helper` (cli); local entry-point modules: [
 
 from __future__ import annotations
 
-from raghub.helper.cli import (
-    CliConfig,
-    IngestCommand,
-    InitCommand,
-    QueryCommand,
-    ServerCommand,
-    ToolConfig,
-)
 # --- main.py content ---
-
-
-
 import importlib.metadata
 
 import typer
 
+from raghub.evaluation import app as eval_app
 from raghub.helper.cli import (
     CliConfig,
-    InitCommand,
     IngestCommand,
+    InitCommand,
     QueryCommand,
     ServerCommand,
     ToolConfig,
 )
-from raghub.evaluation import app as eval_app
 from raghub.utils import capture
 
 app = typer.Typer(

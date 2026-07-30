@@ -37,14 +37,11 @@ from raghub.tools import (
     HybridSearch,
     KeywordSearch,
     SummarySearch,
-    VectorSearch,
-    WebSearch,
-    BaseTool,
-    Tool,
     ToolContext,
     ToolRegistry,
     ToolResult,
-    as_admin_user,
+    VectorSearch,
+    WebSearch,
 )
 from raghub.utils import capture
 
@@ -217,7 +214,7 @@ ALLOWED_TOOLS = frozenset(
     }
 )
 
-ALLOWED_RERANKERS = frozenset({"none", "cohere", "bge", "llm", "cascade"})
+ALLOWED_RERANKERS = frozenset({"none", "cohere", "llm", "cascade"})
 
 ALLOWED_TRANSFORMS = frozenset({"hyde", "multi_query", "step_back", "decompose"})
 

@@ -1,7 +1,7 @@
 """Public RAGHub facade.
 
 A single recommended entry point that wires every spec-mandated
-component — Marker → OKF → Chonkie → LiteLLM → Qdrant/ZVec →
+component — Marker → OKF → Chonkie → LiteLLM →
 Langfuse → Instructor — behind a ``RAG(...)`` builder and a
 ``RAG.from_config("raghub.yaml")`` helper.
 
@@ -44,13 +44,43 @@ from pydantic import BaseModel
 from tqdm import tqdm
 
 from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
-from raghub.helper.response import ResponseBuilder
 from raghub.config import Settings
 from raghub.conversation import InMemoryConversationStore
 from raghub.embeddings import BaseEmbeddingProvider, HashingEmbeddingProvider
-from raghub.helper.evaluation import FinanceBench
 from raghub.exceptions import ConfigurationError, IngestionError, RagHubError
 from raghub.generation import DefaultGenerator
+from raghub.helper.evaluation import FinanceBench
+from raghub.helper.response import ResponseBuilder
+from raghub.helper.retrieval import (
+    Colbert as ColbertLateInteraction,
+)
+from raghub.helper.retrieval import (
+    Compose as ComposeTransformer,
+)
+from raghub.helper.retrieval import (
+    Context as LongContextRerankPass,
+)
+from raghub.helper.retrieval import (
+    Decompose as DecomposeTransformer,
+)
+from raghub.helper.retrieval import (
+    Hyde as HydeTransformer,
+)
+from raghub.helper.retrieval import (
+    MultiQuery as MultiQueryTransformer,
+)
+from raghub.helper.retrieval import (
+    Retrieval as RetrievalPipeline,
+)
+from raghub.helper.retrieval import (
+    StepBack as StepBackTransformer,
+)
+from raghub.helper.retrieval import (
+    Transformer as QueryTransformer,
+)
+from raghub.helper.retrieval import (
+    build_reranker,
+)
 from raghub.ingestion import ResumableBackgroundIngestionService, build_chonkie_chunker
 from raghub.knowledge import (
     GraphRagIndex,
@@ -59,9 +89,10 @@ from raghub.knowledge import (
     SourceManifest,
     sha256_bytes,
 )
-from raghub.llm import LiteLLMProvider
 from raghub.models import (
+    Chunker,
     ConversationTurn,
+    DocumentConverter,
     EvaluationResult,
     PipelineContext,
     PipelineResult,
@@ -71,18 +102,6 @@ from raghub.models import (
 from raghub.observability import DEFAULT_METRICS_REGISTRY, PrometheusMetrics, RedactingTelemetry
 from raghub.pipeline import AgenticQueryPipeline, IngestPipeline, QueryCache, QueryPipeline
 from raghub.plugins import PluginRegistry
-from raghub.helper.retrieval import (
-    Colbert as ColbertLateInteraction,
-    Compose as ComposeTransformer,
-    Context as LongContextRerankPass,
-    Decompose as DecomposeTransformer,
-    Hyde as HydeTransformer,
-    MultiQuery as MultiQueryTransformer,
-    Retrieval as RetrievalPipeline,
-    StepBack as StepBackTransformer,
-    Transformer as QueryTransformer,
-    build_reranker,
-)
 from raghub.utils import maybe_await_sync as maybe_await
 from raghub.vectorstore import InMemoryVectorStore
 
@@ -185,7 +204,6 @@ def default_llm(llm_model: str) -> Any:
         key is available. Raises :class:`ConfigurationError` when no
         API key is set — the offline fallback has been removed.
     """
-    model = (llm_model or "").lower()
     if not has_llm_api_key():
         raise ConfigurationError(
             f"no LLM API key is available; cannot build an LLM provider "
@@ -280,6 +298,58 @@ def default_transforms(
         elif name == "decompose":
             transformers.append(DecomposeTransformer(llm))
     return ComposeTransformer(transformers)
+
+
+def ingest_one_worker(
+    settings_path: str,
+    pdf_path: str,
+    metadata: dict[str, Any] | None,
+    embedder_signature: tuple[str, int],
+) -> tuple[list[Any], list[list[float]]]:
+    """Worker entry-point for :meth:`RAG.ingest_directory_concurrent`.
+
+    Each subprocess reconstructs a minimal :class:`RAG` from the
+    settings serialised at ``settings_path`` and re-ingests a single
+    PDF. It returns the chunks and vectors it produced so the parent
+    process can insert them into the shared vector store and skip the
+    duplicated embed / insert work.
+
+    Returns:
+        ``(chunks, vectors)`` lists pulled from the worker's local
+        vector store after ``ingest`` completes. The vectors match the
+        ``embedding_dim`` of the embedder that produced them.
+    """
+    import json as _json
+    from pathlib import Path as _P
+
+    from raghub.config import Settings as _S
+
+    settings_dict = _json.loads(_P(settings_path).read_text(encoding="utf-8"))
+    settings = _S.model_validate(settings_dict)
+    # Each worker re-uses the process-pool's environment for the LLM
+    # creds. The vector store is local to the worker (an in-memory
+    # list) — the parent process owns the merged, durable index.
+    rag = RAG(settings=settings)
+    rag.ingest(_P(pdf_path), metadata=metadata, user=None)
+    # Pull the chunks + vectors back out of the worker's store.
+    vector_store = rag.vector_store
+    chunks: list[Any] = []
+    vectors: list[list[float]] = []
+    for attr in ("records",):
+        records = getattr(vector_store, attr, None)
+        if records is None:
+            continue
+        if isinstance(records, dict):
+            records = records.values()
+        for record in records:
+            chunk = getattr(record, "chunk", None)
+            vec = getattr(record, "vector", None)
+            if chunk is None or vec is None:
+                continue
+            chunks.append(chunk)
+            vectors.append(vec)
+        break
+    return chunks, vectors
 
 
 class RAG:
@@ -738,16 +808,124 @@ class RAG:
         """
 
         files = sorted(p for p in directory.rglob("*") if p.is_file())
-        results: list[PipelineResult] = []
-        iterator = tqdm(files, desc="Ingesting", disable=not show_progress, unit="file")
-        for child in iterator:
-            results.append(await self.aingest(child, metadata=metadata, user=user))
+        n_workers = max(1, min(4, len(files)))
+        semaphore = asyncio.Semaphore(n_workers)
+
+        async def bounded(child: Path) -> PipelineResult:
+            async with semaphore:
+                return await self.aingest(child, metadata=metadata, user=user)
+
+        results = await asyncio.gather(*(bounded(c) for c in files))
+        # Rebuild the BM25 keyword index once after the batch — the
+        # per-file insert path skips it for speed.
+        vector_store = getattr(self, "vector_store", None)
+        rebuild = getattr(vector_store, "rebuild_index", None)
+        if callable(rebuild):
+            rebuild()
         return PipelineResult(
             pipeline_id="batch",
             pipeline_name="ingest",
             success=all(r.success for r in results),
-            outputs={"batch": results},
+            outputs={"batch": list(results)},
         )
+
+    async def ingest_directory_concurrent(
+        self,
+        directory: Path,
+        metadata: dict[str, Any] | None,
+        user: Any | None,
+        *,
+        show_progress: bool = True,
+        max_workers: int | None = None,
+    ) -> PipelineResult:
+        """Run every file in ``directory`` through a ProcessPoolExecutor.
+
+        Each worker process builds its own RAG from a serialised
+        settings path (cheap — no RAG stack re-initialisation since
+        ``RAG.__init__`` only allocates slots). The worker returns the
+        list of (ChunkRecord, vector) tuples it would have inserted
+        into the local store. The main process inserts them into the
+        shared vector store and rebuilds BM25 once at the end.
+
+        The previous path (:meth:`ingest_directory_async`) stays as
+        the in-process option for environments where fork isn't
+        reliable; this method picks up the same per-file work in
+        parallel processes.
+        """
+        import contextlib
+        import multiprocessing as mp
+        from concurrent.futures import ProcessPoolExecutor
+
+        files = sorted(p for p in directory.rglob("*") if p.is_file())
+        if not files:
+            return PipelineResult(
+                pipeline_id="batch",
+                pipeline_name="ingest",
+                success=True,
+                outputs={"batch": []},
+            )
+
+        n_workers = max(
+            1, min(max_workers or os.cpu_count() or 4, len(files))
+        )
+        settings_path = self.settings_serialise_path()
+        embedder_signature = (self.embedder.model_name, self.embedder.dimension)
+
+        with ProcessPoolExecutor(
+            max_workers=n_workers,
+            mp_context=mp.get_context("spawn"),
+        ) as pool:
+            futures = [
+                pool.submit(
+                    ingest_one_worker,
+                    settings_path,
+                    str(p),
+                    metadata,
+                    embedder_signature,
+                )
+                for p in files
+            ]
+            worker_outputs = [f.result() for f in futures]
+
+        # Merge into the main vector store.
+        vector_store = getattr(self, "vector_store", None)
+        n_inserted = 0
+        for chunks, vectors in worker_outputs:
+            if chunks and getattr(vector_store, "insert", None):
+                with contextlib.suppress(Exception):
+                    vector_store.insert(chunks, vectors)
+                    n_inserted += len(chunks)
+        rebuild = getattr(vector_store, "rebuild_index", None)
+        if callable(rebuild):
+            rebuild()
+
+        return PipelineResult(
+            pipeline_id="batch",
+            pipeline_name="ingest",
+            success=True,
+            outputs={"batch": worker_outputs, "files": [str(p) for p in files]},
+        )
+
+    def settings_serialise_path(self) -> str:
+        """Write the active settings to a sidecar file and return its path.
+
+        Workers re-build ``Settings`` from the file rather than from
+        the live :class:`RAG` instance. We round-trip the existing
+        ``Settings`` object so any env-var-driven defaults are picked
+        up.
+        """
+        import json as _json
+        import tempfile
+
+        path = Path(tempfile.mkstemp(prefix="rag-settings-", suffix=".json")[1])
+        path.write_text(
+            _json.dumps(
+                self.settings.model_dump(mode="json"),
+                default=str,
+            ),
+            encoding="utf-8",
+        )
+        return str(path)
 
     async def ingest_one_async(
         self,
