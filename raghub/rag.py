@@ -201,16 +201,13 @@ def default_llm(llm_model: str) -> Any:
 
     Returns:
         :class:`LiteLLMProvider` for the configured model when an API
-        key is available. Raises :class:`ConfigurationError` when no
-        API key is set — the offline fallback has been removed.
+        key is available; :class:`HeuristicProvider` (offline fallback)
+        otherwise.
     """
     if not has_llm_api_key():
-        raise ConfigurationError(
-            f"no LLM API key is available; cannot build an LLM provider "
-            f"for model {llm_model!r}. Set RAG_LLM_API_KEY (and the "
-            f"RAG_LLM_BASE_URL / RAG_LLM_MODEL env vars) to a real "
-            f"endpoint."
-        )
+        from raghub.llm import HeuristicProvider
+
+        return HeuristicProvider()
     from raghub.llm import LiteLLMProvider as _LiteLLMProvider
 
     return _LiteLLMProvider(model=llm_model)
@@ -411,8 +408,8 @@ class RAG:
                 :class:`LiteLLMEmbeddingProvider` (with
                 :class:`HashingEmbeddingProvider` fallback).
             llm: LLM provider. Defaults to
-                :class:`LiteLLMProvider` (no offline fallback — an
-                API key is required).
+                :class:`LiteLLMProvider` when an API key is available;
+                :class:`HeuristicProvider` (offline fallback) otherwise.
             llm_timeout_seconds: Maximum completion time for the default generator.
             vector_store: Vector store. Defaults to
                 :class:`QdrantVectorStore` (with
