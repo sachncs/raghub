@@ -7,9 +7,16 @@ FastAPI and Streamlit surfaces. Both APIs are stable; new code
 should prefer :class:`raghub.RAG`.
 
 Public names are importable directly from their submodules —
-this package is intentionally empty of re-exports so that every
-public surface is discoverable at the source location.
+the package re-exports its core entry points below so that
+``from raghub import RAG`` (and ``import raghub`` + ``raghub.RAG``)
+work without a separate ``raghub.rag`` import.
 """
+
+from raghub.config import Settings
+from raghub.exceptions import RagHubError, MissingDep
+
+__all__ = ["MissingDep", "RAG", "RagHubError", "Settings"]
+
 
 # ``RAG`` is the primary user-facing entry point; lazy-load it so the package
 # loads without paying the full RAG stack on import.
