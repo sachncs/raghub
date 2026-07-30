@@ -224,7 +224,7 @@ class MemoryRepo(KnowledgeRepository):
 # ---------------------------------------------------------------------------
 
 
-class SourceManifest:
+class Manifest:
     """Persistent index of source URIs and their checksums."""
 
     def __init__(self, path: Path | str) -> None:
@@ -330,7 +330,7 @@ SUMMARY_PROMPT = (
 )
 
 
-class RaptorIndex(KnowledgeIndex):
+class Raptor(KnowledgeIndex):
     """Recursive summary tree (Phase 6.2).
 
     Attributes:
@@ -640,7 +640,7 @@ def tokenise(text: str) -> set[str]:
     return {token for token in re.findall(r"\w+", text.lower()) if len(token) > 2}
 
 
-class GraphRagIndex(KnowledgeIndex):
+class GraphIndex(KnowledgeIndex):
     """Entity + community graph (Phase 6.3).
 
     Attributes:
@@ -985,7 +985,7 @@ class GraphRagIndex(KnowledgeIndex):
         return out
 
 
-def connected_components(graph_like: GraphRagIndex) -> list[set[str]]:
+def connected_components(graph_like: GraphIndex) -> list[set[str]]:
     """Networkx-free connected components over the graph field."""
     visited: set[str] = set()
     components: list[set[str]] = []
@@ -1011,8 +1011,8 @@ def running_loop_present() -> bool:
     return error is None
 
 
-def run_in_thread(graph_like: GraphRagIndex, chunks: list[Chunk]) -> None:
-    """Run :meth:`GraphRagIndex.drive_extraction` on a daemon thread and join."""
+def run_in_thread(graph_like: GraphIndex, chunks: list[Chunk]) -> None:
+    """Run :meth:`GraphIndex.drive_extraction` on a daemon thread and join."""
     import threading
 
     thread = threading.Thread(

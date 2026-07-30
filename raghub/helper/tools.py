@@ -363,7 +363,7 @@ class GraphSearch(BaseTool):
         """Initialise the tool.
 
         Args:
-            graph_index: A GraphRagIndex (or ``None`` for a no-op tool).
+            graph_index: A GraphIndex (or ``None`` for a no-op tool).
         """
         self.index = graph_index
 
@@ -600,7 +600,7 @@ class SummarySearch(BaseTool):
         """Initialise the tool.
 
         Args:
-            raptor_index: A RaptorIndex (or ``None`` for a no-op tool).
+            raptor_index: A Raptor (or ``None`` for a no-op tool).
         """
         self.index = raptor_index
 

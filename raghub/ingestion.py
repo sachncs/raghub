@@ -12,8 +12,8 @@ in separate files:
   background service with a SQLite ledger so jobs survive restarts.
 * :class:`PersistentJobStore` — the SQLite-backed job ledger used
   by the resumable service.
-* :class:`WordWindowChunker` — the built-in overlap-aware chunker.
-* :class:`ChonkieChunker` — the Chonkie-backed chunker; supported
+* :class:`WordChunker` — the built-in overlap-aware chunker.
+* :class:`Chonkie` — the Chonkie-backed chunker; supported
   strategies are recursive, token, sentence, semantic, late, table,
   code, slumber, neural.
 * :func:`build_chonkie_chunker` — strategy-dispatch helper.
@@ -133,7 +133,7 @@ def build_chonkie_inner(
     if not CHONKIE_AVAILABLE or CHONKIE_MODULE is None:
         raise ConfigurationError(
             "chonkie is not installed; install it via `pip install chonkie` "
-            "or use WordWindowChunker."
+            "or use WordChunker."
         )
 
     chunker_builders: dict[str, tuple[str, dict[str, Any]]] = {
@@ -200,7 +200,7 @@ def build_chonkie_inner(
     ) from initialization_error
 
 
-class ChonkieChunker(Chunker):
+class Chonkie(Chunker):
     """Chonkie-backed chunker supporting all strategies."""
 
     chunk_size: int
@@ -231,7 +231,7 @@ class ChonkieChunker(Chunker):
         if not CHONKIE_AVAILABLE:
             raise ConfigurationError(
                 "chonkie is not installed; install it via `pip install chonkie` "
-                "or use WordWindowChunker."
+                "or use WordChunker."
             )
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
@@ -357,7 +357,7 @@ class ChonkieChunker(Chunker):
         return chunks
 
 
-class WordWindowChunker(Chunker):
+class WordChunker(Chunker):
     """Overlap-aware word-window chunker."""
 
     chunk_size: int
@@ -477,15 +477,15 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
     }
     if name in chonkie_names:
         if CHONKIE_AVAILABLE:
-            return ChonkieChunker(chunker_name=name, **kwargs)
+            return Chonkie(chunker_name=name, **kwargs)
         if name != "auto":
             raise ConfigurationError("chonkie is not installed")
     if name in ("chonkie", "word_window", "auto"):
         if name == "chonkie":
             if CHONKIE_AVAILABLE:
-                return ChonkieChunker(**kwargs)
+                return Chonkie(**kwargs)
             raise ConfigurationError("chonkie is not installed")
-        return WordWindowChunker(**kwargs)
+        return WordChunker(**kwargs)
     raise ConfigurationError(f"Unknown chunker: {name!r}")
 
 
@@ -584,7 +584,7 @@ class Ingestor:
         """Construct the default :class:`IngestPipeline`."""
         return IngestPipeline(
             converter=default_converter(),
-            chunker=WordWindowChunker(),
+            chunker=WordChunker(),
             embedder=self.embedding_provider,
             vector_store=self.uow.vector_store,
         )
