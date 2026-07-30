@@ -405,7 +405,14 @@ def _resolve_config_dir() -> Path:
 
 
 def load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """Build the env-driven payload for the simple ``Settings`` fields."""
+    """Build the env-driven payload for the simple ``Settings`` fields.
+
+    Each ``int()`` / ``float()`` coercion is wrapped in
+    :func:`_env_int` / :func:`_env_float` so an invalid value (e.g.
+    ``RAG_TOP_K="abc"``) raises a clear
+    :class:`ConfigurationError` instead of ``ValueError: invalid
+    literal for int()``.
+    """
     return {
         "environment": os.getenv("RAG_ENV", selected_profile),
         "data_dir": Path(os.getenv("RAG_DATA_DIR", payload.get("data_dir", "./data"))),
@@ -415,11 +422,11 @@ def load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> d
         "sessions_path": Path(
             os.getenv("RAG_SESSIONS_PATH", payload.get("sessions_path", "./data/sessions.json"))
         ),
-        "chunk_size_words": int(
-            os.getenv("RAG_CHUNK_SIZE_WORDS", str(payload.get("chunk_size_words", 800)))
+        "chunk_size_words": _env_int(
+            "RAG_CHUNK_SIZE_WORDS", payload.get("chunk_size_words", 800)
         ),
-        "chunk_overlap_words": int(
-            os.getenv("RAG_CHUNK_OVERLAP_WORDS", str(payload.get("chunk_overlap_words", 100)))
+        "chunk_overlap_words": _env_int(
+            "RAG_CHUNK_OVERLAP_WORDS", payload.get("chunk_overlap_words", 100)
         ),
         "chunker_strategy": os.getenv(
             "RAG_CHUNKER_STRATEGY", payload.get("chunker_strategy", "recursive")
@@ -428,20 +435,13 @@ def load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> d
             "RAG_EMBEDDING_MODEL_CHUNKER",
             payload.get("embedding_model_chunker", "minishlab/potion-base-8M"),
         ),
-        "top_k": int(os.getenv("RAG_TOP_K", str(payload.get("top_k", 5)))),
-        "embedding_dim": int(
-            os.getenv("RAG_EMBEDDING_DIM", str(payload.get("embedding_dim", 384)))
+        "top_k": _env_int("RAG_TOP_K", payload.get("top_k", 5)),
+        "embedding_dim": _env_int("RAG_EMBEDDING_DIM", payload.get("embedding_dim", 384)),
+        "session_timeout_seconds": _env_int(
+            "RAG_SESSION_TIMEOUT_SECONDS", payload.get("session_timeout_seconds", 3600)
         ),
-        "session_timeout_seconds": int(
-            os.getenv(
-                "RAG_SESSION_TIMEOUT_SECONDS",
-                str(payload.get("session_timeout_seconds", 3600)),
-            )
-        ),
-        "max_upload_bytes": int(
-            os.getenv(
-                "RAG_MAX_UPLOAD_BYTES", str(payload.get("max_upload_bytes", 20 * 1024 * 1024))
-            )
+        "max_upload_bytes": _env_int(
+            "RAG_MAX_UPLOAD_BYTES", payload.get("max_upload_bytes", 20 * 1024 * 1024)
         ),
         "embedding_model": os.getenv(
             "RAG_EMBEDDING_MODEL", payload.get("embedding_model", "hashing-bge")
@@ -461,24 +461,70 @@ def load_simple_env_payload(selected_profile: str, payload: dict[str, Any]) -> d
     }
 
 
+def _env_int(name: str, default: int) -> int:
+    """Read ``name`` from the environment as an int.
+
+    Args:
+        name: Environment variable name.
+        default: Value when the env var is unset.
+
+    Returns:
+        Parsed integer, or ``default``.
+
+    Raises:
+        ConfigurationError: When the env var is set but not parseable
+            as an int.
+    """
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError as exc:
+        from raghub.exceptions import ConfigurationError
+
+        raise ConfigurationError(
+            f"{name}={raw!r} is not a valid integer"
+        ) from exc
+
+
+def _env_float(name: str, default: float) -> float:
+    """Read ``name`` from the environment as a float.
+
+    Args:
+        name: Environment variable name.
+        default: Value when the env var is unset.
+
+    Returns:
+        Parsed float, or ``default``.
+
+    Raises:
+        ConfigurationError: When the env var is set but not parseable
+            as a float.
+    """
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError as exc:
+        from raghub.exceptions import ConfigurationError
+
+        raise ConfigurationError(
+            f"{name}={raw!r} is not a valid float"
+        ) from exc
+
+
 def load_agent_config(payload: dict[str, Any]) -> AgentConfig:
     """Build :class:`AgentConfig` from env + payload."""
     return AgentConfig(
         enabled=env_bool("RAG_AGENT_ENABLED", payload.get("agent", {}).get("enabled", False)),
-        max_steps=int(
-            os.getenv("RAG_AGENT_MAX_STEPS", str(payload.get("agent", {}).get("max_steps", 8)))
+        max_steps=_env_int("RAG_AGENT_MAX_STEPS", payload.get("agent", {}).get("max_steps", 8)),
+        max_tool_calls=_env_int(
+            "RAG_AGENT_MAX_TOOL_CALLS", payload.get("agent", {}).get("max_tool_calls", 10)
         ),
-        max_tool_calls=int(
-            os.getenv(
-                "RAG_AGENT_MAX_TOOL_CALLS",
-                str(payload.get("agent", {}).get("max_tool_calls", 10)),
-            )
-        ),
-        max_wall_seconds=float(
-            os.getenv(
-                "RAG_AGENT_MAX_WALL_SECONDS",
-                str(payload.get("agent", {}).get("max_wall_seconds", 30.0)),
-            )
+        max_wall_seconds=_env_float(
+            "RAG_AGENT_MAX_WALL_SECONDS", payload.get("agent", {}).get("max_wall_seconds", 30.0)
         ),
         planner_model=os.getenv(
             "RAG_AGENT_PLANNER_MODEL", payload.get("agent", {}).get("planner_model")
