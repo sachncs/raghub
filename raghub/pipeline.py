@@ -1035,6 +1035,7 @@ def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
         if name not in {"vector_search", "keyword_search", "hybrid_search", "summary_search", "graph_search"}:
             continue
         for hit in observation.get("data", {}).get("hits", []) or []:
+            text = hit.get("text", "")
             record = ChunkRecord(
                 chunk_id=hit.get("chunk_id", ""),
                 document_id=hit.get("document_id") or "graphrag://summary",
@@ -1045,7 +1046,8 @@ def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
                 company="",
                 owner="",
                 department="",
-                text=hit.get("text", ""),
+                text=text,
+                hash=sha256(text.encode("utf-8")).hexdigest(),
                 metadata={"source_tool": name, **hit.get("metadata", {})},
             )
             hits.append(

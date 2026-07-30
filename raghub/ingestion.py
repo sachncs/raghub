@@ -306,6 +306,7 @@ class ChonkieChunker(Chunker):
                             owner=bundle.metadata.get("owner", ""),
                             department=bundle.metadata.get("department", ""),
                             text=text,
+                            hash=sha256(text.encode("utf-8")).hexdigest(),
                             metadata={
                                 "chunker": "chonkie",
                                 "strategy": getattr(self.inner, "__class__", type(None)).__name__,
