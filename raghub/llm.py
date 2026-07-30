@@ -374,11 +374,17 @@ class LiteLLMProvider(BaseLLMProvider):
         if self.timeout_seconds is not None:
             options["timeout"] = self.timeout_seconds
         with LLMValueErrorBoundary("LiteLLM completion failed"):
-            response_dict = litellm.completion(**options)
-
-        choice = response_dict["choices"][0] if isinstance(response_dict, dict) else response_dict.choices[0]
-        message = choice["message"] if isinstance(choice, dict) else choice.message
-        content = message["content"] if isinstance(message, dict) else message.content
+            try:
+                response_dict = litellm.completion(**options)
+            except Exception as exc:
+                raise LLMError(f"LLM completion failed: {exc}") from exc
+        try:
+            choices = response_dict["choices"] if isinstance(response_dict, dict) else response_dict.choices
+            choice = choices[0]
+            message = choice["message"] if isinstance(choice, dict) else choice.message
+            content = message["content"] if isinstance(message, dict) else message.content
+        except (KeyError, IndexError, AttributeError, TypeError) as exc:
+            raise LLMError(f"LLM returned unexpected response shape: {exc}") from exc
         return str(content or "")
 
     async def async_generate(
@@ -425,11 +431,18 @@ class LiteLLMProvider(BaseLLMProvider):
             if self.timeout_seconds is not None:
                 options["timeout"] = self.timeout_seconds
             with LLMValueErrorBoundary("LiteLLM async completion failed"):
-                response_dict = await litellm.acompletion(**options)
+                try:
+                    response_dict = await litellm.acompletion(**options)
+                except Exception as exc:
+                    raise LLMError(f"LLM async completion failed: {exc}") from exc
             response = self.normalise_litellm_response(response_dict)
-        choice = response["choices"][0] if isinstance(response, dict) else response.choices[0]
-        message = choice["message"] if isinstance(choice, dict) else choice.message
-        content = message["content"] if isinstance(message, dict) else message.content
+        try:
+            choices = response["choices"] if isinstance(response, dict) else response.choices
+            choice = choices[0]
+            message = choice["message"] if isinstance(choice, dict) else choice.message
+            content = message["content"] if isinstance(message, dict) else message.content
+        except (KeyError, IndexError, AttributeError, TypeError) as exc:
+            raise LLMError(f"LLM returned unexpected response shape: {exc}") from exc
         return str(content or "")
 
     async def direct_chat(self, messages: list[dict[str, Any]]) -> dict[str, Any]:
