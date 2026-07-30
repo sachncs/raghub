@@ -157,15 +157,42 @@ class DynamicRagError(RagHubError):
     """
 
     def __init__(self, *args: object) -> None:
-        """Emit a one-shot deprecation warning when instantiated."""
+        """Emit a deprecation warning when instantiated.
+
+        Subclasses (``AuthenticationError``, ``ValidationError``,
+        ``LLMError`` …) inherit this ``__init__`` so the warning
+        fires for every legacy alias. The class name in the
+        message is derived from ``type(self).__name__`` so each
+        subclass points users at the right replacement.
+        """
         import warnings
 
+        new_name = _REPLACEMENTS.get(type(self).__name__, "RagHubError")
         warnings.warn(
-            "DynamicRagError is deprecated; use RagHubError instead.",
+            f"{type(self).__name__} is a legacy alias; "
+            f"prefer {new_name} instead.",
             DeprecationWarning,
             stacklevel=2,
         )
         super().__init__(*args)
+
+
+# Legacy alias → preferred replacement mapping. Used by
+# :class:`DynamicRagError.__init__` to point users at the canonical
+# exception type. New code should import directly from
+# :mod:`raghub.errors` (or :mod:`raghub.auth` for auth-related types).
+_REPLACEMENTS: dict[str, str] = {
+    "DynamicRagError": "RagHubError",
+    "AuthenticationError": "RagHubError (specific auth exceptions live in raghub.auth)",
+    "AuthorizationError": "RagHubError (specific auth exceptions live in raghub.auth)",
+    "DocumentError": "IngestionError",
+    "IndexingError": "VectorStoreError",
+    "PromptError": "RagHubError",
+    "LLMError": "GenerationError",
+    "StorageError": "RagHubError",
+    "ValidationError": "RagHubError (or pydantic.ValidationError for input validation)",
+    "RateLimitError": "RagHubError",
+}
 
 
 class AuthenticationError(DynamicRagError):
