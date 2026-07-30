@@ -47,7 +47,7 @@ from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
 from raghub.config import Settings
 from raghub.conv import MemoryConversations
 from raghub.embedder import Embedder, Hasher
-from raghub.errors import ConfigurationError, IngestionError, RagHubError, ValidationError
+from raghub.errors import ConfigurationError, IngestionError, MissingDep, RagHubError, ValidationError
 from raghub.eval import FinanceBench
 from raghub.gen import DefaultGenerator
 from raghub.helper.response import ResponseBuilder
@@ -145,13 +145,30 @@ def has_llm_api_key() -> bool:
 def default_converter() -> DocumentConverter:
     """Return the default document converter.
 
-    Since ``marker-pdf`` is now a required runtime dependency, this
-    always returns :class:`Marker`. Tests patch the
-    `raghub.documents.Marker` symbol via this re-import.
-    """
-    from raghub.parsers import Marker
+    Prefers :class:`Marker` when ``marker-pdf`` is installed;
+    falls back to :class:`PlainTextConverter` (with a one-shot
+    :class:`UserWarning`) when the ``[pdf]`` extra is missing.
 
-    return Marker()
+    Returns:
+        A ready-to-use :class:`DocumentConverter`. PDF parsing is
+        only available when ``marker-pdf`` is installed.
+    """
+    try:
+        from raghub.parsers import Marker
+
+        return Marker()
+    except (MissingDep, ConfigurationError):
+        import warnings
+
+        from raghub.lifecycle import PlainTextConverter
+
+        warnings.warn(
+            "marker-pdf is not installed; falling back to PlainTextConverter. "
+            "PDF parsing is disabled. Install with `pip install raghub[pdf]`.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return PlainTextConverter()
 
 
 def default_chunker(
