@@ -27,7 +27,7 @@ rather than adding new first-class adapters.
 ## Considered — open questions
 
 - **SQL-backed conversation store.** The default
-  `MemoryConversations` is fine for a single process. For
+  `Memory` is fine for a single process. For
   multi-worker deployments behind a load balancer, a Redis- or
   SQLite-backed store that respects the `ConversationStore`
   protocol is needed (it would be a plugin, no facade change).

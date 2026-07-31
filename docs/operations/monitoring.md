@@ -101,7 +101,7 @@ rag = RAG(telemetry=RedactingTelemetry(LangfuseTelemetryProvider()))
 
 ## Legacy surface observability
 
-The legacy FastAPI surface (`raghub.api.app:get_app`, served via
+The FastAPI surface (`raghub.api.AppFactory.create_app`, served via
 Uvicorn's `--factory`) continues to expose:
 
 - `raghub_query_duration_ms` (Histogram) — query execution duration

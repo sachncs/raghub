@@ -89,9 +89,8 @@ Beyond `RAG_*`, the facade reacts to these direct variables:
 | `LANGFUSE_SECRET_KEY` | Enables Langfuse telemetry |
 | `LANGFUSE_HOST` | Optional Langfuse self-hosted endpoint |
 | `CORS_ORIGINS` | FastAPI surface only; comma-separated allow-list |
-| `RAGHUB_USERS` | Streamlit UI demo-user JSON override |
-| `RAGHUB_FINANCEBENCH_CACHE` | Local FinanceBench cache directory |
-| `RAGHUB_API_URL` | UI → API URL inside the compose network |
+| `RAGHUB_USERS` | Demo-user JSON override (JSON object of email → `{password, companies, is_admin}`) |
+| `RAGHUB_FINANCEBENCH_CACHE` | Local Finance cache directory |
 
 ## Production invariants (`environment == "production"`)
 

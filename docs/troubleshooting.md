@@ -138,7 +138,7 @@ rag.sync_index("./documents", user=alice)
 ## `RAG.evaluate()` raises `EvaluationError`
 
 `RAG.evaluate(benchmark="financebench")` uses
-`FinanceBenchEvaluator`, which downloads the dataset from
+`FinanceEvaluator`, which downloads the dataset from
 HuggingFace when no `examples=` is supplied. The download may fail
 in restricted environments or where the network is offline.
 
@@ -146,7 +146,7 @@ Bypass the download by passing explicit examples:
 
 ```python
 from pathlib import Path
-examples = FinanceBenchEvaluator(dataset_path=Path("./local.jsonl"))
+examples = FinanceEvaluator(dataset_path=Path("./local.jsonl"))
 rag.evaluate(benchmark="financebench", examples=examples)
 ```
 
@@ -199,14 +199,6 @@ insensitive, recursive into nested dicts). If you pass your own
 `telemetry=` to the facade, you bypass the redaction layer.
 Either re-wrap with `RedactingTelemetry(...)` or scrub at the
 sink.
-
-## Multi-user isolation isn't visible from the UI
-
-The Streamlit UI signs the caller in as a demo user; the
-session's `User` is what the facade's RBAC sees. Sign
-in with a non-admin user (e.g. `alice@acme.com`) and confirm
-the companies box shows `Apple`. All retrieved chunks should
-have `chunk.company == "Apple"`.
 
 ## Streaming returns empty
 

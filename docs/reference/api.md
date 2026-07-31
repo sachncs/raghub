@@ -4,8 +4,8 @@ RAGHub exposes two parallel surfaces:
 
 1. **`raghub.RAG`** — the recommended Python facade. Typed Pydantic
    models in, typed Pydantic models out.
-2. **FastAPI** (`uvicorn raghub.api.app:app`) — the legacy HTTP
-   surface, bound to `RagApplication`, with JWT bearer
+2. **FastAPI** (`uvicorn raghub.api:AppFactory.create_app --factory`)
+   — the HTTP surface, bound to the RAG facade, with bearer-token
    auth.
 
 ---
@@ -111,9 +111,9 @@ print(response)
 
 ---
 
-## FastAPI surface (legacy)
+## FastAPI surface
 
-`uvicorn raghub.api.app:app --host 0.0.0.0 --port 8000` mounts the
+`uvicorn raghub.api:AppFactory.create_app --factory` mounts the
 following endpoints. All endpoints except `/health` require
 `Authorization: Bearer <session_token>`.
 
@@ -203,20 +203,6 @@ Prometheus scrape endpoint (when the optional
 
 ---
 
-## Streamlit UI
-
-```bash
-streamlit run streamlit_app.py
-```
-
-Pre-seeds five demo users (see
-[`guide/deployment.md`](../guide/deployment.md)). The UI uses
-`st.chat_message` + `st.chat_input`, citation rendering per turn,
-per-user document upload scoped to the user's company, and
-persistent sign-in via `st.session_state`.
-
----
-
 ## Models
 
 All public models live in `raghub.models`:
@@ -225,10 +211,10 @@ All public models live in `raghub.models`:
 from raghub.models import (
     User,             # the principal carrying allowed_companies
     Chunk, Document,           # canonical models
-    KnowledgeBundle,           # OKF representation
+    Bundle,           # OKF representation
     Citation, SearchResult,
     PipelineCtx, PipelineResult,
-    EvaluationResult,
+    Result,
     ConversationTurn,
 )
 ```

@@ -26,7 +26,6 @@ Recommended ceilings for the bundled stack:
 | Service | CPU limit | Memory limit | Notes |
 |---|---|---|---|
 | `api` | 4.0 | 6G | Dominated by LiteLLM and Marker at ingest time |
-| `ui`  | 1.0 | 1G | Streamlit is single-process; size for chat concurrency |
 | `qdrant` | 4.0 | 8G | Index memory grows with `RAG_EMBEDDING_DIM × vectors` |
 
 ## Horizontal scaling: the API
@@ -61,14 +60,6 @@ sharded deployments, switch to a managed Qdrant cluster and point
 The `qdrant` service in `docker-compose.yml` mounts a single named
 volume (`raghub_qdrant_data`); do not scale it beyond one replica
 without first moving to an external Qdrant cluster.
-
-## Horizontal scaling: the UI
-
-The Streamlit UI is single-process. To run more than one replica,
-front them with a load balancer and set
-`RAGHUB_API_URL` to a single API endpoint. The UI keeps session
-state in `st.session_state`, which is per-replica; sticky sessions
-are required for chat continuity.
 
 ## Autoscaling signals
 

@@ -73,17 +73,17 @@ synthetic generation with a small hand-curated validation set.
 
 RAGHub ships with two datasets built in:
 
-- **FinanceBench** — finance-domain Q&A from PatronusAI.
-- **FramesBenchmark** — multi-hop reasoning from Google.
+- **Finance** — finance-domain Q&A from PatronusAI.
+- **Frames** — multi-hop reasoning from Google.
 
 Both load from HuggingFace Hub with local caching. The
 `evaluate` method takes a `response_factory` callable that maps
 each example to the model's response.
 
 ```python
-from raghub.eval import FinanceBench, run
+from raghub.eval import Finance, run
 
-evaluator = FinanceBench()
+evaluator = Finance()
 examples = evaluator.ensure_examples()
 
 async def factory(example):
@@ -122,18 +122,18 @@ All metrics are bounded in `[0.0, 1.0]`. Property-based tests in
 `tests/test_hypothesis_properties.py` verify this for any input.
 
 For semantic faithfulness and relevance — the AnyScale doc's
-criticism of token-overlap metrics — use `LlmJudge`:
+criticism of token-overlap metrics — use `Judge`:
 
 ```python
-from raghub.eval import LlmJudge
+from raghub.eval import Judge
 
-judge = LlmJudge(LiteLLM(model="gpt-4o-mini"))
+judge = Judge(LiteLLM(model="gpt-4o-mini"))
 score = await judge.faithfulness(answer, contexts)  # 0..1
 score = await judge.answer_relevance(answer, question)  # 0..1
 ```
 
-LlmJudge uses two prompts that ask the model to score the answer
-on a 0-1 scale. The response is parsed by `parse_score` (regex
+Judge uses two prompts that ask the model to score the answer
+on a 0-1 scale. The response is parsed by `parse` (regex
 extraction + clamping). Negative signs are accepted so `-0.5`
 clamps to `0.0`. `max_retries` (default 1) controls the retry
 budget on parse failure.
@@ -144,15 +144,15 @@ responses, showing positional bias, favoring its own outputs.
 
 ## 4. Setting a quality gate
 
-`QualityGate` raises `ConfigurationError` when any metric
+`Gate` raises `ConfigurationError` when any metric
 breaches a threshold. Use it in CI to fail the build when
 quality metrics drop.
 
 ```python
-from raghub.eval import QualityGate
+from raghub.eval import Gate
 from raghub.errors import ConfigurationError
 
-gate = QualityGate(
+gate = Gate(
     {"recall_at_5": 0.7, "faithfulness": 0.8},
     default_mode="min",  # metric must be >= threshold
 )
@@ -168,7 +168,7 @@ Add a cost metric with `mode="max"` to ensure the system stays
 fast:
 
 ```python
-gate = QualityGate(
+gate = Gate(
     {"recall_at_5": 0.7, "latency_ms": 200},
     default_mode="min",
 ).add("latency_ms", 200, mode="max")
@@ -178,7 +178,7 @@ Use the fluent builder for one metric at a time:
 
 ```python
 gate = (
-    QualityGate()
+    Gate()
     .add("recall_at_5", 0.7)
     .add("faithfulness", 0.8)
     .add("latency_ms", 200, mode="max")
@@ -199,14 +199,14 @@ metrics. Useful for measuring retrieval-quality changes
 (new embedder, new chunker, new retriever).
 
 ```python
-from raghub.eval import ab_test, FinanceBench
+from raghub.eval import compare, Finance
 
-result = await ab_test(
+result = await compare(
     rag_a=control_rag,
     rag_b=treatment_rag,
     examples=examples,
-    evaluator=FinanceBench(),
-    gate=QualityGate({"recall_at_5": 0.7}),
+    evaluator=Finance(),
+    gate=Gate({"recall_at_5": 0.7}),
 )
 
 print(f"Winner: {result['winner']}")
@@ -231,17 +231,17 @@ benchmark-smoke:
 
 The smoke test uses an in-memory dataset and a stub retriever;
 it verifies the eval pipeline runs end-to-end and that the
-QualityGate with `recall_at_5 >= 0.5` passes. PR builds are
+Gate with `recall_at_5 >= 0.5` passes. PR builds are
 skipped (the job runs only on master to avoid noisy failures).
 
-For a real benchmark run (FinanceBench + a real retriever), run
+For a real benchmark run (Finance + a real retriever), run
 locally:
 
 ```bash
 python -m raghub eval financebench --examples 10
 ```
 
-This prints a JSON summary to stdout. Add a `QualityGate` check
+This prints a JSON summary to stdout. Add a `Gate` check
 in the same script to fail CI on real metric regressions.
 
 ## 7. Best practices (from the AnyScale doc)
@@ -250,7 +250,7 @@ in the same script to fail CI on real metric regressions.
   not a substitute. Hand-curated examples from domain experts catch
   subtle language nuances that automated metrics miss.
 - **Calibrate automated judges.** LLM-as-judge has known biases.
-  Pair `LlmJudge` scores with a small human-verified set to
+  Pair `Judge` scores with a small human-verified set to
   detect drift. Perfect scores on technical metrics don't
   guarantee user satisfaction.
 - **Define custom metrics.** Beyond the built-in suite, you can
@@ -258,21 +258,21 @@ in the same script to fail CI on real metric regressions.
   demographics, data leakage prevention) by extending `Metrics`.
 - **Automate evaluation.** Run tests automatically when changing
   components (embedding models, prompts, retrieval parameters).
-  Use `QualityGate` to enforce thresholds.
+  Use `Gate` to enforce thresholds.
 - **Set thresholds.** Establish minimum performance thresholds
   for key metrics. The `recall_at_5: 0.7` default is a starting
   point; tune to your domain.
 - **Test security and robustness.** PII leakage, prompt injection,
   knowledge base poisoning — see `tests/test_security.py` for
   smoke tests.
-- **A/B test.** Run different strategies in parallel via `ab_test`.
+- **A/B test.** Run different strategies in parallel via `compare`.
   Persist the results so you can correlate with production
   telemetry.
 
 ## 8. Limitations
 
 The deterministic `Metrics` (token overlap, BM25) and
-`LlmJudge` (semantic, single-prompt) cover the two extremes. For
+`Judge` (semantic, single-prompt) cover the two extremes. For
 frameworks that combine both (RAGAS, TruLens, DeepEval), use
 `RagasAdapter` from `[ragas]` extra:
 

@@ -55,12 +55,12 @@ imports of `raghub.stores.*` were redirected.
 
 ## ADR-0003: OKF is the canonical persisted knowledge representation
 
-**Context:** the previous pipeline produced `KnowledgeBundle` only
+**Context:** the previous pipeline produced `Bundle` only
 in memory; there was no canonical on-disk schema for hand-off
 between pipelines.
 
 **Decision:** the canonical persisted representation is **OKF
-(Open Knowledge Format)**: a `KnowledgeBundle` of
+(Open Knowledge Format)**: a `Bundle` of
 `DocumentSection` × `DocumentBlock`, round-tripped through
 `to_okf` / `from_okf`.
 
@@ -79,7 +79,7 @@ facade — too many concerns in one import.
 DI container that wires pipelines against replaceable adapters.
 The legacy `RagApplication` and `build_application` remain
 reachable from `raghub.__init__` for backward compatibility and
-power the FastAPI app at `raghub.api.app:app`.
+power the FastAPI app at `raghub.api.AppFactory.create_app`.
 
 **Consequences:** new code uses `RAG(...)`. Legacy endpoints, CLI
 shims, and DI containers remain available so existing consumers
