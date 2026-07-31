@@ -69,7 +69,7 @@ def test_financebench_smoke_recall_above_threshold(tmp_path: Path) -> None:
 
     async def runner() -> dict:
         result = await run(
-            _FakeEvaluator(),
+            FakeEvaluator(),
             examples,
             response_factory=_async_factory,
         )
@@ -91,7 +91,7 @@ def test_financebench_smoke_recall_above_threshold(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakeEvaluator:
+class FakeEvaluator:
     """Mimics the Evaluator protocol without any dataset loading."""
 
     benchmark: str = "fake"
