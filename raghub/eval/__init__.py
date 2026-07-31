@@ -62,6 +62,7 @@ class Metrics:
             A value in ``[0, 1]``. ``1.0`` when there are no relevant
             items; ``0.0`` when none of the relevant items appear in
             the top-k.
+
         """
         relevant = set(relevant_ids)
         if not relevant:
@@ -80,6 +81,7 @@ class Metrics:
 
         Returns:
             A value in ``[0, 1]``. ``0.0`` when the top-k is empty.
+
         """
         relevant = set(relevant_ids)
         if k <= 0:
@@ -105,6 +107,7 @@ class Metrics:
 
         Returns:
             A value in ``[0.0, 1.0]``.
+
         """
         precision = Metrics.precision_at_k(retrieved_ids, relevant_ids, k)
         recall = Metrics.recall_at_k(retrieved_ids, relevant_ids, k)
@@ -123,6 +126,7 @@ class Metrics:
         Returns:
             A value in ``[0, 1]``. ``0.0`` when no relevant item is
             found; ``1.0`` when the first hit is relevant.
+
         """
         relevant = set(relevant_ids)
         for i, rid in enumerate(retrieved_ids, start=1):
@@ -143,6 +147,7 @@ class Metrics:
             A value in ``[0, 1]``. ``1.0`` when the relevant set is
             empty (vacuously retrieved) or at least one relevant item
             is in the top-k; otherwise ``0.0``.
+
         """
         relevant = set(relevant_ids)
         if not relevant:
@@ -151,9 +156,7 @@ class Metrics:
         return 1.0 if any(rid in relevant for rid in top) else 0.0
 
     @staticmethod
-    def mean_average_precision(
-        retrieved_ids: Sequence[str], relevant_ids: Iterable[str]
-    ) -> float:
+    def mean_average_precision(retrieved_ids: Sequence[str], relevant_ids: Iterable[str]) -> float:
         """Mean Average Precision (MAP) for a single query.
 
         Computes the AP for a single ranked list:
@@ -170,6 +173,7 @@ class Metrics:
         Returns:
             A value in ``[0, 1]``. ``0.0`` when no relevant ids are
             present (or none of the top-k items are relevant).
+
         """
         relevant = set(relevant_ids)
         if not relevant:
@@ -199,13 +203,40 @@ class Metrics:
             A value in ``[0, 1]``. ``1.0`` if every predicted token
             appears in the question (or one of them is empty);
             ``0.0`` if the sets are disjoint.
+
         """
         STOPWORDS = frozenset(
             {
-                "a", "an", "and", "are", "as", "at", "be", "by",
-                "for", "from", "how", "i", "in", "is", "it", "of",
-                "on", "or", "that", "the", "this", "to", "was",
-                "what", "when", "where", "which", "who", "why", "with",
+                "a",
+                "an",
+                "and",
+                "are",
+                "as",
+                "at",
+                "be",
+                "by",
+                "for",
+                "from",
+                "how",
+                "i",
+                "in",
+                "is",
+                "it",
+                "of",
+                "on",
+                "or",
+                "that",
+                "the",
+                "this",
+                "to",
+                "was",
+                "what",
+                "when",
+                "where",
+                "which",
+                "who",
+                "why",
+                "with",
             }
         )
         pred = {t for t in Metrics.tokenize(predicted) if t not in STOPWORDS}
@@ -232,13 +263,40 @@ class Metrics:
         Returns:
             A value in ``[0, 1]``. ``1.0`` when every claim is
             supported; ``0.0`` when no claim is supported.
+
         """
         STOPWORDS = frozenset(
             {
-                "a", "an", "and", "are", "as", "at", "be", "by",
-                "for", "from", "how", "i", "in", "is", "it", "of",
-                "on", "or", "that", "the", "this", "to", "was",
-                "what", "when", "where", "which", "who", "why", "with",
+                "a",
+                "an",
+                "and",
+                "are",
+                "as",
+                "at",
+                "be",
+                "by",
+                "for",
+                "from",
+                "how",
+                "i",
+                "in",
+                "is",
+                "it",
+                "of",
+                "on",
+                "or",
+                "that",
+                "the",
+                "this",
+                "to",
+                "was",
+                "what",
+                "when",
+                "where",
+                "which",
+                "who",
+                "why",
+                "with",
             }
         )
         text = (answer or "").strip()
@@ -278,6 +336,7 @@ class Metrics:
         Returns:
             A value in ``[0, 1]``. ``0.0`` when the answer is empty;
             ``1.0`` when the context is empty.
+
         """
         answer_tokens = Metrics.tokenize(answer)
         if not answer_tokens:
@@ -299,6 +358,7 @@ class Metrics:
 
         Returns:
             A value in ``[0, 1]``.
+
         """
         question_tokens = Metrics.tokenize(question)
         if not contexts:
@@ -332,6 +392,7 @@ class Metrics:
 
         Returns:
             A value in ``[0.0, 1.0]``.
+
         """
         answer_tokens = Metrics.tokenize(answer)
         context_tokens: set[str] = set()
@@ -362,6 +423,7 @@ class Metrics:
 
         Returns:
             A value in ``[0.0, 1.0]``.
+
         """
         text = (text or "").strip()
         if not text:
@@ -394,6 +456,7 @@ class Metrics:
 
         Returns:
             A value in ``[0, 1]``.
+
         """
         a = Metrics.tokenize(answer)
         g = Metrics.tokenize(ground_truth)
@@ -427,6 +490,7 @@ class Metrics:
 
         Returns:
             A dict of metric name → value.
+
         """
         metrics: dict[str, float] = {
             f"recall_at_{k}": Metrics.recall_at_k(retrieved_ids, relevant_ids, k),
@@ -460,6 +524,7 @@ class Metrics:
         Returns:
             ``1.0`` when a number is found in both and it is within
             tolerance; ``0.0`` otherwise (including unparseable input).
+
         """
         p_raw = Scoring.first_number(predicted)
         g_raw = Scoring.first_number(gold)
@@ -486,6 +551,7 @@ class Scoring:
 
         Returns:
             A score in ``[0, 1]``.
+
         """
         pred_tokens = set(predicted.lower().split())
         exp_tokens = set(expected.lower().split())
@@ -505,6 +571,7 @@ class Scoring:
 
         Returns:
             The first numeric token as a string. Empty if none.
+
         """
         for token in text.replace(",", "").split():
             parsed, _ = capture(float, token)
@@ -522,6 +589,7 @@ class Finance(Evaluator):
 
     Attributes:
         benchmark: The benchmark identifier persisted on every result.
+
     """
 
     benchmark: str = "financebench"
@@ -552,6 +620,7 @@ class Finance(Evaluator):
             split: Dataset split.
             tolerance: Relative tolerance for numeric answers
                 (``abs(pred - gold) / max(|gold|, 1)``).
+
         """
         self.dataset_path = dataset_path
         self.dataset_name = dataset_name
@@ -568,6 +637,7 @@ class Finance(Evaluator):
         Returns:
             A list of example dicts, each with ``question``,
             ``answer``, and optional ``relevant_ids`` fields.
+
         """
         if self.examples is not None:
             return self.examples
@@ -608,6 +678,7 @@ class Finance(Evaluator):
 
         Returns:
             A list of :class:`Result`.
+
         """
         rows = list(examples) if examples is not None else self.ensure_examples()
         return await _evaluate(
@@ -692,6 +763,7 @@ class Frames(Evaluator):
 
     Attributes:
         benchmark: The benchmark identifier persisted on every result.
+
     """
 
     benchmark: str = "frames"
@@ -722,6 +794,7 @@ class Frames(Evaluator):
             split: Dataset split.
             tolerance: Relative tolerance for numeric answers
                 (``abs(pred - gold) / max(|gold|, 1)``).
+
         """
         self.dataset_path = dataset_path
         self.dataset_name = dataset_name
@@ -743,6 +816,7 @@ class Frames(Evaluator):
 
         Returns:
             A list of example dicts, one per FRAMES question.
+
         """
         if self.examples is not None:
             return self.examples
@@ -782,6 +856,7 @@ class Frames(Evaluator):
 
         Returns:
             A list of :class:`Result`.
+
         """
         rows = list(examples) if examples is not None else self.ensure_examples()
         return await _evaluate(
@@ -827,10 +902,7 @@ class Frames(Evaluator):
         raw_links = row.get("wiki_links")
         if raw_links is None:
             # Fall back to the per-column Wikipedia columns.
-            per_col = [
-                row.get(f"wikipedia_link_{i}")
-                for i in range(1, 11)
-            ]
+            per_col = [row.get(f"wikipedia_link_{i}") for i in range(1, 11)]
             per_col.append(row.get("wikipedia_link_11+"))
             links = [u for u in per_col if u]
         elif isinstance(raw_links, str):
@@ -839,6 +911,7 @@ class Frames(Evaluator):
             # first, fall back to a JSON parse for the edge case
             # where someone hands us a real JSON-encoded list.
             import ast
+
             try:
                 links = ast.literal_eval(raw_links)
             except (ValueError, SyntaxError):
@@ -877,6 +950,7 @@ class Frames(Evaluator):
 
         Returns:
             A list of example dicts.
+
         """
         if not path.exists():
             return []
@@ -902,6 +976,7 @@ class Frames(Evaluator):
 
         Raises:
             EvaluationError: When the dataset cannot be loaded.
+
         """
         try:
             datasets_module = import_module("datasets")
@@ -937,6 +1012,7 @@ def parse(text: str) -> float | None:
         The parsed score in ``[0.0, 1.0]``, or ``None`` when no
         parsable number is found. A leading negative sign is
         accepted so the clamp can map ``-0.5`` to ``0.0``.
+
     """
     match = SCORE_RE.search(text or "")
     if not match:
@@ -965,6 +1041,7 @@ class Judge:
         max_retries: Number of retries on parse failure before
             raising :class:`EvaluationError`. Defaults to 1 retry
             (2 attempts total).
+
     """
 
     FAITHFULNESS_PROMPT = (
@@ -1022,19 +1099,17 @@ class Judge:
         Raises:
             EvaluationError: When no attempt yields a parseable score,
                 so an LLM outage is never silently read as ``0.0``.
+
         """
         for _ in range(self.max_retries + 1):
             value = await self.score_once(prompt_template, **kwargs)
             if value is not None:
                 return value
         raise EvaluationError(
-            "Judge returned no parseable score after "
-            f"{self.max_retries + 1} attempts"
+            f"Judge returned no parseable score after {self.max_retries + 1} attempts"
         )
 
-    async def faithfulness(
-        self, answer: str, contexts: Sequence[str]
-    ) -> float:
+    async def faithfulness(self, answer: str, contexts: Sequence[str]) -> float:
         """Score the answer's faithfulness on a 0-1 scale.
 
         Args:
@@ -1047,11 +1122,10 @@ class Judge:
 
         Raises:
             EvaluationError: When every retry fails to parse.
+
         """
         joined = "\n\n---\n\n".join(contexts)
-        return await self.score(
-            self.FAITHFULNESS_PROMPT, answer=answer, contexts=joined
-        )
+        return await self.score(self.FAITHFULNESS_PROMPT, answer=answer, contexts=joined)
 
     async def answer_relevance(self, answer: str, question: str) -> float:
         """Score the answer's relevance to the question on a 0-1 scale.
@@ -1065,10 +1139,9 @@ class Judge:
 
         Raises:
             EvaluationError: When every retry fails to parse.
+
         """
-        return await self.score(
-            self.RELEVANCE_PROMPT, answer=answer, question=question
-        )
+        return await self.score(self.RELEVANCE_PROMPT, answer=answer, question=question)
 
 
 async def run(
@@ -1088,6 +1161,7 @@ async def run(
 
     Raises:
         EvaluationError: When the evaluator raises unexpectedly.
+
     """
     try:
         return await evaluator.evaluate(examples, response_factory=response_factory)
@@ -1123,6 +1197,7 @@ class Gate:
     >>> gate = Gate({"recall_at_5": 0.7, "faithfulness": 0.8})
     >>> gate.check({"recall_at_5": 0.9, "faithfulness": 0.95})
     >>> gate.check({"recall_at_5": 0.5, "faithfulness": 0.95})  # raises
+
     """
 
     VALID_MODES = ("min", "max")
@@ -1136,8 +1211,7 @@ class Gate:
         """Store the thresholds and the default mode."""
         if default_mode not in self.VALID_MODES:
             raise ConfigurationError(
-                f"Gate default_mode must be 'min' or 'max', "
-                f"got {default_mode!r}"
+                f"Gate default_mode must be 'min' or 'max', got {default_mode!r}"
             )
         self.default_mode = default_mode
         self.thresholds: dict[str, tuple[float, str]] = {}
@@ -1156,8 +1230,7 @@ class Gate:
         chosen_mode = mode or self.default_mode
         if chosen_mode not in self.VALID_MODES:
             raise ConfigurationError(
-                f"Gate mode for {metric!r} must be 'min' or 'max', "
-                f"got {chosen_mode!r}"
+                f"Gate mode for {metric!r} must be 'min' or 'max', got {chosen_mode!r}"
             )
         self.thresholds[metric] = (threshold, chosen_mode)
         return self
@@ -1172,6 +1245,7 @@ class Gate:
         Raises:
             ConfigurationError: When at least one metric is missing
                 or out of bounds.
+
         """
         breaches: list[str] = []
         for name, (threshold, mode) in self.thresholds.items():
@@ -1184,13 +1258,9 @@ class Gate:
             elif mode == "max" and value > threshold:
                 breaches.append(f"{name}: {value:.3f} > {threshold}")
         if breaches:
-            raise ConfigurationError(
-                f"Gate failed: {'; '.join(breaches)}"
-            )
+            raise ConfigurationError(f"Gate failed: {'; '.join(breaches)}")
 
-    def report(
-        self, metrics: dict[str, float]
-    ) -> dict[str, tuple[float | None, float, bool, str]]:
+    def report(self, metrics: dict[str, float]) -> dict[str, tuple[float | None, float, bool, str]]:
         """Return a structured per-metric report (no raising).
 
         Args:
@@ -1199,6 +1269,7 @@ class Gate:
         Returns:
             A dict of metric name → ``(value, threshold, passed, mode)``
             tuples. ``value`` is ``None`` when the metric is missing.
+
         """
         result: dict[str, tuple[float | None, float, bool, str]] = {}
         for name, (threshold, mode) in self.thresholds.items():
@@ -1249,7 +1320,9 @@ async def compare(
     Raises:
         ConfigurationError: When a gate is supplied and either RAG's
             metrics breach it.
+
     """
+
     async def factory_a(ex: dict[str, Any]) -> Any:
         response = await rag_a.aquery(ex["question"])
         return response.answer

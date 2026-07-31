@@ -38,9 +38,7 @@ def test_response_citation_must_match_source_chunk(sample_chunk):
         Response(
             answer="x",
             citations=[citation],
-            source_chunks=[
-                SearchResult(chunk_id="abc", score=0.5, chunk=sample_chunk)
-            ],
+            source_chunks=[SearchResult(chunk_id="abc", score=0.5, chunk=sample_chunk)],
         )
 
 

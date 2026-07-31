@@ -91,9 +91,7 @@ class TestDimensionContract:
     corruption."""
 
     @pytest.mark.parametrize("dimension", [4, 16, 64, 128, 384])
-    def test_hashing_actually_returns_requested_dimension(
-        self, dimension: int
-    ) -> None:
+    def test_hashing_actually_returns_requested_dimension(self, dimension: int) -> None:
         provider = Hasher(dimension=dimension)
         vec = provider.embed_text("test")
         assert len(vec) == dimension

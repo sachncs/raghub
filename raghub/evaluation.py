@@ -24,6 +24,7 @@ def financebench(
     examples: int = typer.Option(10, "--examples", "-n", help="Number of examples (0 = all)."),
 ) -> None:
     """Run the Finance evaluator and print a JSON summary."""
+
     async def runner() -> None:
         evaluator = Finance()
         examples_list: list[dict[str, Any]] = []
@@ -58,9 +59,12 @@ def financebench(
 
 @app.command(name="frames")
 def frames(
-    examples: int = typer.Option(0, "--examples", "-n", help="Number of FRAMES examples (0 = all 824)."),
+    examples: int = typer.Option(
+        0, "--examples", "-n", help="Number of FRAMES examples (0 = all 824)."
+    ),
 ) -> None:
     """Run the FRAMES evaluator and print a JSON summary."""
+
     async def runner() -> None:
         evaluator = Frames()
         examples_list: list[dict[str, Any]] = []

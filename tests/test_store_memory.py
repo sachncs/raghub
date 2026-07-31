@@ -87,20 +87,12 @@ class TestMatchesMetadataDict:
         assert matches_metadata_dict(record, {}) is True
 
     def test_multiple_criteria_all_pass(self) -> None:
-        record = MemoryVectorRecord(
-            chunk=make_chunk(company="Acme", document_id="d1"), vector=[]
-        )
-        assert matches_metadata_dict(
-            record, {"company": "Acme", "document_id": "d1"}
-        ) is True
+        record = MemoryVectorRecord(chunk=make_chunk(company="Acme", document_id="d1"), vector=[])
+        assert matches_metadata_dict(record, {"company": "Acme", "document_id": "d1"}) is True
 
     def test_multiple_criteria_one_fails(self) -> None:
-        record = MemoryVectorRecord(
-            chunk=make_chunk(company="Acme", document_id="d1"), vector=[]
-        )
-        assert matches_metadata_dict(
-            record, {"company": "Acme", "document_id": "d2"}
-        ) is False
+        record = MemoryVectorRecord(chunk=make_chunk(company="Acme", document_id="d1"), vector=[])
+        assert matches_metadata_dict(record, {"company": "Acme", "document_id": "d2"}) is False
 
 
 # ===========================================================================
@@ -293,9 +285,7 @@ class TestSearch:
             [make_chunk(chunk_id="c1", company="Acme")],
             [[0.1, 0.2]],
         )
-        results = store.search(
-            vector=[0.1, 0.2], top_k=5, metadata_filter={"company": []}
-        )
+        results = store.search(vector=[0.1, 0.2], top_k=5, metadata_filter={"company": []})
         assert results == []
 
     def test_legacy_string_filter(self) -> None:
@@ -400,16 +390,12 @@ class TestHybridSearch:
     def test_delegates_to_search(self) -> None:
         store = MemoryStore(embedding_dim=2)
         store.insert([make_chunk(chunk_id="c1")], [[0.1, 0.2]])
-        results = store.hybrid_search(
-            query="ignored", vector=[0.1, 0.2], top_k=5
-        )
+        results = store.hybrid_search(query="ignored", vector=[0.1, 0.2], top_k=5)
         assert [r["chunk_id"] for r in results] == ["c1"]
 
     def test_hybrid_search_with_string_filter(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert(
-            [make_chunk(chunk_id="c1", company="Acme")], [[0.1, 0.2]]
-        )
+        store.insert([make_chunk(chunk_id="c1", company="Acme")], [[0.1, 0.2]])
         results = store.hybrid_search(
             query="ignored",
             vector=[0.1, 0.2],
@@ -615,9 +601,7 @@ class TestLargeCorpus:
 class TestFacetedSearchEngineSearch:
     def test_search_returns_unique_chunks(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert(
-            [make_chunk(chunk_id="c1", company="Acme")], [[1.0, 0.0]]
-        )
+        store.insert([make_chunk(chunk_id="c1", company="Acme")], [[1.0, 0.0]])
         engine = Search(
             vector_store=store,
             embedding_provider=FakeEmbeddingProvider({"q": [1.0, 0.0]}),
@@ -688,9 +672,7 @@ class TestFacetedSearchEngineMatchesFilters:
 
     def test_multiple_filters_all_pass(self) -> None:
         chunk = make_chunk(company="Acme", department="Eng", owner="a@co.com")
-        filters = SearchFilters(
-            companies=["Acme"], departments=["Eng"], owners=["a@co.com"]
-        )
+        filters = SearchFilters(companies=["Acme"], departments=["Eng"], owners=["a@co.com"])
         assert Search.matches(chunk, filters) is True
 
     def test_multiple_filters_one_fails(self) -> None:
@@ -720,9 +702,7 @@ class TestFacetedSearchEngineCountByField:
             ],
             [[0.1, 0.2]] * 3,
         )
-        engine = Search(
-            vector_store=store, embedding_provider=FakeEmbeddingProvider()
-        )
+        engine = Search(vector_store=store, embedding_provider=FakeEmbeddingProvider())
         assert engine.count_by_field("company") == {"Acme": 2, "Beta": 1}
 
     def test_none_values_skipped(self) -> None:
@@ -731,9 +711,7 @@ class TestFacetedSearchEngineCountByField:
             [make_chunk(chunk_id="c1"), make_chunk(chunk_id="c2")],
             [[0.1, 0.2], [0.3, 0.4]],
         )
-        engine = Search(
-            vector_store=store, embedding_provider=FakeEmbeddingProvider()
-        )
+        engine = Search(vector_store=store, embedding_provider=FakeEmbeddingProvider())
         assert engine.count_by_field("nonexistent_field") == {}
 
 
@@ -743,14 +721,11 @@ class TestBuildFilterString:
 
     def test_company_in_clause(self) -> None:
         assert (
-            build_filter(SearchFilters(companies=["Acme", "Beta"]))
-            == "company IN ('Acme', 'Beta')"
+            build_filter(SearchFilters(companies=["Acme", "Beta"])) == "company IN ('Acme', 'Beta')"
         )
 
     def test_combines_with_and(self) -> None:
-        s = build_filter(
-            SearchFilters(companies=["Acme"], owners=["a@b.com"])
-        )
+        s = build_filter(SearchFilters(companies=["Acme"], owners=["a@b.com"]))
         assert " AND " in s
         assert "company IN ('Acme')" in s
         assert "owner IN ('a@b.com')" in s

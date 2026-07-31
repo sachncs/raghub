@@ -218,8 +218,7 @@ class TestBuildMessagesContext:
             context=[],
         )
         assert not any(
-            m["role"] == "system" and str(m["content"]).startswith("Context:")
-            for m in messages
+            m["role"] == "system" and str(m["content"]).startswith("Context:") for m in messages
         )
 
     def test_single_context_item(self) -> None:

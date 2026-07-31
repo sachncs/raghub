@@ -57,6 +57,7 @@ class Embedder(ABC):
 
         Returns:
             A list of floats representing the embedding.
+
         """
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
@@ -70,6 +71,7 @@ class Embedder(ABC):
 
         Returns:
             A list of embeddings, one per input string.
+
         """
         return [self.embed_text(text) for text in texts]
 
@@ -88,6 +90,7 @@ class Hasher(Embedder):
             comparisons are dimensionally compatible.
         model_name: Stable identifier reported as the provider name; useful
             for telemetry and cache keys.
+
     """
 
     def __init__(self, dimension: int = 384, model_name: str = "hashing-bge") -> None:
@@ -97,6 +100,7 @@ class Hasher(Embedder):
             dimension: Output vector size. Must be a positive integer;
                 larger values reduce bucket collisions at the cost of memory.
             model_name: Stable label exposed via :pyattr:`model_name`.
+
         """
         self.dimension = dimension
         self.model_name = model_name
@@ -111,6 +115,7 @@ class Hasher(Embedder):
             A list of ``dimension`` floats. Empty inputs return a zero
             vector (so the caller can distinguish "no signal" from "no
             overlap" by inspecting the norm).
+
         """
         if not text:
             return [0.0] * self.dimension
@@ -130,6 +135,7 @@ class Hasher(Embedder):
 
         Returns:
             A list of ``dimension``-float vectors in input order.
+
         """
         dim = self.dimension
         out = np.zeros((len(texts), dim), dtype=np.float32)
@@ -171,6 +177,7 @@ class LiteLLMEmbedder(Embedder):
 
         Raises:
             ConfigurationError: When ``litellm`` is not installed.
+
         """
         if not LITELLM_AVAILABLE:
             raise ConfigurationError("litellm is not installed; run `pip install litellm`.")
@@ -186,6 +193,7 @@ class LiteLLMEmbedder(Embedder):
 
         Returns:
             A float vector.
+
         """
         return self.embed_texts([text])[0]
 
@@ -197,6 +205,7 @@ class LiteLLMEmbedder(Embedder):
 
         Returns:
             A list of float vectors.
+
         """
         if not texts:
             return []
@@ -233,6 +242,7 @@ def build_embedder(
 
     Returns:
         A ready-to-use embedding provider instance.
+
     """
     name = (model_name or "").lower().strip()
     if "hashing" in name:

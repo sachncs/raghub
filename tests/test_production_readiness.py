@@ -43,7 +43,7 @@ def _load_services():
 
     if "raghub.services" in sys.modules:
         del sys.modules["raghub.services"]
-    import raghub.services as services
+    from raghub import services
 
     return services
 

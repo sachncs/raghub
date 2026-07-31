@@ -105,9 +105,7 @@ def hybrid(
     """Dense + sparse retrieval fused with reciprocal-rank fusion."""
     tool = HybridSearch(retrieval_pipeline, vector_store)
     ctx = tool.context(question=query)
-    return tool.call(
-        {"query": query, "top_k": top_k, "rrf_k": rrf_k}, ctx
-    )
+    return tool.call({"query": query, "top_k": top_k, "rrf_k": rrf_k}, ctx)
 
 
 __all__ = [

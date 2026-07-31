@@ -50,7 +50,7 @@ def _load_services():
 
     if "raghub.services" in sys.modules:
         del sys.modules["raghub.services"]
-    import raghub.services as services
+    from raghub import services
 
     return services
 
@@ -121,15 +121,11 @@ class TestAggregateStatus:
         assert services.aggregate_status({"a": {"status": "ok"}, "b": {"status": "ok"}}) == "ok"
 
     def test_any_down_makes_overall_down(self) -> None:
-        assert (
-            services.aggregate_status({"a": {"status": "ok"}, "b": {"status": "down"}}) == "down"
-        )
+        assert services.aggregate_status({"a": {"status": "ok"}, "b": {"status": "down"}}) == "down"
 
     def test_any_degraded_makes_overall_degraded(self) -> None:
         assert (
-            services.aggregate_status(
-                {"a": {"status": "ok"}, "b": {"status": "degraded"}}
-            )
+            services.aggregate_status({"a": {"status": "ok"}, "b": {"status": "degraded"}})
             == "degraded"
         )
 
@@ -189,9 +185,7 @@ class TestDocumentUpload:
         assert result.organization == "Acme"
 
     @pytest.mark.asyncio
-    async def test_upload_rejects_other_tenant(
-        self, service: Any, container: MagicMock
-    ) -> None:
+    async def test_upload_rejects_other_tenant(self, service: Any, container: MagicMock) -> None:
         container.auth.resolve_user.return_value = (
             User(
                 user_id="u1",
@@ -257,9 +251,7 @@ class TestDocumentDelete:
         return services.Document(container)
 
     @pytest.mark.asyncio
-    async def test_delete_non_admin_forbidden(
-        self, service: Any, container: MagicMock
-    ) -> None:
+    async def test_delete_non_admin_forbidden(self, service: Any, container: MagicMock) -> None:
         container.auth.resolve_user.return_value = (
             User(
                 user_id="u1",

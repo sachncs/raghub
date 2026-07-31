@@ -97,12 +97,14 @@ class RAGHubGenie:
 
     def generate(self, prompt: str) -> str:
         """Generate a chunking response for ``prompt``."""
-        return str(self.llm.generate(
-            system_prompt="You are a text chunking assistant. Split the text at natural boundaries.",
-            conversation=[],
-            context=[],
-            question=prompt,
-        ))
+        return str(
+            self.llm.generate(
+                system_prompt="You are a text chunking assistant. Split the text at natural boundaries.",
+                conversation=[],
+                context=[],
+                question=prompt,
+            )
+        )
 
     async def agenerate(self, prompt: str) -> str:
         """Generate a chunking response asynchronously."""
@@ -143,20 +145,31 @@ def build_chonkie_inner(
     """Build the best available Chonkie chunker for the configuration."""
     if not CHONKIE_AVAILABLE or CHONKIE_MODULE is None:
         raise ConfigurationError(
-            "chonkie is not installed; install it via `pip install chonkie` "
-            "or use WordChunker."
+            "chonkie is not installed; install it via `pip install chonkie` or use WordChunker."
         )
 
     chunker_builders: dict[str, tuple[str, dict[str, Any]]] = {
-        "token": ("TokenChunker", {"tokenizer": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}),
-        "sentence": ("SentenceChunker", {"tokenizer": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}),
+        "token": (
+            "TokenChunker",
+            {"tokenizer": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap},
+        ),
+        "sentence": (
+            "SentenceChunker",
+            {"tokenizer": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap},
+        ),
         "recursive": ("RecursiveChunker", {"tokenizer": tokenizer, "chunk_size": chunk_size}),
-        "semantic": ("SemanticChunker", {"embedding_model": embedding_model, "chunk_size": chunk_size, "threshold": 0.8}),
+        "semantic": (
+            "SemanticChunker",
+            {"embedding_model": embedding_model, "chunk_size": chunk_size, "threshold": 0.8},
+        ),
         "late": ("LateChunker", {"embedding_model": embedding_model, "chunk_size": chunk_size}),
         "table": ("TableChunker", {"tokenizer": "row", "chunk_size": max(1, chunk_size // 100)}),
         "code": ("CodeChunker", {"language": language, "chunk_size": chunk_size}),
         "neural": ("NeuralChunker", {"min_characters_per_chunk": 24}),
-        "slumber": ("SlumberChunker", {"genie": genie, "chunk_size": chunk_size, "candidate_size": 128}),
+        "slumber": (
+            "SlumberChunker",
+            {"genie": genie, "chunk_size": chunk_size, "candidate_size": 128},
+        ),
     }
 
     auto_probe = ("RecursiveChunker", "TokenChunker", "SentenceChunker")
@@ -238,11 +251,11 @@ class Chonkie(Chunker):
             embedding_model: Model for semantic/late chunkers.
             language: Language for CodeChunker.
             llm_provider: raghub LLM provider for SlumberChunker.
+
         """
         if not CHONKIE_AVAILABLE:
             raise ConfigurationError(
-                "chonkie is not installed; install it via `pip install chonkie` "
-                "or use WordChunker."
+                "chonkie is not installed; install it via `pip install chonkie` or use WordChunker."
             )
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
@@ -386,6 +399,7 @@ class WordChunker(Chunker):
         Args:
             chunk_size: Number of words per chunk.
             chunk_overlap: Overlap between consecutive chunks.
+
         """
         if chunk_size < 1:
             raise ValueError("chunk_size must be >= 1")
@@ -483,11 +497,19 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
     Raises:
         ConfigurationError: When ``name`` is unknown or chonkie is
             explicitly requested but unavailable.
+
     """
     chonkie_names = {
-        "auto", "recursive", "token", "sentence",
-        "semantic", "late", "table", "code",
-        "slumber", "neural",
+        "auto",
+        "recursive",
+        "token",
+        "sentence",
+        "semantic",
+        "late",
+        "table",
+        "code",
+        "slumber",
+        "neural",
     }
     if name in chonkie_names:
         if CHONKIE_AVAILABLE:
@@ -519,6 +541,7 @@ class IngestionResult:
         document: The persisted :class:`DocumentRecord` in its final
             status (``READY`` or a prior duplicate).
         chunk_ids: The chunks that were indexed for this document.
+
     """
 
     document: DocumentRecord
@@ -658,6 +681,7 @@ class Ingestor:
             IngestionError: If any ingestion stage fails. The document
                 is left in ``FAILED`` state with the error message
                 persisted.
+
         """
         mime_type = validate_upload(file_name, file_bytes, self.max_upload_bytes)
         self.virus_scan_hook(file_bytes)
@@ -719,6 +743,7 @@ class IngestionJob:
             ``"failed"``.
         result: The callable's return value on success, the stringified
             exception on failure, or ``None`` while pending.
+
     """
 
     def __init__(self, job_id: str, status: str, result: Any = None) -> None:
@@ -739,6 +764,7 @@ class Batch:
         executor: Backing thread pool.
         jobs: Map from job id to :class:`IngestionJob`.
         closed: ``True`` after :meth:`shutdown` has been invoked.
+
     """
 
     def __init__(self, max_workers: int = 2) -> None:

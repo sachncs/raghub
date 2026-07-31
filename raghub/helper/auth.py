@@ -52,6 +52,7 @@ class Bearer:
         Raises:
             HTTPException: 401 if the header is missing or not
                 ``Bearer``-formatted.
+
         """
         if not authorization or not authorization.lower().startswith("bearer "):
             raise HTTPException(status_code=401, detail="Missing bearer token")
@@ -89,6 +90,7 @@ class Auth:
         Raises:
             HTTPException: 401 for missing / invalid bearer tokens,
                 403 for a non-admin principal.
+
         """
         token = Bearer.require(authorization)
         user, _ = await app_service.resolve_user(token)
@@ -97,9 +99,7 @@ class Auth:
         return user
 
     @staticmethod
-    async def user_id(
-        app_service: Facade, token: str
-    ) -> str:
+    async def user_id(app_service: Facade, token: str) -> str:
         """Resolve ``token`` to its user id via the auth service.
 
         Args:
@@ -108,6 +108,7 @@ class Auth:
 
         Returns:
             The owning user's id.
+
         """
         user, _ = await app_service.auth.resolve_user(token)
         return user.user_id

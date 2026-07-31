@@ -60,6 +60,7 @@ def _is_aiosqlite_row(row: Any) -> bool:
         return False
     return isinstance(row, aiosqlite.Row)
 
+
 SQLITE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
     document_id TEXT PRIMARY KEY,
@@ -146,9 +147,7 @@ class Database:
                     "aiosqlite",
                     "pip install raghub[auth]",
                 ) from None
-            self.conn = await aiosqlite.connect(
-                self.db_path, isolation_level=None
-            )
+            self.conn = await aiosqlite.connect(self.db_path, isolation_level=None)
             self.conn.row_factory = aiosqlite.Row
             await self.conn.execute("PRAGMA journal_mode=WAL")
             await self.conn.execute("PRAGMA synchronous=NORMAL")
@@ -199,16 +198,12 @@ class ImageStore:
             dest_path.write_bytes(file_bytes)
         return content_hash
 
-    def get_path(
-        self, content_hash: str, extension: str = ".png"
-    ) -> Path | None:
+    def get_path(self, content_hash: str, extension: str = ".png") -> Path | None:
         """Resolve a content hash to its filesystem path, or ``None``."""
         path = self.base_path / content_hash[:2] / f"{content_hash}{extension}"
         return path if path.exists() else None
 
-    def get_bytes(
-        self, content_hash: str, extension: str = ".png"
-    ) -> bytes | None:
+    def get_bytes(self, content_hash: str, extension: str = ".png") -> bytes | None:
         """Return the raw bytes for ``content_hash``, or ``None``."""
         path = self.get_path(content_hash, extension)
         return path.read_bytes() if path is not None else None
@@ -257,9 +252,9 @@ class Documents:
         Tolerates a missing or malformed file by resetting to empty
         state; this is the behaviour we want for first-run startup.
         """
-        if self.path.exists() and not self.path.read_text(
-            encoding="utf-8"
-        ).lstrip().startswith("{"):
+        if self.path.exists() and not self.path.read_text(encoding="utf-8").lstrip().startswith(
+            "{"
+        ):
             self.documents = {}
             self.checksum_index = {}
             return
@@ -267,9 +262,7 @@ class Documents:
         documents = payload.get("documents", {})
         checksum_index = payload.get("checksum_index", {})
         self.documents = {
-            document_id: [
-                DocumentRecord.model_validate(item) for item in versions
-            ]
+            document_id: [DocumentRecord.model_validate(item) for item in versions]
             for document_id, versions in documents.items()
             if isinstance(versions, list)
         }
@@ -284,21 +277,18 @@ class Documents:
 
         Raises:
             RagHubError: If the atomic write fails.
+
         """
         _, error = capture(
             atomic_write_json,
             self.path,
             {
                 "documents": {
-                    document_id: [
-                        version.model_dump(mode="json")
-                        for version in versions
-                    ]
+                    document_id: [version.model_dump(mode="json") for version in versions]
                     for document_id, versions in self.documents.items()
                 },
                 "checksum_index": {
-                    checksum: list(value)
-                    for checksum, value in self.checksum_index.items()
+                    checksum: list(value) for checksum, value in self.checksum_index.items()
                 },
             },
         )
@@ -337,9 +327,7 @@ class Documents:
                 return None
             return max(versions, key=lambda v: v.version)
 
-    def get_specific_version(
-        self, document_id: str, version: int
-    ) -> DocumentRecord | None:
+    def get_specific_version(self, document_id: str, version: int) -> DocumentRecord | None:
         """Return a specific historical version, or ``None``."""
         with self.lock:
             for item in self.documents.get(document_id, []):
@@ -415,9 +403,9 @@ class JsonSessions:
 
         Tolerates a missing or malformed file by resetting to empty.
         """
-        if self.path.exists() and not self.path.read_text(
-            encoding="utf-8"
-        ).lstrip().startswith("{"):
+        if self.path.exists() and not self.path.read_text(encoding="utf-8").lstrip().startswith(
+            "{"
+        ):
             self.sessions = {}
             return
         try:
@@ -485,6 +473,7 @@ class JsonSessions:
 
         Raises:
             AuthenticationError: If the token is invalid or expired.
+
         """
         with self.lock:
             session = self.resolve(token)
@@ -503,6 +492,7 @@ class JsonSessions:
 
         Raises:
             AuthenticationError: If the token is invalid or expired.
+
         """
         with self.lock:
             session = self.resolve(token)
@@ -524,6 +514,7 @@ class Sessions:
         timeout: Sliding inactivity window as a :class:`timedelta`.
         db: Optional shared :class:`Database`. When ``None``
             the store opens its own connections per call.
+
     """
 
     def __init__(
@@ -538,9 +529,7 @@ class Sessions:
         self.db = db
 
     @classmethod
-    def json(
-        cls, path: Path, timeout_seconds: int = 3600
-    ) -> JsonSessions:
+    def json(cls, path: Path, timeout_seconds: int = 3600) -> JsonSessions:
         """Construct a JSON-backed session store."
 
         Args:
@@ -549,6 +538,7 @@ class Sessions:
 
         Returns:
             A ready-to-use :class:`JsonSessions` instance.
+
         """
         return JsonSessions(path, timeout_seconds)
 
@@ -592,9 +582,7 @@ class Sessions:
         cursor = await conn.execute("PRAGMA table_info(sessions)")
         columns = await cursor.fetchall()
         if not any(column[1] == "overrides" for column in columns):
-            await conn.execute(
-                "ALTER TABLE sessions ADD COLUMN overrides TEXT DEFAULT '{}'"
-            )
+            await conn.execute("ALTER TABLE sessions ADD COLUMN overrides TEXT DEFAULT '{}'")
         if self.db is None:
             await conn.commit()
             await conn.close()
@@ -658,9 +646,7 @@ class Sessions:
     async def get_session(self, session_id: str) -> SessionRecord | None:
         """Look up a session by primary key."""
         conn = await self.conn()
-        cursor = await conn.execute(
-            "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
-        )
+        cursor = await conn.execute("SELECT * FROM sessions WHERE session_id = ?", (session_id,))
         row = await cursor.fetchone()
         await self.maybe_commit_close(conn)
         if row is None:
@@ -670,9 +656,7 @@ class Sessions:
     async def get_by_token(self, token: str) -> SessionRecord | None:
         """Look up a session by bearer token, with sliding expiry."""
         conn = await self.conn()
-        cursor = await conn.execute(
-            "SELECT * FROM sessions WHERE token = ?", (token,)
-        )
+        cursor = await conn.execute("SELECT * FROM sessions WHERE token = ?", (token,))
         row = await cursor.fetchone()
         if row is None:
             await self.maybe_commit_close(conn)
@@ -731,9 +715,7 @@ class Sessions:
     async def delete_session(self, session_id: str) -> None:
         """Delete a session by primary key. No-op if unknown."""
         conn = await self.conn()
-        await conn.execute(
-            "DELETE FROM sessions WHERE session_id = ?", (session_id,)
-        )
+        await conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
         await self.maybe_commit_close(conn)
 
     async def get_overrides(self, session_id: str) -> dict[str, Any]:
@@ -752,14 +734,10 @@ class Sessions:
         decoded = json.loads(raw)
         return decoded if isinstance(decoded, dict) else {}
 
-    async def set_overrides(
-        self, session_id: str, overrides: dict[str, Any]
-    ) -> None:
+    async def set_overrides(self, session_id: str, overrides: dict[str, Any]) -> None:
         """Replace the session's ``overrides`` mapping. No-op if unknown."""
         conn = await self.conn()
-        cursor = await conn.execute(
-            "SELECT 1 FROM sessions WHERE session_id = ?", (session_id,)
-        )
+        cursor = await conn.execute("SELECT 1 FROM sessions WHERE session_id = ?", (session_id,))
         row = await cursor.fetchone()
         if row is None:
             await self.maybe_commit_close(conn)
@@ -770,9 +748,7 @@ class Sessions:
         )
         await self.maybe_commit_close(conn)
 
-    async def append_history(
-        self, session_id: str, turn: ConversationTurn
-    ) -> None:
+    async def append_history(self, session_id: str, turn: ConversationTurn) -> None:
         """Append a turn to the session's history. No-op if unknown."""
         conn = await self.conn()
         cursor = await conn.execute(
@@ -790,9 +766,7 @@ class Sessions:
         )
         await self.maybe_commit_close(conn)
 
-    async def get_history(
-        self, session_id: str
-    ) -> list[ConversationTurn]:
+    async def get_history(self, session_id: str) -> list[ConversationTurn]:
         """Return the full history of a session."""
         conn = await self.conn()
         cursor = await conn.execute(
@@ -865,6 +839,7 @@ async def migrate_from_json(
         registry_path: Path to the source JSON registry file.
         sessions_path: Path to the source JSON sessions file.
         show_progress: Wrap each step in a :class:`tqdm.tqdm` bar.
+
     """
     import raghub.repos as repositories
 
@@ -872,9 +847,7 @@ async def migrate_from_json(
     await registry.initialize()
 
     documents = Documents(Path(registry_path))
-    all_versions = [
-        doc for versions in documents.documents.values() for doc in versions
-    ]
+    all_versions = [doc for versions in documents.documents.values() for doc in versions]
     for doc in tqdm(
         all_versions,
         desc="Migrating documents",

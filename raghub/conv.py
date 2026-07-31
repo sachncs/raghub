@@ -69,6 +69,7 @@ class SlidingWindowManager:
         across asyncio tasks in a single process. Do not mutate
         :pyattr:`enc` from concurrent code if you ever swap it for a
         non-thread-safe encoder.
+
     """
 
     def __init__(self, max_tokens: int = 2048) -> None:
@@ -86,6 +87,7 @@ class SlidingWindowManager:
             manager silently switches to the whitespace approximation.
             Downstream callers can detect this via the public :pyattr:`enc`
             attribute if they need to log a warning.
+
         """
         self.max_tokens = max_tokens
         self.enc: Any = try_load_gigatoken()
@@ -104,6 +106,7 @@ class SlidingWindowManager:
             Whitespace counting systematically over-counts for languages that
             don't use Latin word boundaries. For non-English deployments,
             install ``tiktoken`` to get accurate counts.
+
         """
         if self.enc:
             return len(self.enc.encode(text))
@@ -125,6 +128,7 @@ class SlidingWindowManager:
             (question + answer + 10-token overhead) is at most
             :pyattr:`max_tokens`. Returns an empty list if even a single
             turn exceeds the budget. The input list is not mutated.
+
         """
         total = 0
         trimmed: list[ConversationTurn] = []
@@ -144,6 +148,7 @@ class ConversationManager:
         uow: Unit-of-work used for session persistence.
         sliding_window: Token-aware trimmer used by :meth:`trim_history`
             when no override is supplied.
+
     """
 
     def __init__(self, uow: UnitOfWork, max_tokens: int = 2048) -> None:
@@ -152,6 +157,7 @@ class ConversationManager:
         Args:
             uow: Unit-of-work for session persistence.
             max_tokens: Default budget used by :meth:`trim_history`.
+
         """
         self.uow = uow
         self.sliding_window = SlidingWindowManager(max_tokens=max_tokens)
@@ -164,6 +170,7 @@ class ConversationManager:
 
         Returns:
             A new :class:`Session` wrapping the persisted record.
+
         """
         record = SessionRecord(
             user_id=user_id,
@@ -181,6 +188,7 @@ class ConversationManager:
 
         Returns:
             The :class:`Session`, or ``None`` if the token is unknown.
+
         """
         record = await self.uow.session_repo.get_by_token(token)
         if record is None:
@@ -205,6 +213,7 @@ class ConversationManager:
             question: The user's question text.
             answer: The assistant's answer text.
             metadata: Optional metadata to attach to the turn.
+
         """
         record = await self.uow.session_repo.get_by_token(session_token)
         if record is None:
@@ -225,6 +234,7 @@ class ConversationManager:
         Returns:
             A list of turns in chronological order. Empty when the
             session is unknown.
+
         """
         record = await self.uow.session_repo.get_by_token(session_token)
         if record is None:
@@ -236,6 +246,7 @@ class ConversationManager:
 
         Args:
             session_token: The session's token. No-op if unknown.
+
         """
         record = await self.uow.session_repo.get_by_token(session_token)
         if record is None:
@@ -254,6 +265,7 @@ class ConversationManager:
             session_id: The session id (note: this is the database id,
                 not the bearer token).
             turn: The :class:`ConversationTurn` to append.
+
         """
         record = await self.uow.session_repo.get(session_id)
         if record is None:
@@ -279,6 +291,7 @@ class ConversationManager:
         Returns:
             The post-trim history (also persisted on the session).
             Empty when the session is unknown.
+
         """
         record = await self.uow.session_repo.get(session_id)
         if record is None:
@@ -303,6 +316,7 @@ class ConversationManager:
         Returns:
             A shallow copy of the overrides mapping; ``{}`` when unset
             or the session is unknown.
+
         """
         record = await self.uow.session_repo.get(session_id)
         if record is None:
@@ -319,6 +333,7 @@ class ConversationManager:
         Args:
             session_id: Session database id. No-op when unknown.
             overrides: Replacement mapping. ``{}`` or ``None`` clears.
+
         """
         record = await self.uow.session_repo.get(session_id)
         if record is None:
@@ -353,6 +368,7 @@ class Memory:
     Args:
         window_size: Maximum number of recent turns to keep per
             session. Older turns are evicted FIFO.
+
     """
 
     def __init__(self, window_size: int = 50) -> None:

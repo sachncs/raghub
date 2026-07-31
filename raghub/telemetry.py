@@ -100,6 +100,7 @@ class MetricsRegistry:
     Attributes:
         instance: The currently-registered :class:`PrometheusMetrics`
             (or ``None`` when nothing is registered).
+
     """
 
     def __init__(self) -> None:
@@ -112,6 +113,7 @@ class MetricsRegistry:
         Args:
             value: The :class:`PrometheusMetrics` to expose to
                 hot-path callers, or ``None`` to clear the registry.
+
         """
         self.instance = value
 
@@ -141,6 +143,7 @@ class NullMetrics:
             name: Latency metric name (ignored).
             value_ms: Latency in milliseconds (ignored).
             **labels: Optional label set (ignored).
+
         """
         return None
 
@@ -151,6 +154,7 @@ class NullMetrics:
             name: Counter name (ignored).
             value: Increment amount (ignored).
             **labels: Optional label set (ignored).
+
         """
         return None
 
@@ -168,6 +172,7 @@ class PrometheusMetrics:
         auth_duration: Histogram of auth call durations in ms.
         auth_total: Counter of auth attempts labelled by success.
         error_total: Counter of errors labelled by ``error_type``.
+
     """
 
     def __init__(self, app: Any | None = None) -> None:
@@ -177,6 +182,7 @@ class PrometheusMetrics:
             app: Optional FastAPI app. When provided, ``/metrics``
                 is registered and serves the OpenMetrics exposition
                 format.
+
         """
 
         def collector_registered(name: str) -> bool:
@@ -185,7 +191,11 @@ class PrometheusMetrics:
 
         def safe_histogram(name: str, desc: str, buckets: list[float]) -> Histogram:
             existing = known_collectors.get(name)
-            if existing is not None and isinstance(existing, Histogram) and collector_registered(name):
+            if (
+                existing is not None
+                and isinstance(existing, Histogram)
+                and collector_registered(name)
+            ):
                 return existing
             collector = Histogram(name, desc, buckets=buckets, registry=REGISTRY)
             known_collectors[name] = collector
@@ -193,7 +203,11 @@ class PrometheusMetrics:
 
         def safe_counter(name: str, desc: str, labels: list[str] | None = None) -> Counter:
             existing = known_collectors.get(name)
-            if existing is not None and isinstance(existing, Counter) and collector_registered(name):
+            if (
+                existing is not None
+                and isinstance(existing, Counter)
+                and collector_registered(name)
+            ):
                 return existing
             collector = Counter(name, desc, labels or [], registry=REGISTRY)
             known_collectors[name] = collector
@@ -254,6 +268,7 @@ class PrometheusMetrics:
             duration_ms: Query duration in milliseconds.
             top_k: Requested top-k value (currently not exported as a
                 label).
+
         """
         self.query_duration.observe(duration_ms)
 
@@ -274,6 +289,7 @@ class PrometheusMetrics:
         Args:
             duration_ms: Auth duration in milliseconds.
             success: ``True`` for successful auth, ``False`` otherwise.
+
         """
         self.auth_duration.observe(duration_ms)
         self.auth_total.labels(success=str(success)).inc()
@@ -309,6 +325,7 @@ class PrometheusMetrics:
         Args:
             error_type: A short label used as the ``error_type``
                 metric dimension.
+
         """
         self.error_total.labels(error_type=error_type).inc()
 
@@ -317,6 +334,7 @@ class PrometheusMetrics:
 
         Args:
             app: A FastAPI application instance.
+
         """
         from fastapi import FastAPI
         from fastapi.responses import Response
@@ -354,6 +372,7 @@ def set_active_metrics(instance: PrometheusMetrics | None) -> None:
     Args:
         instance: The :class:`PrometheusMetrics` to expose to hot-path
             callers, or ``None`` to clear the registry.
+
     """
     DEFAULT_METRICS_REGISTRY.set(instance)
 
@@ -367,6 +386,7 @@ def record_rerank_latency(provider: str, seconds: float) -> None:
     Args:
         provider: Provider label (e.g. ``"cohere"``).
         seconds: Latency in seconds.
+
     """
     metrics = DEFAULT_METRICS_REGISTRY.current()
     if metrics is None:
@@ -387,6 +407,7 @@ def record_long_context(*, outcome: str, seconds: float) -> None:
         seconds: Observed wall-clock latency (recorded only for
             informational purposes; the metric is a counter, not a
             histogram).
+
     """
     metrics = DEFAULT_METRICS_REGISTRY.current()
     if metrics is None:
@@ -417,6 +438,7 @@ def redact_record(record: dict[str, Any]) -> None:
         record: The mutable loguru ``record.message`` dictionary; values
             whose key matches :data:`SECRET_KEY_RE` are replaced by
             ``"***"``. Nested dicts are scrubbed recursively.
+
     """
 
     def scrub(value: Any) -> Any:
@@ -453,6 +475,7 @@ def build_logger(level: str = "INFO") -> LoguruLogger:
     Returns:
         A :class:`LoguruLogger` ready for ``info`` / ``warning`` /
         ``error`` calls.
+
     """
     loguru_logger.remove()
     loguru_logger.add(
@@ -569,6 +592,7 @@ class LoguruTelemetryProvider(TelemetryProvider):
 
         Returns:
             A :class:`LoguruSpan`.
+
         """
         return LoguruSpan(name, self.logger, self.metrics, attrs)
 
@@ -687,6 +711,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             secret_key: Langfuse secret key (defaults to env).
             host: Langfuse host URL.
             flush_interval: Seconds between background flushes.
+
         """
         public_key = public_key or os.getenv("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key or os.getenv("LANGFUSE_SECRET_KEY")
@@ -696,9 +721,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         self.flush_interval = flush_interval
         self.client: Any = None
         if LANGFUSE_AVAILABLE and public_key and secret_key:
-            self.client = self.build_langfuse_client(
-                host, public_key, secret_key, flush_interval
-            )
+            self.client = self.build_langfuse_client(host, public_key, secret_key, flush_interval)
 
     @staticmethod
     def is_configured() -> bool:
@@ -708,6 +731,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             ``True`` if the ``langfuse`` package is installed and both
             ``LANGFUSE_PUBLIC_KEY`` and ``LANGFUSE_SECRET_KEY`` are
             set in the environment.
+
         """
         return bool(
             LANGFUSE_AVAILABLE
@@ -726,6 +750,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
 
         Returns:
             The callable's return value.
+
         """
         return fn(*args, **kwargs)
 
@@ -743,6 +768,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         Returns:
             A Langfuse client instance, or ``None`` when neither v3
             nor v2 SDKs are available.
+
         """
         if langfuse_get_client is not None:
             return langfuse_get_client()
@@ -759,6 +785,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         Args:
             message: Log message.
             **kwargs: Structured key/value pairs.
+
         """
         with self.span(f"log.info.{message}", level="info", **kwargs):
             pass
@@ -769,6 +796,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         Args:
             message: Log message.
             **kwargs: Structured key/value pairs.
+
         """
         with self.span(f"log.warning.{message}", level="warning", **kwargs):
             pass
@@ -779,6 +807,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         Args:
             message: Log message.
             **kwargs: Structured key/value pairs.
+
         """
         with self.span(f"log.error.{message}", level="error", **kwargs):
             pass
@@ -790,6 +819,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             name: Metric name.
             value_ms: Latency in milliseconds.
             **labels: Optional label set.
+
         """
         with self.span(f"latency.{name}", value_ms=value_ms, **labels):
             pass
@@ -801,6 +831,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             name: Counter name.
             value: Increment amount.
             **labels: Optional label set.
+
         """
         with self.span(f"counter.{name}", increment=value, **labels):
             pass
@@ -817,6 +848,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
 
         Returns:
             A :class:`Span` (live or no-op).
+
         """
         if self.client is None:
             return NoopSpan(name)
@@ -840,6 +872,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
 
         Args:
             span: The span returned by :meth:`start_span`.
+
         """
         if isinstance(span, NoopSpan):
             return
@@ -859,6 +892,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             prompt_tokens: Input token count.
             completion_tokens: Output token count.
             model: Model identifier.
+
         """
         if self.client is None:
             return
@@ -884,6 +918,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             yield s
         finally:
             self.end_span(s)
+
 
 class NoOpTelemetry(TelemetryProvider):
     """Silent telemetry provider; satisfies the contract."""
@@ -912,6 +947,7 @@ class NoOpTelemetry(TelemetryProvider):
 
         Returns:
             A :class:`NoopSpan`.
+
         """
         return NoopSpan(name)
 
@@ -936,6 +972,7 @@ class RedactingTelemetry(TelemetryProvider):
 
         Args:
             inner: The downstream provider receiving redacted calls.
+
         """
         self.inner = inner
 
@@ -1008,6 +1045,7 @@ class SafeConsoleSpanExporter:
         Returns:
             The parent's return value or ``SpanExportResult.FAILURE``
             on a closed-stdout error.
+
         """
         result, error = capture(self._parent.export, spans)
         if error is None:
@@ -1038,6 +1076,7 @@ class Tracer:
             :meth:`instrument_app` runs.
         tracer: The :class:`trace.Tracer` instance used to create
             spans manually.
+
     """
 
     def __init__(self, service_name: str = "raghub") -> None:
@@ -1049,14 +1088,12 @@ class Tracer:
         Raises:
             ConfigurationError: When OpenTelemetry SDK packages are
                 not installed.
-        """
 
+        """
         ot_trace = try_import_submodule("opentelemetry", "trace")
         ot_resources = try_import_submodule("opentelemetry.sdk.resources", "Resource")
         ot_trace_mod = try_import_submodule("opentelemetry.sdk.trace", "TracerProvider")
-        ot_export = try_import_submodule(
-            "opentelemetry.sdk.trace.export", "BatchSpanProcessor"
-        )
+        ot_export = try_import_submodule("opentelemetry.sdk.trace.export", "BatchSpanProcessor")
         if ot_trace is None or ot_resources is None or ot_trace_mod is None or ot_export is None:
             raise ConfigurationError("OpenTelemetry tracing requires opentelemetry-sdk")
 
@@ -1082,6 +1119,7 @@ class Tracer:
             insecure: When ``True`` (default) use HTTP/gRPC without
                 TLS. Production deployments should set this to
                 ``False`` and supply a TLS endpoint.
+
         """
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -1094,6 +1132,7 @@ class Tracer:
 
         Args:
             app: A FastAPI application instance.
+
         """
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
@@ -1108,6 +1147,7 @@ class Tracer:
         Returns:
             The :class:`opentelemetry.trace.Span` context manager
             from :meth:`tracer.start_as_current_span`.
+
         """
         return self.tracer.start_as_current_span(name)
 

@@ -102,25 +102,23 @@ class Store(ABC):
         """Create the underlying collection when missing."""
 
     @abstractmethod
-    def insert(
-        self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> int:
+    def insert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
         """Insert chunks paired with their precomputed embedding vectors.
 
         Returns:
             The number of rows written. Should equal ``len(chunks)``
             on success; backends that dedup by primary key may return
             a smaller value when the same ``chunk_id`` appears twice.
+
         """
 
     @abstractmethod
-    def upsert(
-        self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> int:
+    def upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
         """Insert-or-update chunks by primary key.
 
         Returns:
             The number of rows written (inserts + updates).
+
         """
 
     @abstractmethod
@@ -188,6 +186,7 @@ class MemoryStore(Store):
             embedding_dim: Dimensionality of vectors that will be
                 inserted. Mismatched dimensions raise
                 :class:`VectorStoreError` on insert.
+
         """
         self.embedding_dim = embedding_dim
         self.lock = RLock()
@@ -198,9 +197,7 @@ class MemoryStore(Store):
         """No-op: this backend has no separate collection concept."""
         return None
 
-    def insert(
-        self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> int:
+    def insert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
         """Insert or overwrite chunks by ``chunk_id``.
 
         The BM25 index is *not* rebuilt on every insert — that would
@@ -214,19 +211,17 @@ class MemoryStore(Store):
         Raises:
             VectorStoreError: When a vector's dimension does not match
                 ``self.embedding_dim``.
+
         """
         for vector in vectors:
             if len(vector) != self.embedding_dim:
                 raise VectorStoreError(
-                    f"vector dimension mismatch: expected {self.embedding_dim}, "
-                    f"got {len(vector)}"
+                    f"vector dimension mismatch: expected {self.embedding_dim}, got {len(vector)}"
                 )
         written = 0
         with self.lock:
             for chunk, vector in zip(chunks, vectors, strict=True):
-                self.records[chunk.chunk_id] = MemoryVectorRecord(
-                    chunk=chunk, vector=vector
-                )
+                self.records[chunk.chunk_id] = MemoryVectorRecord(chunk=chunk, vector=vector)
                 written += 1
         return written
 
@@ -234,9 +229,7 @@ class MemoryStore(Store):
         """Rebuild the BM25 index over the current record set."""
         self.rebuild_bm25()
 
-    def upsert(
-        self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> int:
+    def upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
         """Insert-or-update alias. Delegates to :meth:`insert`."""
         return self.insert(chunks, vectors)
 
@@ -251,9 +244,7 @@ class MemoryStore(Store):
         """Delete every chunk that belongs to ``document_id``."""
         with self.lock:
             stale = [
-                cid
-                for cid, rec in self.records.items()
-                if rec.chunk.document_id == document_id
+                cid for cid, rec in self.records.items() if rec.chunk.document_id == document_id
             ]
         self.delete(stale)
 
@@ -263,8 +254,7 @@ class MemoryStore(Store):
             stale = [
                 cid
                 for cid, rec in self.records.items()
-                if rec.chunk.document_id == document_id
-                and rec.chunk.version == version
+                if rec.chunk.document_id == document_id and rec.chunk.version == version
             ]
         self.delete(stale)
 
@@ -316,9 +306,7 @@ class MemoryStore(Store):
                 if (dict_filter is None or matches_metadata_dict(record, dict_filter))
                 and (dict_filter is not None or matches_metadata_string(record, str_filter or ""))
             ]
-            scored = [
-                (rec, self.compute_score(vector, rec.vector)) for rec in records
-            ]
+            scored = [(rec, self.compute_score(vector, rec.vector)) for rec in records]
         scored.sort(key=lambda pair: pair[1], reverse=True)
         return self.materialize(scored[:top_k])
 
@@ -347,9 +335,7 @@ class MemoryStore(Store):
             ids = [rec.chunk.chunk_id for rec in records]
             if not ids:
                 return []
-            dense_scores = np.array(
-                [self.compute_score(vector, rec.vector) for rec in records]
-            )
+            dense_scores = np.array([self.compute_score(vector, rec.vector) for rec in records])
             if self.bm25 is not None:
                 bm25_scores = np.array(self.bm25.get_scores(query.split()))
             else:
@@ -492,9 +478,7 @@ class SqliteStore(Store):
                 )
             )
         if isinstance(metadata_filter, dict):
-            clauses = " AND ".join(
-                f"{k} = ?" for k in metadata_filter
-            )
+            clauses = " AND ".join(f"{k} = ?" for k in metadata_filter)
             params = list(metadata_filter.values())
         else:
             clauses = metadata_filter
@@ -507,9 +491,7 @@ class SqliteStore(Store):
             )
         )
 
-    def insert(
-        self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> int:
+    def insert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
         """Insert or overwrite chunks.
 
         Returns:
@@ -518,12 +500,12 @@ class SqliteStore(Store):
         Raises:
             VectorStoreError: When a vector's dimension does not match
                 ``self.embedding_dim``.
+
         """
         for vector in vectors:
             if len(vector) != self.embedding_dim:
                 raise VectorStoreError(
-                    f"vector dimension mismatch: expected {self.embedding_dim}, "
-                    f"got {len(vector)}"
+                    f"vector dimension mismatch: expected {self.embedding_dim}, got {len(vector)}"
                 )
         with self.lock:
             cursor = self.conn.executemany(
@@ -551,9 +533,7 @@ class SqliteStore(Store):
             self.conn.commit()
             return cursor.rowcount
 
-    def upsert(
-        self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]
-    ) -> int:
+    def upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
         """Insert-or-update alias. Delegates to :meth:`insert`."""
         return self.insert(chunks, vectors)
 
@@ -579,8 +559,7 @@ class SqliteStore(Store):
         """Delete every chunk that belongs to one ``(document_id, version)`` pair."""
         with self.lock:
             self.conn.execute(
-                f"DELETE FROM {self.collection} "
-                "WHERE document_id = ? AND version = ?",
+                f"DELETE FROM {self.collection} WHERE document_id = ? AND version = ?",
                 (document_id, version),
             )
             self.conn.commit()
@@ -595,7 +574,18 @@ class SqliteStore(Store):
         query = np.asarray(vector, dtype=np.float32)
         denom = float(np.linalg.norm(query)) or 1.0
         scored: list[tuple[Any, float]] = []
-        for chunk_id, document_id, version, classification, text, source_location, company, owner, department, blob in rows:
+        for (
+            chunk_id,
+            document_id,
+            version,
+            classification,
+            text,
+            source_location,
+            company,
+            owner,
+            department,
+            blob,
+        ) in rows:
             v = np.frombuffer(blob, dtype=np.float32)
             d = float(np.linalg.norm(v)) or 1.0
             score = float(np.dot(query, v) / (denom * d))
@@ -641,9 +631,7 @@ class SqliteStore(Store):
         The ``sqlite-vector`` package adds BM25 when installed; the
         fallback uses dense search only.
         """
-        return self.search(
-            vector=vector, top_k=top_k, metadata_filter=metadata_filter
-        )
+        return self.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     def optimize(self) -> None:
         """Force a checkpoint."""
@@ -663,9 +651,15 @@ class SqliteStore(Store):
         return [
             {
                 "chunk": ChunkRecord(
-                    chunk_id=cid, document_id=did, version=ver,
-                    classification=cls, text=txt, source_location=sloc,
-                    company=co or "", owner=ow or "", department=dp or "",
+                    chunk_id=cid,
+                    document_id=did,
+                    version=ver,
+                    classification=cls,
+                    text=txt,
+                    source_location=sloc,
+                    company=co or "",
+                    owner=ow or "",
+                    department=dp or "",
                     checksum=hashlib.sha256(txt.encode("utf-8")).hexdigest(),
                 ),
                 "score": 1.0,
@@ -679,9 +673,7 @@ class SqliteStore(Store):
     def health(self) -> dict[str, Any]:
         """Return liveness information for the health endpoint."""
         with self.lock:
-            count = self.conn.execute(
-                f"SELECT COUNT(*) FROM {self.collection}"
-            ).fetchone()[0]
+            count = self.conn.execute(f"SELECT COUNT(*) FROM {self.collection}").fetchone()[0]
         return {
             "status": "ok",
             "backend": self.backend,

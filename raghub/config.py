@@ -67,6 +67,7 @@ class Settings(BaseModel):
             issuing sessions without a password. **Must be ``False``
             in production.**
         extra: Free-form config dict for settings not yet on the model.
+
     """
 
     environment: str = "development"
@@ -102,9 +103,7 @@ class Settings(BaseModel):
     reranker: RerankerConfig = Field(default_factory=lambda: RerankerConfig())
     long_context_pass: LongContextConfig = Field(default_factory=lambda: LongContextConfig())
     hybrid: HybridConfig = Field(default_factory=lambda: HybridConfig())
-    query_transforms: QueryTransformsConfig = Field(
-        default_factory=lambda: QueryTransformsConfig()
-    )
+    query_transforms: QueryTransformsConfig = Field(default_factory=lambda: QueryTransformsConfig())
 
     class Config:
         """Pydantic configuration."""
@@ -133,6 +132,7 @@ class Settings(BaseModel):
 
         Returns:
             A new instance; the receiver is not mutated.
+
         """
         merged: dict[str, Any] = self.model_dump()
         extra: dict[str, Any] = dict(merged.get("extra", {}))
@@ -160,6 +160,7 @@ class Settings(BaseModel):
             RuntimeError: When ``environment == "production"`` and the
                 operator has not set ``JWT_SECRET`` or has left
                 ``allow_passwordless_login`` enabled.
+
         """
         return load_from_env(profile)
 
@@ -184,6 +185,7 @@ class AgentConfig(BaseModel):
         enable_streaming: When ``True``, :meth:`Agent.astream` yields
             :class:`PlannerEvent` instances instead of awaiting a final
             :class:`AgentTrace`.
+
     """
 
     enabled: bool = False
@@ -202,6 +204,7 @@ class WebSearchConfig(BaseModel):
         max_results: Default result count for each call.
         timeout_seconds: Network timeout per call.
         safe_search: ``"strict"`` / ``"moderate"`` / ``"off"``.
+
     """
 
     enabled: bool = False
@@ -220,6 +223,7 @@ class RerankerConfig(BaseModel):
         cascade_threshold: For ``"cascade"`` — when the cheap reranker's
             top-N score spread is below this threshold the expensive
             reranker is invoked as well.
+
     """
 
     provider: Literal["none", "cohere", "llm", "cascade"] = "none"
@@ -237,6 +241,7 @@ class LongContextConfig(BaseModel):
         allowlist_models: Model names eligible for the second pass.
             Anything not in the list triggers a graceful no-op with a
             telemetry event (Phase 5.1 invariant).
+
     """
 
     enabled: bool = False
@@ -261,6 +266,7 @@ class HybridConfig(BaseModel):
         vector_weight: Weight for the dense channel when ``fusion == "linear"``.
         colbert_enabled: When ``True``, an optional ColBERT late-interaction
             channel is added to the hybrid retrieval (Phase 3.4).
+
     """
 
     fusion: Literal["rrf", "linear"] = "rrf"
@@ -280,6 +286,7 @@ class QueryTransformsConfig(BaseModel):
             ``"hyde"`` is enabled.
         multi_query_n: Number of rephrasings when ``"multi_query"`` is
             enabled.
+
     """
 
     enabled: list[Literal["hyde", "multi_query", "step_back", "decompose"]] = Field(
@@ -347,6 +354,7 @@ def read_toml_file(path: Path) -> dict[str, Any]:
         FileNotFoundError: When ``path`` doesn't exist.
         tomllib.TOMLDecodeError: When the TOML is malformed.
         OSError: When the file cannot be read.
+
     """
     import tomllib
 
@@ -367,6 +375,7 @@ def load_profile(profile: str | None) -> tuple[str | None, Path, dict[str, Any]]
         Tuple of (selected_profile, profile_path, payload). The
         ``profile_path`` is the YAML path searched; it may not exist.
         Missing files simply contribute an empty payload.
+
     """
     base_dir = _resolve_config_dir()
     selected_profile = profile or os.getenv("RAG_PROFILE", "development")
@@ -432,9 +441,7 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
         "sessions_path": Path(
             os.getenv("RAG_SESSIONS_PATH", payload.get("sessions_path", "./data/sessions.json"))
         ),
-        "chunk_size_words": _env_int(
-            "RAG_CHUNK_SIZE_WORDS", payload.get("chunk_size_words", 800)
-        ),
+        "chunk_size_words": _env_int("RAG_CHUNK_SIZE_WORDS", payload.get("chunk_size_words", 800)),
         "chunk_overlap_words": _env_int(
             "RAG_CHUNK_OVERLAP_WORDS", payload.get("chunk_overlap_words", 100)
         ),
@@ -484,6 +491,7 @@ def _env_int(name: str, default: int) -> int:
     Raises:
         ConfigurationError: When the env var is set but not parseable
             as an int.
+
     """
     raw = os.getenv(name)
     if raw is None or raw == "":
@@ -493,9 +501,7 @@ def _env_int(name: str, default: int) -> int:
     except ValueError as exc:
         from raghub.errors import ConfigurationError
 
-        raise ConfigurationError(
-            f"{name}={raw!r} is not a valid integer"
-        ) from exc
+        raise ConfigurationError(f"{name}={raw!r} is not a valid integer") from exc
 
 
 def _env_float(name: str, default: float) -> float:
@@ -511,6 +517,7 @@ def _env_float(name: str, default: float) -> float:
     Raises:
         ConfigurationError: When the env var is set but not parseable
             as a float.
+
     """
     raw = os.getenv(name)
     if raw is None or raw == "":
@@ -520,9 +527,7 @@ def _env_float(name: str, default: float) -> float:
     except ValueError as exc:
         from raghub.errors import ConfigurationError
 
-        raise ConfigurationError(
-            f"{name}={raw!r} is not a valid float"
-        ) from exc
+        raise ConfigurationError(f"{name}={raw!r} is not a valid float") from exc
 
 
 def load_agent(payload: dict[str, Any]) -> AgentConfig:
@@ -621,9 +626,7 @@ def load_hybrid(payload: dict[str, Any]) -> HybridConfig:
                 payload.get("hybrid", {}).get("fusion", "rrf"),
             ),
         ),
-        rrf_k=int(
-            os.getenv("RAG_HYBRID_RRF_K", str(payload.get("hybrid", {}).get("rrf_k", 60)))
-        ),
+        rrf_k=int(os.getenv("RAG_HYBRID_RRF_K", str(payload.get("hybrid", {}).get("rrf_k", 60)))),
         keyword_weight=float(
             os.getenv(
                 "RAG_HYBRID_KEYWORD_WEIGHT",
@@ -715,6 +718,3 @@ def load_from_env(profile: str | None = None) -> Settings:
     production_check(settings)
     settings.ensure_dirs()
     return settings
-
-
-

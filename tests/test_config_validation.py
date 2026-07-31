@@ -137,7 +137,11 @@ class TestProductionValidation:
             "environment: production\nallow_passwordless_login: true\n",
             encoding="utf-8",
         )
-        env = {"RAG_CONFIG_DIR": str(tmp_path), "JWT_SECRET": "a" * 32, "RAG_ALLOW_PASSWORDLESS": "1"}
+        env = {
+            "RAG_CONFIG_DIR": str(tmp_path),
+            "JWT_SECRET": "a" * 32,
+            "RAG_ALLOW_PASSWORDLESS": "1",
+        }
         with patch.dict(os.environ, env, clear=False):
             with pytest.raises(RuntimeError, match="Passwordless login"):
                 Settings.load("production")

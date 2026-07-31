@@ -75,11 +75,13 @@ class _StubChunker:
             for block in section.blocks:
                 if block.kind != BlockKind.TEXT:
                     continue
-                chunks.extend(self.chunk_text(
-                    block.content,
-                    document_id=bundle.bundle_id,
-                    company=tenant,
-                ))
+                chunks.extend(
+                    self.chunk_text(
+                        block.content,
+                        document_id=bundle.bundle_id,
+                        company=tenant,
+                    )
+                )
         return chunks
 
     def chunk_text(
@@ -192,9 +194,7 @@ class TestRbacEndToEnd:
         )
 
         generator = build_generator()
-        query = QueryPipeline(
-            embedder=embedder, vector_store=store, generator=generator
-        )
+        query = QueryPipeline(embedder=embedder, vector_store=store, generator=generator)
         admin = User(email="a@b.com", is_admin=True)
         result = await query.run(
             PipelineCtx(pipeline_name="query"),
@@ -288,9 +288,7 @@ class TestErrorPropagation:
         store = MemoryStore(embedding_dim=16)
         generator = build_generator()
         generator.generate = AsyncMock(side_effect=RuntimeError("gen-fail"))
-        query = QueryPipeline(
-            embedder=embedder, vector_store=store, generator=generator
-        )
+        query = QueryPipeline(embedder=embedder, vector_store=store, generator=generator)
         ctx = PipelineCtx(pipeline_name="query")
         with pytest.raises(RuntimeError, match="gen-fail"):
             await query.run(ctx, question="q")
@@ -301,14 +299,13 @@ class TestErrorPropagation:
         store = MemoryStore(embedding_dim=16)
         ingest = IngestPipeline(
             chunker=_StubChunker(),
-            embedder=embedder, vector_store=store,
+            embedder=embedder,
+            vector_store=store,
         )
         ctx = PipelineCtx(pipeline_name="ingest")
         with (
             patch.object(ingest.converter, "convert", side_effect=ValueError("nope")),
             pytest.raises(ValueError),
         ):
-            await ingest.run(
-                ctx, file_bytes=b"x", source_uri="file:///x.pdf"
-            )
+            await ingest.run(ctx, file_bytes=b"x", source_uri="file:///x.pdf")
         assert ctx.metadata.get("duration_ms", 0) > 0

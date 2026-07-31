@@ -38,14 +38,13 @@ def chunk_text(chunk: Any) -> str:
     Raises:
         ValueError: When ``chunk`` has neither a ``.text`` attribute
             nor is a string.
+
     """
     if isinstance(chunk, str):
         return chunk
     text = getattr(chunk, "text", None)
     if text is None:
-        raise ValueError(
-            f"corpus item has no .text attribute: {chunk!r}"
-        )
+        raise ValueError(f"corpus item has no .text attribute: {chunk!r}")
     return cast(str, text)
 
 
@@ -59,13 +58,12 @@ def chunk_id(chunk: Any) -> str:
     Returns:
         The chunk's id (from ``.chunk_id`` first, then ``.id``,
         then a hash-based fallback).
+
     """
     if isinstance(chunk, str):
         return f"chunk-{hash(chunk)}"
     return str(
-        getattr(chunk, "chunk_id", None)
-        or getattr(chunk, "id", None)
-        or f"chunk-{id(chunk)}"
+        getattr(chunk, "chunk_id", None) or getattr(chunk, "id", None) or f"chunk-{id(chunk)}"
     )
 
 
@@ -84,6 +82,7 @@ class SyntheticDataset:
             "comparison", "summary"}``. Currently informational —
             the prompt template is the same for all. Hook for
             future per-type prompt variation.
+
     """
 
     QUESTION_PROMPT = (
@@ -132,6 +131,7 @@ class SyntheticDataset:
             ``answer``, ``contexts`` (list of strings), and
             ``relevant_ids`` (list of chunk ids). The shape matches
             the Finance/Frames canonical schema.
+
         """
         rng = random.Random(self.seed)
         examples: list[dict[str, Any]] = []
@@ -187,6 +187,7 @@ def clean_response(text: str) -> str:
     Returns:
         The cleaned text with leading ``"Answer:"`` / ``"Question:"``
         prefixes stripped (LLMs often echo the prompt).
+
     """
     text = (text or "").strip()
     for prefix in ("Answer:", "Question:", "answer:", "question:"):

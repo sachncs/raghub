@@ -69,6 +69,7 @@ class PlannerEvent(BaseModel):
             expected ``payload`` shape per kind.
         step: 0-based planner step index.
         payload: Free-form per-kind payload.
+
     """
 
     kind: PlannerEventKind
@@ -173,6 +174,7 @@ def parse_turn(raw: str) -> PlannerAction | PlannerFinal | PlannerParseError:
         * :class:`PlannerAction` when ``action`` is present.
         * :class:`PlannerFinal` when ``final_answer`` is present.
         * :class:`PlannerParseError` when neither can be parsed.
+
     """
     obj = extract_json_object(raw or "")
     if obj is None:
@@ -198,9 +200,7 @@ def render_system_prompt(tool_schemas: list[dict[str, Any]]) -> str:
         for schema in tool_schemas:
             lines.append(f"- {schema['name']}: {schema['description']}")
             if schema.get("json_schema"):
-                lines.append(
-                    "  args: " + json.dumps(schema["json_schema"], separators=(",", ":"))
-                )
+                lines.append("  args: " + json.dumps(schema["json_schema"], separators=(",", ":")))
         catalog = "\n".join(lines)
     return SYSTEM_PROMPT.replace("{tool_schemas}", catalog)
 
@@ -332,16 +332,12 @@ def resolve(
 
     requested_reranker = pick_value(layers, "reranker")
     reranker = coerce_reranker(
-        requested_reranker
-        if requested_reranker is not None
-        else settings.reranker.provider
+        requested_reranker if requested_reranker is not None else settings.reranker.provider
     )
 
     requested_lcp = pick_value(layers, "long_context_pass")
     long_context_pass = bool(
-        requested_lcp
-        if requested_lcp is not None
-        else settings.long_context_pass.enabled
+        requested_lcp if requested_lcp is not None else settings.long_context_pass.enabled
     )
 
     transforms = coerce_transforms(request.get("query_transforms"))
@@ -565,10 +561,14 @@ class Agent:
                         context=[],
                         question=self.render_question_turn(messages[1:]),
                     )
-                except (TimeoutError, GenerationError, ConnectionError, ValueError, AttributeError) as exc:
-                    raise AgentBudgetExceeded(
-                        f"agent LLM call failed: {exc}"
-                    ) from exc
+                except (
+                    TimeoutError,
+                    GenerationError,
+                    ConnectionError,
+                    ValueError,
+                    AttributeError,
+                ) as exc:
+                    raise AgentBudgetExceeded(f"agent LLM call failed: {exc}") from exc
 
             parsed = parse_turn(raw or "")
             if isinstance(parsed, PlannerAction):
@@ -659,13 +659,9 @@ class Agent:
                 step=steps,
                 payload={"budget_exceeded": True, "reason": "steps"},
             )
-        raise AgentBudgetExceeded(
-            f"agent exceeded step budget ({self.settings.max_steps})"
-        )
+        raise AgentBudgetExceeded(f"agent exceeded step budget ({self.settings.max_steps})")
 
-    def resolve_enabled_tools(
-        self, tools_enabled: set[str] | None
-    ) -> dict[str, Any]:
+    def resolve_enabled_tools(self, tools_enabled: set[str] | None) -> dict[str, Any]:
         """Filter the registry to the requested tools (or all of them)."""
         names = set(tools_enabled) if tools_enabled else set(self.tools.names())
         return {name: self.tools.get(name) for name in names if name in self.tools}

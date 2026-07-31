@@ -53,6 +53,7 @@ class CliConfig:
 
         Returns:
             The parsed :class:`Settings`.
+
         """
         if path is None:
             return Settings.load()
@@ -73,6 +74,7 @@ class CliConfig:
 
         Returns:
             A configured :class:`raghub.RAG` instance.
+
         """
         return RAG.from_config(config) if config else RAG()
 
@@ -105,6 +107,7 @@ class ToolConfig:
 
         Returns:
             The initialised :class:`raghub.auth.SqliteUsers`.
+
         """
         settings = CliConfig.read_settings(None)
         db_path = Path(settings.data_dir) / "users.db"
@@ -152,10 +155,7 @@ class ToolConfig:
             payload: str = typer.Option(
                 ...,
                 "--json",
-                help=(
-                    'JSON object, e.g. \'{"agent_enabled": true,'
-                    ' "reranker": "cohere"}\'.'
-                ),
+                help=('JSON object, e.g. \'{"agent_enabled": true, "reranker": "cohere"}\'.'),
             ),
         ) -> None:
             """Merge the JSON ``--json`` payload into the user's tool_settings (unknown keys dropped)."""
@@ -213,9 +213,7 @@ class IngestCommand:
             background: bool = typer.Option(
                 False, "--async", help="Submit to the background job service and print a job id."
             ),
-            json_output: bool = typer.Option(
-                False, "--json", help="Emit machine-readable JSON."
-            ),
+            json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
         ) -> None:
             """Ingest ``PATH`` synchronously, or submit it as a background job with ``--async``."""
             rag = CliConfig.make_rag(config)
@@ -300,9 +298,7 @@ class QueryCommand:
                 None, "--config", "-c", help="Optional YAML/TOML config path."
             ),
             top_k: int = typer.Option(5, "--top-k", "-k", help="Number of hits to retrieve."),
-            json_output: bool = typer.Option(
-                False, "--json", help="Emit machine-readable JSON."
-            ),
+            json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
         ) -> None:
             """Ask a question and print the answer + citations."""
             rag = CliConfig.make_rag(config)
@@ -312,9 +308,7 @@ class QueryCommand:
                     {
                         "answer": response.answer,
                         "citations": [c.model_dump() for c in response.citations],
-                        "source_chunks": [
-                            s.model_dump() for s in response.source_chunks
-                        ],
+                        "source_chunks": [s.model_dump() for s in response.source_chunks],
                         "metadata": response.metadata,
                     }
                 )

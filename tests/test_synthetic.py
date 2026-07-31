@@ -188,6 +188,7 @@ def test_synthetic_dataset_corpus_with_non_chunks_falls_back_to_string() -> None
 
 def test_synthetic_dataset_rejects_chunk_without_text() -> None:
     """A corpus item without a .text attribute raises ValueError."""
+
     class BadChunk:
         # No text attribute
         pass
@@ -209,6 +210,7 @@ def test_synthetic_dataset_uses_each_chunk_id_attribute() -> None:
 
 def test_synthetic_dataset_falls_back_to_object_id() -> None:
     """A chunk without chunk_id or id attrs falls back to a hash-based id."""
+
     @dataclass
     class TextOnly:
         text: str

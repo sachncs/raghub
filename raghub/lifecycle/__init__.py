@@ -84,6 +84,7 @@ class Lifecycle:
     Attributes:
         machine: The :class:`raghub.core.DocumentStateMachine` used to
             validate transitions. Defaults to a fresh instance.
+
     """
 
     machine: Any = field(default_factory=lambda: None)
@@ -109,6 +110,7 @@ class Lifecycle:
             ValueError: If the transition is not in the state machine's
                 allow table. Idempotent transitions to the same status
                 are accepted as no-ops.
+
         """
         if not self.machine.can_transition(document.status, status) and status != document.status:
             raise ValueError(f"Illegal transition from {document.status} to {status}")
@@ -130,6 +132,7 @@ def new_version(previous: DocumentRecord | None, **overrides: Any) -> DocumentRe
 
     Returns:
         A fully-typed :class:`DocumentRecord` ready for persistence.
+
     """
     version_number = 1 if previous is None else previous.version + 1
     payload = previous.model_dump() if previous else {}
@@ -211,6 +214,7 @@ def detect_mime_type(filename: str, content: bytes) -> str:
 
     Raises:
         IngestionError: If a magic-byte mismatch is detected.
+
     """
     ext = Path(filename).suffix.lower()
     mime = MIME_TYPES.get(ext, "application/octet-stream")
@@ -242,6 +246,7 @@ def validate_upload(filename: str, content: bytes, max_bytes: int) -> str:
 
     Raises:
         IngestionError: If any check fails.
+
     """
     if not filename or "." not in filename:
         raise IngestionError("Filename must have an extension")
@@ -274,6 +279,7 @@ class ChunkingPlan:
         chunk_size_words: Target number of words per chunk.
         overlap_words: Number of words carried over from one chunk to
             the next.
+
     """
 
     chunk_size_words: int = 800
@@ -288,6 +294,7 @@ def extract_pdf_pages(pdf_bytes: bytes) -> list[tuple[int, str]]:
 
     Returns:
         A list of ``(page_number, text)`` tuples.
+
     """
     try:
         from pypdf import PdfReader
@@ -311,6 +318,7 @@ def normalize_text(text: str) -> str:
 
     Returns:
         The whitespace-normalised string.
+
     """
     return " ".join(text.split())
 
@@ -324,6 +332,7 @@ def chunk_words(text: str, plan: ChunkingPlan) -> list[str]:
 
     Returns:
         A list of chunk strings in source order.
+
     """
     words = normalize_text(text).split()
     if not words:
@@ -350,6 +359,7 @@ def extract_pdf_text(pdf_bytes: bytes) -> list[tuple[int, str, str]]:
     Returns:
         A list of ``(page_num, source_location_prefix, text)`` tuples,
         one per page.
+
     """
     pages: list[tuple[int, str, str]] = []
     for page_num, text in extract_pdf_pages(pdf_bytes):
@@ -375,6 +385,7 @@ def extract_text(
 
     Returns:
         A list of ``(section_index, source_location, text)`` tuples.
+
     """
     ext = Path(file_name).suffix.lower()
 
@@ -422,6 +433,7 @@ def extract_pdf_metadata(pdf_bytes: bytes) -> dict[str, str]:
     Returns:
         A dict with ``title``, ``author``, ``producer``, and
         ``creator`` keys (empty strings when missing).
+
     """
     try:
         from pypdf import PdfReader
@@ -474,6 +486,7 @@ def build_chunk_records(
     Returns:
         A list of :class:`ChunkRecord` objects ready to be persisted
         and embedded.
+
     """
     records: list[ChunkRecord] = []
     parsed_sections = extract_text(file_bytes, file_name, mime_type)
@@ -542,6 +555,7 @@ class Section:
 
         Returns:
             A list of structured blocks plus any un-emitted text.
+
         """
         self.blocks = []
         self.text_buf = []
@@ -569,9 +583,7 @@ class Section:
             if equation_match:
                 self.flush_text_buffer()
                 self.blocks.append(
-                    DocumentBlock(
-                        kind=BlockKind.EQUATION, content=equation_match.group(1).strip()
-                    )
+                    DocumentBlock(kind=BlockKind.EQUATION, content=equation_match.group(1).strip())
                 )
                 continue
 
@@ -663,6 +675,7 @@ def normalise_markdown(
 
     Returns:
         The canonical :class:`Bundle`.
+
     """
     metadata = metadata or {}
     page_numbers = page_numbers or []
@@ -745,6 +758,7 @@ class PlainTextConverter(DocumentConverter):
 
         Returns:
             The canonical bundle.
+
         """
         text = file_bytes.decode("utf-8", errors="replace")
         return normalise_markdown(
@@ -786,9 +800,7 @@ class Marker(DocumentConverter):
     ) -> Bundle:
         """Convert source bytes into a canonical knowledge bundle."""
         if not file_bytes:
-            raise ConfigurationError(
-                "Marker.convert received empty bytes; nothing to convert."
-            )
+            raise ConfigurationError("Marker.convert received empty bytes; nothing to convert.")
         if not looks_like_pdf(file_bytes):
             return PlainTextConverter().convert(
                 source_uri=source_uri,
@@ -804,7 +816,9 @@ class Marker(DocumentConverter):
             delete=False,
         )
         if temporary_error is not None:
-            raise ConversionError(f"Marker conversion failed: {temporary_error}") from temporary_error
+            raise ConversionError(
+                f"Marker conversion failed: {temporary_error}"
+            ) from temporary_error
         temporary.write(file_bytes)
         temporary.close()
         rendered, conversion_error = capture(self.get_marker(), temporary.name)
@@ -858,6 +872,7 @@ def pick_converter(path: Path) -> DocumentConverter:
     Returns:
         A :class:`Marker` for PDFs and a
         :class:`PlainTextConverter` for everything else.
+
     """
     if path.suffix.lower() == ".pdf":
         converter, error = capture(Marker)
@@ -879,6 +894,7 @@ def convert_path(
 
     Returns:
         The canonical :class:`Bundle`.
+
     """
     p = Path(path)
     active = converter or pick_converter(p)

@@ -36,6 +36,7 @@ def write_json(payload: Any) -> None:
 
     Args:
         payload: Any JSON-serialisable value.
+
     """
     sys.stdout.write(json.dumps(payload, indent=2, default=str))
     sys.stdout.write("\n")
@@ -56,6 +57,7 @@ def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
         payload: The dict to serialize. ``default=str`` is passed to
             :func:`json.dump` so non-JSON-native values fall back to
             their string representation.
+
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile("w", delete=False, dir=path.parent, encoding="utf-8") as handle:
@@ -75,6 +77,7 @@ def load_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, An
     Returns:
         The parsed dict, or ``default`` when the file is missing.
         Parse errors propagate as :class:`json.JSONDecodeError`.
+
     """
     if not path.exists():
         return {} if default is None else default
@@ -84,9 +87,7 @@ def load_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, An
     return decoded
 
 
-def capture(
-    call: Callable[..., Any], *args: Any, **kwargs: Any
-) -> tuple[Any, Exception | None]:
+def capture(call: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, Exception | None]:
     """Return a callable result and any raised exception."""
     try:
         return call(*args, **kwargs), None
@@ -138,6 +139,7 @@ def retry(
         Sleeping blocks the calling thread. Use the async variant of your
         provider (or wrap in ``asyncio.to_thread``) when calling from a
         coroutine to avoid blocking the event loop.
+
     """
     for attempt in range(max_retries + 1):
         try:
@@ -182,6 +184,7 @@ async def aretry(
     Raises:
         Exception: The most recent exception from ``fn``, re-raised once
             the retry budget is exhausted.
+
     """
     for attempt in range(max_retries + 1):
         try:
@@ -208,6 +211,7 @@ async def maybe_await(value: T | Awaitable[T]) -> T:
 
     Returns:
         The awaited-or-direct result.
+
     """
     if inspect.isawaitable(value):
         return await value
@@ -228,6 +232,7 @@ def maybe_await_sync(awaitable: Any) -> Any:
     Returns:
         Either the resolved value (sync path) or the coroutine
         (async-from-async path).
+
     """
     try:
         asyncio.get_running_loop()
@@ -258,5 +263,6 @@ class DurationTimer:
 
         Returns:
             Elapsed time in milliseconds (float).
+
         """
         return (time.perf_counter() - self.start) * 1000.0

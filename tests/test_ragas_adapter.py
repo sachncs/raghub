@@ -178,6 +178,7 @@ def test_ragas_adapter_raises_config_error_for_unknown_metric():
         from importlib import reload
 
         import raghub.eval.ragas as _pkg
+
         reload(_pkg)
 
 
@@ -226,6 +227,7 @@ def test_evaluate_calls_ragas_evaluate_with_metric_instances(monkeypatch):
 
     results = adapter.evaluate(rows, response_factory=factory)
     import asyncio
+
     results = asyncio.run(results)
 
     assert len(results) == 2
@@ -289,6 +291,7 @@ def test_evaluate_mark_pass_when_all_metrics_above_threshold():
         {"question": "q2", "answer": "a2", "contexts": ["c"], "ground_truth": "g"},
     ]
     import asyncio
+
     results = asyncio.run(adapter.evaluate(rows, response_factory=factory))
     assert all(r.passed for r in results)
 
@@ -319,6 +322,7 @@ def test_evaluate_mark_fail_when_any_metric_below_threshold():
 
     rows = [{"question": "q", "answer": "a", "contexts": ["c"], "ground_truth": "g"}]
     import asyncio
+
     results = asyncio.run(adapter.evaluate(rows, response_factory=factory))
     assert not results[0].passed
 
@@ -339,6 +343,7 @@ def test_evaluate_metric_names_have_ragas_prefix():
 
     rows = [{"question": "q", "answer": "a", "contexts": ["c"], "ground_truth": "g"}]
     import asyncio
+
     results = asyncio.run(adapter.evaluate(rows, response_factory=factory))
     assert "ragas_faithfulness" in results[0].metrics
     assert "ragas_answer_relevancy" in results[0].metrics

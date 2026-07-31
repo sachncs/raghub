@@ -57,6 +57,7 @@ class ParsedSection:
         text: The extracted text content.
         metadata: Format-specific metadata (e.g. PDF ``/Title``,
             ``/Author``). Optional; defaults to an empty dict.
+
     """
 
     section_index: int
@@ -81,6 +82,7 @@ class File(ABC):
         Returns:
             A list of :class:`Section` objects. Empty when the
             parser finds no extractable text.
+
         """
 
 
@@ -103,6 +105,7 @@ class Pdf(File):
             page number and ``source_location`` is ``"page N"``. The
             metadata dict contains ``width`` and ``height`` (from the
             page's media box) when available.
+
         """
         try:
             from pypdf import PdfReader
@@ -148,6 +151,7 @@ class HTML(File):
             is 0 and ``source_location`` is ``"full file"``. The
             section metadata includes a ``headings`` list with the
             text of every ``<h1>``, ``<h2>``, and ``<h3>`` element.
+
         """
         try:
             from bs4 import BeautifulSoup
@@ -189,6 +193,7 @@ class Image(File):
             EXIF tag → stringified value, empty when EXIF is absent).
             ``text`` contains the OCR result, or ``""`` if
             :mod:`pytesseract` is unavailable or fails.
+
         """
         try:
             from PIL import Image as PillowImage
@@ -243,6 +248,7 @@ class Office(File):
             * PPTX: one section per slide; ``source_location="slide N"``.
 
             Empty when the extension/MIME pair is not an Office type.
+
         """
         ext = file_name.lower().rsplit(".", 1)[-1] if "." in file_name else ""
         sections: list[ParsedSection] = []
@@ -338,6 +344,7 @@ class Csv(File):
             A single-element list containing the full decoded text.
             Invalid byte sequences are replaced with the Unicode
             replacement character (``errors="replace"``).
+
         """
         text = file_bytes.decode("utf-8", errors="replace")
         return [
@@ -365,6 +372,7 @@ class Txt(File):
             A single-element list containing the decoded text. Invalid
             byte sequences are replaced with the Unicode replacement
             character (``errors="replace"``).
+
         """
         text = file_bytes.decode("utf-8", errors="replace")
         return [
@@ -451,6 +459,7 @@ class Catalog:
             key: Either a MIME type (``"text/plain"``) or an extension
                 including the leading dot (``".txt"``).
             parser: The :class:`File` instance to use for that key.
+
         """
         self.entries[key] = parser
 
@@ -464,6 +473,7 @@ class Catalog:
         Returns:
             The matching :class:`File`, or ``None`` if neither key is
             registered.
+
         """
         parser = self.entries.get(mime_type)
         if parser is not None:
@@ -489,6 +499,7 @@ class Catalog:
             intentional — it lets the pipeline gracefully accept
             unknown text-like formats — but callers that need strict
             format enforcement should validate up front.
+
         """
         parser = self.lookup(mime_type, file_name)
         if parser is None:
@@ -526,5 +537,6 @@ def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSecti
 
     Returns:
         A list of :class:`Section` produced by the matched parser.
+
     """
     return Catalog().parse(file_bytes, file_name, mime_type)

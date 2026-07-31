@@ -157,6 +157,7 @@ def default_converter() -> DocumentConverter:
     Returns:
         A ready-to-use :class:`DocumentConverter`. PDF parsing is
         only available when ``marker-pdf`` is installed.
+
     """
     try:
         from raghub.parsers import Marker
@@ -194,6 +195,7 @@ def default_chunker(
     Returns:
         :class:`Chonkie` when Chonkie is available;
         :class:`WordChunker` otherwise.
+
     """
     return build_chonkie_chunker(
         chunker_strategy,
@@ -214,6 +216,7 @@ def default_embedder(embedding_model: str, embedding_dim: int) -> Embedder:
         :class:`LiteLLMEmbedder` when LiteLLM is
         installed and an API key is configured; otherwise
         :class:`Hasher` for offline operation.
+
     """
     if not has_llm_api_key():
         return Hasher(dimension=embedding_dim, model_name=embedding_model)
@@ -232,6 +235,7 @@ def default_llm(llm_model: str) -> Any:
         :class:`LiteLLM` for the configured model when an API
         key is available; :class:`HeuristicProvider` (offline fallback)
         otherwise.
+
     """
     if not has_llm_api_key():
         from raghub.llm import HeuristicProvider
@@ -253,6 +257,7 @@ def default_vector_store(embedding_dim: int) -> Any:
         The full pipeline factory :func:`raghub.store.build_store`
         is used by the rest of the framework and points at a SQLite-backed
         store (sqlite-vector when installed, NumPy fallback otherwise).
+
     """
     return MemoryStore(embedding_dim=embedding_dim)
 
@@ -263,6 +268,7 @@ def default_structured() -> Any:
     Returns:
         :class:`Instructor` when Instructor
         is installed; ``None`` otherwise.
+
     """
     if not has_llm_api_key():
         return None
@@ -277,6 +283,7 @@ def default_telemetry() -> Any:
     Returns:
         :class:`LangfuseTelemetryProvider` when Langfuse is
         configured (env vars set); otherwise :class:`NoOpTelemetry`.
+
     """
     from raghub.telemetry import (
         LangfuseTelemetryProvider as _LangfuseTelemetryProvider,
@@ -311,6 +318,7 @@ def default_transforms(
     Returns:
         A :class:`raghub.retrieval.Compose`.
         Unknown names are dropped silently.
+
     """
     enabled = enabled or []
     transformers: list[QueryTransformer] = []
@@ -344,6 +352,7 @@ def ingest_one_worker(
         ``(chunks, vectors)`` lists pulled from the worker's local
         vector store after ``ingest`` completes. The vectors match the
         ``embedding_dim`` of the embedder that produced them.
+
     """
     import json
     from pathlib import Path
@@ -401,6 +410,7 @@ class RAG:
         reranker: Reranker (IdentityReranker by default).
         manifest: Source manifest for incremental indexing.
         background_ingestion: Background ingestion service.
+
     """
 
     def __init__(
@@ -469,6 +479,7 @@ class RAG:
                 built from ``settings.query_transforms.enabled`` and
                 ``self.llm``. Pass an empty :class:`ComposeTransformer`
                 to disable transforms explicitly.
+
         """
         self.settings = settings or Settings.load()
         self.registry = registry or PluginRegistry()
@@ -522,11 +533,15 @@ class RAG:
             if self.settings.enable_query_cache
             else None
         )
-        self.transformer = transformer if transformer is not None else default_transforms(
-            self.llm,
-            enabled=list(self.settings.query_transforms.enabled),
-            hyde_n=self.settings.query_transforms.hyde_n,
-            multi_query_n=self.settings.query_transforms.multi_query_n,
+        self.transformer = (
+            transformer
+            if transformer is not None
+            else default_transforms(
+                self.llm,
+                enabled=list(self.settings.query_transforms.enabled),
+                hyde_n=self.settings.query_transforms.hyde_n,
+                multi_query_n=self.settings.query_transforms.multi_query_n,
+            )
         )
         # Phase 2.8: build a RetrievalPipeline so multi-variant
         # retrieval can delegate to ``retrieve_variants``. Identity
@@ -553,14 +568,12 @@ class RAG:
         self.raptor = None
         self.graph = None
         if self.settings.summary_search_enabled:
-
             self.raptor = Raptor(
                 llm=self.llm,
                 embedder=self.embedder,
                 depth=2,
             )
         if self.settings.graph_search_enabled:
-
             self.graph = GraphIndex(llm=self.llm, embedder=self.embedder)
 
         # Phase 7.8 + 7.11: build the agent + tool registry + the
@@ -578,10 +591,12 @@ class RAG:
         )
         self.agent: Any | None = None
         self.agentic_pipeline: Any | None = None
-        if self.settings.agent.enabled or self.settings.web_search.enabled or (
-            self.settings.summary_search_enabled and self.raptor is not None
-        ) or (self.settings.graph_search_enabled and self.graph is not None):
-
+        if (
+            self.settings.agent.enabled
+            or self.settings.web_search.enabled
+            or (self.settings.summary_search_enabled and self.raptor is not None)
+            or (self.settings.graph_search_enabled and self.graph is not None)
+        ):
             self.agent = Agent(
                 llm=self.llm,
                 tool_registry=self.tool_registry,
@@ -613,9 +628,7 @@ class RAG:
             agentic_pipeline=self.agentic_pipeline,
         )
 
-        self.manifest: Manifest = manifest or Manifest(
-            self.settings.data_dir / "manifest.json"
-        )
+        self.manifest: Manifest = manifest or Manifest(self.settings.data_dir / "manifest.json")
         self.background_ingestion = background_service
 
     # ------------------------------------------------------------------
@@ -632,19 +645,15 @@ class RAG:
 
         Returns:
             A configured :class:`RAG` instance.
-        """
 
+        """
         p = Path(path)
         if p.suffix.lower() == ".toml":
-
             payload = tomllib.loads(p.read_text(encoding="utf-8")) or {}
         else:
-
             payload = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
 
-        settings = Settings(
-            **{k: v for k, v in payload.items() if k in Settings.model_fields}
-        )
+        settings = Settings(**{k: v for k, v in payload.items() if k in Settings.model_fields})
         settings.ensure_dirs()
         return cls(settings=settings)
 
@@ -675,6 +684,7 @@ class RAG:
         Raises:
             RagHubError: When one or more collaborator close calls
                 fail; the message lists each failing component.
+
         """
         if hasattr(self.telemetry, "end_trace"):
             self.telemetry.end_trace()
@@ -736,6 +746,7 @@ class RAG:
 
         Raises:
             IngestionError: When ingestion cannot complete.
+
         """
         if isinstance(source, (str, Path)):
             p = Path(source)
@@ -753,9 +764,7 @@ class RAG:
             maybe_await(self.ingest_one_async(file_bytes, uri, mime_type, metadata, force, user)),
         )
         if not result.success:
-            raise IngestionError(
-                f"ingest({source!r}) failed: {result.error}"
-            )
+            raise IngestionError(f"ingest({source!r}) failed: {result.error}")
         return result
 
     def ingest_directory_sync(
@@ -778,6 +787,7 @@ class RAG:
 
         Returns:
             A :class:`PipelineResult` summarising the batch.
+
         """
         files = sorted(p for p in directory.rglob("*") if p.is_file())
         results: list[PipelineResult] = []
@@ -805,6 +815,7 @@ class RAG:
 
         Raises:
             IngestionError: When ingestion cannot complete.
+
         """
         if isinstance(source, (str, Path)):
             p = Path(source)
@@ -836,8 +847,8 @@ class RAG:
             show_progress: When ``True`` (default), wrap the file loop
                 in a :class:`tqdm.tqdm` progress bar. Suppress with
                 ``False`` for non-interactive callers.
-        """
 
+        """
         files = sorted(p for p in directory.rglob("*") if p.is_file())
         n_workers = max(1, min(4, len(files)))
         semaphore = asyncio.Semaphore(n_workers)
@@ -895,9 +906,7 @@ class RAG:
                 outputs={"batch": []},
             )
 
-        n_workers = max(
-            1, min(max_workers or os.cpu_count() or 4, len(files))
-        )
+        n_workers = max(1, min(max_workers or os.cpu_count() or 4, len(files)))
         settings_path = self.settings_serialise_path()
         embedder_signature = (self.embedder.model_name, self.embedder.dimension)
 
@@ -1070,6 +1079,7 @@ class RAG:
 
         Returns:
             The namespaced key, or ``None`` when no session id is set.
+
         """
         if session_id is None:
             return None
@@ -1094,6 +1104,7 @@ class RAG:
             The overrides dict, or ``None`` when the session has none
             stored. Sessions without a key resolve to the global
             default in the resolver.
+
         """
         if scoped_session_id is None:
             return None
@@ -1158,6 +1169,7 @@ class RAG:
 
         Raises:
             IngestionError: When ``question`` is empty or whitespace-only.
+
         """
         if not question or not question.strip():
             raise IngestionError("query() requires a non-empty question")
@@ -1191,9 +1203,7 @@ class RAG:
         # Phase 7.11: forward the resolved ``tools_enabled`` set
         # into the pipeline so the dispatcher routes through the
         # agentic path when any tool is on.
-        resolved_tools = (
-            set(resolved.tools_enabled) if resolved.tools_enabled else None
-        )
+        resolved_tools = set(resolved.tools_enabled) if resolved.tools_enabled else None
         result = await self.query_pipeline.run(
             context,
             question=question,
@@ -1264,9 +1274,7 @@ class RAG:
             metadata_filter=metadata_filter or {},
             user=user,
             session_id=scoped,
-            tools_enabled=(
-                set(resolved.tools_enabled) if resolved.tools_enabled else None
-            ),
+            tools_enabled=(set(resolved.tools_enabled) if resolved.tools_enabled else None),
         ):
             yield piece
 
@@ -1300,8 +1308,8 @@ class RAG:
             :class:`PlannerEvent` instances. SSE encoding is the
             caller's responsibility — the FastAPI route uses
             :meth:`raghub.helper.sse.Sse.format`.
-        """
 
+        """
         scoped = self.scoped_session_id(user, session_id)
         resolved = resolve(
             request_overrides={
@@ -1346,9 +1354,7 @@ class RAG:
             question=question,
             user=user,
             session_id=scoped,
-            tools_enabled=(
-                set(resolved.tools_enabled) if resolved.tools_enabled else None
-            ),
+            tools_enabled=(set(resolved.tools_enabled) if resolved.tools_enabled else None),
             history=[],
         ):
             yield event
@@ -1380,6 +1386,7 @@ class RAG:
             Returns:
                 The factory's response, or the live :meth:`aquery`
                 answer when no factory is provided.
+
             """
             if factory is None:
                 return await self.aquery(example.get("question", ""))
@@ -1445,8 +1452,8 @@ class RAG:
         Returns:
             A summary dict with ``added``, ``modified``, ``unchanged``,
             and ``removed`` lists of source URIs.
-        """
 
+        """
         directory = Path(directory)
         if not directory.is_dir():
             raise RagHubError(f"{directory} is not a directory")
@@ -1585,6 +1592,7 @@ class RAG:
         Returns:
             The list of :class:`ConversationTurn` records, oldest
             first.
+
         """
         scoped = self.scoped_session_id(user, session_id) or session_id
         return cast(list[Any], self.conversation_store.load(scoped, limit=limit))
@@ -1602,8 +1610,7 @@ class RAG:
             user: Optional :class:`User` whose
                 ``user_id`` / ``email`` scopes the delete. When
                 omitted, the raw ``session_id`` is used.
+
         """
         scoped = self.scoped_session_id(user, session_id) or session_id
         self.conversation_store.clear(scoped)
-
-

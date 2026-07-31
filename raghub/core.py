@@ -25,6 +25,7 @@ class DocumentState:
 
     Attributes:
         status: The current lifecycle status.
+
     """
 
     status: DocumentLifecycleStatus
@@ -41,6 +42,7 @@ class DocumentState:
 
         Returns:
             A new :class:`DocumentState` carrying ``target``.
+
         """
         return DocumentState(target)
 
@@ -57,6 +59,7 @@ class DocumentStateMachine:
         allowed: Mapping from current status to the set of statuses that
             are legal next steps. ``ARCHIVED`` and ``FAILED`` map to empty
             sets, marking them terminal.
+
     """
 
     def __init__(self) -> None:
@@ -118,6 +121,7 @@ class DocumentStateMachine:
             ``current``, ``False`` otherwise. Unknown ``current`` values
             fall through ``dict.get`` with a default empty set, so the
             answer is ``False`` rather than an exception.
+
         """
         return target in self.allowed.get(current, set())
 
@@ -132,6 +136,7 @@ class RbacGuard:
     Attributes:
         user: The :class:`User` (or any duck-typed object
             with ``is_admin`` and ``allowed_companies``).
+
     """
 
     def __init__(self, user: Any) -> None:
@@ -140,6 +145,7 @@ class RbacGuard:
         Args:
             user: The :class:`User` (or duck-typed object)
                 whose RBAC attributes drive the guard.
+
         """
         self.user = user
 
@@ -154,6 +160,7 @@ class RbacGuard:
         Returns:
             The metadata filter dict understood by the in-memory
             vector store.
+
         """
         user = self.user
         if getattr(user, "is_admin", False):
@@ -169,6 +176,7 @@ class RbacGuard:
         Returns:
             ``True`` when the user is an admin or when ``company``
             appears in ``user.allowed_companies``.
+
         """
         user = self.user
         if getattr(user, "is_admin", False):
@@ -184,6 +192,7 @@ def allowed_company_filter(user: Any) -> dict[str, list[str]]:
 
     Returns:
         The filter dict (see :meth:`RbacGuard.company_filter`).
+
     """
     return RbacGuard(user).company_filter()
 
@@ -198,5 +207,6 @@ def can_access_company(user: Any, company: str) -> bool:
     Returns:
         ``True`` when the user is an admin or ``company`` is in
         ``user.allowed_companies``.
+
     """
     return RbacGuard(user).can_access(company)

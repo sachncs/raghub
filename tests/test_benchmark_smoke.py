@@ -82,9 +82,7 @@ def test_financebench_smoke_real_evaluator(tmp_path: Path) -> None:
     """
     examples = _make_examples(10)
     dataset = tmp_path / "financebench.jsonl"
-    dataset.write_text(
-        "\n".join(json.dumps(e) for e in examples), encoding="utf-8"
-    )
+    dataset.write_text("\n".join(json.dumps(e) for e in examples), encoding="utf-8")
     evaluator = Finance(dataset_path=dataset)
 
     async def runner() -> list:
@@ -132,9 +130,7 @@ def test_frames_smoke_real_evaluator(tmp_path: Path) -> None:
         }
     ]
     dataset = tmp_path / "frames.jsonl"
-    dataset.write_text(
-        "\n".join(json.dumps(e) for e in examples), encoding="utf-8"
-    )
+    dataset.write_text("\n".join(json.dumps(e) for e in examples), encoding="utf-8")
     evaluator = Frames(dataset_path=dataset)
 
     async def factory(example: dict) -> tuple:
@@ -170,9 +166,7 @@ def test_financebench_string_factory_scores_overlap(tmp_path: Path) -> None:
     """
     examples = _make_examples(2)
     dataset = tmp_path / "financebench.jsonl"
-    dataset.write_text(
-        "\n".join(json.dumps(e) for e in examples), encoding="utf-8"
-    )
+    dataset.write_text("\n".join(json.dumps(e) for e in examples), encoding="utf-8")
     evaluator = Finance(dataset_path=dataset)
 
     async def factory(example: dict) -> str:

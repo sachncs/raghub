@@ -90,6 +90,7 @@ def deterministic_id(*parts: str, length: int = 16) -> str:
 
     Returns:
         A lowercase hex string.
+
     """
     clamped = max(8, min(length, 64))
     digest = hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
@@ -170,6 +171,7 @@ class User(BaseModel):
             ``query_transforms``, ``max_steps``). Empty dict disables
             per-user defaults — the resolver falls through to the
             global :class:`Settings` defaults.
+
     """
 
     user_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -188,6 +190,7 @@ class ConversationTurn(BaseModel):
         answer: Provider-supplied answer.
         timestamp: When the turn was recorded (UTC).
         metadata: Optional structured metadata (sources, citations, …).
+
     """
 
     question: str
@@ -211,6 +214,7 @@ class SessionRecord(BaseModel):
         overrides: Session-scoped tool/agent settings (Phase 1.12).
             The resolver reads these between per-request overrides and
             per-user prefs. Empty dict == no session-level overrides.
+
     """
 
     session_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -245,6 +249,7 @@ class DocumentRecord(BaseModel):
         chunk_count: Number of chunks produced by the latest ingest.
         chunk_ids: Chunk ids produced by the latest ingest.
         error: Optional error message when ``status == FAILED``.
+
     """
 
     document_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -286,6 +291,7 @@ class ChunkRecord(BaseModel):
         hash: SHA-256 of the chunk text for dedup.
         text: Chunk text.
         metadata: Format-specific metadata (PDF metadata, image EXIF, …).
+
     """
 
     chunk_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -312,6 +318,7 @@ class Hit(BaseModel):
         chunk_id: Id of the underlying :class:`ChunkRecord`.
         score: Cosine-similarity score reported by the vector store.
         chunk: The full chunk metadata.
+
     """
 
     chunk_id: str
@@ -338,6 +345,7 @@ class SearchRequest(BaseModel):
         session_id: Optional session id; when set, prior turns are
             considered when assembling the prompt.
         top_k: Maximum number of hits to return.
+
     """
 
     user_id: str
@@ -355,6 +363,7 @@ class SearchResponse(BaseModel):
         source_chunks: The :class:`ChunkRecord` objects that
             contributed to the answer.
         metadata: Provider- and pipeline-specific metadata.
+
     """
 
     answer: str
@@ -397,6 +406,7 @@ class DocumentBlock(BaseModel):
         kind: Block kind.
         content: Block payload (Markdown / LaTeX / image URI).
         metadata: Format-specific metadata.
+
     """
 
     block_id: str = Field(default_factory=lambda: deterministic_id("block", str(uuid4())))
@@ -415,6 +425,7 @@ class DocumentSection(BaseModel):
         blocks: Ordered list of :class:`DocumentBlock` atoms.
         page_numbers: 1-based page numbers that contributed to this section.
         source_location: Human-readable location string.
+
     """
 
     section_id: str = Field(default_factory=lambda: deterministic_id("section", str(uuid4())))
@@ -449,6 +460,7 @@ class Embedding(BaseModel):
         dim: Vector dimensionality.
         vector: Float vector.
         created_at: Timestamp the vector was produced (UTC).
+
     """
 
     chunk_id: str
@@ -470,6 +482,7 @@ class Citation(BaseModel):
         quote: Optional excerpt used as evidence.
         score: Retrieval score (cosine similarity or fused score).
         source_uri: Original source location.
+
     """
 
     chunk_id: str
@@ -517,8 +530,7 @@ class Response(BaseModel):
         for citation in self.citations:
             if citation.chunk_id not in source_ids:
                 raise ValueError(
-                    f"Citation chunk_id {citation.chunk_id!r} is not "
-                    f"present in source_chunks"
+                    f"Citation chunk_id {citation.chunk_id!r} is not present in source_chunks"
                 )
         return self
 
@@ -541,6 +553,7 @@ class Bundle(BaseModel):
         metadata: Format-specific metadata.
         sections: Ordered list of :class:`DocumentSection`.
         created_at: Bundle creation time (UTC).
+
     """
 
     bundle_id: str = Field(default_factory=lambda: deterministic_id("bundle", str(uuid4())))
@@ -563,6 +576,7 @@ class PipelineCtx(BaseModel):
         user: Authenticated user principal driving the call (when applicable).
         metadata: Arbitrary per-run metadata.
         started_at: Pipeline start timestamp (UTC).
+
     """
 
     pipeline_id: str = Field(default_factory=lambda: deterministic_id("pipeline", str(uuid4())))
@@ -582,6 +596,7 @@ class PipelineResult(BaseModel):
         outputs: Stage-specific outputs keyed by stage name.
         error: Error message when ``success`` is ``False``.
         finished_at: Pipeline finish timestamp (UTC).
+
     """
 
     pipeline_id: str
@@ -609,6 +624,7 @@ class Result(BaseModel):
         passed: Whether the example met the benchmark threshold.
         details: Optional explanation / per-stage breakdown.
         evaluated_at: Timestamp the result was produced (UTC).
+
     """
 
     benchmark: str
@@ -633,6 +649,7 @@ class RankedItem(BaseModel):
         rationale: One-sentence justification for the new score.
             Kept short so the assembled prompt stays under the
             long-context window.
+
     """
 
     chunk_id: str
@@ -647,6 +664,7 @@ class RankedList(BaseModel):
         items: Per-chunk re-ranking, in the order the model produced
             them. Missing or malformed entries are dropped by the
             caller (see :func:`LongContextRerankPass._reorder`).
+
     """
 
     items: list[RankedItem] = Field(default_factory=list)
@@ -665,6 +683,7 @@ class AuthLoginRequest(BaseModel):
             domain per the regex constraint.
         password: User password (validated server-side; never
             echoed back).
+
     """
 
     email: str = Field(min_length=1, pattern=r".+@.+\..+")
@@ -680,6 +699,7 @@ class AuthLoginResponse(BaseModel):
         user_email: Echo of the authenticated user's email.
         allowed_companies: The tenant allow-list; useful for the
             client to decide which company's data to display.
+
     """
 
     session_token: str
@@ -696,6 +716,7 @@ class DocumentUploadResponse(BaseModel):
         status: Initial lifecycle status (``"NEW"``).
         company: Tenant tag.
         filename: Original filename.
+
     """
 
     document_id: str
@@ -727,6 +748,7 @@ class QueryRequest(BaseModel):
             (``"hyde"|"multi_query"|"step_back"|"decompose"``).
         max_steps: Per-request cap on planner steps.
         top_k: Per-request override of the default retrieval depth.
+
     """
 
     question: str = Field(min_length=1)
@@ -756,6 +778,7 @@ class QueryResponse(BaseModel):
             fast path.
         transforms_applied: Names of query transforms that ran before
             retrieval. Empty when the resolver disabled them.
+
     """
 
     answer: str
@@ -775,6 +798,7 @@ class BatchIngestItem(BaseModel):
         document_id: The document id assigned on success, or empty.
         status: ``"ok"`` or ``"error"``.
         error: Error detail when ``status == "error"``.
+
     """
 
     filename: str
@@ -788,6 +812,7 @@ class BatchIngestResponse(BaseModel):
 
     Attributes:
         documents: One :class:`BatchIngestItem` per uploaded file.
+
     """
 
     documents: list[BatchIngestItem] = Field(default_factory=list)
@@ -810,9 +835,7 @@ class Chunker(Protocol):
         """Split a knowledge bundle into chunks."""
         ...
 
-    def chunk_text(
-        self, text: str, *, document_id: str, version: int = 1
-    ) -> list[Chunk]:
+    def chunk_text(self, text: str, *, document_id: str, version: int = 1) -> list[Chunk]:
         """Split raw text into chunks."""
         ...
 
@@ -912,9 +935,11 @@ class Logger(Protocol):
     def info(self, message: str, **kwargs: Any) -> None:
         """Log an info-level message."""
         ...
+
     def warning(self, message: str, **kwargs: Any) -> None:
         """Log a warning-level message."""
         ...
+
     def error(self, message: str, **kwargs: Any) -> None:
         """Log an error-level message."""
         ...
@@ -926,6 +951,7 @@ class Metrics(Protocol):
     def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
         """Record a latency metric."""
         ...
+
     def increment(self, name: str, value: int = 1, **labels: Any) -> None:
         """Increment a counter metric."""
         ...
@@ -940,6 +966,7 @@ class Span(Protocol):
     def end(self) -> None:
         """End the span."""
         ...
+
     def set_attribute(self, key: str, value: Any) -> None:
         """Set a span attribute."""
         ...
@@ -951,9 +978,11 @@ class TelemetryProvider(Logger, Metrics, Protocol):
     def start_span(self, name: str, **attrs: Any) -> Span:
         """Start a new trace span."""
         ...
+
     def end_span(self, span: Span) -> None:
         """End a trace span."""
         ...
+
     def record_tokens(
         self,
         name: str,
@@ -1024,9 +1053,11 @@ class VectorStore(Protocol):
     def delete(self, chunk_ids: Sequence[str]) -> None:
         """Delete chunks by ids."""
         ...
+
     def delete_document(self, document_id: str) -> None:
         """Delete all chunks for a document."""
         ...
+
     def delete_version(self, document_id: str, version: int) -> None:
         """Delete a specific document version."""
         ...
@@ -1055,6 +1086,7 @@ class VectorStore(Protocol):
     def optimize(self) -> None:
         """Optimize the vector store."""
         ...
+
     def health(self) -> dict[str, Any]:
         """Return vector store health status."""
         ...
@@ -1164,12 +1196,15 @@ class DocumentRegistry(Protocol):
     def save_version(self, document: DocumentRecord) -> DocumentRecord:
         """Persist a document version."""
         ...
+
     def get_latest(self, document_id: str) -> DocumentRecord | None:
         """Get the latest document version."""
         ...
+
     def list_accessible(self, companies: list[str]) -> list[DocumentRecord]:
         """List accessible documents for companies."""
         ...
+
     def archive(self, document_id: str) -> None:
         """Archive a document."""
         ...
@@ -1181,9 +1216,11 @@ class ConversationStore(Protocol):
     def append(self, session_id: str, turn: ConversationTurn) -> None:
         """Append a turn to a session."""
         ...
+
     def load(self, session_id: str, limit: int = 20) -> list[ConversationTurn]:
         """Load turns from a session."""
         ...
+
     def clear(self, session_id: str) -> None:
         """Clear all turns for a session."""
         ...
@@ -1195,9 +1232,11 @@ class SessionStoreProtocol(Protocol):
     def create(self, user_id: str) -> SessionRecord:
         """Create a new session."""
         ...
+
     def resolve(self, token: str) -> SessionRecord | None:
         """Resolve a session token."""
         ...
+
     def invalidate(self, token: str) -> None:
         """Invalidate a session token."""
         ...
