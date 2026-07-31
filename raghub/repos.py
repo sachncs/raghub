@@ -32,7 +32,7 @@ from raghub.domain import (
     UnitOfWork as BaseUnitOfWork,
 )
 from raghub.models import (
-    ChunkRecord,
+    Chunk,
     DocumentLifecycleStatus,
     DocumentRecord,
     SessionRecord,
@@ -98,12 +98,12 @@ class ChunkStore(ChunkRepository):
         """Bring the underlying vector collection online."""
         self.store.create_collection()
 
-    async def insert(self, record: ChunkRecord, embedding: list[float]) -> None:
+    async def insert(self, record: Chunk, embedding: list[float]) -> None:
         """Insert ``record`` with ``embedding`` into the vector store."""
         self.store.insert([record], [embedding])
 
     async def upsert(
-        self, records: list[ChunkRecord], embeddings: list[list[float]] | None = None
+        self, records: list[Chunk], embeddings: list[list[float]] | None = None
     ) -> None:
         """Insert or update each ``record`` with its matching embedding."""
         if embeddings is None:

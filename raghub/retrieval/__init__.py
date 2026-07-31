@@ -44,7 +44,7 @@ from raghub.core import allowed_company_filter
 from raghub.embedder import Embedder
 from raghub.errors import GraphUnavailableError, RerankerError
 from raghub.models import (
-    ChunkRecord,
+    Chunk,
     Classification,
     ConversationTurn,
     Hit,
@@ -1121,25 +1121,25 @@ class Search:
         query: str,
         filters: SearchFilters | None = None,
         top_k: int = 10,
-    ) -> list[ChunkRecord]:
+    ) -> list[Chunk]:
         """Search with faceted filtering."""
         vector = self.embedding_provider.embed_text(query)
         metadata_filter = build_filter(filters)
         raw = self.vector_store.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
-        results: list[ChunkRecord] = []
+        results: list[Chunk] = []
         seen: set[str] = set()
         for item in raw:
-            chunk: ChunkRecord = item["chunk"]
-            if chunk.chunk_id in seen:
+            chunk: Chunk = item["chunk"]
+            if chunk.id in seen:
                 continue
             if filters and not self.matches(chunk, filters):
                 continue
-            seen.add(chunk.chunk_id)
+            seen.add(chunk.id)
             results.append(chunk)
         return results
 
     @staticmethod
-    def matches(chunk: ChunkRecord, filters: SearchFilters) -> bool:
+    def matches(chunk: Chunk, filters: SearchFilters) -> bool:
         """Return ``True`` when ``chunk`` satisfies every active filter criterion."""
         if filters.companies and chunk.company not in filters.companies:
             return False
@@ -1217,13 +1217,12 @@ class Retrieval:
         hits: list[Hit] = []
         seen: set[str] = set()
         for raw in raw_hits:
-            chunk: ChunkRecord = raw["chunk"]
-            if chunk.chunk_id in seen:
+            chunk: Chunk = raw["chunk"]
+            if chunk.id in seen:
                 continue
-            seen.add(chunk.chunk_id)
+            seen.add(chunk.id)
             hits.append(
                 Hit(
-                    chunk_id=chunk.chunk_id,
                     score=float(raw["score"]),
                     chunk=chunk,
                 )
@@ -1235,7 +1234,6 @@ class Retrieval:
         raw_hits = self.vector_store.keyword_search(query, top_k)
         return [
             Hit(
-                chunk_id=h["chunk_id"],
                 score=float(h["score"]),
                 chunk=h["chunk"],
             )
@@ -1279,13 +1277,13 @@ class Retrieval:
         dense_ranks = [h.chunk_id for h in vector_results]
         sparse_ranks = [h.chunk_id for h in keyword_hits]
         fused = rrf([dense_ranks, sparse_ranks], k=rrf_k)
-        chunk_map: dict[str, ChunkRecord] = {h.chunk_id: h.chunk for h in keyword_hits}
+        chunk_map: dict[str, Chunk] = {h.chunk_id: h.chunk for h in keyword_hits}
         chunk_map.update({h.chunk_id: h.chunk for h in vector_results})
         out: list[Hit] = []
         for chunk_id, score in fused:
             chunk = chunk_map.get(chunk_id)
             if chunk is not None:
-                out.append(Hit(chunk_id=chunk_id, score=float(score), chunk=chunk))
+                out.append(Hit(score=float(score), chunk=chunk))
         return out
 
     def linear(
@@ -1305,7 +1303,7 @@ class Retrieval:
         vec_max = (
             max(vector_by_id.values()) if vector_by_id and max(vector_by_id.values()) > 0 else 1.0
         )
-        chunk_map: dict[str, ChunkRecord] = {}
+        chunk_map: dict[str, Chunk] = {}
         for h in keyword_hits:
             chunk_map[h.chunk_id] = h.chunk
         for h in vector_results:
@@ -1317,7 +1315,7 @@ class Retrieval:
             combined = keyword_weight * kw_score + vector_weight * vec_score
             chunk = chunk_map.get(chunk_id)
             if chunk is not None:
-                fused.append(Hit(chunk_id=chunk_id, score=combined, chunk=chunk))
+                fused.append(Hit(score=combined, chunk=chunk))
         fused.sort(key=lambda h: h.score, reverse=True)
         return fused
 
@@ -1343,7 +1341,7 @@ class Retrieval:
         ):
             return self.retrieve(user=user, question=variants[0].text, top_k=top_k)
         chunk_score: dict[str, float] = {}
-        chunk_map: dict[str, ChunkRecord] = {}
+        chunk_map: dict[str, Chunk] = {}
         for variant in variants:
             text = (getattr(variant, "text", "") or "").strip()
             if not text:
@@ -1362,7 +1360,7 @@ class Retrieval:
                     chunk_score[hit.chunk_id] = contribution
                 chunk_map.setdefault(hit.chunk_id, hit.chunk)
         fused: list[Hit] = [
-            Hit(chunk_id=cid, score=score, chunk=chunk_map[cid])
+            Hit(score=score, chunk=chunk_map[cid])
             for cid, score in chunk_score.items()
             if cid in chunk_map
         ]
@@ -1390,9 +1388,7 @@ class Retrieval:
             if scores and len(scores) == len(dense):
                 colbert_hits = [
                     Hit(
-                        chunk_id=h.chunk_id,
-                        score=float(score),
-                        chunk=h.chunk,
+                        score=float(score), chunk=h.chunk,
                     )
                     for h, score in zip(dense, scores, strict=True)
                 ]
@@ -1405,14 +1401,14 @@ class Retrieval:
         if not rankings:
             return []
         fused_scores = rrf(rankings, k=getattr(self.hybrid, "rrf_k", 60))
-        chunk_map: dict[str, ChunkRecord] = {h.chunk_id: h.chunk for h in sparse}
+        chunk_map: dict[str, Chunk] = {h.chunk_id: h.chunk for h in sparse}
         chunk_map.update({h.chunk_id: h.chunk for h in colbert_hits})
         chunk_map.update({h.chunk_id: h.chunk for h in dense})
         out: list[Hit] = []
         for chunk_id, score in fused_scores:
             chunk = chunk_map.get(chunk_id)
             if chunk is not None:
-                out.append(Hit(chunk_id=chunk_id, score=float(score), chunk=chunk))
+                out.append(Hit(score=float(score), chunk=chunk))
         return self.rerank.rerank(question=question, hits=out)
 
 

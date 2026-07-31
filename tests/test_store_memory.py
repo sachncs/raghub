@@ -21,7 +21,7 @@ from typing import Any
 import pytest
 
 from raghub.core import allowed_company_filter
-from raghub.models import ChunkRecord, Classification, User
+from raghub.models import Chunk, Classification, User
 from raghub.retrieval import Search, SearchFilters, build_filter
 from raghub.store import (
     MemoryStore,
@@ -30,17 +30,17 @@ from raghub.store import (
 )
 
 
-def make_chunk(**overrides: Any) -> ChunkRecord:
+def make_chunk(**overrides: Any) -> Chunk:
     defaults: dict[str, Any] = dict(
-        chunk_id="c1",
         document_id="d1",
         version=1,
         text="Some text for search",
         company="Acme",
         owner="user@acme.com",
+        checksum="b1a26ccd2174d7f80cb473d076a461bab4ffe18e54a19b7b627e49aa9dbc332c",
     )
     defaults.update(overrides)
-    return ChunkRecord(checksum="seed", **defaults)
+    return Chunk(**defaults)
 
 
 class FakeEmbeddingProvider:
@@ -103,22 +103,23 @@ class TestMatchesMetadataDict:
 class TestInsert:
     def test_single_insert(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk()], [[0.1, 0.2]])
-        assert "c1" in store.records
-        assert store.records["c1"].vector == [0.1, 0.2]
+        chunk = make_chunk()
+        store.insert([chunk], [[0.1, 0.2]])
+        assert chunk.id in store.records
+        assert store.records[chunk.id].vector == [0.1, 0.2]
 
     def test_insert_multiple(self) -> None:
         store = MemoryStore(embedding_dim=2)
         store.insert(
-            [make_chunk(chunk_id="c1"), make_chunk(chunk_id="c2")],
+            [make_chunk(id="c1"), make_chunk(id="c2")],
             [[0.1, 0.2], [0.3, 0.4]],
         )
         assert set(store.records) == {"c1", "c2"}
 
     def test_insert_overwrites_existing(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk(chunk_id="c1", text="old")], [[0.1, 0.2]])
-        store.insert([make_chunk(chunk_id="c1", text="new")], [[0.5, 0.6]])
+        store.insert([make_chunk(id="c1", text="old")], [[0.1, 0.2]])
+        store.insert([make_chunk(id="c1", text="new")], [[0.5, 0.6]])
         assert store.records["c1"].chunk.text == "new"
         assert store.records["c1"].vector == [0.5, 0.6]
 
@@ -126,13 +127,13 @@ class TestInsert:
         store = MemoryStore(embedding_dim=2)
         with pytest.raises(ValueError):
             store.insert(
-                [make_chunk(chunk_id="c1"), make_chunk(chunk_id="c2")],
+                [make_chunk(id="c1"), make_chunk(id="c2")],
                 [[0.1, 0.2]],
             )
 
     def test_upsert_delegates_to_insert(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        written = store.upsert([make_chunk()], [[0.1, 0.2]])
+        written = store.upsert([make_chunk(id="c1")], [[0.1, 0.2]])
         assert written == 1
         assert "c1" in store.records
 
@@ -141,7 +142,7 @@ class TestDelete:
     def test_delete_known(self) -> None:
         store = MemoryStore(embedding_dim=2)
         store.insert(
-            [make_chunk(chunk_id="c1"), make_chunk(chunk_id="c2")],
+            [make_chunk(id="c1"), make_chunk(id="c2")],
             [[0.1, 0.2], [0.3, 0.4]],
         )
         store.delete(["c1"])
@@ -150,13 +151,13 @@ class TestDelete:
 
     def test_delete_unknown_silently_skipped(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk(chunk_id="c1")], [[0.1, 0.2]])
+        store.insert([make_chunk(id="c1")], [[0.1, 0.2]])
         store.delete(["c1", "does-not-exist"])
         assert "c1" not in store.records
 
     def test_delete_empty_list_is_noop(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk()], [[0.1, 0.2]])
+        store.insert([make_chunk(id="c1")], [[0.1, 0.2]])
         store.delete([])
         assert "c1" in store.records
 
@@ -166,9 +167,9 @@ class TestDeleteDocument:
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [
-                make_chunk(chunk_id="c1", document_id="d1"),
-                make_chunk(chunk_id="c2", document_id="d1"),
-                make_chunk(chunk_id="c3", document_id="d2"),
+                make_chunk(id="c1", document_id="d1"),
+                make_chunk(id="c2", document_id="d1"),
+                make_chunk(id="c3", document_id="d2"),
             ],
             [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]],
         )
@@ -177,7 +178,7 @@ class TestDeleteDocument:
 
     def test_unknown_document_is_noop(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk(chunk_id="c1", document_id="d1")], [[0.1, 0.2]])
+        store.insert([make_chunk(id="c1", document_id="d1")], [[0.1, 0.2]])
         store.delete_document("nope")
         assert "c1" in store.records
 
@@ -187,9 +188,9 @@ class TestDeleteVersion:
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [
-                make_chunk(chunk_id="c1", document_id="d1", version=1),
-                make_chunk(chunk_id="c2", document_id="d1", version=2),
-                make_chunk(chunk_id="c3", document_id="d2", version=1),
+                make_chunk(id="c1", document_id="d1", version=1),
+                make_chunk(id="c2", document_id="d1", version=2),
+                make_chunk(id="c3", document_id="d2", version=1),
             ],
             [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]],
         )
@@ -198,7 +199,7 @@ class TestDeleteVersion:
 
     def test_non_matching_version_is_noop(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk(chunk_id="c1", document_id="d1", version=2)], [[0.1, 0.2]])
+        store.insert([make_chunk(id="c1", document_id="d1", version=2)], [[0.1, 0.2]])
         store.delete_version("d1", 1)
         assert "c1" in store.records
 
@@ -247,8 +248,8 @@ class TestSearch:
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [
-                make_chunk(chunk_id="c1", company="Acme"),
-                make_chunk(chunk_id="c2", company="Beta"),
+                make_chunk(id="c1", company="Acme"),
+                make_chunk(id="c2", company="Beta"),
             ],
             [[0.1, 0.2], [0.1, 0.2]],
         )
@@ -265,9 +266,9 @@ class TestSearch:
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [
-                make_chunk(chunk_id="c1", company="Acme"),
-                make_chunk(chunk_id="c2", company="Beta"),
-                make_chunk(chunk_id="c3", company="Gamma"),
+                make_chunk(id="c1", company="Acme"),
+                make_chunk(id="c2", company="Beta"),
+                make_chunk(id="c3", company="Gamma"),
             ],
             [[0.1, 0.2]] * 3,
         )
@@ -282,7 +283,7 @@ class TestSearch:
         """
         store = MemoryStore(embedding_dim=2)
         store.insert(
-            [make_chunk(chunk_id="c1", company="Acme")],
+            [make_chunk(id="c1", company="Acme")],
             [[0.1, 0.2]],
         )
         results = store.search(vector=[0.1, 0.2], top_k=5, metadata_filter={"company": []})
@@ -290,13 +291,13 @@ class TestSearch:
 
     def test_legacy_string_filter(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk(chunk_id="c1", company="Acme")], [[0.1, 0.2]])
+        store.insert([make_chunk(id="c1", company="Acme")], [[0.1, 0.2]])
         results = store.search(vector=[0.1, 0.2], top_k=5, metadata_filter="company IN ('Acme')")
         assert len(results) == 1
 
     def test_legacy_string_filter_no_match(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk(chunk_id="c1", company="Acme")], [[0.1, 0.2]])
+        store.insert([make_chunk(id="c1", company="Acme")], [[0.1, 0.2]])
         results = store.search(vector=[0.1, 0.2], top_k=5, metadata_filter="company IN ('Beta')")
         assert results == []
 
@@ -316,9 +317,9 @@ class TestSearch:
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [
-                make_chunk(chunk_id="low", company="Acme"),
-                make_chunk(chunk_id="high", company="Acme"),
-                make_chunk(chunk_id="mid", company="Acme"),
+                make_chunk(id="low", company="Acme"),
+                make_chunk(id="high", company="Acme"),
+                make_chunk(id="mid", company="Acme"),
             ],
             [[0.1, 0.9], [0.9, 0.1], [0.5, 0.5]],
         )
@@ -329,7 +330,7 @@ class TestSearch:
     def test_delete_then_query_is_atomic(self) -> None:
         store = MemoryStore(embedding_dim=2)
         store.insert(
-            [make_chunk(chunk_id="c1"), make_chunk(chunk_id="c2")],
+            [make_chunk(id="c1"), make_chunk(id="c2")],
             [[0.1, 0.2], [0.1, 0.2]],
         )
         store.delete(["c1"])
@@ -349,8 +350,8 @@ class TestRbacIsolation:
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [
-                make_chunk(chunk_id="acme", company="Acme"),
-                make_chunk(chunk_id="beta", company="Beta"),
+                make_chunk(id="acme", company="Acme"),
+                make_chunk(id="beta", company="Beta"),
             ],
             [[1.0, 0.0], [1.0, 0.0]],
         )
@@ -389,13 +390,13 @@ class TestRbacIsolation:
 class TestHybridSearch:
     def test_delegates_to_search(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk(chunk_id="c1")], [[0.1, 0.2]])
+        store.insert([make_chunk(id="c1")], [[0.1, 0.2]])
         results = store.hybrid_search(query="ignored", vector=[0.1, 0.2], top_k=5)
         assert [r["chunk_id"] for r in results] == ["c1"]
 
     def test_hybrid_search_with_string_filter(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk(chunk_id="c1", company="Acme")], [[0.1, 0.2]])
+        store.insert([make_chunk(id="c1", company="Acme")], [[0.1, 0.2]])
         results = store.hybrid_search(
             query="ignored",
             vector=[0.1, 0.2],
@@ -418,23 +419,23 @@ class TestKeywordSearch:
         store.insert(
             [
                 make_chunk(
-                    chunk_id="c1",
+                    id="c1",
                     text="hello world is a common phrase used in many places today",
                 ),
                 make_chunk(
-                    chunk_id="c2",
+                    id="c2",
                     text="apple pie is a popular dessert served in many countries",
                 ),
                 make_chunk(
-                    chunk_id="c3",
+                    id="c3",
                     text="banana split is a classic summer treat for children",
                 ),
                 make_chunk(
-                    chunk_id="c4",
+                    id="c4",
                     text="cherry cobbler is another favourite pie from the south",
                 ),
                 make_chunk(
-                    chunk_id="c5",
+                    id="c5",
                     text="orange marmalade pairs well with toast and butter",
                 ),
             ],
@@ -486,23 +487,23 @@ class TestKeywordSearch:
         store.insert(
             [
                 make_chunk(
-                    chunk_id="c1",
+                    id="c1",
                     text="hello hello world is the first chunk indexed here",
                 ),
                 make_chunk(
-                    chunk_id="c2",
+                    id="c2",
                     text="hello world is the second chunk indexed there",
                 ),
                 make_chunk(
-                    chunk_id="c3",
+                    id="c3",
                     text="apple pie dessert with many different words inside",
                 ),
                 make_chunk(
-                    chunk_id="c4",
+                    id="c4",
                     text="banana split treat is full of disparate words today",
                 ),
                 make_chunk(
-                    chunk_id="c5",
+                    id="c5",
                     text="cherry cobbler uses many assorted words in the recipe",
                 ),
             ],
@@ -521,11 +522,11 @@ class TestKeywordSearch:
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [
-                make_chunk(chunk_id="a", text="alpha alpha alpha"),
-                make_chunk(chunk_id="b", text="alpha beta gamma"),
-                make_chunk(chunk_id="c", text="alpha delta epsilon"),
-                make_chunk(chunk_id="d", text="zeta eta theta"),
-                make_chunk(chunk_id="e", text="iota kappa lambda"),
+                make_chunk(id="a", text="alpha alpha alpha"),
+                make_chunk(id="b", text="alpha beta gamma"),
+                make_chunk(id="c", text="alpha delta epsilon"),
+                make_chunk(id="d", text="zeta eta theta"),
+                make_chunk(id="e", text="iota kappa lambda"),
             ],
             [[0.1, 0.2]] * 5,
         )
@@ -551,7 +552,7 @@ class TestOptimizeAndHealth:
 
     def test_health_reports_status_and_chunks(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk(chunk_id="c1")], [[0.1, 0.2]])
+        store.insert([make_chunk(id="c1")], [[0.1, 0.2]])
         h = store.health()
         assert h["status"] == "ok"
         assert h["backend"] == "memory"
@@ -601,20 +602,20 @@ class TestLargeCorpus:
 class TestFacetedSearchEngineSearch:
     def test_search_returns_unique_chunks(self) -> None:
         store = MemoryStore(embedding_dim=2)
-        store.insert([make_chunk(chunk_id="c1", company="Acme")], [[1.0, 0.0]])
+        store.insert([make_chunk(id="c1", company="Acme")], [[1.0, 0.0]])
         engine = Search(
             vector_store=store,
             embedding_provider=FakeEmbeddingProvider({"q": [1.0, 0.0]}),
         )
         results = engine.search("q", filters=SearchFilters(companies=["Acme"]), top_k=5)
-        assert [c.chunk_id for c in results] == ["c1"]
+        assert [c.id for c in results] == ["c1"]
 
     def test_search_filters_out_non_matching_company(self) -> None:
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [
-                make_chunk(chunk_id="c1", company="Acme"),
-                make_chunk(chunk_id="c2", company="Beta"),
+                make_chunk(id="c1", company="Acme"),
+                make_chunk(id="c2", company="Beta"),
             ],
             [[1.0, 0.0], [1.0, 0.0]],
         )
@@ -623,12 +624,12 @@ class TestFacetedSearchEngineSearch:
             embedding_provider=FakeEmbeddingProvider({"q": [1.0, 0.0]}),
         )
         results = engine.search("q", filters=SearchFilters(companies=["Acme"]))
-        assert [c.chunk_id for c in results] == ["c1"]
+        assert [c.id for c in results] == ["c1"]
 
     def test_search_with_no_filters_returns_all(self) -> None:
         store = MemoryStore(embedding_dim=2)
         store.insert(
-            [make_chunk(chunk_id="c1"), make_chunk(chunk_id="c2")],
+            [make_chunk(id="c1"), make_chunk(id="c2")],
             [[1.0, 0.0], [1.0, 0.0]],
         )
         engine = Search(
@@ -636,7 +637,7 @@ class TestFacetedSearchEngineSearch:
             embedding_provider=FakeEmbeddingProvider({"q": [1.0, 0.0]}),
         )
         results = engine.search("q", top_k=5)
-        assert {c.chunk_id for c in results} == {"c1", "c2"}
+        assert {c.id for c in results} == {"c1", "c2"}
 
 
 class TestFacetedSearchEngineMatchesFilters:
@@ -696,9 +697,9 @@ class TestFacetedSearchEngineCountByField:
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [
-                make_chunk(chunk_id="c1", company="Acme"),
-                make_chunk(chunk_id="c2", company="Acme"),
-                make_chunk(chunk_id="c3", company="Beta"),
+                make_chunk(id="c1", company="Acme"),
+                make_chunk(id="c2", company="Acme"),
+                make_chunk(id="c3", company="Beta"),
             ],
             [[0.1, 0.2]] * 3,
         )
@@ -708,7 +709,7 @@ class TestFacetedSearchEngineCountByField:
     def test_none_values_skipped(self) -> None:
         store = MemoryStore(embedding_dim=2)
         store.insert(
-            [make_chunk(chunk_id="c1"), make_chunk(chunk_id="c2")],
+            [make_chunk(id="c1"), make_chunk(id="c2")],
             [[0.1, 0.2], [0.3, 0.4]],
         )
         engine = Search(vector_store=store, embedding_provider=FakeEmbeddingProvider())

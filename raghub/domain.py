@@ -21,7 +21,7 @@ from typing import Any, Protocol
 import aiosqlite
 
 from raghub.models import (
-    ChunkRecord,
+    Chunk,
     ConversationTurn,
     DocumentLifecycleStatus,
     DocumentRecord,
@@ -29,7 +29,7 @@ from raghub.models import (
 )
 
 __all__ = [
-    "Chunk",
+    "ChunkRef",
     "ChunkRepository",
     "DatabaseManager",
     "Document",
@@ -40,21 +40,21 @@ __all__ = [
 ]
 
 
-class Chunk:
-    """Active-record wrapper around a :class:`ChunkRecord`.
+class ChunkRef:
+    """Active-record wrapper around a :class:`Chunk`.
 
     Attribute reads/writes forward to the wrapped record so callers
     can use the chunk as if it were the underlying Pydantic model.
     """
 
-    def __init__(self, record: ChunkRecord) -> None:
+    def __init__(self, record: ChunkRef) -> None:
         """Wrap ``record``."""
         self.record = record
 
     @property
     def chunk_id(self) -> str:
         """Return the chunk id from the wrapped record."""
-        return self.record.chunk_id
+        return str(self.record.id)
 
     def __getattr__(self, name: str) -> Any:
         """Forward unknown attribute reads to the wrapped record."""
@@ -71,7 +71,7 @@ class Chunk:
         else:
             setattr(self.record, name, value)
 
-    def update(self, **kwargs: Any) -> Chunk:
+    def update(self, **kwargs: Any) -> ChunkRef:
         """Bulk-set fields on the wrapped record.
 
         Args:
@@ -270,19 +270,19 @@ class DocumentRepository(ABC):
 
 
 class ChunkRepository(ABC):
-    """Persistence contract for :class:`ChunkRecord` and embeddings."""
+    """Persistence contract for :class:`Chunk` and embeddings."""
 
     @abstractmethod
     async def initialize(self) -> None:
         """Bring the underlying schema/connection online."""
 
     @abstractmethod
-    async def insert(self, record: ChunkRecord, embedding: list[float]) -> None:
+    async def insert(self, record: Any, embedding: list[float]) -> None:
         """Persist ``record`` with its ``embedding`` vector."""
 
     @abstractmethod
     async def upsert(
-        self, records: list[ChunkRecord], embeddings: list[list[float]] | None = None
+        self, records: list[Chunk], embeddings: list[list[float]] | None = None
     ) -> None:
         """Insert or update ``records``; ``embeddings[i]`` aligns with ``records[i]``."""
 

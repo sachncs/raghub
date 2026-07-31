@@ -58,7 +58,7 @@ def test_insert_or_ignore_skips_duplicates(sqlite_store, sample_chunks, sample_v
     written2 = sqlite_store.insert([dupe], sample_vectors)
     assert written2 == 0
     row = sqlite_store.conn.execute(
-        "SELECT text FROM raghub WHERE chunk_id = ?", (sample_chunks[0].chunk_id,)
+        "SELECT text FROM raghub WHERE chunk_id = ?", (sample_chunks[0].id,)
     ).fetchone()
     assert row[0] == sample_chunks[0].text
 
@@ -75,7 +75,7 @@ def test_concurrent_inserts_are_safe(sqlite_store, sample_chunks):
 
     def insert_chunks(offset: int) -> None:
         chunks = [
-            sample_chunks[0].model_copy(update={"chunk_id": f"thread-{offset}-{i}"})
+            sample_chunks[0].model_copy(update={"id": f"thread-{offset}-{i}"})
             for i in range(5)
         ]
         vectors = [[0.01 * (offset + i)] * 384 for i in range(5)]

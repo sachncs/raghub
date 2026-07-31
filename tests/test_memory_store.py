@@ -36,13 +36,13 @@ def test_search_returns_top_k(sample_chunks, sample_vectors):
     store.insert(sample_chunks, sample_vectors)
     hits = store.search(vector=sample_vectors[0], top_k=5)
     assert len(hits) >= 1
-    assert hits[0]["chunk_id"] == sample_chunks[0].chunk_id
+    assert hits[0]["chunk_id"] == sample_chunks[0].id
 
 
 def test_delete_removes_chunk(sample_chunks, sample_vectors):
     store = MemoryStore(embedding_dim=384)
     store.insert(sample_chunks, sample_vectors)
-    store.delete([sample_chunks[0].chunk_id])
+    store.delete([sample_chunks[0].id])
     hits = store.search(vector=sample_vectors[0], top_k=5)
     assert hits == []
 

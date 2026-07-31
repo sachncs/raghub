@@ -317,7 +317,7 @@ class QueryCommand:
             if response.citations:
                 typer.echo(f"[{len(response.citations)} citations]")
                 for c in response.citations:
-                    typer.echo(f"  - {c.document_id}#{c.chunk_id} (score={c.score:.3f})")
+                    typer.echo(f"  - {c.document_id}#{c.id} (score={c.score:.3f})")
 
 
 class ServerCommand:

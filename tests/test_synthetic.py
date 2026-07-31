@@ -17,10 +17,10 @@ from raghub.eval.synthetic import SyntheticDataset
 
 @dataclass
 class FakeChunk:
-    """Minimal chunk with text and chunk_id."""
+    """Minimal chunk with text and id."""
 
     text: str
-    chunk_id: str
+    id: str
 
 
 class FakeGenerator:
@@ -40,7 +40,7 @@ def sample_corpus(n: int = 5) -> list[FakeChunk]:
     """Build a small corpus of fake chunks."""
     return [
         FakeChunk(
-            chunk_id=f"chunk-{i}",
+            id=f"chunk-{i}",
             text=f"The capital of country {i} is city-{i}.",
         )
         for i in range(n)
@@ -201,7 +201,7 @@ def test_synthetic_dataset_rejects_chunk_without_text() -> None:
 
 def test_synthetic_dataset_uses_each_chunk_id_attribute() -> None:
     """relevant_ids[0] is the chunk's chunk_id attribute."""
-    chunk = FakeChunk(chunk_id="the-only-chunk", text="Some text.")
+    chunk = FakeChunk(id="the-only-chunk", text="Some text.")
     gen = FakeGenerator(["Q?", "A."])
     ds = SyntheticDataset(corpus=[chunk], llm=gen, n_questions=1)
     examples = asyncio.run(ds.generate())
@@ -209,7 +209,7 @@ def test_synthetic_dataset_uses_each_chunk_id_attribute() -> None:
 
 
 def test_synthetic_dataset_falls_back_to_object_id() -> None:
-    """A chunk without chunk_id or id attrs falls back to a hash-based id."""
+    """A chunk without an id attrs falls back to a hash-based id."""
 
     @dataclass
     class TextOnly:

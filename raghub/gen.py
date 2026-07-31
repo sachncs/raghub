@@ -134,7 +134,6 @@ class DefaultGenerator:
         for hit in context:
             citations.append(
                 Citation(
-                    chunk_id=hit.chunk_id,
                     document_id=hit.chunk.document_id,
                     version=hit.chunk.version,
                     page=hit.chunk.page,

@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from raghub.models import ChunkRecord, Classification
+from raghub.models import Chunk, Classification
 
 os.environ.setdefault("JWT_SECRET", "test-secret-must-be-32-bytes-or-longer-for-sha256")
 os.environ.setdefault("RAG_ALLOW_PASSWORDLESS", "0")
@@ -32,10 +32,10 @@ if str(ROOT) not in sys.path:
 
 
 @pytest.fixture
-def sample_chunk() -> ChunkRecord:
-    """Build one minimal :class:`ChunkRecord` for tests."""
-    return ChunkRecord(
-        chunk_id="test-chunk-1",
+def sample_chunk() -> Chunk:
+    """Build one minimal :class:`Chunk` for tests."""
+    return Chunk(
+        id="test-chunk-1",
         document_id="doc-1",
         version=1,
         text="Revenue grew 12 percent in Q3 2024.",
@@ -43,14 +43,14 @@ def sample_chunk() -> ChunkRecord:
         company="acme",
         owner="alice@example.com",
         department="finance",
-        checksum="abc123",
+        checksum="9e3530a3ac3b60c19ce7a2f9d8c0314e405782a1ca63566000004f3cd3abbf1c",
         page=0,
         source_location="page 1",
     )
 
 
 @pytest.fixture
-def sample_chunks(sample_chunk: ChunkRecord) -> list[ChunkRecord]:
+def sample_chunks(sample_chunk: Chunk) -> list[Chunk]:
     """Build a small batch of chunks for indexing tests."""
     return [sample_chunk]
 

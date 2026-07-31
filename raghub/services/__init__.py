@@ -367,7 +367,7 @@ class Query(Mixin):
                 "version": chunk.version,
                 "page": chunk.page,
                 "section": chunk.section,
-                "chunk_id": chunk.chunk_id,
+                "chunk_id": chunk.id,
             }
             for chunk in chunks
         ]

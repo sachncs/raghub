@@ -885,7 +885,7 @@ class RAG:
         Each worker process builds its own RAG from a serialised
         settings path (cheap — no RAG stack re-initialisation since
         ``RAG.__init__`` only allocates slots). The worker returns the
-        list of (ChunkRecord, vector) tuples it would have inserted
+        list of (Chunk, vector) tuples it would have inserted
         into the local store. The main process inserts them into the
         shared vector store and rebuilds BM25 once at the end.
 
