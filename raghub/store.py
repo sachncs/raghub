@@ -12,7 +12,6 @@ from __future__ import annotations
 import hashlib
 import os
 import sqlite3
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -26,8 +25,6 @@ from rank_bm25 import BM25Okapi
 from raghub.config import Settings
 from raghub.errors import VectorStoreError
 from raghub.models import ChunkRecord, Classification
-
-sys.modules.setdefault("raghub.vectorstore.base", sys.modules[__name__])
 
 __all__ = [
     "MemoryStore",

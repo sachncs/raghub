@@ -25,15 +25,15 @@ def test_rag_ingest_and_query_roundtrip():
 
 
 def test_rag_empty_query_raises():
-    from raghub.errors import ValidationError
+    from raghub.errors import IngestionError
 
     rag = _rag()
     try:
         rag.query("")
-    except ValidationError as exc:
+    except IngestionError as exc:
         assert "non-empty" in str(exc)
     else:
-        raise AssertionError("expected ValidationError")
+        raise AssertionError("expected IngestionError")
 
 
 def test_rag_empty_ingest_raises():

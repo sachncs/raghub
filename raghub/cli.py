@@ -7,7 +7,6 @@ Assembles the Typer app from the command classes in
 
 from __future__ import annotations
 
-# --- main.py content ---
 import importlib.metadata
 
 import typer
@@ -60,8 +59,3 @@ def version() -> None:
 def main() -> None:
     """Entry point for the ``raghub`` console script."""
     raise typer.Exit(app())
-
-
-
-
-__all__ = ['CliConfig', 'IngestCommand', 'InitCommand', 'QueryCommand', 'ServerCommand', 'ToolConfig']

@@ -23,7 +23,7 @@ from typing import Any, Literal, Self
 
 import litellm
 
-from raghub.errors import ConfigurationError, LLMError
+from raghub.errors import ConfigurationError, GenerationError
 from raghub.models import ConversationTurn
 from raghub.utils import aretry, retry
 
@@ -130,7 +130,7 @@ class Generator(ABC):
 
 
 class LLMValueErrorBoundary:
-    """Translate direct ``ValueError`` failures to :class:`LLMError`."""
+    """Translate direct ``ValueError`` failures to :class:`GenerationError`."""
 
     def __init__(self, message: str) -> None:
         """Store the domain-error message prefix."""
@@ -148,7 +148,7 @@ class LLMValueErrorBoundary:
     ) -> Literal[False]:
         """Translate direct ``ValueError`` failures and propagate all others."""
         if exception_type is ValueError and exception is not None:
-            raise LLMError(f"{self.message}: {exception}") from exception
+            raise GenerationError(f"{self.message}: {exception}") from exception
         return False
 
 
@@ -391,17 +391,17 @@ class LiteLLM(Generator):
                     max_retries=2,
                     base_delay=0.5,
                 )
-            except LLMError:
+            except GenerationError:
                 raise
             except Exception as exc:
-                raise LLMError(f"LLM completion failed: {exc}") from exc
+                raise GenerationError(f"LLM completion failed: {exc}") from exc
         try:
             choices = response_dict["choices"] if isinstance(response_dict, dict) else response_dict.choices
             choice = choices[0]
             message = choice["message"] if isinstance(choice, dict) else choice.message
             content = message["content"] if isinstance(message, dict) else message.content
         except (KeyError, IndexError, AttributeError, TypeError) as exc:
-            raise LLMError(f"LLM returned unexpected response shape: {exc}") from exc
+            raise GenerationError(f"LLM returned unexpected response shape: {exc}") from exc
         return str(content or "")
 
     async def async_generate(
@@ -454,10 +454,10 @@ class LiteLLM(Generator):
                         max_retries=2,
                         base_delay=0.5,
                     )
-                except LLMError:
+                except GenerationError:
                     raise
                 except Exception as exc:
-                    raise LLMError(f"LLM async completion failed: {exc}") from exc
+                    raise GenerationError(f"LLM async completion failed: {exc}") from exc
             response = self.normalise_response(response_dict)
         try:
             choices = response["choices"] if isinstance(response, dict) else response.choices
@@ -465,7 +465,7 @@ class LiteLLM(Generator):
             message = choice["message"] if isinstance(choice, dict) else choice.message
             content = message["content"] if isinstance(message, dict) else message.content
         except (KeyError, IndexError, AttributeError, TypeError) as exc:
-            raise LLMError(f"LLM returned unexpected response shape: {exc}") from exc
+            raise GenerationError(f"LLM returned unexpected response shape: {exc}") from exc
         return str(content or "")
 
     async def direct_chat(self, messages: list[dict[str, Any]]) -> dict[str, Any]:

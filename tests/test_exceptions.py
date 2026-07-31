@@ -10,22 +10,16 @@ from raghub.errors import (
     AuthorizationError,
     ConfigurationError,
     ConversionError,
-    DocumentError,
-    DynamicRagError,
     EmbeddingError,
     EvaluationError,
     GenerationError,
     GraphUnavailableError,
-    IndexingError,
     IngestionError,
     KnowledgeError,
-    LLMError,
     PipelineError,
-    PromptError,
     RagHubError,
     RerankerError,
     RetrievalError,
-    StorageError,
     ToolError,
     TransformError,
     VectorStoreError,
@@ -36,6 +30,8 @@ from raghub.errors import (
 @pytest.mark.parametrize(
     "cls",
     [
+        AuthenticationError,
+        AuthorizationError,
         ConfigurationError,
         ConversionError,
         KnowledgeError,
@@ -48,33 +44,9 @@ from raghub.errors import (
         EvaluationError,
     ],
 )
-def test_spec_exceptions_subclass_raghub_error(cls) -> None:
-    """Every spec exception descends from RagHubError."""
+def test_canonical_exceptions_subclass_raghub_error(cls) -> None:
+    """Every canonical exception descends from RagHubError."""
     assert issubclass(cls, RagHubError)
-
-
-@pytest.mark.parametrize(
-    "cls",
-    [
-        AuthenticationError,
-        AuthorizationError,
-        DocumentError,
-        IndexingError,
-        PromptError,
-        LLMError,
-        StorageError,
-    ],
-)
-def test_legacy_exceptions_subclass_dynamic_rag_error(cls) -> None:
-    """Legacy names keep working under DynamicRagError."""
-    assert issubclass(cls, DynamicRagError)
-    assert issubclass(cls, RagHubError)
-
-
-def test_generation_error_is_llm_error_subclass() -> None:
-    """GenerationError is the new name; LLMError is the legacy alias."""
-    assert issubclass(LLMError, RagHubError)
-    assert issubclass(GenerationError, RagHubError)
 
 
 @pytest.mark.parametrize(

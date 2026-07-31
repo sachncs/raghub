@@ -1,11 +1,17 @@
-"""api package.
+"""FastAPI surface for the RAGHub framework.
 
-Implementation lives in :mod:`raghub.helper` (auth, sse, response, rate_limit); local entry-point modules: ['app'].
+Defines the :func:`create_app` factory, the :class:`RouteGroup` that
+mounts every ``/v1/*`` route, the API-level exception handlers, the
+lifespan coordinator, and the CORS / upload-guard helpers.
+
+Auth-side helpers (``App``, ``Auth``, ``Bearer``) live in
+:mod:`raghub.helper.auth`; response shaping and rate-limiting live in
+:mod:`raghub.helper.response` and :mod:`raghub.helper.rate_limit`;
+streaming helpers live in :mod:`raghub.helper.sse`.
 """
 
 from __future__ import annotations
 
-# --- app.py content ---
 import importlib.metadata
 import os
 from collections.abc import AsyncIterator, Callable
@@ -31,22 +37,16 @@ from pydantic import BaseModel, Field
 from raghub.errors import (
     AuthenticationError,
     AuthorizationError,
-    DocumentError,
-    StorageError,
+    IngestionError,
+    RagHubError,
 )
 from raghub.helper.auth import (
     App,
     Auth,
     Bearer,
 )
-from raghub.helper.rate_limit import (
-    RateLimiterMiddleware,
-    TokenBucket,
-)
-from raghub.helper.response import (
-    Redaction,
-    ResponseBuilder,
-)
+from raghub.helper.rate_limit import RateLimiterMiddleware
+from raghub.helper.response import Redaction
 from raghub.helper.sse import (
     Sse,
 )
@@ -258,14 +258,14 @@ class ExceptionHandlers:
             """Return 403 for any :class:`AuthorizationError`."""
             return JSONResponse(status_code=403, content={"detail": str(exc)})
 
-        @app.exception_handler(DocumentError)
-        def document_error_handler(_: Any, exc: DocumentError) -> JSONResponse:
-            """Return 400 for any :class:`DocumentError`."""
+        @app.exception_handler(IngestionError)
+        def ingestion_error_handler(_: Any, exc: IngestionError) -> JSONResponse:
+            """Return 400 for any :class:`IngestionError`."""
             return JSONResponse(status_code=400, content={"detail": str(exc)})
 
-        @app.exception_handler(StorageError)
-        def storage_error_handler(_: Any, exc: StorageError) -> JSONResponse:
-            """Return 500 for any :class:`StorageError`."""
+        @app.exception_handler(RagHubError)
+        def generic_error_handler(_: Any, exc: RagHubError) -> JSONResponse:
+            """Return 500 for any uncategorised :class:`RagHubError`."""
             return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
@@ -485,7 +485,7 @@ class RouteGroup:
                             status="ok",
                         )
                     )
-                except (DocumentError, StorageError, ValueError, TypeError, OSError) as exc:
+                except (IngestionError, RagHubError, ValueError, TypeError, OSError) as exc:
                     loguru_logger.warning("api.batch_upload.item_failed", file=file.filename, error=str(exc))
                     results.append(
                         BatchIngestItem(
@@ -967,8 +967,3 @@ class AppFactory:
 
 
 app_singleton = AppFactory()
-
-
-
-
-__all__ = ['App', 'Auth', 'Bearer', 'RateLimiterMiddleware', 'Redaction', 'ResponseBuilder', 'Sse', 'TokenBucket']

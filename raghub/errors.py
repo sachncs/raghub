@@ -11,23 +11,26 @@ Exception groups mirror the framework's domain modules:
 * :class:`ConfigurationError` — bad configuration / missing secrets.
 * :class:`ConversionError` — marker or other converter failures.
 * :class:`KnowledgeError` — OKF / knowledge repository failures.
-* :class:`IngestionError` — chunking or pipeline failures.
+* :class:`IngestionError` — chunking, pipeline, or input-validation failures.
 * :class:`EmbeddingError` — model / dimension problems.
 * :class:`VectorStoreError` — backend search / persistence failures.
 * :class:`RetrievalError` — RBAC / filter / retriever failures.
 * :class:`GenerationError` — LLM provider failure.
 * :class:`PipelineError` — orchestration / lifecycle failures.
 * :class:`EvaluationError` — benchmark or scoring failures.
-
-Legacy names (``AuthenticationError``, ``AuthorizationError``,
-``DocumentError``, ``IndexingError``, ``PromptError``, ``LLMError``,
-``StorageError``) are preserved for prior-version consumers.
+* :class:`AuthenticationError` / :class:`AuthorizationError` —
+    credential and permission failures (canonical; used by the API
+    layer to map to 401 / 403).
+* :class:`RagHubError` — generic catch-all for uncategorised failures
+    (e.g. atomic-write failures, generic validation).
 """
 
 from __future__ import annotations
 
 __all__ = [
     "AgentBudgetExceeded",
+    "AuthenticationError",
+    "AuthorizationError",
     "CacheMiss",
     "ConfigurationError",
     "ConversionError",
@@ -141,99 +144,20 @@ class TransformError(RagHubError):
     """Raised when a query transform (HyDE / multi-query / decompose) fails."""
 
 
-# ---------------------------------------------------------------------------
-# Prior-version names kept for existing API consumers.
-# They are subclasses of :class:`RagHubError` so a single
-# ``except RagHubError`` continues to catch everything.
-# ---------------------------------------------------------------------------
+class AuthenticationError(RagHubError):
+    """Raised when authentication fails (bad credentials, expired token).
 
-
-class DynamicRagError(RagHubError):
-    """Alias for :class:`RagHubError`.
-
-    New code should prefer :class:`RagHubError`. This alias is kept so
-    existing imports (``from raghub.errors import DynamicRagError``)
-    continue to work.
-    """
-
-    def __init__(self, *args: object) -> None:
-        """Emit a deprecation warning when instantiated.
-
-        Subclasses (``AuthenticationError``, ``ValidationError``,
-        ``LLMError`` …) inherit this ``__init__`` so the warning
-        fires for every legacy alias. The class name in the
-        message is derived from ``type(self).__name__`` so each
-        subclass points users at the right replacement.
-        """
-        import warnings
-
-        new_name = _REPLACEMENTS.get(type(self).__name__, "RagHubError")
-        warnings.warn(
-            f"{type(self).__name__} is a legacy alias; "
-            f"prefer {new_name} instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(*args)
-
-
-# Legacy alias → preferred replacement mapping. Used by
-# :class:`DynamicRagError.__init__` to point users at the canonical
-# exception type. New code should import directly from
-# :mod:`raghub.errors` (or :mod:`raghub.auth` for auth-related types).
-_REPLACEMENTS: dict[str, str] = {
-    "DynamicRagError": "RagHubError",
-    "AuthenticationError": "RagHubError (specific auth exceptions live in raghub.auth)",
-    "AuthorizationError": "RagHubError (specific auth exceptions live in raghub.auth)",
-    "DocumentError": "IngestionError",
-    "IndexingError": "VectorStoreError",
-    "PromptError": "RagHubError",
-    "LLMError": "GenerationError",
-    "StorageError": "RagHubError",
-    "ValidationError": "RagHubError (or pydantic.ValidationError for input validation)",
-    "RateLimitError": "RagHubError",
-}
-
-
-class AuthenticationError(DynamicRagError):
-    """Raised when authentication fails (bad credentials, expired token)."""
-
-
-class AuthorizationError(DynamicRagError):
-    """Raised when a caller lacks permission for an action."""
-
-
-class DocumentError(DynamicRagError):
-    """Raised when document validation or lifecycle management fails."""
-
-
-class IndexingError(DynamicRagError):
-    """Raised when indexing or persistence fails."""
-
-
-class PromptError(DynamicRagError):
-    """Raised when prompt construction fails."""
-
-
-class LLMError(DynamicRagError):
-    """Raised when LLM generation fails.
-
-    Examples:
-        * Network timeout against the upstream provider.
-        * Malformed model response.
+    Canonical exception used by the API layer to map auth failures to
+    HTTP 401. Import from :mod:`raghub.errors`.
     """
 
 
-class StorageError(DynamicRagError):
-    """Raised when persistent storage fails (disk full, permission denied)."""
+class AuthorizationError(RagHubError):
+    """Raised when a caller lacks permission for an action.
 
-
-class ValidationError(DynamicRagError):
-    """Raised when caller-supplied input fails validation."""
-
-
-class RateLimitError(DynamicRagError):
-    """Raised when a per-caller rate limit is exceeded."""
+    Canonical exception used by the API layer to map permission
+    failures to HTTP 403. Import from :mod:`raghub.errors`.
+    """
 
 
 class TelemetryError(RagHubError):

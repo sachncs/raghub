@@ -52,7 +52,6 @@ from raghub.errors import (
     IngestionError,
     MissingDep,
     RagHubError,
-    ValidationError,
 )
 from raghub.eval import Finance
 from raghub.gen import DefaultGenerator
@@ -251,7 +250,7 @@ def default_vector_store(embedding_dim: int) -> Any:
 
     Returns:
         :class:`MemoryStore` for the in-process test/dev path.
-        The full pipeline factory :func:`raghub.vectorstore.build_store`
+        The full pipeline factory :func:`raghub.store.build_store`
         is used by the rest of the framework and points at a SQLite-backed
         store (sqlite-vector when installed, NumPy fallback otherwise).
     """
@@ -310,7 +309,7 @@ def default_transforms(
         multi_query_n: Number of rephrasings for ``multi_query``.
 
     Returns:
-        A :class:`raghub.helper.retrieval.Compose`.
+        A :class:`raghub.retrieval.Compose`.
         Unknown names are dropped silently.
     """
     enabled = enabled or []
@@ -1158,10 +1157,10 @@ class RAG:
             A typed :class:`Response`.
 
         Raises:
-            ValidationError: When ``question`` is empty or whitespace-only.
+            IngestionError: When ``question`` is empty or whitespace-only.
         """
         if not question or not question.strip():
-            raise ValidationError("query() requires a non-empty question")
+            raise IngestionError("query() requires a non-empty question")
         scoped = self.scoped_session_id(user, session_id)
         context = PipelineCtx(
             pipeline_name="query",
