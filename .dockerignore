@@ -43,7 +43,6 @@ Dockerfile
 .dockerignore
 SECURITY.md
 CHANGELOG.md
-ROADMAP.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 SUPPORT.md

@@ -18,3 +18,4 @@ docs/_build/
 docs/site/
 .env
 .env.local
+devtools/report.json
