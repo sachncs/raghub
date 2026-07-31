@@ -681,7 +681,7 @@ class Finance(Evaluator):
 
         """
         rows = list(examples) if examples is not None else self.ensure_examples()
-        return await _evaluate(
+        return await evaluate(
             rows,
             response_factory,
             benchmark=self.benchmark,
@@ -689,7 +689,7 @@ class Finance(Evaluator):
         )
 
 
-async def _evaluate(
+async def evaluate(
     rows: Sequence[dict[str, Any]],
     response_factory: Any,
     *,
@@ -859,7 +859,7 @@ class Frames(Evaluator):
 
         """
         rows = list(examples) if examples is not None else self.ensure_examples()
-        return await _evaluate(
+        return await evaluate(
             rows,
             response_factory,
             benchmark=self.benchmark,
