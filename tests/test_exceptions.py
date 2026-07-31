@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from raghub.errors import (
-    AgentBudgetExceeded,
+    AgentBudgetError,
     AuthenticationError,
     AuthorizationError,
     ConfigurationError,
@@ -53,7 +53,7 @@ def test_canonical_exceptions_subclass_raghub_error(cls) -> None:
     "cls",
     [
         ToolError,
-        AgentBudgetExceeded,
+        AgentBudgetError,
         WebSearchError,
         RerankerError,
         GraphUnavailableError,

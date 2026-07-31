@@ -205,7 +205,7 @@ class Metrics:
             ``0.0`` if the sets are disjoint.
 
         """
-        STOPWORDS = frozenset(
+        stopwords = frozenset(
             {
                 "a",
                 "an",
@@ -239,8 +239,8 @@ class Metrics:
                 "with",
             }
         )
-        pred = {t for t in Metrics.tokenize(predicted) if t not in STOPWORDS}
-        q = {t for t in Metrics.tokenize(question) if t not in STOPWORDS}
+        pred = {t for t in Metrics.tokenize(predicted) if t not in stopwords}
+        q = {t for t in Metrics.tokenize(question) if t not in stopwords}
         if not pred or not q:
             return 0.0
         return len(pred & q) / len(pred | q)
@@ -265,7 +265,7 @@ class Metrics:
             supported; ``0.0`` when no claim is supported.
 
         """
-        STOPWORDS = frozenset(
+        stopwords = frozenset(
             {
                 "a",
                 "an",
@@ -312,7 +312,7 @@ class Metrics:
         supported = 0
         considered = 0
         for claim in claims:
-            tokens = {t for t in Metrics.tokenize(claim) if t not in STOPWORDS}
+            tokens = {t for t in Metrics.tokenize(claim) if t not in stopwords}
             if not tokens:
                 continue
             considered += 1
@@ -1110,12 +1110,12 @@ class Judge:
         )
 
     async def faithfulness(self, answer: str, contexts: Sequence[str]) -> float:
-        """Score the answer's faithfulness on a 0-1 scale.
+        r"""Score the answer's faithfulness on a 0-1 scale.
 
         Args:
             answer: The generated answer.
             contexts: The retrieved context strings; joined with
-                ``\\n\\n---\\n\\n`` before being inserted into the prompt.
+                ``\n\n---\n\n`` before being inserted into the prompt.
 
         Returns:
             A score in ``[0.0, 1.0]``.

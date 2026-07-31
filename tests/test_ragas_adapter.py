@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from raghub.errors import ConfigurationError, MissingDep
+from raghub.errors import ConfigurationError, MissingDepError
 
 # ---------------------------------------------------------------------------
 # Translation helpers (no ragas dependency)
@@ -132,7 +132,7 @@ def test_extract_scores_handles_corrupt_values():
 
 
 def test_ragas_adapter_raises_missing_dep_when_ragas_not_installed(monkeypatch):
-    """The constructor raises MissingDep when ragas is not importable."""
+    """The constructor raises MissingDepError when ragas is not importable."""
     # Simulate ragas not being installed by injecting an import
     # failure into sys.modules.
     import sys
@@ -142,7 +142,7 @@ def test_ragas_adapter_raises_missing_dep_when_ragas_not_installed(monkeypatch):
 
     from raghub.eval.ragas import RagasAdapter
 
-    with pytest.raises(MissingDep, match="ragas"):
+    with pytest.raises(MissingDepError, match="ragas"):
         RagasAdapter()
 
 

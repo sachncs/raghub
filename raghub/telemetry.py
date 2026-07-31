@@ -49,7 +49,7 @@ from loguru import logger as loguru_logger
 from prometheus_client import REGISTRY, CollectorRegistry, Counter, Histogram
 from prometheus_client.openmetrics.exposition import generate_latest
 
-from raghub.errors import ConfigurationError, MissingDep
+from raghub.errors import ConfigurationError, MissingDepError
 from raghub.models import Logger, Metrics, Span, TelemetryProvider
 from raghub.utils import capture
 
@@ -505,8 +505,9 @@ class LoguruLogger(Logger):
     """
 
     def __init__(self) -> None:
-        """Bind a private logger so tests can capture output per
-        :class:`LoguruLogger` instance.
+        """Bind a private logger for per-instance test output capture.
+
+        Used to isolate loguru state across test cases.
         """
         self.logger = loguru_logger.bind(component="raghub")
 
@@ -1030,7 +1031,7 @@ class SafeConsoleSpanExporter:
         try:
             from opentelemetry.sdk.trace.export import ConsoleSpanExporter
         except ImportError:
-            raise MissingDep(
+            raise MissingDepError(
                 "opentelemetry-sdk",
                 "pip install raghub[otel]",
             ) from None
@@ -1098,13 +1099,13 @@ class Tracer:
             raise ConfigurationError("OpenTelemetry tracing requires opentelemetry-sdk")
 
         trace = ot_trace
-        Resource = ot_resources
-        TracerProvider = ot_trace_mod
-        BatchSpanProcessor = ot_export
+        resource_cls = ot_resources
+        tracer_provider_cls = ot_trace_mod
+        batch_processor_cls = ot_export
 
-        resource = Resource.create({"service.name": service_name})
-        provider = TracerProvider(resource=resource)
-        processor = BatchSpanProcessor(SafeConsoleSpanExporter())
+        resource = resource_cls.create({"service.name": service_name})
+        provider = tracer_provider_cls(resource=resource)
+        processor = batch_processor_cls(SafeConsoleSpanExporter())
         provider.add_span_processor(processor)
         trace.set_tracer_provider(provider)
         self.provider = provider

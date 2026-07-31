@@ -200,7 +200,7 @@ class Tool(ToolProtocol, ABC):
         args: dict[str, Any],
         context: ToolContext | None = None,
     ) -> ToolResult:
-        """Synchronous convenience: run the tool on a fresh event loop.
+        """Run the tool synchronously on a fresh event loop.
 
         Use this when invoking the tool from sync code; the agent
         loop calls :meth:`run` directly.

@@ -20,13 +20,13 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from raghub.errors import AuthenticationError, AuthorizationError, MissingDep
+from raghub.errors import AuthenticationError, AuthorizationError, MissingDepError
 
 try:
     import aiosqlite
     import bcrypt
 except ImportError:
-    raise MissingDep("aiosqlite", "pip install raghub[auth]") from None
+    raise MissingDepError("aiosqlite", "pip install raghub[auth]") from None
 
 from pydantic import BaseModel, Field
 

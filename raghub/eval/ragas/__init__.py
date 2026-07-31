@@ -11,7 +11,7 @@ Requires the ``[ragas]`` extra::
 
     pip install 'raghub[ragas]'
 
-The adapter raises :class:`raghub.errors.MissingDep` on import
+The adapter raises :class:`raghub.errors.MissingDepError` on import
 when ragas is not installed.
 """
 
@@ -20,24 +20,24 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from raghub.errors import ConfigurationError, MissingDep
+from raghub.errors import ConfigurationError, MissingDepError
 from raghub.models import Evaluator, Result
 
 
 def import_ragas() -> Any:
-    """Import ragas lazily; raise ``MissingDep`` when not installed.
+    """Import ragas lazily; raise ``MissingDepError`` when not installed.
 
     Returns:
         The ragas module.
 
     Raises:
-        MissingDep: When ragas is not installed.
+        MissingDepError: When ragas is not installed.
 
     """
     try:
         import ragas
     except ImportError as exc:
-        raise MissingDep(
+        raise MissingDepError(
             "ragas",
             "pip install 'raghub[ragas]'",
         ) from exc
@@ -124,7 +124,7 @@ class RagasAdapter(Evaluator):
         self.metric_names = tuple(metrics)
         self.llm = llm
         self.embeddings = embeddings
-        # Eagerly import ragas so MissingDep surfaces at construction
+        # Eagerly import ragas so MissingDepError surfaces at construction
         # rather than at the first evaluate() call.
         import_ragas()
         self.metric_instances = [load_metric(name) for name in self.metric_names]

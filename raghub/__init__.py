@@ -13,9 +13,9 @@ work without a separate ``raghub.rag`` import.
 """
 
 from raghub.config import Settings
-from raghub.errors import MissingDep, RagHubError
+from raghub.errors import MissingDepError, RagHubError
 
-__all__ = ["RAG", "MissingDep", "RagHubError", "Settings"]
+__all__ = ["RAG", "MissingDepError", "RagHubError", "Settings"]
 
 
 # ``RAG`` is the primary user-facing entry point; lazy-load it so the package

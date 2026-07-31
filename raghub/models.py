@@ -77,9 +77,9 @@ __all__ = [
 
 
 def deterministic_id(*parts: str, length: int = 16) -> str:
-    """Build a short, deterministic id from a tuple of strings.
+    r"""Build a short, deterministic id from a tuple of strings.
 
-    SHA-256 of ``"\\x1f".join(parts)`` truncated to ``length`` hex
+    SHA-256 of ``"\x1f".join(parts)`` truncated to ``length`` hex
     characters. Re-indexing the same content yields the same id, which
     is the foundation of the incremental-indexing support.
 
