@@ -22,7 +22,7 @@ import pytest
 
 from raghub.embedder import Hasher
 from raghub.ingest import Batch
-from raghub.pipeline import QueryCache
+from raghub.pipeline import Cache
 
 
 def _load_services():
@@ -209,13 +209,13 @@ class TestHealthProbes:
 # ---------------------------------------------------------------------------
 
 
-class TestQueryCacheRBACScoping:
+class TestCacheRBACScoping:
     """Cache entries for two distinct users must not collide."""
 
     def test_admin_and_user_get_separate_entries(self) -> None:
         from raghub.models import PipelineResult
 
-        cache = QueryCache(ttl_seconds=300)
+        cache = Cache(ttl_seconds=300)
         result = PipelineResult(
             pipeline_id="q",
             pipeline_name="query",

@@ -223,9 +223,9 @@ class TestCacheBehavior:
         ]
         store.upsert(chunks, [embedder.embed_text("hi")])
         generator = build_generator()
-        from raghub.pipeline import QueryCache
+        from raghub.pipeline import Cache
 
-        cache = QueryCache(ttl_seconds=60)
+        cache = Cache(ttl_seconds=60)
         query = QueryPipeline(
             embedder=embedder,
             vector_store=store,
