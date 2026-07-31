@@ -34,14 +34,11 @@ import hashlib
 
 import pytest
 
-from raghub import RAG, Settings
-from raghub.conv import Memory
+from raghub import RAG
 from raghub.embedder import Hasher
 from raghub.ingest import WordChunker
 from raghub.lifecycle import PlainTextConverter
 from raghub.llm import HeuristicProvider
-from raghub.rag import RAG as RAGAlias
-from raghub.stores import Database, JsonSessions
 
 
 def sha(text: str) -> str:
@@ -133,7 +130,6 @@ def test_reingest_dedup_by_checksum(rag: RAG) -> None:
     """Ingesting the same payload twice produces one canonical chunk."""
     store = rag.vector_store
     assert store is not None
-    before = store.health()["chunks"]
     payload = b"abc-def-ghi-jkl" * 40
     rag.ingest(payload, source_uri="mem://dup")
     after_first = store.health()["chunks"]
