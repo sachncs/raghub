@@ -22,6 +22,9 @@ from raghub.helper.cli import (
 )
 from raghub.utils import capture
 
+__all__ = ["health", "version", "main"]
+
+
 app = typer.Typer(
     name="raghub",
     help="RAGHub — production-grade multi-user retrieval-augmented generation.",
