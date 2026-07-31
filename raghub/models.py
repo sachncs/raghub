@@ -542,6 +542,41 @@ class Citation(BaseModel):
             )
 
 
+class Citations(BaseModel):
+    """The aggregate of citations on a Response.
+
+    Carries its own verify() so the rule 'every citation has its
+    chunk in source_chunks' lives on this class instead of being
+    re-implemented in Response.verify().
+
+    Attributes:
+        items: The flattened citation list.
+    """
+
+    items: list[Citation] = Field(default_factory=list)
+
+    def verify(self, chunks: list | None = None) -> None:
+        """Assert each citation's invariant and chunk membership.
+
+        Args:
+            chunks: The Response's source_chunks (or equivalent). When
+                supplied, also asserts every citation's chunk_id is in
+                the chunks list.
+
+        Raises:
+            VerificationError: When any check fails.
+        """
+        for cit in self.items:
+            cit.verify()
+        if chunks is not None:
+            valid = {getattr(c, 'chunk_id', None) for c in chunks}
+            for cit in self.items:
+                if cit.chunk_id not in valid:
+                    raise VerificationError(
+                        f"Citations: chunk_id {cit.chunk_id!r} not in source_chunks"
+                    )
+
+
 class SearchResult(Hit):
     """Spec-named alias for :class:`Hit`.
 
