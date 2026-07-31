@@ -255,12 +255,6 @@ class Manifest:
         self.version: int = self.CURRENT_VERSION
         self.load()
 
-    def __init__(self, path: Path | str) -> None:
-        """Initialise the manifest at ``path``."""
-        self.path = Path(path)
-        self.records: dict[str, dict[str, Any]] = {}
-        self.load()
-
     def load(self) -> None:
         """Read the JSON manifest from disk into ``self.records``.
 

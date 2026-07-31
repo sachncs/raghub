@@ -5,9 +5,9 @@ mounts every ``/v1/*`` route, the API-level exception handlers, the
 lifespan coordinator, and the CORS / upload-guard helpers.
 
 Auth-side helpers (``App``, ``Auth``, ``Bearer``) live in
-:mod:`raghub.helper.auth`; response shaping and rate-limiting live in
-:mod:`raghub.helper.response` and :mod:`raghub.helper.rate_limit`;
-streaming helpers live in :mod:`raghub.helper.sse`.
+:mod:`raghub.api_auth`; response shaping and rate-limiting live in
+:mod:`raghub.api_response` and :mod:`raghub.api_ratelimit`;
+streaming helpers live in :mod:`raghub.api_sse`.
 """
 
 from __future__ import annotations
@@ -34,21 +34,21 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger as loguru_logger
 from pydantic import BaseModel, Field
 
+from raghub.api_auth import (
+    App,
+    Auth,
+    Bearer,
+)
+from raghub.api_ratelimit import RateLimiterMiddleware
+from raghub.api_response import Redaction
+from raghub.api_sse import (
+    Sse,
+)
 from raghub.errors import (
     AuthenticationError,
     AuthorizationError,
     IngestionError,
     RagHubError,
-)
-from raghub.helper.auth import (
-    App,
-    Auth,
-    Bearer,
-)
-from raghub.helper.rate_limit import RateLimiterMiddleware
-from raghub.helper.response import Redaction
-from raghub.helper.sse import (
-    Sse,
 )
 from raghub.ingest import Batch
 from raghub.models import (
