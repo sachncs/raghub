@@ -14,9 +14,6 @@ docker compose -f docker-compose.yml --profile production ps
 # API liveness (returns {"status":"ok"})
 curl -fsS http://127.0.0.1:8000/health
 
-# UI readiness
-curl -fsS http://127.0.0.1:8501/_stcore/health
-
 # Qdrant
 curl -fsS http://127.0.0.1:6333/healthz
 ```
@@ -44,7 +41,6 @@ on the host.
 
 ```bash
 docker compose -f docker-compose.yml --profile production restart api
-docker compose -f docker-compose.yml --profile production restart ui
 docker compose -f docker-compose.yml --profile production restart qdrant
 ```
 
@@ -105,11 +101,11 @@ logs (`max_workers=2` by default). Bump it by overriding the
 container with an explicit `BACKGROUND_INGEST_WORKERS` env var (see
 `scaling.md`), or throttle the upload rate.
 
-### Streamlit cannot reach the API
+### API cannot be reached from a frontend
 
-Symptom: UI renders but every query fails with `ConnectionError`.
+Symptom: every request to the API fails with `ConnectionError`.
 
-Fix: confirm the UI service has `RAGHUB_API_URL=http://api:8000` set
+Fix: confirm the frontend has `RAGHUB_API_URL=http://api:8000` set
 in the compose environment. Inside the compose network the API is
 reachable on its service name `api`, not on `127.0.0.1`.
 

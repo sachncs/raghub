@@ -16,13 +16,12 @@ openssl rand -base64 48          # generate JWT_SECRET
 # 2. Build the images.
 docker compose -f docker-compose.yml build
 
-# 3. Start the production stack (api + ui).
+# 3. Start the production stack (api).
 docker compose -f docker-compose.yml --profile production up -d
 
 # 4. Verify health.
 docker compose -f docker-compose.yml --profile production ps
 curl -fsS http://127.0.0.1:8000/health
-curl -fsS http://127.0.0.1:8501/_stcore/health
 ```
 
 For local development, use the explicit dev override:
@@ -59,12 +58,9 @@ The `Dockerfile` is a multi-stage build:
   dependencies, drops privileges to the unprivileged `raghub`
   user, and runs as PID 1 under tini (`init: true`).
 
-A `SERVICE=api|ui` build arg selects the in-image healthcheck
-(`/health` for the API, `/_stcore/health` for the Streamlit UI)
-and the container `CMD`. Production compose passes `SERVICE=api`
-and `SERVICE=ui` respectively. Both images are built from the
-same Dockerfile; there is no separate `Dockerfile.api` /
-`Dockerfile.ui`.
+A `SERVICE` build arg selects the in-image healthcheck
+(`/health`) and the container `CMD`. The image is built from a
+single `Dockerfile`.
 
 The image is `python:3.12-slim-bookworm` with a pinned patch tag
 (no digest). The `PIP_NO_CACHE_DIR=1` and
@@ -76,7 +72,7 @@ Three named volumes are managed by Compose:
 
 | Volume | Service | Backing |
 |---|---|---|
-| `raghub_data`           | api, ui | SQLite registry, sessions, image cache, vector store |
+| `raghub_data`           | api | SQLite registry, sessions, image cache, vector store |
 
 `docker compose down` keeps the volumes; `down -v` removes them.
 See [`operations/backup.md`](../operations/backup.md) for the
@@ -99,12 +95,10 @@ backup / restore procedure.
 
 * `GET /health` (API) — liveness probe, no auth.
 * `GET /v1/health` (API) — service-level health summary.
-* `GET /_stcore/health` (UI) — Streamlit's internal probe.
 * `GET /healthz` (Qdrant) — Qdrant's own probe.
 
 Every service has a `healthcheck` block in compose, and dependents
-use `condition: service_healthy` to gate startup. The UI waits on
-the API, the API waits on Qdrant.
+use `condition: service_healthy` to gate startup.
 
 ## Configuration profiles
 
@@ -118,8 +112,8 @@ profiles:
 | `staging`     | `config/staging.yaml`     | Pre-production |
 | `production`  | `config/production.yaml`  | Production (fail-closed) |
 
-The compose file pins `RAG_PROFILE=production` in the API and UI
-service environment. Override per deployment with `RAG_PROFILE=…`
+The compose file pins `RAG_PROFILE=production` in the API service
+environment. Override per deployment with `RAG_PROFILE=…`
 in `.env`.
 
 ## Key environment variables
@@ -148,8 +142,6 @@ in `.env`.
 | `LANGFUSE_SECRET_KEY` | Langfuse secret key |
 | `LANGFUSE_HOST` | Langfuse self-hosted endpoint |
 | `CORS_ORIGINS` | FastAPI CORS allow-list (comma-separated). Must be a non-wildcard list — the server refuses to start with `*` because browsers reject wildcard+credentials. |
-| `RAGHUB_USERS` | Streamlit UI demo-user JSON override |
-| `RAGHUB_API_URL` | URL the UI uses to call the API (compose sets this) |
 
 ## Production checklist
 
@@ -177,8 +169,8 @@ in `.env`.
 
 ## One canonical ingestion path
 
-Documents enter the system through the FastAPI surface, not the
-Streamlit UI. The two flows are:
+Documents enter the system through the FastAPI surface. The flows
+are:
 
 | Path | Endpoint | Notes |
 |---|---|---|
@@ -186,33 +178,17 @@ Streamlit UI. The two flows are:
 | Batch        | `POST /v1/documents/ingest/batch` | One failure does not abort the others |
 | Async        | `POST /v1/ingest/async` | Submits to the background pool, returns `{job_id}` |
 
-The CLI equivalents (`raghub ingest <path>`) and the Streamlit
-"Upload" widget both wrap the HTTP surface. Anything that mutates
-the document registry must go through `RagApplication.
-upload_document` (the same entry point the API exposes).
-
-## Demo users (Streamlit UI)
-
-The Streamlit UI pre-seeds five demo users:
-
-| Email | Companies | Admin |
-|---|---|---|
-| `alice@acme.com` | Apple | No |
-| `bob@acme.com` | Microsoft | No |
-| `charlie@acme.com` | Amazon, Tesla | No |
-| `diana@acme.com` | Google | No |
-| `admin@acme.com` | (all) | Yes |
-
-Default password: `password`. Override via the `RAGHUB_USERS`
-environment variable (a JSON object of email →
-`{password, companies, is_admin}`).
+The CLI equivalents (`raghub ingest <path>`) wrap the HTTP
+surface. Anything that mutates the document registry must go
+through `RagApplication.upload_document` (the same entry point the
+API exposes).
 
 ## Notes
 
 * The `RAG` facade is designed for embedding in your own service.
   Wiring it in FastAPI is a thin shim around its sync and async
   methods; no auth or storage is added by the facade.
-* The FastAPI app at `raghub.api:get_app` (Uvicorn
+* The FastAPI app at `raghub.api:AppFactory.create_app` (Uvicorn
   `--factory`) remains the canonical multi-tenant HTTP surface
   until a v2 is shipped.
 * The Dockerfile builds a wheel and installs it with

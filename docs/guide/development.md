@@ -12,13 +12,13 @@ cd raghub
 ./setup.sh                       # creates .venv, installs dev extras
 source .venv/bin/activate
 
-pip install -e ".[api,ui,dev]"   # for a fresh checkout
+pip install -e ".[api,dev]"   # for a fresh checkout
 ```
 
 `setup.sh` requires Python 3.12 — the script refuses anything
 else, with installation hints for both macOS and Linux. It
 provisions a `.venv`, installs the project in editable mode with
-the `api`, `ui`, and `dev` extras, and prints the next steps.
+the `api` and `dev` extras, and prints the next steps.
 `./cleanup.sh` removes `.venv`, `data/`, and `__pycache__/` —
 `./setup.sh` rebuilds from scratch.
 
@@ -45,11 +45,11 @@ by `pytest tests/ --collect-only`; the suite shape changes as
 new plugin tests land, so refer to the collector output rather
 than a hard-coded number.
 
-### FinanceBench
+### Finance
 
 ```bash
 # pytest path — controlled by env var, kept off by default
-FINANCEBENCH_EVAL=1 pytest tests/test_financebench.py -xvs
+FINANCEBENCH_EVAL=1 pytest tests/test_benchmark_smoke.py -xvs
 ```
 
 Or via the bundled CLI / console script:
@@ -165,7 +165,7 @@ To support a new file format end-to-end:
 
 1. Add a converter at `raghub/converters/<format>.py`. It must
    implement the `DocumentConverter` interface (returns a
-   `KnowledgeBundle`).
+   `Bundle`).
 2. If it requires an external tool, add the dependency to
    `pyproject.toml`'s `dependencies` (or as an optional extra).
 3. Either wire it into `default_converter()`'s fallback chain or

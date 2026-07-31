@@ -9,6 +9,8 @@ nav:
   - Guide:
       - Development: guide/development.md
       - Deployment: guide/deployment.md
+      - Evaluation: guide/evaluation.md
+      - Advanced RAG: ADVANCED_RAG.md
   - Reference:
       - API: reference/api.md
       - Configuration: reference/configuration.md

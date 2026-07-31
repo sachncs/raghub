@@ -45,7 +45,7 @@ deleted — import directly from the canonical paths above.
 | `InMemoryVectorStore` | `MemoryStore` |
 | `SqliteVectorStore` | `SqliteStore` |
 | `InMemoryKnowledgeRepository` | `MemoryRepo` |
-| `InMemoryConversationStore` | `MemoryConversations` |
+| `InMemoryConversationStore` | `Memory` |
 | `InMemoryQueue` | `MemoryQueue` |
 | `SqliteUserStore` | `SqliteUsers` |
 | `SqliteChunkRepository` | `ChunkStore` |

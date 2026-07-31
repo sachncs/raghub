@@ -148,7 +148,7 @@ The full set of extension points mapped to the spec libraries:
 | Reranker | `Reranker` | `IdentityReranker` |
 | Structured output | `StructuredOutputProvider` | `Instructor`; `None` when unavailable |
 | Telemetry | `TelemetryProvider` | `LangfuseTelemetryProvider` → `NoOpTelemetry` fallback (wrapped in `RedactingTelemetry`) |
-| Conversation store | `ConversationStore` | `MemoryConversations` |
+| Conversation store | `ConversationStore` | `Memory` |
 | Knowledge repo | `KnowledgeRepository` | `MemoryRepo` |
 | Source manifest | `Manifest` | `./data/manifest.json` |
 | Background ingestion | `Batch` | `ResumableBatch` (lazy) |

@@ -10,38 +10,36 @@ replaceable.
 
 ```text
 raghub/
-  api/                RAG facade, FastAPI server, Streamlit UI
-  auth/               JWT authentication, RBAC (legacy service paths)
-  cli/                Console scripts (``raghub``, ``raghub-financebench``)
-  config/             AppSettings dataclass, YAML/TOML loader
-  models/             Typed Pydantic domain + canonical models
-  interfaces/         Protocol contracts for every plugin point
-  converters/         Marker, plain-text, Markdown, OKF normaliser
-  knowledge/          Open Knowledge Format (OKF) bundles + repository
-  ingestion/          Ingest + Query pipelines, background jobs
-  embeddings/         LiteLLM, SentenceTransformers, hashing
-  vectorstore/        Qdrant, ZVec (legacy), InMemory
-  llm/                LiteLLM, Heuristic (offline) providers
-  structured/         Instructor (typed Pydantic outputs)
-  retrieval/          Pipeline, IdentityReranker, search
-  generation/         DefaultGenerator (citations, astream, tokens)
-  pipelines/          IngestPipeline, QueryPipeline
-  observability/      NoOpTelemetry, RedactingTelemetry, StructlogTelemetryProvider
-  telemetry/          LangfuseTelemetryProvider (v3+ SDK)
-  evaluation/         FinanceBenchEvaluator + retrieval metrics
-  plugins/            PluginRegistry + entry-point discovery
-  services/           RagApplication (legacy use-case facade)
-  repositories/       SQLite repositories (legacy)
-  domain/             Active-record models (legacy)
-  storage/            SQLite persistence, image store (legacy)
-  core/               DI container, RBAC, document state (legacy)
-  documents/          Parsers, chunkers, validation (legacy)
+  rag.py              RAG facade, FastAPI server
+  api.py              FastAPI app (AppFactory.create_app)
+  cli.py              Console scripts (``raghub``, ``raghub-financebench``)
+  config.py           Settings dataclass, YAML/TOML loader
+  models.py           Typed Pydantic domain + canonical models
+  errors.py           Typed error hierarchy
+  llm.py              LiteLLM, Heuristic (offline) providers
+  embedder.py         LiteLLM, hashing embedders
+  store.py            Qdrant, SQLite, InMemory vector stores
+  parsers.py          Marker, plain-text converters
+  pipeline.py         Ingest + Query pipelines
+  gen.py              DefaultGenerator (citations, astream, tokens)
+  ingest.py           Chunker, Ingestor, Resumable
+  knowledge.py        Open Knowledge Format (OKF) bundles + repository
+  retrieval/          Rerankers, transformers, fusion
+  stores/             SQLite persistence, image store
+  services/           Facade, container wiring
+  tools/              ToolRegistry + built-in tools
+  lifecycle/          Document lifecycle state machines
+  helper/             Internal collaborators (auth, cli, sse, …)
+  telemetry.py        NoOp, Redacting, Langfuse, Prometheus telemetry
+  evaluation.py       Finance + FRAMES evaluators
+  plugins.py          PluginRegistry + entry-point discovery
+  auth.py             UserStore, AuthService, Authz
+  repos.py            ChunkStore, DocStore, SessionStore
 ```
 
-The top half of the tree (above the *legacy* split) is the new
-spec-mandated surface. The bottom half is the legacy multi-tenant
-service stack, retained for backward compatibility. See
-[migration.md](migration.md) for the bridge between the two.
+The `RAG` facade is the recommended entry point; the FastAPI
+surface in `api.py` is the multi-tenant HTTP wrapper. See
+[migration.md](migration.md) for the path from the legacy API.
 
 ## Quick Start
 

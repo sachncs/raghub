@@ -1,7 +1,7 @@
 # Getting Started
 
 The recommended way to use RAGHub is through the
-[`raghub.RAG`](https://github.com/sachncs/raghub/blob/main/raghub/api/rag.py) facade. It is a single import,
+[`raghub.RAG`](https://github.com/sachncs/raghub) facade. It is a single import,
 works offline by default, and lets you replace any spec component
 through the constructor or the plugin registry.
 
@@ -18,13 +18,13 @@ through the constructor or the plugin registry.
 ```bash
 git clone https://github.com/sachncs/raghub.git
 cd raghub
-pip install -e ".[api,ui,dev]"
+pip install -e ".[api,dev]"
 ```
 
-The `api` extra installs FastAPI + uvicorn; `ui` installs Streamlit;
-`dev` installs pytest, ruff, mypy, and the type stubs. The spec
-libraries (Marker, Chonkie, LiteLLM, Instructor, Qdrant-client,
-Langfuse, datasets) are core dependencies.
+The `api` extra installs FastAPI + uvicorn; `dev` installs pytest,
+ruff, mypy, and the type stubs. The spec libraries (Marker,
+Chonkie, LiteLLM, Instructor, Qdrant-client, Langfuse, datasets)
+are core dependencies.
 
 ## The five-minute path
 
@@ -97,7 +97,7 @@ still get isolated sessions.
 ## Conversational memory
 
 Pass `session_id=` to `query`, `aquery`, or `astream` and the
-in-process `MemoryConversations` keeps a per-session history
+in-process `Memory` keeps a per-session history
 of the most recent turns. Follow-up questions are answered with
 that history prepended to the prompt:
 
@@ -213,10 +213,7 @@ wrapper of the facade, instantiate it in your own FastAPI routes.
 
 ```bash
 # Run the FastAPI server (port 8000)
-uvicorn raghub.api:get_app --factory --reload
-
-# Run the Streamlit UI (port 8501)
-streamlit run streamlit_app.py
+raghub run --host 0.0.0.0 --port 8000
 ```
 
 See [`reference/api.md`](../reference/api.md) for the full FastAPI

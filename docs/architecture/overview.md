@@ -32,7 +32,7 @@ The package exposes two parallel APIs:
 ```
 
 The second surface is the legacy multi-tenant service, still
-mounted at `raghub.api.app:app` (the FastAPI routers):
+mounted at `raghub.api.AppFactory.create_app` (the FastAPI routers):
 
 ```text
                       ┌─────────────────────────────────────────────┐
@@ -73,7 +73,7 @@ DI container that wires:
 | `telemetry` | `TelemetryProvider` | `RedactingTelemetry(LangfuseTelemetryProvider)` → `RedactingTelemetry(NoOpTelemetry)` |
 | `reranker` | `Reranker` | `IdentityReranker` |
 | `knowledge_repo` | `KnowledgeRepository` | `MemoryRepo` |
-| `conversation_store` | `ConversationStore` | `MemoryConversations` |
+| `conversation_store` | `ConversationStore` | `Memory` |
 | `manifest` | `Manifest` | `data/manifest.json` |
 
 Replace any of these through the constructor or via the registry.
@@ -84,7 +84,7 @@ Replace any of these through the constructor or via the registry.
 
 ```text
 file_bytes
-  └─► converter.convert()      ── creates KnowledgeBundle (OKF)
+  └─► converter.convert()      ── creates Bundle (OKF)
         └─► knowledge_repo.save(bundle)
               └─► get_chunks()
                     └─► embedder.embed_texts(texts)
@@ -138,7 +138,7 @@ how tenant companies are attached to chunks during ingestion.
 ## Knowledge layer
 
 The canonical persisted representation is **OKF (Open Knowledge
-Format)**, modelled by `KnowledgeBundle`. Round-trip:
+Format)**, modelled by `Bundle`. Round-trip:
 
 ```python
 from raghub.knowledge.okf import to_okf, from_okf
@@ -206,40 +206,23 @@ The new surface lives under:
 
 ```
 raghub/
-  api/                RAG facade, FastAPI app, Streamlit helper
-  cli/                Console scripts
-  config/             AppSettings + load_settings
-  models/             Pydantic DTOs (User, Chunk, Citation, …)
-  interfaces/         Protocol contracts (converter, embedder, llm, …)
-  converters/         Marker, plaintext, markdown, OKF normaliser
-  knowledge/          OKF bundles, MemoryRepo
-  ingestion/          IngestPipeline, QueryPipeline, background jobs
-  embeddings/         LiteLLM, SentenceTransformers, hashing
-  vectorstore/        Qdrant, ZVec, InMemory
-  llm/                LiteLLM, Heuristic
-  structured/         Instructor
-  retrieval/          Pipeline, IdentityReranker
-  generation/         DefaultGenerator
-  pipelines/          IngestPipeline, QueryPipeline (re-exports)
-  observability/      NoOpTelemetry, RedactingTelemetry, structlog
-  telemetry/          Langfuse (v3+) provider
-  evaluation/         FinanceBench evaluator + retrieval metrics
-  plugins/            PluginRegistry
+  api.py              FastAPI app (AppFactory.create_app)
+  cli.py              Console scripts
+  config.py           AppSettings + load_settings
+  models.py           Pydantic DTOs (User, Chunk, Citation, …)
+  errors.py           Typed error hierarchy
+  rag.py              RAG facade
+  parsers.py          Marker, plaintext converters
+  knowledge.py        OKF bundles, MemoryRepo
+  pipeline.py         IngestPipeline, QueryPipeline
+  embedder.py         LiteLLM, hashing embedders
+  store.py            Qdrant, SQLite, InMemory vector stores
+  llm.py              LiteLLM, Heuristic
+  gen.py              DefaultGenerator
+  retrieval/          Rerankers, transformers, fusion
+  services/           Facade, container wiring
+  stores/             SQLite persistence, JSON registry, image store
+  telemetry.py        NoOp, Redacting, Langfuse, Prometheus providers
+  evaluation.py       Finance + FRAMES evaluators
+  plugins.py          PluginRegistry
 ```
-
-The legacy service stack (retained for backward compatibility) lives
-under:
-
-```
-  auth/               bcrypt + JWT (RagApplication)
-  services/           DocumentService, QueryService, AuthService, HealthService
-  repositories/       SQLite repositories + UnitOfWork
-  storage/            SQLite persistence, JSON registry, image store
-  domain/             Active-record models (Document, Chunk, Session)
-  core/               DI container, RBAC, document state
-  documents/          Parsers, validation, lifecycle
-  prompts/            PromptBuilder (used by the legacy surface)
-  api/admin.py        Admin routes mounted under /admin
-```
-
-See [`migration.md`](../migration.md) for the bridge.
