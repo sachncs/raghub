@@ -53,6 +53,7 @@ class ToolResult(BaseModel):
         error: Error message when ``ok`` is ``False``; ``None`` on success.
         latency_ms: Wall-clock duration recorded by the tool itself.
         source_url: Optional URL the result came from (web search, API).
+
     """
 
     ok: bool = True
@@ -74,6 +75,7 @@ class ToolProtocol(Protocol):
         json_schema: JSON-Schema describing accepted ``args``. Used by
             the planner to prompt the model and to validate the parsed
             arguments before invocation.
+
     """
 
     name: ClassVar[str]
@@ -90,6 +92,7 @@ class ToolProtocol(Protocol):
             A :class:`ToolResult`. Never raise for expected failures —
             set ``ok=False`` and populate ``error`` so the planner can
             observe the failure and adapt.
+
         """
         ...
 
@@ -107,6 +110,7 @@ class ToolContext:
         question: The user's literal question. Useful when a tool
             wants to embed it (e.g. vector_search).
         metadata: Free-form per-call state.
+
     """
 
     user: Any | None = None
@@ -142,6 +146,7 @@ class Tool(ToolProtocol, ABC):
             context: Per-invocation context.
             **kwargs: Validated arguments parsed from the LLM's
                 planner output.
+
         """
 
     def context(self, **overrides: Any) -> ToolContext:
@@ -157,6 +162,7 @@ class Tool(ToolProtocol, ABC):
 
         Returns:
             A new :class:`ToolContext` with sensible defaults.
+
         """
         defaults: dict[str, Any] = {
             "user": as_admin_user(None),
@@ -181,6 +187,7 @@ class Tool(ToolProtocol, ABC):
 
         Returns:
             A :class:`ToolResult`. ``latency_ms`` is filled in here.
+
         """
         ctx = context or self.context()
         started = time.perf_counter()
@@ -205,6 +212,7 @@ class Tool(ToolProtocol, ABC):
 
         Returns:
             A :class:`ToolResult`.
+
         """
         return asyncio.run(self.run(args, context))
 
@@ -234,11 +242,12 @@ class ToolRegistry:
         """Remove a tool by name. No-op when absent."""
         self.tools.pop(name, None)
 
-    def get(self, name: str)  -> ToolProtocol:
+    def get(self, name: str) -> ToolProtocol:
         """Return the tool registered under ``name``.
 
         Raises:
             ConfigurationError: When ``name`` is not registered.
+
         """
         if name not in self.tools:
             raise ConfigurationError(f"Tool {name!r} is not registered")
@@ -289,11 +298,10 @@ def as_admin_user(user: User | None) -> User:
     Returns:
         ``user`` unchanged when provided, otherwise a synthetic
         principal with ``is_admin=True``.
+
     """
     if user is None:
-        return User(
-            user_id="__agent__", email="__agent__@local", is_admin=True
-        )
+        return User(user_id="__agent__", email="__agent__@local", is_admin=True)
     return user
 
 
@@ -307,12 +315,12 @@ class DateToday(Tool):
 
     Attributes:
         name: ``"date_today"``.
+
     """
 
     name: ClassVar[str] = "date_today"
     description: ClassVar[str] = (
-        "Return today's date in UTC ISO 8601 format. Use when "
-        "the question is time-sensitive."
+        "Return today's date in UTC ISO 8601 format. Use when the question is time-sensitive."
     )
     json_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
@@ -336,6 +344,7 @@ class GraphSearch(Tool):
 
     Attributes:
         name: ``"graph_search"``.
+
     """
 
     name: ClassVar[str] = "graph_search"
@@ -364,12 +373,11 @@ class GraphSearch(Tool):
 
         Args:
             graph_index: A GraphIndex (or ``None`` for a no-op tool).
+
         """
         self.index = graph_index
 
-    async def execute(
-        self, context: ToolContext, **kwargs: Any
-    ) -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
         """Run GraphRAG local or global search."""
         if self.index is None:
             return ToolResult(content="(no graph index configured)")
@@ -380,9 +388,7 @@ class GraphSearch(Tool):
         elif mode == "global":
             fn = getattr(self.index, "search_global", None)
         else:
-            return ToolResult(
-                ok=False, error=f"graph_search: unknown mode {mode!r}"
-            )
+            return ToolResult(ok=False, error=f"graph_search: unknown mode {mode!r}")
         if not callable(fn):
             return ToolResult(
                 ok=False,
@@ -412,6 +418,7 @@ class HybridSearch(Tool):
 
     Attributes:
         name: ``"hybrid_search"``.
+
     """
 
     name: ClassVar[str] = "hybrid_search"
@@ -435,15 +442,11 @@ class HybridSearch(Tool):
         self.pipeline = retrieval_pipeline
         self.vector_store = vector_store
 
-    async def execute(
-        self, context: ToolContext, **kwargs: Any
-    ) -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
         """Fuse dense + sparse retrieval with reciprocal-rank fusion."""
         from raghub.retrieval import rrf
 
-        text = (
-            str(kwargs.get("query", "")) or context.question or ""
-        ).strip()
+        text = (str(kwargs.get("query", "")) or context.question or "").strip()
         if not text:
             return ToolResult(ok=False, error="hybrid_search: empty query")
         dense = self.pipeline.retrieve(
@@ -470,10 +473,7 @@ class HybridSearch(Tool):
         if not fused:
             return ToolResult(content="(no hits)")
         joined = "\n\n---\n\n".join(
-            (
-                getattr(id_to_hit[cid], "chunk", None)
-                and id_to_hit[cid].chunk.text
-            )
+            (getattr(id_to_hit[cid], "chunk", None) and id_to_hit[cid].chunk.text)
             or id_to_hit[cid]["chunk"].text
             for cid, _score in fused
         )
@@ -507,6 +507,7 @@ class KeywordSearch(Tool):
 
     Attributes:
         name: ``"keyword_search"``.
+
     """
 
     name: ClassVar[str] = "keyword_search"
@@ -530,16 +531,13 @@ class KeywordSearch(Tool):
 
         Args:
             vector_store: A :class:`VectorStore` exposing ``keyword_search``.
+
         """
         self.vector_store = vector_store
 
-    async def execute(
-        self, context: ToolContext, **kwargs: Any
-    ) -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
         """Run the keyword search and return the joined hit list."""
-        text = (
-            str(kwargs.get("query", "")) or context.question or ""
-        ).strip()
+        text = (str(kwargs.get("query", "")) or context.question or "").strip()
         if not text:
             return ToolResult(ok=False, error="keyword_search: empty query")
         keyword_search = getattr(self.vector_store, "keyword_search", None)
@@ -552,9 +550,7 @@ class KeywordSearch(Tool):
         if not raw:
             return ToolResult(content="(no hits)")
         joined = "\n\n---\n\n".join(
-            item["chunk"].text
-            for item in raw
-            if getattr(item.get("chunk"), "text", None)
+            item["chunk"].text for item in raw if getattr(item.get("chunk"), "text", None)
         )
         return ToolResult(
             content=joined,
@@ -578,6 +574,7 @@ class SummarySearch(Tool):
 
     Attributes:
         name: ``"summary_search"``.
+
     """
 
     name: ClassVar[str] = "summary_search"
@@ -601,18 +598,15 @@ class SummarySearch(Tool):
 
         Args:
             raptor_index: A Raptor (or ``None`` for a no-op tool).
+
         """
         self.index = raptor_index
 
-    async def execute(
-        self, context: ToolContext, **kwargs: Any
-    ) -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
         """Run the RAPTOR summary search."""
         if self.index is None:
             return ToolResult(content="(no summary index configured)")
-        hits = self.index.search(
-            str(kwargs.get("query", "")), top_k=int(kwargs.get("top_k", 0))
-        )
+        hits = self.index.search(str(kwargs.get("query", "")), top_k=int(kwargs.get("top_k", 0)))
         if not hits:
             return ToolResult(content="(no summaries matched)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)
@@ -622,9 +616,7 @@ class SummarySearch(Tool):
                 "hits": [
                     {
                         "chunk_id": h.chunk.chunk_id,
-                        "level": getattr(h.chunk, "metadata", {}).get(
-                            "raptor_level", 0
-                        ),
+                        "level": getattr(h.chunk, "metadata", {}).get("raptor_level", 0),
                         "text": h.chunk.text,
                     }
                     for h in hits
@@ -638,6 +630,7 @@ class VectorSearch(Tool):
 
     Attributes:
         name: ``"vector_search"``.
+
     """
 
     name: ClassVar[str] = "vector_search"
@@ -660,22 +653,17 @@ class VectorSearch(Tool):
 
         Args:
             retrieval_pipeline: A :class:`raghub.retrieval.Retrieval`.
+
         """
         self.pipeline = retrieval_pipeline
 
-    async def execute(
-        self, context: ToolContext, **kwargs: Any
-    ) -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
         """Run the dense vector search and return the joined hit list."""
-        text = (
-            str(kwargs.get("query", "")) or context.question or ""
-        ).strip()
+        text = (str(kwargs.get("query", "")) or context.question or "").strip()
         if not text:
             return ToolResult(ok=False, error="vector_search: empty query")
         user = as_admin_user(context.user)
-        hits = self.pipeline.retrieve(
-            user=user, question=text, top_k=int(kwargs.get("top_k", 0))
-        )
+        hits = self.pipeline.retrieve(user=user, question=text, top_k=int(kwargs.get("top_k", 0)))
         if not hits:
             return ToolResult(content="(no hits)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)
@@ -702,6 +690,7 @@ class WebSearch(Tool):
 
     Attributes:
         name: ``"web_search"``.
+
     """
 
     name: ClassVar[str] = "web_search"
@@ -729,6 +718,7 @@ class WebSearch(Tool):
 
         Args:
             max_results: Default result count. Overridable per call.
+
         """
         self.default_max = int(max_results)
 

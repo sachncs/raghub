@@ -62,6 +62,7 @@ def any_llm_api_key_present() -> bool:
         ``True`` if any of the recognised LLM API-key environment
         variables is set in the process environment; ``False``
         otherwise.
+
     """
     return any(os.getenv(name) for name in LLM_API_KEY_ENV_VARS)
 
@@ -105,6 +106,7 @@ class Generator(ABC):
 
         Returns:
             The provider-generated answer as a plain string.
+
         """
 
     async def async_generate(
@@ -185,6 +187,7 @@ class HeuristicProvider(Generator):
         Returns:
             The first relevant sentence from context, or a default
             message if no context is available.
+
         """
         if not context:
             return "No context was retrieved. Configure an LLM API key for full answer generation."
@@ -234,6 +237,7 @@ class LiteLLM(Generator):
 
         Raises:
             ConfigurationError: When ``litellm`` is not installed.
+
         """
         if not LITELLM_AVAILABLE:
             raise ConfigurationError("litellm is not installed; run `pip install litellm`.")
@@ -256,11 +260,7 @@ class LiteLLM(Generator):
             try:
                 import httpx
 
-                headers = (
-                    {"authorization": f"Bearer {self.api_key}"}
-                    if self.api_key
-                    else {}
-                )
+                headers = {"authorization": f"Bearer {self.api_key}"} if self.api_key else {}
                 # Normalise the base URL so POSTing to <base>/chat/completions
                 # always lands at the standard path.
                 base = self.api_base.rstrip("/")
@@ -312,6 +312,7 @@ class LiteLLM(Generator):
         Returns:
             A list of OpenAI-style message dicts in the order they
             should be sent to the model.
+
         """
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
 
@@ -396,7 +397,11 @@ class LiteLLM(Generator):
             except Exception as exc:
                 raise GenerationError(f"LLM completion failed: {exc}") from exc
         try:
-            choices = response_dict["choices"] if isinstance(response_dict, dict) else response_dict.choices
+            choices = (
+                response_dict["choices"]
+                if isinstance(response_dict, dict)
+                else response_dict.choices
+            )
             choice = choices[0]
             message = choice["message"] if isinstance(choice, dict) else choice.message
             content = message["content"] if isinstance(message, dict) else message.content
@@ -478,9 +483,7 @@ class LiteLLM(Generator):
         if self.timeout_seconds is not None:
             payload["timeout"] = self.timeout_seconds
         with LLMValueErrorBoundary("Direct endpoint call failed"):
-            response = await self.direct_client.post(
-                self.direct_url, json=payload
-            )
+            response = await self.direct_client.post(self.direct_url, json=payload)
         response.raise_for_status()
         return dict(response.json())
 
@@ -590,6 +593,7 @@ def build_llm(
 
     Returns:
         A ready-to-use provider instance.
+
     """
     if not any_llm_api_key_present() and not api_key:
         return HeuristicProvider()

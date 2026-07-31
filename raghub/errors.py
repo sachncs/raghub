@@ -79,6 +79,7 @@ class ConversionError(RagHubError):
     Examples:
         * Marker cannot parse a malformed PDF.
         * A plain-text converter rejects empty bytes.
+
     """
 
 
@@ -184,6 +185,7 @@ class MissingDep(ImportError):
                 (e.g. ``"chonkie"``).
             hint: A user-friendly install command
                 (e.g. ``"pip install chonkie"``).
+
         """
         super().__init__(f"{hint}; the {package!r} distribution is not installed")
         self.package = package
@@ -204,6 +206,7 @@ class PipelineFailed(RagHubError):
             step: The pipeline step that failed.
             message: Human-readable failure description.
             partial: Optional partial result captured before the failure.
+
         """
         super().__init__(f"pipeline step {step!r} failed: {message}")
         self.step = step

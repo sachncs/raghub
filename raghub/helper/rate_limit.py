@@ -27,6 +27,7 @@ class TokenBucket:
         burst: Maximum bucket capacity.
         buckets: Internal mapping of key -> ``(tokens, last_refill_monotonic)``.
         lock: Re-entrant lock that serialises every mutation.
+
     """
 
     def __init__(self, rate: float = 10.0, burst: int = 20) -> None:
@@ -35,6 +36,7 @@ class TokenBucket:
         Args:
             rate: Sustained refill rate in tokens per second.
             burst: Maximum bucket capacity and initial grant.
+
         """
         self.rate = rate
         self.burst = burst
@@ -50,6 +52,7 @@ class TokenBucket:
 
         Returns:
             ``True`` if the request is admitted, ``False`` otherwise.
+
         """
         with self.lock:
             now = monotonic()
@@ -78,6 +81,7 @@ class RateLimiterMiddleware:
             app: The downstream ASGI application.
             rate: Tokens per second (sustained rate). Default 10 rps.
             burst: Maximum burst capacity. Default 20 requests.
+
         """
         self.app = app
         self.bucket = TokenBucket(rate, burst)

@@ -96,6 +96,7 @@ def validate_cors(origins: list[str]) -> None:
 
     Raises:
         RuntimeError: When ``origins`` contains ``"*"``.
+
     """
     if any(origin == "*" for origin in origins):
         raise RuntimeError(
@@ -128,6 +129,7 @@ def check_upload_size(content_length: int | None, max_bytes: int) -> bool:
     Returns:
         ``True`` when the declared upload is over the limit; ``False``
         otherwise.
+
     """
     if content_length is None:
         return False
@@ -143,6 +145,7 @@ def upload_content_length(request: Request) -> int | None:
     Returns:
         The integer value, or ``None`` when the header is missing or
         cannot be parsed as an integer.
+
     """
     declared = request.headers.get("content-length")
     if declared is None:
@@ -166,6 +169,7 @@ def enforce_upload_limit(
 
     Raises:
         HTTPException: 413 when the upload exceeds ``max_upload_bytes``.
+
     """
     max_bytes = int(getattr(container.settings, "max_upload_bytes", 0) or 0)
     if max_bytes <= 0:
@@ -197,6 +201,7 @@ class Lifespan:
 
     Attributes:
         application: The application facade.
+
     """
 
     def __init__(self, application: Facade) -> None:
@@ -214,6 +219,7 @@ class Lifespan:
         Yields:
             Nothing; the context manager signals lifecycle transitions
             to FastAPI.
+
         """
         try:
             yield
@@ -246,6 +252,7 @@ class ExceptionHandlers:
 
         Args:
             app: The FastAPI instance.
+
         """
 
         @app.exception_handler(AuthenticationError)
@@ -281,6 +288,7 @@ class PreferencesResponse(BaseModel):
         prefs: Mapping of preference key → JSON value. The reserved
             key ``"tool_settings"`` carries the ChatGPT-style tool
             toggles consumed by :func:`raghub.agent.resolve`.
+
     """
 
     prefs: dict[str, Any] = Field(default_factory=dict)
@@ -292,6 +300,7 @@ class PreferencesPatch(BaseModel):
     Attributes:
         prefs: Replacement mapping for the supplied keys. Keys absent
             from the payload are left unchanged on disk.
+
     """
 
     prefs: dict[str, Any] = Field(default_factory=dict)
@@ -327,6 +336,7 @@ class RouteGroup:
             ``/v1/admin`` for admin-only endpoints.
         preferences_router: The :class:`APIRouter` mounted under
             ``/v1`` for the per-user preferences endpoints.
+
     """
 
     def __init__(self) -> None:
@@ -406,7 +416,9 @@ class RouteGroup:
     def upload_document(self) -> Callable[..., Any]:
         """Upload a PDF document and synchronously index it."""
 
-        @self.router.post("/documents/upload", status_code=202, response_model=DocumentUploadResponse)
+        @self.router.post(
+            "/documents/upload", status_code=202, response_model=DocumentUploadResponse
+        )
         async def handler(
             request: Request,
             file: UploadFile = File(...),
@@ -486,7 +498,9 @@ class RouteGroup:
                         )
                     )
                 except (IngestionError, RagHubError, ValueError, TypeError, OSError) as exc:
-                    loguru_logger.warning("api.batch_upload.item_failed", file=file.filename, error=str(exc))
+                    loguru_logger.warning(
+                        "api.batch_upload.item_failed", file=file.filename, error=str(exc)
+                    )
                     results.append(
                         BatchIngestItem(
                             filename=file.filename or "upload.pdf",
@@ -555,11 +569,18 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> QueryResponse:
-            if payload.tools_enabled is None and payload.agent is None and payload.web is None \
-                    and payload.graph is None and payload.summaries is None \
-                    and payload.reranker is None and payload.long_context_pass is None \
-                    and payload.query_transforms is None and payload.max_steps is None \
-                    and payload.top_k is None:
+            if (
+                payload.tools_enabled is None
+                and payload.agent is None
+                and payload.web is None
+                and payload.graph is None
+                and payload.summaries is None
+                and payload.reranker is None
+                and payload.long_context_pass is None
+                and payload.query_transforms is None
+                and payload.max_steps is None
+                and payload.top_k is None
+            ):
                 return await app_service.query(token=token, question=payload.question)
             return await app_service.query_with_flags(
                 token=token,
@@ -615,9 +636,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> StreamingResponse:
-            resolved_tools = (
-                set(payload.tools_enabled) if payload.tools_enabled else set()
-            )
+            resolved_tools = set(payload.tools_enabled) if payload.tools_enabled else set()
 
             async def gen() -> AsyncIterator[bytes]:
                 yield Sse.comment("raghub-query-stream")
@@ -819,6 +838,7 @@ class RouteGroup:
             prefix: The URL prefix (e.g. ``"/v1"``). The admin router
                 carries its own ``/admin`` segment on top of this
                 prefix, so admin endpoints land at ``/v1/admin/*``.
+
         """
         app.include_router(self.router, prefix=prefix)
         app.include_router(self.admin_router, prefix=prefix)
@@ -838,6 +858,7 @@ def package_metadata() -> tuple[str, str, str]:
 
     Returns:
         A 3-tuple of ``(title, version, description)``.
+
     """
     pkg, error = capture(importlib.metadata.metadata, "raghub")
     if error is not None or not isinstance(pkg, dict):
@@ -861,6 +882,7 @@ def root_health_route(app: FastAPI) -> None:
 
     Args:
         app: The FastAPI instance.
+
     """
 
     @app.get("/health", include_in_schema=False)
@@ -887,6 +909,7 @@ def create_app(application: Facade) -> FastAPI:
     Raises:
         RuntimeError: When CORS configuration is invalid (wildcard
             origins with credentials).
+
     """
     title, version, description = package_metadata()
     app = FastAPI(
@@ -917,6 +940,7 @@ def create_app(application: Facade) -> FastAPI:
     root_health_route(app)
     return app
 
+
 # ---------------------------------------------------------------------------
 # Factory (replaces module-level singleton)
 # ---------------------------------------------------------------------------
@@ -944,6 +968,7 @@ class AppFactory:
 
         Returns:
             The cached :class:`FastAPI` instance.
+
         """
         if cls.instance is None:
             cls.instance = cls()

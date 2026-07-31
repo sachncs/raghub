@@ -50,9 +50,7 @@ def health() -> None:
 @app.command(name="version")
 def version() -> None:
     """Print the installed ``raghub`` package version."""
-    version_str, error = capture(
-        importlib.metadata.version, "raghub"
-    )
+    version_str, error = capture(importlib.metadata.version, "raghub")
     typer.echo(version_str if error is None else "unknown")
 
 

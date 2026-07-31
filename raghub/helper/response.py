@@ -15,9 +15,7 @@ from raghub.models import PipelineResult, Response, SearchResult
 class Redaction:
     """Strip hash-like and other sensitive keys from a serialised user payload."""
 
-    SENSITIVE: frozenset[str] = frozenset(
-        {"password_hash", "password", "token", "secret"}
-    )
+    SENSITIVE: frozenset[str] = frozenset({"password_hash", "password", "token", "secret"})
 
     @classmethod
     def user(cls, payload: dict[str, Any]) -> dict[str, Any]:
@@ -28,6 +26,7 @@ class Redaction:
 
         Returns:
             A shallow copy with sensitive keys replaced by ``"***"``.
+
         """
         redacted = dict(payload)
         for key in list(redacted.keys()):

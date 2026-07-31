@@ -145,6 +145,7 @@ class PluginRegistry:
 
         Returns:
             The number of entry points that loaded successfully.
+
         """
         loaded = 0
         entries = metadata.entry_points(group=group)

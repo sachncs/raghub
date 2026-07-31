@@ -71,9 +71,7 @@ class FakeGenerator:
     """Stub LLM that returns a fixed response and counts calls."""
 
     def __init__(self, responses: list[str] | str, raise_on: set[int] | None = None) -> None:
-        self._responses = (
-            [responses] if isinstance(responses, str) else list(responses)
-        )
+        self._responses = [responses] if isinstance(responses, str) else list(responses)
         self._raise_on = raise_on or set()
         self.calls: list[dict] = []
 
@@ -215,6 +213,7 @@ def test_llm_judge_self_loop_does_not_exist() -> None:
     # ``answer_relevance`` method.
     assert not hasattr(judge, "faithfulness_sync")
     assert not hasattr(judge, "answer_relevance_sync")
+
 
 # ---------------------------------------------------------------------------
 # Gate tests
@@ -376,9 +375,7 @@ class FakeEvaluator:
                 answer = out.get("answer", "")
                 contexts = out.get("contexts", []) or []
                 retrieved_ids = out.get("retrieved_ids", []) or []
-                relevant_ids = out.get("relevant_ids", []) or list(
-                    example.get("relevant_ids", [])
-                )
+                relevant_ids = out.get("relevant_ids", []) or list(example.get("relevant_ids", []))
             else:
                 answer = out
                 retrieved_ids = []

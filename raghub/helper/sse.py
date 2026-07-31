@@ -25,6 +25,7 @@ class Sse:
 
         Returns:
             Bytes ready to be written to the streaming response.
+
         """
         if not isinstance(data, str):
             data = json.dumps(data, default=str)
@@ -41,6 +42,7 @@ class Sse:
 
         Returns:
             Bytes ready to be written to the streaming response.
+
         """
         return f": {text}\n\n".encode()
 

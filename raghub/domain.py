@@ -68,6 +68,7 @@ class Chunk:
 
         Returns:
             ``self`` for chaining.
+
         """
         for key, value in kwargs.items():
             setattr(self.record, key, value)
@@ -123,6 +124,7 @@ class Document:
 
         Returns:
             ``self`` for chaining.
+
         """
         for key, value in kwargs.items():
             setattr(self.record, key, value)
@@ -137,6 +139,7 @@ class Document:
 
         Returns:
             ``self`` for chaining.
+
         """
         self.record.status = self.record.status.__class__.FAILED
         self.record.error = error
@@ -191,6 +194,7 @@ class Session:
 
         Returns:
             ``self`` for chaining.
+
         """
         turn = ConversationTurn(question=question, answer=answer, **kwargs)
         self.record.history.append(turn)
@@ -202,6 +206,7 @@ class Session:
 
         Returns:
             ``self`` for chaining.
+
         """
         self.record.history.clear()
         self.record.last_seen_at = datetime.now(UTC)
@@ -249,6 +254,7 @@ class DocumentRepository(ABC):
 
         Returns:
             ``True`` when the row was inserted, ``False`` otherwise.
+
         """
 
 

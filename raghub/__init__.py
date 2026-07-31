@@ -26,4 +26,3 @@ def __getattr__(name: str) -> object:
 
         return RAG
     raise AttributeError(f"module 'raghub' has no attribute {name!r}")
-

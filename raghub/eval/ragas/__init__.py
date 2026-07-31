@@ -32,6 +32,7 @@ def import_ragas() -> Any:
 
     Raises:
         MissingDep: When ragas is not installed.
+
     """
     try:
         import ragas
@@ -55,6 +56,7 @@ def load_metric(metric_name: str) -> Any:
 
     Raises:
         ConfigurationError: When the metric name is unknown.
+
     """
     from ragas.metrics import (
         answer_relevancy,
@@ -71,8 +73,7 @@ def load_metric(metric_name: str) -> Any:
     }
     if metric_name not in registry:
         raise ConfigurationError(
-            f"Unknown ragas metric {metric_name!r}. "
-            f"Supported: {sorted(registry.keys())}"
+            f"Unknown ragas metric {metric_name!r}. Supported: {sorted(registry.keys())}"
         )
     return registry[metric_name]
 
@@ -100,6 +101,7 @@ class RagasAdapter(Evaluator):
         >>> results = await adapter.evaluate(examples, response_factory=factory)
         >>> for r in results:
         ...     print(r.metrics)
+
     """
 
     benchmark: str = "ragas"
@@ -137,6 +139,7 @@ class RagasAdapter(Evaluator):
 
         Returns:
             A ``datasets.Dataset`` with the ragas schema.
+
         """
         from datasets import Dataset
 
@@ -174,6 +177,7 @@ class RagasAdapter(Evaluator):
 
         Raises:
             ConfigurationError: When ragas evaluation fails.
+
         """
         ragas = import_ragas()
         rows = list(examples) if examples is not None else []
@@ -211,12 +215,8 @@ class RagasAdapter(Evaluator):
 
         outcomes: list[Result] = []
         for idx, example in enumerate(rows):
-            metrics_for_row = {
-                f"ragas_{name}": scores[name][idx] for name in self.metric_names
-            }
-            passed = all(
-                metrics_for_row[f"ragas_{name}"] >= 0.5 for name in self.metric_names
-            )
+            metrics_for_row = {f"ragas_{name}": scores[name][idx] for name in self.metric_names}
+            passed = all(metrics_for_row[f"ragas_{name}"] >= 0.5 for name in self.metric_names)
             outcomes.append(
                 Result(
                     benchmark=self.benchmark,

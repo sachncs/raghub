@@ -271,7 +271,6 @@ class ConversationRouter:
         self.store = store
 
     def load_history(self, session_id: str | None, limit: int = 20) -> list[ConversationTurn]:
-
         """Return the recent turns for ``session_id``."""
         if not session_id:
             return []
@@ -331,9 +330,7 @@ class PipelineResultBuilder:
 # ---------------------------------------------------------------------------
 
 
-def get_chunks(
-    bundle: Bundle, document_id: str, company: str = ""
-) -> list[Chunk]:
+def get_chunks(bundle: Bundle, document_id: str, company: str = "") -> list[Chunk]:
     """Materialise the :class:`Chunk` list for a bundle's sections."""
     chunks: list[Chunk] = []
     tenant_company = company or bundle.metadata.get("company", "")
@@ -474,9 +471,7 @@ class IngestPipeline(Pipeline):
 
                 existing = self.knowledge_repo.get(bundle_id) if not force else None
                 if existing is not None and existing.checksum == checksum:
-                    prior_chunks = get_chunks(
-                        existing, document_id, company=tenant_company
-                    )
+                    prior_chunks = get_chunks(existing, document_id, company=tenant_company)
                     if self.vectors_already_indexed(prior_chunks):
                         return PipelineResult(
                             pipeline_id=context.pipeline_id,
@@ -532,8 +527,7 @@ class IngestPipeline(Pipeline):
                         )
                         if written != len(chunks):
                             raise VectorStoreError(
-                                f"vector store wrote {written} of "
-                                f"{len(chunks)} chunks"
+                                f"vector store wrote {written} of {len(chunks)} chunks"
                             )
                         if self.raptor is not None:
                             with self.telemetry.span("ingest.raptor"):
@@ -660,11 +654,10 @@ class QueryPipeline(Pipeline):
 
         if self.agentic_pipeline is not None and (
             tools_enabled
-            or ((record_overrides := inputs.get("resolved_config")) is not None
-            and (
-                record_overrides.get("agent_enabled")
-                or record_overrides.get("tools_enabled")
-            ))
+            or (
+                (record_overrides := inputs.get("resolved_config")) is not None
+                and (record_overrides.get("agent_enabled") or record_overrides.get("tools_enabled"))
+            )
         ):
             return await self.agentic_pipeline.run(
                 context,
@@ -689,13 +682,9 @@ class QueryPipeline(Pipeline):
 
             transforms_applied: list[str] = []
             if self.transformer is not None and self.retrieval_pipeline is not None:
-                variants = await self.transformer.transform(
-                    question=question, history=history
-                )
+                variants = await self.transformer.transform(question=question, history=history)
                 multi = [v for v in variants if v.text and v.text.strip()]
-                if len(multi) > 1 or (
-                    len(multi) == 1 and multi[0].kind != "original"
-                ):
+                if len(multi) > 1 or (len(multi) == 1 and multi[0].kind != "original"):
                     transforms_applied = [v.kind for v in multi]
                     with self.telemetry.span(
                         "query.search_variants",
@@ -736,9 +725,7 @@ class QueryPipeline(Pipeline):
                         hits = self.reranker.rerank(question=question, hits=hits)
             if self.long_context_pass is not None and hits:
                 with self.telemetry.span("query.long_context_pass"):
-                    hits = await self.long_context_pass.rerank(
-                        question=question, hits=hits
-                    )
+                    hits = await self.long_context_pass.rerank(question=question, hits=hits)
 
             answer: Any
             citations: list[Citation] = []
@@ -852,9 +839,7 @@ class QueryPipeline(Pipeline):
                     hits = self.reranker.rerank(question=question, hits=hits)
             if self.long_context_pass is not None and hits:
                 with self.telemetry.span("query.long_context_pass"):
-                    hits = await self.long_context_pass.rerank(
-                        question=question, hits=hits
-                    )
+                    hits = await self.long_context_pass.rerank(question=question, hits=hits)
             history: list[ConversationTurn] = []
             if session_id:
                 history = self.conversation_store.load(session_id, limit=20)
@@ -971,9 +956,7 @@ class AgentPipeline:
                     and self.long_context_pass.is_eligible()
                 ):
                     with self.telemetry.span("query_agent.long_context_pass"):
-                        hits = await self.long_context_pass.rerank(
-                            question=question, hits=hits
-                        )
+                        hits = await self.long_context_pass.rerank(question=question, hits=hits)
 
                 agent_answer = trace.final_answer
                 _generator_text, generator_citations = await self.generator.generate(
@@ -1045,7 +1028,13 @@ def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
     hits: list[Hit] = []
     for observation in trace.observations:
         name = observation.get("name", "")
-        if name not in {"vector_search", "keyword_search", "hybrid_search", "summary_search", "graph_search"}:
+        if name not in {
+            "vector_search",
+            "keyword_search",
+            "hybrid_search",
+            "summary_search",
+            "graph_search",
+        }:
             continue
         for hit in observation.get("data", {}).get("hits", []) or []:
             text = hit.get("text", "")

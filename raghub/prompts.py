@@ -42,6 +42,7 @@ class PromptConfig:
         reserved_output_tokens: Tokens to leave free for the model's
             response. Subtracted from ``max_tokens`` to derive the input
             budget.
+
     """
 
     system_prompt: str = "You are a helpful RAG assistant. Answer based on the provided context."
@@ -58,6 +59,7 @@ class TokenCounter:
 
     Attributes:
         enc: The loaded tiktoken encoding, or ``None`` if unavailable.
+
     """
 
     def __init__(self, encoding: str = "cl100k_base") -> None:
@@ -66,6 +68,7 @@ class TokenCounter:
         Args:
             encoding: The tiktoken encoding name. ``cl100k_base`` matches
                 GPT-3.5/4 tokenisation and is a reasonable default.
+
         """
         self.enc: tiktoken.Encoding | None = tiktoken.get_encoding(encoding)
 
@@ -78,6 +81,7 @@ class TokenCounter:
         Returns:
             Exact count when ``tiktoken`` is loaded; whitespace word count
             otherwise.
+
         """
         if self.enc is None:
             return len(text.split())
@@ -100,6 +104,7 @@ class TokenCounter:
             prefix. With tiktoken the truncation respects the encoding's
             merge rules; the fallback splits on whitespace which can break
             in the middle of multi-byte tokens.
+
         """
         if self.count(text) <= max_tokens:
             return text
@@ -128,6 +133,7 @@ class PromptBuilder:
         Args:
             config: Optional override for the prompt configuration.
                 Defaults to :class:`PromptConfig`'s defaults.
+
         """
         self.config = config or PromptConfig()
         self.token_counter = TokenCounter()
@@ -171,6 +177,7 @@ class PromptBuilder:
         Returns:
             A dict suitable for the LLM provider's ``build_messages``
             helper. See structure above.
+
         """
         # Reserve space for the model's reply first; whatever remains is
         # the input budget. Negative budgets are clamped to zero by the

@@ -26,10 +26,7 @@ try:
     import aiosqlite
     import bcrypt
 except ImportError:
-    raise MissingDep(
-        "aiosqlite",
-        "pip install raghub[auth]"
-    ) from None
+    raise MissingDep("aiosqlite", "pip install raghub[auth]") from None
 
 from pydantic import BaseModel, Field
 
@@ -56,6 +53,7 @@ class UserRecord(BaseModel):
             authorisation.
         is_admin: ``True`` for admin users (bypass RBAC).
         created_at: UTC timestamp of account creation.
+
     """
 
     user_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -77,6 +75,7 @@ class SqliteUsers:
     Attributes:
         db_path: Filesystem path of the SQLite database file. The file
             is created if it does not exist.
+
     """
 
     def __init__(self, db_path: str | Path) -> None:
@@ -85,6 +84,7 @@ class SqliteUsers:
         Args:
             db_path: SQLite database file path. Created on first
                 :meth:`initialize` if it does not exist.
+
         """
         self.db_path = str(db_path)
 
@@ -139,6 +139,7 @@ class SqliteUsers:
 
         Raises:
             aiosqlite.IntegrityError: If ``email`` already exists.
+
         """
         password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
         record = UserRecord(
@@ -174,6 +175,7 @@ class SqliteUsers:
 
         Returns:
             The :class:`UserRecord`, or ``None`` if no such user exists.
+
         """
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
@@ -191,6 +193,7 @@ class SqliteUsers:
 
         Returns:
             The :class:`UserRecord`, or ``None`` if no such user exists.
+
         """
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
@@ -210,6 +213,7 @@ class SqliteUsers:
         Returns:
             The :class:`UserRecord` on success; ``None`` if the user
             does not exist or the password does not match.
+
         """
         user = await self.get_by_email(email)
         if user is None:
@@ -223,6 +227,7 @@ class SqliteUsers:
 
         Returns:
             A list of :class:`UserRecord`. Empty when the table is empty.
+
         """
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
@@ -238,6 +243,7 @@ class SqliteUsers:
 
         Returns:
             A fully-typed :class:`UserRecord`.
+
         """
         data: dict[str, Any] = dict(row)
         data["allowed_companies"] = json.loads(data.get("allowed_companies", "[]"))
@@ -254,6 +260,7 @@ class SqliteUsers:
 
         Returns:
             Mapping of preference key → decoded value.
+
         """
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
@@ -262,10 +269,7 @@ class SqliteUsers:
                 (user_id,),
             )
             rows = await cursor.fetchall()
-        return {
-            str(row["key"]): json.loads(row["value"])
-            for row in rows
-        }
+        return {str(row["key"]): json.loads(row["value"]) for row in rows}
 
     async def get_pref(self, user_id: str, key: str) -> Any:
         """Return one preference value or ``None`` when absent."""
@@ -286,6 +290,7 @@ class SqliteUsers:
             user_id: Owning user id.
             key: Preference key. Namespaced by caller.
             value: Any JSON-serialisable value.
+
         """
         encoded = json.dumps(value)
         async with aiosqlite.connect(self.db_path) as db:
@@ -307,6 +312,7 @@ class SqliteUsers:
         Args:
             user_id: Owning user id.
             prefs: Key → value mapping; values must be JSON-serialisable.
+
         """
         if not prefs:
             return
@@ -340,6 +346,7 @@ class Authz:
     Attributes:
         user_store: User store held for future admin-elevation flows.
         logger: Optional loguru-compatible logger.
+
     """
 
     def __init__(self, user_store: SqliteUsers, logger: Any | None = None) -> None:
@@ -348,6 +355,7 @@ class Authz:
         Args:
             user_store: Backing user store.
             logger: Optional loguru-compatible logger.
+
         """
         self.user_store = user_store
         self.logger = logger
@@ -362,6 +370,7 @@ class Authz:
         Returns:
             ``True`` if the user is an admin or if the company is in
             their tenant allow-list; ``False`` otherwise.
+
         """
         if user.is_admin:
             return True
@@ -389,6 +398,7 @@ class Authz:
         Returns:
             The companies the user may access, or an empty list for
             admin.
+
         """
         if user.is_admin:
             return []
@@ -402,6 +412,7 @@ class Authz:
 
         Raises:
             AuthorizationError: When ``user`` is not an admin.
+
         """
         if user.is_admin:
             return
@@ -417,6 +428,7 @@ class AuthService(ServiceMixin):
 
     Attributes:
         container: The application container.
+
     """
 
     def __init__(self, container: Any) -> None:
@@ -424,6 +436,7 @@ class AuthService(ServiceMixin):
 
         Args:
             container: The application container.
+
         """
         self.container = container
 
@@ -441,6 +454,7 @@ class AuthService(ServiceMixin):
         Raises:
             AuthenticationError: If the email/password combination is
                 invalid.
+
         """
         started = time.perf_counter()
         user = await self.container.user_store.verify_password(email, password)
@@ -461,6 +475,7 @@ class AuthService(ServiceMixin):
 
         Args:
             token: The bearer token presented by the client.
+
         """
         session = await self.container.store.get_by_token(token)
         if session is not None:
@@ -479,6 +494,7 @@ class AuthService(ServiceMixin):
         Raises:
             AuthenticationError: If the token does not correspond to a
                 live session, or the underlying user has been deleted.
+
         """
         session = await self.container.store.get_by_token(token)
         if session is None:
@@ -508,6 +524,7 @@ class AuthService(ServiceMixin):
             The stored ``tool_settings`` dict, or ``{}`` when the
             store lacks the method (e.g. a custom in-memory store
             used by tests).
+
         """
         store = getattr(self.container, "user_store", None)
         if store is None or not hasattr(store, "get_pref"):

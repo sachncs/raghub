@@ -497,9 +497,7 @@ class SessionStore(SessionRepository):
 class UnitOfWork(BaseUnitOfWork):
     """Coordinate repositories over a shared SQLite transaction."""
 
-    def __init__(
-        self, db_path: str, vector_store: Store, session_timeout: int = 3600
-    ) -> None:
+    def __init__(self, db_path: str, vector_store: Store, session_timeout: int = 3600) -> None:
         self.db_path = db_path
         self.vector_store = vector_store
         self.session_timeout = session_timeout

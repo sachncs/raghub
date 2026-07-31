@@ -80,6 +80,7 @@ from raghub.telemetry import PrometheusMetrics, build_logger
 # Mixin shared by every service
 # ---------------------------------------------------------------------------
 
+
 class Mixin:
     """Provides structured logging and metric helpers to service classes.
 
@@ -90,6 +91,7 @@ class Mixin:
     Attributes:
         container: The container (or compatible stub) providing
             ``logger`` and ``metrics`` attributes.
+
     """
 
     container: Any
@@ -108,21 +110,26 @@ class Mixin:
         if callable(recorder):
             recorder(name, (time.perf_counter() - started_at) * 1000.0)
 
+
 # ---------------------------------------------------------------------------
 # Document service
 # ---------------------------------------------------------------------------
+
 
 async def upload_record(result: IngestionResult | Any) -> DocumentRecord:
     """Return the :class:`DocumentRecord` carried by an ingestion result."""
     return result.document
 
+
 def missing_doc(document_id: str) -> DocumentRecord:
     """Raise :class:`IngestionError` for an unknown document id."""
     raise IngestionError(f"Unknown document id: {document_id}")
 
+
 async def list_records(uow: Any) -> list[DocumentRecord]:
     """Return every document from the repository."""
     return cast(list[DocumentRecord], await uow.document_repo.list_all())
+
 
 async def get_doc(uow: Any, document_id: str) -> DocumentRecord:
     """Return a single document by id or raise :class:`IngestionError`."""
@@ -130,6 +137,7 @@ async def get_doc(uow: Any, document_id: str) -> DocumentRecord:
     if record is None:
         missing_doc(document_id)
     return cast(DocumentRecord, record)
+
 
 class Document(Mixin):
     """Document upload, listing, status, and deletion."""
@@ -152,6 +160,7 @@ class Document(Mixin):
             AuthorizationError: If the caller cannot upload documents
                 for the resolved company.
             IngestionError: If MIME detection or ingestion fails.
+
         """
         started = time.perf_counter()
         auth: Any = self.container.auth
@@ -194,15 +203,14 @@ class Document(Mixin):
             results.extend(docs)
         return results
 
-    async def document_status(
-        self, token: str, document_id: str
-    ) -> DocumentRecord:
+    async def document_status(self, token: str, document_id: str) -> DocumentRecord:
         """Return a single document's status.
 
         Raises:
             IngestionError: If the document does not exist.
             AuthorizationError: If the caller cannot access the
                 document's organization.
+
         """
         auth: Any = self.container.auth
         user, _ = await auth.resolve_user(token)
@@ -220,9 +228,11 @@ class Document(Mixin):
         self.container.vector_store.delete_document(document_id)
         await self.container.uow.document_repo.delete(document_id)
 
+
 # ---------------------------------------------------------------------------
 # Health service
 # ---------------------------------------------------------------------------
+
 
 def probe_vector_store(store: object) -> dict[str, object]:
     """Probe a vector store for liveness.
@@ -242,6 +252,7 @@ def probe_vector_store(store: object) -> dict[str, object]:
     else:
         payload = {**payload, "status": "ok"}
     return payload
+
 
 def probe_embedder(embedder: object) -> dict[str, object]:
     """Probe an embedding provider by emitting a tiny probe vector."""
@@ -266,6 +277,7 @@ def probe_embedder(embedder: object) -> dict[str, object]:
         "model": getattr(embedder, "model_name", ""),
     }
 
+
 def aggregate_status(probes: dict[str, dict[str, object]]) -> str:
     """Combine per-component probes into a single status string."""
     statuses = [str(p.get("status", "")).lower() for p in probes.values()]
@@ -274,6 +286,7 @@ def aggregate_status(probes: dict[str, dict[str, object]]) -> str:
     if any(s in {"degraded", "unknown"} for s in statuses):
         return "degraded"
     return "ok"
+
 
 class Health(Mixin):
     """Aggregate liveness signals from key collaborators."""
@@ -301,9 +314,11 @@ class Health(Mixin):
             "components": components,
         }
 
+
 # ---------------------------------------------------------------------------
 # Query service
 # ---------------------------------------------------------------------------
+
 
 class Query(Mixin):
     """High-level retrieval-augmented Q/A handler."""
@@ -364,9 +379,11 @@ class Query(Mixin):
             source_chunks=[chunk.model_dump(mode="json") for chunk in chunks],
         )
 
+
 # ---------------------------------------------------------------------------
 # Worker primitives
 # ---------------------------------------------------------------------------
+
 
 class Synchronous(BackgroundWorker):
     """Execute tasks inline on the caller's thread.
@@ -382,11 +399,13 @@ class Synchronous(BackgroundWorker):
         except Exception:
             raise
 
+
 class ThreadPool(BackgroundWorker):
     """Execute tasks on a :class:`ThreadPoolExecutor`.
 
     Attributes:
         executor: Backing thread pool.
+
     """
 
     def __init__(self, max_workers: int = 4) -> None:
@@ -394,14 +413,14 @@ class ThreadPool(BackgroundWorker):
 
         Args:
             max_workers: Maximum concurrent worker threads.
+
         """
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
-    def submit(
-        self, fn: Callable[..., Any], *args: Any, **kwargs: Any
-    ) -> Future[Any]:
+    def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future[Any]:
         """Submit ``fn`` to the pool and return its :class:`Future`."""
         return self.executor.submit(fn, *args, **kwargs)
+
 
 class MemoryQueue(TaskQueue):
     """In-memory queue shim intended for Celery/RQ migration.
@@ -418,9 +437,11 @@ class MemoryQueue(TaskQueue):
         self.queue.put((name, payload))
         return name
 
+
 # ---------------------------------------------------------------------------
 # Container + build helpers
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class RagContainer:
@@ -465,17 +486,20 @@ class RagContainer:
     health: object = None
     rag_facade: object = None
 
+
 def seed_blocked(settings: Settings) -> bool:
     """Return ``True`` when the demo-user seed must be skipped."""
     if settings.environment == "production":
         return True
     return os.getenv("CORS_ORIGINS", "").strip() == "*"
 
+
 def parse_users(raw: str) -> Any:
     """Parse the ``RAGHUB_USERS`` env var as JSON."""
     import json as json_import
 
     return json_import.loads(raw)
+
 
 async def seed_demo_users(user_store: SqliteUsers) -> None:
     """Seed demo users from ``RAGHUB_USERS`` or the default list."""
@@ -519,11 +543,13 @@ async def seed_demo_users(user_store: SqliteUsers) -> None:
             is_admin=is_admin,
         )
 
+
 async def build_container(settings: Settings) -> RagContainer:
     """Construct a fully-wired :class:`RagContainer`.
 
     Raises:
         RuntimeError: When ``JWT_SECRET`` is missing.
+
     """
     from contextlib import suppress
 
@@ -537,12 +563,8 @@ async def build_container(settings: Settings) -> RagContainer:
         raise RuntimeError("JWT_SECRET must be configured")
     authorization = Authz(user_store, logger=logger)
 
-    nvidia_api_key = (
-        settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
-    )
-    vector_store: Store = build_store(
-        settings, embedding_dim=settings.embedding_dim
-    )
+    nvidia_api_key = settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
+    vector_store: Store = build_store(settings, embedding_dim=settings.embedding_dim)
 
     db_path = str(settings.registry_path).replace(".json", ".db")
     uow = UnitOfWork(
@@ -609,11 +631,13 @@ async def build_container(settings: Settings) -> RagContainer:
         uow=uow,
     )
 
+
 # ---------------------------------------------------------------------------
 # Facade + coordinators
 # ---------------------------------------------------------------------------
 
 RAG_FACADE_AVAILABLE: bool = importlib.util.find_spec("raghub.rag") is not None
+
 
 class Auth:
     """Auth-shaped coordinator on the facade."""
@@ -624,22 +648,19 @@ class Auth:
 
     async def login(self, email: str, password: str) -> AuthLoginResponse:
         """Authenticate a user and return a session token."""
-        return cast(
-            AuthLoginResponse, await self.facade.auth_svc.login(email, password)
-        )
+        return cast(AuthLoginResponse, await self.facade.auth_svc.login(email, password))
 
     async def logout(self, token: str) -> None:
         """Invalidate ``token`` in the session store."""
         await self.facade.auth_svc.logout(token)
 
-    async def resolve_user(
-        self, token: str
-    ) -> tuple[User, list[ConversationTurn]]:
+    async def resolve_user(self, token: str) -> tuple[User, list[ConversationTurn]]:
         """Resolve a bearer token to a principal plus history."""
         return cast(
             tuple[User, list[ConversationTurn]],
             await self.facade.auth_svc.resolve_user(token),
         )
+
 
 class Shutdown:
     """Release collaborators held by the :class:`RagContainer`."""
@@ -663,14 +684,13 @@ class Shutdown:
             collaborator = getattr(self.container, attr, None)
             if collaborator is None:
                 continue
-            close = getattr(collaborator, "close", None) or getattr(
-                collaborator, "shutdown", None
-            )
+            close = getattr(collaborator, "close", None) or getattr(collaborator, "shutdown", None)
             if close is None:
                 continue
             result = close()
             if asyncio.iscoroutine(result):
                 await result
+
 
 class Preference:
     """Routes advanced-RAG requests based on resolved user prefs."""
@@ -718,9 +738,7 @@ class Preference:
 
         rag: Any | None = getattr(container, "rag_facade", None)
         if rag is None:
-            response = await self.facade.query_svc.query(
-                token=token, question=question
-            )
+            response = await self.facade.query_svc.query(token=token, question=question)
             response.metadata = dict(response.metadata or {})
             response.metadata["resolved_config"] = resolved.to_dict()
             if top_k is not None:
@@ -754,10 +772,7 @@ class Preference:
         return QueryResponse(
             answer=canonical.answer,
             citations=canonical.citations,
-            source_chunks=[
-                chunk.model_dump(mode="json")
-                for chunk in canonical.source_chunks
-            ],
+            source_chunks=[chunk.model_dump(mode="json") for chunk in canonical.source_chunks],
             planner_trace=canonical.metadata.get("planner_trace"),
             tools_invoked=canonical.metadata.get("tools_invoked") or [],
             transforms_applied=canonical.transforms_applied,
@@ -769,6 +784,7 @@ class Preference:
                 **canonical.metadata,
             },
         )
+
 
 class Facade:
     """High-level facade exposing every public action.
@@ -826,9 +842,7 @@ class Facade:
         """Invalidate ``token`` in the session store."""
         return await self.auth.logout(token)
 
-    async def resolve_user(
-        self, token: str
-    ) -> tuple[User, list[ConversationTurn]]:
+    async def resolve_user(self, token: str) -> tuple[User, list[ConversationTurn]]:
         """Resolve a bearer token to a principal plus conversation history."""
         return await self.auth.resolve_user(token)
 
@@ -849,9 +863,7 @@ class Facade:
         """List the documents visible to the caller."""
         return await self.documents_svc.list_documents(token)
 
-    async def document_status(
-        self, token: str, document_id: str
-    ) -> DocumentRecord:
+    async def document_status(self, token: str, document_id: str) -> DocumentRecord:
         """Return the status of a single document."""
         return await self.documents_svc.document_status(token, document_id)
 

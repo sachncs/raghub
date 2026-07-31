@@ -81,9 +81,7 @@ class TestDatabaseManagerDurability:
         finally:
             await mgr2.close()
 
-    async def test_writes_persist_without_explicit_commit(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_writes_persist_without_explicit_commit(self, tmp_path: Path) -> None:
         """Autocommit mode: callers do not need to remember to commit."""
         db_path = tmp_path / "autocommit.db"
         mgr = Database(db_path)
@@ -114,9 +112,7 @@ class TestDatabaseManagerDurability:
         wal_file = db_path.with_suffix(db_path.suffix + "-wal")
         assert not wal_file.exists() or wal_file.stat().st_size == 0
 
-    async def test_many_writes_then_close_preserves_all(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_many_writes_then_close_preserves_all(self, tmp_path: Path) -> None:
         """1 000 inserts survive a close + reopen — autocommit + WAL
         checkpointing must be lossless."""
         db_path = tmp_path / "bulk.db"

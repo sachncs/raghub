@@ -57,9 +57,7 @@ def test_pii_does_not_leak_verbatim_into_answer(rag_with_plain_text) -> None:
     result = rag_with_plain_text.query("What is in the document?")
     # The answer is a single sentence (heuristic picks the most
     # relevant one), not the whole document.
-    assert result.answer.count(".") <= 2, (
-        f"Answer should be bounded but got: {result.answer!r}"
-    )
+    assert result.answer.count(".") <= 2, f"Answer should be bounded but got: {result.answer!r}"
     # The HeuristicProvider returns the most relevant sentence, so
     # if the highest-token-overlap sentence contains the secret,
     # it WILL appear. This is a known limitation of the offline
@@ -77,8 +75,7 @@ def test_pii_email_does_not_leak(rag_with_plain_text) -> None:
     email = "alice@example.com"
     _ingest(
         rag_with_plain_text,
-        f"Contact us at {email} for help with your account. "
-        "We offer twenty-four seven support.",
+        f"Contact us at {email} for help with your account. We offer twenty-four seven support.",
     )
     result = rag_with_plain_text.query("contact")
     assert isinstance(result.answer, str)
@@ -157,8 +154,7 @@ def test_knowledge_base_poisoning_with_unicode_smuggled(rag_with_plain_text) -> 
     """Unicode tricks in the document shouldn't crash the pipeline."""
     _ingest(
         rag_with_plain_text,
-        "Capital ℡ Paris.\u200b\u200b\u200b France is in Europe. "
-        "The capital of France is Paris.",
+        "Capital ℡ Paris.\u200b\u200b\u200b France is in Europe. The capital of France is Paris.",
     )
     result = rag_with_plain_text.query("What is the capital of France?")
     assert "Paris" in result.answer

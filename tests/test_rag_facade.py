@@ -92,9 +92,7 @@ def test_rag_evaluate_calls_evaluator() -> None:
             self.called_with = (tuple(examples), response_factory)
             from raghub.models import Result
 
-            return [
-                Result(benchmark="financebench", example_id="0", predicted="y")
-            ]
+            return [Result(benchmark="financebench", example_id="0", predicted="y")]
 
     _monkey = rag.evaluate.__func__.__globals__.get("Finance")
     original = rag.evaluate.__globals__.get("Finance")
@@ -256,9 +254,7 @@ def test_rag_evaluate_without_factory(monkeypatch: pytest.MonkeyPatch) -> None:
         async def evaluate(self, examples, *, response_factory):
             for ex in examples:
                 await response_factory(ex)
-            return [
-                Result(benchmark="financebench", example_id="0", predicted="y")
-            ]
+            return [Result(benchmark="financebench", example_id="0", predicted="y")]
 
     globs = rag.evaluate.__globals__
     original = globs["Finance"]
@@ -287,6 +283,7 @@ def test_rag_evaluate_with_sync_factory() -> None:
     original = globs["Finance"]
     globs["Finance"] = _FakeEvaluator
     try:
+
         def _factory(example: dict) -> str:
             return example.get("answer", "")
 

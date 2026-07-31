@@ -74,6 +74,7 @@ class DefaultGenerator:
             system_prompt: The system message.
             timeout_seconds: Maximum completion time. Defaults to the
                 ``RAG_LLM_TIMEOUT_SECONDS`` environment variable when set.
+
         """
         configured_timeout = os.getenv("RAG_LLM_TIMEOUT_SECONDS")
         if timeout_seconds is None and configured_timeout:
@@ -101,6 +102,7 @@ class DefaultGenerator:
 
         Returns:
             ``(answer, citations)`` for the question.
+
         """
         context_texts = [hit.chunk.text for hit in context]
         turns = [ConversationTurn(question=t.question, answer=t.answer) for t in conversation]
@@ -238,6 +240,7 @@ class Instructor(StructuredOutputProvider):
             async_client: When ``True`` (default) build an async
                 client for :meth:`generate`. When ``False`` the
                 provider works synchronously.
+
         """
         self.model = model
         self.api_key = api_key
@@ -293,6 +296,7 @@ class Instructor(StructuredOutputProvider):
 
         Returns:
             A populated ``response_model`` instance.
+
         """
         try:
             from openai.types.chat import ChatCompletionMessageParam

@@ -60,6 +60,7 @@ def to_okf(bundle: Bundle) -> dict[str, Any]:
 
     Returns:
         A JSON-serialisable dict conforming to the OKF schema.
+
     """
     return {
         "$schema": f"okf/{bundle.schema_version or OKF_SCHEMA_VERSION}",
@@ -104,6 +105,7 @@ def from_okf(payload: dict[str, Any] | str) -> Bundle:
 
     Raises:
         KnowledgeError: When the payload is structurally invalid.
+
     """
     if isinstance(payload, str):
         parsed, _ = capture(json.loads, payload)
@@ -124,9 +126,7 @@ def from_okf(payload: dict[str, Any] | str) -> Bundle:
             kind_raw = raw_block.get("kind", "text")
             kind, kind_error = capture(BlockKind, kind_raw)
             if kind_error is not None:
-                raise KnowledgeError(
-                    f"Unknown OKF block kind: {kind_raw!r}"
-                ) from kind_error
+                raise KnowledgeError(f"Unknown OKF block kind: {kind_raw!r}") from kind_error
             blocks.append(
                 DocumentBlock(
                     block_id=raw_block.get("block_id", ""),
@@ -170,6 +170,7 @@ def dumps(bundle: Bundle, *, indent: int | None = 2) -> str:
 
     Returns:
         A JSON string.
+
     """
     return json.dumps(to_okf(bundle), indent=indent, ensure_ascii=False)
 
@@ -182,6 +183,7 @@ def loads(payload: str) -> Bundle:
 
     Returns:
         The reconstructed bundle.
+
     """
     data, error = capture(json.loads, payload)
     if error is not None or not isinstance(data, dict):
@@ -343,6 +345,7 @@ class Raptor(KnowledgeIndex):
 
     Attributes:
         name: ``"raptor"``.
+
     """
 
     name = "raptor"
@@ -392,9 +395,7 @@ class Raptor(KnowledgeIndex):
         removed = 0
         for level in self.levels:
             before = len(level)
-            level[:] = [
-                rec for rec in level if rec.document_id != document_id
-            ]
+            level[:] = [rec for rec in level if rec.document_id != document_id]
             removed += before - len(level)
         self.lock_token += 1
         return removed
@@ -475,19 +476,14 @@ class Raptor(KnowledgeIndex):
             current = summaries
 
 
-def cluster(
-    items: list[ChunkRecord], cluster_size: int
-) -> list[list[ChunkRecord]]:
+def cluster(items: list[ChunkRecord], cluster_size: int) -> list[list[ChunkRecord]]:
     """Cluster ``items`` by embedding cosine distance."""
     if len(items) <= cluster_size:
         return [items]
     import numpy as np
     from sklearn.cluster import KMeans
 
-    vectors = [
-        np.asarray(item.metadata.get("vector") or [0.0], dtype=float)
-        for item in items
-    ]
+    vectors = [np.asarray(item.metadata.get("vector") or [0.0], dtype=float) for item in items]
     n_clusters = max(1, min(len(items) // cluster_size, len(items)))
     if n_clusters <= 1:
         return [items]
@@ -496,10 +492,7 @@ def cluster(
     if fit_error is None:
         labels, fit_error = capture(kmeans.fit_predict, matrix)
     if fit_error is not None:
-        return [
-            items[i : i + cluster_size]
-            for i in range(0, len(items), cluster_size)
-        ]
+        return [items[i : i + cluster_size] for i in range(0, len(items), cluster_size)]
     groups: dict[int, list[ChunkRecord]] = {}
     for label, item in zip(labels, items, strict=True):
         groups.setdefault(int(label), []).append(item)
@@ -653,6 +646,7 @@ class GraphIndex(KnowledgeIndex):
 
     Attributes:
         name: ``"graphrag"``.
+
     """
 
     name = "graphrag"
@@ -893,9 +887,7 @@ class GraphIndex(KnowledgeIndex):
             else (None, graph_error)
         )
         if graph_error is None and partition_error is None and partition is not None:
-            self.communities = [
-                {entities[v] for v in community} for community in partition
-            ]
+            self.communities = [{entities[v] for v in community} for community in partition]
         else:
             self.communities = list(connected_components(self))
 
@@ -964,9 +956,7 @@ class GraphIndex(KnowledgeIndex):
             hits.append(Hit(chunk_id=cid, score=score, chunk=record))
         return hits
 
-    def rank_by_query_relevance(
-        self, query: str, chunk_ids: set[str]
-    ) -> list[str]:
+    def rank_by_query_relevance(self, query: str, chunk_ids: set[str]) -> list[str]:
         """Rank ``chunk_ids`` by simple query-token overlap."""
         tokens = tokenise(query)
         scored: list[tuple[str, float]] = []
@@ -979,9 +969,7 @@ class GraphIndex(KnowledgeIndex):
         scored.sort(key=lambda item: (-item[1], item[0]))
         return [cid for cid, _score in scored]
 
-    def to_hits(
-        self, chunk_ids: list[str], top_k: int
-    ) -> list[Hit]:
+    def to_hits(self, chunk_ids: list[str], top_k: int) -> list[Hit]:
         """Build :class:`Hit` objects from chunk ids."""
         out: list[Hit] = []
         for cid in chunk_ids[: int(top_k)]:
