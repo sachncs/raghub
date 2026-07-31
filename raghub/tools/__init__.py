@@ -301,7 +301,7 @@ def as_admin_user(user: User | None) -> User:
 
     """
     if user is None:
-        return User(user_id="__agent__", email="__agent__@local", is_admin=True)
+        return User(id="__agent__", email="__agent__@local", is_admin=True)
     return user
 
 

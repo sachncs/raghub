@@ -66,12 +66,12 @@ from raghub.knowledge import (
 )
 from raghub.models import (
     Chunker,
-    Turn,
     DocumentConverter,
     PipelineCtx,
     PipelineResult,
     Response,
     Result,
+    Turn,
     deterministic_id,
 )
 from raghub.pipeline import AgentPipeline, IngestPipeline, QueryCache, QueryPipeline

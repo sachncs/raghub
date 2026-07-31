@@ -111,7 +111,7 @@ class Auth:
 
         """
         user, _ = await app_service.auth.resolve_user(token)
-        return user.user_id
+        return user.id
 
 
 __all__ = [

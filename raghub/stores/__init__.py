@@ -41,10 +41,10 @@ from tqdm import tqdm
 from raghub.domain import DatabaseManager
 from raghub.errors import AuthenticationError, MissingDepError, RagHubError
 from raghub.models import (
-    Turn,
     Document,
     DocumentLifecycleStatus,
     Session,
+    Turn,
 )
 from raghub.utils import atomic_write_json, capture, load_json
 

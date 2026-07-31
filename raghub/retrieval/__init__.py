@@ -46,9 +46,9 @@ from raghub.errors import GraphUnavailableError, RerankerError
 from raghub.models import (
     Chunk,
     Classification,
-    Turn,
     Hit,
     RankedList,
+    Turn,
     User,
 )
 from raghub.telemetry import record_long_context, record_rerank_latency

@@ -48,7 +48,6 @@ __all__ = [
     "Chunk",
     "Citation",
     "Classification",
-    "Turn",
     "Document",
     "Document",
     "DocumentLifecycleStatus",
@@ -68,6 +67,7 @@ __all__ = [
     "SearchResponse",
     "SearchResult",
     "Session",
+    "Turn",
     "User",
     "Visibility",
     "deterministic_id",
@@ -176,7 +176,7 @@ class User(BaseModel):
 
     """
 
-    user_id: str = Field(default_factory=lambda: str(uuid4()))
+    id: str = Field(default_factory=lambda: str(uuid4()))
     email: str
     allowed_companies: list[str] = Field(default_factory=list)
     allowed_groups: list[str] = Field(default_factory=list)

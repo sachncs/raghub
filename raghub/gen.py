@@ -29,9 +29,9 @@ from raghub.errors import MissingDepError
 from raghub.llm import Generator
 from raghub.models import (
     Citation,
-    Turn,
     Hit,
     StructuredOutputProvider,
+    Turn,
 )
 
 T = TypeVar("T", bound=BaseModel)

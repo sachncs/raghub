@@ -380,7 +380,7 @@ class Authz:
             if callable(log):
                 log(
                     "audit.rbac.denied",
-                    user_id=user.user_id,
+                    user_id=user.id,
                     email=user.email,
                     required_company=required_company,
                     allowed_companies=list(user.allowed_companies),
@@ -419,7 +419,7 @@ class Authz:
         if self.logger is not None:
             log = getattr(self.logger, "warning", None)
             if callable(log):
-                log("audit.rbac.admin_required", user_id=user.user_id, email=user.email)
+                log("audit.rbac.admin_required", user_id=user.id, email=user.email)
         raise AuthorizationError("Admin access required")
 
 
@@ -461,7 +461,7 @@ class AuthService(ServiceMixin):
         if user is None:
             self.log("audit.login.failed", email=email, reason="invalid_credentials")
             raise AuthenticationError("Invalid email or password")
-        session = await self.container.store.create_session(user.user_id)
+        session = await self.container.store.create_session(user.id)
         self.emit_metric("auth_login_latency_ms", started)
         self.log("audit.login.success", email=user.email)
         return AuthLoginResponse(
@@ -502,15 +502,15 @@ class AuthService(ServiceMixin):
             raise AuthenticationError("Invalid or expired session")
         record = await self.container.user_store.get_by_id(session.user_id)
         if record is None:
-            self.log("audit.token.invalid", user_id=session.user_id, reason="user_deleted")
+            self.log("audit.token.invalid", user_id=session.user_id, reason="user_deleted")  # session.user_id is FK to User (kept as user_id per FK convention)
             raise AuthenticationError("User not found")
         user = User(
-            user_id=record.user_id,
+            id=record.id,
             email=record.email,
             allowed_companies=record.allowed_companies,
             allowed_groups=record.allowed_groups,
             is_admin=record.is_admin,
-            tool_settings=await self.load_tool_settings(record.user_id),
+            tool_settings=await self.load_tool_settings(record.id),
         )
         return user, list(session.history)
 

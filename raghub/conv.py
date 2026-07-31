@@ -22,8 +22,8 @@ from collections import defaultdict, deque
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
-from raghub.domain import Session
-from raghub.models import Turn, Session
+from raghub.domain import Session as SessionWrap
+from raghub.models import Session, Turn
 from raghub.repos import UnitOfWork
 
 __all__ = [
@@ -187,13 +187,13 @@ class ConversationManager:
             A new :class:`Session` wrapping the persisted record.
 
         """
-        record = Session(
-            user_id=user_id,
-            expires_at=datetime.now(UTC) + timedelta(seconds=3600),
-            last_seen_at=datetime.now(UTC),
-        )
+        record = Session.model_validate({
+            "user_id": user_id,
+            "expires_at": (datetime.now(UTC) + timedelta(seconds=3600)).isoformat(),
+            "last_seen_at": datetime.now(UTC).isoformat(),
+        })
         await self.uow.session_repo.save(record)
-        return Session(record)
+        return SessionWrap(record)  # type: ignore[call-arg,arg-type]
 
     async def resolve(self, token: str) -> Session | None:
         """Resolve a session token to a :class:`Session`.
@@ -208,7 +208,7 @@ class ConversationManager:
         record = await self.uow.session_repo.get_by_token(token)
         if record is None:
             return None
-        return Session(record)
+        return SessionWrap(record)  # type: ignore[call-arg,arg-type]
 
     async def append(
         self,

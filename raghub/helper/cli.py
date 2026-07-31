@@ -142,7 +142,7 @@ class ToolConfig:
                 user = await store.get_by_email(email)
                 if user is None:
                     raise typer.BadParameter(f"no user with email {email!r}")
-                prefs = await store.get_prefs(user.user_id)
+                prefs = await store.get_prefs(user.id)
                 CliConfig.write_json(
                     {"email": email, "tool_settings": prefs.get("tool_settings", {})}
                 )
@@ -170,14 +170,14 @@ class ToolConfig:
                 user = await store.get_by_email(email)
                 if user is None:
                     raise typer.BadParameter(f"no user with email {email!r}")
-                existing = await store.get_pref(user.user_id, "tool_settings") or {}
+                existing = await store.get_pref(user.id, "tool_settings") or {}
                 if not isinstance(existing, dict):
                     existing = {}
                 merged = {
                     **existing,
                     **{k: v for k, v in patch.items() if k in cls.keys},
                 }
-                await store.set_pref(user.user_id, "tool_settings", merged)
+                await store.set_pref(user.id, "tool_settings", merged)
                 CliConfig.write_json({"email": email, "tool_settings": merged})
 
             cls.run_coro(runner())
@@ -191,7 +191,7 @@ class ToolConfig:
                 user = await store.get_by_email(email)
                 if user is None:
                     raise typer.BadParameter(f"no user with email {email!r}")
-                await store.delete_pref(user.user_id, "tool_settings")
+                await store.delete_pref(user.id, "tool_settings")
                 CliConfig.write_json({"email": email, "tool_settings": None})
 
             cls.run_coro(runner())
