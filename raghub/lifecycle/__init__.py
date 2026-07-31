@@ -19,11 +19,11 @@ The classes and functions here map onto the document lifecycle::
                                   format-aware parse lives in parser.py).
     build_chunk_records         - one-stop factory for :class:`ChunkRecord`.
     Section, normalise_markdown
-                                - Markdown → :class:`KnowledgeBundle`.
-    PlainTextConverter          - text/binary → :class:`KnowledgeBundle`.
-    Marker             - PDF → :class:`KnowledgeBundle` (marker-pdf).
+                                - Markdown → :class:`Bundle`.
+    PlainTextConverter          - text/binary → :class:`Bundle`.
+    Marker             - PDF → :class:`Bundle` (marker-pdf).
     pick_converter, convert_path
-                                - file → :class:`KnowledgeBundle`.
+                                - file → :class:`Bundle`.
     looks_like_pdf              - ``%PDF-`` magic-byte check.
 """
 
@@ -50,6 +50,7 @@ from raghub.errors import (
 )
 from raghub.models import (
     BlockKind,
+    Bundle,
     ChunkRecord,
     Classification,
     DocumentBlock,
@@ -57,7 +58,6 @@ from raghub.models import (
     DocumentLifecycleStatus,
     DocumentRecord,
     DocumentSection,
-    KnowledgeBundle,
     deterministic_id,
 )
 from raghub.utils import capture
@@ -650,8 +650,8 @@ def normalise_markdown(
     language: str = "",
     metadata: dict[str, Any] | None = None,
     page_numbers: list[int] | None = None,
-) -> KnowledgeBundle:
-    """Convert ``markdown`` to a single-section :class:`KnowledgeBundle`.
+) -> Bundle:
+    """Convert ``markdown`` to a single-section :class:`Bundle`.
 
     Args:
         markdown: Markdown source.
@@ -662,7 +662,7 @@ def normalise_markdown(
         page_numbers: Optional page numbers for the section.
 
     Returns:
-        The canonical :class:`KnowledgeBundle`.
+        The canonical :class:`Bundle`.
     """
     metadata = metadata or {}
     page_numbers = page_numbers or []
@@ -680,7 +680,7 @@ def normalise_markdown(
         source_location=f"{source_uri}#0",
     )
 
-    return KnowledgeBundle(
+    return Bundle(
         bundle_id=deterministic_id("bundle", source_uri),
         source_uri=source_uri,
         mime_type=mime_type,
@@ -719,7 +719,7 @@ def build_marker_converter(*, device: str | None = None) -> Any:
 
 
 class PlainTextConverter(DocumentConverter):
-    """Convert plain text into a :class:`KnowledgeBundle`.
+    """Convert plain text into a :class:`Bundle`.
 
     The text is wrapped in a Markdown paragraph and normalised via
     :func:`normalise_markdown`. There is no structure to preserve.
@@ -733,7 +733,7 @@ class PlainTextConverter(DocumentConverter):
         mime_type: str = "",
         language: str = "",
         metadata: dict[str, Any] | None = None,
-    ) -> KnowledgeBundle:
+    ) -> Bundle:
         """Convert plain text to a single-section bundle.
 
         Args:
@@ -783,7 +783,7 @@ class Marker(DocumentConverter):
         mime_type: str = "",
         language: str = "",
         metadata: dict[str, Any] | None = None,
-    ) -> KnowledgeBundle:
+    ) -> Bundle:
         """Convert source bytes into a canonical knowledge bundle."""
         if not file_bytes:
             raise ConfigurationError(
@@ -869,8 +869,8 @@ def convert_path(
     path: str | Path,
     *,
     converter: DocumentConverter | None = None,
-) -> KnowledgeBundle:
-    """Convert a file at ``path`` into a :class:`KnowledgeBundle`.
+) -> Bundle:
+    """Convert a file at ``path`` into a :class:`Bundle`.
 
     Args:
         path: File system path.
@@ -878,7 +878,7 @@ def convert_path(
             converter is selected by extension.
 
     Returns:
-        The canonical :class:`KnowledgeBundle`.
+        The canonical :class:`Bundle`.
     """
     p = Path(path)
     active = converter or pick_converter(p)

@@ -940,7 +940,7 @@ class AppFactory:
 
     @classmethod
     def create_app(cls) -> FastAPI:
-        """Build the app via :func:`build_application` if not cached.
+        """Build the app via :func:`build_container` if not cached.
 
         Returns:
             The cached :class:`FastAPI` instance.
@@ -950,9 +950,12 @@ class AppFactory:
         if cls.instance.cached is None:
             import asyncio
 
-            from raghub.core import build_application
+            from raghub.config import Settings
+            from raghub.services import Facade, build_container
 
-            application = asyncio.run(build_application())
+            settings = Settings.load()
+            container = asyncio.run(build_container(settings))
+            application = Facade(container)
             cls.instance.cached = create_app(application)
         return cls.instance.cached
 

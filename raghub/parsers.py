@@ -380,7 +380,7 @@ class Catalog:
 
     def __init__(self) -> None:
         """Initialise the registry and install the default parsers."""
-        self.parsers: dict[str, File] = {}
+        self.entries: dict[str, File] = {}
         self.register_defaults()
 
     def register_defaults(self) -> None:

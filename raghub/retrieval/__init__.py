@@ -33,9 +33,9 @@ import json
 import os
 import re
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Coroutine, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, Field, SecretStr
 
@@ -47,8 +47,8 @@ from raghub.models import (
     ChunkRecord,
     Classification,
     ConversationTurn,
+    Hit,
     RankedList,
-    RetrievalHit,
     User,
 )
 from raghub.telemetry import record_long_context, record_rerank_latency
@@ -83,12 +83,12 @@ class Rerank(Protocol):
     name: str
 
     def rerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]: ...
+        self, *, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]: ...
 
     async def arerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]: ...
+        self, *, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]: ...
 
 
 @runtime_checkable
@@ -127,14 +127,14 @@ class Identity:
     name = "identity"
 
     def rerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, *, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]:
         """Return ``hits`` unchanged (identity pass-through)."""
         return list(hits)
 
     async def arerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, *, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]:
         """Async identity pass-through."""
         return list(hits)
 
@@ -194,8 +194,8 @@ class Cohere:
         return self.client
 
     def rerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, *, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]:
         """Reorder ``hits`` by Cohere's relevance score."""
         if not hits:
             return []
@@ -205,16 +205,19 @@ class Cohere:
         return ordered
 
     async def arerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, *, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]:
         """Async shim that pushes the sync rerank onto a worker thread."""
-        return await __import__("asyncio").to_thread(
-            self.rerank, question=question, hits=list(hits)
+        return cast(
+            list[Hit],
+            await __import__("asyncio").to_thread(
+                self.rerank, question=question, hits=list(hits)
+            ),
         )
 
     def score(
-        self, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]:
         """Call the Cohere API and reorder ``hits`` by its output."""
         client = self.ensure_client()
         documents = [hit.chunk.text for hit in hits]
@@ -224,7 +227,7 @@ class Cohere:
             documents=documents,
             top_n=min(self.top_k, len(documents)),
         )
-        ordered: list[RetrievalHit] = []
+        ordered: list[Hit] = []
         for result in getattr(response, "results", []):
             idx = getattr(result, "index", None)
             if idx is None or idx < 0 or idx >= len(hits):
@@ -267,7 +270,7 @@ class Cascade:
 
     @staticmethod
     def changed_order(
-        input_hits: Sequence[RetrievalHit], ranked: Sequence[RetrievalHit]
+        input_hits: Sequence[Hit], ranked: Sequence[Hit]
     ) -> bool:
         """Return ``True`` when ``ranked`` is not the input order."""
         if len(input_hits) != len(ranked):
@@ -276,22 +279,25 @@ class Cascade:
 
     @staticmethod
     async def call(
-        reranker: Any, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        reranker: Any, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]:
         """Call ``arerank`` when available, else ``rerank`` in a thread."""
         arerank = getattr(reranker, "arerank", None)
         if callable(arerank):
             return list(await arerank(question=question, hits=list(hits)))
         sync = getattr(reranker, "rerank", None)
         if callable(sync):
-            return await __import__("asyncio").to_thread(
-                sync, question=question, hits=list(hits)
+            return cast(
+                list[Hit],
+                await __import__("asyncio").to_thread(
+                    sync, question=question, hits=list(hits)
+                ),
             )
         raise TypeError(f"reranker {reranker!r} has neither arerank nor rerank")
 
     async def arerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, *, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]:
         """Async cascade.
 
         Returns ``cheap.rerank(hits)`` when cheap reordered, else
@@ -312,10 +318,13 @@ class Cascade:
         return ordered
 
     def rerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, *, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]:
         """Sync shim around :meth:`arerank`."""
-        return __import__("asyncio").run(self.arerank(question=question, hits=hits))
+        return cast(
+            list[Hit],
+            __import__("asyncio").run(self.arerank(question=question, hits=hits)),
+        )
 
 
 LISTWISE_MAX = 10
@@ -350,8 +359,8 @@ def extract_json_array(raw: str) -> list[dict[str, Any]]:
 
 
 def merge_with_rrf(
-    per_window: list[list[RetrievalHit]], rrf_k: int = 60
-) -> list[RetrievalHit]:
+    per_window: list[list[Hit]], rrf_k: int = 60
+) -> list[Hit]:
     """Reciprocal-Rank-Fusion merge across ranked windows."""
     scores: dict[str, float] = {}
     order: dict[str, int] = {}
@@ -392,8 +401,8 @@ class LlmJudge:
         self.top_k = top_k
 
     async def rank_window(
-        self, question: str, hits: list[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, question: str, hits: list[Hit]
+    ) -> list[Hit]:
         """Listwise-rank a single window of candidates."""
         lines = []
         for idx, hit in enumerate(hits):
@@ -414,7 +423,7 @@ class LlmJudge:
             question=prompt,
         )
         parsed = extract_json_array(raw or "")
-        ordered: list[RetrievalHit] = []
+        ordered: list[Hit] = []
         seen: set[int] = set()
         for item in parsed:
             index_value: Any = item.get("index")
@@ -433,8 +442,8 @@ class LlmJudge:
         return ordered
 
     async def do_rerank(
-        self, question: str, hits: list[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, question: str, hits: list[Hit]
+    ) -> list[Hit]:
         """Listwise for ≤ LISTWISE_MAX candidates; windowed RRF above."""
         if len(hits) <= LISTWISE_MAX:
             return (await self.rank_window(question, hits))[: self.top_k]
@@ -447,8 +456,8 @@ class LlmJudge:
         return merged[: self.top_k]
 
     async def arerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, *, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]:
         """Async rerank."""
         if not hits:
             return []
@@ -458,10 +467,13 @@ class LlmJudge:
         return ordered
 
     def rerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, *, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]:
         """Sync rerank via :func:`asyncio.run`."""
-        return __import__("asyncio").run(self.arerank(question=question, hits=hits))
+        return cast(
+            list[Hit],
+            __import__("asyncio").run(self.arerank(question=question, hits=hits)),
+        )
 
 
 CONTEXT = (
@@ -471,7 +483,7 @@ CONTEXT = (
 )
 
 
-def context_prompt(question: str, hits: Sequence[RetrievalHit]) -> str:
+def context_prompt(question: str, hits: Sequence[Hit]) -> str:
     """Assemble the long-context prompt."""
     lines = [f"Question: {question}", "", "Candidates:"]
     for idx, hit in enumerate(hits):
@@ -514,12 +526,12 @@ def extract_json_object(raw: str) -> dict[str, Any] | None:
 
 
 def reorder_candidates(
-    candidates: Sequence[RetrievalHit],
+    candidates: Sequence[Hit],
     ranked: RankedList,
-) -> list[RetrievalHit] | None:
+) -> list[Hit] | None:
     """Apply the LLM's ranking to ``candidates``."""
     id_to_hit = {hit.chunk_id: hit for hit in candidates}
-    ordered: list[RetrievalHit] = []
+    ordered: list[Hit] = []
     seen: set[str] = set()
     for item in ranked.items:
         if item.chunk_id in id_to_hit and item.chunk_id not in seen:
@@ -573,8 +585,8 @@ class Context:
         self,
         *,
         question: str,
-        hits: Sequence[RetrievalHit],
-    ) -> list[RetrievalHit]:
+        hits: Sequence[Hit],
+    ) -> list[Hit]:
         """Re-order ``hits`` with a long-context LLM call.
 
         Returns the original order when the pass is not eligible,
@@ -611,8 +623,8 @@ class Context:
             return list(hits)
 
     async def arerank(
-        self, *, question: str, hits: Sequence[RetrievalHit]
-    ) -> list[RetrievalHit]:
+        self, *, question: str, hits: Sequence[Hit]
+    ) -> list[Hit]:
         """Async alias preserved for symmetry with other rerankers."""
         return await self.rerank(question=question, hits=hits)
 
@@ -1227,14 +1239,14 @@ class Retrieval:
 
     def retrieve(
         self, *, user: User, question: str, top_k: int
-    ) -> list[RetrievalHit]:
+    ) -> list[Hit]:
         """Retrieve authorised, deduplicated chunks relevant to ``question``."""
         metadata_filter = allowed_company_filter(user)
         vector = self.embedding_provider.embed_text(question)
         raw_hits = self.vector_store.search(
             vector=vector, top_k=top_k, metadata_filter=metadata_filter
         )
-        hits: list[RetrievalHit] = []
+        hits: list[Hit] = []
         seen: set[str] = set()
         for raw in raw_hits:
             chunk: ChunkRecord = raw["chunk"]
@@ -1242,7 +1254,7 @@ class Retrieval:
                 continue
             seen.add(chunk.chunk_id)
             hits.append(
-                RetrievalHit(
+                Hit(
                     chunk_id=chunk.chunk_id,
                     score=float(raw["score"]),
                     chunk=chunk,
@@ -1252,11 +1264,11 @@ class Retrieval:
 
     def retrieve_keyword(
         self, query: str, top_k: int = 5
-    ) -> list[RetrievalHit]:
+    ) -> list[Hit]:
         """Keyword-only retrieval using the vector store's native scorer."""
         raw_hits = self.vector_store.keyword_search(query, top_k)
         return [
-            RetrievalHit(
+            Hit(
                 chunk_id=h["chunk_id"],
                 score=float(h["score"]),
                 chunk=h["chunk"],
@@ -1267,13 +1279,13 @@ class Retrieval:
     def retrieve_hybrid(
         self,
         query: str,
-        vector_results: list[RetrievalHit],
+        vector_results: list[Hit],
         keyword_weight: float = 0.3,
         vector_weight: float = 0.7,
         *,
         fusion: str | None = None,
         rrf_k: int | None = None,
-    ) -> list[RetrievalHit]:
+    ) -> list[Hit]:
         """Combine keyword and vector hits with the configured fusion."""
         chosen = fusion or getattr(self.hybrid, "fusion", "rrf")
         if chosen == "linear":
@@ -1295,9 +1307,9 @@ class Retrieval:
         self,
         *,
         query: str,
-        vector_results: list[RetrievalHit],
+        vector_results: list[Hit],
         rrf_k: int,
-    ) -> list[RetrievalHit]:
+    ) -> list[Hit]:
         """Reciprocal-Rank-Fusion hybrid path."""
         keyword_hits = self.retrieve_keyword(
             query, top_k=len(vector_results) * 2 or 1
@@ -1307,12 +1319,12 @@ class Retrieval:
         fused = rrf([dense_ranks, sparse_ranks], k=rrf_k)
         chunk_map: dict[str, ChunkRecord] = {h.chunk_id: h.chunk for h in keyword_hits}
         chunk_map.update({h.chunk_id: h.chunk for h in vector_results})
-        out: list[RetrievalHit] = []
+        out: list[Hit] = []
         for chunk_id, score in fused:
             chunk = chunk_map.get(chunk_id)
             if chunk is not None:
                 out.append(
-                    RetrievalHit(
+                    Hit(
                         chunk_id=chunk_id, score=float(score), chunk=chunk
                     )
                 )
@@ -1322,10 +1334,10 @@ class Retrieval:
         self,
         *,
         query: str,
-        vector_results: list[RetrievalHit],
+        vector_results: list[Hit],
         keyword_weight: float,
         vector_weight: float,
-    ) -> list[RetrievalHit]:
+    ) -> list[Hit]:
         """Legacy linear-combine path."""
         keyword_hits = self.retrieve_keyword(
             query, top_k=len(vector_results) * 2 or 1
@@ -1344,7 +1356,7 @@ class Retrieval:
             chunk_map[h.chunk_id] = h.chunk
         for h in vector_results:
             chunk_map[h.chunk_id] = h.chunk
-        fused: list[RetrievalHit] = []
+        fused: list[Hit] = []
         for chunk_id in all_ids:
             kw_score = keyword_by_id.get(chunk_id, 0.0) / kw_max
             vec_score = vector_by_id.get(chunk_id, 0.0) / vec_max
@@ -1352,7 +1364,7 @@ class Retrieval:
             chunk = chunk_map.get(chunk_id)
             if chunk is not None:
                 fused.append(
-                    RetrievalHit(
+                    Hit(
                         chunk_id=chunk_id, score=combined, chunk=chunk
                     )
                 )
@@ -1361,7 +1373,7 @@ class Retrieval:
 
     def hybrid_search(
         self, *, user: User, question: str, top_k: int
-    ) -> list[RetrievalHit]:
+    ) -> list[Hit]:
         """RBAC-filtered vector hits fused with keyword hits."""
         vector_results = self.retrieve(user=user, question=question, top_k=top_k)
         return self.retrieve_hybrid(question, vector_results)
@@ -1372,7 +1384,7 @@ class Retrieval:
         user: User,
         variants: list[Variant],
         top_k: int,
-    ) -> list[RetrievalHit]:
+    ) -> list[Hit]:
         """Embed each variant and fuse the per-channel maxima into one ranking."""
         if not variants:
             return []
@@ -1401,8 +1413,8 @@ class Retrieval:
                 if contribution > prior:
                     chunk_score[hit.chunk_id] = contribution
                 chunk_map.setdefault(hit.chunk_id, hit.chunk)
-        fused: list[RetrievalHit] = [
-            RetrievalHit(
+        fused: list[Hit] = [
+            Hit(
                 chunk_id=cid, score=score, chunk=chunk_map[cid]
             )
             for cid, score in chunk_score.items()
@@ -1423,16 +1435,16 @@ class Retrieval:
         question: str,
         top_k: int,
         colbert: Any | None = None,
-    ) -> list[RetrievalHit]:
+    ) -> list[Hit]:
         """Three-channel hybrid retrieval (dense + sparse + optional ColBERT)."""
         dense = self.retrieve(user=user, question=question, top_k=top_k)
         sparse = self.retrieve_keyword(question, top_k=top_k)
-        colbert_hits: list[RetrievalHit] = []
+        colbert_hits: list[Hit] = []
         if colbert is not None and getattr(colbert, "is_available", lambda: False)():
             scores = colbert.score(question, [h.chunk.text for h in dense])
             if scores and len(scores) == len(dense):
                 colbert_hits = [
-                    RetrievalHit(
+                    Hit(
                         chunk_id=h.chunk_id,
                         score=float(score),
                         chunk=h.chunk,
@@ -1451,12 +1463,12 @@ class Retrieval:
         chunk_map: dict[str, ChunkRecord] = {h.chunk_id: h.chunk for h in sparse}
         chunk_map.update({h.chunk_id: h.chunk for h in colbert_hits})
         chunk_map.update({h.chunk_id: h.chunk for h in dense})
-        out: list[RetrievalHit] = []
+        out: list[Hit] = []
         for chunk_id, score in fused_scores:
             chunk = chunk_map.get(chunk_id)
             if chunk is not None:
                 out.append(
-                    RetrievalHit(
+                    Hit(
                         chunk_id=chunk_id, score=float(score), chunk=chunk
                     )
                 )
@@ -1509,7 +1521,12 @@ class RerankerFactory:
                 raise RerankerError(
                     "long_context reranker requires an LLM via RerankerFactory(llm=...)"
                 )
-            return Context(self.llm, cfg.long_context or default_long_context())
+            # Context is async-only; Rerank requires sync rerank, so callers
+            # reach it through the async path or asyncio.run (see reranker()).
+            return cast(
+                Rerank,
+                Context(self.llm, getattr(cfg, "long_context", None) or default_long_context()),
+            )
         raise RerankerError(f"Unknown reranker provider: {provider!r}")
 
 
@@ -1559,10 +1576,10 @@ def default_long_context() -> LongContextConfig:
 
 def reranker(
     question: str,
-    hits: Sequence[RetrievalHit],
+    hits: Sequence[Hit],
     *,
     method: str = "identity",
-) -> list[RetrievalHit]:
+) -> list[Hit]:
     """Synchronously rerank ``hits`` using the named ``method``.
 
     Args:
@@ -1575,15 +1592,21 @@ def reranker(
         The hits reordered by descending relevance.
     """
     impl = reranker_from_method(method)
-    return impl.rerank(question=question, hits=list(hits))
+    out = impl.rerank(question=question, hits=list(hits))
+    if __import__("asyncio").iscoroutine(out):
+        return cast(
+            list[Hit],
+            __import__("asyncio").run(cast(Coroutine[Any, Any, list[Hit]], out)),
+        )
+    return out
 
 
 async def areranker(
     question: str,
-    hits: Sequence[RetrievalHit],
+    hits: Sequence[Hit],
     *,
     method: str = "identity",
-) -> list[RetrievalHit]:
+) -> list[Hit]:
     """Asynchronously rerank ``hits`` using the named ``method``."""
     impl = reranker_from_method(method)
     return await impl.arerank(question=question, hits=list(hits))
@@ -1629,9 +1652,9 @@ def reranker_from_method(method: str) -> Rerank:
     if method == "long_context":
         from raghub.llm import LiteLLM
 
-        return Context(LiteLLM(), default_long_context())
-    if method == "colbert":
-        return Colbert()
+        # Async-only (rerank is awaited by the pipeline); Rerank requires
+        # a sync rerank, so callers reach it via arerank / asyncio.run.
+        return cast(Rerank, Context(LiteLLM(), default_long_context()))
     raise RerankerError(f"Unknown reranker method: {method!r}")
 
 

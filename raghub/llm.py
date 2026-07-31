@@ -251,6 +251,7 @@ class LiteLLM(Generator):
         # saves ~50-200ms of TCP setup vs. the per-request client that
         # ``litellm.acompletion`` constructs internally.
         self.direct_client: Any = None
+        self.direct_url: str | None = None
         if self.api_base:
             try:
                 import httpx
@@ -481,7 +482,7 @@ class LiteLLM(Generator):
                 self.direct_url, json=payload
             )
         response.raise_for_status()
-        return response.json()
+        return dict(response.json())
 
     @staticmethod
     def normalise_response(response: Any) -> dict[str, Any]:
@@ -489,7 +490,7 @@ class LiteLLM(Generator):
         if isinstance(response, dict):
             return response
         if hasattr(response, "model_dump"):
-            return response.model_dump()
+            return dict(response.model_dump())
         return dict(response) if response is not None else {}
 
     async def astream(

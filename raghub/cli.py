@@ -1,6 +1,8 @@
-"""cli package.
+"""Console-script entry point for the ``raghub`` CLI.
 
-Implementation lives in :mod:`raghub.helper` (cli); local entry-point modules: ['main'].
+Assembles the Typer app from the command classes in
+:mod:`raghub.helper.cli` and the eval sub-app in
+:mod:`raghub.evaluation`. ``main`` is the ``raghub`` console script.
 """
 
 from __future__ import annotations

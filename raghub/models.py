@@ -8,8 +8,8 @@ Domain, canonical, and transport Pydantic models for the framework:
 * **Canonical** — spec-mandated aliases (``Document`` /
   ``Chunk`` / ``SearchResult`` / ``Query`` / ``Response``) plus
   the new higher-level types (``Citation``, ``DocumentSection``,
-  ``DocumentBlock``, ``KnowledgeBundle``, ``PipelineCtx``,
-  ``PipelineResult``, ``Embedding``, ``EvaluationResult``).
+  ``DocumentBlock``, ``Bundle``, ``PipelineCtx``,
+  ``PipelineResult``, ``Embedding``, ``Result``).
 * **API** — the FastAPI request/response wire types.
 * **Long-context** — ``RankedItem`` / ``RankedList`` for the
   second-pass LLM rerank.
@@ -18,7 +18,7 @@ Mapping (canonical ↔ domain):
 
 * ``Document`` ↔ ``DocumentRecord``
 * ``Chunk`` ↔ ``ChunkRecord``
-* ``SearchResult`` ↔ ``RetrievalHit``
+* ``SearchResult`` ↔ ``Hit``
 * ``Query`` ↔ ``SearchRequest``
 * ``Response`` ↔ ``SearchResponse``
 
@@ -41,6 +41,7 @@ from pydantic import BaseModel, Field, model_validator
 __all__ = [
     "AuthLoginRequest",
     "AuthLoginResponse",
+    "Bundle",
     "Chunk",
     "ChunkRecord",
     "Citation",
@@ -51,8 +52,7 @@ __all__ = [
     "DocumentRecord",
     "DocumentUploadResponse",
     "Embedding",
-    "EvaluationResult",
-    "KnowledgeBundle",
+    "Hit",
     "PipelineCtx",
     "PipelineResult",
     "Query",
@@ -61,7 +61,7 @@ __all__ = [
     "RankedItem",
     "RankedList",
     "Response",
-    "RetrievalHit",
+    "Result",
     "SearchRequest",
     "SearchResponse",
     "SearchResult",
@@ -305,7 +305,7 @@ class ChunkRecord(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class RetrievalHit(BaseModel):
+class Hit(BaseModel):
     """A retrieved chunk with score and metadata.
 
     Attributes:
@@ -319,11 +319,11 @@ class RetrievalHit(BaseModel):
     chunk: ChunkRecord
 
     @model_validator(mode="after")
-    def _verify_chunk_id_matches(self) -> RetrievalHit:
+    def _verify_chunk_id_matches(self) -> Hit:
         """Confirm ``chunk.chunk_id`` matches ``chunk_id``."""
         if self.chunk.chunk_id != self.chunk_id:
             raise ValueError(
-                f"RetrievalHit.chunk_id ({self.chunk_id!r}) does not match "
+                f"Hit.chunk_id ({self.chunk_id!r}) does not match "
                 f"chunk.chunk_id ({self.chunk.chunk_id!r})"
             )
         return self
@@ -482,10 +482,10 @@ class Citation(BaseModel):
     source_uri: str = ""
 
 
-class SearchResult(RetrievalHit):
-    """Spec-named alias for :class:`RetrievalHit`.
+class SearchResult(Hit):
+    """Spec-named alias for :class:`Hit`.
 
-    Inherits the chunk_id-match validator from :class:`RetrievalHit`.
+    Inherits the chunk_id-match validator from :class:`Hit`.
     """
 
 
@@ -523,7 +523,7 @@ class Response(BaseModel):
         return self
 
 
-class KnowledgeBundle(BaseModel):
+class Bundle(BaseModel):
     """A persisted Open Knowledge Format bundle.
 
     The bundle is the canonical persisted representation of source
@@ -599,7 +599,7 @@ class PipelineResult(BaseModel):
         return self
 
 
-class EvaluationResult(BaseModel):
+class Result(BaseModel):
     """Score produced by an :class:`Evaluator`.
 
     Attributes:
@@ -801,12 +801,12 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class Chunker(Protocol):
-    """Splits a :class:`KnowledgeBundle` (or raw text) into :class:`Chunk` records."""
+    """Splits a :class:`Bundle` (or raw text) into :class:`Chunk` records."""
 
     chunk_size: int
     chunk_overlap: int
 
-    def chunk(self, bundle: KnowledgeBundle) -> list[Chunk]:
+    def chunk(self, bundle: Bundle) -> list[Chunk]:
         """Split a knowledge bundle into chunks."""
         ...
 
@@ -818,7 +818,7 @@ class Chunker(Protocol):
 
 
 class DocumentConverter(Protocol):
-    """Converts source bytes to a :class:`KnowledgeBundle`."""
+    """Converts source bytes to a :class:`Bundle`."""
 
     def convert(
         self,
@@ -828,8 +828,8 @@ class DocumentConverter(Protocol):
         mime_type: str = "",
         language: str = "",
         metadata: dict[str, Any] | None = None,
-    ) -> KnowledgeBundle:
-        """Convert source bytes to a KnowledgeBundle."""
+    ) -> Bundle:
+        """Convert source bytes to a Bundle."""
         ...
 
 
@@ -857,7 +857,7 @@ class Evaluator(Protocol):
         examples: Sequence[dict[str, Any]],
         *,
         response_factory: Any,
-    ) -> list[EvaluationResult]:
+    ) -> list[Result]:
         """Score model outputs against a benchmark."""
         ...
 
@@ -869,7 +869,7 @@ class GeneratorProtocol(Protocol):
         self,
         *,
         question: str,
-        context: Sequence[RetrievalHit],
+        context: Sequence[Hit],
         conversation: Sequence[ConversationTurn] = (),
     ) -> tuple[str, list[Citation]]:
         """Generate an answer from retrieved context."""
@@ -879,7 +879,7 @@ class GeneratorProtocol(Protocol):
         self,
         *,
         question: str,
-        context: Sequence[RetrievalHit],
+        context: Sequence[Hit],
         conversation: Sequence[ConversationTurn] = (),
     ) -> AsyncIterator[str]:
         """Stream-generated answer tokens."""
@@ -887,17 +887,17 @@ class GeneratorProtocol(Protocol):
 
 
 class KnowledgeRepository(Protocol):
-    """Persists and retrieves :class:`KnowledgeBundle` objects."""
+    """Persists and retrieves :class:`Bundle` objects."""
 
-    def save(self, bundle: KnowledgeBundle) -> KnowledgeBundle:
+    def save(self, bundle: Bundle) -> Bundle:
         """Persist a knowledge bundle."""
         ...
 
-    def get(self, bundle_id: str) -> KnowledgeBundle | None:
+    def get(self, bundle_id: str) -> Bundle | None:
         """Retrieve a bundle by id."""
         ...
 
-    def list_by_source(self, source_uri: str) -> list[KnowledgeBundle]:
+    def list_by_source(self, source_uri: str) -> list[Bundle]:
         """List bundles by source URI."""
         ...
 
@@ -982,7 +982,7 @@ class StructuredOutputProvider(Protocol):
         *,
         response_model: type[T],
         question: str,
-        context: Sequence[RetrievalHit],
+        context: Sequence[Hit],
     ) -> T:
         """Generate a structured Pydantic output."""
         ...
@@ -992,7 +992,7 @@ class StructuredOutputProvider(Protocol):
         *,
         response_model: type[T],
         question: str,
-        context: Sequence[RetrievalHit],
+        context: Sequence[Hit],
     ) -> AsyncIterator[T]:
         """Stream structured Pydantic outputs."""
         ...
@@ -1009,16 +1009,16 @@ class VectorStore(Protocol):
         self,
         chunks: Sequence[ChunkRecord],
         vectors: Sequence[list[float]],
-    ) -> None:
-        """Insert chunks with their vectors."""
+    ) -> int:
+        """Insert chunks with their vectors; return the rows written."""
         ...
 
     def upsert(
         self,
         chunks: Sequence[ChunkRecord],
         vectors: Sequence[list[float]],
-    ) -> None:
-        """Insert or update chunks with vectors."""
+    ) -> int:
+        """Insert or update chunks with vectors; return the rows written."""
         ...
 
     def delete(self, chunk_ids: Sequence[str]) -> None:
@@ -1073,7 +1073,7 @@ class Retriever(Protocol):
         user: User,
         question: str,
         top_k: int,
-    ) -> list[RetrievalHit]:
+    ) -> list[Hit]:
         """Retrieve authorized chunks for a user."""
         ...
 
@@ -1085,8 +1085,8 @@ class Reranker(Protocol):
         self,
         *,
         question: str,
-        hits: Sequence[RetrievalHit],
-    ) -> list[RetrievalHit]:
+        hits: Sequence[Hit],
+    ) -> list[Hit]:
         """Rerank retrieved hits."""
         ...
 

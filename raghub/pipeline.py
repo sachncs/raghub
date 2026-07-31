@@ -39,13 +39,14 @@ from typing import Any, cast
 from tqdm import tqdm
 
 from raghub.agent import Agent, AgentTrace
-from raghub.conv import MemoryConversations
+from raghub.conv import Memory
 from raghub.embedder import Embedder
 from raghub.errors import PipelineError, VectorStoreError
 from raghub.knowledge import MemoryRepo
 from raghub.lifecycle import PlainTextConverter
 from raghub.llm import Generator
 from raghub.models import (
+    Bundle,
     Chunk,
     Chunker,
     ChunkRecord,
@@ -55,13 +56,12 @@ from raghub.models import (
     DocumentConverter,
     EmbeddingProvider,
     GeneratorProtocol,
-    KnowledgeBundle,
+    Hit,
     KnowledgeRepository,
     Pipeline,
     PipelineCtx,
     PipelineResult,
     Reranker,
-    RetrievalHit,
     StructuredOutputProvider,
     TelemetryProvider,
     User,
@@ -332,7 +332,7 @@ class PipelineResultBuilder:
 
 
 def get_chunks(
-    bundle: KnowledgeBundle, document_id: str, company: str = ""
+    bundle: Bundle, document_id: str, company: str = ""
 ) -> list[Chunk]:
     """Materialise the :class:`Chunk` list for a bundle's sections."""
     chunks: list[Chunk] = []
@@ -492,7 +492,7 @@ class IngestPipeline(Pipeline):
                         )
 
                 with self.telemetry.span("ingest.convert"):
-                    bundle: KnowledgeBundle = self.converter.convert(
+                    bundle: Bundle = self.converter.convert(
                         source_uri=source_uri,
                         file_bytes=file_bytes,
                         mime_type=mime_type,
@@ -592,7 +592,7 @@ class QueryPipeline(Pipeline):
         self.structured = structured
         self.telemetry = telemetry or NoOpTelemetry()
         if conversation_store is None:
-            conversation_store = MemoryConversations()
+            conversation_store = Memory()
         self.conversation_store = conversation_store
         self.cache = cache
         self.transformer = transformer
@@ -718,7 +718,7 @@ class QueryPipeline(Pipeline):
                         metadata_filter=rbac_filter,
                     )
                 hits = [
-                    RetrievalHit(
+                    Hit(
                         chunk_id=h["chunk_id"],
                         score=float(h["score"]),
                         chunk=h["chunk"],
@@ -834,7 +834,7 @@ class QueryPipeline(Pipeline):
                     metadata_filter=rbac_filter,
                 )
             hits = [
-                RetrievalHit(
+                Hit(
                     chunk_id=h["chunk_id"],
                     score=float(h["score"]),
                     chunk=h["chunk"],
@@ -1041,8 +1041,8 @@ def citations_from_trace(trace: AgentTrace) -> list[dict[str, Any]]:
 
 
 def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
-    """Reconstruct :class:`RetrievalHit` instances from observations."""
-    hits: list[RetrievalHit] = []
+    """Reconstruct :class:`Hit` instances from observations."""
+    hits: list[Hit] = []
     for observation in trace.observations:
         name = observation.get("name", "")
         if name not in {"vector_search", "keyword_search", "hybrid_search", "summary_search", "graph_search"}:
@@ -1064,13 +1064,13 @@ def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
                 metadata={"source_tool": name, **hit.get("metadata", {})},
             )
             hits.append(
-                RetrievalHit(
+                Hit(
                     chunk_id=record.chunk_id,
                     score=float(hit.get("score", 0.0) or 0.0),
                     chunk=record,
                 )
             )
-    deduped: dict[str, RetrievalHit] = {}
+    deduped: dict[str, Hit] = {}
     for hit in hits:
         prior = deduped.get(hit.chunk_id)
         if prior is None or hit.score > prior.score:

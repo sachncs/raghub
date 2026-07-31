@@ -46,6 +46,7 @@ class Embedder(ABC):
     """
 
     model_name: str
+    dimension: int
 
     @abstractmethod
     def embed_text(self, text: str) -> list[float]:

@@ -122,12 +122,12 @@ def test_okf_round_trip(source_uri: str, content: str) -> None:
     """OKF ``dumps``/``from_okf``/``to_okf`` is a lossless round trip."""
     from raghub.models import (
         BlockKind,
+        Bundle,
         DocumentBlock,
         DocumentSection,
-        KnowledgeBundle,
     )
 
-    bundle = KnowledgeBundle(
+    bundle = Bundle(
         source_uri=source_uri,
         sections=[
             DocumentSection(

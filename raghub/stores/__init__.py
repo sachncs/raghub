@@ -38,6 +38,7 @@ from uuid import uuid4
 
 from tqdm import tqdm
 
+from raghub.domain import DatabaseManager
 from raghub.errors import AuthenticationError, MissingDep, StorageError
 from raghub.models import (
     ConversationTurn,
@@ -529,7 +530,7 @@ class Sessions:
         self,
         db_path: str | Path,
         timeout_seconds: int = 3600,
-        db: Database | None = None,
+        db: DatabaseManager | None = None,
     ) -> None:
         """Initialise the store."""
         self.db_path = str(db_path)

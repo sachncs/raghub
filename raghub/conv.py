@@ -10,7 +10,7 @@ concern of the framework:
   newest contiguous slice of a history that fits within a budget.
   Optional ``gigatoken`` dependency; falls back to whitespace counting
   when unavailable.
-* :class:`MemoryConversations` — a thread-safe in-process
+* :class:`Memory` — a thread-safe in-process
   alternative to :class:`ConversationManager` for callers that do
   not want the SQLite dependency.
 """
@@ -27,7 +27,7 @@ from raghub.models import ConversationTurn, SessionRecord
 from raghub.repos import UnitOfWork
 
 __all__ = [
-    "MemoryConversations",
+    "Memory",
 ]
 
 
@@ -347,7 +347,7 @@ class ConversationStore(Protocol):
         """Replace session-scoped tool/agent overrides."""
 
 
-class MemoryConversations:
+class Memory:
     """Thread-safe in-process :class:`ConversationStore`.
 
     Args:
