@@ -508,9 +508,9 @@ def reorder_candidates(
     ordered: list[Hit] = []
     seen: set[str] = set()
     for item in ranked.items:
-        if item.chunk_id in id_to_hit and item.chunk_id not in seen:
-            ordered.append(id_to_hit[item.chunk_id])
-            seen.add(item.chunk_id)
+        if item.chunk.id in id_to_hit and item.chunk.id not in seen:
+            ordered.append(id_to_hit[item.chunk.id])
+            seen.add(item.chunk.id)
     if not ordered:
         return None
     for hit in candidates:

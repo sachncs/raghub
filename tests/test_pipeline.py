@@ -1,9 +1,9 @@
 """End-to-end pipeline tests — ingest → query integration.
 
-These tests exercise the full ``IngestPipeline`` + ``QueryPipeline``
+These tests exercise the full ``Ingest`` + ``QueryPipeline``
 stack against real in-memory backends. They verify:
 
-* Chunks inserted by ``IngestPipeline`` are immediately retrievable
+* Chunks inserted by ``Ingest`` are immediately retrievable
   via ``QueryPipeline``.
 * Tenant metadata is preserved end-to-end: an admin sees all
   tenants, a non-admin sees only their allow-list.
@@ -28,7 +28,7 @@ from raghub.models import (
     PipelineCtx,
     User,
 )
-from raghub.pipeline import IngestPipeline, QueryPipeline
+from raghub.pipeline import Ingest, QueryPipeline
 from raghub.store import MemoryStore
 
 
@@ -110,13 +110,13 @@ class TestIngestThenQuery:
     async def test_chunk_round_trips_through_query(
         self,
     ) -> None:
-        """A chunk inserted by the IngestPipeline must be retrievable
+        """A chunk inserted by the Ingest must be retrievable
         by the QueryPipeline on the same store."""
         embedder = build_embedding_provider()
         vector_store = MemoryStore(embedding_dim=16)
 
         bundle = make_bundle([make_section(["hello world from raghub"])])
-        ingest = IngestPipeline(
+        ingest = Ingest(
             converter=MagicMock(convert=MagicMock(return_value=bundle)),
             chunker=_StubChunker(),
             embedder=embedder,
@@ -128,7 +128,7 @@ class TestIngestThenQuery:
             file_bytes=b"hello",
             source_uri="file:///x.pdf",
         )
-        assert ingest_result.success
+        assert getattr(ingest_result, "error", None) is None
         assert len(vector_store.records) >= 1
 
         generator = build_generator("response")
@@ -139,7 +139,7 @@ class TestIngestThenQuery:
         )
         ctx_q = PipelineCtx(pipeline_name="query")
         result = await query.run(ctx_q, question="hello world", top_k=5)
-        assert result.success
+        assert (getattr(result, "error", None) is None)
         assert result.outputs["answer"] == "response"
         assert result.outputs["hits"], "At least one hit must come from the store"
 
@@ -173,7 +173,7 @@ class TestRbacEndToEnd:
             user=user,
             top_k=10,
         )
-        assert result.success
+        assert (getattr(result, "error", None) is None)
         for hit in result.outputs["hits"]:
             assert hit.chunk.company == "acme", (
                 "A non-admin with only [acme] must not see globex "
@@ -262,7 +262,7 @@ class TestIncrementalIngest:
 
         converter = MagicMock()
         converter.convert.return_value = bundle
-        ingest = IngestPipeline(
+        ingest = Ingest(
             converter=converter,
             chunker=_StubChunker(),
             embedder=embedder,
@@ -275,8 +275,8 @@ class TestIncrementalIngest:
             file_bytes=b"hello",
             source_uri="file:///x.pdf",
         )
-        assert first.success
-        assert first.outputs["incremental"] is False
+        assert getattr(first, "error", None) is None
+        assert first.outputs.get("incremental") is False
         converter.convert.assert_called_once()
         # The vector store received at least one chunk.
         assert len(store.records) >= 1
@@ -297,7 +297,7 @@ class TestErrorPropagation:
     async def test_ingest_records_duration_on_error(self) -> None:
         embedder = build_embedding_provider()
         store = MemoryStore(embedding_dim=16)
-        ingest = IngestPipeline(
+        ingest = Ingest(
             chunker=_StubChunker(),
             embedder=embedder,
             vector_store=store,

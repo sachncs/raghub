@@ -14,9 +14,9 @@ Section map:
 * :class:`QueryCache` — TTL-based in-memory query cache.
 * :class:`ConversationRouter` — facade over a pluggable conversation
   store.
-* :class:`PipelineResultBuilder` — fluent builder for
-  :class:`PipelineResult` records.
-* :class:`IngestPipeline` — convert → chunk → embed → index.
+* :class:`PipelineBuilder` — fluent builder for
+  :class:`Pipeline` records.
+* :class:`Ingest` — convert → chunk → embed → index.
 * :class:`QueryPipeline` — embed → retrieve → rerank → generate.
 * :class:`AgentPipeline` — agent-driven query pipeline.
 * :func:`get_chunks` / :func:`primary_company` /
@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import inspect
 import time
+from pydantic import ConfigDict
 from collections.abc import AsyncIterator, Sequence
 from contextlib import AbstractContextManager
 from hashlib import sha256
@@ -46,6 +47,7 @@ from raghub.knowledge import MemoryRepo
 from raghub.lifecycle import PlainTextConverter
 from raghub.llm import Generator
 from raghub.models import (
+    ErrorInfo,
     Bundle,
     Chunk,
     Chunker,
@@ -58,7 +60,7 @@ from raghub.models import (
     KnowledgeRepository,
     Pipeline,
     PipelineCtx,
-    PipelineResult,
+    PipelineRunner,
     Reranker,
     StructuredOutputProvider,
     TelemetryProvider,
@@ -89,7 +91,7 @@ def awaitable(value: Any) -> Any:
 __all__ = [
     "AgentPipeline",
     "Cache",
-    "IngestPipeline",
+    "Ingest",
     "QueryPipeline",
 ]
 
@@ -146,7 +148,7 @@ class Cache:
     def __init__(self, ttl_seconds: int = 300) -> None:
         """Initialise the cache with a TTL in seconds."""
         self.ttl = ttl_seconds
-        self.store: dict[tuple[Any, ...], tuple[float, PipelineResult]] = {}
+        self.store: dict[tuple[Any, ...], tuple[float, Pipeline]] = {}
 
     def make_key(
         self,
@@ -205,8 +207,8 @@ class Cache:
         session_id: str | None = None,
         history: Sequence[Any] = (),
         scope: Any = None,
-    ) -> PipelineResult | None:
-        """Return a cached :class:`PipelineResult` or ``None``."""
+    ) -> Pipeline | None:
+        """Return a cached :class:`Pipeline` or ``None``."""
         key = self.make_key(
             question,
             user_id,
@@ -231,7 +233,7 @@ class Cache:
         question: str,
         user_id: str | None,
         filters: dict[str, Any] | str | None,
-        result: PipelineResult,
+        result: Pipeline,
         *,
         top_k: int = 5,
         response_model: Any | None = None,
@@ -239,7 +241,7 @@ class Cache:
         history: Sequence[Any] = (),
         scope: Any = None,
     ) -> None:
-        """Store a :class:`PipelineResult` in the cache."""
+        """Store a :class:`Pipeline` in the cache."""
         key = self.make_key(
             question,
             user_id,
@@ -309,34 +311,32 @@ class Router:
 
 
 # ---------------------------------------------------------------------------
-# PipelineResultBuilder
+# PipelineBuilder
 # ---------------------------------------------------------------------------
 
 
 class PipelineBuilder:
-    """Fluent builder for :class:`PipelineResult` records."""
+    """Fluent builder for :class:`Pipeline` records."""
 
     def __init__(self, context: PipelineCtx, pipeline_name: str) -> None:
         """Store the context and pipeline name for subsequent builds."""
         self.context = context
         self.pipeline_name = pipeline_name
 
-    def success(self, outputs: dict[str, Any]) -> PipelineResult:
-        """Build a successful :class:`PipelineResult` with ``outputs``."""
-        return PipelineResult(
+    def success(self, outputs: dict[str, Any]) -> Pipeline:
+        """Build a successful :class:`Pipeline` with ``outputs``."""
+        return Pipeline(
             pipeline_id=self.context.pipeline_id,
             pipeline_name=self.pipeline_name,
-            success=True,
             outputs=outputs,
         )
 
-    def failure(self, error: str, outputs: dict[str, Any] | None = None) -> PipelineResult:
-        """Build a failed :class:`PipelineResult` with ``error``."""
-        return PipelineResult(
+    def failure(self, error: str, outputs: dict[str, Any] | None = None) -> Pipeline:
+        """Build a failed :class:`Pipeline` with ``error``."""
+        return Pipeline(
             pipeline_id=self.context.pipeline_id,
             pipeline_name=self.pipeline_name,
-            success=False,
-            error=error,
+            error=ErrorInfo(kind="ingestion", message=error),
             outputs=outputs or {},
         )
 
@@ -404,7 +404,7 @@ def primary_company(user: Any) -> str:
     return str(companies[0])
 
 
-class IngestPipeline(Pipeline):
+class Ingest(PipelineRunner):
     """Convert → chunk → embed → index pipeline."""
 
     name: str = "ingest"
@@ -425,7 +425,7 @@ class IngestPipeline(Pipeline):
         from raghub.ingest import WordChunker
 
         if embedder is None or vector_store is None:
-            raise PipelineError("IngestPipeline requires embedder and vector_store")
+            raise PipelineError("Ingest requires embedder and vector_store")
         self.converter = converter or PlainTextConverter()
         self.chunker = chunker or WordChunker()
         self.embedder = embedder
@@ -449,7 +449,7 @@ class IngestPipeline(Pipeline):
         self,
         context: PipelineCtx,
         **inputs: Any,
-    ) -> PipelineResult:
+    ) -> Pipeline:
         """Run the ingest pipeline."""
         with DurationTimer(context):
             file_bytes: bytes = inputs["file_bytes"]
@@ -489,10 +489,9 @@ class IngestPipeline(Pipeline):
                 if existing is not None and existing.checksum == checksum:
                     prior_chunks = get_chunks(existing, document_id, company=tenant_company)
                     if self.vectors_already_indexed(prior_chunks):
-                        return PipelineResult(
+                        return Pipeline(
                             pipeline_id=context.pipeline_id,
                             pipeline_name=self.name,
-                            success=True,
                             outputs={
                                 "bundle": existing,
                                 "chunks": prior_chunks,
@@ -554,10 +553,9 @@ class IngestPipeline(Pipeline):
 
                 self.knowledge_repo.save(bundle)
 
-                return PipelineResult(
+                return Pipeline(
                     pipeline_id=context.pipeline_id,
                     pipeline_name=self.name,
-                    success=True,
                     outputs={
                         "bundle": bundle,
                         "chunks": chunks,
@@ -573,10 +571,12 @@ class IngestPipeline(Pipeline):
 # ---------------------------------------------------------------------------
 
 
-class QueryPipeline(Pipeline):
+class QueryPipeline(PipelineRunner):
     """Embed → retrieve → rerank → generate pipeline."""
 
     name: str = "query"
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __init__(
         self,
@@ -623,7 +623,7 @@ class QueryPipeline(Pipeline):
         self,
         context: PipelineCtx,
         **inputs: Any,
-    ) -> PipelineResult:
+    ) -> Pipeline:
         """Run the query pipeline."""
         with DurationTimer(context):
             return await self.run_inner(context, inputs)
@@ -632,7 +632,7 @@ class QueryPipeline(Pipeline):
         self,
         context: PipelineCtx,
         inputs: dict[str, Any],
-    ) -> PipelineResult:
+    ) -> Pipeline:
         """Body of :meth:`run` separated so the timing ``finally`` is obvious."""
         question: str = inputs["question"]
         top_k: int = int(inputs.get("top_k", 5))
@@ -665,7 +665,7 @@ class QueryPipeline(Pipeline):
                 history=history,
                 scope=scope,
             )
-            if isinstance(cached, PipelineResult):
+            if isinstance(cached, Pipeline):
                 return cached
 
         if self.agentic_pipeline is not None and (
@@ -792,10 +792,9 @@ class QueryPipeline(Pipeline):
                     ),
                 )
 
-        result = PipelineResult(
+        result = Pipeline(
             pipeline_id=context.pipeline_id,
             pipeline_name=self.name,
-            success=True,
             outputs={
                 "answer": answer,
                 "citations": citations,
@@ -921,10 +920,12 @@ class QueryPipeline(Pipeline):
 # ---------------------------------------------------------------------------
 
 
-class AgentPipeline:
+class AgentPipeline(PipelineRunner):
     """Query pipeline powered by the ReAct agent."""
 
     name = "query_agent"
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __init__(
         self,
@@ -952,7 +953,7 @@ class AgentPipeline:
         self,
         context: PipelineCtx,
         **inputs: Any,
-    ) -> PipelineResult:
+    ) -> Pipeline:
         """Run the agentic pipeline."""
         with DurationTimer(context):
             question: str = inputs["question"]
@@ -1001,10 +1002,9 @@ class AgentPipeline:
                     generator_citations = cast(list[Citation], citations)
                 answer = agent_answer
 
-            return PipelineResult(
+            return Pipeline(
                 pipeline_id=context.pipeline_id,
                 pipeline_name=self.name,
-                success=True,
                 outputs={
                     "answer": answer or trace.final_answer,
                     "citations": generator_citations,

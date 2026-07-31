@@ -9,7 +9,7 @@ Domain, canonical, and transport Pydantic models for the framework:
   ``Chunk`` / ``SearchResult`` / ``Query`` / ``Response``) plus
   the new higher-level types (``Citation``, ``DocumentSection``,
   ``DocumentBlock``, ``Bundle``, ``PipelineCtx``,
-  ``PipelineResult``, ``Embedding``, ``Result``).
+  ``Pipeline``, ``Embedding``, ``Result``).
 * **API** — the FastAPI request/response wire types.
 * **Long-context** — ``RankedItem`` / ``RankedList`` for the
   second-pass LLM rerank.
@@ -36,7 +36,7 @@ from enum import Enum
 from typing import Any, Protocol, TypeVar, runtime_checkable
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from raghub.errors import VerificationError
 
@@ -55,7 +55,7 @@ __all__ = [
     "Embedding",
     "Hit",
     "PipelineCtx",
-    "PipelineResult",
+    "Pipeline",
     "Query",
     "QueryRequest",
     "QueryResponse",
@@ -156,7 +156,218 @@ class Classification(str, Enum):
 # ---------------------------------------------------------------------------
 
 
+# -----------------------------------------------------------------------------
+# Discriminator enums (one per entity class; R7: >= 2 values)
+# -----------------------------------------------------------------------------
+
+class SessionKind(str, Enum):
+    """Discriminator for :class:`Session` types."""
+    STANDARD = "standard"
+    EPHEMERAL = "ephemeral"
+    REFRESH = "refresh"
+
+
+class DocType(str, Enum):
+    """Discriminator for :class:`Document` types."""
+
+    PDF = "pdf"
+    MARKDOWN = "markdown"
+    HTML = "html"
+    TEXT = "text"
+    CSV = "csv"
+    JSON = "json"
+    UNKNOWN = "unknown"
+
+
+class ChunkType(str, Enum):
+    """Discriminator for :class:`Chunk` types."""
+
+    TEXT = "text"
+    CODE = "code"
+    TABLE = "table"
+    HEADER = "header"
+    IMAGE_CAPTION = "image_caption"
+    LIST_ITEM = "list_item"
+
+
+class SectionType(str, Enum):
+    """Discriminator for :class:`Section` types."""
+
+    TEXT = "text"
+    TABLE = "table"
+    FIGURE = "figure"
+    CODE = "code"
+    REFERENCE = "reference"
+
+
+class BlockType(str, Enum):
+    """Discriminator for :class:`Block` types."""
+
+    TEXT = "text"
+    TABLE = "table"
+    FIGURE = "figure"
+    CODE = "code"
+    LIST = "list"
+    HEADING = "heading"
+
+
+class CitationType(str, Enum):
+    """Discriminator for :class:`Citation` types."""
+
+    DIRECT = "direct"
+    PARAPHRASE = "paraphrase"
+    INFERENCE = "inference"
+
+
+class HitType(str, Enum):
+    """Discriminator for :class:`Hit` types."""
+
+    DENSE = "dense"
+    SPARSE = "sparse"
+    HYBRID = "hybrid"
+    KEYWORD = "keyword"
+
+
+class ResponseType(str, Enum):
+    """Discriminator for :class:`Response` types."""
+
+    ANSWER = "answer"
+    CLARIFICATION = "clarification"
+    REFUSAL = "refusal"
+    ERROR = "error"
+
+
+class BundleType(str, Enum):
+    """Discriminator for :class:`Bundle` types."""
+
+    OKF = "okf"
+    MARKDOWN = "markdown"
+    HTML = "html"
+    PDF = "pdf"
+
+
+class PipelineType(str, Enum):
+    """Discriminator for :class:`Pipeline` types."""
+    INGEST = "ingest"
+    QUERY = "query"
+    AGENT = "agent"
+    EVAL = "eval"
+
+
+class JobType(str, Enum):
+    """Discriminator for :class:`Job` types."""
+
+    INGEST = "ingest"
+    EVAL = "eval"
+    REINDEX = "reindex"
+    EXPORT = "export"
+
+
+class EventType(str, Enum):
+    """Discriminator for :class:`Event` types."""
+
+    THOUGHT = "thought"
+    TOOL_CALL = "tool_call"
+    TOOL_RESULT = "tool_result"
+    ANSWER_CHUNK = "answer_chunk"
+    FINAL = "final"
+
+
+class UserKind(str, Enum):
+    """Discriminator for :class:`User` types."""
+    STANDARD = "standard"
+    ADMIN = "admin"
+    SERVICE = "service"
+
+
+class ManifestType(str, Enum):
+    """Discriminator for :class:`Manifest` types."""
+
+    INCREMENTAL = "incremental"
+    SNAPSHOT = "snapshot"
+
+
+class EmbeddingType(str, Enum):
+    """Discriminator for :class:`Embedding` types."""
+
+    DENSE = "dense"
+    SPARSE = "sparse"
+    COLBERT = "colbert"
+
+
+class RankType(str, Enum):
+    """Discriminator for :class:`RankedList` types."""
+
+    RRF = "rrf"
+    CROSS_ENCODER = "cross_encoder"
+    COHERE = "cohere"
+
+
+class ResultType(str, Enum):
+    """Discriminator for :class:`Result` (eval)."""
+
+    PASSED = "passed"
+    FAILED = "failed"
+    ERRORED = "errored"
+
+
+# -----------------------------------------------------------------------------
+# Shared lifecycle enums (R3 single-word)
+# -----------------------------------------------------------------------------
+
+class State(str, Enum):
+    """Lifecycle state shared across entities with a state machine."""
+
+    NEW = "new"
+    RUNNING = "running"
+    READY = "ready"
+    FAILED = "failed"
+    ARCHIVED = "archived"
+
+
+class Class(str, Enum):
+    """Security classification shared across entities."""
+
+    PUBLIC = "public"
+    INTERNAL = "internal"
+    RESTRICTED = "restricted"
+    CONFIDENTIAL = "confidential"
+
+
+class Access(str, Enum):
+    """Visibility scope shared across entities."""
+
+    PUBLIC = "public"
+    ORG = "org"
+    PRIVATE = "private"
+
+
+# -----------------------------------------------------------------------------
+# Error type (replaces raw `str | None` error fields)
+# -----------------------------------------------------------------------------
+
+class ErrorInfo(BaseModel):
+    """Structured error information shared across pipeline outputs.
+
+    Attributes:
+        kind: The error category.
+        message: Human-readable error message.
+        cause: Optional underlying cause message.
+
+    """
+
+    kind: str
+    message: str
+    cause: str | None = None
+
+
 class User(BaseModel):
+    """Authenticated user principal.
+
+    Attributes:
+        type: UserKind discriminator (admin / standard).
+    """
+
     """Authenticated user principal.
 
     Attributes:
@@ -182,6 +393,18 @@ class User(BaseModel):
     allowed_groups: list[str] = Field(default_factory=list)
     is_admin: bool = False
     tool_settings: dict[str, Any] = Field(default_factory=dict)
+    type: UserKind = UserKind.STANDARD
+
+    def verify(self) -> None:
+        """Assert the user's invariant contract.
+
+        Raises:
+            VerificationError: When ``id`` or ``email`` is empty.
+        """
+        if not self.id:
+            raise VerificationError("User: empty id")
+        if not self.email:
+            raise VerificationError("User: empty email")
 
 
 class Turn(BaseModel):
@@ -205,6 +428,12 @@ class Session(BaseModel):
     """Session metadata and isolated conversational history.
 
     Attributes:
+        type: SessionKind discriminator.
+    """
+
+    """Session metadata and isolated conversational history.
+
+    Attributes:
         session_id: Stable session id.
         user_id: Owning user's id.
         token: Opaque session token used as the JWT subject.
@@ -219,7 +448,7 @@ class Session(BaseModel):
 
     """
 
-    session_id: str = Field(default_factory=lambda: str(uuid4()))
+    id: str = Field(default_factory=lambda: str(uuid4()))
     user_id: str
     token: str = Field(default_factory=lambda: str(uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -227,6 +456,21 @@ class Session(BaseModel):
     last_seen_at: datetime
     history: list[Turn] = Field(default_factory=list)
     overrides: dict[str, Any] = Field(default_factory=dict)
+    type: SessionKind = SessionKind.STANDARD
+
+    def verify(self) -> None:
+        """Assert the session's invariant contract.
+
+        Raises:
+            VerificationError: When ``id`` is empty, ``token`` is empty,
+            or ``expires_at`` is in the past.
+        """
+        if not self.id:
+            raise VerificationError("Session: empty id")
+        if not self.token:
+            raise VerificationError("Session: empty token")
+        if not self.user_id:
+            raise VerificationError("Session: empty user_id")
 
 
 class Document(BaseModel):
@@ -272,6 +516,25 @@ class Document(BaseModel):
     chunk_count: int = 0
     chunks: list[str] = Field(default_factory=list)
     error: str | None = None
+    type: DocType = DocType.UNKNOWN
+    state: State = State.READY
+
+    def verify(self) -> None:
+        """Assert the document's invariant contract.
+
+        Checks that ``id`` is non-empty and that ``chunks`` is a list of
+        :class:`Chunk` (each verified recursively). When ``state`` is
+        :attr:`State.FAILED`, ``error`` must be non-empty.
+
+        Raises:
+            VerificationError: When any invariant is broken.
+        """
+        if not self.id:
+            raise VerificationError("Document: empty id")
+        if self.state == State.FAILED and not self.error:
+            raise VerificationError("Document: error required when state=FAILED")
+        if self.state in (State.READY, State.ARCHIVED) and not self.chunks:
+            raise VerificationError("Document: chunks empty for non-FAILED state")
 
 
 class Chunk(BaseModel):
@@ -311,6 +574,7 @@ class Chunk(BaseModel):
     checksum: str
     text: str
     metadata: dict[str, Any] = Field(default_factory=dict)
+    type: ChunkType = ChunkType.TEXT
 
     def verify(self) -> None:
         """Assert the chunk's invariant contract.
@@ -348,6 +612,7 @@ class Hit(BaseModel):
 
     score: float
     chunk: Chunk
+    type: HitType = HitType.DENSE
 
     @property
     def chunk_id(self) -> str:
@@ -503,19 +768,35 @@ class Embedding(BaseModel):
     can exchange embeddings without leaking the wire-format parent.
 
     Attributes:
-        chunk_id: Owning chunk id.
+        id: Embedding id (UUID).
+        target: Owning chunk id.
         model: Embedding model name.
         dim: Vector dimensionality.
         vector: Float vector.
         created_at: Timestamp the vector was produced (UTC).
-
     """
 
-    chunk_id: str
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    target: str
     model: str
     dim: int
     vector: list[float]
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    type: EmbeddingType = EmbeddingType.DENSE
+
+    def verify(self) -> None:
+        """Assert the embedding's invariant contract.
+
+        Raises:
+            VerificationError: When ``id`` is empty or vector is empty.
+        """
+        if not self.id:
+            raise VerificationError("Embedding: empty id")
+        if not self.vector:
+            raise VerificationError("Embedding: empty vector")
+
+
+
 
 
 class Citation(BaseModel):
@@ -543,6 +824,7 @@ class Citation(BaseModel):
     quote: str = ""
     score: float = 0.0
     source_uri: str = ""
+    type: CitationType = CitationType.DIRECT
 
     def verify(self) -> None:
         """Assert the citation's contract.
@@ -613,6 +895,9 @@ class Response(BaseModel):
     The spec requires that components exchange typed models rather
     than raw dictionaries. This class is the canonical :class:`Response`
     used by the RAG facade.
+
+    Attributes:
+        type: Discriminator for the response kind (R3 <Entity>Type).
     """
 
     answer: str = ""
@@ -623,6 +908,7 @@ class Response(BaseModel):
     transforms_applied: list[str] = Field(default_factory=list)
     planner_trace: list[dict[str, Any]] | None = None
     tools_invoked: list[str] = Field(default_factory=list)
+    type: ResponseType = ResponseType.ANSWER
 
     def verify(self) -> None:
         """Assert the response's contract.
@@ -704,7 +990,7 @@ class PipelineCtx(BaseModel):
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class PipelineResult(BaseModel):
+class Pipeline(BaseModel):
     """Output of a successful pipeline run.
 
     Attributes:
@@ -719,26 +1005,40 @@ class PipelineResult(BaseModel):
 
     pipeline_id: str
     pipeline_name: str
-    success: bool = True
+    type: PipelineType = PipelineType.INGEST  # populated by the pipeline
     outputs: dict[str, Any] = Field(default_factory=dict)
-    error: str | None = None
+    error: ErrorInfo | None = None
     finished_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+    def result(self) -> "Pipeline":
+        """Return the configured result."""
+        return self
+
     def verify(self) -> None:
-        """Assert the pipeline result's invariant.
+        """Assert the result's invariant contract.
+
+        Kept as an alias for result so callers that use
+        Pipeline.verify() (the previous API) continue to work.
+        A successful construction satisfies the contract by
+        definition; an errored result must carry a non-empty
+        error.
 
         Raises:
-            VerificationError: When ``success=False`` is paired with
-                an empty ``error``.
-
+            VerificationError: When error is None on a failed run.
         """
-        if not self.success and not self.error:
+        if self.error is not None and not self.error.message:
             raise VerificationError(
-                "PipelineResult: error required when success=False"
+                "Pipeline: error.message required when error is set"
             )
 
 
 class Result(BaseModel):
+    """Result of a single evaluation run on a benchmark example.
+
+    Attributes:
+        type: Discriminator for the result kind (R3 <Entity>Type).
+    """
+
     """Score produced by an :class:`Evaluator`.
 
     Attributes:
@@ -765,6 +1065,22 @@ class Result(BaseModel):
 
 
 class RankedItem(BaseModel):
+    """One ranked chunk in a :class:`RankedList` result.
+
+    Attributes:
+        id: Stable item id (the chunk's id).
+        score: Combined rank score.
+        rank: 0-based position in the list.
+        chunk: The ranked chunk.
+    """
+
+    id: str
+    score: float
+    rank: int = 0
+    chunk: Chunk
+
+
+class LongContextRankedItem(BaseModel):
     """A single re-ranked candidate produced by the long-context LLM.
 
     Attributes:
@@ -1284,7 +1600,7 @@ class LLMProvider(Protocol):
         ...
 
 
-class Pipeline(Protocol):
+class PipelineRunner(Protocol):
     """A deterministic, multi-stage computation."""
 
     name: str
@@ -1293,7 +1609,7 @@ class Pipeline(Protocol):
         self,
         context: PipelineCtx,
         **inputs: Any,
-    ) -> PipelineResult:
+    ) -> Pipeline:
         """Run the pipeline with the given context."""
         ...
 

@@ -434,7 +434,7 @@ class JsonSessions:
         """Create a fresh session for ``user_id``."""
         now = datetime.now(UTC)
         session = Session(
-            session_id=str(uuid4()),
+            id=str(uuid4()),
             user_id=user_id,
             token=str(uuid4()),
             created_at=now,
@@ -600,7 +600,7 @@ class Sessions:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                session.session_id,
+                session.id,
                 session.user_id,
                 session.token,
                 session.created_at.isoformat(),
@@ -616,7 +616,7 @@ class Sessions:
         """Create and persist a new session."""
         now = datetime.now(UTC)
         session = Session(
-            session_id=str(uuid4()),
+            id=str(uuid4()),
             user_id=user_id,
             token=str(uuid4()),
             created_at=now,
@@ -630,7 +630,7 @@ class Sessions:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                session.session_id,
+                session.id,
                 session.user_id,
                 session.token,
                 session.created_at.isoformat(),
@@ -666,7 +666,7 @@ class Sessions:
         if now > session.expires_at:
             await conn.execute(
                 "DELETE FROM sessions WHERE session_id = ?",
-                (session.session_id,),
+                (session.id,),
             )
             await self.maybe_commit_close(conn)
             return None
@@ -683,7 +683,7 @@ class Sessions:
                 session.expires_at.isoformat(),
                 json.dumps([t.model_dump(mode="json") for t in session.history]),
                 json.dumps(session.overrides or {}),
-                session.session_id,
+                session.id,
             ),
         )
         await self.maybe_commit_close(conn)
@@ -707,7 +707,7 @@ class Sessions:
                 session.last_seen_at.isoformat(),
                 json.dumps([t.model_dump(mode="json") for t in session.history]),
                 json.dumps(session.overrides or {}),
-                session.session_id,
+                session.id,
             ),
         )
         await self.maybe_commit_close(conn)
@@ -795,7 +795,7 @@ class Sessions:
         """Protocol-conformant alias — deletes the session for ``token``."""
         session = await self.get_by_token(token)
         if session is not None:
-            await self.delete_session(session.session_id)
+            await self.delete_session(session.id)
 
     @staticmethod
     def row_to_session(row: Any) -> Session:
@@ -806,7 +806,7 @@ class Sessions:
         history = json.loads(history_raw) if history_raw else []
         overrides = json.loads(overrides_raw) if overrides_raw else {}
         return Session(
-            session_id=row["session_id"],
+            id=row["session_id"],
             user_id=row["user_id"],
             token=row["token"],
             created_at=datetime.fromisoformat(row["created_at"]),

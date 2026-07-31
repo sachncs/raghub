@@ -210,7 +210,7 @@ class TestIngestionResult:
 
 class TestIngestorInit:
     def test_build_pipeline_returns_ingest_pipeline(self) -> None:
-        from raghub.pipeline import IngestPipeline
+        from raghub.pipeline import Ingest
 
         mock_uow = MagicMock()
         mock_uow.vector_store = MagicMock()
@@ -222,7 +222,7 @@ class TestIngestorInit:
             max_upload_bytes=10_000,
         )
         pipeline = ingestor.build_pipeline()
-        assert isinstance(pipeline, IngestPipeline)
+        assert isinstance(pipeline, Ingest)
         assert pipeline.embedder is embedder
 
 

@@ -61,16 +61,15 @@ def test_rag_ingestion_failure_raises_typed_error(
     import asyncio
 
     from raghub.errors import IngestionError
-    from raghub.models import PipelineResult
+    from raghub.models import ErrorInfo, Pipeline
 
     rag = RAG(converter=PlainTextConverter())
 
-    async def fail_run(*args: object, **kwargs: object) -> PipelineResult:
-        return PipelineResult(
+    async def fail_run(*args: object, **kwargs: object) -> Pipeline:
+        return Pipeline(
             pipeline_id="i",
             pipeline_name="ingest",
-            success=False,
-            error="vector store unavailable",
+            error=ErrorInfo(kind="store", message="vector store unavailable"),
         )
 
     monkeypatch.setattr(rag.ingest_pipeline, "run", fail_run)
@@ -190,15 +189,15 @@ def test_rag_ingest_directory_sync(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     (tmp_path / "a.txt").write_bytes(b"hello")
     (tmp_path / "b.txt").write_bytes(b"world")
 
-    from raghub.models import PipelineResult
+    from raghub.models import Pipeline
 
-    async def _mock_run(*args: object, **kwargs: object) -> PipelineResult:
-        return PipelineResult(pipeline_id="t", pipeline_name="ingest", success=True, outputs={})
+    async def _mock_run(*args: object, **kwargs: object) -> Pipeline:
+        return Pipeline(pipeline_id="t", pipeline_name="ingest", outputs={})
 
     monkeypatch.setattr(rag.ingest_pipeline, "run", _mock_run)
 
     result = rag.ingest(tmp_path)
-    assert result.success
+    assert (getattr(result, "error", None) is None)
 
 
 def test_rag_aingest_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -208,15 +207,15 @@ def test_rag_aingest_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     rag = RAG(converter=PlainTextConverter())
     (tmp_path / "a.txt").write_bytes(b"hello")
 
-    from raghub.models import PipelineResult
+    from raghub.models import Pipeline
 
-    async def _mock_run(*args: object, **kwargs: object) -> PipelineResult:
-        return PipelineResult(pipeline_id="t", pipeline_name="ingest", success=True, outputs={})
+    async def _mock_run(*args: object, **kwargs: object) -> Pipeline:
+        return Pipeline(pipeline_id="t", pipeline_name="ingest", outputs={})
 
     monkeypatch.setattr(rag.ingest_pipeline, "run", _mock_run)
 
     result = asyncio.run(rag.aingest(tmp_path))
-    assert result.success
+    assert (getattr(result, "error", None) is None)
 
 
 def test_rag_aquery_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -224,13 +223,13 @@ def test_rag_aquery_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     import asyncio
 
     from raghub.errors import RagHubError
-    from raghub.models import PipelineResult
+    from raghub.models import Pipeline
 
     rag = RAG(converter=PlainTextConverter())
 
-    async def _mock_run(*args: object, **kwargs: object) -> PipelineResult:
-        return PipelineResult(
-            pipeline_id="q", pipeline_name="query", success=False, error="LLM timeout"
+    async def _mock_run(*args: object, **kwargs: object) -> Pipeline:
+        return Pipeline(
+            pipeline_id="q", pipeline_name="query", error=ErrorInfo(kind="llm", message="LLM timeout")
         )
 
     monkeypatch.setattr(rag.query_pipeline, "run", _mock_run)
@@ -302,7 +301,7 @@ def test_sync_index_does_not_record_failed_ingest(
 ) -> None:
     from raghub.errors import IngestionError
     from raghub.knowledge import Manifest
-    from raghub.models import PipelineResult
+    from raghub.models import Pipeline
 
     directory = tmp_path / "documents"
     directory.mkdir()
@@ -313,7 +312,7 @@ def test_sync_index_does_not_record_failed_ingest(
     monkeypatch.setattr(
         rag,
         "ingest",
-        lambda *args, **kwargs: PipelineResult(
+        lambda *args, **kwargs: Pipeline(
             pipeline_id="i",
             pipeline_name="ingest",
             success=False,

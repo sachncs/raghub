@@ -429,7 +429,7 @@ class SessionStore(SessionRepository):
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                record.session_id,
+                record.id,
                 record.user_id,
                 record.token,
                 record.created_at.isoformat(),
@@ -458,7 +458,7 @@ class SessionStore(SessionRepository):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                record.session_id,
+                record.id,
                 record.user_id,
                 record.token,
                 record.created_at.isoformat(),
