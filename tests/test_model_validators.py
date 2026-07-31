@@ -16,8 +16,9 @@ from raghub.errors import VerificationError
 from raghub.models import (
     Chunk,
     Citation,
+    ErrorInfo,
     Hit,
-    PipelineResult,
+    Pipeline,
     Response,
 )
 
@@ -120,12 +121,12 @@ def test_response_verify_raises_on_empty_answer():
 
 
 def test_pipeline_result_success_verifies():
-    """A successful PipelineResult verifies."""
-    PipelineResult(pipeline_id="a", pipeline_name="b", success=True).verify()
+    """A successful Pipeline verifies."""
+    Pipeline(pipeline_id="a", pipeline_name="b").verify()
 
 
 def test_pipeline_result_failure_requires_error():
-    """PipelineResult.verify() requires error when success=False."""
-    r = PipelineResult(pipeline_id="a", pipeline_name="b", success=False)
-    with pytest.raises(VerificationError, match="error required"):
+    """Pipeline.verify() requires an error message when the run failed."""
+    r = Pipeline(pipeline_id="a", pipeline_name="b", error=ErrorInfo(kind="x", message=""))
+    with pytest.raises(VerificationError, match="error.message required"):
         r.verify()

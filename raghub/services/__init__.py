@@ -757,7 +757,7 @@ class Preference:
         canonical = await rag.aquery(
             question,
             user=principal,
-            session_id=session.session_id if session is not None else None,
+            session_id=session.id if session is not None else None,
             tools_enabled=tools_enabled,
             agent=agent,
             web=web,

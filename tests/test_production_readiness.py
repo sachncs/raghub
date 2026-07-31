@@ -213,10 +213,10 @@ class TestCacheRBACScoping:
     """Cache entries for two distinct users must not collide."""
 
     def test_admin_and_user_get_separate_entries(self) -> None:
-        from raghub.models import PipelineResult
+        from raghub.models import Pipeline
 
         cache = Cache(ttl_seconds=300)
-        result = PipelineResult(
+        result = Pipeline(
             pipeline_id="q",
             pipeline_name="query",
             success=True,

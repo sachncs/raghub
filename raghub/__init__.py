@@ -97,7 +97,7 @@ from raghub.models import (
     Citations,
     Document,
     Hit,
-    PipelineResult,
+    Pipeline,
     Response,
     Session,
     Turn,
@@ -110,7 +110,7 @@ from raghub.models import (
     DocumentSection as Section,
 )
 
-# PipelineResult lives in raghub.models (and the alias in raghub.pipeline is the local builder).
+# Pipeline lives in raghub.models (and the alias in raghub.pipeline is the local builder).
 from raghub.pipeline import PipelineBuilder  # noqa: F401
 
 # Plugin.
@@ -220,7 +220,7 @@ __all__ = [
     "Null",
     "Pipeline",
     "PipelineError",
-    "PipelineResult",
+    "Pipeline",
     "PluginRegistry",
     "Prometheus",
     "RagHubError",

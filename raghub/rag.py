@@ -68,13 +68,13 @@ from raghub.models import (
     Chunker,
     DocumentConverter,
     PipelineCtx,
-    PipelineResult,
+    Pipeline,
     Response,
     Result,
     Turn,
     deterministic_id,
 )
-from raghub.pipeline import AgentPipeline, Cache, IngestPipeline, QueryPipeline
+from raghub.pipeline import AgentPipeline, Cache, Ingest, QueryPipeline
 from raghub.plugins import PluginRegistry
 from raghub.retrieval import (
     Colbert as ColbertLateInteraction,
@@ -516,7 +516,7 @@ class RAG:
         self.metrics = metrics
         DEFAULT_METRICS_REGISTRY.set(metrics)
 
-        self.ingest_pipeline = IngestPipeline(
+        self.ingest_pipeline = Ingest(
             converter=self.converter,
             chunker=self.chunker,
             embedder=self.embedder,
@@ -724,7 +724,7 @@ class RAG:
         metadata: dict[str, Any] | None = None,
         force: bool = False,
         user: Any | None = None,
-    ) -> PipelineResult:
+    ) -> Pipeline:
         """Ingest a file, directory, or raw bytes synchronously.
 
         Args:
@@ -741,7 +741,7 @@ class RAG:
                 tenant.
 
         Returns:
-            A :class:`PipelineResult` for a single source, or a
+            A :class:`Pipeline` for a single source, or a
             composite result for a directory.
 
         Raises:
@@ -760,11 +760,11 @@ class RAG:
         if not file_bytes:
             raise IngestionError(f"ingest({source!r}) received empty bytes; nothing to index.")
         result = cast(
-            PipelineResult,
+            Pipeline,
             maybe_await(self.ingest_one_async(file_bytes, uri, mime_type, metadata, force, user)),
         )
-        if not result.success:
-            raise IngestionError(f"ingest({source!r}) failed: {result.error}")
+        if not (getattr(result, 'error', None) is None):
+            raise IngestionError(f"ingest({source!r}) failed: {result.error.message if result.error else 'unknown'}")
         return result
 
     def ingest_directory_sync(
@@ -774,7 +774,7 @@ class RAG:
         user: Any | None,
         *,
         show_progress: bool = True,
-    ) -> PipelineResult:
+    ) -> Pipeline:
         """Recursively ingest a directory synchronously.
 
         Args:
@@ -786,18 +786,17 @@ class RAG:
                 ``False`` for non-interactive callers.
 
         Returns:
-            A :class:`PipelineResult` summarising the batch.
+            A :class:`Pipeline` summarising the batch.
 
         """
         files = sorted(p for p in directory.rglob("*") if p.is_file())
-        results: list[PipelineResult] = []
+        results: list[Pipeline] = []
         iterator = tqdm(files, desc="Ingesting", disable=not show_progress, unit="file")
         for child in iterator:
             results.append(self.ingest(child, metadata=metadata, user=user))
-        return PipelineResult(
+        return Pipeline(
             pipeline_id="batch",
             pipeline_name="ingest",
-            success=all(r.success for r in results),
             outputs={"batch": results},
         )
 
@@ -810,7 +809,7 @@ class RAG:
         metadata: dict[str, Any] | None = None,
         force: bool = False,
         user: Any | None = None,
-    ) -> PipelineResult:
+    ) -> Pipeline:
         """Async version of :meth:`ingest`.
 
         Raises:
@@ -837,7 +836,7 @@ class RAG:
         user: Any | None,
         *,
         show_progress: bool = True,
-    ) -> PipelineResult:
+    ) -> Pipeline:
         """Recursively ingest a directory asynchronously.
 
         Args:
@@ -853,7 +852,7 @@ class RAG:
         n_workers = max(1, min(4, len(files)))
         semaphore = asyncio.Semaphore(n_workers)
 
-        async def bounded(child: Path) -> PipelineResult:
+        async def bounded(child: Path) -> Pipeline:
             """Run ingest on ``child`` under the concurrency cap."""
             async with semaphore:
                 return await self.aingest(child, metadata=metadata, user=user)
@@ -865,10 +864,9 @@ class RAG:
         rebuild = getattr(vector_store, "rebuild_index", None)
         if callable(rebuild):
             rebuild()
-        return PipelineResult(
+        return Pipeline(
             pipeline_id="batch",
             pipeline_name="ingest",
-            success=all(r.success for r in results),
             outputs={"batch": list(results)},
         )
 
@@ -880,7 +878,7 @@ class RAG:
         *,
         show_progress: bool = True,
         max_workers: int | None = None,
-    ) -> PipelineResult:
+    ) -> Pipeline:
         """Run every file in ``directory`` through a ProcessPoolExecutor.
 
         Each worker process builds its own RAG from a serialised
@@ -900,10 +898,9 @@ class RAG:
 
         files = sorted(p for p in directory.rglob("*") if p.is_file())
         if not files:
-            return PipelineResult(
+            return Pipeline(
                 pipeline_id="batch",
                 pipeline_name="ingest",
-                success=True,
                 outputs={"batch": []},
             )
 
@@ -938,10 +935,9 @@ class RAG:
         if callable(rebuild):
             rebuild()
 
-        return PipelineResult(
+        return Pipeline(
             pipeline_id="batch",
             pipeline_name="ingest",
-            success=True,
             outputs={"batch": worker_outputs, "files": [str(p) for p in files]},
         )
 
@@ -974,7 +970,7 @@ class RAG:
         metadata: dict[str, Any] | None,
         force: bool = False,
         user: Any | None = None,
-    ) -> PipelineResult:
+    ) -> Pipeline:
         """Run a single ingest pipeline asynchronously."""
         context = PipelineCtx(
             pipeline_name="ingest",
@@ -989,7 +985,7 @@ class RAG:
             force=force,
             user=user,
         )
-        if not result.success:
+        if not (getattr(result, 'error', None) is None):
             raise IngestionError(result.error or "ingestion failed")
         return result
 
@@ -1216,7 +1212,7 @@ class RAG:
             tools_enabled=resolved_tools,
             resolved_config=resolved.to_dict(),
         )
-        if not result.success:
+        if not (getattr(result, 'error', None) is None):
             raise RagHubError(result.error or "query failed")
         return ResponseBuilder.from_pipeline(result)
 
@@ -1482,7 +1478,7 @@ class RAG:
             bundle_id = deterministic_id("bundle", uri, checksum)
             if prior is None:
                 result = self.ingest(child, metadata=metadata, user=user)
-                if isinstance(result, PipelineResult) and not result.success:
+                if isinstance(result, Pipeline) and not (getattr(result, 'error', None) is None):
                     raise IngestionError(result.error or f"failed to ingest {uri}")
                 self.manifest.record(
                     uri,
@@ -1496,7 +1492,7 @@ class RAG:
                 # stale record on the next incremental ingest.
                 prior_bundle_id = str(prior.get("bundle_id", ""))
                 result = self.ingest(child, metadata=metadata, force=True, user=user)
-                if isinstance(result, PipelineResult) and not result.success:
+                if isinstance(result, Pipeline) and not (getattr(result, 'error', None) is None):
                     raise IngestionError(result.error or f"failed to ingest {uri}")
                 if prior_bundle_id and prior_bundle_id != bundle_id:
                     # ``delete`` uses both ``bundle_id`` from the

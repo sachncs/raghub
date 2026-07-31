@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from raghub.models import Hit, PipelineResult, Response
+from raghub.models import Hit, Pipeline, Response
 
 
 class Redaction:
@@ -36,10 +36,10 @@ class Redaction:
 
 
 class ResponseBuilder:
-    """Map a :class:`PipelineResult` to a typed :class:`Response`."""
+    """Map a :class:`Pipeline` to a typed :class:`Response`."""
 
     @staticmethod
-    def from_pipeline(result: PipelineResult) -> Response:
+    def from_pipeline(result: Pipeline) -> Response:
         """Build a typed response from a pipeline result."""
         outputs = result.outputs
         answer = outputs.get("answer", "")

@@ -59,11 +59,11 @@ from raghub.models import (
     Document,
     DocumentLifecycleStatus,
     PipelineCtx,
-    PipelineResult,
+    Pipeline,
     User,
     deterministic_id,
 )
-from raghub.pipeline import IngestPipeline
+from raghub.pipeline import Ingest
 from raghub.repos import UnitOfWork
 from raghub.utils import capture
 
@@ -547,7 +547,7 @@ class IngestionResult:
 
 
 def record_from_pipeline(
-    result: PipelineResult,
+    result: Pipeline,
     *,
     file_name: str,
     mime_type: str,
@@ -557,7 +557,7 @@ def record_from_pipeline(
     checksum: str,
     tags: list[str] | None,
 ) -> Document:
-    """Project a :class:`PipelineResult` into a :class:`Document`."""
+    """Project a :class:`Pipeline` into a :class:`Document`."""
     chunks = result.outputs.get("chunks") or []
     if chunks and isinstance(chunks[0], dict):
         chunk_records = [Chunk.model_validate(c) for c in chunks]
@@ -587,7 +587,7 @@ def record_from_pipeline(
 
 
 class Ingestor:
-    """Thin wrapper over :class:`raghub.pipelines.rag.IngestPipeline`.
+    """Thin wrapper over :class:`raghub.pipelines.rag.Ingest`.
 
     The service is constructed once and reused for many uploads. It is
     stateless apart from the wired collaborators, which makes it safe to
@@ -603,7 +603,7 @@ class Ingestor:
         lifecycle_manager: Lifecycle,
         max_upload_bytes: int,
         virus_scan_hook: VirusScanHook | None = None,
-        pipeline: IngestPipeline | None = None,
+        pipeline: Ingest | None = None,
         plan: object | None = None,
     ) -> None:
         """Initialise the service."""
@@ -613,11 +613,11 @@ class Ingestor:
         self.max_upload_bytes = max_upload_bytes
         self.virus_scan_hook = virus_scan_hook or (lambda _: None)
         self.plan = plan
-        self.make_pipeline: IngestPipeline | None = pipeline
+        self.make_pipeline: Ingest | None = pipeline
 
-    def build_pipeline(self) -> IngestPipeline:
-        """Construct the default :class:`IngestPipeline`."""
-        return IngestPipeline(
+    def build_pipeline(self) -> Ingest:
+        """Construct the default :class:`Ingest`."""
+        return Ingest(
             converter=PlainTextConverter(),
             chunker=WordChunker(),
             embedder=self.embedding_provider,
@@ -705,11 +705,11 @@ class Ingestor:
             user=owner,
             company=organization,
         )
-        if not result.success:
-            error_message = result.error or "ingestion failed"
+        if result.error is not None:
+            error_message = (result.error.message if result.error else None) or "ingestion failed"
             if previous is not None:
                 previous.status = DocumentLifecycleStatus.FAILED
-                previous.error = error_message
+                previous.error = error_message if isinstance(error_message, str) else error_message.message
                 await self.uow.document_repo.save(previous)
             raise IngestionError(error_message)
 
