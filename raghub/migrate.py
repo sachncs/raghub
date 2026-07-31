@@ -29,8 +29,9 @@ from raghub.knowledge import Manifest
 
 
 def migrate_manifest(path: Path) -> bool:
-    """Bump ``path`` to the current manifest version. Returns True when
-    the file was rewritten.
+    """Bump ``path`` to the current manifest version.
+
+    Returns ``True`` when the file was rewritten.
     """
     if not path.exists():
         return False
@@ -76,6 +77,7 @@ def run(root: Path) -> int:
 
 
 def main() -> int:
+    """CLI entry: ``python -m raghub.migrate --root DIR``."""
     parser = argparse.ArgumentParser(description="Migrate raghub storage")
     parser.add_argument("--root", type=Path, required=True, help="Root data directory")
     args = parser.parse_args()

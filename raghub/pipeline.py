@@ -72,8 +72,8 @@ from raghub.utils import retry as retry_sync
 
 __all__ = [
     "AgentPipeline",
+    "Cache",
     "IngestPipeline",
-    "QueryCache",
     "QueryPipeline",
 ]
 
@@ -106,7 +106,7 @@ class DurationTimer(AbstractContextManager["DurationTimer"]):
 
 
 # ---------------------------------------------------------------------------
-# QueryCache
+# Cache
 # ---------------------------------------------------------------------------
 
 
@@ -124,7 +124,7 @@ def canonical_filters(filters: dict[str, Any] | str | None) -> tuple[tuple[str, 
     return tuple(items)
 
 
-class QueryCache:
+class Cache:
     """Simple TTL-based in-memory query cache."""
 
     def __init__(self, ttl_seconds: int = 300) -> None:
@@ -259,11 +259,11 @@ class QueryCache:
 
 
 # ---------------------------------------------------------------------------
-# ConversationRouter
+# Router
 # ---------------------------------------------------------------------------
 
 
-class ConversationRouter:
+class Router:
     """Thin facade over a pluggable conversation store."""
 
     def __init__(self, store: Any) -> None:
@@ -297,7 +297,7 @@ class ConversationRouter:
 # ---------------------------------------------------------------------------
 
 
-class PipelineResultBuilder:
+class PipelineBuilder:
     """Fluent builder for :class:`PipelineResult` records."""
 
     def __init__(self, context: PipelineCtx, pipeline_name: str) -> None:

@@ -74,7 +74,7 @@ from raghub.models import (
     Turn,
     deterministic_id,
 )
-from raghub.pipeline import AgentPipeline, IngestPipeline, QueryCache, QueryPipeline
+from raghub.pipeline import AgentPipeline, Cache, IngestPipeline, QueryPipeline
 from raghub.plugins import PluginRegistry
 from raghub.retrieval import (
     Colbert as ColbertLateInteraction,
@@ -528,8 +528,8 @@ class RAG:
         )
         self.conversation_store: Any = Memory()
 
-        self.query_cache: QueryCache | None = (
-            QueryCache(ttl_seconds=self.settings.query_cache_ttl_seconds)
+        self.query_cache: Cache | None = (
+            Cache(ttl_seconds=self.settings.query_cache_ttl_seconds)
             if self.settings.enable_query_cache
             else None
         )

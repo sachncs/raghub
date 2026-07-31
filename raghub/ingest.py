@@ -6,11 +6,11 @@ in separate files:
 * :class:`Ingestor` — synchronous ingestion over the
   canonical ingest pipeline (the public API / CLI callers
   both hit this).
-* :class:`Batch` / :class:`IngestionJob` —
+* :class:`Batch` / :class:`Job` —
   thread-pool-backed fire-and-forget ingestion with status tracking.
 * :class:`Resumable` — extends the
   background service with a SQLite ledger so jobs survive restarts.
-* :class:`PersistentJobStore` — the SQLite-backed job ledger used
+* :class:`JobStore` — the SQLite-backed job ledger used
   by the resumable service.
 * :class:`WordChunker` — the built-in overlap-aware chunker.
 * :class:`Chonkie` — the Chonkie-backed chunker; supported
@@ -731,7 +731,7 @@ class Ingestor:
 # ---------------------------------------------------------------------------
 
 
-class IngestionJob:
+class Job:
     """Lightweight value object tracking a single ingestion task.
 
     Attributes:
@@ -759,7 +759,7 @@ class Batch:
 
     Attributes:
         executor: Backing thread pool.
-        jobs: Map from job id to :class:`IngestionJob`.
+        jobs: Map from job id to :class:`Job`.
         closed: ``True`` after :meth:`shutdown` has been invoked.
 
     """
@@ -767,7 +767,7 @@ class Batch:
     def __init__(self, max_workers: int = 2) -> None:
         """Initialise the service with a thread pool."""
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
-        self.jobs: dict[str, IngestionJob] = {}
+        self.jobs: dict[str, Job] = {}
         self.closed = False
 
     def submit(self, fn: Any, *args: Any, **kwargs: Any) -> str:
@@ -775,7 +775,7 @@ class Batch:
         if self.closed:
             raise RuntimeError("Batch is shut down")
         job_id = str(uuid4())
-        self.jobs[job_id] = IngestionJob(job_id, "pending")
+        self.jobs[job_id] = Job(job_id, "pending")
         self.executor.submit(self.run_job, job_id, fn, args, kwargs)
         return job_id
 
@@ -819,7 +819,7 @@ class Batch:
 # ---------------------------------------------------------------------------
 
 
-class PersistentJobStore:
+class JobStore:
     """SQLite-backed job ledger.
 
     Records the lifecycle of every ingestion job so the application
@@ -893,13 +893,13 @@ class Resumable(Batch):
     def __init__(self, *, db_path: str | Path, max_workers: int = 2) -> None:
         """Initialise the service."""
         super().__init__(max_workers=max_workers)
-        self.store = PersistentJobStore(db_path)
+        self.store = JobStore(db_path)
         self.restore_from_store()
 
     def restore_from_store(self) -> None:
         """Reload prior job state into the in-memory map."""
         for record in self.store.all_jobs():
-            self.jobs[record["job_id"]] = IngestionJob(
+            self.jobs[record["job_id"]] = Job(
                 job_id=record["job_id"],
                 status=record["status"],
                 result=record["result"],
