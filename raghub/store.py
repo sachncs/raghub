@@ -259,6 +259,7 @@ class MemoryStore(Store):
         self.delete(stale)
 
     def rebuild_bm25(self) -> None:
+        """Recompute the BM25 index from the current record set."""
         with self.lock:
             if not self.records:
                 self.bm25 = None
@@ -267,6 +268,7 @@ class MemoryStore(Store):
         self.bm25 = BM25Okapi(corpus)
 
     def materialize(self, hits: list[tuple[MemoryVectorRecord, float]]) -> list[dict[str, Any]]:
+        """Convert internal hit tuples into the public dict shape."""
         out: list[dict[str, Any]] = []
         for rec, score in hits:
             out.append(
@@ -406,6 +408,7 @@ class SqliteStore(Store):
         embedding_dim: int,
         collection: str = "raghub",
     ) -> None:
+        """Open the SQLite file, set WAL + foreign keys, and create schema."""
         self.path = path
         self.embedding_dim = embedding_dim
         self.collection = collection
@@ -417,13 +420,16 @@ class SqliteStore(Store):
         self.setup_schema()
 
     def dir_path(self) -> str:
+        """Return the parent directory of the SQLite file path."""
         head, _ = os.path.split(self.path)
         return head or "."
 
     def db_path(self) -> str:
+        """Return the configured SQLite file path."""
         return self.path
 
     def setup_schema(self) -> None:
+        """Create the chunks table and its document/version index if absent."""
         with self.lock:
             self.conn.execute(
                 f"""
@@ -460,16 +466,19 @@ class SqliteStore(Store):
 
     @staticmethod
     def pack(vector: Sequence[float]) -> bytes:
+        """Serialise ``vector`` to the on-disk blob format."""
         return np.asarray(vector, dtype=np.float32).tobytes()
 
     @staticmethod
     def unpack(blob: bytes) -> list[float]:
+        """Deserialise ``blob`` back into a list of floats."""
         return np.frombuffer(blob, dtype=np.float32).tolist()
 
     def rows(
         self,
         metadata_filter: str | dict[str, Any] | None,
     ) -> list[tuple[str, str, int, str, str, str, str, str, str, bytes]]:
+        """Return raw chunk rows matching ``metadata_filter``."""
         if metadata_filter is None or metadata_filter == "":
             return list(
                 self.conn.execute(

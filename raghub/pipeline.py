@@ -129,6 +129,7 @@ class QueryCache:
     """Simple TTL-based in-memory query cache."""
 
     def __init__(self, ttl_seconds: int = 300) -> None:
+        """Initialise the cache with a TTL in seconds."""
         self.ttl = ttl_seconds
         self.store: dict[tuple[Any, ...], tuple[float, PipelineResult]] = {}
 
