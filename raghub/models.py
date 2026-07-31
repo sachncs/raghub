@@ -38,6 +38,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
 
+from raghub.errors import VerificationError
+
 __all__ = [
     "AuthLoginRequest",
     "AuthLoginResponse",
@@ -310,6 +312,28 @@ class ChunkRecord(BaseModel):
     text: str
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    def verify(self) -> None:
+        """Assert the chunk's invariant contract.
+
+        The two checks are: (1) ``id`` is non-empty, and (2)
+        ``checksum`` matches the SHA-256 of ``text``.
+
+        Raises:
+            VerificationError: When either check fails.
+        """
+        if not self.chunk_id:
+            raise VerificationError("Chunk: empty chunk_id")
+        if not self.text:
+            raise VerificationError("Chunk: empty text")
+        if not self.checksum:
+            raise VerificationError("Chunk: empty checksum")
+        from hashlib import sha256
+
+        if self.checksum != sha256(self.text.encode("utf-8")).hexdigest():
+            raise VerificationError(
+                f"Chunk: checksum mismatch (expected sha256(text))"
+            )
+
 
 class Hit(BaseModel):
     """A retrieved chunk with score and metadata.
@@ -325,15 +349,23 @@ class Hit(BaseModel):
     score: float
     chunk: ChunkRecord
 
-    @model_validator(mode="after")
-    def _verify_chunk_id_matches(self) -> Hit:
-        """Confirm ``chunk.chunk_id`` matches ``chunk_id``."""
+    def verify(self) -> None:
+        """Assert the hit's invariant contract.
+
+        Checks that ``chunk_id`` matches ``chunk.chunk_id`` and that
+        the chunk itself verifies.
+
+        Raises:
+            VerificationError: When either check fails.
+        """
+        if not self.chunk_id:
+            raise VerificationError("Hit: empty chunk_id")
         if self.chunk.chunk_id != self.chunk_id:
-            raise ValueError(
+            raise VerificationError(
                 f"Hit.chunk_id ({self.chunk_id!r}) does not match "
                 f"chunk.chunk_id ({self.chunk.chunk_id!r})"
             )
-        return self
+        self.chunk.verify()
 
 
 class SearchRequest(BaseModel):
@@ -494,6 +526,21 @@ class Citation(BaseModel):
     score: float = 0.0
     source_uri: str = ""
 
+    def verify(self) -> None:
+        """Assert the citation's contract.
+
+        Raises:
+            VerificationError: When required fields are empty.
+        """
+        if not self.chunk_id:
+            raise VerificationError("Citation: empty chunk_id")
+        if not self.document_id:
+            raise VerificationError("Citation: empty document_id")
+        if self.score < 0.0:
+            raise VerificationError(
+                f"Citation: negative score ({self.score})"
+            )
+
 
 class SearchResult(Hit):
     """Spec-named alias for :class:`Hit`.
@@ -516,23 +563,34 @@ class Response(BaseModel):
 
     answer: str = ""
     citations: list[Citation] = Field(default_factory=list)
-    source_chunks: list[SearchResult] = Field(default_factory=list)
+    source_chunks: list[Hit] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     structured: dict[str, Any] | None = None
     transforms_applied: list[str] = Field(default_factory=list)
     planner_trace: list[dict[str, Any]] | None = None
     tools_invoked: list[str] = Field(default_factory=list)
 
-    @model_validator(mode="after")
-    def _citations_match_source_chunks(self) -> Response:
-        """Confirm every citation's chunk_id appears in source_chunks."""
+    def verify(self) -> None:
+        """Assert the response's contract.
+
+        Verifies every citation is in source_chunks and every
+        source_chunks entry verifies its own invariant.
+
+        Raises:
+            VerificationError: When any check fails.
+        """
+        if not self.answer and not self.citations:
+            raise VerificationError(
+                "Response: empty answer and no citations"
+            )
         source_ids = {sr.chunk_id for sr in self.source_chunks}
         for citation in self.citations:
             if citation.chunk_id not in source_ids:
-                raise ValueError(
-                    f"Citation chunk_id {citation.chunk_id!r} is not present in source_chunks"
+                raise VerificationError(
+                    f"Response: citation chunk_id {citation.chunk_id!r} not in source_chunks"
                 )
-        return self
+        for source in self.source_chunks:
+            source.verify()
 
 
 class Bundle(BaseModel):
@@ -606,12 +664,17 @@ class PipelineResult(BaseModel):
     error: str | None = None
     finished_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    @model_validator(mode="after")
-    def _error_required_on_failure(self) -> PipelineResult:
-        """Confirm ``error`` is set when ``success`` is ``False``."""
+    def verify(self) -> None:
+        """Assert the pipeline result's invariant.
+
+        Raises:
+            VerificationError: When ``success=False`` is paired with
+                an empty ``error``.
+        """
         if not self.success and not self.error:
-            raise ValueError("PipelineResult.error is required when success=False")
-        return self
+            raise VerificationError(
+                "PipelineResult: error required when success=False"
+            )
 
 
 class Result(BaseModel):
