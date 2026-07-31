@@ -343,7 +343,7 @@ class ServerCommand:
             ``--reload`` is for development.
             """
             config = uvicorn.Config(
-                "raghub.api.app:create_app",
+                "raghub.api:AppFactory.create_app",
                 factory=True,
                 host=host,
                 port=port,

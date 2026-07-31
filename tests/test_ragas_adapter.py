@@ -21,7 +21,7 @@ from raghub.errors import ConfigurationError, MissingDep
 
 
 class FakeRagasResult:
-    """Stand-in for a ragas EvaluationResult."""
+    """Stand-in for a ragas Result."""
 
     def __init__(self, scores: dict[str, list[float]]):
         self.scores = scores
@@ -325,7 +325,7 @@ def test_evaluate_mark_fail_when_any_metric_below_threshold():
 
 @pytest.mark.skipif(not RAGAS_AVAILABLE, reason="ragas not installed")
 def test_evaluate_metric_names_have_ragas_prefix():
-    """The metric keys in EvaluationResult are prefixed with ``ragas_``."""
+    """The metric keys in Result are prefixed with ``ragas_``."""
     from raghub.eval.ragas import RagasAdapter
 
     adapter = RagasAdapter.__new__(RagasAdapter)

@@ -18,14 +18,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from importlib.util import find_spec
 from threading import RLock
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from rank_bm25 import BM25Okapi
 
 from raghub.config import Settings
 from raghub.errors import VectorStoreError
-from raghub.models import ChunkRecord
+from raghub.models import ChunkRecord, Classification
 
 sys.modules.setdefault("raghub.vectorstore.base", sys.modules[__name__])
 
@@ -195,6 +195,7 @@ class MemoryStore(Store):
         self.embedding_dim = embedding_dim
         self.lock = RLock()
         self.records: dict[str, MemoryVectorRecord] = {}
+        self.bm25: BM25Okapi | None = None
 
     def create_collection(self) -> None:
         """No-op: this backend has no separate collection concept."""
@@ -352,7 +353,7 @@ class MemoryStore(Store):
             dense_scores = np.array(
                 [self.compute_score(vector, rec.vector) for rec in records]
             )
-            if getattr(self, "bm25", None) is not None:
+            if self.bm25 is not None:
                 bm25_scores = np.array(self.bm25.get_scores(query.split()))
             else:
                 bm25_scores = np.zeros_like(dense_scores)
@@ -485,7 +486,7 @@ class SqliteStore(Store):
     def rows(
         self,
         metadata_filter: str | dict[str, Any] | None,
-    ) -> list[tuple[str, str, int, str, str, str, bytes]]:
+    ) -> list[tuple[str, str, int, str, str, str, str, str, str, bytes]]:
         if metadata_filter is None or metadata_filter == "":
             return list(
                 self.conn.execute(
@@ -607,7 +608,7 @@ class SqliteStore(Store):
                         chunk_id=chunk_id,
                         document_id=document_id,
                         version=version,
-                        classification=classification,
+                        classification=cast(Classification, classification),
                         text=text,
                         source_location=source_location,
                         company=company or "",

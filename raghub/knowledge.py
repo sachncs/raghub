@@ -26,13 +26,13 @@ from raghub.errors import KnowledgeError
 from raghub.llm import Generator
 from raghub.models import (
     BlockKind,
+    Bundle,
     Chunk,
     ChunkRecord,
     DocumentBlock,
     DocumentSection,
-    KnowledgeBundle,
+    Hit,
     KnowledgeRepository,
-    RetrievalHit,
 )
 from raghub.utils import capture
 
@@ -52,7 +52,7 @@ OKF_SCHEMA_VERSION = "0.1"
 # ---------------------------------------------------------------------------
 
 
-def to_okf(bundle: KnowledgeBundle) -> dict[str, Any]:
+def to_okf(bundle: Bundle) -> dict[str, Any]:
     """Serialise ``bundle`` to a plain-OKF dict.
 
     Args:
@@ -92,15 +92,15 @@ def to_okf(bundle: KnowledgeBundle) -> dict[str, Any]:
     }
 
 
-def from_okf(payload: dict[str, Any] | str) -> KnowledgeBundle:
-    """Parse an OKF payload back into a :class:`KnowledgeBundle`.
+def from_okf(payload: dict[str, Any] | str) -> Bundle:
+    """Parse an OKF payload back into a :class:`Bundle`.
 
     Args:
         payload: A dict produced by :func:`to_okf` or a JSON string
             produced by :func:`dumps`.
 
     Returns:
-        The reconstructed :class:`KnowledgeBundle`.
+        The reconstructed :class:`Bundle`.
 
     Raises:
         KnowledgeError: When the payload is structurally invalid.
@@ -149,7 +149,7 @@ def from_okf(payload: dict[str, Any] | str) -> KnowledgeBundle:
     schema = payload.get("$schema", f"okf/{OKF_SCHEMA_VERSION}")
     version = schema.split("/", 1)[-1] if isinstance(schema, str) else OKF_SCHEMA_VERSION
 
-    return KnowledgeBundle(
+    return Bundle(
         bundle_id=payload.get("bundle_id", ""),
         schema_version=str(version),
         source_uri=payload.get("source_uri", ""),
@@ -161,7 +161,7 @@ def from_okf(payload: dict[str, Any] | str) -> KnowledgeBundle:
     )
 
 
-def dumps(bundle: KnowledgeBundle, *, indent: int | None = 2) -> str:
+def dumps(bundle: Bundle, *, indent: int | None = 2) -> str:
     """Serialise ``bundle`` as a JSON string.
 
     Args:
@@ -174,8 +174,8 @@ def dumps(bundle: KnowledgeBundle, *, indent: int | None = 2) -> str:
     return json.dumps(to_okf(bundle), indent=indent, ensure_ascii=False)
 
 
-def loads(payload: str) -> KnowledgeBundle:
-    """Parse ``payload`` as JSON and return a :class:`KnowledgeBundle`.
+def loads(payload: str) -> Bundle:
+    """Parse ``payload`` as JSON and return a :class:`Bundle`.
 
     Args:
         payload: A JSON string.
@@ -199,20 +199,20 @@ class MemoryRepo(KnowledgeRepository):
 
     def __init__(self) -> None:
         """Initialise the empty in-memory store."""
-        self.bundles: dict[str, KnowledgeBundle] = {}
+        self.bundles: dict[str, Bundle] = {}
         self.by_source: dict[str, list[str]] = {}
 
-    def save(self, bundle: KnowledgeBundle) -> KnowledgeBundle:
+    def save(self, bundle: Bundle) -> Bundle:
         """Persist ``bundle`` in memory."""
         self.bundles[bundle.bundle_id] = bundle
         self.by_source.setdefault(bundle.source_uri, []).insert(0, bundle.bundle_id)
         return bundle
 
-    def get(self, bundle_id: str) -> KnowledgeBundle | None:
+    def get(self, bundle_id: str) -> Bundle | None:
         """Return the bundle with id ``bundle_id`` or ``None``."""
         return self.bundles.get(bundle_id)
 
-    def list_by_source(self, source_uri: str) -> list[KnowledgeBundle]:
+    def list_by_source(self, source_uri: str) -> list[Bundle]:
         """Return every bundle for ``source_uri`` (newest first)."""
         return [
             self.bundles[bid] for bid in self.by_source.get(source_uri, []) if bid in self.bundles
@@ -316,7 +316,7 @@ class KnowledgeIndex(ABC):
         self,
         query: str,
         top_k: int = 5,
-    ) -> list[RetrievalHit]:
+    ) -> list[Hit]:
         """Search the index for entries relevant to ``query``."""
 
     def health(self) -> dict[str, Any]:
@@ -399,14 +399,14 @@ class Raptor(KnowledgeIndex):
         self.lock_token += 1
         return removed
 
-    def search(self, query: str, top_k: int = 5) -> list[RetrievalHit]:
+    def search(self, query: str, top_k: int = 5) -> list[Hit]:
         """Return hits across every level, sorted by cosine similarity."""
         if not self.levels or self.embedder is None:
             return []
         query_vec, _ = capture(self.embedder.embed_text, query)
         if not isinstance(query_vec, list):
             return []
-        hits: list[RetrievalHit] = []
+        hits: list[Hit] = []
         for level in self.levels:
             if not level:
                 continue
@@ -415,7 +415,7 @@ class Raptor(KnowledgeIndex):
                     continue
                 score = cosine(query_vec, record.metadata["vector"])
                 hits.append(
-                    RetrievalHit(
+                    Hit(
                         chunk_id=record.chunk_id,
                         score=score,
                         chunk=record,
@@ -733,7 +733,7 @@ class GraphIndex(KnowledgeIndex):
         self.lock_token += 1
         return removed
 
-    def search_local(self, query: str, top_k: int = 5) -> list[RetrievalHit]:
+    def search_local(self, query: str, top_k: int = 5) -> list[Hit]:
         """Local search: anchor on entities mentioned in the query."""
         anchors = self.entities_in_query(query)
         if not anchors:
@@ -755,7 +755,7 @@ class GraphIndex(KnowledgeIndex):
         ranked = self.rank_by_query_relevance(query, chunk_ids)
         return self.to_hits(ranked, top_k)
 
-    def search_global(self, query: str, top_k: int = 5) -> list[RetrievalHit]:
+    def search_global(self, query: str, top_k: int = 5) -> list[Hit]:
         """Global search: rank community summaries by query similarity."""
         if not self.community_summaries:
             return []
@@ -765,7 +765,7 @@ class GraphIndex(KnowledgeIndex):
             overlap = float(len(query_tokens & tokenise(summary)))
             scored.append((idx, summary, overlap))
         scored.sort(key=lambda item: item[2], reverse=True)
-        out: list[RetrievalHit] = []
+        out: list[Hit] = []
         for _rank, (idx, summary, score) in enumerate(scored[: int(top_k)]):
             if score <= 0:
                 continue
@@ -788,15 +788,15 @@ class GraphIndex(KnowledgeIndex):
                     "entities": sorted(communities),
                 },
             )
-            out.append(RetrievalHit(chunk_id=chunk_id, score=score, chunk=record))
+            out.append(Hit(chunk_id=chunk_id, score=score, chunk=record))
         return out
 
-    def search(self, query: str, top_k: int = 5) -> list[RetrievalHit]:
+    def search(self, query: str, top_k: int = 5) -> list[Hit]:
         """Combined search — local first, then global, deduped."""
         local = self.search_local(query, top_k=top_k)
         global_hits = self.search_global(query, top_k=top_k)
         seen: set[str] = set()
-        out: list[RetrievalHit] = []
+        out: list[Hit] = []
         for hit in (*local, *global_hits):
             if hit.chunk_id in seen:
                 continue
@@ -949,7 +949,7 @@ class GraphIndex(KnowledgeIndex):
                 out.add(entity)
         return out
 
-    def search_text_fallback(self, query: str, top_k: int) -> list[RetrievalHit]:
+    def search_text_fallback(self, query: str, top_k: int) -> list[Hit]:
         """Plain text-overlap fallback when no entity matches."""
         tokens = tokenise(query)
         scored: list[tuple[float, str]] = []
@@ -958,10 +958,10 @@ class GraphIndex(KnowledgeIndex):
             if score > 0:
                 scored.append((score, chunk_id))
         scored.sort(key=lambda x: x[0], reverse=True)
-        hits: list[RetrievalHit] = []
+        hits: list[Hit] = []
         for score, cid in scored[: int(top_k)]:
             record = self.chunks[cid]
-            hits.append(RetrievalHit(chunk_id=cid, score=score, chunk=record))
+            hits.append(Hit(chunk_id=cid, score=score, chunk=record))
         return hits
 
     def rank_by_query_relevance(
@@ -981,15 +981,15 @@ class GraphIndex(KnowledgeIndex):
 
     def to_hits(
         self, chunk_ids: list[str], top_k: int
-    ) -> list[RetrievalHit]:
-        """Build :class:`RetrievalHit` objects from chunk ids."""
-        out: list[RetrievalHit] = []
+    ) -> list[Hit]:
+        """Build :class:`Hit` objects from chunk ids."""
+        out: list[Hit] = []
         for cid in chunk_ids[: int(top_k)]:
             record = self.chunks.get(cid)
             if record is None:
                 continue
             score = 1.0
-            out.append(RetrievalHit(chunk_id=cid, score=score, chunk=record))
+            out.append(Hit(chunk_id=cid, score=score, chunk=record))
         return out
 
 

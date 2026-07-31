@@ -45,7 +45,7 @@ from tqdm import tqdm
 
 from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
 from raghub.config import Settings
-from raghub.conv import MemoryConversations
+from raghub.conv import Memory
 from raghub.embedder import Embedder, Hasher
 from raghub.errors import (
     ConfigurationError,
@@ -54,7 +54,7 @@ from raghub.errors import (
     RagHubError,
     ValidationError,
 )
-from raghub.eval import FinanceBench
+from raghub.eval import Finance
 from raghub.gen import DefaultGenerator
 from raghub.helper.response import ResponseBuilder
 from raghub.ingest import Resumable, build_chonkie_chunker
@@ -69,10 +69,10 @@ from raghub.models import (
     Chunker,
     ConversationTurn,
     DocumentConverter,
-    EvaluationResult,
     PipelineCtx,
     PipelineResult,
     Response,
+    Result,
     deterministic_id,
 )
 from raghub.pipeline import AgentPipeline, IngestPipeline, QueryCache, QueryPipeline
@@ -516,7 +516,7 @@ class RAG:
             raptor=getattr(self, "raptor", None),
             graph=getattr(self, "graph", None),
         )
-        self.conversation_store: Any = MemoryConversations()
+        self.conversation_store: Any = Memory()
 
         self.query_cache: QueryCache | None = (
             QueryCache(ttl_seconds=self.settings.query_cache_ttl_seconds)
@@ -922,7 +922,7 @@ class RAG:
         vector_store = getattr(self, "vector_store", None)
         n_inserted = 0
         for chunks, vectors in worker_outputs:
-            if chunks and getattr(vector_store, "insert", None):
+            if chunks and vector_store is not None:
                 written = vector_store.insert(chunks, vectors)
                 n_inserted += written
         rebuild = getattr(vector_store, "rebuild_index", None)
@@ -1364,12 +1364,12 @@ class RAG:
         *,
         response_factory: Callable[[dict[str, Any]], Any] | None = None,
         examples: Sequence[dict[str, Any]] | None = None,
-    ) -> list[EvaluationResult]:
+    ) -> list[Result]:
         """Run a benchmark evaluation."""
         if benchmark != "financebench":
             raise ConfigurationError(f"Unknown benchmark: {benchmark!r}")
 
-        evaluator = FinanceBench()
+        evaluator = Finance()
         factory = response_factory
 
         async def coerce_answer(example: dict[str, Any]) -> Any:
@@ -1390,7 +1390,7 @@ class RAG:
             return result
 
         return cast(
-            list[EvaluationResult],
+            list[Result],
             maybe_await(evaluator.evaluate(examples, response_factory=coerce_answer)),
         )
 

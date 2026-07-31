@@ -38,7 +38,7 @@ from raghub.models import (
     SessionRecord,
 )
 from raghub.store import Store
-from raghub.stores import Sessions
+from raghub.stores import Database, Sessions
 
 __all__ = [
     "ChunkStore",
@@ -504,7 +504,7 @@ class UnitOfWork(BaseUnitOfWork):
         self.vector_store = vector_store
         self.session_timeout = session_timeout
         self.initialized = False
-        self.db_manager = DatabaseManager(db_path)
+        self.db_manager = Database(db_path)
 
         doc_repo = DocStore(db_path, db_manager=self.db_manager)
         chunk_repo = ChunkStore(vector_store)

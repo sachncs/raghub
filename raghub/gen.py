@@ -20,7 +20,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import os
-from collections.abc import AsyncIterator, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
@@ -30,7 +30,7 @@ from raghub.llm import Generator
 from raghub.models import (
     Citation,
     ConversationTurn,
-    RetrievalHit,
+    Hit,
     StructuredOutputProvider,
 )
 
@@ -89,14 +89,14 @@ class DefaultGenerator:
         self,
         *,
         question: str,
-        context: Sequence[RetrievalHit],
+        context: Sequence[Hit],
         conversation: Sequence[ConversationTurn] = (),
     ) -> tuple[str, list[Citation]]:
         """Generate an answer and citations from retrieved context.
 
         Args:
             question: The user question.
-            context: Sequence of :class:`RetrievalHit`.
+            context: Sequence of :class:`Hit`.
             conversation: Prior conversation turns.
 
         Returns:
@@ -153,7 +153,7 @@ class DefaultGenerator:
         self,
         *,
         question: str,
-        context: Sequence[RetrievalHit],
+        context: Sequence[Hit],
         conversation: Sequence[ConversationTurn] = (),
     ) -> AsyncIterator[str]:
         """Stream the answer via the LLM provider's ``astream`` method.
@@ -282,7 +282,7 @@ class Instructor(StructuredOutputProvider):
         *,
         response_model: type[T],
         question: str,
-        context: Sequence[RetrievalHit],
+        context: Sequence[Hit],
     ) -> T:
         """Generate a typed response.
 
@@ -314,7 +314,7 @@ class Instructor(StructuredOutputProvider):
         ]
         if self.async_client:
             client = self.async_instructor_client()
-            return await cast(Callable[..., T], client.create)(
+            return await cast(Callable[..., Awaitable[T]], client.create)(
                 messages=messages,
                 response_model=response_model,
             )
@@ -330,7 +330,7 @@ class Instructor(StructuredOutputProvider):
         *,
         response_model: type[T],
         question: str,
-        context: Sequence[RetrievalHit],
+        context: Sequence[Hit],
     ) -> AsyncIterator[T]:
         """Stream a typed response (yields once when the model is final)."""
         result = await self.generate(

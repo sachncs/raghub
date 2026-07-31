@@ -25,7 +25,7 @@ class App:
     """Request-scoped accessor for the :class:`Facade`.
 
     The facade is placed on ``app.state.application`` by
-    :func:`raghub.api.app.create_app`; this class is the single place
+    :func:`raghub.api.create_app`; this class is the single place
     that knows how to fish it back out.
     """
 

@@ -21,10 +21,10 @@ import pytest
 from raghub.embedder import Hasher
 from raghub.models import (
     BlockKind,
+    Bundle,
     ChunkRecord,
     DocumentBlock,
     DocumentSection,
-    KnowledgeBundle,
     PipelineCtx,
     User,
 )
@@ -32,8 +32,8 @@ from raghub.pipeline import IngestPipeline, QueryPipeline
 from raghub.store import MemoryStore
 
 
-def make_bundle(sections: list[DocumentSection] | None = None) -> KnowledgeBundle:
-    return KnowledgeBundle(
+def make_bundle(sections: list[DocumentSection] | None = None) -> Bundle:
+    return Bundle(
         source_uri="file:///x.pdf",
         sections=sections or [],
     )
@@ -68,7 +68,7 @@ class _StubChunker:
     chunk_size: int = 0
     chunk_overlap: int = 0
 
-    def chunk(self, bundle: KnowledgeBundle) -> list[ChunkRecord]:
+    def chunk(self, bundle: Bundle) -> list[ChunkRecord]:
         tenant = bundle.metadata.get("company", "")
         chunks: list[ChunkRecord] = []
         for section in bundle.sections:

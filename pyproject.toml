@@ -17,7 +17,6 @@ keywords = [
     "retrieval-augmented-generation",
     "vector-search",
     "fastapi",
-    "streamlit",
 ]
 classifiers = [
     "Framework :: FastAPI",
@@ -45,7 +44,6 @@ dependencies = [
 
 [project.optional-dependencies]
 api = ["fastapi>=0.110,<1", "uvicorn[standard]>=0.30,<1", "python-multipart>=0.0.9,<1"]
-ui = ["streamlit>=1.37,<2"]
 pdf = ["marker-pdf>=1.0,<1.10", "pypdf>=6.0,<7"]
 graph = ["python-igraph>=0.11,<1", "leidenalg>=0.10,<1", "scikit-learn>=1.4,<2"]
 rerank = ["cohere>=5,<6", "ragatouille>=0.0.8,<1", "rank-bm25>=0.2,<1"]
@@ -114,7 +112,7 @@ dev = [
 
 [project.scripts]
 raghub = "raghub.cli:main"
-raghub-financebench = "raghub.evaluation.cli:app"
+raghub-financebench = "raghub.evaluation:app"
 
 [project.entry-points."raghub.plugins"]
 # A plugin is any class with a ``register(registry)`` method. The
@@ -180,10 +178,6 @@ disallow_untyped_defs = true
 no_implicit_optional = true
 warn_return_any = true
 no_implicit_reexport = false
-
-[[tool.mypy.overrides]]
-module = ["tests.*", "streamlit_app", "evaluate_financebench"]
-disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

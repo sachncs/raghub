@@ -4,8 +4,8 @@ This module exposes four ingestion concerns:
 in separate files:
 
 * :class:`Ingestor` — synchronous ingestion over the
-  canonical ingest pipeline (the public API / CLI / streamlit
-  callers all hit this).
+  canonical ingest pipeline (the public API / CLI callers
+  both hit this).
 * :class:`Batch` / :class:`IngestionJob` —
   thread-pool-backed fire-and-forget ingestion with status tracking.
 * :class:`Resumable` — extends the
@@ -359,6 +359,7 @@ class Chonkie(Chunker):
                     company=company,
                     owner=owner,
                     text=text_value,
+                    checksum=sha256(text_value.encode("utf-8")).hexdigest(),
                     metadata={
                         "chunker": "chonkie",
                         "strategy": getattr(self.inner, "__class__", type(None)).__name__,
@@ -423,6 +424,7 @@ class WordChunker(Chunker):
                             owner=bundle.metadata.get("owner", ""),
                             department=bundle.metadata.get("department", ""),
                             text=text,
+                            checksum=sha256(text.encode("utf-8")).hexdigest(),
                             metadata={
                                 "block_kind": "text",
                                 "block_id": block.block_id,
@@ -873,7 +875,7 @@ class Resumable(Batch):
 
     def restore_from_store(self) -> None:
         """Reload prior job state into the in-memory map."""
-        for record in self.store.all():
+        for record in self.store.all_jobs():
             self.jobs[record["job_id"]] = IngestionJob(
                 job_id=record["job_id"],
                 status=record["status"],

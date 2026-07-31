@@ -224,7 +224,7 @@ class ToolRegistry:
 
     def __init__(self) -> None:
         """Initialise an empty registry."""
-        self.tools: dict[str, Tool] = {}
+        self.tools: dict[str, ToolProtocol] = {}
 
     def register(self, tool: ToolProtocol) -> None:
         """Add (or replace) ``tool`` under its :attr:`Tool.name`."""

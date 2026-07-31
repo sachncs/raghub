@@ -14,7 +14,7 @@ Consolidates every support file in the old
                           (was ApplicationFacade; ``Facade`` is a
                           prior-name alias kept for external callers).
 
-The module-level dispatch entry points live in :mod:`raghub.api.app`
+The module-level dispatch entry points live in :mod:`raghub.api`
 and the CLI surface in :mod:`raghub.cli.main`.
 
 Names follow the no-suffix rule: ``Document`` (not ``DocumentService``),
@@ -578,7 +578,7 @@ async def build_container(settings: Settings) -> RagContainer:
     retrieval = RetrievalPipeline(
         embedding_provider=embeddings,
         vector_store=vector_store,
-        reranker=IdentityReranker(),
+        rerank=IdentityReranker(),
     )
     image_store = ImageStore(settings.data_dir / "images")
     parser_registry = Catalog()
