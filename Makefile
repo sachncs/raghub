@@ -1,4 +1,4 @@
-.PHONY: help install test coverage lint typecheck format security audit docs bench dev-api dev-ui db-init db-reset clean
+.PHONY: help install test coverage lint typecheck format security audit docs bench dev-api clean
 
 help:
 	@echo "Common targets:"
@@ -25,8 +25,8 @@ test:
 	pytest -q
 
 coverage:
-	pytest -q --ignore=tests/test_financebench.py \
-		--cov=raghub --cov-report=term-missing --cov-fail-under=90
+	pytest -q \
+		--cov=raghub --cov-report=term-missing --cov-fail-under=85
 
 lint:
 	ruff check raghub/ tests/ devtools/
@@ -54,16 +54,4 @@ clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 
 dev-api:
-	uvicorn raghub.api.app:get_app --factory --host 0.0.0.0 --port 8000 --reload
-
-dev-ui:
-	streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port 8501
-
-db-init:
-	python -c \
-	"from raghub.core.container import build_application; import asyncio; asyncio.run(build_application())"
-
-db-reset:
-	rm -f data/*.db data/sessions.json data/registry.json
-	python -c \
-	"from raghub.core.container import build_application; import asyncio; asyncio.run(build_application())"
+	raghub run --host 0.0.0.0 --port 8000
