@@ -54,6 +54,7 @@ class Tokenizer:
             The ``gigatoken.Tokenizer`` instance, or ``None`` when
             the ``gigatoken`` package is missing or the network is
             unavailable.
+
         """
         try:
             import gigatoken as gt

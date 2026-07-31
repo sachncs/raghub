@@ -22,7 +22,7 @@ from raghub.helper.cli import (
 )
 from raghub.utils import capture
 
-__all__ = ["health", "version", "main"]
+__all__ = ["health", "main", "version"]
 
 
 app = typer.Typer(

@@ -36,7 +36,7 @@ from enum import Enum
 from typing import Any, Protocol, TypeVar, runtime_checkable
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from raghub.errors import VerificationError
 
@@ -320,6 +320,7 @@ class ChunkRecord(BaseModel):
 
         Raises:
             VerificationError: When either check fails.
+
         """
         if not self.chunk_id:
             raise VerificationError("Chunk: empty chunk_id")
@@ -331,7 +332,7 @@ class ChunkRecord(BaseModel):
 
         if self.checksum != sha256(self.text.encode("utf-8")).hexdigest():
             raise VerificationError(
-                f"Chunk: checksum mismatch (expected sha256(text))"
+                "Chunk: checksum mismatch (expected sha256(text))"
             )
 
 
@@ -357,6 +358,7 @@ class Hit(BaseModel):
 
         Raises:
             VerificationError: When either check fails.
+
         """
         if not self.chunk_id:
             raise VerificationError("Hit: empty chunk_id")
@@ -531,6 +533,7 @@ class Citation(BaseModel):
 
         Raises:
             VerificationError: When required fields are empty.
+
         """
         if not self.chunk_id:
             raise VerificationError("Citation: empty chunk_id")
@@ -551,6 +554,7 @@ class Citations(BaseModel):
 
     Attributes:
         items: The flattened citation list.
+
     """
 
     items: list[Citation] = Field(default_factory=list)
@@ -565,6 +569,7 @@ class Citations(BaseModel):
 
         Raises:
             VerificationError: When any check fails.
+
         """
         for cit in self.items:
             cit.verify()
@@ -613,6 +618,7 @@ class Response(BaseModel):
 
         Raises:
             VerificationError: When any check fails.
+
         """
         if not self.answer and not self.citations:
             raise VerificationError(
@@ -705,6 +711,7 @@ class PipelineResult(BaseModel):
         Raises:
             VerificationError: When ``success=False`` is paired with
                 an empty ``error``.
+
         """
         if not self.success and not self.error:
             raise VerificationError(

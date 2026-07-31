@@ -30,7 +30,6 @@ from raghub.models import (
     VectorStore,
 )
 
-
 __all__ = [
     "PluginRegistry",
 ]
