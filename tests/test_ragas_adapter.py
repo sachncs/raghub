@@ -20,14 +20,14 @@ from raghub.errors import ConfigurationError, MissingDep
 # ---------------------------------------------------------------------------
 
 
-class _FakeRagasResult:
+class FakeRagasResult:
     """Stand-in for a ragas EvaluationResult."""
 
     def __init__(self, scores: dict[str, list[float]]):
         self.scores = scores
 
 
-class _FakeRagasModule:
+class FakeRagasModule:
     """Stub ragas module that records what was passed to evaluate()."""
 
     def __init__(self, raise_on_evaluate: Exception | None = None) -> None:
@@ -35,7 +35,7 @@ class _FakeRagasModule:
         self.last_kwargs: dict[str, Any] | None = None
         self.last_dataset: Any = None
 
-    def evaluate(self, dataset: Any, **kwargs: Any) -> _FakeRagasResult:
+    def evaluate(self, dataset: Any, **kwargs: Any) -> FakeRagasResult:
         self.last_dataset = dataset
         self.last_kwargs = kwargs
         if self.raise_on_evaluate is not None:
@@ -47,7 +47,7 @@ class _FakeRagasModule:
             "context_precision": [0.7] * n,
             "context_recall": [0.6] * n,
         }
-        return _FakeRagasResult(scores)
+        return FakeRagasResult(scores)
 
 
 def test_build_dataset_translates_examples():
@@ -93,7 +93,7 @@ def test_extract_scores_returns_per_row_list():
     """``_extract_scores`` returns a list per metric, in row order."""
     from raghub.eval.ragas import RagasAdapter
 
-    fake = _FakeRagasResult(
+    fake = FakeRagasResult(
         {
             "faithfulness": [1.0, 0.5, 0.0],
             "answer_relevancy": [0.8, 0.6, 0.4],
@@ -111,7 +111,7 @@ def test_extract_scores_zeros_missing_metrics():
     """A metric missing from the result is treated as all zeros."""
     from raghub.eval.ragas import RagasAdapter
 
-    fake = _FakeRagasResult({})  # no metrics at all
+    fake = FakeRagasResult({})  # no metrics at all
     scores = RagasAdapter.extract_scores(fake, 5)
     assert scores["faithfulness"] == [0.0] * 5
     assert scores["answer_relevancy"] == [0.0] * 5
@@ -121,7 +121,7 @@ def test_extract_scores_handles_corrupt_values():
     """A metric whose values can't be cast to float falls back to zeros."""
     from raghub.eval.ragas import RagasAdapter
 
-    fake = _FakeRagasResult({"faithfulness": ["nope", "still nope"]})
+    fake = FakeRagasResult({"faithfulness": ["nope", "still nope"]})
     scores = RagasAdapter.extract_scores(fake, 2)
     assert scores["faithfulness"] == [0.0, 0.0]
 
@@ -152,15 +152,15 @@ def test_ragas_adapter_raises_config_error_for_unknown_metric():
 
     # Install a stub ragas so the import succeeds, then verify the
     # metric registry rejects a bad name.
-    class _StubFaithfulness:
+    class StubFaithfulness:
         pass
 
     fake_ragas = type(sys)("ragas")
     fake_ragas_metrics = type(sys)("ragas.metrics")
-    fake_ragas_metrics.faithfulness = _StubFaithfulness()
-    fake_ragas_metrics.answer_relevancy = _StubFaithfulness()
-    fake_ragas_metrics.context_precision = _StubFaithfulness()
-    fake_ragas_metrics.context_recall = _StubFaithfulness()
+    fake_ragas_metrics.faithfulness = StubFaithfulness()
+    fake_ragas_metrics.answer_relevancy = StubFaithfulness()
+    fake_ragas_metrics.context_precision = StubFaithfulness()
+    fake_ragas_metrics.context_recall = StubFaithfulness()
     fake_ragas.metrics = fake_ragas_metrics
 
     sys.modules["ragas"] = fake_ragas
@@ -186,7 +186,7 @@ def test_ragas_adapter_raises_config_error_for_unknown_metric():
 # ---------------------------------------------------------------------------
 
 
-def _safe_import_ragas() -> bool:
+def safe_import_ragas() -> bool:
     try:
         import ragas  # noqa: F401
 
@@ -197,7 +197,7 @@ def _safe_import_ragas() -> bool:
 
 # Skip only the tests that actually invoke ragas. The translation
 # helpers above cover the rest.
-RAGAS_AVAILABLE = _safe_import_ragas()
+RAGAS_AVAILABLE = safe_import_ragas()
 
 
 @pytest.mark.skipif(not RAGAS_AVAILABLE, reason="ragas not installed")
@@ -205,7 +205,7 @@ def test_evaluate_calls_ragas_evaluate_with_metric_instances(monkeypatch):
     """``evaluate()`` builds the dataset and invokes ragas.evaluate."""
     from raghub.eval.ragas import RagasAdapter
 
-    fake_ragas = _FakeRagasModule()
+    fake_ragas = FakeRagasModule()
     monkeypatch.setattr("raghub.eval.ragas.import_ragas", lambda: fake_ragas)
 
     # Bypass the __init__ import check; set the bits the adapter
@@ -241,7 +241,7 @@ def test_evaluate_wraps_ragas_failure_in_configuration_error(monkeypatch):
     """A ragas exception surfaces as ConfigurationError."""
     from raghub.eval.ragas import RagasAdapter
 
-    fake_ragas = _FakeRagasModule(raise_on_evaluate=RuntimeError("boom"))
+    fake_ragas = FakeRagasModule(raise_on_evaluate=RuntimeError("boom"))
     monkeypatch.setattr("raghub.eval.ragas.import_ragas", lambda: fake_ragas)
 
     adapter = RagasAdapter.__new__(RagasAdapter)
@@ -265,8 +265,8 @@ def test_evaluate_mark_pass_when_all_metrics_above_threshold():
     """The ``passed`` flag is True when every metric is >= 0.5."""
     from raghub.eval.ragas import RagasAdapter
 
-    fake_ragas = _FakeRagasModule()
-    fake_ragas.evaluate = lambda dataset, **_: _FakeRagasResult(
+    fake_ragas = FakeRagasModule()
+    fake_ragas.evaluate = lambda dataset, **_: FakeRagasResult(
         {
             "faithfulness": [0.9, 0.6],
             "answer_relevancy": [0.8, 0.7],
@@ -298,8 +298,8 @@ def test_evaluate_mark_fail_when_any_metric_below_threshold():
     """The ``passed`` flag is False when any metric is < 0.5."""
     from raghub.eval.ragas import RagasAdapter
 
-    fake_ragas = _FakeRagasModule()
-    fake_ragas.evaluate = lambda dataset, **_: _FakeRagasResult(
+    fake_ragas = FakeRagasModule()
+    fake_ragas.evaluate = lambda dataset, **_: FakeRagasResult(
         {
             "faithfulness": [0.3],
             "answer_relevancy": [0.9],
