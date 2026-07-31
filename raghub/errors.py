@@ -23,6 +23,10 @@ Exception groups mirror the framework's domain modules:
     layer to map to 401 / 403).
 * :class:`RagHubError` — generic catch-all for uncategorised failures
     (e.g. atomic-write failures, generic validation).
+* :class:`VerificationError` — raised by every entity's
+    :py:meth:`verify` method when the entity's invariant contract
+    is broken (missing id, mismatched checksum, dangling reference,
+    orphan verification chain).
 """
 
 from __future__ import annotations
@@ -52,6 +56,7 @@ __all__ = [
     "ToolError",
     "TransformError",
     "VectorStoreError",
+    "VerificationError",
     "WebSearchError",
 ]
 
@@ -221,6 +226,15 @@ class TokenBudgetError(RagHubError):
 
 class StreamingFormatError(GenerationError):
     """Raised when SSE stream formatting fails (invalid event payload)."""
+
+
+class VerificationError(ValueError):
+    """Raised when an entity fails its :py:meth:`verify` invariant.
+
+    The error message contains the entity class name, the field
+    name, and the specific reason; callers can pattern-match on
+    ``type(exc).__name__`` to map to HTTP 400 or retry logic.
+    """
 
 
 class CacheMissError(KeyError):
