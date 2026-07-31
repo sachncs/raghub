@@ -177,7 +177,7 @@ class AgentConfig(BaseModel):
         enabled: Master switch. ``False`` keeps the fast-path query
             pipeline untouched (Phase 10.6 regression test).
         max_steps: Hard cap on planner steps before raising
-            :class:`AgentBudgetExceeded`.
+            :class:`AgentBudgetError`.
         max_tool_calls: Hard cap on total tool invocations per query.
         max_wall_seconds: Wall-clock cap per query.
         planner_model: Optional override for the planner LLM. ``None``

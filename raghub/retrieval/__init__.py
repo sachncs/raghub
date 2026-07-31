@@ -84,7 +84,7 @@ class Rerank(Protocol):
     name: str
 
     def rerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
-        """Synchronously rerank ``hits`` for ``question``. May block."""
+        """Rerank ``hits`` for ``question`` synchronously; may block."""
         ...
 
     async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
@@ -801,6 +801,7 @@ HYDE = (
 
 
 def hyde_prompt(question: str) -> str:
+    """Build the HyDE prompt that elicits a hypothetical passage for retrieval."""
     return (
         "Write a short paragraph (3-5 sentences) that would answer the "
         "following question. The paragraph does not need to be factual — "
@@ -862,6 +863,7 @@ MULTI_QUERY = (
 
 
 def multi_query_prompt(question: str, n: int) -> str:
+    """Build the multi-query prompt that returns N rephrasings as JSON."""
     return (
         f"Rewrite the following question as {n} distinct search queries. "
         "Vary vocabulary and structure; keep the intent identical. "
@@ -917,6 +919,7 @@ DECOMPOSE = (
 
 
 def decompose_prompt(question: str) -> str:
+    """Build the decomposition prompt that splits a compound question."""
     return (
         "Split the following compound question into the minimum set of "
         "independent sub-questions whose answers together imply the "
@@ -968,6 +971,7 @@ STEP_BACK = (
 
 
 def step_back_prompt(question: str) -> str:
+    """Build the step-back prompt that asks for the principle-level question."""
     return (
         "Given the specific question below, write the more general, "
         "principle-level question that would provide useful background. "
@@ -1515,7 +1519,7 @@ def reranker(
     *,
     method: str = "identity",
 ) -> list[Hit]:
-    """Synchronously rerank ``hits`` using the named ``method``.
+    """Rerank ``hits`` synchronously using the named ``method``.
 
     Args:
         question: The user query.

@@ -51,9 +51,7 @@ from raghub.lifecycle import (
     normalize_text,
     validate_upload,
 )
-from raghub.lifecycle import (
-    PlainTextConverter as default_converter,
-)
+from raghub.lifecycle import PlainTextConverter
 from raghub.models import (
     Chunk,
     Chunker,
@@ -620,7 +618,7 @@ class Ingestor:
     def build_pipeline(self) -> IngestPipeline:
         """Construct the default :class:`IngestPipeline`."""
         return IngestPipeline(
-            converter=default_converter(),
+            converter=PlainTextConverter(),
             chunker=WordChunker(),
             embedder=self.embedding_provider,
             vector_store=self.uow.vector_store,

@@ -28,10 +28,10 @@ Exception groups mirror the framework's domain modules:
 from __future__ import annotations
 
 __all__ = [
-    "AgentBudgetExceeded",
+    "AgentBudgetError",
     "AuthenticationError",
     "AuthorizationError",
-    "CacheMiss",
+    "CacheMissError",
     "ConfigurationError",
     "ConversionError",
     "EmbeddingError",
@@ -40,15 +40,15 @@ __all__ = [
     "GraphUnavailableError",
     "IngestionError",
     "KnowledgeError",
-    "MissingDep",
+    "MissingDepError",
     "PipelineError",
-    "PipelineFailed",
+    "PipelineFailedError",
     "RagHubError",
     "RerankerError",
     "RetrievalError",
     "StreamingFormatError",
     "TelemetryError",
-    "TokenBudgetExceeded",
+    "TokenBudgetError",
     "ToolError",
     "TransformError",
     "VectorStoreError",
@@ -119,7 +119,7 @@ class ToolError(RagHubError):
     """Raised when an agent tool cannot complete or returns malformed output."""
 
 
-class AgentBudgetExceeded(RagHubError):
+class AgentBudgetError(RagHubError):
     """Raised when the agent loop exhausts its step / wall-clock / token budget.
 
     The exception carries the partial planner trace so callers can surface
@@ -136,8 +136,10 @@ class RerankerError(RagHubError):
 
 
 class GraphUnavailableError(RagHubError):
-    """Raised when a graph-backed feature (RAPTOR / GraphRAG) is requested
-    but the required dependency (sklearn / igraph / leidenalg) is missing.
+    """Raised when a graph-backed feature (RAPTOR / GraphRAG) is requested.
+
+    Triggered when the required dependency (sklearn / igraph / leidenalg)
+    is missing from the runtime environment.
     """
 
 
@@ -169,7 +171,7 @@ class TelemetryError(RagHubError):
     """
 
 
-class MissingDep(ImportError):
+class MissingDepError(ImportError):
     """Raised when an optional runtime dependency is not installed.
 
     Subclasses :class:`ImportError` so existing handlers that catch
@@ -192,7 +194,7 @@ class MissingDep(ImportError):
         self.hint = hint
 
 
-class PipelineFailed(RagHubError):
+class PipelineFailedError(RagHubError):
     """Raised by an orchestration pipeline when a step fails irrecoverably.
 
     Carries the offending step name and partial result so callers can
@@ -213,7 +215,7 @@ class PipelineFailed(RagHubError):
         self.partial = partial
 
 
-class TokenBudgetExceeded(RagHubError):
+class TokenBudgetError(RagHubError):
     """Raised when an operation consumes more tokens than its budget allows."""
 
 
@@ -221,7 +223,7 @@ class StreamingFormatError(GenerationError):
     """Raised when SSE stream formatting fails (invalid event payload)."""
 
 
-class CacheMiss(KeyError):
+class CacheMissError(KeyError):
     """Raised by ``cache.get_or_raise()`` when the key is absent.
 
     Subclasses :class:`KeyError` so callers can catch either type with

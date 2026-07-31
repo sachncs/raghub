@@ -15,7 +15,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from raghub.errors import MissingDep
+from raghub.errors import MissingDepError
 from raghub.lifecycle import (
     ChunkingPlan,
     Lifecycle,
@@ -110,7 +110,7 @@ class Pdf(File):
         try:
             from pypdf import PdfReader
         except ImportError:
-            raise MissingDep(
+            raise MissingDepError(
                 "pypdf",
                 "pip install raghub[pdf]",
             ) from None
@@ -156,7 +156,7 @@ class HTML(File):
         try:
             from bs4 import BeautifulSoup
         except ImportError:
-            raise MissingDep(
+            raise MissingDepError(
                 "beautifulsoup4",
                 "pip install raghub[docs]",
             ) from None
@@ -198,7 +198,7 @@ class Image(File):
         try:
             from PIL import Image as PillowImage
         except ImportError:
-            raise MissingDep(
+            raise MissingDepError(
                 "Pillow",
                 "pip install raghub[docs]",
             ) from None
@@ -260,7 +260,7 @@ class Office(File):
             try:
                 from docx import Document
             except ImportError:
-                raise MissingDep(
+                raise MissingDepError(
                     "python-docx",
                     "pip install raghub[docs]",
                 ) from None
@@ -282,7 +282,7 @@ class Office(File):
             try:
                 from openpyxl import load_workbook
             except ImportError:
-                raise MissingDep(
+                raise MissingDepError(
                     "openpyxl",
                     "pip install raghub[docs]",
                 ) from None
@@ -310,7 +310,7 @@ class Office(File):
             try:
                 from pptx import Presentation
             except ImportError:
-                raise MissingDep(
+                raise MissingDepError(
                     "python-pptx",
                     "pip install raghub[docs]",
                 ) from None

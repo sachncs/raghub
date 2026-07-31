@@ -50,7 +50,7 @@ from raghub.embedder import Embedder, Hasher
 from raghub.errors import (
     ConfigurationError,
     IngestionError,
-    MissingDep,
+    MissingDepError,
     RagHubError,
 )
 from raghub.eval import Finance
@@ -163,7 +163,7 @@ def default_converter() -> DocumentConverter:
         from raghub.parsers import Marker
 
         return Marker()
-    except (MissingDep, ConfigurationError):
+    except (MissingDepError, ConfigurationError):
         import warnings
 
         from raghub.lifecycle import PlainTextConverter

@@ -39,7 +39,7 @@ from uuid import uuid4
 from tqdm import tqdm
 
 from raghub.domain import DatabaseManager
-from raghub.errors import AuthenticationError, MissingDep, RagHubError
+from raghub.errors import AuthenticationError, MissingDepError, RagHubError
 from raghub.models import (
     ConversationTurn,
     DocumentLifecycleStatus,
@@ -143,7 +143,7 @@ class Database:
             try:
                 import aiosqlite
             except ImportError:
-                raise MissingDep(
+                raise MissingDepError(
                     "aiosqlite",
                     "pip install raghub[auth]",
                 ) from None
@@ -530,7 +530,7 @@ class Sessions:
 
     @classmethod
     def json(cls, path: Path, timeout_seconds: int = 3600) -> JsonSessions:
-        """Construct a JSON-backed session store."
+        """Construct a JSON-backed session store.
 
         Args:
             path: Filesystem path to the JSON file.
@@ -547,7 +547,7 @@ class Sessions:
         try:
             import aiosqlite
         except ImportError:
-            raise MissingDep(
+            raise MissingDepError(
                 "aiosqlite",
                 "pip install raghub[auth]",
             ) from None

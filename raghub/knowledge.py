@@ -526,7 +526,7 @@ def summarise(
     llm: Any,
     max_chars: int,
 ) -> str:
-    """Synchronous summarise: drives the async helper."""
+    """Run the async summary helper synchronously."""
     import asyncio
 
     async def driver() -> str:
@@ -787,7 +787,7 @@ class GraphIndex(KnowledgeIndex):
         return out
 
     def search(self, query: str, top_k: int = 5) -> list[Hit]:
-        """Combined search — local first, then global, deduped."""
+        """Run combined local-then-global search and deduplicate."""
         local = self.search_local(query, top_k=top_k)
         global_hits = self.search_global(query, top_k=top_k)
         seen: set[str] = set()

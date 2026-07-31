@@ -28,7 +28,7 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel, Field
 
 from raghub.config import AgentConfig, Settings
-from raghub.errors import AgentBudgetExceeded, GenerationError, ToolError
+from raghub.errors import AgentBudgetError, GenerationError, ToolError
 from raghub.models import ConversationTurn, User
 from raghub.telemetry import NoOpTelemetry
 from raghub.tools import (
@@ -502,7 +502,7 @@ class Agent:
         session_id: str | None,
         session_overrides: dict[str, Any] | None,
     ) -> AsyncIterator[PlannerEvent]:
-        """The shared loop body used by both ``run`` and ``astream``."""
+        """Yield events for the agent loop shared by ``run`` and ``astream``."""
         enabled = self.resolve_enabled_tools(tools_enabled)
         tool_schemas = [
             {"name": name, "description": tool.description, "json_schema": tool.json_schema}
@@ -537,7 +537,7 @@ class Agent:
                         payload={"budget_exceeded": True, "reason": "wall_clock"},
                     )
                     emitted_budget_event = True
-                raise AgentBudgetExceeded(
+                raise AgentBudgetError(
                     f"agent exceeded wall-clock budget ({self.settings.max_wall_seconds}s)"
                 )
             if tool_calls >= self.settings.max_tool_calls:
@@ -548,7 +548,7 @@ class Agent:
                         payload={"budget_exceeded": True, "reason": "tool_calls"},
                     )
                     emitted_budget_event = True
-                raise AgentBudgetExceeded(
+                raise AgentBudgetError(
                     f"agent exceeded tool-call budget ({self.settings.max_tool_calls})"
                 )
 
@@ -568,7 +568,7 @@ class Agent:
                     ValueError,
                     AttributeError,
                 ) as exc:
-                    raise AgentBudgetExceeded(f"agent LLM call failed: {exc}") from exc
+                    raise AgentBudgetError(f"agent LLM call failed: {exc}") from exc
 
             parsed = parse_turn(raw or "")
             if isinstance(parsed, PlannerAction):
@@ -659,7 +659,7 @@ class Agent:
                 step=steps,
                 payload={"budget_exceeded": True, "reason": "steps"},
             )
-        raise AgentBudgetExceeded(f"agent exceeded step budget ({self.settings.max_steps})")
+        raise AgentBudgetError(f"agent exceeded step budget ({self.settings.max_steps})")
 
     def resolve_enabled_tools(self, tools_enabled: set[str] | None) -> dict[str, Any]:
         """Filter the registry to the requested tools (or all of them)."""
