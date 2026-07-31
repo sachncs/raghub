@@ -296,7 +296,7 @@ class TestQueryPipelineHistoryPropagation:
         embedder = Hasher(dimension=4, model_name="test")
         vector_store = _VectorStoreStub()
         # Seed the store with one chunk so the query returns a hit.
-        from raghub.models import ChunkRecord
+        from raghub.models import Chunk
 
         vector_store.delete_document = MagicMock()
         captured: dict[str, object] = {}
@@ -315,8 +315,8 @@ class TestQueryPipelineHistoryPropagation:
             ConversationTurn(question="follow-up?", answer="follow-up answer"),
         ]
 
-        chunk = ChunkRecord(
-            chunk_id="c1",
+        chunk = Chunk(
+            id="c1",
             document_id="d1",
             version=1,
             text="revenue grew 12 percent",

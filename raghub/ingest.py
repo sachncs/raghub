@@ -55,7 +55,6 @@ from raghub.lifecycle import (
 from raghub.models import (
     Chunk,
     Chunker,
-    ChunkRecord,
     Classification,
     DocumentLifecycleStatus,
     DocumentRecord,
@@ -316,7 +315,7 @@ class Chonkie(Chunker):
                     )
                     chunks.append(
                         Chunk(
-                            chunk_id=chunk_id,
+                            id=chunk_id,
                             document_id=bundle.bundle_id,
                             version=1,
                             page=(
@@ -364,7 +363,7 @@ class Chonkie(Chunker):
             )
             chunks.append(
                 Chunk(
-                    chunk_id=chunk_id,
+                    id=chunk_id,
                     document_id=document_id,
                     version=version,
                     company=company,
@@ -424,7 +423,7 @@ class WordChunker(Chunker):
                     )
                     chunks.append(
                         Chunk(
-                            chunk_id=chunk_id,
+                            id=chunk_id,
                             document_id=bundle.bundle_id,
                             version=1,
                             page=(
@@ -466,7 +465,7 @@ class WordChunker(Chunker):
             )
             result.append(
                 Chunk(
-                    chunk_id=chunk_id,
+                    id=chunk_id,
                     document_id=document_id,
                     version=version,
                     company=company,
@@ -560,7 +559,7 @@ def record_from_pipeline(
     """Project a :class:`PipelineResult` into a :class:`DocumentRecord`."""
     chunks = result.outputs.get("chunks") or []
     if chunks and isinstance(chunks[0], dict):
-        chunk_records = [ChunkRecord.model_validate(c) for c in chunks]
+        chunk_records = [Chunk.model_validate(c) for c in chunks]
     else:
         chunk_records = list(chunks)
     bundle = result.outputs.get("bundle")
@@ -568,7 +567,7 @@ def record_from_pipeline(
     for chunk in chunk_records:
         if not chunk.document_id:
             chunk.document_id = document_id
-    chunk_ids = [c.chunk_id for c in chunk_records]
+    chunk_ids = [c.id for c in chunk_records]
     return DocumentRecord(
         document_id=document_id,
         version=int(result.outputs.get("version") or 1),

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from raghub.models import PipelineResult, Response, SearchResult
+from raghub.models import Hit, PipelineResult, Response
 
 
 class Redaction:
@@ -62,8 +62,7 @@ class ResponseBuilder:
             answer=answer,
             citations=list(outputs.get("citations", [])),
             source_chunks=[
-                SearchResult(
-                    chunk_id=h.chunk_id,
+                Hit(
                     score=h.score,
                     chunk=h.chunk,
                 )

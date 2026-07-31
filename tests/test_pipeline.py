@@ -22,7 +22,7 @@ from raghub.embedder import Hasher
 from raghub.models import (
     BlockKind,
     Bundle,
-    ChunkRecord,
+    Chunk,
     DocumentBlock,
     DocumentSection,
     PipelineCtx,
@@ -68,9 +68,9 @@ class _StubChunker:
     chunk_size: int = 0
     chunk_overlap: int = 0
 
-    def chunk(self, bundle: Bundle) -> list[ChunkRecord]:
+    def chunk(self, bundle: Bundle) -> list[Chunk]:
         tenant = bundle.metadata.get("company", "")
-        chunks: list[ChunkRecord] = []
+        chunks: list[Chunk] = []
         for section in bundle.sections:
             for block in section.blocks:
                 if block.kind != BlockKind.TEXT:
@@ -86,13 +86,13 @@ class _StubChunker:
 
     def chunk_text(
         self, text: str, *, document_id: str, version: int = 1, company: str = ""
-    ) -> list[ChunkRecord]:
+    ) -> list[Chunk]:
         from hashlib import sha256
 
         if not text:
             return []
         return [
-            ChunkRecord(
+            Chunk(
                 chunk_id=f"stub-{document_id}-{version}",
                 document_id=document_id,
                 version=version,
@@ -211,8 +211,8 @@ class TestCacheBehavior:
         embedder = build_embedding_provider()
         store = MemoryStore(embedding_dim=16)
         chunks = [
-            ChunkRecord(
-                chunk_id="c1",
+            Chunk(
+                id="c1",
                 document_id="d1",
                 version=1,
                 text="hi",

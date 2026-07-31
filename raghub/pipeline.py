@@ -49,7 +49,6 @@ from raghub.models import (
     Bundle,
     Chunk,
     Chunker,
-    ChunkRecord,
     Citation,
     Classification,
     ConversationTurn,
@@ -351,7 +350,7 @@ def get_chunks(bundle: Bundle, document_id: str, company: str = "") -> list[Chun
             )
             chunks.append(
                 Chunk(
-                    chunk_id=chunk_id,
+                    id=chunk_id,
                     document_id=document_id,
                     version=1,
                     page=(section.page_numbers[0] if section.page_numbers else section.index),
@@ -428,7 +427,7 @@ class IngestPipeline(Pipeline):
         has_chunk = getattr(self.vector_store, "has_chunk", None)
         if not callable(has_chunk):
             return True
-        return all(bool(has_chunk(chunk.chunk_id)) for chunk in chunks)
+        return all(bool(has_chunk(chunk.id)) for chunk in chunks)
 
     async def run(
         self,
@@ -709,7 +708,6 @@ class QueryPipeline(Pipeline):
                     )
                 hits = [
                     Hit(
-                        chunk_id=h["chunk_id"],
                         score=float(h["score"]),
                         chunk=h["chunk"],
                     )
@@ -823,7 +821,6 @@ class QueryPipeline(Pipeline):
                 )
             hits = [
                 Hit(
-                    chunk_id=h["chunk_id"],
                     score=float(h["score"]),
                     chunk=h["chunk"],
                 )
@@ -1039,8 +1036,8 @@ def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
             continue
         for hit in observation.get("data", {}).get("hits", []) or []:
             text = hit.get("text", "")
-            record = ChunkRecord(
-                chunk_id=hit.get("chunk_id", ""),
+            record = Chunk(
+                id=hit.get("chunk_id", ""),
                 document_id=hit.get("document_id") or "graphrag://summary",
                 version=1,
                 page=1,
@@ -1055,9 +1052,7 @@ def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
             )
             hits.append(
                 Hit(
-                    chunk_id=record.chunk_id,
-                    score=float(hit.get("score", 0.0) or 0.0),
-                    chunk=record,
+                    score=float(hit.get("score", 0.0) or 0.0), chunk=record,
                 )
             )
     deduped: dict[str, Hit] = {}

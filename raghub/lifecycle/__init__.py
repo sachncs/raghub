@@ -17,7 +17,7 @@ The classes and functions here map onto the document lifecycle::
     chunk_words, normalize_text - word-window chunker.
     extract_text   - MIME-keyed dispatcher (now thin; the rich
                                   format-aware parse lives in parser.py).
-    build_chunk_records         - one-stop factory for :class:`ChunkRecord`.
+    build_chunk_records         - one-stop factory for :class:`Chunk`.
     Section, normalise_markdown
                                 - Markdown → :class:`Bundle`.
     PlainTextConverter          - text/binary → :class:`Bundle`.
@@ -51,7 +51,7 @@ from raghub.errors import (
 from raghub.models import (
     BlockKind,
     Bundle,
-    ChunkRecord,
+    Chunk,
     Classification,
     DocumentBlock,
     DocumentConverter,
@@ -466,8 +466,8 @@ def build_chunk_records(
     plan: ChunkingPlan,
     mime_type: str = "",
     file_name: str = "",
-) -> list[ChunkRecord]:
-    """Build :class:`ChunkRecord` objects for a freshly uploaded file.
+) -> list[Chunk]:
+    """Build :class:`Chunk` objects for a freshly uploaded file.
 
     Args:
         file_bytes: Raw file contents.
@@ -484,11 +484,11 @@ def build_chunk_records(
         file_name: Original filename.
 
     Returns:
-        A list of :class:`ChunkRecord` objects ready to be persisted
+        A list of :class:`Chunk` objects ready to be persisted
         and embedded.
 
     """
-    records: list[ChunkRecord] = []
+    records: list[Chunk] = []
     parsed_sections = extract_text(file_bytes, file_name, mime_type)
 
     metadata: dict[str, Any] = {}
@@ -498,8 +498,8 @@ def build_chunk_records(
     for section_index, source_location, text in parsed_sections:
         for chunk_text in chunk_words(text, plan):
             records.append(
-                ChunkRecord(
-                    chunk_id=str(uuid4()),
+                Chunk(
+                    id=str(uuid4()),
                     document_id=document_id,
                     version=version,
                     page=section_index,

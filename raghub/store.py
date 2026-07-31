@@ -24,7 +24,7 @@ from rank_bm25 import BM25Okapi
 
 from raghub.config import Settings
 from raghub.errors import VectorStoreError
-from raghub.models import ChunkRecord, Classification
+from raghub.models import Chunk, Classification
 
 __all__ = [
     "MemoryStore",
@@ -102,7 +102,7 @@ class Store(ABC):
         """Create the underlying collection when missing."""
 
     @abstractmethod
-    def insert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
+    def insert(self, chunks: Sequence[Chunk], vectors: Sequence[list[float]]) -> int:
         """Insert chunks paired with their precomputed embedding vectors.
 
         Returns:
@@ -113,7 +113,7 @@ class Store(ABC):
         """
 
     @abstractmethod
-    def upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
+    def upsert(self, chunks: Sequence[Chunk], vectors: Sequence[list[float]]) -> int:
         """Insert-or-update chunks by primary key.
 
         Returns:
@@ -172,7 +172,7 @@ class Store(ABC):
 class MemoryVectorRecord:
     """A single chunk + its precomputed embedding vector."""
 
-    chunk: ChunkRecord
+    chunk: Chunk
     vector: list[float]
 
 
@@ -197,7 +197,7 @@ class MemoryStore(Store):
         """No-op: this backend has no separate collection concept."""
         return None
 
-    def insert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
+    def insert(self, chunks: Sequence[Chunk], vectors: Sequence[list[float]]) -> int:
         """Insert or overwrite chunks by ``chunk_id``.
 
         The BM25 index is *not* rebuilt on every insert — that would
@@ -221,7 +221,7 @@ class MemoryStore(Store):
         written = 0
         with self.lock:
             for chunk, vector in zip(chunks, vectors, strict=True):
-                self.records[chunk.chunk_id] = MemoryVectorRecord(chunk=chunk, vector=vector)
+                self.records[chunk.id] = MemoryVectorRecord(chunk=chunk, vector=vector)
                 written += 1
         return written
 
@@ -229,7 +229,7 @@ class MemoryStore(Store):
         """Rebuild the BM25 index over the current record set."""
         self.rebuild_bm25()
 
-    def upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
+    def upsert(self, chunks: Sequence[Chunk], vectors: Sequence[list[float]]) -> int:
         """Insert-or-update alias. Delegates to :meth:`insert`."""
         return self.insert(chunks, vectors)
 
@@ -275,7 +275,7 @@ class MemoryStore(Store):
                 {
                     "chunk": rec.chunk,
                     "score": score,
-                    "chunk_id": rec.chunk.chunk_id,
+                    "chunk_id": rec.chunk.id,
                     "document_id": rec.chunk.document_id,
                     "version": rec.chunk.version,
                 }
@@ -334,7 +334,7 @@ class MemoryStore(Store):
                 if (dict_filter is None or matches_metadata_dict(rec, dict_filter))
                 and (dict_filter is not None or matches_metadata_string(rec, str_filter or ""))
             ]
-            ids = [rec.chunk.chunk_id for rec in records]
+            ids = [rec.chunk.id for rec in records]
             if not ids:
                 return []
             dense_scores = np.array([self.compute_score(vector, rec.vector) for rec in records])
@@ -500,7 +500,7 @@ class SqliteStore(Store):
             )
         )
 
-    def insert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
+    def insert(self, chunks: Sequence[Chunk], vectors: Sequence[list[float]]) -> int:
         """Insert or overwrite chunks.
 
         Returns:
@@ -525,7 +525,7 @@ class SqliteStore(Store):
                 """,
                 [
                     (
-                        chunk.chunk_id,
+                        chunk.id,
                         chunk.document_id,
                         chunk.version,
                         chunk.classification.value,
@@ -542,7 +542,7 @@ class SqliteStore(Store):
             self.conn.commit()
             return cursor.rowcount
 
-    def upsert(self, chunks: Sequence[ChunkRecord], vectors: Sequence[list[float]]) -> int:
+    def upsert(self, chunks: Sequence[Chunk], vectors: Sequence[list[float]]) -> int:
         """Insert-or-update alias. Delegates to :meth:`insert`."""
         return self.insert(chunks, vectors)
 
@@ -600,8 +600,8 @@ class SqliteStore(Store):
             score = float(np.dot(query, v) / (denom * d))
             scored.append(
                 (
-                    ChunkRecord(
-                        chunk_id=chunk_id,
+                    Chunk(
+                        id=chunk_id,
                         document_id=document_id,
                         version=version,
                         classification=cast(Classification, classification),
@@ -620,7 +620,7 @@ class SqliteStore(Store):
             {
                 "chunk": chunk,
                 "score": score,
-                "chunk_id": chunk.chunk_id,
+                "chunk_id": chunk.id,
                 "document_id": chunk.document_id,
                 "version": chunk.version,
             }
@@ -659,8 +659,8 @@ class SqliteStore(Store):
             )
         return [
             {
-                "chunk": ChunkRecord(
-                    chunk_id=cid,
+                "chunk": Chunk(
+                    id=cid,
                     document_id=did,
                     version=ver,
                     classification=cls,

@@ -403,7 +403,7 @@ class GraphSearch(Tool):
             data={
                 "hits": [
                     {
-                        "chunk_id": h.chunk.chunk_id,
+                        "chunk_id": h.chunk.id,
                         "text": h.chunk.text,
                         "metadata": h.chunk.metadata,
                     }
@@ -460,12 +460,12 @@ class HybridSearch(Tool):
             sparse_raw = keyword_search(text, int(kwargs.get("top_k", 0)) * 2)
         fused = rrf(
             [
-                [h.chunk.chunk_id for h in dense],
+                [h.chunk.id for h in dense],
                 [item["chunk"].chunk_id for item in sparse_raw],
             ],
             k=int(kwargs.get("rrf_k", 60)) or 60,
         )
-        id_to_hit: dict[str, Any] = {h.chunk.chunk_id: h for h in dense}
+        id_to_hit: dict[str, Any] = {h.chunk.id: h for h in dense}
         for item in sparse_raw:
             cid = item["chunk"].chunk_id
             if cid not in id_to_hit:
@@ -615,7 +615,7 @@ class SummarySearch(Tool):
             data={
                 "hits": [
                     {
-                        "chunk_id": h.chunk.chunk_id,
+                        "chunk_id": h.chunk.id,
                         "level": getattr(h.chunk, "metadata", {}).get("raptor_level", 0),
                         "text": h.chunk.text,
                     }
@@ -672,7 +672,7 @@ class VectorSearch(Tool):
             data={
                 "hits": [
                     {
-                        "chunk_id": h.chunk.chunk_id,
+                        "chunk_id": h.chunk.id,
                         "document_id": h.chunk.document_id,
                         "score": float(h.score),
                         "text": h.chunk.text,

@@ -17,7 +17,7 @@ Domain, canonical, and transport Pydantic models for the framework:
 Mapping (canonical ↔ domain):
 
 * ``Document`` ↔ ``DocumentRecord``
-* ``Chunk`` ↔ ``ChunkRecord``
+* ``Chunk`` ↔ ``Chunk``
 * ``SearchResult`` ↔ ``Hit``
 * ``Query`` ↔ ``SearchRequest``
 * ``Response`` ↔ ``SearchResponse``
@@ -45,7 +45,7 @@ __all__ = [
     "AuthLoginResponse",
     "Bundle",
     "Chunk",
-    "ChunkRecord",
+    "Chunk",
     "Citation",
     "Classification",
     "ConversationTurn",
@@ -274,7 +274,7 @@ class DocumentRecord(BaseModel):
     error: str | None = None
 
 
-class ChunkRecord(BaseModel):
+class Chunk(BaseModel):
     """Chunk metadata stored alongside the vector.
 
     Attributes:
@@ -296,7 +296,7 @@ class ChunkRecord(BaseModel):
 
     """
 
-    chunk_id: str = Field(default_factory=lambda: str(uuid4()))
+    id: str = Field(default_factory=lambda: str(uuid4()))
     document_id: str
     version: int
     page: int = 0
@@ -322,8 +322,8 @@ class ChunkRecord(BaseModel):
             VerificationError: When either check fails.
 
         """
-        if not self.chunk_id:
-            raise VerificationError("Chunk: empty chunk_id")
+        if not self.id:
+            raise VerificationError("Chunk: empty id")
         if not self.text:
             raise VerificationError("Chunk: empty text")
         if not self.checksum:
@@ -340,20 +340,28 @@ class Hit(BaseModel):
     """A retrieved chunk with score and metadata.
 
     Attributes:
-        chunk_id: Id of the underlying :class:`ChunkRecord`.
+        chunk_id: Id of the underlying :class:`Chunk`.
         score: Cosine-similarity score reported by the vector store.
         chunk: The full chunk metadata.
 
     """
 
-    chunk_id: str
     score: float
-    chunk: ChunkRecord
+    chunk: Chunk
+
+    @property
+    def chunk_id(self) -> str:
+        """Chunks within :class:`Hit` carry their id on the inner chunk.
+
+        Kept as a thin property so consumers that previously read
+        ``hit.chunk_id`` keep working; the value is owned by the chunk.
+        """
+        return self.chunk.id
 
     def verify(self) -> None:
         """Assert the hit's invariant contract.
 
-        Checks that ``chunk_id`` matches ``chunk.chunk_id`` and that
+        Checks that ``chunk_id`` matches ``chunk.id`` and that
         the chunk itself verifies.
 
         Raises:
@@ -362,10 +370,10 @@ class Hit(BaseModel):
         """
         if not self.chunk_id:
             raise VerificationError("Hit: empty chunk_id")
-        if self.chunk.chunk_id != self.chunk_id:
+        if self.chunk.id != self.chunk_id:
             raise VerificationError(
                 f"Hit.chunk_id ({self.chunk_id!r}) does not match "
-                f"chunk.chunk_id ({self.chunk.chunk_id!r})"
+                f"chunk.id ({self.chunk.id!r})"
             )
         self.chunk.verify()
 
@@ -394,7 +402,7 @@ class SearchResponse(BaseModel):
     Attributes:
         answer: The generated answer string.
         citations: Citation metadata keyed by source location.
-        source_chunks: The :class:`ChunkRecord` objects that
+        source_chunks: The :class:`Chunk` objects that
             contributed to the answer.
         metadata: Provider- and pipeline-specific metadata.
 
@@ -402,7 +410,7 @@ class SearchResponse(BaseModel):
 
     answer: str
     citations: list[dict[str, Any]] = Field(default_factory=list)
-    source_chunks: list[ChunkRecord] = Field(default_factory=list)
+    source_chunks: list[Chunk] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -478,14 +486,14 @@ class Document(DocumentRecord):
     """
 
 
-class Chunk(ChunkRecord):
-    """Spec-named alias for :class:`ChunkRecord`."""
+class _ChunkAlias(BaseModel):
+    """Internal: re-export alias exposed as ``Chunk`` at module level."""
 
 
 class Embedding(BaseModel):
     """A typed vector with provenance.
 
-    Separate from the in-place ``ChunkRecord.checksum`` style so adapters
+    Separate from the in-place ``Chunk.checksum`` style so adapters
     can exchange embeddings without leaking the wire-format parent.
 
     Attributes:
@@ -508,7 +516,6 @@ class Citation(BaseModel):
     """Provenance for a single answer span.
 
     Attributes:
-        chunk_id: Underlying chunk id.
         document_id: Parent document id.
         version: Document version.
         page: Page number (1-based) or 0 for non-paginated.
@@ -516,10 +523,13 @@ class Citation(BaseModel):
         quote: Optional excerpt used as evidence.
         score: Retrieval score (cosine similarity or fused score).
         source_uri: Original source location.
+        chunk: The :class:`Chunk` this citation references; ``chunk.id``
+            is the canonical chunk identity used to cross-check
+            ``Response.source_chunks``.
 
     """
 
-    chunk_id: str
+    chunk: Chunk | None = None
     document_id: str
     version: int = 1
     page: int = 0
@@ -535,8 +545,6 @@ class Citation(BaseModel):
             VerificationError: When required fields are empty.
 
         """
-        if not self.chunk_id:
-            raise VerificationError("Citation: empty chunk_id")
         if not self.document_id:
             raise VerificationError("Citation: empty document_id")
         if self.score < 0.0:
@@ -574,11 +582,11 @@ class Citations(BaseModel):
         for cit in self.items:
             cit.verify()
         if chunks is not None:
-            valid = {getattr(c, 'chunk_id', None) for c in chunks}
+            valid = {getattr(c, 'id', None) for c in chunks}
             for cit in self.items:
-                if cit.chunk_id not in valid:
+                if cit.chunk is not None and cit.chunk.id not in valid:
                     raise VerificationError(
-                        f"Citations: chunk_id {cit.chunk_id!r} not in source_chunks"
+                        f"Citations: chunk_id {cit.chunk.id!r} not in source_chunks"
                     )
 
 
@@ -613,8 +621,10 @@ class Response(BaseModel):
     def verify(self) -> None:
         """Assert the response's contract.
 
-        Verifies every citation is in source_chunks and every
-        source_chunks entry verifies its own invariant.
+        Verifies every citation that names a chunk (via
+        :attr:`Citation.chunk`) resolves to an entry in
+        ``source_chunks``, and each ``source_chunks`` entry verifies
+        its own invariant.
 
         Raises:
             VerificationError: When any check fails.
@@ -624,11 +634,14 @@ class Response(BaseModel):
             raise VerificationError(
                 "Response: empty answer and no citations"
             )
-        source_ids = {sr.chunk_id for sr in self.source_chunks}
+        source_ids = {sr.chunk.id for sr in self.source_chunks}
         for citation in self.citations:
-            if citation.chunk_id not in source_ids:
+            if citation.chunk is None:
+                continue
+            citation.chunk.verify()
+            if citation.chunk.id not in source_ids:
                 raise VerificationError(
-                    f"Response: citation chunk_id {citation.chunk_id!r} not in source_chunks"
+                    f"Response: citation chunk_id {citation.chunk.id!r} not in source_chunks"
                 )
         for source in self.source_chunks:
             source.verify()
@@ -1141,7 +1154,7 @@ class VectorStore(Protocol):
 
     def insert(
         self,
-        chunks: Sequence[ChunkRecord],
+        chunks: Sequence[Chunk],
         vectors: Sequence[list[float]],
     ) -> int:
         """Insert chunks with their vectors; return the rows written."""
@@ -1149,7 +1162,7 @@ class VectorStore(Protocol):
 
     def upsert(
         self,
-        chunks: Sequence[ChunkRecord],
+        chunks: Sequence[Chunk],
         vectors: Sequence[list[float]],
     ) -> int:
         """Insert or update chunks with vectors; return the rows written."""
@@ -1239,7 +1252,7 @@ class PromptBuilder(Protocol):
         self,
         *,
         conversation: Sequence[ConversationTurn],
-        retrieved_chunks: Sequence[ChunkRecord],
+        retrieved_chunks: Sequence[Chunk],
         question: str,
     ) -> list[dict[str, str]]:
         """Build a message list for the LLM."""

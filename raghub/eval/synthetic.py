@@ -72,7 +72,7 @@ class SyntheticDataset:
 
     Args:
         corpus: Sequence of objects with a ``.text`` attribute (e.g.
-            :class:`raghub.models.ChunkRecord`).
+            :class:`raghub.models.Chunk`).
         llm: The generator used to produce questions and answers.
         n_questions: Target number of synthetic examples. When the
             corpus is smaller than ``n_questions``, chunks are

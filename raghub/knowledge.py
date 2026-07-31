@@ -28,7 +28,6 @@ from raghub.models import (
     BlockKind,
     Bundle,
     Chunk,
-    ChunkRecord,
     DocumentBlock,
     DocumentSection,
     Hit,
@@ -370,7 +369,7 @@ class Raptor(KnowledgeIndex):
         self.depth = int(depth)
         self.cluster_size = int(cluster_size)
         self.max_summary_chars = int(max_summary_chars)
-        self.levels: list[list[ChunkRecord]] = []
+        self.levels: list[list[Chunk]] = []
         self.lock_token = 0
 
     def add_chunks(
@@ -383,7 +382,7 @@ class Raptor(KnowledgeIndex):
             return
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors must be parallel")
-        leaves: list[ChunkRecord] = []
+        leaves: list[Chunk] = []
         for chunk, vector in zip(chunks, vectors, strict=True):
             record = chunk_to_record(chunk, vector, level=0)
             leaves.append(record)
@@ -418,7 +417,6 @@ class Raptor(KnowledgeIndex):
                 score = cosine(query_vec, record.metadata["vector"])
                 hits.append(
                     Hit(
-                        chunk_id=record.chunk_id,
                         score=score,
                         chunk=record,
                     )
@@ -442,7 +440,7 @@ class Raptor(KnowledgeIndex):
             clusters = cluster(current, self.cluster_size)
             if len(clusters) <= 1:
                 break
-            summaries: list[ChunkRecord] = []
+            summaries: list[Chunk] = []
             for group in clusters:
                 summary_text = summarise(group, self.llm, self.max_summary_chars)
                 if not summary_text:
@@ -452,8 +450,8 @@ class Raptor(KnowledgeIndex):
                 if not isinstance(vec, list):
                     vec = []
                 summaries.append(
-                    ChunkRecord(
-                        chunk_id=summary_id,
+                    Chunk(
+                        id=summary_id,
                         document_id=group[0].document_id,
                         version=1,
                         page=group[0].page,
@@ -467,7 +465,7 @@ class Raptor(KnowledgeIndex):
                         metadata={
                             "vector": vec,
                             "raptor_level": level_idx,
-                            "members": [c.chunk_id for c in group],
+                            "members": [c.id for c in group],
                         },
                     )
                 )
@@ -477,7 +475,7 @@ class Raptor(KnowledgeIndex):
             current = summaries
 
 
-def cluster(items: list[ChunkRecord], cluster_size: int) -> list[list[ChunkRecord]]:
+def cluster(items: list[Chunk], cluster_size: int) -> list[list[Chunk]]:
     """Cluster ``items`` by embedding cosine distance."""
     if len(items) <= cluster_size:
         return [items]
@@ -494,14 +492,14 @@ def cluster(items: list[ChunkRecord], cluster_size: int) -> list[list[ChunkRecor
         labels, fit_error = capture(kmeans.fit_predict, matrix)
     if fit_error is not None:
         return [items[i : i + cluster_size] for i in range(0, len(items), cluster_size)]
-    groups: dict[int, list[ChunkRecord]] = {}
+    groups: dict[int, list[Chunk]] = {}
     for label, item in zip(labels, items, strict=True):
         groups.setdefault(int(label), []).append(item)
     return [group for group in groups.values() if group]
 
 
 async def summarise_async(
-    cluster_items: list[ChunkRecord],
+    cluster_items: list[Chunk],
     llm: Any,
     max_chars: int,
 ) -> str:
@@ -522,7 +520,7 @@ async def summarise_async(
 
 
 def summarise(
-    cluster_items: list[ChunkRecord],
+    cluster_items: list[Chunk],
     llm: Any,
     max_chars: int,
 ) -> str:
@@ -568,10 +566,10 @@ def cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb)
 
 
-def chunk_to_record(chunk: Chunk, vector: list[float], *, level: int) -> ChunkRecord:
-    """Convert a canonical :class:`Chunk` into a :class:`ChunkRecord`."""
-    return ChunkRecord(
-        chunk_id=chunk.chunk_id,
+def chunk_to_record(chunk: Chunk, vector: list[float], *, level: int) -> Chunk:
+    """Convert a canonical :class:`Chunk` into a :class:`Chunk`."""
+    return Chunk(
+        id=chunk.id,
         document_id=chunk.document_id,
         version=chunk.version,
         page=chunk.page,
@@ -670,7 +668,7 @@ class GraphIndex(KnowledgeIndex):
         self.chunk_entities: dict[str, set[str]] = defaultdict(set)
         self.communities: list[set[str]] = []
         self.community_summaries: dict[int, str] = {}
-        self.chunks: dict[str, ChunkRecord] = {}
+        self.chunks: dict[str, Chunk] = {}
         self.lock_token = 0
 
     def add_chunks(
@@ -684,8 +682,8 @@ class GraphIndex(KnowledgeIndex):
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors must be parallel")
         for chunk, vector in zip(chunks, vectors, strict=True):
-            record = ChunkRecord(
-                chunk_id=chunk.chunk_id,
+            record = Chunk(
+                id=chunk.id,
                 document_id=chunk.document_id,
                 version=chunk.version,
                 page=chunk.page,
@@ -698,7 +696,7 @@ class GraphIndex(KnowledgeIndex):
                 checksum=sha256(chunk.text.encode("utf-8")).hexdigest(),
                 metadata={**chunk.metadata, "vector": vector},
             )
-            self.chunks[chunk.chunk_id] = record
+            self.chunks[chunk.id] = record
         self.extract_and_link(chunks)
         self.partition_communities()
         self.summarise_communities()
@@ -766,8 +764,8 @@ class GraphIndex(KnowledgeIndex):
                 continue
             chunk_id = f"graphrag-community-{idx}"
             communities = self.communities[idx] if idx < len(self.communities) else set()
-            record = ChunkRecord(
-                chunk_id=chunk_id,
+            record = Chunk(
+                id=chunk_id,
                 document_id="graphrag://summary",
                 version=1,
                 page=1,
@@ -783,7 +781,7 @@ class GraphIndex(KnowledgeIndex):
                     "entities": sorted(communities),
                 },
             )
-            out.append(Hit(chunk_id=chunk_id, score=score, chunk=record))
+            out.append(Hit(score=score, chunk=record))
         return out
 
     def search(self, query: str, top_k: int = 5) -> list[Hit]:
@@ -837,8 +835,8 @@ class GraphIndex(KnowledgeIndex):
                 name = (entity.get("name") or "").strip()
                 if not name:
                     continue
-                self.entity_chunks[name].add(chunk.chunk_id)
-                self.chunk_entities[chunk.chunk_id].add(name)
+                self.entity_chunks[name].add(chunk.id)
+                self.chunk_entities[chunk.id].add(name)
                 self.graph.setdefault(name, set())
             for triple in triples:
                 s = (triple.get("subject") or "").strip()
@@ -954,7 +952,7 @@ class GraphIndex(KnowledgeIndex):
         hits: list[Hit] = []
         for score, cid in scored[: int(top_k)]:
             record = self.chunks[cid]
-            hits.append(Hit(chunk_id=cid, score=score, chunk=record))
+            hits.append(Hit(score=score, chunk=record))
         return hits
 
     def rank_by_query_relevance(self, query: str, chunk_ids: set[str]) -> list[str]:
@@ -978,7 +976,7 @@ class GraphIndex(KnowledgeIndex):
             if record is None:
                 continue
             score = 1.0
-            out.append(Hit(chunk_id=cid, score=score, chunk=record))
+            out.append(Hit(score=score, chunk=record))
         return out
 
 
