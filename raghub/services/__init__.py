@@ -126,12 +126,10 @@ async def list_records(uow: Any) -> list[DocumentRecord]:
 
 async def get_doc(uow: Any, document_id: str) -> DocumentRecord:
     """Return a single document by id or raise :class:`IngestionError`."""
-    record = cast(
-        DocumentRecord, await uow.document_repo.get(document_id)
-    )
+    record = await uow.document_repo.get(document_id)
     if record is None:
         missing_doc(document_id)
-    return record
+    return cast(DocumentRecord, record)
 
 class Document(Mixin):
     """Document upload, listing, status, and deletion."""
