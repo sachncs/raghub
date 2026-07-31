@@ -199,4 +199,4 @@ ignore-magic = true
 ignore-semiprivate = false
 ignore-private = false
 ignore-module = false
-fail-under = 95
+fail-under = 100
