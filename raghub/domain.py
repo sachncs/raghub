@@ -394,6 +394,12 @@ class UnitOfWork:
 
 
 class DatabaseManager(Protocol):
+    """Async connection lifecycle for the shared SQLite handle.
+
+    Implementations are responsible for opening the connection in
+    WAL mode, exposing the live handle, and tearing down cleanly.
+    """
+
     async def connect(self) -> aiosqlite.Connection: ...
 
     @property
