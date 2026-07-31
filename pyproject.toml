@@ -144,25 +144,30 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "D", "N", "PLR"]
 ignore = [
-    "E501",
-    "B008",
-    "B017",
-    "B018",
-    "RUF002",
-    "RUF003",
-    "RUF012",
-    "RUF015",
-    "RUF043",
-    "RUF059",
-    "SIM103",
-    "SIM105",
-    "SIM117",
-    "SIM201",
-    "UP042",
-    "UP047",
+    "E501",  # Phase 1 fixes the long-line violations; strict-100-chars rule enforced.
+    "B008",  # Phase 1 migrates function-call-in-default to Field(default_factory=...).
+    "B017",  # Phase 1 narrows pytest.raises(Exception) to specific exception types.
+    "B018",  # Phase 1 removes useless-expression statements.
+    "RUF002",  # Phase 1 strips non-ASCII characters from docstrings.
+    "RUF003",  # Phase 1 strips ambiguous characters from comments/docstrings.
+    "RUF012",  # Phase 1 replaces mutable class-default annotations.
+    "RUF015",  # Phase 1 removes iterable-casting-before-sum patterns.
+    "RUF043",  # Phase 1 replaces Optional[X] with X | None.
+    "RUF059",  # Phase 1 removes unused staged annotations.
+    "SIM103",  # Phase 1 collapses trivial if-return-bool into direct returns.
+    "SIM105",  # Phase 1 uses contextlib.suppress where appropriate.
+    "SIM117",  # Phase 1 merges adjacent with-statements.
+    "SIM201",  # Phase 1 removes negation-on-if-equality.
+    "UP042",  # Phase 1 replaces Union[X, Y] with X | Y.
+    "UP047",  # Phase 1 adopts PEP 695 generics.
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR2004", "PLR0913", "D"]  # Phase 4 normalises test code; magic numbers and long signatures are fine in fixtures.
+"docs/*" = ["D"]
+"devtools/*" = ["PLR0913", "D"]
 
 [tool.ruff.format]
 quote-style = "double"
