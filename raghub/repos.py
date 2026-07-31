@@ -412,6 +412,7 @@ class SessionStore(SessionRepository):
         timeout_seconds: int = 3600,
         db_manager: DatabaseManager | None = None,
     ) -> None:
+        """Wrap a Sessions-backed SQLite store in the repository protocol."""
         self.inner = Sessions(db_path, timeout_seconds, db=db_manager)
         self.db_manager = db_manager
 

@@ -28,6 +28,7 @@ def financebench(
     """Run the Finance evaluator and print a JSON summary."""
 
     async def runner() -> None:
+        """Build examples, run the evaluator, and write the JSON summary."""
         evaluator = Finance()
         examples_list: list[dict[str, Any]] = []
         if examples:
@@ -35,6 +36,7 @@ def financebench(
             examples_list.extend(rows[:examples])
 
         async def factory(_example: object) -> str:
+            """Stub factory: returns the empty answer for every example."""
             return ""
 
         results = await run(evaluator, examples_list, response_factory=factory)
@@ -68,12 +70,14 @@ def frames(
     """Run the FRAMES evaluator and print a JSON summary."""
 
     async def runner() -> None:
+        """Build examples, run the evaluator, and write the JSON summary."""
         evaluator = Frames()
         examples_list: list[dict[str, Any]] = []
         rows = await asyncio.to_thread(evaluator.ensure_examples)
         examples_list.extend(rows if examples == 0 else rows[:examples])
 
         async def factory(_example: object) -> str:
+            """Stub factory: returns the empty answer for every example."""
             return ""
 
         results = await run(evaluator, examples_list, response_factory=factory)

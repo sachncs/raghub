@@ -387,6 +387,7 @@ class RouteGroup:
             payload: AuthLoginRequest,
             app_service: Facade = Depends(App.get),
         ) -> AuthLoginResponse:
+            """Handle the request and return the response model."""
             return await app_service.login(payload.email, payload.password)
 
         return handler
@@ -399,6 +400,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> dict[str, str]:
+            """Handle the request and return the response model."""
             await app_service.logout(token)
             return {"status": "logged_out"}
 
@@ -412,6 +414,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> dict[str, list[dict[str, Any]]]:
+            """Handle the request and return the response model."""
             history = await app_service.history(token)
             return {"history": [turn.model_dump(mode="json") for turn in history]}
 
@@ -425,6 +428,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> Response:
+            """Handle the request and return the response model."""
             await app_service.clear_history(token)
             return Response(status_code=204)
 
@@ -445,6 +449,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> DocumentUploadResponse:
+            """Handle the request and return the response model."""
             enforce_upload_limit(request, app_service.container)
             content = await file.read()
             enforce_upload_limit(request, app_service.container, payload=content)
@@ -486,6 +491,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> BatchIngestResponse:
+            """Handle the request and return the response model."""
             enforce_upload_limit(request, app_service.container)
             results: list[BatchIngestItem] = []
             for file in files:
@@ -539,6 +545,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> dict[str, list[dict[str, Any]]]:
+            """Handle the request and return the response model."""
             documents = await app_service.list_documents(token)
             return {"documents": [document.model_dump(mode="json") for document in documents]}
 
@@ -553,6 +560,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> dict[str, Any]:
+            """Handle the request and return the response model."""
             document = await app_service.document_status(token, document_id)
             return document.model_dump(mode="json")
 
@@ -567,6 +575,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> Response:
+            """Handle the request and return the response model."""
             await app_service.delete_document(token, document_id)
             return Response(status_code=204)
 
@@ -588,6 +597,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> QueryResponse:
+            """Handle the request and return the response model."""
             if (
                 payload.tools_enabled is None
                 and payload.agent is None
@@ -629,6 +639,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> dict[str, str]:
+            """Handle the request and return the response model."""
             enforce_upload_limit(request, app_service.container)
             content = await file.read()
             enforce_upload_limit(request, app_service.container, payload=content)
@@ -655,9 +666,11 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> StreamingResponse:
+            """Handle the request and return the response model."""
             resolved_tools = set(payload.tools_enabled) if payload.tools_enabled else set()
 
             async def gen() -> AsyncIterator[bytes]:
+                """Yield SSE events for one streamed query."""
                 yield Sse.comment("raghub-query-stream")
                 user, _ = await app_service.auth_svc.resolve_user(token)
                 rag = app_service.container.rag_facade
@@ -693,6 +706,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> QueryResponse:
+            """Handle the request and return the response model."""
             return await app_service.query_with_flags(
                 token=token,
                 question=payload.question,
@@ -720,6 +734,7 @@ class RouteGroup:
             _admin: User = Depends(Auth.admin),
             app_service: Facade = Depends(App.get),
         ) -> list[dict[str, Any]]:
+            """Handle the request and return the response model."""
             docs = await app_service.container.uow.document_repo.list_all()
             return [doc.model_dump(mode="json") for doc in docs]
 
@@ -733,6 +748,7 @@ class RouteGroup:
             _admin: User = Depends(Auth.admin),
             app_service: Facade = Depends(App.get),
         ) -> list[dict[str, Any]]:
+            """Handle the request and return the response model."""
             users = await app_service.container.user_store.list_users()
             return [Redaction.user(user.model_dump(mode="json")) for user in users]
 
@@ -746,6 +762,7 @@ class RouteGroup:
             _admin: User = Depends(Auth.admin),
             app_service: Facade = Depends(App.get),
         ) -> dict[str, Any]:
+            """Handle the request and return the response model."""
             docs = await app_service.container.uow.document_repo.list_all()
             users = await app_service.container.user_store.list_users()
             vector_health = app_service.container.vector_store.health()
@@ -772,6 +789,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> PreferencesResponse:
+            """Handle the request and return the response model."""
             user_id = await Auth.user_id(app_service, token)
             store = user_store_or_503(app_service)
             prefs = await store.get_prefs(user_id)
@@ -791,6 +809,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> PreferencesResponse:
+            """Handle the request and return the response model."""
             user_id = await Auth.user_id(app_service, token)
             store = user_store_or_503(app_service)
             await store.set_prefs(user_id, dict(payload.prefs or {}))
@@ -811,6 +830,7 @@ class RouteGroup:
             token: str = Depends(Bearer.dependency),
             app_service: Facade = Depends(App.get),
         ) -> None:
+            """Handle the request and return the response model."""
             user_id = await Auth.user_id(app_service, token)
             store = user_store_or_503(app_service)
             await store.delete_pref(user_id, key)

@@ -186,10 +186,12 @@ class PrometheusMetrics:
         """
 
         def collector_registered(name: str) -> bool:
+            """Return True when a metric named ``name`` has been registered."""
             public_name = name.removesuffix("_total")
             return any(metric.name == public_name for metric in REGISTRY.collect())
 
         def safe_histogram(name: str, desc: str, buckets: list[float]) -> Histogram:
+            """Return a histogram by name; create and register on first use."""
             existing = known_collectors.get(name)
             if (
                 existing is not None
@@ -202,6 +204,7 @@ class PrometheusMetrics:
             return collector
 
         def safe_counter(name: str, desc: str, labels: list[str] | None = None) -> Counter:
+            """Return a counter by name; create and register on first use."""
             existing = known_collectors.get(name)
             if (
                 existing is not None
@@ -442,6 +445,7 @@ def redact_record(record: dict[str, Any]) -> None:
     """
 
     def scrub(value: Any) -> Any:
+        """Recursively mask any value whose key matches the secret pattern."""
         if isinstance(value, dict):
             return {k: scrub(v) for k, v in value.items()}
         if isinstance(value, list):
@@ -638,6 +642,7 @@ class NoopSpan(Span):
     """
 
     def __init__(self, name: str) -> None:
+        """Store the span name; no exporter is wired."""
         self.name = name
         self.attrs: dict[str, Any] = {}
 
@@ -658,6 +663,7 @@ class LangfuseSpan(Span):
     """Wrapper around a Langfuse v3 observation context."""
 
     def __init__(self, ctx: Any, name: str) -> None:
+        """Wrap a Langfuse v3 observation ``ctx`` with a span ``name``."""
         self.ctx = ctx
         self.name = name
         self.closed = False
