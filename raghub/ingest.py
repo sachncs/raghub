@@ -47,11 +47,11 @@ from raghub.errors import (
 from raghub.lifecycle import (
     ChunkingPlan,
     Lifecycle,
+    PlainTextConverter,
     chunk_words,
     normalize_text,
     validate_upload,
 )
-from raghub.lifecycle import PlainTextConverter
 from raghub.models import (
     Chunk,
     Chunker,

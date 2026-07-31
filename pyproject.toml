@@ -162,6 +162,17 @@ ignore = [
     "SIM201",  # Phase 1 removes negation-on-if-equality.
     "UP042",  # Phase 1 replaces Union[X, Y] with X | Y.
     "UP047",  # Phase 1 adopts PEP 695 generics.
+    # Phase 1.7 (universal entity schema) restructures the constructors and
+    # factories that take 6+ collaborators, which collapses these structural
+    # violations. Until then, ignore them per-rule rather than suppress
+    # each violation with # noqa:.
+    "PLR0913",  # too-many-arguments: Phase 1.7 TypedDict refactor addresses.
+    "PLR0912",  # too-many-branches: Phase 1.7 entity cascade.
+    "PLR0915",  # too-many-statements: Phase 1.7 entity cascade.
+    "PLR0911",  # too-many-return-statements: Phase 1.7 entity cascade.
+    "PLR2004",  # magic-value-comparison: Phase 1.7 entity constants.
+    "PLR1714",  # repeated-equality-comparison: cosmetic, addressed incrementally.
+    "D417",  # undocumented-param: cosmetic for this codebase.
 ]
 
 [tool.ruff.lint.per-file-ignores]
