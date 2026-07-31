@@ -15,14 +15,14 @@ Measures:
 
 Run::
 
-    python -m bench.benchmark --documents 10 --queries 50 --concurrency 8
+    python -m devtools.benchmark --documents 10 --queries 50 --concurrency 8
 
-``--realistic`` downloads FinanceBench questions and uses them as the
+``--realistic`` downloads Finance questions and uses them as the
 query set (requires ``pip install datasets``).::
 
-    python -m bench.benchmark --realistic --documents 10 --queries 50 --concurrency 8
+    python -m devtools.benchmark --realistic --documents 10 --queries 50 --concurrency 8
 
-The script writes a JSON report to ``bench/report.json`` (or the
+The script writes a JSON report to ``devtools/report.json`` (or the
 path supplied via ``--output``).
 """
 
@@ -133,8 +133,8 @@ async def _run(args: argparse.Namespace) -> BenchmarkResult:
     Returns:
         The aggregated benchmark result.
     """
-    from raghub.converters.plaintext import PlainTextConverter
-    from raghub.ingestion.chunkers.word_window import WordWindowChunker
+    from raghub.ingest import WordChunker
+    from raghub.lifecycle import PlainTextConverter
 
     started = time.perf_counter()
     rag = RAG()
@@ -142,7 +142,7 @@ async def _run(args: argparse.Namespace) -> BenchmarkResult:
     # benchmark works without a real PDF or LLM endpoint.
     rag.converter = PlainTextConverter()
     rag.ingest_pipeline.converter = rag.converter
-    rag.chunker = WordWindowChunker(chunk_size=20, chunk_overlap=2)
+    rag.chunker = WordChunker(chunk_size=20, chunk_overlap=2)
     rag.ingest_pipeline.chunker = rag.chunker
     startup_seconds = time.perf_counter() - started
 
@@ -163,13 +163,13 @@ async def _run(args: argparse.Namespace) -> BenchmarkResult:
 
     # Query latency
     if args.realistic:
-        from raghub.evaluation import FinanceBench
+        from raghub.evaluation import Finance
 
-        evaluator = FinanceBench()
-        examples = evaluator.ensure_loaded_examples()
+        evaluator = Finance()
+        examples = evaluator.ensure_examples()
         all_questions = [ex.get("question", "") for ex in examples if ex.get("question")]
         if not all_questions:
-            print("WARNING: No FinanceBench questions found; falling back to synthetic queries.")
+            print("WARNING: No Finance questions found; falling back to synthetic queries.")
             all_questions = [
                 "What was the revenue growth?",
                 "How is the cash flow trending?",
@@ -217,9 +217,9 @@ def main() -> int:
     parser.add_argument(
         "--realistic",
         action="store_true",
-        help="Use FinanceBench questions for realistic benchmarking",
+        help="Use Finance questions for realistic benchmarking",
     )
-    parser.add_argument("--output", type=str, default="bench/report.json")
+    parser.add_argument("--output", type=str, default="devtools/report.json")
     args = parser.parse_args()
 
     result = asyncio.run(_run(args))

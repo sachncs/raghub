@@ -9,13 +9,13 @@ single module. Class summary::
                    that runs them all for a single example.
     Scoring       - tiny string-overlap helpers (``jaccard``,
                    ``first_number``) shared across adapters.
-    FinanceBench  - the default benchmark adapter.
+    Finance  - the default benchmark adapter.
 
 The :func:`run` harness owns the error envelope around any adapter.
 
 Adding a new benchmark means writing a new ``Foo`` class with an
 ``async evaluate(examples, *, response_factory)`` method that yields
-:class:`raghub.models.EvaluationResult` items. Everything else is
+:class:`raghub.models.Result` items. Everything else is
 reusable.
 """
 
@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from raghub.errors import ConfigurationError, EvaluationError
-from raghub.models import EvaluationResult, Evaluator
+from raghub.models import Evaluator, Result
 from raghub.utils import capture
 
 TOKEN_RE = re.compile(r"\w+")
@@ -355,7 +355,7 @@ class Metrics:
         continuity either).
 
         Note: this is a deterministic proxy. Higher-fidelity
-        coherence requires an LLM-as-a-judge (see :class:`LlmJudge`).
+        coherence requires an LLM-as-a-judge (see :class:`Judge`).
 
         Args:
             text: The generated answer.
@@ -447,6 +447,31 @@ class Metrics:
             metrics["answer_correctness"] = Metrics.answer_correctness(answer, ground_truth)
         return metrics
 
+    @staticmethod
+    def within_tolerance(predicted: str, gold: str, tolerance: float = 0.05) -> float:
+        """Return 1.0 when the first number in ``predicted`` is within tolerance of gold.
+
+        Args:
+            predicted: Model output.
+            gold: Ground truth.
+            tolerance: Relative tolerance
+                (``abs(pred - gold) / max(abs(gold), 1)``).
+
+        Returns:
+            ``1.0`` when a number is found in both and it is within
+            tolerance; ``0.0`` otherwise (including unparseable input).
+        """
+        p_raw = Scoring.first_number(predicted)
+        g_raw = Scoring.first_number(gold)
+        p_parsed, _ = capture(float, p_raw) if p_raw else (None, None)
+        g_parsed, _ = capture(float, g_raw) if g_raw else (None, None)
+        if not isinstance(p_parsed, (int, float)) or not isinstance(g_parsed, (int, float)):
+            return 0.0
+        p, g = p_parsed, g_parsed
+        if g == 0:
+            return 1.0 if p == 0 else 0.0
+        return 1.0 if abs(p - g) / max(abs(g), 1.0) <= tolerance else 0.0
+
 
 class Scoring:
     """Tiny string-overlap helpers shared by adapters."""
@@ -488,7 +513,7 @@ class Scoring:
         return ""
 
 
-class FinanceBench(Evaluator):
+class Finance(Evaluator):
     """The default RAGHub benchmark adapter.
 
     Loads the dataset from a local JSONL/JSON file when supplied, or
@@ -535,7 +560,7 @@ class FinanceBench(Evaluator):
         self.examples: list[dict[str, Any]] | None = None
 
     def ensure_examples(self) -> list[dict[str, Any]]:
-        """Load the FinanceBench dataset from local cache or HuggingFace.
+        """Load the Finance dataset from local cache or HuggingFace.
 
         The dataset is cached in ``~/.cache/raghub/financebench/``
         after the first download.
@@ -547,19 +572,19 @@ class FinanceBench(Evaluator):
         if self.examples is not None:
             return self.examples
         if self.dataset_path is not None:
-            self.examples = FinanceBench.load_jsonl(Path(self.dataset_path))
+            self.examples = Frames.load_jsonl(Path(self.dataset_path))
             if self.examples:
                 return self.examples
-        FinanceBench.CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        cached = FinanceBench.CACHE_DIR / "financebench.jsonl"
+        Finance.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cached = Finance.CACHE_DIR / "financebench.jsonl"
         if not cached.exists():
-            self.examples = FinanceBench.load_huggingface(self.dataset_name, self.split)
+            self.examples = Frames.load_huggingface(self.dataset_name, self.split)
             cached.write_text(
                 "\n".join(json.dumps(ex) for ex in self.examples),
                 encoding="utf-8",
             )
         else:
-            self.examples = FinanceBench.load_jsonl(cached)
+            self.examples = Frames.load_jsonl(cached)
         return self.examples
 
     async def evaluate(
@@ -567,7 +592,7 @@ class FinanceBench(Evaluator):
         examples: Sequence[dict[str, Any]] | None = None,
         *,
         response_factory: Any,
-    ) -> list[EvaluationResult]:
+    ) -> list[Result]:
         """Score every example.
 
         Args:
@@ -582,62 +607,80 @@ class FinanceBench(Evaluator):
                 token-overlap and numeric scores are computed.
 
         Returns:
-            A list of :class:`EvaluationResult`.
+            A list of :class:`Result`.
         """
         rows = list(examples) if examples is not None else self.ensure_examples()
-        # Run all factory calls concurrently. The factory must be
-        # **stateless** (no shared per-call state) so concurrent calls
-        # don't race. We rely on the per-row metric computation below
-        # being independent of the call order.
-        outs = await asyncio.gather(
-            *(response_factory(example) for example in rows)
+        return await _evaluate(
+            rows,
+            response_factory,
+            benchmark=self.benchmark,
+            tolerance=self.tolerance,
         )
-        results: list[EvaluationResult] = []
-        for idx, (example, out) in enumerate(zip(rows, outs, strict=True)):
-            question = example.get("question") or example.get("query") or ""
-            gold = example.get("answer") or example.get("evidence_text") or ""
-            contexts: list[str] = []
-            retrieved_ids: list[str] = []
-            relevant_ids: list[str] = list(example.get("relevant_ids", [])) or [
-                str(example.get("id", idx))
-            ]
-            predicted: object
-            if isinstance(out, tuple) and len(out) == 4:
-                predicted, contexts, retrieved_ids, relevant_ids = out
-            else:
-                predicted = out
-            overlap = Scoring.jaccard(str(predicted), str(gold))
-            numeric = Metrics.within_tolerance(str(predicted), str(gold))
-            metrics = {"token_overlap": overlap, "within_tolerance": numeric}
-            # Add retrieval-quality metrics when the response
-            # factory returned the tuple form.
-            if contexts is not None and retrieved_ids is not None:
-                retrieval_metrics = Metrics.evaluate(
-                    retrieved_ids=retrieved_ids,
-                    relevant_ids=relevant_ids,
-                    answer=str(predicted),
-                    contexts=contexts,
-                    ground_truth=str(gold),
-                    question=question,
-                )
-                metrics.update(retrieval_metrics)
-            results.append(
-                EvaluationResult(
-                    benchmark=self.benchmark,
-                    example_id=str(example.get("id", idx)),
-                    metrics=metrics,
-                    passed=numeric >= 0.99 or overlap >= 0.6,
-                    details={
-                        "question": question,
-                        "gold": str(gold),
-                        "predicted": str(predicted),
-                    },
-                )
+
+
+async def _evaluate(
+    rows: Sequence[dict[str, Any]],
+    response_factory: Any,
+    *,
+    benchmark: str,
+    tolerance: float = 0.05,
+) -> list[Result]:
+    """Score ``rows`` through ``response_factory`` and aggregate metrics.
+
+    The factory is called concurrently for every row, so it must be
+    **stateless** (no shared per-call state). The factory may return
+    either a plain string or a
+    ``(answer, contexts, retrieved_ids, relevant_ids)`` tuple; the
+    tuple form enables the retrieval-quality metrics, the string form
+    only token-overlap and numeric scores.
+    """
+    outs = await asyncio.gather(*(response_factory(example) for example in rows))
+    results: list[Result] = []
+    for idx, (example, out) in enumerate(zip(rows, outs, strict=True)):
+        question = example.get("question") or example.get("query") or ""
+        gold = example.get("answer") or example.get("evidence_text") or ""
+        contexts: list[str] = []
+        retrieved_ids: list[str] = []
+        relevant_ids: list[str] = list(example.get("relevant_ids", [])) or [
+            str(example.get("id", idx))
+        ]
+        predicted: object
+        if isinstance(out, tuple) and len(out) == 4:
+            predicted, contexts, retrieved_ids, relevant_ids = out
+        else:
+            predicted = out
+        overlap = Scoring.jaccard(str(predicted), str(gold))
+        numeric = Metrics.within_tolerance(str(predicted), str(gold), tolerance)
+        metrics = {"token_overlap": overlap, "within_tolerance": numeric}
+        # Add retrieval-quality metrics when the response
+        # factory returned the tuple form.
+        if contexts is not None and retrieved_ids is not None:
+            retrieval_metrics = Metrics.evaluate(
+                retrieved_ids=retrieved_ids,
+                relevant_ids=relevant_ids,
+                answer=str(predicted),
+                contexts=contexts,
+                ground_truth=str(gold),
+                question=question,
             )
-        return results
+            metrics.update(retrieval_metrics)
+        results.append(
+            Result(
+                benchmark=benchmark,
+                example_id=str(example.get("id", idx)),
+                metrics=metrics,
+                passed=numeric >= 0.99 or overlap >= 0.6,
+                details={
+                    "question": question,
+                    "gold": str(gold),
+                    "predicted": str(predicted),
+                },
+            )
+        )
+    return results
 
 
-class FramesBenchmark(Evaluator):
+class Frames(Evaluator):
     """FRAMES — multi-hop RAG benchmark (Krishna et al. 2024).
 
     Loads the 824-question FRAMES test split from
@@ -707,8 +750,8 @@ class FramesBenchmark(Evaluator):
             self.examples = self.load_local(Path(self.dataset_path))
             if self.examples:
                 return self.examples
-        FramesBenchmark.CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        cached = FramesBenchmark.CACHE_DIR / f"{self.split}.jsonl"
+        Frames.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cached = Frames.CACHE_DIR / f"{self.split}.jsonl"
         if not cached.exists():
             self.examples = self.load_huggingface(self.dataset_name, self.split)
             cached.write_text(
@@ -718,6 +761,35 @@ class FramesBenchmark(Evaluator):
         else:
             self.examples = self.load_local(cached)
         return self.examples
+
+    async def evaluate(
+        self,
+        examples: Sequence[dict[str, Any]] | None = None,
+        *,
+        response_factory: Any,
+    ) -> list[Result]:
+        """Score every example.
+
+        Args:
+            examples: Optional explicit examples; defaults to the
+                benchmark's own dataset.
+            response_factory: Async callable taking an example dict
+                and returning the model's answer. The callable may
+                return either a plain string or a
+                ``(answer, contexts, retrieved_ids, relevant_ids)``
+                tuple; the latter enables the full retrieval-quality
+                metrics (recall@k, hit_rate@k, MRR, MAP).
+
+        Returns:
+            A list of :class:`Result`.
+        """
+        rows = list(examples) if examples is not None else self.ensure_examples()
+        return await _evaluate(
+            rows,
+            response_factory,
+            benchmark=self.benchmark,
+            tolerance=self.tolerance,
+        )
 
     def load_local(self, path: Path) -> list[dict[str, Any]]:
         """Read a FRAMES-style file (TSV/CSV/JSONL) from disk."""
@@ -791,37 +863,14 @@ class FramesBenchmark(Evaluator):
         """Return 1.0 if the predicted number is within tolerance of gold.
 
         For FRAMES many gold answers contain a single token
-        (e.g. ``"37th"``). We try :class:`Metrics.first_number` for
-        both, fall back to Jaccard on the digits-only version of
-        the strings, and otherwise use the binary-within-tolerance
-        check.
+        (e.g. ``"37th"``). :func:`Scoring.first_number` extracts the
+        number from both sides before the tolerance comparison.
         """
-        p_raw = Scoring.first_number(predicted)
-        g_raw = Scoring.first_number(gold)
-        p_parsed, _ = capture(float, p_raw) if p_raw else (None, None)
-        """Return 1.0 if the predicted number is within tolerance of gold.
-
-        Args:
-            predicted: Predicted string.
-            gold: Gold string.
-
-        Returns:
-            ``1.0`` when within tolerance, ``0.0`` otherwise.
-        """
-        p_raw = Scoring.first_number(predicted)
-        g_raw = Scoring.first_number(gold)
-        p_parsed, _ = capture(float, p_raw) if p_raw else (None, None)
-        g_parsed, _ = capture(float, g_raw) if g_raw else (None, None)
-        if not isinstance(p_parsed, (int, float)) or not isinstance(g_parsed, (int, float)):
-            return 0.0
-        p, g = p_parsed, g_parsed
-        if g == 0:
-            return 1.0 if p == 0 else 0.0
-        return 1.0 if abs(p - g) / max(abs(g), 1.0) <= self.tolerance else 0.0
+        return Metrics.within_tolerance(predicted, gold, self.tolerance)
 
     @staticmethod
     def load_jsonl(path: Path) -> list[dict[str, Any]]:
-        """Load FinanceBench examples from a local JSONL/JSON file.
+        """Load Finance examples from a local JSONL/JSON file.
 
         Args:
             path: Path to a JSON or JSONL file.
@@ -842,7 +891,7 @@ class FramesBenchmark(Evaluator):
 
     @staticmethod
     def load_huggingface(dataset_name: str, split: str) -> list[dict[str, Any]]:
-        """Load FinanceBench from the HuggingFace Hub.
+        """Load Finance from the HuggingFace Hub.
 
         Args:
             dataset_name: Hub dataset id.
@@ -860,12 +909,12 @@ class FramesBenchmark(Evaluator):
             raise EvaluationError(
                 "datasets is not installed; install it via "
                 "`pip install datasets` or place a JSONL/JSON file at "
-                f"{FinanceBench.CACHE_DIR / 'financebench.jsonl'}."
+                f"{Finance.CACHE_DIR / 'financebench.jsonl'}."
             ) from exc
         ds, error = capture(datasets_module.load_dataset, dataset_name, split=split)
         if error is not None or ds is None:
             raise EvaluationError(
-                f"Failed to load FinanceBench from {dataset_name!r}: {error}"
+                f"Failed to load Finance from {dataset_name!r}: {error}"
             ) from error
         return [dict(record) for record in ds]
 
@@ -878,7 +927,7 @@ class FramesBenchmark(Evaluator):
 SCORE_RE = re.compile(r"(-?)([0-1](?:\.\d+)?|0\.\d+)(?![0-9])")
 
 
-def parse_score(text: str) -> float | None:
+def parse(text: str) -> float | None:
     """Extract the first 0..1 float from an LLM-as-judge response.
 
     Args:
@@ -900,13 +949,13 @@ def parse_score(text: str) -> float | None:
     return max(0.0, min(1.0, value))
 
 
-class LlmJudge:
+class Judge:
     """LLM-as-judge scorer for faithfulness and answer relevance.
 
     Wraps a :class:`raghub.llm.Generator` and uses prompt templates to
     score a ``(question, answer, contexts)`` triple on a 0-1 scale. The
     judge LLM is expected to reply with a single number; the response
-    is parsed by :func:`parse_score` and clamped to ``[0.0, 1.0]``.
+    is parsed by :func:`parse` and clamped to ``[0.0, 1.0]``.
 
     Args:
         llm: The generator used as the judge. Note: the same LLM
@@ -914,7 +963,8 @@ class LlmJudge:
             model (e.g. GPT-4o for a GPT-3.5-turbo pipeline) reduces
             self-bias.
         max_retries: Number of retries on parse failure before
-            returning 0.0. Defaults to 1 retry (2 attempts total).
+            raising :class:`EvaluationError`. Defaults to 1 retry
+            (2 attempts total).
     """
 
     FAITHFULNESS_PROMPT = (
@@ -957,15 +1007,30 @@ class LlmJudge:
             )
         except Exception:
             return None
-        return parse_score(response)
+        return parse(response)
 
     async def score(self, prompt_template: str, **kwargs: str) -> float:
-        """Run a prompt with retries; return 0.0 if all attempts fail to parse."""
+        """Run a prompt with retries; raise when every attempt fails to parse.
+
+        Args:
+            prompt_template: Prompt with ``{placeholders}``.
+            **kwargs: Values for the placeholders.
+
+        Returns:
+            The parsed score in ``[0.0, 1.0]``.
+
+        Raises:
+            EvaluationError: When no attempt yields a parseable score,
+                so an LLM outage is never silently read as ``0.0``.
+        """
         for _ in range(self.max_retries + 1):
             value = await self.score_once(prompt_template, **kwargs)
             if value is not None:
                 return value
-        return 0.0
+        raise EvaluationError(
+            "Judge returned no parseable score after "
+            f"{self.max_retries + 1} attempts"
+        )
 
     async def faithfulness(
         self, answer: str, contexts: Sequence[str]
@@ -978,8 +1043,10 @@ class LlmJudge:
                 ``\\n\\n---\\n\\n`` before being inserted into the prompt.
 
         Returns:
-            A score in ``[0.0, 1.0]``. Returns ``0.0`` when every
-            retry fails to parse.
+            A score in ``[0.0, 1.0]``.
+
+        Raises:
+            EvaluationError: When every retry fails to parse.
         """
         joined = "\n\n---\n\n".join(contexts)
         return await self.score(
@@ -994,8 +1061,10 @@ class LlmJudge:
             question: The user's question.
 
         Returns:
-            A score in ``[0.0, 1.0]``. Returns ``0.0`` when every
-            retry fails to parse.
+            A score in ``[0.0, 1.0]``.
+
+        Raises:
+            EvaluationError: When every retry fails to parse.
         """
         return await self.score(
             self.RELEVANCE_PROMPT, answer=answer, question=question
@@ -1006,7 +1075,7 @@ async def run(
     evaluator: Evaluator,
     examples: Sequence[dict[str, Any]],
     response_factory: Any,
-) -> list[EvaluationResult]:
+) -> list[Result]:
     """Run ``evaluator`` on ``examples`` with a shared error envelope.
 
     Args:
@@ -1015,7 +1084,7 @@ async def run(
         response_factory: Async callable returning the model's answer.
 
     Returns:
-        A list of :class:`EvaluationResult` objects.
+        A list of :class:`Result` objects.
 
     Raises:
         EvaluationError: When the evaluator raises unexpectedly.
@@ -1033,7 +1102,7 @@ async def run(
 # ---------------------------------------------------------------------------
 
 
-class QualityGate:
+class Gate:
     """Threshold checker for a metrics dict.
 
     Each threshold is either a "minimum" (``mode="min"``, the metric
@@ -1051,7 +1120,7 @@ class QualityGate:
             is better) and ``"max"`` for cost metrics (lower is
             better).
 
-    >>> gate = QualityGate({"recall_at_5": 0.7, "faithfulness": 0.8})
+    >>> gate = Gate({"recall_at_5": 0.7, "faithfulness": 0.8})
     >>> gate.check({"recall_at_5": 0.9, "faithfulness": 0.95})
     >>> gate.check({"recall_at_5": 0.5, "faithfulness": 0.95})  # raises
     """
@@ -1067,7 +1136,7 @@ class QualityGate:
         """Store the thresholds and the default mode."""
         if default_mode not in self.VALID_MODES:
             raise ConfigurationError(
-                f"QualityGate default_mode must be 'min' or 'max', "
+                f"Gate default_mode must be 'min' or 'max', "
                 f"got {default_mode!r}"
             )
         self.default_mode = default_mode
@@ -1082,12 +1151,12 @@ class QualityGate:
         threshold: float,
         *,
         mode: str | None = None,
-    ) -> QualityGate:
+    ) -> Gate:
         """Add or replace a threshold. Returns self for chaining."""
         chosen_mode = mode or self.default_mode
         if chosen_mode not in self.VALID_MODES:
             raise ConfigurationError(
-                f"QualityGate mode for {metric!r} must be 'min' or 'max', "
+                f"Gate mode for {metric!r} must be 'min' or 'max', "
                 f"got {chosen_mode!r}"
             )
         self.thresholds[metric] = (threshold, chosen_mode)
@@ -1116,7 +1185,7 @@ class QualityGate:
                 breaches.append(f"{name}: {value:.3f} > {threshold}")
         if breaches:
             raise ConfigurationError(
-                f"QualityGate failed: {'; '.join(breaches)}"
+                f"Gate failed: {'; '.join(breaches)}"
             )
 
     def report(
@@ -1149,13 +1218,13 @@ class QualityGate:
 # ---------------------------------------------------------------------------
 
 
-async def ab_test(
+async def compare(
     *,
     rag_a: Any,
     rag_b: Any,
     examples: list[dict[str, Any]],
     evaluator: Evaluator,
-    gate: QualityGate | None = None,
+    gate: Gate | None = None,
 ) -> dict[str, Any]:
     """Run two RAG instances against the same dataset, report per-metric diffs.
 
@@ -1165,7 +1234,7 @@ async def ab_test(
         examples: Per-example records with ``question`` (and any
             other keys the evaluator expects).
         evaluator: The evaluator to score both runs.
-        gate: Optional :class:`QualityGate`. When set, the run fails
+        gate: Optional :class:`Gate`. When set, the run fails
             when either RAG's metrics breach the gate's thresholds.
 
     Returns:
@@ -1182,16 +1251,18 @@ async def ab_test(
             metrics breach it.
     """
     async def factory_a(ex: dict[str, Any]) -> Any:
-        return await rag_a.aquery(ex["question"])
+        response = await rag_a.aquery(ex["question"])
+        return response.answer
 
     async def factory_b(ex: dict[str, Any]) -> Any:
-        return await rag_b.aquery(ex["question"])
+        response = await rag_b.aquery(ex["question"])
+        return response.answer
 
     results_a = await run(evaluator, examples, response_factory=factory_a)
     results_b = await run(evaluator, examples, response_factory=factory_b)
 
-    metrics_a = aggregate_metrics(results_a)
-    metrics_b = aggregate_metrics(results_b)
+    metrics_a = average(results_a)
+    metrics_b = average(results_b)
 
     if gate is not None:
         gate.check(metrics_a)
@@ -1222,7 +1293,7 @@ async def ab_test(
     }
 
 
-def aggregate_metrics(results: list[Any]) -> dict[str, float]:
+def average(results: list[Any]) -> dict[str, float]:
     """Average every metric across all results."""
     if not results:
         return {}
@@ -1231,14 +1302,14 @@ def aggregate_metrics(results: list[Any]) -> dict[str, float]:
 
 
 __all__ = [
-    "FinanceBench",
-    "FramesBenchmark",
-    "LlmJudge",
+    "Finance",
+    "Frames",
+    "Gate",
+    "Judge",
     "Metrics",
-    "QualityGate",
     "Scoring",
-    "ab_test",
-    "aggregate_metrics",
-    "parse_score",
+    "average",
+    "compare",
+    "parse",
     "run",
 ]

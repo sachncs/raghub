@@ -4,8 +4,8 @@ The :class:`RagasAdapter` wraps the RAGAS evaluation framework and
 exposes it through the standard :class:`raghub.eval.Evaluator` interface
 so users can run RAGAS metrics (faithfulness, answer_relevancy,
 context_precision, context_recall) inside the same benchmark
-harness as :class:`raghub.eval.FinanceBench` and
-:class:`raghub.eval.FramesBenchmark`.
+harness as :class:`raghub.eval.Finance` and
+:class:`raghub.eval.Frames`.
 
 Requires the ``[ragas]`` extra::
 
@@ -17,10 +17,11 @@ when ragas is not installed.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from raghub.errors import ConfigurationError, MissingDep
-from raghub.models import EvaluationResult, Evaluator
+from raghub.models import Evaluator, Result
 
 
 def import_ragas() -> Any:
@@ -33,7 +34,7 @@ def import_ragas() -> Any:
         MissingDep: When ragas is not installed.
     """
     try:
-        import ragas  # type: ignore[import-untyped]
+        import ragas
     except ImportError as exc:
         raise MissingDep(
             "ragas",
@@ -55,7 +56,7 @@ def load_metric(metric_name: str) -> Any:
     Raises:
         ConfigurationError: When the metric name is unknown.
     """
-    from ragas.metrics import (  # type: ignore[import-untyped]
+    from ragas.metrics import (
         answer_relevancy,
         context_precision,
         context_recall,
@@ -81,7 +82,7 @@ class RagasAdapter(Evaluator):
 
     Translates a RAGHub ``(question, contexts, answer, ground_truth)``
     example into a row that ragas can evaluate, runs ragas, and
-    converts the result back into :class:`EvaluationResult` objects
+    converts the result back into :class:`Result` objects
     with the same metric names that :class:`raghub.eval.Metrics`
     produces.
 
@@ -137,7 +138,7 @@ class RagasAdapter(Evaluator):
         Returns:
             A ``datasets.Dataset`` with the ragas schema.
         """
-        from datasets import Dataset  # type: ignore[import-untyped]
+        from datasets import Dataset
 
         rows: list[dict[str, Any]] = []
         for example in examples:
@@ -153,10 +154,10 @@ class RagasAdapter(Evaluator):
 
     async def evaluate(
         self,
-        examples: list[dict[str, Any]] | None = None,
+        examples: Sequence[dict[str, Any]] | None = None,
         *,
         response_factory: Any,
-    ) -> list[EvaluationResult]:
+    ) -> list[Result]:
         """Score every example using the configured ragas metrics.
 
         Args:
@@ -168,7 +169,7 @@ class RagasAdapter(Evaluator):
                 replaces whatever is in the example dict.
 
         Returns:
-            A list of :class:`EvaluationResult` objects, one per
+            A list of :class:`Result` objects, one per
             example, with the ragas metrics placed in ``metrics``.
 
         Raises:
@@ -208,7 +209,7 @@ class RagasAdapter(Evaluator):
 
         scores = self.extract_scores(result, len(rows))
 
-        outcomes: list[EvaluationResult] = []
+        outcomes: list[Result] = []
         for idx, example in enumerate(rows):
             metrics_for_row = {
                 f"ragas_{name}": scores[name][idx] for name in self.metric_names
@@ -217,19 +218,19 @@ class RagasAdapter(Evaluator):
                 metrics_for_row[f"ragas_{name}"] >= 0.5 for name in self.metric_names
             )
             outcomes.append(
-                EvaluationResult(
+                Result(
                     benchmark=self.benchmark,
                     example_id=str(example.get("id", idx)),
                     metrics=metrics_for_row,
                     passed=passed,
-                    predicted=example.get("answer", ""),
+                    details={"predicted": example.get("answer", "")},
                 )
             )
         return outcomes
 
     @staticmethod
     def extract_scores(result: Any, n: int) -> dict[str, list[float]]:
-        """Pull per-row scores out of a ragas EvaluationResult.
+        """Pull per-row scores out of a ragas Result.
 
         RAGAS returns a wrapper whose ``scores`` attribute is a dict
         mapping metric name → numpy array of length ``n``. The

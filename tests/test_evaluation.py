@@ -1,68 +1,69 @@
-"""Tests for the LlmJudge evaluator and the parse_score helper."""
+"""Tests for the Judge evaluator and the parse helper."""
 
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from raghub.errors import ConfigurationError
-from raghub.eval import LlmJudge, QualityGate, ab_test, parse_score
+from raghub.eval import Gate, Judge, compare, parse
 
 # ---------------------------------------------------------------------------
-# Pure parser tests (parse_score)
+# Pure parser tests (parse)
 # ---------------------------------------------------------------------------
 
 
-def test_parse_score_plain_decimal() -> None:
+def test_parse_plain_decimal() -> None:
     """A bare ``0.85`` parses to 0.85."""
-    assert parse_score("0.85") == 0.85
+    assert parse("0.85") == 0.85
 
 
-def test_parse_score_with_surrounding_text() -> None:
+def test_parse_with_surrounding_text() -> None:
     """A number embedded in prose is extracted."""
-    assert parse_score("The score is 0.7") == 0.7
+    assert parse("The score is 0.7") == 0.7
 
 
-def test_parse_score_clamps_above_one() -> None:
+def test_parse_clamps_above_one() -> None:
     """Values above 1.0 are clamped to 1.0."""
-    assert parse_score("1.5") == 1.0
+    assert parse("1.5") == 1.0
 
 
-def test_parse_score_clamps_negative_to_zero() -> None:
+def test_parse_clamps_negative_to_zero() -> None:
     """Negative values are clamped to 0.0."""
-    assert parse_score("-0.5") == 0.0
-    assert parse_score("-1.0") == 0.0
+    assert parse("-0.5") == 0.0
+    assert parse("-1.0") == 0.0
 
 
-def test_parse_score_returns_none_when_no_number() -> None:
+def test_parse_returns_none_when_no_number() -> None:
     """A response without a 0..1 float returns None."""
-    assert parse_score("I cannot score this") is None
-    assert parse_score("") is None
-    assert parse_score("today is 2024") is None
+    assert parse("I cannot score this") is None
+    assert parse("") is None
+    assert parse("today is 2024") is None
 
 
-def test_parse_score_ignores_year_like_numbers() -> None:
+def test_parse_ignores_year_like_numbers() -> None:
     """Years like 2024 are out of range and not picked up."""
-    assert parse_score("the year 2024") is None
+    assert parse("the year 2024") is None
 
 
-def test_parse_score_integer_zero_and_one() -> None:
+def test_parse_integer_zero_and_one() -> None:
     """Plain ``0`` and ``1`` parse correctly."""
-    assert parse_score("0") == 0.0
-    assert parse_score("1") == 1.0
-    assert parse_score("0.0") == 0.0
-    assert parse_score("1.0") == 1.0
+    assert parse("0") == 0.0
+    assert parse("1") == 1.0
+    assert parse("0.0") == 0.0
+    assert parse("1.0") == 1.0
 
 
-def test_parse_score_negative_one_clamped() -> None:
+def test_parse_negative_one_clamped() -> None:
     """``-1.0`` clamps to 0.0."""
-    assert parse_score("-1.0") == 0.0
+    assert parse("-1.0") == 0.0
 
 
 # ---------------------------------------------------------------------------
-# LlmJudge with a fake generator
+# Judge with a fake generator
 # ---------------------------------------------------------------------------
 
 
@@ -92,7 +93,7 @@ def run_async(coro):
 def test_llm_judge_faithfulness_returns_float_in_range() -> None:
     """A faithful response gives a score in [0.0, 1.0]."""
     fake = FakeGenerator("0.85")
-    judge = LlmJudge(fake)
+    judge = Judge(fake)
     score = run_async(judge.faithfulness("The answer is 42.", ["context"]))
     assert 0.0 <= score <= 1.0
     assert score == pytest.approx(0.85)
@@ -101,23 +102,25 @@ def test_llm_judge_faithfulness_returns_float_in_range() -> None:
 def test_llm_judge_relevance_returns_float_in_range() -> None:
     """A relevance response gives a score in [0.0, 1.0]."""
     fake = FakeGenerator("0.6")
-    judge = LlmJudge(fake)
+    judge = Judge(fake)
     score = run_async(judge.answer_relevance("An answer", "A question"))
     assert score == pytest.approx(0.6)
 
 
 def test_llm_judge_returns_zero_when_no_number_in_response() -> None:
-    """A response with no parsable number returns 0.0."""
+    """A response with no parsable number raises (not a silent 0.0)."""
+    from raghub.errors import EvaluationError
+
     fake = FakeGenerator("I cannot score this")
-    judge = LlmJudge(fake)
-    score = run_async(judge.faithfulness("anything", ["anything"]))
-    assert score == 0.0
+    judge = Judge(fake)
+    with pytest.raises(EvaluationError):
+        run_async(judge.faithfulness("anything", ["anything"]))
 
 
 def test_llm_judge_clamps_overflow_to_one() -> None:
     """A response of 1.5 is clamped to 1.0."""
     fake = FakeGenerator("1.5")
-    judge = LlmJudge(fake)
+    judge = Judge(fake)
     score = run_async(judge.faithfulness("a", ["a"]))
     assert score == 1.0
 
@@ -125,7 +128,7 @@ def test_llm_judge_clamps_overflow_to_one() -> None:
 def test_llm_judge_uses_provided_generator() -> None:
     """The supplied generator is the one called."""
     fake = FakeGenerator("0.5")
-    judge = LlmJudge(fake)
+    judge = Judge(fake)
     run_async(judge.faithfulness("a", ["a"]))
     assert len(fake.calls) == 1
 
@@ -133,7 +136,7 @@ def test_llm_judge_uses_provided_generator() -> None:
 def test_llm_judge_prompt_includes_answer_and_contexts() -> None:
     """The faithfulness prompt contains both the answer and the contexts."""
     fake = FakeGenerator("0.7")
-    judge = LlmJudge(fake)
+    judge = Judge(fake)
     run_async(judge.faithfulness("the answer is 42", ["first context", "second context"]))
     assert len(fake.calls) == 1
     prompt = fake.calls[0]["system_prompt"]
@@ -145,7 +148,7 @@ def test_llm_judge_prompt_includes_answer_and_contexts() -> None:
 def test_llm_judge_relevance_prompt_includes_question() -> None:
     """The relevance prompt contains the question."""
     fake = FakeGenerator("0.5")
-    judge = LlmJudge(fake)
+    judge = Judge(fake)
     run_async(judge.answer_relevance("the answer", "the question"))
     prompt = fake.calls[0]["system_prompt"]
     assert "the question" in prompt
@@ -155,7 +158,7 @@ def test_llm_judge_relevance_prompt_includes_question() -> None:
 def test_llm_judge_retries_on_failed_parse() -> None:
     """First response unparseable, second parsed → score is the second."""
     fake = FakeGenerator(["oops", "0.7"])
-    judge = LlmJudge(fake, max_retries=1)
+    judge = Judge(fake, max_retries=1)
     score = run_async(judge.faithfulness("a", ["a"]))
     assert score == 0.7
     assert len(fake.calls) == 2
@@ -164,25 +167,27 @@ def test_llm_judge_retries_on_failed_parse() -> None:
 def test_llm_judge_retries_on_generator_exception() -> None:
     """Generator raising on first call → retry uses the second response."""
     fake = FakeGenerator(["0.4"], raise_on={0})
-    judge = LlmJudge(fake, max_retries=1)
+    judge = Judge(fake, max_retries=1)
     score = run_async(judge.faithfulness("a", ["a"]))
     assert score == 0.4
     assert len(fake.calls) == 2
 
 
 def test_llm_judge_gives_up_after_max_retries() -> None:
-    """All retries fail to parse → returns 0.0."""
+    """All retries fail to parse → raises EvaluationError (not a silent 0.0)."""
+    from raghub.errors import EvaluationError
+
     fake = FakeGenerator(["nope", "still nope", "really nope"])
-    judge = LlmJudge(fake, max_retries=2)
-    score = run_async(judge.faithfulness("a", ["a"]))
-    assert score == 0.0
+    judge = Judge(fake, max_retries=2)
+    with pytest.raises(EvaluationError):
+        run_async(judge.faithfulness("a", ["a"]))
     assert len(fake.calls) == 3
 
 
 def test_llm_judge_no_retry_when_first_succeeds() -> None:
     """A single attempt (max_retries=0) does not retry on success."""
     fake = FakeGenerator("0.9")
-    judge = LlmJudge(fake, max_retries=0)
+    judge = Judge(fake, max_retries=0)
     score = run_async(judge.faithfulness("a", ["a"]))
     assert score == 0.9
     assert len(fake.calls) == 1
@@ -191,54 +196,54 @@ def test_llm_judge_no_retry_when_first_succeeds() -> None:
 def test_llm_judge_default_max_retries_is_one() -> None:
     """Default ``max_retries=1`` allows 2 attempts total."""
     fake = FakeGenerator(["nope", "0.3"])
-    judge = LlmJudge(fake)
+    judge = Judge(fake)
     score = run_async(judge.faithfulness("a", ["a"]))
     assert score == 0.3
     assert len(fake.calls) == 2
 
 
 def test_llm_judge_self_loop_does_not_exist() -> None:
-    """LlmJudge does not create its own event loop; it must be called from one.
+    """Judge does not create its own event loop; it must be called from one.
 
     When called outside a loop, async_generate never runs — the
     caller is expected to be in a coroutine. This is a contract
-    test: the LlmJudge class itself doesn't expose any sync API.
+    test: the Judge class itself doesn't expose any sync API.
     """
     fake = FakeGenerator("0.5")
-    judge = LlmJudge(fake)
-    # LlmJudge should not have a sync ``faithfulness`` or
+    judge = Judge(fake)
+    # Judge should not have a sync ``faithfulness`` or
     # ``answer_relevance`` method.
     assert not hasattr(judge, "faithfulness_sync")
     assert not hasattr(judge, "answer_relevance_sync")
 
 # ---------------------------------------------------------------------------
-# QualityGate tests
+# Gate tests
 # ---------------------------------------------------------------------------
 
 
 def test_quality_gate_constructor_with_thresholds() -> None:
     """The constructor accepts a metric-name → threshold mapping."""
-    gate = QualityGate({"recall_at_5": 0.7, "faithfulness": 0.8})
+    gate = Gate({"recall_at_5": 0.7, "faithfulness": 0.8})
     assert gate.thresholds["recall_at_5"] == (0.7, "min")
     assert gate.thresholds["faithfulness"] == (0.8, "min")
 
 
 def test_quality_gate_passes_when_all_above_threshold() -> None:
     """A metric above its threshold passes silently."""
-    gate = QualityGate({"recall_at_5": 0.7})
+    gate = Gate({"recall_at_5": 0.7})
     gate.check({"recall_at_5": 0.9})
 
 
 def test_quality_gate_raises_when_below_threshold() -> None:
     """A metric below its threshold raises ConfigurationError."""
-    gate = QualityGate({"recall_at_5": 0.7})
+    gate = Gate({"recall_at_5": 0.7})
     with pytest.raises(ConfigurationError, match="recall_at_5"):
         gate.check({"recall_at_5": 0.5})
 
 
 def test_quality_gate_error_message_includes_value_and_threshold() -> None:
     """The error message includes the actual value and the threshold."""
-    gate = QualityGate({"recall_at_5": 0.7})
+    gate = Gate({"recall_at_5": 0.7})
     with pytest.raises(ConfigurationError) as exc_info:
         gate.check({"recall_at_5": 0.5})
     assert "0.500" in str(exc_info.value)
@@ -247,20 +252,20 @@ def test_quality_gate_error_message_includes_value_and_threshold() -> None:
 
 def test_quality_gate_max_mode_passes_when_below_threshold() -> None:
     """In max mode, the metric must be <= threshold."""
-    gate = QualityGate({"latency_ms": 200}, default_mode="max")
+    gate = Gate({"latency_ms": 200}, default_mode="max")
     gate.check({"latency_ms": 150})
 
 
 def test_quality_gate_max_mode_raises_when_above_threshold() -> None:
     """In max mode, a metric above the threshold raises."""
-    gate = QualityGate({"latency_ms": 200}, default_mode="max")
+    gate = Gate({"latency_ms": 200}, default_mode="max")
     with pytest.raises(ConfigurationError, match="latency_ms"):
         gate.check({"latency_ms": 250})
 
 
 def test_quality_gate_per_metric_mode_override() -> None:
     """A per-metric mode override beats the default."""
-    gate = QualityGate({"high": 0.5, "low": 100.0}, default_mode="min")
+    gate = Gate({"high": 0.5, "low": 100.0}, default_mode="min")
     gate.add("high", 0.5, mode="min")  # explicit
     gate.add("low", 100.0, mode="max")  # explicit override
     gate.check({"high": 0.6, "low": 50.0})
@@ -268,79 +273,79 @@ def test_quality_gate_per_metric_mode_override() -> None:
 
 def test_quality_gate_fluent_builder() -> None:
     """``add()`` returns self for chaining."""
-    gate = QualityGate().add("recall_at_5", 0.7).add("faithfulness", 0.8)
+    gate = Gate().add("recall_at_5", 0.7).add("faithfulness", 0.8)
     assert gate.thresholds["recall_at_5"] == (0.7, "min")
     assert gate.thresholds["faithfulness"] == (0.8, "min")
 
 
 def test_quality_gate_fluent_builder_with_max_mode() -> None:
     """The fluent builder accepts a per-metric mode override."""
-    gate = QualityGate().add("recall_at_5", 0.7).add("latency_ms", 200, mode="max")
+    gate = Gate().add("recall_at_5", 0.7).add("latency_ms", 200, mode="max")
     gate.check({"recall_at_5": 0.9, "latency_ms": 150})
 
 
 def test_quality_gate_missing_metric_raises() -> None:
     """A threshold for a metric not in the input dict raises."""
-    gate = QualityGate({"recall_at_5": 0.7})
+    gate = Gate({"recall_at_5": 0.7})
     with pytest.raises(ConfigurationError, match="missing"):
         gate.check({})
 
 
 def test_quality_gate_equality_at_threshold_passes() -> None:
     """A metric exactly at its threshold passes (min mode)."""
-    gate = QualityGate({"recall_at_5": 0.7})
+    gate = Gate({"recall_at_5": 0.7})
     gate.check({"recall_at_5": 0.7})  # exactly at threshold; not strictly less
 
 
 def test_quality_gate_equality_at_threshold_passes_max() -> None:
     """A metric exactly at its threshold passes (max mode)."""
-    gate = QualityGate({"latency_ms": 200}, default_mode="max")
+    gate = Gate({"latency_ms": 200}, default_mode="max")
     gate.check({"latency_ms": 200})
 
 
 def test_quality_gate_invalid_default_mode_raises() -> None:
     """Constructing with an invalid default_mode raises ConfigurationError."""
     with pytest.raises(ConfigurationError, match="default_mode"):
-        QualityGate({"x": 0.5}, default_mode="invalid")
+        Gate({"x": 0.5}, default_mode="invalid")
 
 
 def test_quality_gate_invalid_add_mode_raises() -> None:
     """Adding a threshold with an invalid mode raises ConfigurationError."""
     with pytest.raises(ConfigurationError, match="mode"):
-        QualityGate().add("y", 0.5, mode="invalid")
+        Gate().add("y", 0.5, mode="invalid")
 
 
 def test_quality_gate_report_returns_pass_status() -> None:
     """``report()`` returns a (value, threshold, passed, mode) tuple per metric."""
-    gate = QualityGate({"recall_at_5": 0.7})
+    gate = Gate({"recall_at_5": 0.7})
     report = gate.report({"recall_at_5": 0.9, "extra": 1.0})
     assert report["recall_at_5"] == (0.9, 0.7, True, "min")
 
 
 def test_quality_gate_report_marks_fail_for_below_threshold() -> None:
     """``report()`` marks the metric as failed when below the threshold."""
-    gate = QualityGate({"recall_at_5": 0.7})
+    gate = Gate({"recall_at_5": 0.7})
     report = gate.report({"recall_at_5": 0.5})
     assert report["recall_at_5"] == (0.5, 0.7, False, "min")
 
 
 def test_quality_gate_report_marks_fail_for_missing() -> None:
     """``report()`` marks a missing metric as failed (value is None)."""
-    gate = QualityGate({"recall_at_5": 0.7})
+    gate = Gate({"recall_at_5": 0.7})
     report = gate.report({})
     assert report["recall_at_5"] == (None, 0.7, False, "min")
 
 
 def test_quality_gate_report_max_mode() -> None:
     """``report()`` evaluates max mode correctly."""
-    gate = QualityGate({"latency_ms": 200}, default_mode="max")
+    gate = Gate({"latency_ms": 200}, default_mode="max")
     assert gate.report({"latency_ms": 150})["latency_ms"] == (150.0, 200.0, True, "max")
     assert gate.report({"latency_ms": 250})["latency_ms"] == (250.0, 200.0, False, "max")
 
 
 def test_quality_gate_multiple_breaches_reported_together() -> None:
     """When multiple metrics breach, the error names all of them."""
-    gate = QualityGate({"recall_at_5": 0.7, "faithfulness": 0.8})
+    gate = Gate({"recall_at_5": 0.7, "faithfulness": 0.8})
     with pytest.raises(ConfigurationError) as exc_info:
         gate.check({"recall_at_5": 0.5, "faithfulness": 0.5})
     msg = str(exc_info.value)
@@ -349,7 +354,7 @@ def test_quality_gate_multiple_breaches_reported_together() -> None:
 
 
 # ---------------------------------------------------------------------------
-# ab_test harness tests
+# compare harness tests
 # ---------------------------------------------------------------------------
 
 
@@ -361,7 +366,7 @@ class FakeEvaluator:
     async def evaluate(self, examples, *, response_factory):
         results = []
         from raghub.eval import Metrics
-        from raghub.models import EvaluationResult
+        from raghub.models import Result
 
         for example in examples:
             out = await response_factory(example)
@@ -389,7 +394,7 @@ class FakeEvaluator:
                 k=5,
             )
             results.append(
-                EvaluationResult(
+                Result(
                     benchmark=self.benchmark,
                     example_id=str(example.get("id", "")),
                     metrics=metrics,
@@ -401,12 +406,11 @@ class FakeEvaluator:
 
 
 class FakeRAG:
-    """Minimal RAG stub that responds from ``aquery`` with a simple dict.
+    """Minimal RAG stub whose ``aquery`` returns the answer string.
 
-    The :func:`ab_test` factory wraps the dict in a tuple expected
-    by :class:`FakeEvaluator`. Keeping the response shape simple
-    avoids the SearchResult / ChunkRecord validation that the
-    real Response path requires.
+    Mirrors the real ``Response`` path: :func:`compare` reads
+    ``response.answer`` off the query result and hands the string to
+    the evaluator.
     """
 
     def __init__(self, answer: str = "Paris", contexts: list[str] | None = None) -> None:
@@ -415,18 +419,13 @@ class FakeRAG:
         self.aquery_call_log: list[str] = []
 
     async def aquery(self, question: str) -> Any:
-        """Return a dict that matches the (answer, contexts, retrieved_ids, relevant_ids) contract."""
+        """Record the question and return a Response-shaped answer."""
         self.aquery_call_log.append(question)
-        return {
-            "answer": self.answer,
-            "contexts": list(self.contexts),
-            "retrieved_ids": ["c1"],
-            "relevant_ids": ["c1"],
-        }
+        return SimpleNamespace(answer=self.answer)
 
 
-def test_ab_test_runs_both_rags_and_reports_diffs() -> None:
-    """ab_test invokes both A and B and returns per-metric diffs."""
+def test_compare_runs_both_rags_and_reports_diffs() -> None:
+    """compare invokes both A and B and returns per-metric diffs."""
     rag_a = FakeRAG(answer="Paris")
     rag_b = FakeRAG(answer="Paris")
     examples = [
@@ -435,7 +434,7 @@ def test_ab_test_runs_both_rags_and_reports_diffs() -> None:
     ]
 
     async def runner() -> dict:
-        return await ab_test(
+        return await compare(
             rag_a=rag_a,
             rag_b=rag_b,
             examples=examples,
@@ -452,21 +451,16 @@ def test_ab_test_runs_both_rags_and_reports_diffs() -> None:
     assert result["winner"] == "tie"
 
 
-def test_ab_test_winner_b_when_better() -> None:
-    """When B's metrics are higher across the board, winner is 'b'."""
-    rag_a = FakeRAG(answer="Paris")
+def test_compare_winner_b_when_better() -> None:
+    """When B's answer is closer to the gold, winner is 'b'."""
+    rag_a = FakeRAG(answer="London")
     rag_b = FakeRAG(answer="Paris")
     examples = [
         {"question": "q1", "answer": "Paris", "contexts": ["the capital"]},
     ]
 
-    # B's stub returns more relevant contexts, so its metrics should
-    # score higher than A's.
-    rag_a.contexts = ["unrelated garbage"]
-    rag_b.contexts = ["the capital of France is Paris"]
-
     result = asyncio.run(
-        ab_test(
+        compare(
             rag_a=rag_a,
             rag_b=rag_b,
             examples=examples,
@@ -476,19 +470,16 @@ def test_ab_test_winner_b_when_better() -> None:
     assert result["winner"] == "b"
 
 
-def test_ab_test_winner_a_when_a_better() -> None:
-    """When A's metrics are higher across the board, winner is 'a'."""
+def test_compare_winner_a_when_a_better() -> None:
+    """When A's answer is closer to the gold, winner is 'a'."""
     rag_a = FakeRAG(answer="Paris")
-    rag_b = FakeRAG(answer="Paris")
+    rag_b = FakeRAG(answer="London")
     examples = [
         {"question": "q1", "answer": "Paris", "contexts": ["the capital"]},
     ]
 
-    rag_a.contexts = ["the capital of France is Paris"]
-    rag_b.contexts = ["unrelated garbage"]
-
     result = asyncio.run(
-        ab_test(
+        compare(
             rag_a=rag_a,
             rag_b=rag_b,
             examples=examples,
@@ -498,12 +489,12 @@ def test_ab_test_winner_a_when_a_better() -> None:
     assert result["winner"] == "a"
 
 
-def test_ab_test_empty_examples_returns_tie() -> None:
+def test_compare_empty_examples_returns_tie() -> None:
     """Empty examples produce no metrics; the winner is 'tie'."""
     rag_a = FakeRAG()
     rag_b = FakeRAG()
     result = asyncio.run(
-        ab_test(
+        compare(
             rag_a=rag_a,
             rag_b=rag_b,
             examples=[],
@@ -514,13 +505,13 @@ def test_ab_test_empty_examples_returns_tie() -> None:
     assert result["gate_passed"] is True
 
 
-def test_ab_test_gate_passed_when_metrics_above_threshold() -> None:
+def test_compare_gate_passed_when_metrics_above_threshold() -> None:
     """A gate with a low threshold passes both RAGs."""
     rag_a = FakeRAG()
     rag_b = FakeRAG()
-    gate = QualityGate({"recall_at_5": 0.0})  # trivially passes
+    gate = Gate({"recall_at_5": 0.0})  # trivially passes
     result = asyncio.run(
-        ab_test(
+        compare(
             rag_a=rag_a,
             rag_b=rag_b,
             examples=[{"question": "q", "answer": "a", "contexts": ["c"]}],
@@ -531,16 +522,16 @@ def test_ab_test_gate_passed_when_metrics_above_threshold() -> None:
     assert result["gate_passed"] is True
 
 
-def test_ab_test_gate_raises_when_a_below_threshold() -> None:
+def test_compare_gate_raises_when_a_below_threshold() -> None:
     """A gate raises ConfigurationError when A's metrics breach it."""
     from raghub.errors import ConfigurationError
 
     rag_a = FakeRAG()
     rag_b = FakeRAG()
-    gate = QualityGate({"recall_at_5": 999.0})  # impossible threshold
-    with pytest.raises(ConfigurationError, match="QualityGate failed"):
+    gate = Gate({"recall_at_5": 999.0})  # impossible threshold
+    with pytest.raises(ConfigurationError, match="Gate failed"):
         asyncio.run(
-            ab_test(
+            compare(
                 rag_a=rag_a,
                 rag_b=rag_b,
                 examples=[{"question": "q", "answer": "a", "contexts": ["c"]}],
@@ -550,7 +541,7 @@ def test_ab_test_gate_raises_when_a_below_threshold() -> None:
         )
 
 
-def test_ab_test_calls_each_rag_once_per_example() -> None:
+def test_compare_calls_each_rag_once_per_example() -> None:
     """Each RAG is queried exactly once per example."""
     rag_a = FakeRAG()
     rag_b = FakeRAG()
@@ -560,7 +551,7 @@ def test_ab_test_calls_each_rag_once_per_example() -> None:
         {"question": "q3", "answer": "a", "contexts": ["c"]},
     ]
     asyncio.run(
-        ab_test(
+        compare(
             rag_a=rag_a,
             rag_b=rag_b,
             examples=examples,
