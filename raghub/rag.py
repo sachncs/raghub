@@ -44,6 +44,7 @@ from pydantic import BaseModel
 from tqdm import tqdm
 
 from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
+from raghub.api_response import ResponseBuilder
 from raghub.config import Settings
 from raghub.conv import Memory
 from raghub.embedder import Embedder, Hasher
@@ -55,7 +56,6 @@ from raghub.errors import (
 )
 from raghub.eval import Finance
 from raghub.gen import DefaultGenerator
-from raghub.helper.response import ResponseBuilder
 from raghub.ingest import Resumable, build_chonkie_chunker
 from raghub.knowledge import (
     GraphIndex,
@@ -1307,7 +1307,7 @@ class RAG:
         Yields:
             :class:`PlannerEvent` instances. SSE encoding is the
             caller's responsibility — the FastAPI route uses
-            :meth:`raghub.helper.sse.Sse.format`.
+            :meth:`raghub.api_sse.Sse.format`.
 
         """
         scoped = self.scoped_session_id(user, session_id)
