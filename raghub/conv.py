@@ -31,24 +31,38 @@ __all__ = [
 ]
 
 
-def try_load_gigatoken() -> Any:
-    """Return a ``gigatoken.Tokenizer`` for the configured HF repo.
+class Tokenizer:
+    """Lazy wrapper around the optional ``gigatoken`` tokeniser.
 
-    Uses ``Qwen/Qwen3-8B`` by default — the vocab is downloaded
-    once on first call, cached under ``~/.cache/huggingface`` and
-    reused for every subsequent load. The function returns ``None``
-    if gigatoken is missing or the network is unavailable; the
-    sliding-window manager then falls back to a whitespace
-    approximation.
+    The default model (``Qwen/Qwen3-8B``) is downloaded once on
+    first call, cached under ``~/.cache/huggingface``, and reused
+    for every subsequent load. When ``gigatoken`` is not
+    installed the loaded value is ``None`` and the sliding-window
+    manager falls back to a whitespace approximation.
     """
-    try:
-        import gigatoken as gt
-    except ImportError:  # pragma: no cover - optional dep
-        return None
-    try:
-        return gt.Tokenizer("Qwen/Qwen3-8B")
-    except Exception:  # pragma: no cover - network / cache error
-        return None
+
+    DEFAULT_MODEL = "Qwen/Qwen3-8B"
+
+    @classmethod
+    def load(cls, model: str = DEFAULT_MODEL) -> Any:
+        """Load the configured tokenizer.
+
+        Args:
+            model: The HF repo id of the tokenizer to load.
+
+        Returns:
+            The ``gigatoken.Tokenizer`` instance, or ``None`` when
+            the ``gigatoken`` package is missing or the network is
+            unavailable.
+        """
+        try:
+            import gigatoken as gt
+        except ImportError:
+            return None
+        try:
+            return gt.Tokenizer(model)
+        except Exception:
+            return None
 
 
 class SlidingWindowManager:
@@ -90,7 +104,7 @@ class SlidingWindowManager:
 
         """
         self.max_tokens = max_tokens
-        self.enc: Any = try_load_gigatoken()
+        self.enc: Any = Tokenizer.load()
 
     def counttokenize(self, text: str) -> int:
         """Count tokens in a single string.
