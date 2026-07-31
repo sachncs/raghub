@@ -51,7 +51,7 @@ from raghub.models import (
     AuthLoginResponse,
     BackgroundWorker,
     ConversationTurn,
-    DocumentRecord,
+    Document,
     QueryResponse,
     TaskQueue,
     User,
@@ -116,30 +116,30 @@ class Mixin:
 # ---------------------------------------------------------------------------
 
 
-async def upload_record(result: IngestionResult | Any) -> DocumentRecord:
-    """Return the :class:`DocumentRecord` carried by an ingestion result."""
+async def upload_record(result: IngestionResult | Any) -> Document:
+    """Return the :class:`Document` carried by an ingestion result."""
     return result.document
 
 
-def missing_doc(document_id: str) -> DocumentRecord:
+def missing_doc(document_id: str) -> Document:
     """Raise :class:`IngestionError` for an unknown document id."""
     raise IngestionError(f"Unknown document id: {document_id}")
 
 
-async def list_records(uow: Any) -> list[DocumentRecord]:
+async def list_records(uow: Any) -> list[Document]:
     """Return every document from the repository."""
-    return cast(list[DocumentRecord], await uow.document_repo.list_all())
+    return cast(list[Document], await uow.document_repo.list_all())
 
 
-async def get_doc(uow: Any, document_id: str) -> DocumentRecord:
+async def get_doc(uow: Any, document_id: str) -> Document:
     """Return a single document by id or raise :class:`IngestionError`."""
     record = await uow.document_repo.get(document_id)
     if record is None:
         missing_doc(document_id)
-    return cast(DocumentRecord, record)
+    return cast(Document, record)
 
 
-class Document(Mixin):
+class DocumentSvc(Mixin):
     """Document upload, listing, status, and deletion."""
 
     def __init__(self, container: Any) -> None:
@@ -153,7 +153,7 @@ class Document(Mixin):
         filename: str,
         content: bytes,
         company: str | None = None,
-    ) -> DocumentRecord:
+    ) -> Document:
         """Ingest a new document on behalf of the calling user.
 
         Raises:
@@ -182,12 +182,12 @@ class Document(Mixin):
         self.emit_metric("document_ingest_latency_ms", started)
         self.log(
             "document_ingested",
-            document_id=document.document_id,
+            document_id=document.id,
             company=target_company,
         )
         return document
 
-    async def list_documents(self, token: str) -> list[DocumentRecord]:
+    async def list_documents(self, token: str) -> list[Document]:
         """List the documents visible to the caller.
 
         Admin users see every document; non-admins see only the
@@ -197,13 +197,13 @@ class Document(Mixin):
         user, _ = await auth.resolve_user(token)
         if user.is_admin:
             return await list_records(self.container.uow)
-        results: list[DocumentRecord] = []
+        results: list[Document] = []
         for org in user.allowed_companies:
             docs = await self.container.uow.document_repo.list_by_organization(org)
             results.extend(docs)
         return results
 
-    async def document_status(self, token: str, document_id: str) -> DocumentRecord:
+    async def document_status(self, token: str, document_id: str) -> Document:
         """Return a single document's status.
 
         Raises:
@@ -800,7 +800,7 @@ class Facade:
 
         self.container = container
         self.auth_svc = AuthService(container)
-        self.documents_svc = Document(container)
+        self.documents_svc = DocumentSvc(container)
         self.query_svc = Query(container)
         self.health_svc = Health(container)
         container.auth = self.auth_svc
@@ -853,17 +853,17 @@ class Facade:
         filename: str,
         content: bytes,
         company: str | None = None,
-    ) -> DocumentRecord:
+    ) -> Document:
         """Upload ``content`` as a new document owned by the calling user."""
         return await self.documents_svc.upload_document(
             token=token, filename=filename, content=content, company=company
         )
 
-    async def list_documents(self, token: str) -> list[DocumentRecord]:
+    async def list_documents(self, token: str) -> list[Document]:
         """List the documents visible to the caller."""
         return await self.documents_svc.list_documents(token)
 
-    async def document_status(self, token: str, document_id: str) -> DocumentRecord:
+    async def document_status(self, token: str, document_id: str) -> Document:
         """Return the status of a single document."""
         return await self.documents_svc.document_status(token, document_id)
 

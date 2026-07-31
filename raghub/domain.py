@@ -23,8 +23,8 @@ import aiosqlite
 from raghub.models import (
     Chunk,
     ConversationTurn,
+    Document,
     DocumentLifecycleStatus,
-    DocumentRecord,
     SessionRecord,
 )
 
@@ -32,7 +32,7 @@ __all__ = [
     "ChunkRef",
     "ChunkRepository",
     "DatabaseManager",
-    "Document",
+    "DocumentRef",
     "DocumentRepository",
     "Session",
     "SessionRepository",
@@ -86,21 +86,21 @@ class ChunkRef:
         return self
 
 
-class Document:
-    """Active-record wrapper around a :class:`DocumentRecord`.
+class DocumentRef:
+    """Active-record wrapper around a :class:`Document`.
 
     Attribute reads/writes forward to the wrapped record so callers
     can use the document as if it were the underlying Pydantic model.
     """
 
-    def __init__(self, record: DocumentRecord) -> None:
+    def __init__(self, record: Document) -> None:
         """Wrap ``record``."""
         self.record = record
 
     @property
     def document_id(self) -> str:
         """Return the document id from the wrapped record."""
-        return self.record.document_id
+        return self.record.id
 
     @property
     def status(self) -> DocumentLifecycleStatus:
@@ -127,7 +127,7 @@ class Document:
         else:
             setattr(self.record, name, value)
 
-    def update(self, **kwargs: Any) -> Document:
+    def update(self, **kwargs: Any) -> DocumentRef:
         """Bulk-set fields and bump ``updated_at``.
 
         Args:
@@ -142,7 +142,7 @@ class Document:
         self.record.updated_at = datetime.now(UTC)
         return self
 
-    def mark_failed(self, error: str) -> Document:
+    def mark_failed(self, error: str) -> DocumentRef:
         """Mark the document as failed and record ``error``.
 
         Args:
@@ -225,22 +225,22 @@ class Session:
 
 
 class DocumentRepository(ABC):
-    """Persistence contract for :class:`DocumentRecord`."""
+    """Persistence contract for :class:`Document`."""
 
     @abstractmethod
     async def initialize(self) -> None:
         """Bring the underlying schema/connection online."""
 
     @abstractmethod
-    async def save(self, record: DocumentRecord) -> None:
+    async def save(self, record: Document) -> None:
         """Persist ``record`` (insert or update)."""
 
     @abstractmethod
-    async def get(self, document_id: str) -> DocumentRecord | None:
+    async def get(self, document_id: str) -> Document | None:
         """Return the document with ``document_id`` or ``None``."""
 
     @abstractmethod
-    async def get_by_checksum(self, checksum: str) -> DocumentRecord | None:
+    async def get_by_checksum(self, checksum: str) -> Document | None:
         """Return the document matching ``checksum`` or ``None``."""
 
     @abstractmethod
@@ -248,15 +248,15 @@ class DocumentRepository(ABC):
         """Remove the document and any dependent rows."""
 
     @abstractmethod
-    async def list_by_organization(self, organization: str) -> list[DocumentRecord]:
+    async def list_by_organization(self, organization: str) -> list[Document]:
         """Return every document in ``organization``."""
 
     @abstractmethod
-    async def list_all(self) -> list[DocumentRecord]:
+    async def list_all(self) -> list[Document]:
         """Return every persisted document."""
 
     @abstractmethod
-    async def try_insert(self, record: DocumentRecord, max_retries: int = 1) -> bool:
+    async def try_insert(self, record: Document, max_retries: int = 1) -> bool:
         """Best-effort insert that survives transient conflicts.
 
         Args:

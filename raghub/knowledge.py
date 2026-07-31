@@ -706,7 +706,7 @@ class GraphIndex(KnowledgeIndex):
         """Drop every entity / triple tied to chunks of ``document_id``."""
         to_drop: set[str] = set()
         for chunk_id, record in list(self.chunks.items()):
-            if record.document_id == document_id:
+            if record.id == document_id:
                 del self.chunks[chunk_id]
                 to_drop.add(chunk_id)
         removed = len(to_drop)

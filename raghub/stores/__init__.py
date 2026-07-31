@@ -42,8 +42,8 @@ from raghub.domain import DatabaseManager
 from raghub.errors import AuthenticationError, MissingDepError, RagHubError
 from raghub.models import (
     ConversationTurn,
+    Document,
     DocumentLifecycleStatus,
-    DocumentRecord,
     SessionRecord,
 )
 from raghub.utils import atomic_write_json, capture, load_json
@@ -226,7 +226,7 @@ class ImageStore:
 class Snapshot:
     """In-memory snapshot of a document registry."""
 
-    documents: dict[str, list[DocumentRecord]]
+    documents: dict[str, list[Document]]
     checksum_index: dict[str, tuple[str, int]]
 
 
@@ -242,7 +242,7 @@ class Documents:
         """Initialise the registry and load the existing JSON state."""
         self.path = path
         self.lock = RLock()
-        self.documents: dict[str, list[DocumentRecord]] = {}
+        self.documents: dict[str, list[Document]] = {}
         self.checksum_index: dict[str, tuple[str, int]] = {}
         self.load()
 
@@ -262,7 +262,7 @@ class Documents:
         documents = payload.get("documents", {})
         checksum_index = payload.get("checksum_index", {})
         self.documents = {
-            document_id: [DocumentRecord.model_validate(item) for item in versions]
+            document_id: [Document.model_validate(item) for item in versions]
             for document_id, versions in documents.items()
             if isinstance(versions, list)
         }
@@ -295,10 +295,10 @@ class Documents:
         if error is not None:
             raise RagHubError(str(error)) from error
 
-    def save_version(self, document: DocumentRecord) -> DocumentRecord:
-        """Persist a new or updated :class:`DocumentRecord`."""
+    def save_version(self, document: Document) -> Document:
+        """Persist a new or updated :class:`Document`."""
         with self.lock:
-            versions = self.documents.setdefault(document.document_id, [])
+            versions = self.documents.setdefault(document.id, [])
             for index, existing in enumerate(versions):
                 if existing.version == document.version:
                     # Replace-in-place: an out-of-order write for an
@@ -313,13 +313,13 @@ class Documents:
                     versions[-1].updated_at = datetime.now(UTC)
                 versions.append(document)
             self.checksum_index[document.checksum] = (
-                document.document_id,
+                document.id,
                 document.version,
             )
             self.save()
             return document
 
-    def get_latest(self, document_id: str) -> DocumentRecord | None:
+    def get_latest(self, document_id: str) -> Document | None:
         """Return the highest-versioned entry for ``document_id``."""
         with self.lock:
             versions = self.documents.get(document_id, [])
@@ -327,7 +327,7 @@ class Documents:
                 return None
             return max(versions, key=lambda v: v.version)
 
-    def get_specific_version(self, document_id: str, version: int) -> DocumentRecord | None:
+    def get_specific_version(self, document_id: str, version: int) -> Document | None:
         """Return a specific historical version, or ``None``."""
         with self.lock:
             for item in self.documents.get(document_id, []):
@@ -335,7 +335,7 @@ class Documents:
                     return item
             return None
 
-    def get_by_checksum(self, checksum: str) -> DocumentRecord | None:
+    def get_by_checksum(self, checksum: str) -> Document | None:
         """Look up the document owning ``checksum``."""
         with self.lock:
             locator = self.checksum_index.get(checksum)
@@ -343,10 +343,10 @@ class Documents:
                 return None
             return self.get_specific_version(locator[0], locator[1])
 
-    def list_accessible(self, companies: list[str]) -> list[DocumentRecord]:
+    def list_accessible(self, companies: list[str]) -> list[Document]:
         """Return the latest version of every non-archived document."""
         with self.lock:
-            result: list[DocumentRecord] = []
+            result: list[Document] = []
             for versions in self.documents.values():
                 latest = versions[-1]
                 if (

@@ -16,7 +16,7 @@ Domain, canonical, and transport Pydantic models for the framework:
 
 Mapping (canonical ↔ domain):
 
-* ``Document`` ↔ ``DocumentRecord``
+* ``Document`` ↔ ``Document``
 * ``Chunk`` ↔ ``Chunk``
 * ``SearchResult`` ↔ ``Hit``
 * ``Query`` ↔ ``SearchRequest``
@@ -50,8 +50,8 @@ __all__ = [
     "Classification",
     "ConversationTurn",
     "Document",
+    "Document",
     "DocumentLifecycleStatus",
-    "DocumentRecord",
     "DocumentUploadResponse",
     "Embedding",
     "Hit",
@@ -229,11 +229,11 @@ class SessionRecord(BaseModel):
     overrides: dict[str, Any] = Field(default_factory=dict)
 
 
-class DocumentRecord(BaseModel):
+class Document(BaseModel):
     """Document data transfer object.
 
     Attributes:
-        document_id: Stable document id.
+        id: Stable document id (UUID).
         version: 1-based version number, incremented on re-upload.
         checksum: SHA-256 of the file contents; used for dedup.
         created_at: First upload time (UTC).
@@ -249,12 +249,12 @@ class DocumentRecord(BaseModel):
         file_type: Lower-cased extension.
         mime_type: MIME type from the validator.
         chunk_count: Number of chunks produced by the latest ingest.
-        chunk_ids: Chunk ids produced by the latest ingest.
+        chunks: Chunks produced by the latest ingest (carries refs).
         error: Optional error message when ``status == FAILED``.
 
     """
 
-    document_id: str = Field(default_factory=lambda: str(uuid4()))
+    id: str = Field(default_factory=lambda: str(uuid4()))
     version: int = 1
     checksum: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -270,7 +270,7 @@ class DocumentRecord(BaseModel):
     file_type: str = ""
     mime_type: str = ""
     chunk_count: int = 0
-    chunk_ids: list[str] = Field(default_factory=list)
+    chunks: list[str] = Field(default_factory=list)
     error: str | None = None
 
 
@@ -478,11 +478,11 @@ class DocumentSection(BaseModel):
     source_location: str = ""
 
 
-class Document(DocumentRecord):
-    """Spec-named alias for :class:`DocumentRecord`.
+class DocumentAlias(Document):
+    """Spec-named alias for :class:`Document`.
 
     Re-exported under the spec-mandated name ``Document``. The
-    underlying ``DocumentRecord`` schema is unchanged.
+    underlying ``Document`` schema is unchanged.
     """
 
 
@@ -1317,15 +1317,15 @@ class TaskQueue(Protocol):
 class DocumentRegistry(Protocol):
     """Tracks versioned document state."""
 
-    def save_version(self, document: DocumentRecord) -> DocumentRecord:
+    def save_version(self, document: Document) -> Document:
         """Persist a document version."""
         ...
 
-    def get_latest(self, document_id: str) -> DocumentRecord | None:
+    def get_latest(self, document_id: str) -> Document | None:
         """Get the latest document version."""
         ...
 
-    def list_accessible(self, companies: list[str]) -> list[DocumentRecord]:
+    def list_accessible(self, companies: list[str]) -> list[Document]:
         """List accessible documents for companies."""
         ...
 

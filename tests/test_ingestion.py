@@ -186,21 +186,26 @@ class TestWordChunker:
 
 class TestIngestionResult:
     def test_required_fields(self) -> None:
-        from raghub.models import DocumentRecord
+        from raghub.models import Document
 
-        doc = DocumentRecord(
-            document_id="d1",
+        doc = Document(
+            id="d1",
             version=1,
             checksum="abc",
             owner="u@x.com",
             organization="acme",
         )
+        from raghub.models import Chunk
+        c1 = Chunk(id="c1", document_id="d1", version=1, text="a", company="", owner="",
+                   checksum="ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb")
+        c2 = Chunk(id="c2", document_id="d1", version=1, text="b", company="", owner="",
+                   checksum="3e23e8160039594a33894c65666c7b22f3feec0c9bb7518840fe77f5099fcc49")
         result = IngestionResult(
             document=doc,
-            chunk_ids=["c1", "c2"],
+            chunks=[c1, c2],
         )
         assert result.document == doc
-        assert result.chunk_ids == ["c1", "c2"]
+        assert len(result.chunks) == 2
 
 
 class TestIngestorInit:

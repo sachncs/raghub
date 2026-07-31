@@ -22,8 +22,8 @@ from raghub.errors import (
     IngestionError,
 )
 from raghub.models import (
+    Document,
     DocumentLifecycleStatus,
-    DocumentRecord,
     User,
 )
 
@@ -163,15 +163,15 @@ class TestDocumentUpload:
 
     @pytest.fixture
     def service(self, container: MagicMock) -> Any:
-        return services.Document(container)
+        return services.DocumentSvc(container)
 
     @pytest.mark.asyncio
     async def test_upload_admin_for_own_tenant_succeeds(
         self, service: Any, container: MagicMock
     ) -> None:
         container.ingestion.ingest.return_value = MagicMock(
-            document=DocumentRecord(
-                document_id="d1",
+            document=Document(
+                id="d1",
                 checksum="abc",
                 owner="admin@acme.com",
                 organization="Acme",
@@ -181,7 +181,7 @@ class TestDocumentUpload:
         result = await service.upload_document(
             token="tok1", filename="Acme_report.pdf", content=b"%PDF-1.4 dummy"
         )
-        assert result.document_id == "d1"
+        assert result.id == "d1"
         assert result.organization == "Acme"
 
     @pytest.mark.asyncio
@@ -209,7 +209,7 @@ class TestDocumentUpload:
     ) -> None:
         """When ``company`` is provided, it wins over the filename prefix."""
         container.ingestion.ingest.return_value = MagicMock(
-            document=DocumentRecord(
+            document=Document(
                 document_id="d1",
                 checksum="abc",
                 owner="admin@acme.com",
@@ -248,7 +248,7 @@ class TestDocumentDelete:
 
     @pytest.fixture
     def service(self, container: MagicMock) -> Any:
-        return services.Document(container)
+        return services.DocumentSvc(container)
 
     @pytest.mark.asyncio
     async def test_delete_non_admin_forbidden(self, service: Any, container: MagicMock) -> None:
