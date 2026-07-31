@@ -28,16 +28,15 @@ from raghub.models import (
     SessionRecord,
 )
 
-
 __all__ = [
     "Chunk",
-    "Document",
-    "Session",
-    "DocumentRepository",
     "ChunkRepository",
+    "DatabaseManager",
+    "Document",
+    "DocumentRepository",
+    "Session",
     "SessionRepository",
     "UnitOfWork",
-    "DatabaseManager",
 ]
 
 

@@ -13,7 +13,6 @@ from typing import Any
 
 from raghub.models import DocumentLifecycleStatus
 
-
 __all__ = [
     "DocumentState",
     "DocumentStateMachine",

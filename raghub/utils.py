@@ -32,15 +32,15 @@ T = TypeVar("T")
 
 
 __all__ = [
-    "write_json",
-    "atomic_write_json",
-    "load_json",
-    "capture",
-    "retry",
+    "DurationTimer",
     "aretry",
+    "atomic_write_json",
+    "capture",
+    "load_json",
     "maybe_await",
     "maybe_await_sync",
-    "DurationTimer",
+    "retry",
+    "write_json",
 ]
 
 
