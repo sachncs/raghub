@@ -227,19 +227,22 @@ class IngestCommand:
                     typer.echo(f"submitted job {job_id}")
                 return
             result = rag.ingest(path)
-            batch = result.outputs.get("batch")
-            if batch:
-                payload = [r.model_dump(mode="json") for r in batch]
+            batch = result.outputs.get("batch") if result.outputs else None
+            if isinstance(batch, list) and batch:
+                payload: dict[str, Any] | list[dict[str, Any]] = [
+                    r.model_dump(mode="json") for r in batch
+                ]
             else:
                 payload = result.model_dump(mode="json")
             if json_output:
                 CliConfig.write_json(payload)
                 return
-            success = getattr(payload, "get", lambda *_: None)("success")
+            if isinstance(payload, list):
+                typer.echo(f"ingested batch of {len(payload)} item(s)")
+                return
+            success = payload.get("success")
             if success is not None:
                 typer.echo(f"{'OK' if success else 'FAIL'}: {path}")
-            elif isinstance(payload, list):
-                typer.echo(f"ingested batch of {len(payload)} item(s)")
             else:
                 typer.echo(f"ingested {path}")
 
