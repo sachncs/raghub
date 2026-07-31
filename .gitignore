@@ -20,3 +20,7 @@ docs/site/
 .env
 .env.local
 devtools/report.json
+
+# Phase 0.1: untracked local tooling + generated reports
+lint/
+reports/
