@@ -192,18 +192,18 @@ def test_query_with_special_characters(rag_with_plain_text) -> None:
 
 
 def test_ingest_then_query_with_empty_question(rag_with_plain_text) -> None:
-    """An empty question should raise ValidationError, not crash."""
-    from raghub.errors import ValidationError
+    """An empty question should raise IngestionError, not crash."""
+    from raghub.errors import IngestionError
 
     _ingest(rag_with_plain_text, "The capital of France is Paris.")
-    with pytest.raises(ValidationError, match="non-empty question"):
+    with pytest.raises(IngestionError, match="non-empty question"):
         rag_with_plain_text.query("")
 
 
 def test_ingest_then_query_with_whitespace_only_question(rag_with_plain_text) -> None:
-    """A whitespace-only question should raise ValidationError."""
-    from raghub.errors import ValidationError
+    """A whitespace-only question should raise IngestionError."""
+    from raghub.errors import IngestionError
 
     _ingest(rag_with_plain_text, "The capital of France is Paris.")
-    with pytest.raises(ValidationError):
+    with pytest.raises(IngestionError):
         rag_with_plain_text.query("   \n\t  ")

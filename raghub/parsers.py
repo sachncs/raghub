@@ -1,6 +1,8 @@
-"""documents package.
+"""Document parsers and converter catalog.
 
-Implementation lives in :mod:`raghub.helper` (documents); local entry-point modules: ['parser'].
+The parser classes (Markdown, plain text, Marker, etc.) and the
+:class:`Catalog` factory live here. Validation, chunking, and
+lifecycle helpers live in :mod:`raghub.lifecycle`.
 """
 
 from __future__ import annotations

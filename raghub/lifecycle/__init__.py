@@ -45,7 +45,7 @@ from raghub.core import DocumentStateMachine
 from raghub.errors import (
     ConfigurationError,
     ConversionError,
-    DocumentError,
+    IngestionError,
     MissingDep,
 )
 from raghub.models import (
@@ -210,14 +210,14 @@ def detect_mime_type(filename: str, content: bytes) -> str:
         The detected MIME type as a string.
 
     Raises:
-        DocumentError: If a magic-byte mismatch is detected.
+        IngestionError: If a magic-byte mismatch is detected.
     """
     ext = Path(filename).suffix.lower()
     mime = MIME_TYPES.get(ext, "application/octet-stream")
 
     expected_magic = MAGIC_BYTES.get(mime)
     if expected_magic and not content.startswith(expected_magic):
-        raise DocumentError(f"File {filename} claims to be {mime} but magic bytes do not match")
+        raise IngestionError(f"File {filename} claims to be {mime} but magic bytes do not match")
 
     return mime
 
@@ -241,22 +241,22 @@ def validate_upload(filename: str, content: bytes, max_bytes: int) -> str:
         The detected MIME type when all checks pass.
 
     Raises:
-        DocumentError: If any check fails.
+        IngestionError: If any check fails.
     """
     if not filename or "." not in filename:
-        raise DocumentError("Filename must have an extension")
+        raise IngestionError("Filename must have an extension")
 
     if len(content) == 0:
-        raise DocumentError("Uploaded file is empty (0 bytes)")
+        raise IngestionError("Uploaded file is empty (0 bytes)")
 
     if len(content) > max_bytes:
-        raise DocumentError(f"Upload exceeds maximum size of {max_bytes} bytes")
+        raise IngestionError(f"Upload exceeds maximum size of {max_bytes} bytes")
 
     mime_type = detect_mime_type(filename, content)
 
     supported_mimes = set(MIME_TYPES.values())
     if mime_type not in supported_mimes:
-        raise DocumentError(f"Unsupported file type: {mime_type}")
+        raise IngestionError(f"Unsupported file type: {mime_type}")
 
     return mime_type
 

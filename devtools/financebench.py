@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Any
 
 from raghub.config import Settings
-from raghub.evaluation import Finance
+from raghub.eval import Finance
 from raghub.llm import LiteLLMProvider
 from raghub.rag import RAG
 

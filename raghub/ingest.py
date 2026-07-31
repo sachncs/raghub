@@ -42,7 +42,7 @@ from uuid import uuid4
 from raghub.embedder import Embedder
 from raghub.errors import (
     ConfigurationError,
-    DocumentError,
+    IngestionError,
 )
 from raghub.lifecycle import (
     ChunkingPlan,
@@ -655,7 +655,7 @@ class Ingestor:
             record and chunk ids.
 
         Raises:
-            DocumentError: If any ingestion stage fails. The document
+            IngestionError: If any ingestion stage fails. The document
                 is left in ``FAILED`` state with the error message
                 persisted.
         """
@@ -689,7 +689,7 @@ class Ingestor:
                 previous.status = DocumentLifecycleStatus.FAILED
                 previous.error = error_message
                 await self.uow.document_repo.save(previous)
-            raise DocumentError(error_message)
+            raise IngestionError(error_message)
 
         record = record_from_pipeline(
             result,

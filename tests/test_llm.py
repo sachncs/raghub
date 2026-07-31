@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from raghub.errors import LLMError
+from raghub.errors import GenerationError
 from raghub.llm import (
     LLM_API_KEY_ENV_VARS,
     HeuristicProvider,
@@ -168,7 +168,7 @@ class TestRequireLitellm:
 
 
 class TestGenerateErrorHandling:
-    """generate() wraps provider exceptions as LLMError."""
+    """generate() wraps provider exceptions as GenerationError."""
 
     def test_litellm_error_is_wrapped(self) -> None:
         import raghub.llm as litellm_mod
@@ -180,7 +180,7 @@ class TestGenerateErrorHandling:
             litellm_mod.LITELLM_AVAILABLE = True
 
             provider = litellm_mod.LiteLLM(model="m")
-            with pytest.raises(LLMError, match="completion failed"):
+            with pytest.raises(GenerationError, match="completion failed"):
                 provider.generate(
                     system_prompt="s",
                     conversation=[],

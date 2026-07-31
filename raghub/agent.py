@@ -28,7 +28,7 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel, Field
 
 from raghub.config import AgentConfig, Settings
-from raghub.errors import AgentBudgetExceeded, LLMError, ToolError
+from raghub.errors import AgentBudgetExceeded, GenerationError, ToolError
 from raghub.models import ConversationTurn, User
 from raghub.telemetry import NoOpTelemetry
 from raghub.tools import (
@@ -565,7 +565,7 @@ class Agent:
                         context=[],
                         question=self.render_question_turn(messages[1:]),
                     )
-                except (TimeoutError, LLMError, ConnectionError, ValueError, AttributeError) as exc:
+                except (TimeoutError, GenerationError, ConnectionError, ValueError, AttributeError) as exc:
                     raise AgentBudgetExceeded(
                         f"agent LLM call failed: {exc}"
                     ) from exc

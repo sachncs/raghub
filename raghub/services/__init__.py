@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 from raghub.conv import ConversationManager
 from raghub.core import can_access_company
 from raghub.embedder import Embedder, build_embedder
-from raghub.errors import AuthorizationError, DocumentError
+from raghub.errors import AuthorizationError, IngestionError
 from raghub.ingest import IngestionResult, Ingestor
 from raghub.lifecycle import Lifecycle, detect_mime_type
 from raghub.llm import Generator, build_llm
@@ -117,15 +117,15 @@ async def upload_record(result: IngestionResult | Any) -> DocumentRecord:
     return result.document
 
 def missing_doc(document_id: str) -> DocumentRecord:
-    """Raise :class:`DocumentError` for an unknown document id."""
-    raise DocumentError(f"Unknown document id: {document_id}")
+    """Raise :class:`IngestionError` for an unknown document id."""
+    raise IngestionError(f"Unknown document id: {document_id}")
 
 async def list_records(uow: Any) -> list[DocumentRecord]:
     """Return every document from the repository."""
     return cast(list[DocumentRecord], await uow.document_repo.list_all())
 
 async def get_doc(uow: Any, document_id: str) -> DocumentRecord:
-    """Return a single document by id or raise :class:`DocumentError`."""
+    """Return a single document by id or raise :class:`IngestionError`."""
     record = cast(
         DocumentRecord, await uow.document_repo.get(document_id)
     )
@@ -153,7 +153,7 @@ class Document(Mixin):
         Raises:
             AuthorizationError: If the caller cannot upload documents
                 for the resolved company.
-            DocumentError: If MIME detection or ingestion fails.
+            IngestionError: If MIME detection or ingestion fails.
         """
         started = time.perf_counter()
         auth: Any = self.container.auth
@@ -202,7 +202,7 @@ class Document(Mixin):
         """Return a single document's status.
 
         Raises:
-            DocumentError: If the document does not exist.
+            IngestionError: If the document does not exist.
             AuthorizationError: If the caller cannot access the
                 document's organization.
         """

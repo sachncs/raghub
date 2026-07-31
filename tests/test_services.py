@@ -19,7 +19,7 @@ import pytest
 
 from raghub.errors import (
     AuthorizationError,
-    DocumentError,
+    IngestionError,
 )
 from raghub.models import (
     DocumentLifecycleStatus,
@@ -136,7 +136,7 @@ class TestAggregateStatus:
 
 class TestMissingDoc:
     def test_raises_document_error(self) -> None:
-        with pytest.raises(DocumentError, match="Unknown document id"):
+        with pytest.raises(IngestionError, match="Unknown document id"):
             services.missing_doc("missing-id")
 
 

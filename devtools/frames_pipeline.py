@@ -44,7 +44,7 @@ from typing import Any
 from bs4 import BeautifulSoup
 
 from raghub.config import Settings
-from raghub.evaluation import Frames
+from raghub.eval import Frames
 from raghub.rag import RAG
 
 # ---------------------------------------------------------------------------

@@ -39,7 +39,7 @@ from uuid import uuid4
 from tqdm import tqdm
 
 from raghub.domain import DatabaseManager
-from raghub.errors import AuthenticationError, MissingDep, StorageError
+from raghub.errors import AuthenticationError, MissingDep, RagHubError
 from raghub.models import (
     ConversationTurn,
     DocumentLifecycleStatus,
@@ -283,7 +283,7 @@ class Documents:
         """Persist in-memory state to disk atomically.
 
         Raises:
-            StorageError: If the atomic write fails.
+            RagHubError: If the atomic write fails.
         """
         _, error = capture(
             atomic_write_json,
@@ -303,7 +303,7 @@ class Documents:
             },
         )
         if error is not None:
-            raise StorageError(str(error)) from error
+            raise RagHubError(str(error)) from error
 
     def save_version(self, document: DocumentRecord) -> DocumentRecord:
         """Persist a new or updated :class:`DocumentRecord`."""
