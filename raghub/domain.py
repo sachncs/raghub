@@ -22,10 +22,10 @@ import aiosqlite
 
 from raghub.models import (
     Chunk,
-    ConversationTurn,
+    Turn,
     Document,
     DocumentLifecycleStatus,
-    SessionRecord,
+    Session,
 )
 
 __all__ = [
@@ -159,13 +159,13 @@ class DocumentRef:
 
 
 class Session:
-    """Active-record wrapper around a :class:`SessionRecord`.
+    """Active-record wrapper around a :class:`Session`.
 
     Attribute reads/writes forward to the wrapped record so callers
     can use the session as if it were the underlying Pydantic model.
     """
 
-    def __init__(self, record: SessionRecord) -> None:
+    def __init__(self, record: Session) -> None:
         """Wrap ``record``."""
         self.record = record
 
@@ -175,7 +175,7 @@ class Session:
         return self.record.session_id
 
     @property
-    def history(self) -> list[ConversationTurn]:
+    def history(self) -> list[Turn]:
         """Return a shallow copy of the conversation history."""
         return list(self.record.history)
 
@@ -201,13 +201,13 @@ class Session:
             question: The user's question text.
             answer: The assistant's answer text.
             **kwargs: Extra fields forwarded to
-                :class:`ConversationTurn` (e.g. ``metadata``).
+                :class:`Turn` (e.g. ``metadata``).
 
         Returns:
             ``self`` for chaining.
 
         """
-        turn = ConversationTurn(question=question, answer=answer, **kwargs)
+        turn = Turn(question=question, answer=answer, **kwargs)
         self.record.history.append(turn)
         self.record.last_seen_at = datetime.now(UTC)
         return self
@@ -310,26 +310,26 @@ class ChunkRepository(ABC):
 
 
 class SessionRepository(ABC):
-    """Persistence contract for :class:`SessionRecord`."""
+    """Persistence contract for :class:`Session`."""
 
     @abstractmethod
     async def initialize(self) -> None:
         """Bring the underlying schema/connection online."""
 
     @abstractmethod
-    async def create(self, record: SessionRecord) -> None:
+    async def create(self, record: Session) -> None:
         """Persist a freshly-created session record."""
 
     @abstractmethod
-    async def save(self, record: SessionRecord) -> None:
+    async def save(self, record: Session) -> None:
         """Persist an updated session record."""
 
     @abstractmethod
-    async def get(self, session_id: str) -> SessionRecord | None:
+    async def get(self, session_id: str) -> Session | None:
         """Return the session with ``session_id`` or ``None``."""
 
     @abstractmethod
-    async def get_by_token(self, token: str) -> SessionRecord | None:
+    async def get_by_token(self, token: str) -> Session | None:
         """Return the session whose token matches ``token`` or ``None``."""
 
     @abstractmethod

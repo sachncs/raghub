@@ -48,7 +48,7 @@ __all__ = [
     "Chunk",
     "Citation",
     "Classification",
-    "ConversationTurn",
+    "Turn",
     "Document",
     "Document",
     "DocumentLifecycleStatus",
@@ -67,7 +67,7 @@ __all__ = [
     "SearchRequest",
     "SearchResponse",
     "SearchResult",
-    "SessionRecord",
+    "Session",
     "User",
     "Visibility",
     "deterministic_id",
@@ -184,7 +184,7 @@ class User(BaseModel):
     tool_settings: dict[str, Any] = Field(default_factory=dict)
 
 
-class ConversationTurn(BaseModel):
+class Turn(BaseModel):
     """Single question-answer turn stored in session memory.
 
     Attributes:
@@ -201,7 +201,7 @@ class ConversationTurn(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class SessionRecord(BaseModel):
+class Session(BaseModel):
     """Session metadata and isolated conversational history.
 
     Attributes:
@@ -225,7 +225,7 @@ class SessionRecord(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime
     last_seen_at: datetime
-    history: list[ConversationTurn] = Field(default_factory=list)
+    history: list[Turn] = Field(default_factory=list)
     overrides: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -414,7 +414,7 @@ class SearchResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-SessionRecord.model_rebuild()
+Session.model_rebuild()
 
 
 # ---------------------------------------------------------------------------
@@ -1017,7 +1017,7 @@ class GeneratorProtocol(Protocol):
         *,
         question: str,
         context: Sequence[Hit],
-        conversation: Sequence[ConversationTurn] = (),
+        conversation: Sequence[Turn] = (),
     ) -> tuple[str, list[Citation]]:
         """Generate an answer from retrieved context."""
         ...
@@ -1027,7 +1027,7 @@ class GeneratorProtocol(Protocol):
         *,
         question: str,
         context: Sequence[Hit],
-        conversation: Sequence[ConversationTurn] = (),
+        conversation: Sequence[Turn] = (),
     ) -> AsyncIterator[str]:
         """Stream-generated answer tokens."""
         ...
@@ -1257,7 +1257,7 @@ class PromptBuilder(Protocol):
     def build_messages(
         self,
         *,
-        conversation: Sequence[ConversationTurn],
+        conversation: Sequence[Turn],
         retrieved_chunks: Sequence[Chunk],
         question: str,
     ) -> list[dict[str, str]]:
@@ -1274,7 +1274,7 @@ class LLMProvider(Protocol):
         self,
         *,
         system_prompt: str,
-        conversation: Sequence[ConversationTurn],
+        conversation: Sequence[Turn],
         context: Sequence[str],
         question: str,
         image_paths: list[str] | None = None,
@@ -1337,11 +1337,11 @@ class DocumentRegistry(Protocol):
 class ConversationStore(Protocol):
     """Stores only turns, not context chunks."""
 
-    def append(self, session_id: str, turn: ConversationTurn) -> None:
+    def append(self, session_id: str, turn: Turn) -> None:
         """Append a turn to a session."""
         ...
 
-    def load(self, session_id: str, limit: int = 20) -> list[ConversationTurn]:
+    def load(self, session_id: str, limit: int = 20) -> list[Turn]:
         """Load turns from a session."""
         ...
 
@@ -1353,11 +1353,11 @@ class ConversationStore(Protocol):
 class SessionStoreProtocol(Protocol):
     """Stores session metadata."""
 
-    def create(self, user_id: str) -> SessionRecord:
+    def create(self, user_id: str) -> Session:
         """Create a new session."""
         ...
 
-    def resolve(self, token: str) -> SessionRecord | None:
+    def resolve(self, token: str) -> Session | None:
         """Resolve a session token."""
         ...
 

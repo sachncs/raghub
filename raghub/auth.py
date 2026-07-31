@@ -30,7 +30,7 @@ except ImportError:
 
 from pydantic import BaseModel, Field
 
-from raghub.models import AuthLoginResponse, ConversationTurn, User
+from raghub.models import AuthLoginResponse, Turn, User
 from raghub.services import Mixin as ServiceMixin
 
 __all__ = [
@@ -481,7 +481,7 @@ class AuthService(ServiceMixin):
         if session is not None:
             await self.container.store.delete_session(session.session_id)
 
-    async def resolve_user(self, token: str) -> tuple[User, list[ConversationTurn]]:
+    async def resolve_user(self, token: str) -> tuple[User, list[Turn]]:
         """Resolve a bearer token to (principal, conversation history).
 
         Args:

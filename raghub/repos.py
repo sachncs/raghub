@@ -35,7 +35,7 @@ from raghub.models import (
     Chunk,
     Document,
     DocumentLifecycleStatus,
-    SessionRecord,
+    Session,
 )
 from raghub.store import Store
 from raghub.stores import Database, Sessions
@@ -419,7 +419,7 @@ class SessionStore(SessionRepository):
         """Initialise the underlying session store."""
         await self.inner.initialize()
 
-    async def create(self, record: SessionRecord) -> None:
+    async def create(self, record: Session) -> None:
         """Insert a new session record."""
         conn = await self.conn()
         await conn.execute(
@@ -438,8 +438,8 @@ class SessionStore(SessionRepository):
             ),
         )
 
-    async def create_from_record(self, record: SessionRecord) -> None:
-        """Insert a full :class:`SessionRecord` including its history.
+    async def create_from_record(self, record: Session) -> None:
+        """Insert a full :class:`Session` including its history.
 
         The default :meth:`create` writes an empty history column
         (fresh sessions have empty history). The migration path
@@ -471,15 +471,15 @@ class SessionStore(SessionRepository):
             await conn.commit()
             await conn.close()
 
-    async def save(self, record: SessionRecord) -> None:
+    async def save(self, record: Session) -> None:
         """Persist updates for an existing session."""
         await self.inner.update_session(record)
 
-    async def get(self, session_id: str) -> SessionRecord | None:
+    async def get(self, session_id: str) -> Session | None:
         """Return the session with ``session_id`` or ``None``."""
         return await self.inner.get_session(session_id)
 
-    async def get_by_token(self, token: str) -> SessionRecord | None:
+    async def get_by_token(self, token: str) -> Session | None:
         """Return the session holding ``token`` or ``None``."""
         return await self.inner.get_by_token(token)
 

@@ -24,7 +24,7 @@ from typing import Any, Literal, Self
 import litellm
 
 from raghub.errors import ConfigurationError, GenerationError
-from raghub.models import ConversationTurn
+from raghub.models import Turn
 from raghub.utils import aretry, retry
 
 __all__ = [
@@ -83,7 +83,7 @@ class Generator(ABC):
         self,
         *,
         system_prompt: str,
-        conversation: Sequence[ConversationTurn],
+        conversation: Sequence[Turn],
         context: Sequence[str],
         question: str,
         image_paths: list[str] | None = None,
@@ -102,7 +102,7 @@ class Generator(ABC):
                 to the final user message (vision-capable providers only).
             session_history: Optional prior turns from the persistent
                 session store. Format mirrors
-                :class:`raghub.models.ConversationTurn` dicts.
+                :class:`raghub.models.Turn` dicts.
 
         Returns:
             The provider-generated answer as a plain string.
@@ -113,7 +113,7 @@ class Generator(ABC):
         self,
         *,
         system_prompt: str,
-        conversation: Sequence[ConversationTurn] = (),
+        conversation: Sequence[Turn] = (),
         context: Sequence[str] = (),
         question: str,
         image_paths: list[str] | None = None,
@@ -168,7 +168,7 @@ class HeuristicProvider(Generator):
         self,
         *,
         system_prompt: str = "",
-        conversation: Sequence[ConversationTurn] = (),
+        conversation: Sequence[Turn] = (),
         context: Sequence[str] = (),
         question: str,
         image_paths: list[str] | None = None,
@@ -287,7 +287,7 @@ class LiteLLM(Generator):
         self,
         *,
         system_prompt: str,
-        conversation: Sequence[ConversationTurn] = (),
+        conversation: Sequence[Turn] = (),
         context: Sequence[str] = (),
         question: str,
         image_paths: list[str] | None = None,
@@ -356,7 +356,7 @@ class LiteLLM(Generator):
         self,
         *,
         system_prompt: str,
-        conversation: Sequence[ConversationTurn] = (),
+        conversation: Sequence[Turn] = (),
         context: Sequence[str] = (),
         question: str,
         image_paths: list[str] | None = None,
@@ -413,7 +413,7 @@ class LiteLLM(Generator):
         self,
         *,
         system_prompt: str,
-        conversation: Sequence[ConversationTurn] = (),
+        conversation: Sequence[Turn] = (),
         context: Sequence[str] = (),
         question: str,
         image_paths: list[str] | None = None,
@@ -500,7 +500,7 @@ class LiteLLM(Generator):
         self,
         *,
         system_prompt: str,
-        conversation: Sequence[ConversationTurn] = (),
+        conversation: Sequence[Turn] = (),
         context: Sequence[str] = (),
         question: str,
         image_paths: list[str] | None = None,

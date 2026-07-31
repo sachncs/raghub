@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 
 from raghub.config import AgentConfig, Settings
 from raghub.errors import AgentBudgetError, GenerationError, ToolError
-from raghub.models import ConversationTurn, User
+from raghub.models import Turn, User
 from raghub.telemetry import NoOpTelemetry
 from raghub.tools import (
     DateToday,
@@ -442,7 +442,7 @@ class Agent:
         self,
         *,
         question: str,
-        history: Sequence[ConversationTurn] | None = None,
+        history: Sequence[Turn] | None = None,
         tools_enabled: set[str] | None = None,
         user: User | None = None,
         session_id: str | None = None,
@@ -475,7 +475,7 @@ class Agent:
         self,
         *,
         question: str,
-        history: Sequence[ConversationTurn] | None = None,
+        history: Sequence[Turn] | None = None,
         tools_enabled: set[str] | None = None,
         user: User | None = None,
         session_id: str | None = None,
@@ -496,7 +496,7 @@ class Agent:
         self,
         *,
         question: str,
-        history: list[ConversationTurn],
+        history: list[Turn],
         tools_enabled: set[str] | None,
         user: User | None,
         session_id: str | None,

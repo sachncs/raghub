@@ -66,7 +66,7 @@ from raghub.knowledge import (
 )
 from raghub.models import (
     Chunker,
-    ConversationTurn,
+    Turn,
     DocumentConverter,
     PipelineCtx,
     PipelineResult,
@@ -1577,7 +1577,7 @@ class RAG:
         *,
         user: Any | None = None,
         limit: int = 50,
-    ) -> list[ConversationTurn]:
+    ) -> list[Turn]:
         """Return the most recent conversation turns for a session.
 
         Args:
@@ -1590,7 +1590,7 @@ class RAG:
             limit: Maximum number of turns to return.
 
         Returns:
-            The list of :class:`ConversationTurn` records, oldest
+            The list of :class:`Turn` records, oldest
             first.
 
         """
