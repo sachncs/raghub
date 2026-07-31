@@ -28,7 +28,6 @@ from pydantic import BaseModel
 from raghub.errors import MissingDepError
 from raghub.llm import Generator
 from raghub.models import (
-    Citation,
     Hit,
     StructuredOutputProvider,
     Turn,
@@ -90,9 +89,9 @@ class DefaultGenerator:
         self,
         *,
         question: str,
-        context: Sequence[Hit],
+        context: Sequence[Hit] | Sequence[str] = (),
         conversation: Sequence[Turn] = (),
-    ) -> tuple[str, list[Citation]]:
+    ) -> str:
         """Generate an answer and citations from retrieved context.
 
         Args:
@@ -104,7 +103,12 @@ class DefaultGenerator:
             ``(answer, citations)`` for the question.
 
         """
-        context_texts = [hit.chunk.text for hit in context]
+        context_texts: list[str] = []
+        for entry in context:
+            if isinstance(entry, str):
+                context_texts.append(entry)
+            else:
+                context_texts.append(entry.chunk.text)
         turns = [Turn(question=t.question, answer=t.answer) for t in conversation]
         async_generate = getattr(self.llm, "async_generate", None)
         if callable(async_generate):
@@ -123,28 +127,15 @@ class DefaultGenerator:
                 question=question,
             )
         if inspect.isawaitable(completion):
-            answer = (
+            answer = str(
                 await completion
                 if self.timeout_seconds is None
                 else await asyncio.wait_for(completion, timeout=self.timeout_seconds)
             )
         else:
             answer = str(completion)
-        citations: list[Citation] = []
-        for hit in context:
-            citations.append(
-                Citation(
-                    document_id=hit.chunk.document_id,
-                    version=hit.chunk.version,
-                    page=hit.chunk.page,
-                    section=hit.chunk.section,
-                    quote=hit.chunk.text[:200],
-                    score=hit.score,
-                    source_uri=hit.chunk.source_location,
-                )
-            )
         self.capture_last_usage()
-        return answer, citations
+        return answer
 
     def record_tokens(self) -> dict[str, int | str] | None:
         """Return the most recent token-usage record (if any)."""
@@ -180,7 +171,7 @@ class DefaultGenerator:
                     yield piece
             self.capture_last_usage()
             return
-        answer, _ = await self.generate(
+        answer = await self.generate(
             question=question, context=context, conversation=conversation
         )
         if answer:

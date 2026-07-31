@@ -169,7 +169,7 @@ class HeuristicProvider(Generator):
         *,
         system_prompt: str = "",
         conversation: Sequence[Turn] = (),
-        context: Sequence[str] = (),
+        context: Sequence[object] = (),
         question: str,
         image_paths: list[str] | None = None,
         session_history: list[dict[str, Any]] | None = None,
@@ -191,11 +191,17 @@ class HeuristicProvider(Generator):
         """
         if not context:
             return "No context was retrieved. Configure an LLM API key for full answer generation."
-        # Heuristic: pick the sentence most relevant to the question
+        # Normalise: context may be Sequence[str] or Sequence[Hit] (with .chunk.text).
+        texts: list[str] = []
+        for entry in context:
+            if isinstance(entry, str):
+                texts.append(entry)
+            else:
+                texts.append(getattr(getattr(entry, "chunk", entry), "text", str(entry)))
         question_lower = question.lower()
         question_words = set(question_lower.split())
         scored: list[tuple[int, str]] = []
-        for chunk in context:
+        for chunk in texts:
             for sentence in chunk.split("."):
                 stripped = sentence.strip()
                 if not stripped:
@@ -204,8 +210,9 @@ class HeuristicProvider(Generator):
                 score = sum(1 for w in question_words if w in lowered)
                 scored.append((score, stripped))
         scored.sort(key=lambda x: -x[0])
-        best = scored[0][1] if scored else context[0][:500]
-        return best
+        if scored:
+            return scored[0][1]
+        return (texts[0] if texts else "")[:500]
 
 
 class LiteLLM(Generator):

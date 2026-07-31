@@ -70,6 +70,22 @@ from raghub.models import (
 from raghub.telemetry import NoOpTelemetry
 from raghub.utils import retry as retry_sync
 
+
+def awaitable(value: Any) -> Any:
+    """Make ``await`` work for either sync return values or coroutines.
+
+    Lifts a sync result into an inline coroutine so the query
+    pipeline can drive both ``Generator.generate`` (async) and the
+    LLM's ``generate`` (sync) with the same call site.
+    """
+    if inspect.isawaitable(value):
+        return value
+    # Inline async coroutine factory (one level deep, no nested def).
+    async def _lift() -> Any:
+        """Lift a sync return value into a coroutine."""
+        return value
+    return _lift()
+
 __all__ = [
     "AgentPipeline",
     "Cache",
@@ -727,13 +743,24 @@ class QueryPipeline(Pipeline):
                     hits = await self.long_context_pass.rerank(question=question, hits=hits)
 
             answer: Any
-            citations: list[Citation] = []
+            citations: list[Citation] = [
+                Citation(
+                    chunk=h.chunk, document_id=h.chunk.document_id,
+                    version=h.chunk.version, page=h.chunk.page,
+                    section=h.chunk.section, quote=h.chunk.text, score=h.score,
+                    source_uri=h.chunk.source_location or h.chunk.document_id,
+                ) for h in hits
+            ]
             with self.telemetry.span("query.generate"):
-                answer, citations = await self.generator.generate(
+                result = await awaitable(self.generator.generate(
                     question=question,
                     context=hits,
                     conversation=history,
-                )
+                ))
+                if isinstance(result, tuple):
+                    answer, citations = result
+                else:
+                    answer = result
                 record_tokens = getattr(self.generator, "record_tokens", None)
                 if callable(record_tokens):
                     tokens = record_tokens()
@@ -874,9 +901,13 @@ class QueryPipeline(Pipeline):
                         ),
                     )
                 return
-            answer, _ = await self.generator.generate(
+            result = await awaitable(self.generator.generate(
                 question=question, context=hits, conversation=history
-            )
+            ))
+            if isinstance(result, tuple):
+                answer, _ = result
+            else:
+                answer = result
             if session_id and answer:
                 self.conversation_store.append(
                     session_id, Turn(question=question, answer=str(answer))
@@ -957,11 +988,15 @@ class AgentPipeline:
                         hits = await self.long_context_pass.rerank(question=question, hits=hits)
 
                 agent_answer = trace.final_answer
-                _generator_text, generator_citations = await self.generator.generate(
+                _generator_text_result = await awaitable(self.generator.generate(
                     question=question,
                     context=hits,
                     conversation=history,
-                )
+                ))
+                if isinstance(_generator_text_result, tuple):
+                    _generator_text, generator_citations = _generator_text_result
+                else:
+                    _generator_text = _generator_text_result
                 if not generator_citations:
                     generator_citations = cast(list[Citation], citations)
                 answer = agent_answer
