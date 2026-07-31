@@ -83,9 +83,13 @@ class Rerank(Protocol):
 
     name: str
 
-    def rerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]: ...
+    def rerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
+        """Synchronously rerank ``hits`` for ``question``. May block."""
+        ...
 
-    async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]: ...
+    async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
+        """Asynchronously rerank ``hits`` for ``question``."""
+        ...
 
 
 @runtime_checkable
@@ -104,7 +108,9 @@ class Transformer(Protocol):
         *,
         question: str,
         history: Sequence[ConversationTurn],
-    ) -> list[Variant]: ...
+    ) -> list[Variant]:
+        """Return rephrased variants for ``question``."""
+        ...
 
 
 ORIGINAL_WEIGHT = 1.5

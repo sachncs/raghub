@@ -105,6 +105,7 @@ class ChunkStore(ChunkRepository):
     async def upsert(
         self, records: list[ChunkRecord], embeddings: list[list[float]] | None = None
     ) -> None:
+        """Insert or update each ``record`` with its matching embedding."""
         if embeddings is None:
             raise ValueError("embeddings required for upsert")
         self.store.upsert(records, embeddings)
@@ -120,6 +121,7 @@ class ChunkStore(ChunkRepository):
     async def search(
         self, vector: list[float], top_k: int, metadata_filter: str = ""
     ) -> list[dict[str, Any]]:
+        """Return the top-k hits most similar to ``vector``."""
         return self.store.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     async def optimize(self) -> None:
@@ -498,6 +500,7 @@ class UnitOfWork(BaseUnitOfWork):
     """Coordinate repositories over a shared SQLite transaction."""
 
     def __init__(self, db_path: str, vector_store: Store, session_timeout: int = 3600) -> None:
+        """Bind the three collaborators behind one transaction boundary."""
         self.db_path = db_path
         self.vector_store = vector_store
         self.session_timeout = session_timeout

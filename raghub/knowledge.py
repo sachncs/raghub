@@ -244,6 +244,7 @@ class Manifest:
         self.load()
 
     def load(self) -> None:
+        """Read the JSON manifest from disk into ``self.records``."""
         if not self.path.exists():
             return
         text, text_error = capture(self.path.read_text, encoding="utf-8")
