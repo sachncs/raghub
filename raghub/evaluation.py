@@ -16,6 +16,8 @@ import typer
 from raghub.eval import Finance, Frames, run
 from raghub.utils import write_json
 
+__all__ = ["financebench", "frames"]
+
 app = typer.Typer(help="Evaluation harnesses.", no_args_is_help=True)
 
 

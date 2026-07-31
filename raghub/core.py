@@ -14,6 +14,15 @@ from typing import Any
 from raghub.models import DocumentLifecycleStatus
 
 
+__all__ = [
+    "DocumentState",
+    "DocumentStateMachine",
+    "RbacGuard",
+    "allowed_company_filter",
+    "can_access_company",
+]
+
+
 @dataclass(frozen=True)
 class DocumentState:
     """A document's current lifecycle status.

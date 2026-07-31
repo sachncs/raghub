@@ -31,6 +31,11 @@ from raghub.models import (
 )
 
 
+__all__ = [
+    "PluginRegistry",
+]
+
+
 class PluginRegistry:
     """Catalog of pluggable components keyed by name and type."""
 

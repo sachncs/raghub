@@ -29,6 +29,18 @@ from raghub.models import (
 )
 
 
+__all__ = [
+    "Chunk",
+    "Document",
+    "Session",
+    "DocumentRepository",
+    "ChunkRepository",
+    "SessionRepository",
+    "UnitOfWork",
+    "DatabaseManager",
+]
+
+
 class Chunk:
     """Active-record wrapper around a :class:`ChunkRecord`.
 
