@@ -66,7 +66,7 @@ def test_parse_score_negative_one_clamped() -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakeGenerator:
+class FakeGenerator:
     """Stub LLM that returns a fixed response and counts calls."""
 
     def __init__(self, responses: list[str] | str, raise_on: set[int] | None = None) -> None:
@@ -84,56 +84,57 @@ class _FakeGenerator:
         return self._responses[min(idx, len(self._responses) - 1)]
 
 
-def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro) if False else asyncio.run(coro)
+def run_async(coro):
+    """Synchronously run an async coroutine to completion."""
+    return asyncio.run(coro)
 
 
 def test_llm_judge_faithfulness_returns_float_in_range() -> None:
     """A faithful response gives a score in [0.0, 1.0]."""
-    fake = _FakeGenerator("0.85")
+    fake = FakeGenerator("0.85")
     judge = LlmJudge(fake)
-    score = _run(judge.faithfulness("The answer is 42.", ["context"]))
+    score = run_async(judge.faithfulness("The answer is 42.", ["context"]))
     assert 0.0 <= score <= 1.0
     assert score == pytest.approx(0.85)
 
 
 def test_llm_judge_relevance_returns_float_in_range() -> None:
     """A relevance response gives a score in [0.0, 1.0]."""
-    fake = _FakeGenerator("0.6")
+    fake = FakeGenerator("0.6")
     judge = LlmJudge(fake)
-    score = _run(judge.answer_relevance("An answer", "A question"))
+    score = run_async(judge.answer_relevance("An answer", "A question"))
     assert score == pytest.approx(0.6)
 
 
 def test_llm_judge_returns_zero_when_no_number_in_response() -> None:
     """A response with no parsable number returns 0.0."""
-    fake = _FakeGenerator("I cannot score this")
+    fake = FakeGenerator("I cannot score this")
     judge = LlmJudge(fake)
-    score = _run(judge.faithfulness("anything", ["anything"]))
+    score = run_async(judge.faithfulness("anything", ["anything"]))
     assert score == 0.0
 
 
 def test_llm_judge_clamps_overflow_to_one() -> None:
     """A response of 1.5 is clamped to 1.0."""
-    fake = _FakeGenerator("1.5")
+    fake = FakeGenerator("1.5")
     judge = LlmJudge(fake)
-    score = _run(judge.faithfulness("a", ["a"]))
+    score = run_async(judge.faithfulness("a", ["a"]))
     assert score == 1.0
 
 
 def test_llm_judge_uses_provided_generator() -> None:
     """The supplied generator is the one called."""
-    fake = _FakeGenerator("0.5")
+    fake = FakeGenerator("0.5")
     judge = LlmJudge(fake)
-    _run(judge.faithfulness("a", ["a"]))
+    run_async(judge.faithfulness("a", ["a"]))
     assert len(fake.calls) == 1
 
 
 def test_llm_judge_prompt_includes_answer_and_contexts() -> None:
     """The faithfulness prompt contains both the answer and the contexts."""
-    fake = _FakeGenerator("0.7")
+    fake = FakeGenerator("0.7")
     judge = LlmJudge(fake)
-    _run(judge.faithfulness("the answer is 42", ["first context", "second context"]))
+    run_async(judge.faithfulness("the answer is 42", ["first context", "second context"]))
     assert len(fake.calls) == 1
     prompt = fake.calls[0]["system_prompt"]
     assert "the answer is 42" in prompt
@@ -143,9 +144,9 @@ def test_llm_judge_prompt_includes_answer_and_contexts() -> None:
 
 def test_llm_judge_relevance_prompt_includes_question() -> None:
     """The relevance prompt contains the question."""
-    fake = _FakeGenerator("0.5")
+    fake = FakeGenerator("0.5")
     judge = LlmJudge(fake)
-    _run(judge.answer_relevance("the answer", "the question"))
+    run_async(judge.answer_relevance("the answer", "the question"))
     prompt = fake.calls[0]["system_prompt"]
     assert "the question" in prompt
     assert "the answer" in prompt
@@ -153,45 +154,45 @@ def test_llm_judge_relevance_prompt_includes_question() -> None:
 
 def test_llm_judge_retries_on_failed_parse() -> None:
     """First response unparseable, second parsed → score is the second."""
-    fake = _FakeGenerator(["oops", "0.7"])
+    fake = FakeGenerator(["oops", "0.7"])
     judge = LlmJudge(fake, max_retries=1)
-    score = _run(judge.faithfulness("a", ["a"]))
+    score = run_async(judge.faithfulness("a", ["a"]))
     assert score == 0.7
     assert len(fake.calls) == 2
 
 
 def test_llm_judge_retries_on_generator_exception() -> None:
     """Generator raising on first call → retry uses the second response."""
-    fake = _FakeGenerator(["0.4"], raise_on={0})
+    fake = FakeGenerator(["0.4"], raise_on={0})
     judge = LlmJudge(fake, max_retries=1)
-    score = _run(judge.faithfulness("a", ["a"]))
+    score = run_async(judge.faithfulness("a", ["a"]))
     assert score == 0.4
     assert len(fake.calls) == 2
 
 
 def test_llm_judge_gives_up_after_max_retries() -> None:
     """All retries fail to parse → returns 0.0."""
-    fake = _FakeGenerator(["nope", "still nope", "really nope"])
+    fake = FakeGenerator(["nope", "still nope", "really nope"])
     judge = LlmJudge(fake, max_retries=2)
-    score = _run(judge.faithfulness("a", ["a"]))
+    score = run_async(judge.faithfulness("a", ["a"]))
     assert score == 0.0
     assert len(fake.calls) == 3
 
 
 def test_llm_judge_no_retry_when_first_succeeds() -> None:
     """A single attempt (max_retries=0) does not retry on success."""
-    fake = _FakeGenerator("0.9")
+    fake = FakeGenerator("0.9")
     judge = LlmJudge(fake, max_retries=0)
-    score = _run(judge.faithfulness("a", ["a"]))
+    score = run_async(judge.faithfulness("a", ["a"]))
     assert score == 0.9
     assert len(fake.calls) == 1
 
 
 def test_llm_judge_default_max_retries_is_one() -> None:
     """Default ``max_retries=1`` allows 2 attempts total."""
-    fake = _FakeGenerator(["nope", "0.3"])
+    fake = FakeGenerator(["nope", "0.3"])
     judge = LlmJudge(fake)
-    score = _run(judge.faithfulness("a", ["a"]))
+    score = run_async(judge.faithfulness("a", ["a"]))
     assert score == 0.3
     assert len(fake.calls) == 2
 
@@ -203,7 +204,7 @@ def test_llm_judge_self_loop_does_not_exist() -> None:
     caller is expected to be in a coroutine. This is a contract
     test: the LlmJudge class itself doesn't expose any sync API.
     """
-    fake = _FakeGenerator("0.5")
+    fake = FakeGenerator("0.5")
     judge = LlmJudge(fake)
     # LlmJudge should not have a sync ``faithfulness`` or
     # ``answer_relevance`` method.
@@ -352,7 +353,7 @@ def test_quality_gate_multiple_breaches_reported_together() -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakeEvaluator:
+class FakeEvaluator:
     """Mimics the Evaluator protocol without any dataset loading."""
 
     benchmark: str = "fake"
@@ -399,11 +400,11 @@ class _FakeEvaluator:
         return results
 
 
-class _FakeRAG:
+class FakeRAG:
     """Minimal RAG stub that responds from ``aquery`` with a simple dict.
 
     The :func:`ab_test` factory wraps the dict in a tuple expected
-    by :class:`_FakeEvaluator`. Keeping the response shape simple
+    by :class:`FakeEvaluator`. Keeping the response shape simple
     avoids the SearchResult / ChunkRecord validation that the
     real Response path requires.
     """
@@ -426,8 +427,8 @@ class _FakeRAG:
 
 def test_ab_test_runs_both_rags_and_reports_diffs() -> None:
     """ab_test invokes both A and B and returns per-metric diffs."""
-    rag_a = _FakeRAG(answer="Paris")
-    rag_b = _FakeRAG(answer="Paris")
+    rag_a = FakeRAG(answer="Paris")
+    rag_b = FakeRAG(answer="Paris")
     examples = [
         {"question": "q1", "answer": "Paris", "contexts": ["the capital"]},
         {"question": "q2", "answer": "Paris", "contexts": ["the capital"]},
@@ -438,7 +439,7 @@ def test_ab_test_runs_both_rags_and_reports_diffs() -> None:
             rag_a=rag_a,
             rag_b=rag_b,
             examples=examples,
-            evaluator=_FakeEvaluator(),
+            evaluator=FakeEvaluator(),
         )
 
     result = asyncio.run(runner())
@@ -453,8 +454,8 @@ def test_ab_test_runs_both_rags_and_reports_diffs() -> None:
 
 def test_ab_test_winner_b_when_better() -> None:
     """When B's metrics are higher across the board, winner is 'b'."""
-    rag_a = _FakeRAG(answer="Paris")
-    rag_b = _FakeRAG(answer="Paris")
+    rag_a = FakeRAG(answer="Paris")
+    rag_b = FakeRAG(answer="Paris")
     examples = [
         {"question": "q1", "answer": "Paris", "contexts": ["the capital"]},
     ]
@@ -469,7 +470,7 @@ def test_ab_test_winner_b_when_better() -> None:
             rag_a=rag_a,
             rag_b=rag_b,
             examples=examples,
-            evaluator=_FakeEvaluator(),
+            evaluator=FakeEvaluator(),
         )
     )
     assert result["winner"] == "b"
@@ -477,8 +478,8 @@ def test_ab_test_winner_b_when_better() -> None:
 
 def test_ab_test_winner_a_when_a_better() -> None:
     """When A's metrics are higher across the board, winner is 'a'."""
-    rag_a = _FakeRAG(answer="Paris")
-    rag_b = _FakeRAG(answer="Paris")
+    rag_a = FakeRAG(answer="Paris")
+    rag_b = FakeRAG(answer="Paris")
     examples = [
         {"question": "q1", "answer": "Paris", "contexts": ["the capital"]},
     ]
@@ -491,7 +492,7 @@ def test_ab_test_winner_a_when_a_better() -> None:
             rag_a=rag_a,
             rag_b=rag_b,
             examples=examples,
-            evaluator=_FakeEvaluator(),
+            evaluator=FakeEvaluator(),
         )
     )
     assert result["winner"] == "a"
@@ -499,14 +500,14 @@ def test_ab_test_winner_a_when_a_better() -> None:
 
 def test_ab_test_empty_examples_returns_tie() -> None:
     """Empty examples produce no metrics; the winner is 'tie'."""
-    rag_a = _FakeRAG()
-    rag_b = _FakeRAG()
+    rag_a = FakeRAG()
+    rag_b = FakeRAG()
     result = asyncio.run(
         ab_test(
             rag_a=rag_a,
             rag_b=rag_b,
             examples=[],
-            evaluator=_FakeEvaluator(),
+            evaluator=FakeEvaluator(),
         )
     )
     assert result["winner"] == "tie"
@@ -515,15 +516,15 @@ def test_ab_test_empty_examples_returns_tie() -> None:
 
 def test_ab_test_gate_passed_when_metrics_above_threshold() -> None:
     """A gate with a low threshold passes both RAGs."""
-    rag_a = _FakeRAG()
-    rag_b = _FakeRAG()
+    rag_a = FakeRAG()
+    rag_b = FakeRAG()
     gate = QualityGate({"recall_at_5": 0.0})  # trivially passes
     result = asyncio.run(
         ab_test(
             rag_a=rag_a,
             rag_b=rag_b,
             examples=[{"question": "q", "answer": "a", "contexts": ["c"]}],
-            evaluator=_FakeEvaluator(),
+            evaluator=FakeEvaluator(),
             gate=gate,
         )
     )
@@ -534,8 +535,8 @@ def test_ab_test_gate_raises_when_a_below_threshold() -> None:
     """A gate raises ConfigurationError when A's metrics breach it."""
     from raghub.errors import ConfigurationError
 
-    rag_a = _FakeRAG()
-    rag_b = _FakeRAG()
+    rag_a = FakeRAG()
+    rag_b = FakeRAG()
     gate = QualityGate({"recall_at_5": 999.0})  # impossible threshold
     with pytest.raises(ConfigurationError, match="QualityGate failed"):
         asyncio.run(
@@ -543,7 +544,7 @@ def test_ab_test_gate_raises_when_a_below_threshold() -> None:
                 rag_a=rag_a,
                 rag_b=rag_b,
                 examples=[{"question": "q", "answer": "a", "contexts": ["c"]}],
-                evaluator=_FakeEvaluator(),
+                evaluator=FakeEvaluator(),
                 gate=gate,
             )
         )
@@ -551,8 +552,8 @@ def test_ab_test_gate_raises_when_a_below_threshold() -> None:
 
 def test_ab_test_calls_each_rag_once_per_example() -> None:
     """Each RAG is queried exactly once per example."""
-    rag_a = _FakeRAG()
-    rag_b = _FakeRAG()
+    rag_a = FakeRAG()
+    rag_b = FakeRAG()
     examples = [
         {"question": "q1", "answer": "a", "contexts": ["c"]},
         {"question": "q2", "answer": "a", "contexts": ["c"]},
@@ -563,7 +564,7 @@ def test_ab_test_calls_each_rag_once_per_example() -> None:
             rag_a=rag_a,
             rag_b=rag_b,
             examples=examples,
-            evaluator=_FakeEvaluator(),
+            evaluator=FakeEvaluator(),
         )
     )
     assert len(rag_a.aquery_call_log) == 3
