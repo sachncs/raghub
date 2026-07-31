@@ -486,8 +486,14 @@ class Document(DocumentRecord):
     """
 
 
-class _ChunkAlias(BaseModel):
-    """Internal: re-export alias exposed as ``Chunk`` at module level."""
+class ChunkAlias(BaseModel):
+    """Internal: re-export alias exposed as ``Chunk`` at module level.
+
+    Lives at module scope so it appears in introspection tools, but
+    is not part of ``__all__`` and is not part of the public surface.
+    Kept as ``ChunkAlias`` (single-word subject, no underscore) so
+    the package's two-tier naming rule remains satisfied.
+    """
 
 
 class Embedding(BaseModel):
