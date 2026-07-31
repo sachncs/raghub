@@ -154,7 +154,7 @@ control the per-subcommand rate limit.
 ```bash
 raghub run --host 0.0.0.0 --port 8000
 # or, equivalently, via uvicorn:
-uvicorn raghub.api:AppFactory.create_app --factory --host 0.0.0.0 --port 8000
+uvicorn raghub.api:app_factory.create_app --factory --host 0.0.0.0 --port 8000
 ```
 
 The legacy `RagApplication` is still reachable at
@@ -232,7 +232,7 @@ Precedence (highest first): constructor arguments → env vars → built-in defa
 | `raghub.RAG` | class | Single facade; lazy-imports every collaborator |
 | `raghub.config.Settings` | class | Typed configuration loaded from env + YAML |
 | `raghub.models.User` | model | Per-user identity with `allowed_companies` and `is_admin` |
-| `raghub.api:AppFactory.create_app` | factory | FastAPI app factory (use `uvicorn raghub.api:AppFactory.create_app --factory`) |
+| `raghub.api:AppFactory.create_app` | factory | FastAPI app factory (use `uvicorn raghub.api:app_factory.create_app --factory`) |
 | `raghub.plugins.PluginRegistry` | class | Register converters, chunkers, vector stores, etc. |
 | `raghub.eval.Finance` | class | Recall@K, Precision@K, MRR, Faithfulness, Context Recall/Precision, Answer Correctness |
 | `raghub.cli:main` | CLI | `raghub init / ingest / query / health / version` |
