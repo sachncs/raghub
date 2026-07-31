@@ -1,11 +1,12 @@
-"""evaluation package.
+"""Eval CLI entry points.
 
-Implementation lives in :mod:`raghub.helper` (evaluation); local entry-point modules: ['cli'].
+Backs the ``raghub eval ...`` sub-app and the ``raghub-financebench``
+console script. Benchmark adapters and scoring live in
+:mod:`raghub.eval`.
 """
 
 from __future__ import annotations
 
-# --- cli.py content ---
 import asyncio
 import statistics
 from typing import Any
@@ -14,8 +15,8 @@ import typer
 
 from raghub.eval import (
     TOKEN_RE,
-    FinanceBench,
-    FramesBenchmark,
+    Finance,
+    Frames,
     Metrics,
     Scoring,
     run,
@@ -29,9 +30,9 @@ app = typer.Typer(help="Evaluation harnesses.", no_args_is_help=True)
 def financebench(
     examples: int = typer.Option(10, "--examples", "-n", help="Number of examples (0 = all)."),
 ) -> None:
-    """Run the FinanceBench evaluator and print a JSON summary."""
+    """Run the Finance evaluator and print a JSON summary."""
     async def runner() -> None:
-        evaluator = FinanceBench()
+        evaluator = Finance()
         examples_list: list[dict[str, Any]] = []
         if examples:
             rows = await asyncio.to_thread(evaluator.ensure_examples)
@@ -68,7 +69,7 @@ def frames(
 ) -> None:
     """Run the FRAMES evaluator and print a JSON summary."""
     async def runner() -> None:
-        evaluator = FramesBenchmark()
+        evaluator = Frames()
         examples_list: list[dict[str, Any]] = []
         rows = await asyncio.to_thread(evaluator.ensure_examples)
         examples_list.extend(rows if examples == 0 else rows[:examples])
@@ -99,4 +100,4 @@ def frames(
 
 
 
-__all__ = ['TOKEN_RE', 'FinanceBench', 'FramesBenchmark', 'Metrics', 'Scoring', 'run']
+__all__ = ['TOKEN_RE', 'Finance', 'Frames', 'Metrics', 'Scoring', 'run']

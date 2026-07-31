@@ -1,8 +1,8 @@
-"""Run the FinanceBench evaluation against an LLM-powered RAGHub instance.
+"""Run the Finance evaluation against an LLM-powered RAGHub instance.
 
 Builds a :class:`LiteLLMProvider` from the ``RAG_LLM_BASE_URL``,
 ``RAG_LLM_API_KEY`` and ``RAG_LLM_MODEL`` env vars; ingests a real
-corpus of FinanceBench source 10-K filings; runs every example through
+corpus of Finance source 10-K filings; runs every example through
 :class:`RAG`'s query path. Errors surface as exceptions — the script
 does not paper over them.
 
@@ -37,31 +37,30 @@ import os
 import re
 import statistics
 import time
-from concurrent.futures import ProcessPoolExecutor
-
-# Hardcoded dev-only defaults for the sweep's local sandbox. These
-# point the pipeline at a per-run data dir under /tmp and silence the
-# noisy logs. Override via the shell or a sibling .env. The
-# RAG_LLM_* variables stay in .env — keys never go in source.
-_DEV_ENV_DEFAULTS = {
-    "RAG_PROFILE": "development",
-    "RAG_DATA_DIR": "/tmp/raghub_fb",
-    "RAG_LOG_LEVEL": "WARNING",
-    "RAG_ENVIRONMENT": "development",
-    "JWT_SECRET": "sweep-secret-sweep-secret-sweep-secret-sweep-secret-sweep",
-    "ALLOW_PASSWORDLESS": "0",
-}
-for _key, _value in _DEV_ENV_DEFAULTS.items():
-    os.environ.setdefault(_key, _value)
-from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from raghub.config import Settings
-from raghub.evaluation import FinanceBench
+from raghub.evaluation import Finance
 from raghub.llm import LiteLLMProvider
 from raghub.rag import RAG
+
+# Dev-only defaults for the sweep's local sandbox. These point the
+# pipeline at a per-run data dir under /tmp and silence the noisy
+# logs. Override via the shell or a sibling .env. The RAG_LLM_*
+# variables stay in .env — keys never go in source. The secret is
+# intentionally NOT here: unset, Settings falls back to a per-process
+# random JWT_SECRET in the development profile.
+_DEV_ENV_DEFAULTS = {
+    "RAG_PROFILE": "development",
+    "RAG_DATA_DIR": "/tmp/raghub_fb",
+    "RAG_LOG_LEVEL": "WARNING",
+    "RAG_ENVIRONMENT": "development",
+    "ALLOW_PASSWORDLESS": "0",
+}
+for _key, _value in _DEV_ENV_DEFAULTS.items():
+    os.environ.setdefault(_key, _value)
 
 
 # Pipeline configurations: chunking size, top_k, and whether to use
@@ -201,7 +200,7 @@ def _build_pdf_converter() -> Any:
     :class:`PlainTextConverter` decodes bytes as UTF-8 and produces
     garbage for PDF binary. This converter reads the PDF page-by-page
     with pypdf, joins the text, and wraps it in a
-    :class:`KnowledgeBundle` the same way the rest of the pipeline
+    :class:`Bundle` the same way the rest of the pipeline
     expects.
     """
     from io import BytesIO
@@ -210,10 +209,9 @@ def _build_pdf_converter() -> Any:
 
     from raghub.models import (
         BlockKind,
+        Bundle,
         DocumentBlock,
-        DocumentRecord,
         DocumentSection,
-        KnowledgeBundle,
         deterministic_id,
     )
 
@@ -228,7 +226,7 @@ def _build_pdf_converter() -> Any:
             mime_type: str = "",
             language: str = "",
             metadata: dict[str, Any] | None = None,
-        ) -> KnowledgeBundle:
+        ) -> Bundle:
             reader = PdfReader(BytesIO(file_bytes))
             page_texts: list[str] = []
             for page in reader.pages:
@@ -242,7 +240,7 @@ def _build_pdf_converter() -> Any:
                 page_numbers=list(range(1, len(page_texts) + 1)),
                 source_location=f"{source_uri}#0",
             )
-            return KnowledgeBundle(
+            return Bundle(
                 bundle_id=deterministic_id("bundle", source_uri),
                 source_uri=source_uri,
                 mime_type=mime_type or "application/pdf",
@@ -259,7 +257,7 @@ def _build_pdf_converter() -> Any:
             mime_type: str = "",
             language: str = "",
             metadata: dict[str, Any] | None = None,
-        ) -> KnowledgeBundle:
+        ) -> Bundle:
             return self.convert(
                 source_uri=source_uri,
                 file_bytes=file_bytes,
@@ -319,7 +317,7 @@ async def _run_pipeline(
         f"(total elapsed {time.perf_counter() - t_total:.1f}s)"
     )
 
-    evaluator = FinanceBench()
+    evaluator = Finance()
     n_workers = max(1, min(8, (multiprocessing.cpu_count() or 1)))
     print(
         f"[{pipeline}] running {len(examples)} queries through rag.aquery() + LLM "
@@ -356,7 +354,7 @@ async def _run_pipeline(
         token_overlap=metrics_avg.get("token_overlap", 0.0),
         within_tolerance=metrics_avg.get("within_tolerance", 0.0),
         answer_length=statistics.mean(
-            len((r.details.get("predicted") or "")) for r in results
+            len(r.details.get("predicted") or "") for r in results
         ),
     )
 
@@ -381,7 +379,7 @@ def _print_table(results: list[PipelineResult]) -> None:
     sep = "  "
 
     def _line(cells: list[str]) -> str:
-        return sep.join(c.ljust(w) for c, w in zip(cells, widths))
+        return sep.join(c.ljust(w) for c, w in zip(cells, widths, strict=True))
 
     print()
     print(_line(headers))
@@ -391,12 +389,12 @@ def _print_table(results: list[PipelineResult]) -> None:
 
 
 async def _async_main(args: argparse.Namespace) -> int:
-    print(f"[main] building LLM provider from env...", flush=True)
+    print("[main] building LLM provider from env...", flush=True)
     llm = _build_llm()
-    print(f"[main] loading {args.examples} FinanceBench examples...", flush=True)
-    examples = FinanceBench().ensure_examples()[: args.examples]
+    print(f"[main] loading {args.examples} Finance examples...", flush=True)
+    examples = Finance().ensure_examples()[: args.examples]
     if not examples:
-        print("no FinanceBench examples available; aborting")
+        print("no Finance examples available; aborting")
         return 1
     print(f"[main] loaded {len(examples)} examples", flush=True)
 
@@ -462,11 +460,11 @@ def main() -> None:
         _load_env(candidate)
 
     parser = argparse.ArgumentParser(
-        description="Run the FinanceBench sweep across pipeline configurations."
+        description="Run the Finance sweep across pipeline configurations."
     )
     parser.add_argument(
         "--examples", type=int, default=0,
-        help="Number of FinanceBench examples (0 = all 150).",
+        help="Number of Finance examples (0 = all 150).",
     )
     parser.add_argument(
         "--pipeline", type=str, default=None, choices=list(PIPELINES),

@@ -2,7 +2,7 @@
 
 :class:`SyntheticDataset` generates (question, answer, contexts)
 triples from a corpus of documents. The result is suitable for
-the same evaluators as :class:`raghub.eval.FinanceBench` —
+the same evaluators as :class:`raghub.eval.Finance` —
 :func:`Metrics.evaluate` and the benchmarks all consume the
 canonical schema.
 
@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 from raghub.llm import Generator
 
@@ -46,7 +46,7 @@ def chunk_text(chunk: Any) -> str:
         raise ValueError(
             f"corpus item has no .text attribute: {chunk!r}"
         )
-    return text
+    return cast(str, text)
 
 
 def chunk_id(chunk: Any) -> str:
@@ -131,7 +131,7 @@ class SyntheticDataset:
             A list of example dicts, each with ``question``,
             ``answer``, ``contexts`` (list of strings), and
             ``relevant_ids`` (list of chunk ids). The shape matches
-            the FinanceBench/FramesBenchmark canonical schema.
+            the Finance/Frames canonical schema.
         """
         rng = random.Random(self.seed)
         examples: list[dict[str, Any]] = []

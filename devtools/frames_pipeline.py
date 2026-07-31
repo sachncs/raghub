@@ -34,6 +34,7 @@ import asyncio
 import hashlib
 import json
 import os
+import secrets
 import statistics
 import time
 import unicodedata
@@ -43,7 +44,7 @@ from typing import Any
 from bs4 import BeautifulSoup
 
 from raghub.config import Settings
-from raghub.evaluation import FramesBenchmark
+from raghub.evaluation import Frames
 from raghub.rag import RAG
 
 # ---------------------------------------------------------------------------
@@ -111,7 +112,7 @@ async def fetch_corpus(corpus_dir: Path, *, force: bool = False) -> None:
         for child in corpus_dir.iterdir():
             if child.is_file():
                 child.unlink()
-    fb = FramesBenchmark()
+    fb = Frames()
     rows = await asyncio.to_thread(fb.ensure_examples)
     urls: set[str] = set()
     for row in rows:
@@ -183,7 +184,7 @@ async def _run_pipeline(
     )
     print(f"[frames] ingest done in {time.perf_counter() - t0:.1f}s", flush=True)
 
-    fb = FramesBenchmark()
+    fb = Frames()
     rows = await asyncio.to_thread(fb.ensure_examples)
     if examples:
         rows = rows[:examples]
@@ -195,14 +196,9 @@ async def _run_pipeline(
         # relevant ids so the Evaluator can compute the full set of
         # Anyscale metrics (recall@k, hit-rate@k, MAP, faithfulness).
         response = await rag.aquery(example["question"], top_k=5)
-        # Surface Wikipedia URLs from the answer for downstream
-        # consistency checks; the eval does not require this.
-        sources = getattr(response, "sources", None) or []
-        contexts = list(getattr(response, "contexts", []) or [])
-        retrieved_ids = [
-            s.get("url") if isinstance(s, dict) else str(s)
-            for s in sources
-        ]
+        source_chunks = list(getattr(response, "source_chunks", []) or [])
+        contexts = [sc.quote for sc in source_chunks]
+        retrieved_ids = [sc.chunk_id for sc in source_chunks]
         return (response.answer, contexts, retrieved_ids, example.get("wiki_links", []))
 
     results = await fb.evaluate(rows, response_factory=factory)
@@ -257,15 +253,12 @@ async def _judge_faithfulness(
 
 
 def _result_to_dict(result: Any) -> dict[str, Any]:
-    """Convert an EvaluationResult to a JSON-safe dict."""
+    """Convert an Result to a JSON-safe dict."""
     return {
         "example_id": result.example_id,
         "metrics": dict(result.metrics),
         "passed": bool(result.passed),
-        "details": {
-            k: (v if not isinstance(v, (list, dict)) else v)
-            for k, v in result.details.items()
-        },
+        "details": {k: v for k, v in result.details.items()},
     }
 
 
@@ -378,7 +371,9 @@ def main() -> None:
 
         os.environ.setdefault("RAG_LOG_LEVEL", "WARNING")
         os.environ.setdefault("RAG_ENVIRONMENT", "development")
-        os.environ.setdefault("JWT_SECRET", "x" * 50)
+        # Random per-run secret; Settings only requires JWT_SECRET to be
+        # non-empty in the production profile.
+        os.environ.setdefault("JWT_SECRET", secrets.token_hex(32))
         os.environ.setdefault("ALLOW_PASSWORDLESS", "0")
         # Load .env if available (preserves user overrides via
         # setdefault semantics).
