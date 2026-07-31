@@ -455,7 +455,7 @@ class RouteGroup:
                 company=company,
             )
             return DocumentUploadResponse(
-                document_id=document.document_id,
+                document_id=document.id,
                 version=document.version,
                 status=document.status.value,
                 company=document.organization,
@@ -512,7 +512,7 @@ class RouteGroup:
                     results.append(
                         BatchIngestItem(
                             filename=file.filename or "upload.pdf",
-                            document_id=document.document_id,
+                            document_id=document.id,
                             status="ok",
                         )
                     )

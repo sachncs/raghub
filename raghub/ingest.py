@@ -33,7 +33,7 @@ import time
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -56,8 +56,8 @@ from raghub.models import (
     Chunk,
     Chunker,
     Classification,
+    Document,
     DocumentLifecycleStatus,
-    DocumentRecord,
     PipelineCtx,
     PipelineResult,
     User,
@@ -535,14 +535,14 @@ class IngestionResult:
     """The outcome of a successful ingestion.
 
     Attributes:
-        document: The persisted :class:`DocumentRecord` in its final
+        document: The persisted :class:`Document` in its final
             status (``READY`` or a prior duplicate).
-        chunk_ids: The chunks that were indexed for this document.
+        chunks: The chunks that were indexed for this document.
 
     """
 
-    document: DocumentRecord
-    chunk_ids: list[str]
+    document: Document
+    chunks: list[str] = field(default_factory=list)
 
 
 def record_from_pipeline(
@@ -555,8 +555,8 @@ def record_from_pipeline(
     classification: Classification,
     checksum: str,
     tags: list[str] | None,
-) -> DocumentRecord:
-    """Project a :class:`PipelineResult` into a :class:`DocumentRecord`."""
+) -> Document:
+    """Project a :class:`PipelineResult` into a :class:`Document`."""
     chunks = result.outputs.get("chunks") or []
     if chunks and isinstance(chunks[0], dict):
         chunk_records = [Chunk.model_validate(c) for c in chunks]
@@ -567,9 +567,9 @@ def record_from_pipeline(
     for chunk in chunk_records:
         if not chunk.document_id:
             chunk.document_id = document_id
-    chunk_ids = [c.id for c in chunk_records]
-    return DocumentRecord(
-        document_id=document_id,
+    chunks = [c.id for c in chunk_records]
+    return Document(
+        id=document_id,
         version=int(result.outputs.get("version") or 1),
         checksum=checksum,
         owner=owner.email,
@@ -581,7 +581,7 @@ def record_from_pipeline(
         file_type=file_name.rsplit(".", 1)[-1].lower() if "." in file_name else "",
         mime_type=mime_type,
         chunk_count=len(chunk_records),
-        chunk_ids=chunk_ids,
+        chunks=chunks,
     )
 
 
@@ -686,7 +686,7 @@ class Ingestor:
 
         previous = await self.uow.document_repo.get_by_checksum(checksum)
         if previous is not None and previous.status == DocumentLifecycleStatus.READY:
-            return IngestionResult(document=previous, chunk_ids=list(previous.chunk_ids))
+            return IngestionResult(document=previous, chunks=list(previous.chunks))
 
         context = PipelineCtx(pipeline_name="ingest", metadata={"user_id": owner.email})
         if self.make_pipeline is None:
@@ -723,7 +723,7 @@ class Ingestor:
             tags=tags,
         )
         await self.uow.document_repo.save(record)
-        return IngestionResult(document=record, chunk_ids=list(record.chunk_ids))
+        return IngestionResult(document=record, chunks=list(record.chunks))
 
 
 # ---------------------------------------------------------------------------

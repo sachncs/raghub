@@ -33,8 +33,8 @@ from raghub.domain import (
 )
 from raghub.models import (
     Chunk,
+    Document,
     DocumentLifecycleStatus,
-    DocumentRecord,
     SessionRecord,
 )
 from raghub.store import Store
@@ -229,10 +229,10 @@ class DocStore(DocumentRepository):
             CREATE UNIQUE INDEX IF NOT EXISTS ux_documents_checksum ON documents(checksum);
         """)
 
-    def record_params(self, record: DocumentRecord) -> tuple[Any, ...]:
+    def record_params(self, record: Document) -> tuple[Any, ...]:
         """Serialise ``record`` to the SQL bind-tuple shape."""
         return (
-            record.document_id,
+            record.id,
             record.version,
             record.checksum,
             record.created_at.isoformat()
@@ -256,7 +256,7 @@ class DocStore(DocumentRepository):
             getattr(record, "error", None),
         )
 
-    async def save(self, record: DocumentRecord) -> None:
+    async def save(self, record: Document) -> None:
         """Insert or update ``record`` in the documents table."""
         conn = await self.conn()
         await conn.execute(INSERT_SQL.format(mode="OR REPLACE"), self.record_params(record))
@@ -264,7 +264,7 @@ class DocStore(DocumentRepository):
 
     async def try_insert(
         self,
-        record: DocumentRecord,
+        record: Document,
         max_retries: int = MAX_INSERT_RETRIES,
     ) -> bool:
         """Insert ``record`` without raising on conflicts."""
@@ -273,13 +273,13 @@ class DocStore(DocumentRepository):
         await self.maybe_commit_close(conn)
         return True
 
-    async def get(self, document_id: str) -> DocumentRecord | None:
+    async def get(self, document_id: str) -> Document | None:
         """Return the latest version record for ``document_id``."""
         return await self.get_version(document_id)
 
     async def get_version(
         self, document_id: str, version: int | None = None
-    ) -> DocumentRecord | None:
+    ) -> Document | None:
         """Return a specific version, or the latest when ``version`` is None."""
         conn = await self.conn()
         if version is None:
@@ -298,7 +298,7 @@ class DocStore(DocumentRepository):
             return None
         return self.row_to_record(row)
 
-    async def list_versions(self, document_id: str) -> list[DocumentRecord]:
+    async def list_versions(self, document_id: str) -> list[Document]:
         """Return every historical version of ``document_id``."""
         conn = await self.conn()
         cursor = await conn.execute(
@@ -309,7 +309,7 @@ class DocStore(DocumentRepository):
         await self.maybe_commit_close(conn)
         return [self.row_to_record(row) for row in rows]
 
-    async def get_by_checksum(self, checksum: str) -> DocumentRecord | None:
+    async def get_by_checksum(self, checksum: str) -> Document | None:
         """Return the latest record matching ``checksum``."""
         conn = await self.conn()
         cursor = await conn.execute(
@@ -337,7 +337,7 @@ class DocStore(DocumentRepository):
         )
         await self.maybe_commit_close(conn)
 
-    async def list_by_organization(self, organization: str) -> list[DocumentRecord]:
+    async def list_by_organization(self, organization: str) -> list[Document]:
         """Return the latest version of every document in ``organization``."""
         conn = await self.conn()
         cursor = await conn.execute(
@@ -359,7 +359,7 @@ class DocStore(DocumentRepository):
         await self.maybe_commit_close(conn)
         return [self.row_to_record(row) for row in rows]
 
-    async def list_all(self) -> list[DocumentRecord]:
+    async def list_all(self) -> list[Document]:
         """Return the latest version of every document."""
         conn = await self.conn()
         cursor = await conn.execute(
@@ -393,14 +393,14 @@ class DocStore(DocumentRepository):
         )
         await self.maybe_commit_close(conn)
 
-    def row_to_record(self, row: aiosqlite.Row) -> DocumentRecord:
-        """Convert an aiosqlite row into a :class:`DocumentRecord`."""
+    def row_to_record(self, row: aiosqlite.Row) -> Document:
+        """Convert an aiosqlite row into a :class:`Document`."""
         data: dict[str, Any] = dict(row)
         data["created_at"] = datetime.fromisoformat(data["created_at"])
         data["updated_at"] = datetime.fromisoformat(data["updated_at"])
         data["tags"] = json.loads(data.get("tags", "[]"))
-        data["chunk_ids"] = json.loads(data.get("chunk_ids", "[]"))
-        return DocumentRecord(**data)
+        data["chunks"] = json.loads(data.get("chunk_ids", "[]"))
+        return Document(**data)
 
 
 class SessionStore(SessionRepository):

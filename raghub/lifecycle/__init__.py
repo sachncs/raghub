@@ -8,7 +8,7 @@ single ``from raghub.parsers import …`` ergonomic for callers.
 The classes and functions here map onto the document lifecycle::
 
     Lifecycle   - validate + apply status transitions.
-    new_version                 - mint a new :class:`DocumentRecord`.
+    new_version                 - mint a new :class:`Document`.
     detect_mime_type            - extension + magic-byte MIME detection.
     validate_upload             - four-gate upload validator.
     ChunkingPlan                - word-window chunking configuration.
@@ -53,10 +53,10 @@ from raghub.models import (
     Bundle,
     Chunk,
     Classification,
+    Document,
     DocumentBlock,
     DocumentConverter,
     DocumentLifecycleStatus,
-    DocumentRecord,
     DocumentSection,
     deterministic_id,
 )
@@ -95,12 +95,12 @@ class Lifecycle:
             self.machine = DocumentStateMachine()
 
     def transition(
-        self, document: DocumentRecord, status: DocumentLifecycleStatus
-    ) -> DocumentRecord:
+        self, document: Document, status: DocumentLifecycleStatus
+    ) -> Document:
         """Update ``document.status`` to ``status`` if the transition is legal.
 
         Args:
-            document: The :class:`DocumentRecord` to update.
+            document: The :class:`Document` to update.
             status: The target lifecycle status.
 
         Returns:
@@ -123,15 +123,15 @@ class Lifecycle:
 # ---------------------------------------------------------------------------
 
 
-def new_version(previous: DocumentRecord | None, **overrides: Any) -> DocumentRecord:
-    """Build a new :class:`DocumentRecord` from a previous record.
+def new_version(previous: Document | None, **overrides: Any) -> Document:
+    """Build a new :class:`Document` from a previous record.
 
     Args:
         previous: The prior version, or ``None`` for a brand-new document.
         **overrides: Field overrides applied after the clone.
 
     Returns:
-        A fully-typed :class:`DocumentRecord` ready for persistence.
+        A fully-typed :class:`Document` ready for persistence.
 
     """
     version_number = 1 if previous is None else previous.version + 1
@@ -141,9 +141,9 @@ def new_version(previous: DocumentRecord | None, **overrides: Any) -> DocumentRe
     payload["status"] = DocumentLifecycleStatus.NEW
     payload["updated_at"] = datetime_now_utc()
     if previous is not None:
-        payload.setdefault("document_id", previous.document_id)
+        payload.setdefault("document_id", previous.id)
         payload.setdefault("created_at", previous.created_at)
-    return DocumentRecord.model_validate(payload)
+    return Document.model_validate(payload)
 
 
 def datetime_now_utc() -> Any:
