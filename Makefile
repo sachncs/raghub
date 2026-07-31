@@ -1,25 +1,28 @@
-.PHONY: help install test coverage lint typecheck format security audit docs bench dev-api clean
+.PHONY: help install inventory test coverage lint docstrings naming typecheck format security audit docs bench dev-api clean migrate
 
 help:
 	@echo "Common targets:"
-	@echo "  make install          - Install the package in editable mode"
-	@echo "  make test             - Run the test suite"
-	@echo "  make coverage         - Run the test suite with coverage"
-	@echo "  make lint             - Run ruff"
-	@echo "  make typecheck        - Run mypy"
-	@echo "  make format           - Auto-format with ruff"
-	@echo "  make security         - Run bandit"
-	@echo "  make audit            - Run pip-audit (fails on vulnerabilities)"
-	@echo "  make docs             - Build the documentation"
-	@echo "  make bench            - Run the performance benchmark"
-	@echo "  make dev-api          - Start the API dev server (uvicorn --reload)"
-	@echo "  make dev-ui           - Start the Streamlit UI"
-	@echo "  make db-init          - Initialise database tables"
-	@echo "  make db-reset         - Reset database (drop + recreate)"
-	@echo "  make clean            - Remove build artefacts"
+	@echo "  make inventory       - Generate reports/inventory.json and reports/inventory.md"
+	@echo "  make install         - Install the package in editable mode"
+	@echo "  make test            - Run the test suite"
+	@echo "  make coverage        - Run the test suite with coverage (≥85%)"
+	@echo "  make lint            - Run ruff"
+	@echo "  make docstrings      - Run interrogate (fail-under=100)"
+	@echo "  make naming          - Run lint/naming.py (local enforcement of R2)"
+	@echo "  make typecheck       - Run mypy"
+	@echo "  make format          - Auto-format with ruff"
+	@echo "  make security        - Run bandit"
+	@echo "  make audit           - Run pip-audit"
+	@echo "  make docs            - Build the documentation"
+	@echo "  make bench           - Run the performance benchmark"
+	@echo "  make migrate         - Migrate on-disk storage from v1 to v2"
+	@echo "  make clean           - Remove build artefacts"
 
 install:
 	pip install -e ".[dev]"
+
+inventory:
+	python -m lint.inventory
 
 test:
 	pytest -q
@@ -30,6 +33,12 @@ coverage:
 
 lint:
 	ruff check raghub/ tests/ devtools/
+
+docstrings:
+	interrogate -c pyproject.toml
+
+naming:
+	python lint/naming.py
 
 typecheck:
 	mypy raghub/
@@ -49,9 +58,12 @@ docs:
 bench:
 	python -m devtools.benchmark --documents 5 --queries 20 --concurrency 4
 
-clean:
-	rm -rf build dist .pytest_cache .mypy_cache .ruff_cache .coverage
-	find . -type d -name __pycache__ -exec rm -rf {} +
+migrate:
+	python -m raghub.migrate --root ./data
 
 dev-api:
 	raghub run --host 0.0.0.0 --port 8000
+
+clean:
+	rm -rf build dist .pytest_cache .mypy_cache .ruff_cache .coverage .coverage.*
+	find . -type d -name __pycache__ -exec rm -rf {} +
