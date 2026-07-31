@@ -341,6 +341,7 @@ class Instructor(StructuredOutputProvider):
         )
 
         async def stream() -> AsyncIterator[T]:
+            """Yield ``result`` once when the upstream generator completes."""
             yield result
 
         return stream()

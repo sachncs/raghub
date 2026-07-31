@@ -854,6 +854,7 @@ class RAG:
         semaphore = asyncio.Semaphore(n_workers)
 
         async def bounded(child: Path) -> PipelineResult:
+            """Run ingest on ``child`` under the concurrency cap."""
             async with semaphore:
                 return await self.aingest(child, metadata=metadata, user=user)
 

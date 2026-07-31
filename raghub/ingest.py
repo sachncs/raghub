@@ -90,6 +90,7 @@ class RAGHubGenie:
     """Adapter bridging raghub's LLMProvider to chonkie's Genie interface."""
 
     def __init__(self, llm_provider: Any) -> None:
+        """Wrap an LLMProvider for chonkie's Genie interface."""
         self.llm = llm_provider
 
     def generate(self, prompt: str) -> str:
