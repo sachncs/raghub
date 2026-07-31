@@ -377,7 +377,7 @@ def load_profile(profile: str | None) -> tuple[str | None, Path, dict[str, Any]]
         Missing files simply contribute an empty payload.
 
     """
-    base_dir = _resolve_config_dir()
+    base_dir = __resolve()
     selected_profile = profile or os.getenv("RAG_PROFILE", "development")
     profile_path = base_dir / f"{selected_profile}.yaml"
     toml_path = base_dir / f"{selected_profile}.toml"
@@ -392,7 +392,7 @@ def load_profile(profile: str | None) -> tuple[str | None, Path, dict[str, Any]]
     return selected_profile, profile_path, payload
 
 
-def _resolve_config_dir() -> Path:
+def __resolve() -> Path:
     """Return the directory to search for profile YAML/TOML files.
 
     Resolution order:
@@ -427,7 +427,7 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Build the env-driven payload for the simple ``Settings`` fields.
 
     Each ``int()`` / ``float()`` coercion is wrapped in
-    :func:`_env_int` / :func:`_env_float` so an invalid value (e.g.
+    :func:`__int` / :func:`__float` so an invalid value (e.g.
     ``RAG_TOP_K="abc"``) raises a clear
     :class:`ConfigurationError` instead of ``ValueError: invalid
     literal for int()``.
@@ -441,8 +441,8 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
         "sessions_path": Path(
             os.getenv("RAG_SESSIONS_PATH", payload.get("sessions_path", "./data/sessions.json"))
         ),
-        "chunk_size_words": _env_int("RAG_CHUNK_SIZE_WORDS", payload.get("chunk_size_words", 800)),
-        "chunk_overlap_words": _env_int(
+        "chunk_size_words": __int("RAG_CHUNK_SIZE_WORDS", payload.get("chunk_size_words", 800)),
+        "chunk_overlap_words": __int(
             "RAG_CHUNK_OVERLAP_WORDS", payload.get("chunk_overlap_words", 100)
         ),
         "chunker_strategy": os.getenv(
@@ -452,12 +452,12 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
             "RAG_EMBEDDING_MODEL_CHUNKER",
             payload.get("embedding_model_chunker", "minishlab/potion-base-8M"),
         ),
-        "top_k": _env_int("RAG_TOP_K", payload.get("top_k", 5)),
-        "embedding_dim": _env_int("RAG_EMBEDDING_DIM", payload.get("embedding_dim", 384)),
-        "session_timeout_seconds": _env_int(
+        "top_k": __int("RAG_TOP_K", payload.get("top_k", 5)),
+        "embedding_dim": __int("RAG_EMBEDDING_DIM", payload.get("embedding_dim", 384)),
+        "session_timeout_seconds": __int(
             "RAG_SESSION_TIMEOUT_SECONDS", payload.get("session_timeout_seconds", 3600)
         ),
-        "max_upload_bytes": _env_int(
+        "max_upload_bytes": __int(
             "RAG_MAX_UPLOAD_BYTES", payload.get("max_upload_bytes", 20 * 1024 * 1024)
         ),
         "embedding_model": os.getenv(
@@ -478,7 +478,7 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _env_int(name: str, default: int) -> int:
+def __int(name: str, default: int) -> int:
     """Read ``name`` from the environment as an int.
 
     Args:
@@ -504,7 +504,7 @@ def _env_int(name: str, default: int) -> int:
         raise ConfigurationError(f"{name}={raw!r} is not a valid integer") from exc
 
 
-def _env_float(name: str, default: float) -> float:
+def __float(name: str, default: float) -> float:
     """Read ``name`` from the environment as a float.
 
     Args:
@@ -534,11 +534,11 @@ def load_agent(payload: dict[str, Any]) -> AgentConfig:
     """Build :class:`AgentConfig` from env + payload."""
     return AgentConfig(
         enabled=env_bool("RAG_AGENT_ENABLED", payload.get("agent", {}).get("enabled", False)),
-        max_steps=_env_int("RAG_AGENT_MAX_STEPS", payload.get("agent", {}).get("max_steps", 8)),
-        max_tool_calls=_env_int(
+        max_steps=__int("RAG_AGENT_MAX_STEPS", payload.get("agent", {}).get("max_steps", 8)),
+        max_tool_calls=__int(
             "RAG_AGENT_MAX_TOOL_CALLS", payload.get("agent", {}).get("max_tool_calls", 10)
         ),
-        max_wall_seconds=_env_float(
+        max_wall_seconds=__float(
             "RAG_AGENT_MAX_WALL_SECONDS", payload.get("agent", {}).get("max_wall_seconds", 30.0)
         ),
         planner_model=os.getenv(
