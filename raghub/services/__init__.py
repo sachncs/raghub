@@ -50,10 +50,10 @@ from raghub.llm import Generator, build_llm
 from raghub.models import (
     AuthLoginResponse,
     BackgroundWorker,
-    Turn,
     Document,
     QueryResponse,
     TaskQueue,
+    Turn,
     User,
 )
 from raghub.parsers import Catalog
@@ -747,7 +747,7 @@ class Preference:
 
         session = await container.store.get_by_token(token)
         principal = User(
-            user_id=user.user_id,
+            id=user.id,
             email=user.email,
             allowed_companies=user.allowed_companies,
             allowed_groups=user.allowed_groups,

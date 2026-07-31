@@ -22,10 +22,10 @@ import aiosqlite
 
 from raghub.models import (
     Chunk,
-    Turn,
     Document,
     DocumentLifecycleStatus,
     Session,
+    Turn,
 )
 
 __all__ = [
@@ -34,8 +34,8 @@ __all__ = [
     "DatabaseManager",
     "DocumentRef",
     "DocumentRepository",
-    "Session",
     "SessionRepository",
+    "SessionWrap",
     "UnitOfWork",
 ]
 
@@ -158,21 +158,21 @@ class DocumentRef:
         return self
 
 
-class Session:
+class SessionWrap:
     """Active-record wrapper around a :class:`Session`.
 
     Attribute reads/writes forward to the wrapped record so callers
     can use the session as if it were the underlying Pydantic model.
     """
 
-    def __init__(self, record: Session) -> None:
+    def __init__(self, record: Any) -> None:
         """Wrap ``record``."""
         self.record = record
 
     @property
     def session_id(self) -> str:
         """Return the session id from the wrapped record."""
-        return self.record.session_id
+        return str(self.record.session_id)
 
     @property
     def history(self) -> list[Turn]:
@@ -194,7 +194,7 @@ class Session:
         else:
             setattr(self.record, name, value)
 
-    def add_turn(self, question: str, answer: str, **kwargs: Any) -> Session:
+    def add_turn(self, question: str, answer: str, **kwargs: Any) -> SessionWrap:
         """Append a new conversation turn and bump ``last_seen_at``.
 
         Args:
@@ -212,7 +212,7 @@ class Session:
         self.record.last_seen_at = datetime.now(UTC)
         return self
 
-    def clear(self) -> Session:
+    def clear(self) -> SessionWrap:
         """Empty the conversation history and bump ``last_seen_at``.
 
         Returns:

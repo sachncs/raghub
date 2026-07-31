@@ -290,7 +290,7 @@ class TestQueryPipelineHistoryPropagation:
     """QueryPipeline.run must pass history to the Generator."""
 
     async def test_history_passed_to_generator(self) -> None:
-        from raghub.models import Turn, PipelineCtx
+        from raghub.models import PipelineCtx, Turn
         from raghub.pipeline import QueryPipeline
 
         embedder = Hasher(dimension=4, model_name="test")
