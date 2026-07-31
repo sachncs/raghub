@@ -29,7 +29,7 @@ from raghub.errors import MissingDepError
 from raghub.llm import Generator
 from raghub.models import (
     Citation,
-    ConversationTurn,
+    Turn,
     Hit,
     StructuredOutputProvider,
 )
@@ -91,7 +91,7 @@ class DefaultGenerator:
         *,
         question: str,
         context: Sequence[Hit],
-        conversation: Sequence[ConversationTurn] = (),
+        conversation: Sequence[Turn] = (),
     ) -> tuple[str, list[Citation]]:
         """Generate an answer and citations from retrieved context.
 
@@ -105,7 +105,7 @@ class DefaultGenerator:
 
         """
         context_texts = [hit.chunk.text for hit in context]
-        turns = [ConversationTurn(question=t.question, answer=t.answer) for t in conversation]
+        turns = [Turn(question=t.question, answer=t.answer) for t in conversation]
         async_generate = getattr(self.llm, "async_generate", None)
         if callable(async_generate):
             completion = async_generate(
@@ -155,7 +155,7 @@ class DefaultGenerator:
         *,
         question: str,
         context: Sequence[Hit],
-        conversation: Sequence[ConversationTurn] = (),
+        conversation: Sequence[Turn] = (),
     ) -> AsyncIterator[str]:
         """Stream the answer via the LLM provider's ``astream`` method.
 
@@ -169,7 +169,7 @@ class DefaultGenerator:
         astream = getattr(self.llm, "astream", None)
         if callable(astream):
             context_texts = [hit.chunk.text for hit in context]
-            turns = [ConversationTurn(question=t.question, answer=t.answer) for t in conversation]
+            turns = [Turn(question=t.question, answer=t.answer) for t in conversation]
             async for piece in astream(
                 system_prompt=self.system_prompt,
                 conversation=turns,

@@ -23,7 +23,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 from raghub.domain import Session
-from raghub.models import ConversationTurn, SessionRecord
+from raghub.models import Turn, Session
 from raghub.repos import UnitOfWork
 
 __all__ = [
@@ -67,7 +67,7 @@ class Tokenizer:
 
 
 class SlidingWindowManager:
-    """Trim a :class:`ConversationTurn` history to fit within a token budget.
+    """Trim a :class:`Turn` history to fit within a token budget.
 
     The manager optionally uses ``tiktoken`` (``cl100k_base``) for accurate
     token counting. If ``tiktoken`` is unavailable at construction time
@@ -127,7 +127,7 @@ class SlidingWindowManager:
             return len(self.enc.encode(text))
         return len(text.split())
 
-    def trim(self, history: list[ConversationTurn]) -> list[ConversationTurn]:
+    def trim(self, history: list[Turn]) -> list[Turn]:
         """Return the newest contiguous slice of ``history`` that fits the budget.
 
         The function iterates **in reverse** so we can stop the moment the
@@ -146,7 +146,7 @@ class SlidingWindowManager:
 
         """
         total = 0
-        trimmed: list[ConversationTurn] = []
+        trimmed: list[Turn] = []
         for turn in reversed(history):
             turn_tokens = self.counttokenize(turn.question) + self.counttokenize(turn.answer) + 10
             if total + turn_tokens > self.max_tokens:
@@ -187,7 +187,7 @@ class ConversationManager:
             A new :class:`Session` wrapping the persisted record.
 
         """
-        record = SessionRecord(
+        record = Session(
             user_id=user_id,
             expires_at=datetime.now(UTC) + timedelta(seconds=3600),
             last_seen_at=datetime.now(UTC),
@@ -233,14 +233,14 @@ class ConversationManager:
         record = await self.uow.session_repo.get_by_token(session_token)
         if record is None:
             return
-        turn = ConversationTurn(question=question, answer=answer, metadata=metadata or {})
+        turn = Turn(question=question, answer=answer, metadata=metadata or {})
         record.history.append(turn)
         # Update the session's last-seen timestamp on every append so
         # expiry sweeps can identify idle sessions.
         record.last_seen_at = datetime.now(UTC)
         await self.uow.session_repo.save(record)
 
-    async def load(self, session_token: str) -> list[ConversationTurn]:
+    async def load(self, session_token: str) -> list[Turn]:
         """Load the full history for ``session_token``.
 
         Args:
@@ -270,7 +270,7 @@ class ConversationManager:
         record.last_seen_at = datetime.now(UTC)
         await self.uow.session_repo.save(record)
 
-    async def add_turn(self, session_id: str, turn: ConversationTurn) -> None:
+    async def add_turn(self, session_id: str, turn: Turn) -> None:
         """Append ``turn`` and immediately re-trim the history.
 
         Use this variant when you want token-budget enforcement to run
@@ -279,7 +279,7 @@ class ConversationManager:
         Args:
             session_id: The session id (note: this is the database id,
                 not the bearer token).
-            turn: The :class:`ConversationTurn` to append.
+            turn: The :class:`Turn` to append.
 
         """
         record = await self.uow.session_repo.get(session_id)
@@ -294,7 +294,7 @@ class ConversationManager:
         self,
         session_id: str,
         max_tokens: int | None = None,
-    ) -> list[ConversationTurn]:
+    ) -> list[Turn]:
         """Trim the session's history to fit ``max_tokens``.
 
         Args:
@@ -361,10 +361,10 @@ class ConversationManager:
 class ConversationStore(Protocol):
     """Protocol for pluggable conversation history backends."""
 
-    def append(self, session_id: str, turn: ConversationTurn) -> None:
+    def append(self, session_id: str, turn: Turn) -> None:
         """Append a turn to the session's history."""
 
-    def load(self, session_id: str, limit: int = 20) -> list[ConversationTurn]:
+    def load(self, session_id: str, limit: int = 20) -> list[Turn]:
         """Return the most recent ``limit`` turns (oldest first)."""
 
     def clear(self, session_id: str) -> None:
@@ -389,18 +389,18 @@ class Memory:
     def __init__(self, window_size: int = 50) -> None:
         """Initialise the in-memory store."""
         self.lock = threading.Lock()
-        self.history: dict[str, deque[ConversationTurn]] = defaultdict(
+        self.history: dict[str, deque[Turn]] = defaultdict(
             lambda: deque(maxlen=window_size)
         )
         self.overrides: dict[str, dict[str, Any]] = {}
         self.window_size = window_size
 
-    def append(self, session_id: str, turn: ConversationTurn) -> None:
+    def append(self, session_id: str, turn: Turn) -> None:
         """Append a turn to the session's history."""
         with self.lock:
             self.history[session_id].append(turn)
 
-    def load(self, session_id: str, limit: int = 20) -> list[ConversationTurn]:
+    def load(self, session_id: str, limit: int = 20) -> list[Turn]:
         """Return the most recent ``limit`` turns (oldest first)."""
         with self.lock:
             history = list(self.history[session_id])

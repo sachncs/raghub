@@ -41,10 +41,10 @@ from tqdm import tqdm
 from raghub.domain import DatabaseManager
 from raghub.errors import AuthenticationError, MissingDepError, RagHubError
 from raghub.models import (
-    ConversationTurn,
+    Turn,
     Document,
     DocumentLifecycleStatus,
-    SessionRecord,
+    Session,
 )
 from raghub.utils import atomic_write_json, capture, load_json
 
@@ -395,7 +395,7 @@ class JsonSessions:
         self.path = Path(path)
         self.timeout = timedelta(seconds=timeout_seconds)
         self.lock = RLock()
-        self.sessions: dict[str, SessionRecord] = {}
+        self.sessions: dict[str, Session] = {}
         self.load()
 
     def load(self) -> None:
@@ -416,7 +416,7 @@ class JsonSessions:
             self.sessions = {}
             return
         for token, raw in payload.get("sessions", {}).items():
-            self.sessions[token] = SessionRecord.model_validate(raw)
+            self.sessions[token] = Session.model_validate(raw)
 
     def save(self) -> None:
         """Atomically persist the in-memory sessions map to disk."""
@@ -430,10 +430,10 @@ class JsonSessions:
             },
         )
 
-    def create(self, user_id: str) -> SessionRecord:
+    def create(self, user_id: str) -> Session:
         """Create a fresh session for ``user_id``."""
         now = datetime.now(UTC)
-        session = SessionRecord(
+        session = Session(
             session_id=str(uuid4()),
             user_id=user_id,
             token=str(uuid4()),
@@ -446,7 +446,7 @@ class JsonSessions:
             self.save()
         return session
 
-    def resolve(self, token: str) -> SessionRecord | None:
+    def resolve(self, token: str) -> Session | None:
         """Resolve ``token`` to a live session, sliding the expiry window."""
         with self.lock:
             session = self.sessions.get(token)
@@ -468,7 +468,7 @@ class JsonSessions:
             self.sessions.pop(token, None)
             self.save()
 
-    def append_turn(self, token: str, turn: ConversationTurn) -> None:
+    def append_turn(self, token: str, turn: Turn) -> None:
         """Append ``turn`` to the session's history.
 
         Raises:
@@ -482,7 +482,7 @@ class JsonSessions:
             session.history.append(turn)
             self.save()
 
-    def load_turns(self, token: str) -> list[ConversationTurn]:
+    def load_turns(self, token: str) -> list[Turn]:
         """Return the full history for ``token``."""
         session = self.resolve(token)
         return list(session.history) if session else []
@@ -587,8 +587,8 @@ class Sessions:
             await conn.commit()
             await conn.close()
 
-    async def create_session_record(self, session: SessionRecord) -> None:
-        """Insert a full :class:`SessionRecord` including its history."""
+    async def create_session_record(self, session: Session) -> None:
+        """Insert a full :class:`Session` including its history."""
         conn = await self.conn()
         await conn.execute(
             """
@@ -612,10 +612,10 @@ class Sessions:
         )
         await self.maybe_commit_close(conn)
 
-    async def create_session(self, user_id: str) -> SessionRecord:
+    async def create_session(self, user_id: str) -> Session:
         """Create and persist a new session."""
         now = datetime.now(UTC)
-        session = SessionRecord(
+        session = Session(
             session_id=str(uuid4()),
             user_id=user_id,
             token=str(uuid4()),
@@ -643,7 +643,7 @@ class Sessions:
         await self.maybe_commit_close(conn)
         return session
 
-    async def get_session(self, session_id: str) -> SessionRecord | None:
+    async def get_session(self, session_id: str) -> Session | None:
         """Look up a session by primary key."""
         conn = await self.conn()
         cursor = await conn.execute("SELECT * FROM sessions WHERE session_id = ?", (session_id,))
@@ -653,7 +653,7 @@ class Sessions:
             return None
         return self.row_to_session(row)
 
-    async def get_by_token(self, token: str) -> SessionRecord | None:
+    async def get_by_token(self, token: str) -> Session | None:
         """Look up a session by bearer token, with sliding expiry."""
         conn = await self.conn()
         cursor = await conn.execute("SELECT * FROM sessions WHERE token = ?", (token,))
@@ -689,7 +689,7 @@ class Sessions:
         await self.maybe_commit_close(conn)
         return session
 
-    async def update_session(self, session: SessionRecord) -> None:
+    async def update_session(self, session: Session) -> None:
         """Overwrite a session row with the supplied record."""
         conn = await self.conn()
         await conn.execute(
@@ -748,7 +748,7 @@ class Sessions:
         )
         await self.maybe_commit_close(conn)
 
-    async def append_history(self, session_id: str, turn: ConversationTurn) -> None:
+    async def append_history(self, session_id: str, turn: Turn) -> None:
         """Append a turn to the session's history. No-op if unknown."""
         conn = await self.conn()
         cursor = await conn.execute(
@@ -766,7 +766,7 @@ class Sessions:
         )
         await self.maybe_commit_close(conn)
 
-    async def get_history(self, session_id: str) -> list[ConversationTurn]:
+    async def get_history(self, session_id: str) -> list[Turn]:
         """Return the full history of a session."""
         conn = await self.conn()
         cursor = await conn.execute(
@@ -777,17 +777,17 @@ class Sessions:
         if row is None:
             return []
         history = json.loads(row["history"])
-        return [ConversationTurn.model_validate(t) for t in history]
+        return [Turn.model_validate(t) for t in history]
 
     # ------------------------------------------------------------------
     # SessionStore protocol aliases
     # ------------------------------------------------------------------
 
-    async def create(self, user_id: str) -> SessionRecord:
+    async def create(self, user_id: str) -> Session:
         """Protocol-conformant alias for :meth:`create_session`."""
         return await self.create_session(user_id)
 
-    async def resolve(self, token: str) -> SessionRecord | None:
+    async def resolve(self, token: str) -> Session | None:
         """Protocol-conformant alias for :meth:`get_by_token`."""
         return await self.get_by_token(token)
 
@@ -798,21 +798,21 @@ class Sessions:
             await self.delete_session(session.session_id)
 
     @staticmethod
-    def row_to_session(row: Any) -> SessionRecord:
-        """Hydrate a :class:`SessionRecord` from a SQLite row."""
+    def row_to_session(row: Any) -> Session:
+        """Hydrate a :class:`Session` from a SQLite row."""
         row_keys = row.keys() if hasattr(row, "keys") else row
         history_raw = row["history"] if "history" in row_keys else "[]"
         overrides_raw = row["overrides"] if "overrides" in row_keys else "{}"
         history = json.loads(history_raw) if history_raw else []
         overrides = json.loads(overrides_raw) if overrides_raw else {}
-        return SessionRecord(
+        return Session(
             session_id=row["session_id"],
             user_id=row["user_id"],
             token=row["token"],
             created_at=datetime.fromisoformat(row["created_at"]),
             expires_at=datetime.fromisoformat(row["expires_at"]),
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]),
-            history=[ConversationTurn.model_validate(t) for t in history],
+            history=[Turn.model_validate(t) for t in history],
             overrides=overrides if isinstance(overrides, dict) else {},
         )
 

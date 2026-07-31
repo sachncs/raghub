@@ -50,7 +50,7 @@ from raghub.llm import Generator, build_llm
 from raghub.models import (
     AuthLoginResponse,
     BackgroundWorker,
-    ConversationTurn,
+    Turn,
     Document,
     QueryResponse,
     TaskQueue,
@@ -654,10 +654,10 @@ class Auth:
         """Invalidate ``token`` in the session store."""
         await self.facade.auth_svc.logout(token)
 
-    async def resolve_user(self, token: str) -> tuple[User, list[ConversationTurn]]:
+    async def resolve_user(self, token: str) -> tuple[User, list[Turn]]:
         """Resolve a bearer token to a principal plus history."""
         return cast(
-            tuple[User, list[ConversationTurn]],
+            tuple[User, list[Turn]],
             await self.facade.auth_svc.resolve_user(token),
         )
 
@@ -842,7 +842,7 @@ class Facade:
         """Invalidate ``token`` in the session store."""
         return await self.auth.logout(token)
 
-    async def resolve_user(self, token: str) -> tuple[User, list[ConversationTurn]]:
+    async def resolve_user(self, token: str) -> tuple[User, list[Turn]]:
         """Resolve a bearer token to a principal plus conversation history."""
         return await self.auth.resolve_user(token)
 
@@ -875,10 +875,10 @@ class Facade:
         """Empty the conversation history for ``token``."""
         await self.container.conversation.clear(token)
 
-    async def history(self, token: str) -> list[ConversationTurn]:
+    async def history(self, token: str) -> list[Turn]:
         """Return the full conversation history for ``token``."""
         return cast(
-            list[ConversationTurn],
+            list[Turn],
             await self.container.conversation.load(token),
         )
 

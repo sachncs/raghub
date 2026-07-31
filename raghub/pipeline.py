@@ -51,7 +51,7 @@ from raghub.models import (
     Chunker,
     Citation,
     Classification,
-    ConversationTurn,
+    Turn,
     DocumentConverter,
     EmbeddingProvider,
     GeneratorProtocol,
@@ -270,11 +270,11 @@ class ConversationRouter:
         """Store the backing conversation store reference."""
         self.store = store
 
-    def load_history(self, session_id: str | None, limit: int = 20) -> list[ConversationTurn]:
+    def load_history(self, session_id: str | None, limit: int = 20) -> list[Turn]:
         """Return the recent turns for ``session_id``."""
         if not session_id:
             return []
-        return cast(list[ConversationTurn], self.store.load(session_id, limit=limit))
+        return cast(list[Turn], self.store.load(session_id, limit=limit))
 
     def record_turn(
         self,
@@ -627,7 +627,7 @@ class QueryPipeline(Pipeline):
         record: bool = bool(inputs.get("record", True))
         tools_enabled: set[str] | None = inputs.get("tools_enabled")
 
-        history: list[ConversationTurn] = []
+        history: list[Turn] = []
         if session_id:
             history = self.conversation_store.load(session_id, limit=20)
 
@@ -759,7 +759,7 @@ class QueryPipeline(Pipeline):
             if record and session_id and answer:
                 self.conversation_store.append(
                     session_id,
-                    ConversationTurn(
+                    Turn(
                         question=question,
                         answer=str(answer),
                     ),
@@ -838,7 +838,7 @@ class QueryPipeline(Pipeline):
             if self.long_context_pass is not None and hits:
                 with self.telemetry.span("query.long_context_pass"):
                     hits = await self.long_context_pass.rerank(question=question, hits=hits)
-            history: list[ConversationTurn] = []
+            history: list[Turn] = []
             if session_id:
                 history = self.conversation_store.load(session_id, limit=20)
             astream = getattr(self.generator, "astream", None)
@@ -868,7 +868,7 @@ class QueryPipeline(Pipeline):
                 if session_id and collected:
                     self.conversation_store.append(
                         session_id,
-                        ConversationTurn(
+                        Turn(
                             question=question,
                             answer="".join(collected),
                         ),
@@ -879,7 +879,7 @@ class QueryPipeline(Pipeline):
             )
             if session_id and answer:
                 self.conversation_store.append(
-                    session_id, ConversationTurn(question=question, answer=str(answer))
+                    session_id, Turn(question=question, answer=str(answer))
                 )
             for word in answer.split():
                 yield word + " "
@@ -928,7 +928,7 @@ class AgentPipeline:
             user: User | None = inputs.get("user")
             session_id: str | None = inputs.get("session_id")
             tools_enabled: set[str] | None = inputs.get("tools_enabled")
-            history: Sequence[ConversationTurn] = list(inputs.get("history") or [])
+            history: Sequence[Turn] = list(inputs.get("history") or [])
             top_k: int = int(inputs.get("top_k", 5))
 
             with self.telemetry.span("query_agent", question=question[:128]) as sp:
@@ -994,7 +994,7 @@ class AgentPipeline:
         user: User | None = inputs.get("user")
         session_id: str | None = inputs.get("session_id")
         tools_enabled: set[str] | None = inputs.get("tools_enabled")
-        history: Sequence[ConversationTurn] = list(inputs.get("history") or [])
+        history: Sequence[Turn] = list(inputs.get("history") or [])
         async for event in self.agent.astream(
             question=question,
             history=history,

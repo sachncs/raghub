@@ -46,7 +46,7 @@ from raghub.errors import GraphUnavailableError, RerankerError
 from raghub.models import (
     Chunk,
     Classification,
-    ConversationTurn,
+    Turn,
     Hit,
     RankedList,
     User,
@@ -107,7 +107,7 @@ class Transformer(Protocol):
         self,
         *,
         question: str,
-        history: Sequence[ConversationTurn],
+        history: Sequence[Turn],
     ) -> list[Variant]:
         """Return rephrased variants for ``question``."""
         ...
@@ -838,7 +838,7 @@ class Hyde:
         self,
         *,
         question: str,
-        history: Sequence[ConversationTurn] = (),
+        history: Sequence[Turn] = (),
     ) -> list[Variant]:
         """Generate ``n`` hypothetical passages."""
         prompt = hyde_prompt(question)
@@ -899,7 +899,7 @@ class MultiQuery:
         self,
         *,
         question: str,
-        history: Sequence[ConversationTurn] = (),
+        history: Sequence[Turn] = (),
     ) -> list[Variant]:
         """Generate ``n`` alternative phrasings."""
         raw = await self.llm.async_generate(
@@ -951,7 +951,7 @@ class Decompose:
         self,
         *,
         question: str,
-        history: Sequence[ConversationTurn] = (),
+        history: Sequence[Turn] = (),
     ) -> list[Variant]:
         """Produce sub-question variants."""
         raw = await self.llm.async_generate(
@@ -1003,7 +1003,7 @@ class StepBack:
         self,
         *,
         question: str,
-        history: Sequence[ConversationTurn] = (),
+        history: Sequence[Turn] = (),
     ) -> list[Variant]:
         """Produce the abstract reformulation."""
         abstract = await self.llm.async_generate(
@@ -1046,7 +1046,7 @@ class Compose:
         self,
         *,
         question: str,
-        history: Sequence[ConversationTurn] = (),
+        history: Sequence[Turn] = (),
     ) -> list[Variant]:
         """Combine the original question with every transformer's output."""
         variants: list[Variant] = [Variant(text=question, kind="original", weight=ORIGINAL_WEIGHT)]
@@ -1550,7 +1550,7 @@ async def areranker(
 
 async def transform(
     question: str,
-    history: Sequence[ConversationTurn] = (),
+    history: Sequence[Turn] = (),
     *,
     method: str = "hyde",
     llm: Any | None = None,

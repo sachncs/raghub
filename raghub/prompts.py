@@ -27,7 +27,7 @@ from typing import Any
 
 import tiktoken
 
-from raghub.models import ConversationTurn
+from raghub.models import Turn
 
 __all__ = [
     "SYSTEM_PROMPT_TEMPLATE",
@@ -150,7 +150,7 @@ class PromptBuilder:
         question: str,
         context: list[dict[str, Any]] | None = None,
         image_paths: list[str] | None = None,
-        session_history: list[ConversationTurn] | None = None,
+        session_history: list[Turn] | None = None,
     ) -> dict[str, Any]:
         """Build a structured payload for LLM consumption.
 
@@ -179,7 +179,7 @@ class PromptBuilder:
             context: List of retrieved chunk dicts (``{"text": ...}``) or
                 arbitrary objects (stringified when ``"text"`` is absent).
             image_paths: Optional list of image paths for multimodal input.
-            session_history: Optional prior :class:`ConversationTurn`s.
+            session_history: Optional prior :class:`Turn`s.
 
         Returns:
             A dict suitable for the LLM provider's ``build_messages``
