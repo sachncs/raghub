@@ -115,9 +115,8 @@ class TestProductionValidation:
         )
         with patch.dict(
             os.environ, {"RAG_CONFIG_DIR": str(tmp_path), "JWT_SECRET": ""}, clear=False
-        ):
-            with pytest.raises(RuntimeError, match="JWT_SECRET"):
-                Settings.load("production")
+        ), pytest.raises(RuntimeError, match="JWT_SECRET"):
+            Settings.load("production")
 
     def test_production_rejects_short_jwt_secret(self, tmp_path: Path) -> None:
         (tmp_path / "production.yaml").write_text(
@@ -128,9 +127,8 @@ class TestProductionValidation:
             os.environ,
             {"RAG_CONFIG_DIR": str(tmp_path), "JWT_SECRET": "short"},
             clear=False,
-        ):
-            with pytest.raises(RuntimeError, match="32 bytes"):
-                Settings.load("production")
+        ), pytest.raises(RuntimeError, match="32 bytes"):
+            Settings.load("production")
 
     def test_production_rejects_passwordless_login(self, tmp_path: Path) -> None:
         (tmp_path / "production.yaml").write_text(
@@ -142,6 +140,8 @@ class TestProductionValidation:
             "JWT_SECRET": "a" * 32,
             "RAG_ALLOW_PASSWORDLESS": "1",
         }
-        with patch.dict(os.environ, env, clear=False):
-            with pytest.raises(RuntimeError, match="Passwordless login"):
-                Settings.load("production")
+        with (
+            patch.dict(os.environ, env, clear=False),
+            pytest.raises(RuntimeError, match="Passwordless login"),
+        ):
+            Settings.load("production")
