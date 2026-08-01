@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from types import SimpleNamespace
 from typing import Any
 
@@ -557,3 +558,115 @@ def test_compare_calls_each_rag_once_per_example() -> None:
     )
     assert len(rag_a.aquery_call_log) == 3
     assert len(rag_b.aquery_call_log) == 3
+
+
+# ---------------------------------------------------------------------------
+# CLI entry points: raghub.evaluation.financebench / frames
+# ---------------------------------------------------------------------------
+
+
+def test_evaluation_module_exports() -> None:
+    """raghub.evaluation exports financebench, frames."""
+    import raghub.evaluation as ev_module
+
+    assert ev_module.__all__ == ["financebench", "frames"]
+
+
+def test_evaluation_app_is_typer() -> None:
+    """The eval sub-app is a Typer."""
+    from typer import Typer
+
+    import raghub.evaluation as ev_module
+
+    assert isinstance(ev_module.app, Typer)
+
+
+def test_financebench_cli_empty_examples(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``raghub eval financebench --examples 0`` writes an empty summary."""
+    from typer.testing import CliRunner
+
+    import raghub.evaluation as ev_module
+    from raghub.eval import Finance
+
+    class _EmptyFinance(Finance):
+        async def ensure_examples(self) -> list[dict[str, Any]]:
+            return []
+
+    runner = CliRunner()
+    monkeypatch.setattr(ev_module, "Finance", _EmptyFinance)
+    result = runner.invoke(ev_module.app, ["financebench", "--examples", "0"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["summary"]["benchmark"] == "financebench"
+    assert payload["summary"]["count"] == 0
+    assert payload["summary"]["pass_rate"] == 0.0
+    assert payload["results"] == []
+
+
+def test_financebench_cli_with_examples(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``raghub eval financebench --examples 3`` scores three examples."""
+    from typer.testing import CliRunner
+
+    import raghub.evaluation as ev_module
+    from raghub.eval import Finance
+
+    class _StubFinance(Finance):
+        def ensure_examples(self) -> list[dict[str, Any]]:
+            return [
+                {"question": "q1", "answer": "a1", "contexts": ["c1"]},
+                {"question": "q2", "answer": "a2", "contexts": ["c2"]},
+                {"question": "q3", "answer": "a3", "contexts": ["c3"]},
+            ]
+
+
+    runner = CliRunner()
+    monkeypatch.setattr(ev_module, "Finance", _StubFinance)
+    result = runner.invoke(ev_module.app, ["financebench", "--examples", "3"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["summary"]["count"] == 3
+
+
+def test_frames_cli_with_examples(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``raghub eval frames`` with positive examples scores them."""
+    from typer.testing import CliRunner
+
+    import raghub.evaluation as ev_module
+    from raghub.eval import Frames
+
+    class _StubFrames(Frames):
+        def ensure_examples(self) -> list[dict[str, Any]]:
+            return [
+                {"question": "q1", "answer": "a1", "contexts": ["c1"]},
+                {"question": "q2", "answer": "a2", "contexts": ["c2"]},
+            ]
+
+
+    runner = CliRunner()
+    monkeypatch.setattr(ev_module, "Frames", _StubFrames)
+    result = runner.invoke(ev_module.app, ["frames", "--examples", "2"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["summary"]["benchmark"] == "frames"
+    assert payload["summary"]["count"] == 2
+
+
+def test_frames_cli_zero_examples_means_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``raghub eval frames --examples 0`` includes every returned example."""
+    from typer.testing import CliRunner
+
+    import raghub.evaluation as ev_module
+    from raghub.eval import Frames
+
+    examples = [{"question": f"q{i}", "answer": "a", "contexts": ["c"]} for i in range(5)]
+    class _StubFrames(Frames):
+        def ensure_examples(self) -> list[dict[str, Any]]:
+            return examples
+
+
+    runner = CliRunner()
+    monkeypatch.setattr(ev_module, "Frames", _StubFrames)
+    result = runner.invoke(ev_module.app, ["frames", "--examples", "0"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["summary"]["count"] == 5
