@@ -146,36 +146,30 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "D", "N", "PLR"]
 ignore = [
-    # Phase 1.20 (this PR): B017, SIM103, SIM117, SIM201, E501, RUF059
-    # all restored to ruff's default (ruff was honouring them — they
-    # were listed here as deferral markers, now removed because the
-    # actual code is clean).
-    #
-    # Rules left in the ignore list (see Stage 6 follow-up):
-    # - B008: 27 FastAPI Depends() calls — requires rewriting the
-    #         api_auth dependency tree (Phase 1.20 spirit notes).
-    # - B018: useless-expression — only test-side occurrences remain.
-    # - RUF00x, RUF012, RUF015, RUF043, UP042, UP047: the RUF* and UP*
-    #         rules above all require ruff's `preview` selector; the
-    #         CI config doesn't enable preview, so removing them
-    #         has no effect (kept as documentation only).
-    # - PLR0911-5 / PLR2004: too-many-X / magic-value — these
-    #         collapse after the Phase 1.7 cascade refactor.
-    "B008",
-    "B018",
-    "RUF002",
-    "RUF003",
-    "RUF012",
-    "RUF015",
-    "RUF043",
-    "UP042",
-    "UP047",
-    "PLR0911",
-    "PLR0912",
-    "PLR0913",
-    "PLR0915",
-    "PLR2004",
-    "D417",
+    "B008",  # Phase 1 migrates function-call-in-default to Field(default_factory=...).
+    "B018",  # Phase 1 removes useless-expression statements.
+    "RUF002",  # Phase 1 strips non-ASCII characters from docstrings.
+    "RUF003",  # Phase 1 strips ambiguous characters from comments/docstrings.
+    "RUF012",  # Phase 1 replaces mutable class-default annotations.
+    "RUF015",  # Phase 1 removes iterable-casting-before-sum patterns.
+    "RUF043",  # Phase 1 replaces Optional[X] with X | None.
+    "SIM103",  # Phase 1 collapses trivial if-return-bool into direct returns.
+    "SIM105",  # Phase 1 uses contextlib.suppress where appropriate.
+    "SIM117",  # Phase 1 merges adjacent with-statements.
+    "SIM201",  # Phase 1 removes negation-on-if-equality.
+    "UP042",  # Phase 1 replaces Union[X, Y] with X | Y.
+    "UP047",  # Phase 1 adopts PEP 695 generics.
+    # Phase 1.7 (universal entity schema) restructures the constructors and
+    # factories that take 6+ collaborators, which collapses these structural
+    # violations. Until then, ignore them per-rule rather than suppress
+    # each violation with # noqa:.
+    "PLR0913",  # too-many-arguments: Phase 1.7 TypedDict refactor addresses.
+    "PLR0912",  # too-many-branches: Phase 1.7 entity cascade.
+    "PLR0915",  # too-many-statements: Phase 1.7 entity cascade.
+    "PLR0911",  # too-many-return-statements: Phase 1.7 entity cascade.
+    "PLR2004",  # magic-value-comparison: Phase 1.7 entity constants.
+    "PLR1714",  # repeated-equality-comparison: cosmetic, addressed incrementally.
+    "D417",  # undocumented-param: cosmetic for this codebase.
 ]
 
 [tool.ruff.lint.per-file-ignores]
