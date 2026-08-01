@@ -479,11 +479,14 @@ class SqliteStore(Store):
         metadata_filter: str | dict[str, Any] | None,
     ) -> list[tuple[str, str, int, str, str, str, str, str, str, bytes]]:
         """Return raw chunk rows matching ``metadata_filter``."""
+        columns = (
+            "chunk_id, document_id, version, classification, "
+            "text, source_location, company, owner, department, vector"
+        )
         if metadata_filter is None or metadata_filter == "":
             return list(
                 self.conn.execute(
-                    f"SELECT chunk_id, document_id, version, classification, text, source_location, company, owner, department, vector "
-                    f"FROM {self.collection}"
+                    f"SELECT {columns} FROM {self.collection}"
                 )
             )
         if isinstance(metadata_filter, dict):
@@ -492,10 +495,13 @@ class SqliteStore(Store):
         else:
             clauses = metadata_filter
             params = []
+        columns = (
+            "chunk_id, document_id, version, classification, "
+            "text, source_location, company, owner, department, vector"
+        )
         return list(
             self.conn.execute(
-                f"SELECT chunk_id, document_id, version, classification, text, source_location, company, owner, department, vector "
-                f"FROM {self.collection} WHERE {clauses}",
+                f"SELECT {columns} FROM {self.collection} WHERE {clauses}",
                 params,
             )
         )
@@ -520,7 +526,9 @@ class SqliteStore(Store):
             cursor = self.conn.executemany(
                 f"""
                 INSERT OR IGNORE INTO {self.collection}
-                (chunk_id, document_id, version, classification, text, source_location, company, owner, department, vector)
+                    (chunk_id, document_id, version, classification,
+                     text, source_location, company, owner,
+                     department, vector)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
@@ -652,7 +660,8 @@ class SqliteStore(Store):
         with self.lock:
             rows = list(
                 self.conn.execute(
-                    f"SELECT chunk_id, document_id, version, classification, text, source_location, company, owner, department, vector "
+                    f"SELECT chunk_id, document_id, version, classification, "
+                    f"text, source_location, company, owner, department, vector "
                     f"FROM {self.collection} WHERE text LIKE ?",
                     (f"%{query}%",),
                 )

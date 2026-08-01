@@ -158,7 +158,10 @@ class ToolConfig:
                 help=('JSON object, e.g. \'{"agent_enabled": true, "reranker": "cohere"}\'.'),
             ),
         ) -> None:
-            """Merge the JSON ``--json`` payload into the user's tool_settings (unknown keys dropped)."""
+            """Merge the JSON ``--json`` payload into the user's tool_settings.
+
+            Unknown keys are silently dropped.
+            """
             patch, json_error = capture(json.loads, payload)
             if json_error is not None:
                 raise typer.BadParameter(f"invalid JSON: {json_error}") from json_error

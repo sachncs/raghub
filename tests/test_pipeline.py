@@ -139,7 +139,7 @@ class TestIngestThenQuery:
         )
         ctx_q = PipelineCtx(pipeline_name="query")
         result = await query.run(ctx_q, question="hello world", top_k=5)
-        assert (getattr(result, "error", None) is None)
+        assert getattr(result, "error", None) is None
         assert result.outputs["answer"] == "response"
         assert result.outputs["hits"], "At least one hit must come from the store"
 
@@ -173,7 +173,7 @@ class TestRbacEndToEnd:
             user=user,
             top_k=10,
         )
-        assert (getattr(result, "error", None) is None)
+        assert getattr(result, "error", None) is None
         for hit in result.outputs["hits"]:
             assert hit.chunk.company == "acme", (
                 "A non-admin with only [acme] must not see globex "

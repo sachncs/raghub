@@ -97,7 +97,10 @@ class RAGHubGenie:
         """Generate a chunking response for ``prompt``."""
         return str(
             self.llm.generate(
-                system_prompt="You are a text chunking assistant. Split the text at natural boundaries.",
+                system_prompt=(
+                    "You are a text chunking assistant. "
+                    "Split the text at natural boundaries."
+                ),
                 conversation=[],
                 context=[],
                 question=prompt,
@@ -709,7 +712,9 @@ class Ingestor:
             error_message = (result.error.message if result.error else None) or "ingestion failed"
             if previous is not None:
                 previous.status = DocumentLifecycleStatus.FAILED
-                previous.error = error_message if isinstance(error_message, str) else error_message.message
+                previous.error = (
+                    error_message if isinstance(error_message, str) else error_message.message
+                )
                 await self.uow.document_repo.save(previous)
             raise IngestionError(error_message)
 
@@ -785,9 +790,7 @@ class Job:
         if not self.job_id:
             raise VerificationError("Job: job_id is empty")
         if self.status not in self.VALID_STATUSES:
-            raise VerificationError(
-                f"Job: status {self.status!r} not in {self.VALID_STATUSES}"
-            )
+            raise VerificationError(f"Job: status {self.status!r} not in {self.VALID_STATUSES}")
 
 
 class Batch:

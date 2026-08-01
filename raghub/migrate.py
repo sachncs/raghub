@@ -18,6 +18,7 @@ still work; migration to a new schema ships as a separate phase.
 The tool is idempotent: re-running it against an already-v2 store
 produces no writes.
 """
+
 from __future__ import annotations
 
 import argparse

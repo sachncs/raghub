@@ -1385,7 +1385,8 @@ class Retrieval:
             if scores and len(scores) == len(dense):
                 colbert_hits = [
                     Hit(
-                        score=float(score), chunk=h.chunk,
+                        score=float(score),
+                        chunk=h.chunk,
                     )
                     for h, score in zip(dense, scores, strict=True)
                 ]

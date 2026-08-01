@@ -187,11 +187,13 @@ class ConversationManager:
             A new :class:`Session` wrapping the persisted record.
 
         """
-        record = Session.model_validate({
-            "user_id": user_id,
-            "expires_at": (datetime.now(UTC) + timedelta(seconds=3600)).isoformat(),
-            "last_seen_at": datetime.now(UTC).isoformat(),
-        })
+        record = Session.model_validate(
+            {
+                "user_id": user_id,
+                "expires_at": (datetime.now(UTC) + timedelta(seconds=3600)).isoformat(),
+                "last_seen_at": datetime.now(UTC).isoformat(),
+            }
+        )
         await self.uow.session_repo.save(record)
         return SessionWrap(record)  # type: ignore[call-arg,arg-type]
 
@@ -389,9 +391,7 @@ class Memory:
     def __init__(self, window_size: int = 50) -> None:
         """Initialise the in-memory store."""
         self.lock = threading.Lock()
-        self.history: dict[str, deque[Turn]] = defaultdict(
-            lambda: deque(maxlen=window_size)
-        )
+        self.history: dict[str, deque[Turn]] = defaultdict(lambda: deque(maxlen=window_size))
         self.overrides: dict[str, dict[str, Any]] = {}
         self.window_size = window_size
 

@@ -75,8 +75,7 @@ def test_concurrent_inserts_are_safe(sqlite_store, sample_chunks):
 
     def insert_chunks(offset: int) -> None:
         chunks = [
-            sample_chunks[0].model_copy(update={"id": f"thread-{offset}-{i}"})
-            for i in range(5)
+            sample_chunks[0].model_copy(update={"id": f"thread-{offset}-{i}"}) for i in range(5)
         ]
         vectors = [[0.01 * (offset + i)] * 384 for i in range(5)]
         barrier.wait()

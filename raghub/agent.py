@@ -588,7 +588,10 @@ class Agent:
                     messages.append(
                         {
                             "role": "user",
-                            "content": f"Tool {parsed.name!r} is not available. Try one of: {sorted(enabled)}.",
+                            "content": (
+                                f"Tool {parsed.name!r} is not available. "
+                                f"Try one of: {sorted(enabled)}."
+                            ),
                         }
                     )
                     continue

@@ -103,8 +103,13 @@ def test_response_verify_passes():
     """Response.verify() returns when chunks + citations agree."""
     chunk = make_chunk()
     cit = Citation(
-        document_id="d1", version=1, page=0, section="", quote="hi",
-        score=0.5, source_uri="mem://x",
+        document_id="d1",
+        version=1,
+        page=0,
+        section="",
+        quote="hi",
+        score=0.5,
+        source_uri="mem://x",
     )
     response = Response(
         answer="x",

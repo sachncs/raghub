@@ -321,7 +321,6 @@ def test_json_sessions_expired_session_is_purged(tmp_path: Path) -> None:
 def test_json_sessions_resolve_slides_window(tmp_path: Path) -> None:
     """A successful resolve pushes the expiry window forward."""
 
-
     from raghub.stores import JsonSessions
 
     store = JsonSessions(tmp_path / "slide.json", timeout_seconds=3600)
