@@ -289,7 +289,11 @@ raghub/
 │   ├── services/           # Facade, container wiring
 │   ├── tools/              # ToolRegistry + built-in tools
 │   ├── lifecycle/          # Document lifecycle state machines
-│   ├── helper/             # Internal collaborators (auth, cli, sse, …)
+│   ├── api_auth/           # Auth helpers (App, Auth, Bearer)
+│   ├── api_response/       # ResponseBuilder + Redaction
+│   ├── api_sse/            # SSE framing
+│   ├── api_ratelimit/      # Token bucket + ASGI middleware
+│   ├── cli_commands/       # CLI sub-commands
 │   ├── knowledge.py        # RAPTOR, GraphRAG
 │   ├── conv.py             # Conversation memory
 │   ├── telemetry.py        # Telemetry providers, Prometheus metrics
