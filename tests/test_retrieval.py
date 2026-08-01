@@ -66,7 +66,7 @@ def test_rrf_rejects_non_strings() -> None:
 def test_merge_with_rrf_dedupes() -> None:
     """merge_with_rrf returns each chunk only once, sorted by RRF score."""
 
-    hit_a = MagicMock_hit = type("Hit", (), {"chunk_id": "a", "score": 1.0})()
+    hit_a = type("Hit", (), {"chunk_id": "a", "score": 1.0})()
     hit_b = type("Hit", (), {"chunk_id": "b", "score": 0.9})()
     result = merge_with_rrf([[hit_a, hit_b], [hit_a, hit_b]])
     ids = [h.chunk_id for h in result]
