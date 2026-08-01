@@ -741,14 +741,53 @@ class Job:
             ``"failed"``.
         result: The callable's return value on success, the stringified
             exception on failure, or ``None`` while pending.
+        target: Optional owning document id (Phase 1.7.15 contract).
+        state: Lifecycle state enum (Phase 1.7.15 contract).
 
     """
 
-    def __init__(self, job_id: str, status: str, result: Any = None) -> None:
-        """Initialise the job record."""
+    VALID_STATUSES = ("pending", "processing", "completed", "failed")
+
+    def __init__(
+        self,
+        job_id: str,
+        status: str = "pending",
+        result: Any = None,
+        target: str | None = None,
+    ) -> None:
+        """Initialise the job record.
+
+        Args:
+            job_id: Stable identifier returned by :meth:`submit`.
+            status: Lifecycle status; defaults to ``"pending"``.
+            result: Optional callable result.
+            target: Optional owning document id.
+
+        """
         self.job_id = job_id
         self.status = status
         self.result = result
+        self.target = target
+
+    def verify(self) -> None:
+        """Assert the Job's invariant contract.
+
+        Checks that ``job_id`` is non-empty and ``status`` is one of the
+        recognised lifecycle values.
+
+        Raises:
+            VerificationError: When ``job_id`` is empty or ``status`` is
+                not in :attr:`VALID_STATUSES`.
+
+        """
+        from raghub.errors import VerificationError
+
+        if not self.job_id:
+            raise VerificationError("Job: job_id is empty")
+        if self.status not in self.VALID_STATUSES:
+            raise VerificationError(
+                f"Job: status {self.status!r} not in {self.VALID_STATUSES}"
+            )
 
 
 class Batch:
