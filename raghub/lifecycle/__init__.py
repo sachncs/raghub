@@ -833,7 +833,7 @@ class Marker(DocumentConverter):
         if rendered_text is not None:
             extracted, extraction_error = capture(rendered_text, rendered)
             if extraction_error is None:
-                text_content, format_name, images = extracted
+                text_content, _format_name, images = extracted
             else:
                 text_content = (
                     getattr(rendered, "markdown", None)
