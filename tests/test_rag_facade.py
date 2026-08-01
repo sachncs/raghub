@@ -81,6 +81,8 @@ def test_rag_ingestion_failure_raises_typed_error(
 
 def test_rag_evaluate_calls_evaluator() -> None:
     """The evaluate() helper dispatches to the named benchmark."""
+    from raghub.models import Result
+
     rag = RAG(converter=PlainTextConverter())
 
     class _FakeEvaluator:
@@ -89,23 +91,19 @@ def test_rag_evaluate_calls_evaluator() -> None:
 
         async def evaluate(self, examples, *, response_factory):
             self.called_with = (tuple(examples), response_factory)
-            from raghub.models import Result
-
             return [Result(benchmark="financebench", example_id="0", predicted="y")]
 
-    _monkey = rag.evaluate.__func__.__globals__.get("Finance")
-    original = rag.evaluate.__globals__.get("Finance")
-    rag_evaluate_globals = rag.evaluate.__globals__
-    rag_evaluate_globals["Finance"] = _FakeEvaluator
-    try:
-        results = rag.evaluate(
-            benchmark="financebench",
-            examples=[{"id": "0", "question": "x", "answer": "y"}],
-        )
-    finally:
-        rag_evaluate_globals["Finance"] = original
+    fake_evaluator = _FakeEvaluator()
+    results = rag.evaluate(
+        benchmark="financebench",
+        examples=[{"id": "0", "question": "x", "answer": "y"}],
+        evaluator=fake_evaluator,
+    )
     assert results
     assert results[0].benchmark == "financebench"
+    # fake_evaluator was invoked with the coerced factory wrapper
+    assert fake_evaluator.called_with is not None
+    assert fake_evaluator.called_with[0] == ({"id": "0", "question": "x", "answer": "y"},)
 
 
 def test_rag_evaluate_unknown_benchmark() -> None:
@@ -255,16 +253,12 @@ def test_rag_evaluate_without_factory(monkeypatch: pytest.MonkeyPatch) -> None:
                 await response_factory(ex)
             return [Result(benchmark="financebench", example_id="0", predicted="y")]
 
-    globs = rag.evaluate.__globals__
-    original = globs["Finance"]
-    globs["Finance"] = _FakeEvaluator
-    try:
-        results = rag.evaluate(
-            benchmark="financebench",
-            examples=[{"id": "0", "question": "x", "answer": "y"}],
-        )
-    finally:
-        globs["Finance"] = original
+    fake_evaluator = _FakeEvaluator()
+    results = rag.evaluate(
+        benchmark="financebench",
+        examples=[{"id": "0", "question": "x", "answer": "y"}],
+        evaluator=fake_evaluator,
+    )
     assert len(results) == 1
 
 
@@ -278,21 +272,17 @@ def test_rag_evaluate_with_sync_factory() -> None:
                 response_factory(ex)
             return []
 
-    globs = rag.evaluate.__globals__
-    original = globs["Finance"]
-    globs["Finance"] = _FakeEvaluator
-    try:
+    fake_evaluator = _FakeEvaluator()
 
-        def _factory(example: dict) -> str:
-            return example.get("answer", "")
+    def _factory(example: dict) -> str:
+        return example.get("answer", "")
 
-        results = rag.evaluate(
-            benchmark="financebench",
-            response_factory=_factory,
-            examples=[{"id": "0", "question": "x", "answer": "y"}],
-        )
-    finally:
-        globs["Finance"] = original
+    results = rag.evaluate(
+        benchmark="financebench",
+        response_factory=_factory,
+        examples=[{"id": "0", "question": "x", "answer": "y"}],
+        evaluator=fake_evaluator,
+    )
     assert results == []
 
 
