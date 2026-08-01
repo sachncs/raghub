@@ -10,6 +10,32 @@ oldest.
 
 ## [1.0.0] - 2026-07-31
 
+### Post-release hardening (2026-08-01)
+
+Additional commits landed on master between v1.0.0 and the re-tag of the
+release. The release tag has been force-moved onto the current HEAD.
+
+### Added
+
+- New test files: `tests/test_auth.py`, `tests/test_cli.py`,
+  `tests/test_evaluation.py`, `tests/test_api.py`,
+  `tests/test_knowledge.py`, `tests/test_parsers.py`,
+  `tests/test_stores.py`, `tests/test_repos.py`,
+  `tests/test_retrieval.py`, `tests/test_telemetry.py`,
+  `tests/test_misc.py`, `tests/test_sessions.py`,
+  `tests/test_ingest_module.py`, `tests/test_llm.py`. Each file
+  exercises a previously under-covered module with content assertions.
+- `raghub/__init__.py` now exposes a flat public surface with all
+  `__all__` entries resolving.
+
+### Fixed
+
+- `raghub.auth.AuthService.login` previously read `user.id` from a
+  `UserRecord` (which exposes `user_id`); corrected to use `user.user_id`
+  and `record.user_id` in `resolve_user`.
+- Removed duplicate `Pipeline` and dead entries in
+  `raghub/__init__.py:__all__`.
+
 ### Changed (BREAKING)
 
 The v1.0 release is the **OSS-ready** release. The previous 0.5.x series
