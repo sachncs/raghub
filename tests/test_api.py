@@ -885,4 +885,3 @@ async def test_rate_limiter_middleware_no_client() -> None:
     await middleware(scope, _receive, _send)
     await middleware(scope, _receive, _send)
     assert len(downstream_calls) == 1
-

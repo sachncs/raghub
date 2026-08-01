@@ -618,7 +618,6 @@ def test_financebench_cli_with_examples(monkeypatch: pytest.MonkeyPatch) -> None
                 {"question": "q3", "answer": "a3", "contexts": ["c3"]},
             ]
 
-
     runner = CliRunner()
     monkeypatch.setattr(ev_module, "Finance", _StubFinance)
     result = runner.invoke(ev_module.app, ["financebench", "--examples", "3"])
@@ -641,7 +640,6 @@ def test_frames_cli_with_examples(monkeypatch: pytest.MonkeyPatch) -> None:
                 {"question": "q2", "answer": "a2", "contexts": ["c2"]},
             ]
 
-
     runner = CliRunner()
     monkeypatch.setattr(ev_module, "Frames", _StubFrames)
     result = runner.invoke(ev_module.app, ["frames", "--examples", "2"])
@@ -659,10 +657,10 @@ def test_frames_cli_zero_examples_means_all(monkeypatch: pytest.MonkeyPatch) -> 
     from raghub.eval import Frames
 
     examples = [{"question": f"q{i}", "answer": "a", "contexts": ["c"]} for i in range(5)]
+
     class _StubFrames(Frames):
         def ensure_examples(self) -> list[dict[str, Any]]:
             return examples
-
 
     runner = CliRunner()
     monkeypatch.setattr(ev_module, "Frames", _StubFrames)

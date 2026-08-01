@@ -82,11 +82,14 @@ def awaitable(value: Any) -> Any:
     """
     if inspect.isawaitable(value):
         return value
+
     # Inline async coroutine factory (one level deep, no nested def).
     async def _lift() -> Any:
         """Lift a sync return value into a coroutine."""
         return value
+
     return _lift()
+
 
 __all__ = [
     "AgentPipeline",
@@ -745,18 +748,25 @@ class QueryPipeline(PipelineRunner):
             answer: Any
             citations: list[Citation] = [
                 Citation(
-                    chunk=h.chunk, document_id=h.chunk.document_id,
-                    version=h.chunk.version, page=h.chunk.page,
-                    section=h.chunk.section, quote=h.chunk.text, score=h.score,
+                    chunk=h.chunk,
+                    document_id=h.chunk.document_id,
+                    version=h.chunk.version,
+                    page=h.chunk.page,
+                    section=h.chunk.section,
+                    quote=h.chunk.text,
+                    score=h.score,
                     source_uri=h.chunk.source_location or h.chunk.document_id,
-                ) for h in hits
+                )
+                for h in hits
             ]
             with self.telemetry.span("query.generate"):
-                result = await awaitable(self.generator.generate(
-                    question=question,
-                    context=hits,
-                    conversation=history,
-                ))
+                result = await awaitable(
+                    self.generator.generate(
+                        question=question,
+                        context=hits,
+                        conversation=history,
+                    )
+                )
                 if isinstance(result, tuple):
                     answer, citations = result
                 else:
@@ -900,9 +910,9 @@ class QueryPipeline(PipelineRunner):
                         ),
                     )
                 return
-            result = await awaitable(self.generator.generate(
-                question=question, context=hits, conversation=history
-            ))
+            result = await awaitable(
+                self.generator.generate(question=question, context=hits, conversation=history)
+            )
             if isinstance(result, tuple):
                 answer, _ = result
             else:
@@ -989,11 +999,13 @@ class AgentPipeline(PipelineRunner):
                         hits = await self.long_context_pass.rerank(question=question, hits=hits)
 
                 agent_answer = trace.final_answer
-                _generator_text_result = await awaitable(self.generator.generate(
-                    question=question,
-                    context=hits,
-                    conversation=history,
-                ))
+                _generator_text_result = await awaitable(
+                    self.generator.generate(
+                        question=question,
+                        context=hits,
+                        conversation=history,
+                    )
+                )
                 if isinstance(_generator_text_result, tuple):
                     _generator_text, generator_citations = _generator_text_result
                 else:
@@ -1087,7 +1099,8 @@ def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
             )
             hits.append(
                 Hit(
-                    score=float(hit.get("score", 0.0) or 0.0), chunk=record,
+                    score=float(hit.get("score", 0.0) or 0.0),
+                    chunk=record,
                 )
             )
     deduped: dict[str, Hit] = {}

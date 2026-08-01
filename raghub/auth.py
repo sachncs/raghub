@@ -151,7 +151,10 @@ class SqliteUsers:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 """
-                INSERT INTO users (user_id, email, password_hash, allowed_companies, allowed_groups, is_admin, created_at)
+                INSERT INTO users
+                    (user_id, email, password_hash,
+                     allowed_companies, allowed_groups,
+                     is_admin, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
@@ -502,7 +505,9 @@ class AuthService(ServiceMixin):
             raise AuthenticationError("Invalid or expired session")
         record = await self.container.user_store.get_by_id(session.user_id)
         if record is None:
-            self.log("audit.token.invalid", user_id=session.user_id, reason="user_deleted")  # session.user_id is FK to User (kept as user_id per FK convention)
+            self.log(
+                "audit.token.invalid", user_id=session.user_id, reason="user_deleted"
+            )  # session.user_id is FK to User (kept as user_id per FK convention)
             raise AuthenticationError("User not found")
         user = User(
             id=record.user_id,

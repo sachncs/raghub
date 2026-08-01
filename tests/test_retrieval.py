@@ -106,14 +106,14 @@ def test_linear_combine_empty_channel() -> None:
 def test_extract_json_array_from_fenced() -> None:
     """extract_json_array strips a fenced ```json block."""
 
-    raw = "Here:\n```json\n[{\"a\": 1}, {\"b\": 2}]\n```\nDone"
+    raw = 'Here:\n```json\n[{"a": 1}, {"b": 2}]\n```\nDone'
     assert extract_json_array(raw) == [{"a": 1}, {"b": 2}]
 
 
 def test_extract_json_array_inline() -> None:
     """extract_json_array picks the first JSON array inline."""
 
-    raw = "the list is [{\"x\": 1}, {\"x\": 2}] thanks"
+    raw = 'the list is [{"x": 1}, {"x": 2}] thanks'
     assert extract_json_array(raw) == [{"x": 1}, {"x": 2}]
 
 
@@ -126,7 +126,7 @@ def test_extract_json_array_no_array() -> None:
 def test_extract_json_array_filters_non_dicts() -> None:
     """extract_json_array keeps only dict items in the array."""
 
-    raw = "[{\"a\": 1}, 2, \"x\", {\"b\": 2}]"
+    raw = '[{"a": 1}, 2, "x", {"b": 2}]'
     out = extract_json_array(raw)
     assert out == [{"a": 1}, {"b": 2}]
 
@@ -140,7 +140,7 @@ def test_extract_string_array_inline() -> None:
 def test_extract_string_array_fenced() -> None:
     """extract_string_array strips a fenced json code block."""
 
-    raw = "```json\n[\"x\", \"y\"]\n```"
+    raw = '```json\n["x", "y"]\n```'
     assert extract_string_array(raw) == ["x", "y"]
 
 

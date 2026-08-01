@@ -171,9 +171,7 @@ class DefaultGenerator:
                     yield piece
             self.capture_last_usage()
             return
-        answer = await self.generate(
-            question=question, context=context, conversation=conversation
-        )
+        answer = await self.generate(question=question, context=context, conversation=conversation)
         if answer:
             yield answer
 

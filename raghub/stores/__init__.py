@@ -626,7 +626,9 @@ class Sessions:
         conn = await self.conn()
         await conn.execute(
             """
-            INSERT INTO sessions (session_id, user_id, token, created_at, expires_at, last_seen_at, history, overrides)
+            INSERT INTO sessions
+                (session_id, user_id, token, created_at,
+                 expires_at, last_seen_at, history, overrides)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (

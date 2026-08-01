@@ -21,7 +21,8 @@ async def sqlite_sessions(tmp_path):
     sessions = Sessions(str(tmp_path / "sessions.db"), timeout_seconds=3600)
     await sessions.initialize()
     yield sessions
-    # No explicit close method; the per-call connection is committed + closed inside maybe_commit_close.
+    # No explicit close method; the per-call connection is committed and
+    # closed inside maybe_commit_close.
 
 
 def _make_session(user_id: str = "u1") -> Session:

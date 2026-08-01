@@ -132,6 +132,7 @@ class RagasAdapter(Evaluator):
         self.llm = llm
         self.embeddings = embeddings
         self.metric_instances: list[Any] = []  # populated lazily in evaluate()
+
     def build_dataset(self, examples: list[dict[str, Any]]) -> Any:
         """Translate RAGHub examples into a ragas Dataset.
 

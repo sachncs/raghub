@@ -147,20 +147,14 @@ def test_aggregate_status_all_ok() -> None:
 def test_aggregate_status_one_down_is_down() -> None:
     """A single 'down' probe dominates the aggregate."""
 
-    assert aggregate_status(
-        {"a": {"status": "ok"}, "b": {"status": "down"}}
-    ) == "down"
+    assert aggregate_status({"a": {"status": "ok"}, "b": {"status": "down"}}) == "down"
 
 
 def test_aggregate_status_degraded_propagates() -> None:
     """A 'degraded' or 'unknown' probe degrades the aggregate."""
 
-    assert aggregate_status(
-        {"a": {"status": "ok"}, "b": {"status": "degraded"}}
-    ) == "degraded"
-    assert aggregate_status(
-        {"a": {"status": "ok"}, "b": {"status": "unknown"}}
-    ) == "degraded"
+    assert aggregate_status({"a": {"status": "ok"}, "b": {"status": "degraded"}}) == "degraded"
+    assert aggregate_status({"a": {"status": "ok"}, "b": {"status": "unknown"}}) == "degraded"
 
 
 # ---------------------------------------------------------------------------

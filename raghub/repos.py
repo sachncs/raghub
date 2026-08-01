@@ -277,9 +277,7 @@ class DocStore(DocumentRepository):
         """Return the latest version record for ``document_id``."""
         return await self.get_version(document_id)
 
-    async def get_version(
-        self, document_id: str, version: int | None = None
-    ) -> Document | None:
+    async def get_version(self, document_id: str, version: int | None = None) -> Document | None:
         """Return a specific version, or the latest when ``version`` is None."""
         conn = await self.conn()
         if version is None:
@@ -425,7 +423,9 @@ class SessionStore(SessionRepository):
         conn = await self.conn()
         await conn.execute(
             """
-            INSERT INTO sessions (session_id, user_id, token, created_at, expires_at, last_seen_at, history)
+            INSERT INTO sessions
+                (session_id, user_id, token, created_at,
+                 expires_at, last_seen_at, history)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (

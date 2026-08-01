@@ -146,7 +146,6 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "D", "N", "PLR"]
 ignore = [
-    "E501",  # Phase 1 fixes the long-line violations; strict-100-chars rule enforced.
     "B008",  # Phase 1 migrates function-call-in-default to Field(default_factory=...).
     "B018",  # Phase 1 removes useless-expression statements.
     "RUF002",  # Phase 1 strips non-ASCII characters from docstrings.
@@ -154,7 +153,6 @@ ignore = [
     "RUF012",  # Phase 1 replaces mutable class-default annotations.
     "RUF015",  # Phase 1 removes iterable-casting-before-sum patterns.
     "RUF043",  # Phase 1 replaces Optional[X] with X | None.
-    "RUF059",  # Phase 1 removes unused staged annotations.
     "SIM103",  # Phase 1 collapses trivial if-return-bool into direct returns.
     "SIM105",  # Phase 1 uses contextlib.suppress where appropriate.
     "SIM117",  # Phase 1 merges adjacent with-statements.

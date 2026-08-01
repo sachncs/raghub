@@ -160,6 +160,7 @@ class Classification(str, Enum):
 # Discriminator enums (one per entity class; R7: >= 2 values)
 # -----------------------------------------------------------------------------
 
+
 class SessionKind(str, Enum):
     """Discriminator for :class:`Session` types."""
 
@@ -318,6 +319,7 @@ class ResultType(str, Enum):
 # Shared lifecycle enums (R3 single-word)
 # -----------------------------------------------------------------------------
 
+
 class State(str, Enum):
     """Lifecycle state shared across entities with a state machine."""
 
@@ -348,6 +350,7 @@ class Access(str, Enum):
 # -----------------------------------------------------------------------------
 # Error type (replaces raw `str | None` error fields)
 # -----------------------------------------------------------------------------
+
 
 class ErrorInfo(BaseModel):
     """Structured error information shared across pipeline outputs.
@@ -603,9 +606,7 @@ class Chunk(BaseModel):
         from hashlib import sha256
 
         if self.checksum != sha256(self.text.encode("utf-8")).hexdigest():
-            raise VerificationError(
-                "Chunk: checksum mismatch (expected sha256(text))"
-            )
+            raise VerificationError("Chunk: checksum mismatch (expected sha256(text))")
 
 
 class Hit(BaseModel):
@@ -645,8 +646,7 @@ class Hit(BaseModel):
             raise VerificationError("Hit: empty chunk_id")
         if self.chunk.id != self.chunk_id:
             raise VerificationError(
-                f"Hit.chunk_id ({self.chunk_id!r}) does not match "
-                f"chunk.id ({self.chunk.id!r})"
+                f"Hit.chunk_id ({self.chunk_id!r}) does not match chunk.id ({self.chunk.id!r})"
             )
         self.chunk.verify()
 
@@ -806,9 +806,6 @@ class Embedding(BaseModel):
             raise VerificationError("Embedding: empty vector")
 
 
-
-
-
 class Citation(BaseModel):
     """Provenance for a single answer span.
 
@@ -846,9 +843,7 @@ class Citation(BaseModel):
         if not self.document_id:
             raise VerificationError("Citation: empty document_id")
         if self.score < 0.0:
-            raise VerificationError(
-                f"Citation: negative score ({self.score})"
-            )
+            raise VerificationError(f"Citation: negative score ({self.score})")
 
 
 class Citations(BaseModel):
@@ -950,9 +945,7 @@ class Response(BaseModel):
 
         """
         if not self.answer and not self.citations:
-            raise VerificationError(
-                "Response: empty answer and no citations"
-            )
+            raise VerificationError("Response: empty answer and no citations")
         Citations(items=list(self.citations)).verify(chunks=list(self.source_chunks))
         for source in self.source_chunks:
             source.verify()
@@ -1059,9 +1052,7 @@ class Pipeline(BaseModel):
 
         """
         if self.error is not None and not self.error.message:
-            raise VerificationError(
-                "Pipeline: error.message required when error is set"
-            )
+            raise VerificationError("Pipeline: error.message required when error is set")
 
 
 class Result(BaseModel):

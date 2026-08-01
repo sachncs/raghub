@@ -94,9 +94,7 @@ class Lifecycle:
         if self.machine is None:
             self.machine = DocumentStateMachine()
 
-    def transition(
-        self, document: Document, status: DocumentLifecycleStatus
-    ) -> Document:
+    def transition(self, document: Document, status: DocumentLifecycleStatus) -> Document:
         """Update ``document.status`` to ``status`` if the transition is legal.
 
         Args:

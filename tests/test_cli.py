@@ -53,7 +53,9 @@ def test_health_command_invokes_make_rag(monkeypatch: pytest.MonkeyPatch) -> Non
             return cls()
 
     fake_make_rag = MagicMock(return_value=_FakeRAG())
-    monkeypatch.setattr(cli_module, "CliConfig", MagicMock(write_json=CliConfig.write_json, make_rag=fake_make_rag))
+    monkeypatch.setattr(
+        cli_module, "CliConfig", MagicMock(write_json=CliConfig.write_json, make_rag=fake_make_rag)
+    )
     result = runner.invoke(app, ["health"])
     assert result.exit_code == 0
     assert "ok" in result.output
@@ -212,7 +214,9 @@ def test_tool_config_list_unknown_email_raises(capsys: pytest.CaptureFixture[str
 
 def test_tool_config_set_invalid_json_raises() -> None:
     """``raghub config tools set --json 'not-json'`` errors with a bad parameter."""
-    result = runner.invoke(app, ["config", "tools", "set", "--email", "x@x.com", "--json", "not-json"])
+    result = runner.invoke(
+        app, ["config", "tools", "set", "--email", "x@x.com", "--json", "not-json"]
+    )
     assert result.exit_code != 0
     assert "invalid json" in result.output.lower() or "Bad Parameter" in result.output
 
@@ -226,7 +230,9 @@ def test_tool_config_set_non_object_json_raises() -> None:
 
 def test_tool_config_set_unknown_email_raises() -> None:
     """``raghub config tools set --email absent`` exits non-zero."""
-    result = runner.invoke(app, ["config", "tools", "set", "--email", "absent@example.com", "--json", "{}"])
+    result = runner.invoke(
+        app, ["config", "tools", "set", "--email", "absent@example.com", "--json", "{}"]
+    )
     assert result.exit_code != 0
     assert "no user" in result.output.lower()
 

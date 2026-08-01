@@ -195,7 +195,7 @@ def test_rag_ingest_directory_sync(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(rag.ingest_pipeline, "run", _mock_run)
 
     result = rag.ingest(tmp_path)
-    assert (getattr(result, "error", None) is None)
+    assert getattr(result, "error", None) is None
 
 
 def test_rag_aingest_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -213,7 +213,7 @@ def test_rag_aingest_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(rag.ingest_pipeline, "run", _mock_run)
 
     result = asyncio.run(rag.aingest(tmp_path))
-    assert (getattr(result, "error", None) is None)
+    assert getattr(result, "error", None) is None
 
 
 def test_rag_aquery_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -227,7 +227,9 @@ def test_rag_aquery_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 
     async def _mock_run(*args: object, **kwargs: object) -> Pipeline:
         return Pipeline(
-            pipeline_id="q", pipeline_name="query", error=ErrorInfo(kind="llm", message="LLM timeout")
+            pipeline_id="q",
+            pipeline_name="query",
+            error=ErrorInfo(kind="llm", message="LLM timeout"),
         )
 
     monkeypatch.setattr(rag.query_pipeline, "run", _mock_run)

@@ -134,9 +134,7 @@ def test_from_okf_rejects_unknown_block_kind() -> None:
                 "section_id": "s",
                 "index": 0,
                 "heading": "",
-                "blocks": [
-                    {"block_id": "b", "kind": "mystery", "content": "x"}
-                ],
+                "blocks": [{"block_id": "b", "kind": "mystery", "content": "x"}],
             }
         ],
     }
@@ -357,14 +355,14 @@ def test_cosine_zero_vector_returns_zero() -> None:
 def test_extract_json_object_from_codeblock() -> None:
     """extract_json_object pulls a JSON object out of a fenced code block."""
 
-    text = "Here is the answer:\n```json\n{\"x\": 1, \"y\": [1,2]}\n```"
+    text = 'Here is the answer:\n```json\n{"x": 1, "y": [1,2]}\n```'
     assert extract_json_object(text) == {"x": 1, "y": [1, 2]}
 
 
 def test_extract_json_object_inline() -> None:
     """extract_json_object picks the first complete JSON object inline."""
 
-    text = "the result is {\"k\": \"v\"} thanks"
+    text = 'the result is {"k": "v"} thanks'
     assert extract_json_object(text) == {"k": "v"}
 
 
@@ -377,7 +375,7 @@ def test_extract_json_object_no_object_returns_none() -> None:
 def test_extract_json_object_handles_nested() -> None:
     """extract_json_object supports nested braces."""
 
-    text = "x = {\"a\": {\"b\": 2}}"
+    text = 'x = {"a": {"b": 2}}'
     assert extract_json_object(text) == {"a": {"b": 2}}
 
 
