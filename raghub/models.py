@@ -36,7 +36,7 @@ from enum import Enum
 from typing import Any, Protocol, TypeVar, runtime_checkable
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from raghub.errors import VerificationError
 
@@ -54,8 +54,8 @@ __all__ = [
     "DocumentUploadResponse",
     "Embedding",
     "Hit",
-    "PipelineCtx",
     "Pipeline",
+    "PipelineCtx",
     "Query",
     "QueryRequest",
     "QueryResponse",
@@ -162,6 +162,7 @@ class Classification(str, Enum):
 
 class SessionKind(str, Enum):
     """Discriminator for :class:`Session` types."""
+
     STANDARD = "standard"
     EPHEMERAL = "ephemeral"
     REFRESH = "refresh"
@@ -248,6 +249,7 @@ class BundleType(str, Enum):
 
 class PipelineType(str, Enum):
     """Discriminator for :class:`Pipeline` types."""
+
     INGEST = "ingest"
     QUERY = "query"
     AGENT = "agent"
@@ -275,6 +277,7 @@ class EventType(str, Enum):
 
 class UserKind(str, Enum):
     """Discriminator for :class:`User` types."""
+
     STANDARD = "standard"
     ADMIN = "admin"
     SERVICE = "service"
@@ -366,6 +369,7 @@ class User(BaseModel):
 
     Attributes:
         type: UserKind discriminator (admin / standard).
+
     """
 
     """Authenticated user principal.
@@ -400,6 +404,7 @@ class User(BaseModel):
 
         Raises:
             VerificationError: When ``id`` or ``email`` is empty.
+
         """
         if not self.id:
             raise VerificationError("User: empty id")
@@ -429,6 +434,7 @@ class Session(BaseModel):
 
     Attributes:
         type: SessionKind discriminator.
+
     """
 
     """Session metadata and isolated conversational history.
@@ -464,6 +470,7 @@ class Session(BaseModel):
         Raises:
             VerificationError: When ``id`` is empty, ``token`` is empty,
             or ``expires_at`` is in the past.
+
         """
         if not self.id:
             raise VerificationError("Session: empty id")
@@ -528,6 +535,7 @@ class Document(BaseModel):
 
         Raises:
             VerificationError: When any invariant is broken.
+
         """
         if not self.id:
             raise VerificationError("Document: empty id")
@@ -774,6 +782,7 @@ class Embedding(BaseModel):
         dim: Vector dimensionality.
         vector: Float vector.
         created_at: Timestamp the vector was produced (UTC).
+
     """
 
     id: str = Field(default_factory=lambda: str(uuid4()))
@@ -789,6 +798,7 @@ class Embedding(BaseModel):
 
         Raises:
             VerificationError: When ``id`` is empty or vector is empty.
+
         """
         if not self.id:
             raise VerificationError("Embedding: empty id")
@@ -898,6 +908,7 @@ class Response(BaseModel):
 
     Attributes:
         type: Discriminator for the response kind (R3 <Entity>Type).
+
     """
 
     answer: str = ""
@@ -1010,7 +1021,7 @@ class Pipeline(BaseModel):
     error: ErrorInfo | None = None
     finished_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    def result(self) -> "Pipeline":
+    def result(self) -> Pipeline:
         """Return the configured result."""
         return self
 
@@ -1025,6 +1036,7 @@ class Pipeline(BaseModel):
 
         Raises:
             VerificationError: When error is None on a failed run.
+
         """
         if self.error is not None and not self.error.message:
             raise VerificationError(
@@ -1037,6 +1049,7 @@ class Result(BaseModel):
 
     Attributes:
         type: Discriminator for the result kind (R3 <Entity>Type).
+
     """
 
     """Score produced by an :class:`Evaluator`.
@@ -1072,6 +1085,7 @@ class RankedItem(BaseModel):
         score: Combined rank score.
         rank: 0-based position in the list.
         chunk: The ranked chunk.
+
     """
 
     id: str
