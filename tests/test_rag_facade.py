@@ -223,7 +223,7 @@ def test_rag_aquery_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     import asyncio
 
     from raghub.errors import RagHubError
-    from raghub.models import Pipeline
+    from raghub.models import ErrorInfo, Pipeline
 
     rag = RAG(converter=PlainTextConverter())
 
@@ -301,7 +301,7 @@ def test_sync_index_does_not_record_failed_ingest(
 ) -> None:
     from raghub.errors import IngestionError
     from raghub.knowledge import Manifest
-    from raghub.models import Pipeline
+    from raghub.models import ErrorInfo, Pipeline
 
     directory = tmp_path / "documents"
     directory.mkdir()
@@ -315,8 +315,7 @@ def test_sync_index_does_not_record_failed_ingest(
         lambda *args, **kwargs: Pipeline(
             pipeline_id="i",
             pipeline_name="ingest",
-            success=False,
-            error="failed",
+            error=ErrorInfo(kind="ingest", message="failed"),
         ),
     )
 

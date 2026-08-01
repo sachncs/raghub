@@ -30,13 +30,13 @@ from __future__ import annotations
 
 import inspect
 import time
-from pydantic import ConfigDict
 from collections.abc import AsyncIterator, Sequence
 from contextlib import AbstractContextManager
 from hashlib import sha256
 from types import TracebackType
 from typing import Any, cast
 
+from pydantic import ConfigDict
 from tqdm import tqdm
 
 from raghub.agent import Agent, AgentTrace
@@ -47,7 +47,6 @@ from raghub.knowledge import MemoryRepo
 from raghub.lifecycle import PlainTextConverter
 from raghub.llm import Generator
 from raghub.models import (
-    ErrorInfo,
     Bundle,
     Chunk,
     Chunker,
@@ -55,6 +54,7 @@ from raghub.models import (
     Classification,
     DocumentConverter,
     EmbeddingProvider,
+    ErrorInfo,
     GeneratorProtocol,
     Hit,
     KnowledgeRepository,

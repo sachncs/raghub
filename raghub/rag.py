@@ -67,8 +67,8 @@ from raghub.knowledge import (
 from raghub.models import (
     Chunker,
     DocumentConverter,
-    PipelineCtx,
     Pipeline,
+    PipelineCtx,
     Response,
     Result,
     Turn,
@@ -763,7 +763,7 @@ class RAG:
             Pipeline,
             maybe_await(self.ingest_one_async(file_bytes, uri, mime_type, metadata, force, user)),
         )
-        if not (getattr(result, 'error', None) is None):
+        if getattr(result, 'error', None) is not None:
             raise IngestionError(f"ingest({source!r}) failed: {result.error.message if result.error else 'unknown'}")
         return result
 
@@ -985,7 +985,7 @@ class RAG:
             force=force,
             user=user,
         )
-        if not (getattr(result, 'error', None) is None):
+        if getattr(result, 'error', None) is not None:
             raise IngestionError(result.error or "ingestion failed")
         return result
 
@@ -1212,7 +1212,7 @@ class RAG:
             tools_enabled=resolved_tools,
             resolved_config=resolved.to_dict(),
         )
-        if not (getattr(result, 'error', None) is None):
+        if getattr(result, 'error', None) is not None:
             raise RagHubError(result.error or "query failed")
         return ResponseBuilder.from_pipeline(result)
 
@@ -1478,7 +1478,7 @@ class RAG:
             bundle_id = deterministic_id("bundle", uri, checksum)
             if prior is None:
                 result = self.ingest(child, metadata=metadata, user=user)
-                if isinstance(result, Pipeline) and not (getattr(result, 'error', None) is None):
+                if isinstance(result, Pipeline) and getattr(result, 'error', None) is not None:
                     raise IngestionError(result.error or f"failed to ingest {uri}")
                 self.manifest.record(
                     uri,
@@ -1492,7 +1492,7 @@ class RAG:
                 # stale record on the next incremental ingest.
                 prior_bundle_id = str(prior.get("bundle_id", ""))
                 result = self.ingest(child, metadata=metadata, force=True, user=user)
-                if isinstance(result, Pipeline) and not (getattr(result, 'error', None) is None):
+                if isinstance(result, Pipeline) and getattr(result, 'error', None) is not None:
                     raise IngestionError(result.error or f"failed to ingest {uri}")
                 if prior_bundle_id and prior_bundle_id != bundle_id:
                     # ``delete`` uses both ``bundle_id`` from the
