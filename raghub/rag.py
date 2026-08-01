@@ -1366,12 +1366,30 @@ class RAG:
         *,
         response_factory: Callable[[dict[str, Any]], Any] | None = None,
         examples: Sequence[dict[str, Any]] | None = None,
+        evaluator: Any = None,
     ) -> list[Result]:
-        """Run a benchmark evaluation."""
+        """Run a benchmark evaluation.
+
+        Args:
+            benchmark: ``"financebench"`` is the only supported name today.
+            response_factory: Optional callable producing an answer per
+                example (sync or async); when ``None`` the facade calls
+                :meth:`aquery`.
+            examples: The example list to evaluate.
+            evaluator: Optional pre-built evaluator instance. When
+                supplied the method skips the default ``Finance()``
+                construction, which is what tests use to inject fakes
+                without touching module globals.
+
+        Returns:
+            The list of evaluation :class:`Result` records.
+
+        """
         if benchmark != "financebench":
             raise ConfigurationError(f"Unknown benchmark: {benchmark!r}")
 
-        evaluator = Finance()
+        if evaluator is None:
+            evaluator = Finance()
         factory = response_factory
 
         async def coerce_answer(example: dict[str, Any]) -> Any:

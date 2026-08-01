@@ -9,6 +9,7 @@ on ragas.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -54,7 +55,7 @@ def test_build_dataset_translates_examples():
     """``_build_dataset`` maps RAGHub examples to the ragas schema."""
     from raghub.eval.ragas import RagasAdapter
 
-    adapter = RagasAdapter.__new__(RagasAdapter)  # bypass __init__ (no ragas)
+    adapter = RagasAdapter(metrics=())
     examples = [
         {
             "question": "q1",
@@ -82,7 +83,7 @@ def test_build_dataset_handles_missing_fields():
     """``_build_dataset`` supplies defaults for missing fields."""
     from raghub.eval.ragas import RagasAdapter
 
-    adapter = RagasAdapter.__new__(RagasAdapter)
+    adapter = RagasAdapter(metrics=())
     rows = list(adapter.build_dataset([{"question": "q"}]))
     assert rows[0]["answer"] == ""
     assert rows[0]["contexts"] == []
@@ -132,9 +133,11 @@ def test_extract_scores_handles_corrupt_values():
 
 
 def test_ragas_adapter_raises_missing_dep_when_ragas_not_installed(monkeypatch):
-    """The constructor raises MissingDepError when ragas is not importable."""
-    # Simulate ragas not being installed by injecting an import
-    # failure into sys.modules.
+    """evaluate() raises MissingDepError when ragas is not importable.
+
+    The constructor no longer imports ragas eagerly (Phase 4.19
+    rewrite); the failure surfaces on first evaluate() call.
+    """
     import sys
 
     monkeypatch.delitem(sys.modules, "ragas", raising=False)
@@ -142,16 +145,21 @@ def test_ragas_adapter_raises_missing_dep_when_ragas_not_installed(monkeypatch):
 
     from raghub.eval.ragas import RagasAdapter
 
+    async def _factory(_example: object) -> str:
+        return ""
+
+    adapter = RagasAdapter(metrics=())
     with pytest.raises(MissingDepError, match="ragas"):
-        RagasAdapter()
+        asyncio.run(adapter.evaluate([], response_factory=_factory))
 
 
 def test_ragas_adapter_raises_config_error_for_unknown_metric():
-    """The constructor raises ConfigurationError on unknown metric names."""
+    """evaluate() raises ConfigurationError on unknown metric names.
+
+    Constructor no longer validates metric names eagerly (Phase 4.19).
+    """
     import sys
 
-    # Install a stub ragas so the import succeeds, then verify the
-    # metric registry rejects a bad name.
     class StubFaithfulness:
         pass
 
@@ -169,8 +177,12 @@ def test_ragas_adapter_raises_config_error_for_unknown_metric():
     try:
         from raghub.eval.ragas import RagasAdapter
 
+        async def _factory(_example: object) -> str:
+            return ""
+
+        adapter = RagasAdapter(metrics=["nonexistent"])
         with pytest.raises(ConfigurationError, match="Unknown ragas metric"):
-            RagasAdapter(metrics=["nonexistent"])
+            asyncio.run(adapter.evaluate([], response_factory=_factory))
     finally:
         for name in ("ragas", "ragas.metrics"):
             sys.modules.pop(name, None)
@@ -211,7 +223,7 @@ def test_evaluate_calls_ragas_evaluate_with_metric_instances(monkeypatch):
 
     # Bypass the __init__ import check; set the bits the adapter
     # actually uses.
-    adapter = RagasAdapter.__new__(RagasAdapter)
+    adapter = RagasAdapter(metrics=())
     adapter.metric_names = ("faithfulness", "answer_relevancy")
     adapter.llm = None
     adapter.embeddings = None
@@ -246,7 +258,7 @@ def test_evaluate_wraps_ragas_failure_in_configuration_error(monkeypatch):
     fake_ragas = FakeRagasModule(raise_on_evaluate=RuntimeError("boom"))
     monkeypatch.setattr("raghub.eval.ragas.import_ragas", lambda: fake_ragas)
 
-    adapter = RagasAdapter.__new__(RagasAdapter)
+    adapter = RagasAdapter(metrics=())
     adapter.metric_names = ("faithfulness",)
     adapter.llm = None
     adapter.embeddings = None
@@ -277,7 +289,7 @@ def test_evaluate_mark_pass_when_all_metrics_above_threshold():
         }
     )
 
-    adapter = RagasAdapter.__new__(RagasAdapter)
+    adapter = RagasAdapter(metrics=())
     adapter.metric_names = ("faithfulness", "answer_relevancy")
     adapter.llm = None
     adapter.embeddings = None
@@ -311,7 +323,7 @@ def test_evaluate_mark_fail_when_any_metric_below_threshold():
         }
     )
 
-    adapter = RagasAdapter.__new__(RagasAdapter)
+    adapter = RagasAdapter(metrics=())
     adapter.metric_names = ("faithfulness", "answer_relevancy")
     adapter.llm = None
     adapter.embeddings = None
@@ -332,7 +344,7 @@ def test_evaluate_metric_names_have_ragas_prefix():
     """The metric keys in Result are prefixed with ``ragas_``."""
     from raghub.eval.ragas import RagasAdapter
 
-    adapter = RagasAdapter.__new__(RagasAdapter)
+    adapter = RagasAdapter(metrics=())
     adapter.metric_names = ("faithfulness", "answer_relevancy")
     adapter.llm = None
     adapter.embeddings = None

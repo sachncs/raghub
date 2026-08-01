@@ -120,15 +120,18 @@ class RagasAdapter(Evaluator):
         llm: Any | None = None,
         embeddings: Any | None = None,
     ) -> None:
-        """Store the metric names and optional ragas dependencies."""
+        """Store the metric names and optional ragas dependencies.
+
+        The actual ragas import is deferred until :meth:`evaluate` is
+        called so the constructor never raises
+        :class:`MissingDepError` for callers that only want to inspect
+        the adapter's configuration (including tests that supply a
+        pre-built ragas module via ``__init__`` field assignment).
+        """
         self.metric_names = tuple(metrics)
         self.llm = llm
         self.embeddings = embeddings
-        # Eagerly import ragas so MissingDepError surfaces at construction
-        # rather than at the first evaluate() call.
-        import_ragas()
-        self.metric_instances = [load_metric(name) for name in self.metric_names]
-
+        self.metric_instances: list[Any] = []  # populated lazily in evaluate()
     def build_dataset(self, examples: list[dict[str, Any]]) -> Any:
         """Translate RAGHub examples into a ragas Dataset.
 
@@ -180,6 +183,10 @@ class RagasAdapter(Evaluator):
 
         """
         ragas = import_ragas()
+        # Lazy-load metric instances now (or by a pre-set attribute on
+        # the instance — see ``metric_instances``).
+        if not getattr(self, "metric_instances", None):
+            self.metric_instances = [load_metric(name) for name in self.metric_names]
         rows = list(examples) if examples is not None else []
 
         # Drive the response_factory so the consumer can swap the
