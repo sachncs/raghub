@@ -1428,7 +1428,7 @@ class RerankerFactory:
         """Create the configured (or named) reranker."""
         cfg = self.settings.reranker
         provider = spec or cfg.provider
-        if provider == "none" or provider == "identity":
+        if provider in {"none", "identity"}:
             return Identity()
         if provider == "cohere":
             return Cohere(
