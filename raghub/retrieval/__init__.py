@@ -1141,15 +1141,12 @@ class Search:
     @staticmethod
     def matches(chunk: Chunk, filters: SearchFilters) -> bool:
         """Return ``True`` when ``chunk`` satisfies every active filter criterion."""
-        if filters.companies and chunk.company not in filters.companies:
-            return False
-        if filters.departments and chunk.department not in filters.departments:
-            return False
-        if filters.classifications and chunk.classification not in filters.classifications:
-            return False
-        if filters.owners and chunk.owner not in filters.owners:
-            return False
-        return True
+        return (
+            chunk.company in (filters.companies or [chunk.company])
+            and chunk.department in (filters.departments or [chunk.department])
+            and chunk.classification in (filters.classifications or [chunk.classification])
+            and chunk.owner in (filters.owners or [chunk.owner])
+        )
 
     def count_by_field(self, field: str) -> dict[str, int]:
         """Return facet counts for a given metadata field."""
