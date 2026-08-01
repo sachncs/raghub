@@ -12,6 +12,17 @@ field names are stable per docs/migration.md.
 
 from __future__ import annotations
 
+# Sub-modules surfaced as `raghub.X` namespaces for convenience.
+from raghub import (
+    api_auth,  # noqa: F401
+    api_ratelimit,  # noqa: F401
+    api_response,  # noqa: F401
+    api_sse,  # noqa: F401
+    cli_commands,  # noqa: F401
+    evaluation,  # noqa: F401
+)
+from raghub import services as services_module  # noqa: F401
+
 # Domain wrappers.
 from raghub.auth import AuthService
 
@@ -88,8 +99,6 @@ from raghub.llm import (
 )
 
 # Models -- entities and aggregates.
-# Models continued.
-# Pipelines.
 from raghub.models import (
     Bundle,
     Chunk,
@@ -110,8 +119,8 @@ from raghub.models import (
     DocumentSection as Section,
 )
 
-# Pipeline lives in raghub.models (and the alias in raghub.pipeline is the local builder).
-from raghub.pipeline import PipelineBuilder  # noqa: F401
+# Pipeline builders.
+from raghub.pipeline import PipelineBuilder
 
 # Plugin.
 from raghub.plugins import PluginRegistry
@@ -137,11 +146,11 @@ from raghub.stores import (
     JsonSessions,
     Sessions,
 )
+
+# Telemetry.
 from raghub.telemetry import (
     LangfuseTelemetryProvider as Langfuse,
 )
-
-# Telemetry.
 from raghub.telemetry import (
     LoguruTelemetryProvider as Loguru,
 )
@@ -172,19 +181,15 @@ def __getattr__(name: str) -> object:
 
 __all__ = [
     "RAG",
-    "App",
-    "Auth",
     "AuthService",
     "AuthenticationError",
     "AuthorizationError",
-    "Bearer",
     "Block",
     "Bundle",
     "Cache",
     "Chunk",
     "Citation",
     "Citations",
-    "CliConfig",
     "ConfigurationError",
     "Conversations",
     "Database",
@@ -219,16 +224,14 @@ __all__ = [
     "Noop",
     "Null",
     "Pipeline",
-    "Pipeline",
+    "PipelineBuilder",
     "PipelineError",
     "PluginRegistry",
     "Prometheus",
     "RagHubError",
-    "Redaction",
     "Rerank",
     "RerankerFactory",
     "Response",
-    "ResponseBuilder",
     "Result",
     "Retrieval",
     "RetrievalError",
@@ -239,14 +242,11 @@ __all__ = [
     "Sessions",
     "Settings",
     "SlidingWindow",
-    "Sse",
     "Store",
     "Tokenizer",
-    "ToolConfig",
     "Turn",
     "User",
     "VectorStoreError",
     "VerificationError",
     "WordChunker",
 ]
-
