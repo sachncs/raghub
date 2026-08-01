@@ -1,8 +1,8 @@
 # raghub OSS Readiness — TODO
 
-> **Status (v1.0.0 re-tagged, gates green: 734 passed / 9 skipped, ruff 0, mypy 40 files clean, interrogate 100 %, naming hook PASS, `python -c "import raghub"` ok).**
+> **Status (v1.0.0 re-tagged, gates green: 734 passed / 9 skipped, ruff 0 (7 Phase 1.20 rules restored; 15 remain in ignore per Stage 6 follow-up), mypy 40 files clean, interrogate 100 %, naming hook PASS, `python -c "import raghub"` ok).**
 >
-> The plan below is the *original* design with 148 commits. The **live state of each row** is marked in the rightmost column as `done`, `partial`, or `not started`. Phases 0, 1, 1.5, 1.7 (in scope; 13 of 13 `<Entity>Type` enums + shared `State`/`Class`/`Access` enums + `Response.citations` aggregate + `Pipeline` `error` discriminator + `Job.verify`/`Job.target`), 1.8, 1.10, 2, 3, 4.1/4.15 (exemplar), 5 (all 10 modules tested), and most of 6/7 are done. Phase 4 (test rewrites) and Phase 6.2 (flat submodule re-exports) and Phase 7.5/7.6 smoke tests are partial. See "Live status of each commit" below the per-phase tables.
+> The plan below is the *original* design with 148 commits. The **live state of each row** is marked in the rightmost column as `done`, `partial`, or `not started`. Stages 0, 1, 1.5, 1.7 (13 `<Entity>Type` enums + shared `State`/`Class`/`Access` + `Response.citations` aggregate + `Pipeline` error discriminator + `Job.verify`/`Job.target`), 1.8, 1.10, 2, 3, 4 (test rewrites rolled-up + 4.18/4.19 fixes), 5 (all 10 modules tested), 6.1/6.3/6.8/6.10, and 7 are done. The remaining 15 ruff ignores (Stage 6 follow-up) and the coverage 85% gate (currently ~64%) remain as next-phase work; see RELEASE_NOTES.md.
 
 > **Phase 5 coverage is at ~65 % globally** (up from 52 %). The 85 % CI gate remains a stretch goal; what was previously partial coverage is now exercised by the new test files: `auth`, `cli`, `evaluation`, `api` (+ sub-modules), `knowledge`, `parsers`, `stores`, `repos`, `retrieval`, `telemetry`, `migrate`, `plugins`, `conv`, `prompts`, `services`, `sessions`, `ingest`, `llm`. Each file ships with content-based assertions.
 
