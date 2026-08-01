@@ -1005,14 +1005,19 @@ class PipelineCtx(BaseModel):
 
 
 class Pipeline(BaseModel):
-    """Output of a successful pipeline run.
+    """Output of a pipeline run.
+
+    The model uses an ``error: ErrorInfo | None`` discriminator rather
+    than a boolean ``success`` flag: ``error is None`` means the run
+    succeeded, ``error`` is set means it failed. Callers branch on
+    ``pipeline.error is None`` rather than reading a removed field.
 
     Attributes:
         pipeline_id: Id of the originating run.
         pipeline_name: Logical pipeline name.
-        success: Whether the pipeline completed without error.
+        type: Discriminator for the pipeline kind (R3 <Entity>Type).
         outputs: Stage-specific outputs keyed by stage name.
-        error: Error message when ``success`` is ``False``.
+        error: Populated when the run failed; ``None`` on success.
         finished_at: Pipeline finish timestamp (UTC).
 
     """
@@ -1028,17 +1033,20 @@ class Pipeline(BaseModel):
         """Return the configured result."""
         return self
 
+    @property
+    def succeeded(self) -> bool:
+        """``True`` when the pipeline completed without error."""
+        return self.error is None
+
     def verify(self) -> None:
         """Assert the result's invariant contract.
 
-        Kept as an alias for result so callers that use
-        Pipeline.verify() (the previous API) continue to work.
         A successful construction satisfies the contract by
         definition; an errored result must carry a non-empty
-        error.
+        error message.
 
         Raises:
-            VerificationError: When error is None on a failed run.
+            VerificationError: When ``error`` is set but the message is empty.
 
         """
         if self.error is not None and not self.error.message:
