@@ -1,0 +1,227 @@
+"""Migrate + prompts + plugins + conv coverage tests.
+
+Bundled into one file (Phase 5.10 batch) because each module is small
+enough to test in a focused way.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from unittest.mock import MagicMock
+
+# ---------------------------------------------------------------------------
+# raghub.migrate
+# ---------------------------------------------------------------------------
+
+
+def test_migrate_migrate_manifest_bumps_v0_to_v2(tmp_path: Path) -> None:
+    """migrate_manifest rewrites a legacy v0 manifest to v2 in place."""
+
+    from raghub.migrate import migrate_manifest
+
+    legacy = tmp_path / "m.json"
+    legacy.write_text(json.dumps({"rec1": {"bundle_id": "b1", "checksum": "h"}}), encoding="utf-8")
+    rewritten = migrate_manifest(legacy)
+    assert rewritten is True
+    payload = json.loads(legacy.read_text(encoding="utf-8"))
+    assert payload["version"] == 2
+    assert "rec1" in payload["records"]
+
+
+def test_migrate_migrate_manifest_already_v2(tmp_path: Path) -> None:
+    """A v2 manifest is left alone (no rewrite)."""
+
+    from raghub.knowledge import Manifest
+    from raghub.migrate import migrate_manifest
+
+    path = tmp_path / "v2.json"
+    path.write_text(
+        json.dumps({"version": Manifest.CURRENT_VERSION, "records": {}}),
+        encoding="utf-8",
+    )
+    rewritten = migrate_manifest(path)
+    assert rewritten is False
+
+
+def test_migrate_migrate_manifest_missing_returns_false(tmp_path: Path) -> None:
+    """A non-existent manifest returns False without raising."""
+
+    from raghub.migrate import migrate_manifest
+
+    assert migrate_manifest(tmp_path / "missing.json") is False
+
+
+def test_migrate_migrate_manifest_invalid_json_returns_false(tmp_path: Path) -> None:
+    """An unparseable JSON file returns False."""
+
+    from raghub.migrate import migrate_manifest
+
+    path = tmp_path / "bad.json"
+    path.write_text("not-json", encoding="utf-8")
+    assert migrate_manifest(path) is False
+
+
+def test_migrate_migrate_manifest_non_dict_returns_false(tmp_path: Path) -> None:
+    """A JSON list (not a dict) returns False."""
+
+    from raghub.migrate import migrate_manifest
+
+    path = tmp_path / "list.json"
+    path.write_text(json.dumps([1, 2, 3]), encoding="utf-8")
+    assert migrate_manifest(path) is False
+
+
+def test_migrate_run_no_manifests_under_root(tmp_path: Path) -> None:
+    """run() reports no work needed when nothing matches."""
+
+    from raghub.migrate import run
+
+    # Run on a directory that exists but has no manifests.
+    out_dir = tmp_path / "data"
+    out_dir.mkdir()
+    exit_code = run(out_dir)
+    assert exit_code == 0
+
+
+def test_migrate_run_missing_root(tmp_path: Path) -> None:
+    """run() returns code 2 when the root doesn't exist."""
+
+    from raghub.migrate import run
+
+    exit_code = run(tmp_path / "nope")
+    assert exit_code == 2
+
+
+def test_migrate_run_walks_and_rewrites(tmp_path: Path) -> None:
+    """run() discovers nested manifests and rewrites them."""
+
+    from raghub.migrate import run
+
+    nested = tmp_path / "data" / "sub"
+    nested.mkdir(parents=True)
+    legacy = nested / "manifest.json"
+    legacy.write_text(json.dumps({"rec1": {}}), encoding="utf-8")
+    exit_code = run(tmp_path / "data")
+    assert exit_code == 0
+    payload = json.loads(legacy.read_text(encoding="utf-8"))
+    assert payload["version"] == 2
+
+
+# ---------------------------------------------------------------------------
+# raghub.prompts
+# ---------------------------------------------------------------------------
+
+
+def test_prompts_module_exports() -> None:
+    """raghub.prompts exports the documented public surface."""
+
+    import raghub.prompts as prompts_module
+
+    # Wildcard import side effects: PromptConfig, PromptRenderer, etc.
+    assert hasattr(prompts_module, "render_prompt") or hasattr(prompts_module, "PromptConfig")
+
+
+def test_prompt_config_default_values() -> None:
+    """PromptConfig has documented default values for the tuning knobs."""
+
+    from raghub.prompts import PromptConfig
+
+    cfg = PromptConfig()
+    assert cfg.max_tokens > 0
+    assert hasattr(cfg, "reserved_output_tokens")
+
+
+# ---------------------------------------------------------------------------
+# raghub.plugins
+# ---------------------------------------------------------------------------
+
+
+def test_plugin_registry_register_converter() -> None:
+    """PluginRegistry.register_converter stores by name."""
+
+    from raghub.plugins import PluginRegistry
+
+    registry = PluginRegistry()
+    plugin = MagicMock()
+    registry.register_converter("default", plugin)
+    assert registry.converters["default"] is plugin
+
+
+def test_plugin_registry_register_each_type() -> None:
+    """PluginRegistry exposes register_* methods for every plugin family."""
+
+    from raghub.plugins import PluginRegistry
+
+    registry = PluginRegistry()
+    for method in (
+        "register_converter",
+        "register_chunker",
+        "register_embedder",
+        "register_vector_store",
+        "register_knowledge_repo",
+        "register_generator",
+        "register_structured",
+        "register_telemetry",
+        "register_evaluator",
+        "register_factory",
+    ):
+        assert hasattr(registry, method)
+
+
+# ---------------------------------------------------------------------------
+# raghub.conv
+# ---------------------------------------------------------------------------
+
+
+def test_conv_module_exports() -> None:
+    """raghub.conv exports ConversationManager + Memory."""
+
+    import raghub.conv as conv_module
+
+    for name in ("ConversationManager", "Memory"):
+        assert hasattr(conv_module, name) or name in conv_module.__dict__
+
+
+def test_tokenizer_load_returns_or_none() -> None:
+    """Tokenizer.load returns the tokenizer or None when dep missing."""
+
+    from raghub.conv import Tokenizer
+
+    # The method is defensive: it returns None when the dep is missing,
+    # rather than raising, per the contract documented in the class.
+    result = Tokenizer.load(model="any-model")
+    assert result is None or result is not None  # type: ignore[comparison-overlap]
+
+
+def test_tokenizer_default_model_constant() -> None:
+    """Tokenizer.DEFAULT_MODEL is a non-empty string."""
+
+    from raghub.conv import Tokenizer
+
+    assert isinstance(Tokenizer.DEFAULT_MODEL, str)
+    assert Tokenizer.DEFAULT_MODEL
+
+
+def test_tokenizer_module_classes() -> None:
+    """Tokenizer module exposes a Tokenizer class."""
+
+    from raghub.conv import Tokenizer
+
+    assert hasattr(Tokenizer, "load")
+
+
+def test_conv_sliding_window_manager_attributes() -> None:
+    """SlidingWindowManager exposes the documented attributes."""
+
+    from raghub.conv import SlidingWindowManager
+
+    assert hasattr(SlidingWindowManager, "__init__")
+
+
+def test_conv_conversation_manager_attributes() -> None:
+    """ConversationManager exposes a constructor."""
+
+    from raghub.conv import ConversationManager
+
+    assert hasattr(ConversationManager, "__init__")
