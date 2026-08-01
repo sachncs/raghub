@@ -461,7 +461,7 @@ class AuthService(ServiceMixin):
         if user is None:
             self.log("audit.login.failed", email=email, reason="invalid_credentials")
             raise AuthenticationError("Invalid email or password")
-        session = await self.container.store.create_session(user.id)
+        session = await self.container.store.create_session(user.user_id)
         self.emit_metric("auth_login_latency_ms", started)
         self.log("audit.login.success", email=user.email)
         return AuthLoginResponse(
@@ -505,12 +505,12 @@ class AuthService(ServiceMixin):
             self.log("audit.token.invalid", user_id=session.user_id, reason="user_deleted")  # session.user_id is FK to User (kept as user_id per FK convention)
             raise AuthenticationError("User not found")
         user = User(
-            id=record.id,
+            id=record.user_id,
             email=record.email,
             allowed_companies=record.allowed_companies,
             allowed_groups=record.allowed_groups,
             is_admin=record.is_admin,
-            tool_settings=await self.load_tool_settings(record.id),
+            tool_settings=await self.load_tool_settings(record.user_id),
         )
         return user, list(session.history)
 
