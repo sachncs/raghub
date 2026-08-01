@@ -148,6 +148,7 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "D", "N", "PLR"]
 ignore = [
     "E501",  # Phase 1 fixes the long-line violations; strict-100-chars rule enforced.
     "B008",  # Phase 1 migrates function-call-in-default to Field(default_factory=...).
+    "B017",  # Phase 1 narrows pytest.raises(Exception) to specific exception types.
     "B018",  # Phase 1 removes useless-expression statements.
     "RUF002",  # Phase 1 strips non-ASCII characters from docstrings.
     "RUF003",  # Phase 1 strips ambiguous characters from comments/docstrings.

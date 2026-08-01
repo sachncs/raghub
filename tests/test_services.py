@@ -7,6 +7,7 @@ workers, missing_doc, and the simple Module-level accessors.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -214,7 +215,7 @@ def test_parse_users_json() -> None:
 def test_parse_users_invalid_json_raises() -> None:
     """parse_users propagates JSON errors."""
 
-    with pytest.raises(Exception):
+    with pytest.raises(json.JSONDecodeError):
         parse_users("not-json")
 
 
