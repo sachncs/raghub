@@ -880,7 +880,14 @@ class Citations(BaseModel):
         for cit in self.items:
             cit.verify()
         if chunks is not None:
-            valid = {getattr(c, 'id', None) for c in chunks}
+
+            def _chunk_id(c: object) -> str | None:
+                id_attr = getattr(c, "id", None)
+                if id_attr is not None:
+                    return id_attr
+                return getattr(c, "chunk_id", None)
+
+            valid = {_chunk_id(c) for c in chunks}
             for cit in self.items:
                 if cit.chunk is not None and cit.chunk.id not in valid:
                     raise VerificationError(
@@ -924,10 +931,9 @@ class Response(BaseModel):
     def verify(self) -> None:
         """Assert the response's contract.
 
-        Verifies every citation that names a chunk (via
-        :attr:`Citation.chunk`) resolves to an entry in
-        ``source_chunks``, and each ``source_chunks`` entry verifies
-        its own invariant.
+        Delegates citation-membership checks to
+        :meth:`Citations.verify`, then runs ``source_chunks.verify()``
+        on each entry.
 
         Raises:
             VerificationError: When any check fails.
@@ -937,17 +943,13 @@ class Response(BaseModel):
             raise VerificationError(
                 "Response: empty answer and no citations"
             )
-        source_ids = {sr.chunk.id for sr in self.source_chunks}
-        for citation in self.citations:
-            if citation.chunk is None:
-                continue
-            citation.chunk.verify()
-            if citation.chunk.id not in source_ids:
-                raise VerificationError(
-                    f"Response: citation chunk_id {citation.chunk.id!r} not in source_chunks"
-                )
+        Citations(items=list(self.citations)).verify(chunks=list(self.source_chunks))
         for source in self.source_chunks:
             source.verify()
+
+    def citations_aggregate(self) -> Citations:
+        """Return the citations wrapped as the :class:`Citations` aggregate."""
+        return Citations(items=list(self.citations))
 
 
 class Bundle(BaseModel):
