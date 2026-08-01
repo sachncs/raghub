@@ -882,10 +882,11 @@ class Citations(BaseModel):
         if chunks is not None:
 
             def _chunk_id(c: object) -> str | None:
-                id_attr = getattr(c, "id", None)
+                id_attr: object = getattr(c, "id", None)
                 if id_attr is not None:
-                    return id_attr
-                return getattr(c, "chunk_id", None)
+                    return str(id_attr)
+                cid_attr: object = getattr(c, "chunk_id", None)
+                return str(cid_attr) if cid_attr is not None else None
 
             valid = {_chunk_id(c) for c in chunks}
             for cit in self.items:
