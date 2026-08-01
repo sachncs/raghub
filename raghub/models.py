@@ -882,6 +882,15 @@ class Citations(BaseModel):
         if chunks is not None:
 
             def _chunk_id(c: object) -> str | None:
+                """Resolve a chunk's id from either ``.id`` or ``.chunk_id``.
+
+                Args:
+                    c: A chunk-like object.
+
+                Returns:
+                    The chunk id, or ``None`` when neither attribute is set.
+
+                """
                 id_attr: object = getattr(c, "id", None)
                 if id_attr is not None:
                     return str(id_attr)
