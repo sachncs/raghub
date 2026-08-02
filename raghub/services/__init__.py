@@ -554,66 +554,24 @@ async def build_container(settings: Settings) -> RagContainer:
         RuntimeError: When ``JWT_SECRET`` is missing.
 
     """
-    from contextlib import suppress
-
-    from raghub.auth import Authz, SqliteUsers
-
-    logger = build_logger(settings.log_level)
-    user_store = SqliteUsers(settings.data_dir / "users.db")
-    await user_store.initialize()
-    jwt_secret = settings.jwt_secret.get_secret_value()
-    if not jwt_secret:
-        raise RuntimeError("JWT_SECRET must be configured")
-    authorization = Authz(user_store, logger=logger)
-
+    logger, authorization, user_store = await _build_auth_components(settings)
+    raw_session_store, uow, vector_store = await _build_storage_components(settings)
     nvidia_api_key = settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
-    vector_store: Store = build_store(settings, embedding_dim=settings.embedding_dim)
-
-    db_path = str(settings.registry_path).replace(".json", ".db")
-    uow = UnitOfWork(
-        db_path=db_path,
-        vector_store=vector_store,
-        session_timeout=settings.session_timeout_seconds,
+    model_components = _build_model_components(
+        settings, vector_store, uow, nvidia_api_key
     )
-    await uow.initialize()
-    raw_session_store = Sessions(
-        settings.data_dir / "sessions.db",
-        settings.session_timeout_seconds,
-    )
-    await raw_session_store.initialize()
-
-    embeddings: Embedder = build_embedder(
-        settings.embedding_model,
-        settings.embedding_dim,
-        nvidia_api_key,
-    )
-    llm: Generator = build_llm(settings.llm_model, nvidia_api_key)
-
-    prompt_builder = PromptBuilder()
-    conversation = ConversationManager(uow)
-    lifecycle = Lifecycle()
-    ingestion = Ingestor(
-        uow=uow,
-        embedding_provider=embeddings,
-        lifecycle_manager=lifecycle,
-        max_upload_bytes=settings.max_upload_bytes,
-    )
-    retrieval = RetrievalPipeline(
-        embedding_provider=embeddings,
-        vector_store=vector_store,
-        rerank=IdentityReranker(),
-    )
-    image_store = ImageStore(settings.data_dir / "images")
-    parser_registry = Catalog()
-
-    if seed_blocked(settings):
-        info = getattr(logger, "warning", None) or getattr(logger, "info", None)
-        if callable(info):
-            with suppress(Exception):
-                info("seed.skipped", reason="production_or_wildcard_cors")
-    else:
-        await seed_demo_users(user_store)
-
+    (
+        embeddings,
+        llm,
+        retrieval,
+        ingestion,
+        conversation,
+        prompt_builder,
+        image_store,
+        parser_registry,
+    ) = model_components
+    del model_components
+    await _maybe_seed_demo_users(settings, logger, user_store)
     return RagContainer(
         settings=settings,
         logger=logger,
@@ -633,6 +591,98 @@ async def build_container(settings: Settings) -> RagContainer:
         store=raw_session_store,
         uow=uow,
     )
+
+
+async def _build_auth_components(
+    settings: Settings,
+) -> tuple[Any, Any, Any]:
+    """Build the logger, ``Authz`` coordinator, and user store."""
+    from raghub.auth import Authz, SqliteUsers
+
+    logger = build_logger(settings.log_level)
+    user_store = SqliteUsers(settings.data_dir / "users.db")
+    await user_store.initialize()
+    jwt_secret = settings.jwt_secret.get_secret_value()
+    if not jwt_secret:
+        raise RuntimeError("JWT_SECRET must be configured")
+    authorization = Authz(user_store, logger=logger)
+    return logger, authorization, user_store
+
+
+async def _build_storage_components(settings: Settings) -> tuple[Any, Any, Store]:
+    """Build the raw session store, the unit of work, and the vector store."""
+    raw_session_store = Sessions(
+        settings.data_dir / "sessions.db",
+        settings.session_timeout_seconds,
+    )
+    await raw_session_store.initialize()
+    vector_store: Store = build_store(settings, embedding_dim=settings.embedding_dim)
+    db_path = str(settings.registry_path).replace(".json", ".db")
+    uow = UnitOfWork(
+        db_path=db_path,
+        vector_store=vector_store,
+        session_timeout=settings.session_timeout_seconds,
+    )
+    await uow.initialize()
+    return raw_session_store, uow, vector_store
+
+
+def _build_model_components(
+    settings: Settings,
+    vector_store: Store,
+    uow: Any,
+    nvidia_api_key: str,
+) -> tuple[Any, ...]:
+    """Build the LLM, embedding, retrieval, and document collaborators."""
+    embeddings: Embedder = build_embedder(
+        settings.embedding_model,
+        settings.embedding_dim,
+        nvidia_api_key,
+    )
+    llm: Generator = build_llm(settings.llm_model, nvidia_api_key)
+    prompt_builder = PromptBuilder()
+    conversation = ConversationManager(uow)
+    lifecycle = Lifecycle()
+    ingestion = Ingestor(
+        uow=uow,
+        embedding_provider=embeddings,
+        lifecycle_manager=lifecycle,
+        max_upload_bytes=settings.max_upload_bytes,
+    )
+    retrieval = RetrievalPipeline(
+        embedding_provider=embeddings,
+        vector_store=vector_store,
+        rerank=IdentityReranker(),
+    )
+    image_store = ImageStore(settings.data_dir / "images")
+    parser_registry = Catalog()
+    return (
+        embeddings,
+        llm,
+        retrieval,
+        ingestion,
+        conversation,
+        prompt_builder,
+        image_store,
+        parser_registry,
+    )
+
+
+async def _maybe_seed_demo_users(
+    settings: Settings,
+    logger: Any,
+    user_store: Any,
+) -> None:
+    """Seed demo users when the deployment profile allows it."""
+    from contextlib import suppress
+
+    if seed_blocked(settings):
+        info = getattr(logger, "warning", None) or getattr(logger, "info", None)
+        if callable(info):
+            with suppress(Exception):
+                info("seed.skipped", reason="production_or_wildcard_cors")
+        return
+    await seed_demo_users(user_store)
 
 
 # ---------------------------------------------------------------------------
@@ -707,32 +757,34 @@ class Preference:
         *,
         token: str,
         question: str,
-        tools_enabled: list[str] | None = None,
-        agent: bool | None = None,
-        web: bool | None = None,
-        graph: bool | None = None,
-        summaries: bool | None = None,
-        reranker: str | None = None,
-        long_context_pass: bool | None = None,
-        query_transforms: list[str] | None = None,
-        max_steps: int | None = None,
-        top_k: int | None = None,
+        **flags: Any,
     ) -> QueryResponse:
-        """Resolve advanced-RAG flags against user prefs and route accordingly."""
+        """Resolve advanced-RAG flags against user prefs and route accordingly.
+
+        Args:
+            token: The session token.
+            question: The user's question.
+            **flags: Optional ``tools_enabled=``, ``agent=``,
+                ``web=``, ``graph=``, ``summaries=``,
+                ``reranker=``, ``long_context_pass=``,
+                ``query_transforms=``, ``max_steps=``, ``top_k=``
+                overrides.
+
+        """
         container = self.facade.container
         user, _ = await container.auth.resolve_user(token)
         prefs = dict(getattr(user, "tool_settings", None) or {})
         resolved = resolve(
             request_overrides={
-                "tools_enabled": tools_enabled,
-                "agent": agent,
-                "web": web,
-                "graph": graph,
-                "summaries": summaries,
-                "reranker": reranker,
-                "long_context_pass": long_context_pass,
-                "query_transforms": query_transforms,
-                "max_steps": max_steps,
+                "tools_enabled": flags.get("tools_enabled"),
+                "agent": flags.get("agent"),
+                "web": flags.get("web"),
+                "graph": flags.get("graph"),
+                "summaries": flags.get("summaries"),
+                "reranker": flags.get("reranker"),
+                "long_context_pass": flags.get("long_context_pass"),
+                "query_transforms": flags.get("query_transforms"),
+                "max_steps": flags.get("max_steps"),
             },
             session_overrides=None,
             user_prefs=prefs,
@@ -744,8 +796,8 @@ class Preference:
             response = await self.facade.query_svc.query(token=token, question=question)
             response.metadata = dict(response.metadata or {})
             response.metadata["resolved_config"] = resolved.to_dict()
-            if top_k is not None:
-                response.metadata["requested_top_k"] = top_k
+            if flags.get("top_k") is not None:
+                response.metadata["requested_top_k"] = flags["top_k"]
             return cast(QueryResponse, response)
 
         session = await container.store.get_by_token(token)
@@ -761,16 +813,7 @@ class Preference:
             question,
             user=principal,
             session_id=session.id if session is not None else None,
-            tools_enabled=tools_enabled,
-            agent=agent,
-            web=web,
-            graph=graph,
-            summaries=summaries,
-            reranker=reranker,
-            long_context_pass=long_context_pass,
-            query_transforms=query_transforms,
-            max_steps=max_steps,
-            top_k=top_k,
+            **flags,
         )
         return QueryResponse(
             answer=canonical.answer,
@@ -898,31 +941,21 @@ class Facade:
         *,
         token: str,
         question: str,
-        tools_enabled: list[str] | None = None,
-        agent: bool | None = None,
-        web: bool | None = None,
-        graph: bool | None = None,
-        summaries: bool | None = None,
-        reranker: str | None = None,
-        long_context_pass: bool | None = None,
-        query_transforms: list[str] | None = None,
-        max_steps: int | None = None,
-        top_k: int | None = None,
+        **flags: Any,
     ) -> QueryResponse:
-        """Resolve advanced-RAG flags against user prefs and route accordingly."""
+        """Resolve advanced-RAG flags against user prefs and route accordingly.
+
+        Args:
+            token: The session token.
+            question: The user's question.
+            **flags: Optional advanced-RAG overrides forwarded to
+                :meth:`preferences.query_with_flags`.
+
+        """
         return await self.preferences.query_with_flags(
             token=token,
             question=question,
-            tools_enabled=tools_enabled,
-            agent=agent,
-            web=web,
-            graph=graph,
-            summaries=summaries,
-            reranker=reranker,
-            long_context_pass=long_context_pass,
-            query_transforms=query_transforms,
-            max_steps=max_steps,
-            top_k=top_k,
+            **flags,
         )
 
     def log(self, message: str, **payload: object) -> None:

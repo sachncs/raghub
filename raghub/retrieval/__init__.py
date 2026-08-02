@@ -1258,11 +1258,20 @@ class Retrieval:
         vector_results: list[Hit],
         keyword_weight: float = 0.3,
         vector_weight: float = 0.7,
-        *,
-        fusion: str | None = None,
-        rrf_k: int | None = None,
+        **options: Any,
     ) -> list[Hit]:
-        """Combine keyword and vector hits with the configured fusion."""
+        """Combine keyword and vector hits with the configured fusion.
+
+        Args:
+            query: Original query string.
+            vector_results: Vector-store hits to merge.
+            keyword_weight: Weight for the keyword leg.
+            vector_weight: Weight for the vector leg.
+            **options: Optional ``fusion=`` and ``rrf_k=`` overrides.
+
+        """
+        fusion: str | None = options.get("fusion")
+        rrf_k: int | None = options.get("rrf_k")
         chosen = fusion or getattr(self.hybrid, "fusion", "rrf")
         if chosen == "linear":
             return self.linear(

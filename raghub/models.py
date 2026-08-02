@@ -1670,10 +1670,14 @@ class LLMProvider(Protocol):
         conversation: Sequence[Turn],
         context: Sequence[str],
         question: str,
-        image_paths: list[str] | None = None,
-        session_history: list[dict[str, Any]] | None = None,
+        **options: Any,
     ) -> str:
-        """Generate a response from prompt sections."""
+        """Generate a response from prompt sections.
+
+        Optional ``image_paths=`` and ``session_history=`` overrides
+        are accepted via ``**options`` for backward compatibility
+        with the previous explicit signature.
+        """
         ...
 
 
