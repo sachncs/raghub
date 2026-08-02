@@ -23,7 +23,7 @@ from typing import Any, cast
 
 from raghub.embedder import Embedder
 from raghub.errors import KnowledgeError
-from raghub.llm import Generator
+from raghub.llm import GenerationRequest, Generator
 from raghub.models import (
     BlockKind,
     Bundle,
@@ -44,6 +44,8 @@ __all__ = [
 ]
 
 OKF_SCHEMA_VERSION = "0.1"
+
+MIN_TOKEN_LENGTH = 2
 
 
 # ---------------------------------------------------------------------------
@@ -308,6 +310,10 @@ class Manifest:
         """Retrieve the record for a source URI."""
         return self.records[source_uri]
 
+    def get(self, source_uri: str) -> dict[str, Any] | None:
+        """Return the record for ``source_uri`` or ``None``."""
+        return self.records.get(source_uri)
+
     def items(self) -> Iterable[tuple[str, dict[str, Any]]]:
         """Yield ``(source_uri, record)`` pairs."""
         return self.records.items()
@@ -542,10 +548,12 @@ async def summarise_async(
     return cast(
         str,
         await llm.async_generate(
-            system_prompt="You summarise passages.",
-            conversation=[],
-            context=[],
-            question=SUMMARY_PROMPT.format(passages=joined),
+            GenerationRequest(
+                system_prompt="You summarise passages.",
+                conversation=[],
+                context=[],
+                question=SUMMARY_PROMPT.format(passages=joined),
+            )
         ),
     )
 
@@ -668,7 +676,9 @@ def extract_json_object(raw: str) -> dict[str, Any] | None:
 
 def tokenise(text: str) -> set[str]:
     """Lower-case word tokens, dropping words of length ≤ 2."""
-    return {token for token in re.findall(r"\w+", text.lower()) if len(token) > 2}
+    return {
+        token for token in re.findall(r"\w+", text.lower()) if len(token) > MIN_TOKEN_LENGTH
+    }
 
 
 class GraphIndex(KnowledgeIndex):
@@ -882,10 +892,12 @@ class GraphIndex(KnowledgeIndex):
         if self.llm is None or not text:
             return None
         raw = await self.llm.async_generate(
-            system_prompt="You extract entities and relations.",
-            conversation=[],
-            context=[],
-            question=EXTRACT_PROMPT.format(passage=text[:3000]),
+            GenerationRequest(
+                system_prompt="You extract entities and relations.",
+                conversation=[],
+                context=[],
+                question=EXTRACT_PROMPT.format(passage=text[:3000]),
+            )
         )
         return extract_json_object(raw or "")
 
@@ -954,10 +966,12 @@ class GraphIndex(KnowledgeIndex):
                 relations="; ".join(relations[:30]) or "(no relations)",
             )
             raw = await self.llm.async_generate(
-                system_prompt="You summarise communities.",
-                conversation=[],
-                context=[],
-                question=prompt,
+                GenerationRequest(
+                    system_prompt="You summarise communities.",
+                    conversation=[],
+                    context=[],
+                    question=prompt,
+                )
             )
             summary = (raw or "").strip() or f"Community of {len(community)} entities."
             self.community_summaries[idx] = summary[:600]

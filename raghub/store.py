@@ -193,7 +193,8 @@ class MemoryStore(Store):
         self.records: dict[str, MemoryVectorRecord] = {}
         self.bm25: BM25Okapi | None = None
 
-    def create_collection(self) -> None:
+    @staticmethod
+    def create_collection() -> None:
         """No-op: this backend has no separate collection concept."""
         return None
 
@@ -267,7 +268,8 @@ class MemoryStore(Store):
             corpus = [rec.chunk.text.split() for rec in self.records.values()]
         self.bm25 = BM25Okapi(corpus)
 
-    def materialize(self, hits: list[tuple[MemoryVectorRecord, float]]) -> list[dict[str, Any]]:
+    @staticmethod
+    def materialize(hits: list[tuple[MemoryVectorRecord, float]]) -> list[dict[str, Any]]:
         """Convert internal hit tuples into the public dict shape."""
         out: list[dict[str, Any]] = []
         for rec, score in hits:
@@ -282,7 +284,8 @@ class MemoryStore(Store):
             )
         return out
 
-    def compute_score(self, left: Sequence[float], right: Sequence[float]) -> float:
+    @staticmethod
+    def compute_score(left: Sequence[float], right: Sequence[float]) -> float:
         """Compute cosine similarity in ``[0, 1]``."""
         lhs = np.asarray(left, dtype=np.float32)
         rhs = np.asarray(right, dtype=np.float32)
@@ -348,7 +351,8 @@ class MemoryStore(Store):
             order = np.argsort(-rrf)[:top_k]
         return self.materialize([(records[i], float(rrf[i])) for i in order])
 
-    def optimize(self) -> None:
+    @staticmethod
+    def optimize() -> None:
         """No-op for the in-process backend."""
         return None
 
@@ -460,7 +464,8 @@ class SqliteStore(Store):
         """Identifier of the active backend."""
         return SQLITE_VECTOR_PKG or "sqlite-fallback"
 
-    def create_collection(self) -> None:
+    @staticmethod
+    def create_collection() -> None:
         """No-op: schema is created at construction time."""
         return None
 

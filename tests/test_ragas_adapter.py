@@ -10,6 +10,7 @@ on ragas.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from typing import Any
 
 import pytest
@@ -21,11 +22,11 @@ from raghub.errors import ConfigurationError, MissingDepError
 # ---------------------------------------------------------------------------
 
 
+@dataclass
 class FakeRagasResult:
     """Stand-in for a ragas Result."""
 
-    def __init__(self, scores: dict[str, list[float]]):
-        self.scores = scores
+    scores: dict[str, list[float]]
 
 
 class FakeRagasModule:
@@ -201,10 +202,10 @@ def test_ragas_adapter_raises_config_error_for_unknown_metric():
 
 def safe_import_ragas() -> bool:
     try:
-        import ragas  # noqa: F401
+        import importlib.util
 
-        return True
-    except ImportError:
+        return importlib.util.find_spec("ragas") is not None
+    except (ImportError, ValueError):
         return False
 
 

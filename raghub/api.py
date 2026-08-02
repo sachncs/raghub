@@ -16,7 +16,7 @@ import importlib.metadata
 import os
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from typing import Any, ClassVar
+from typing import Annotated, Any, ClassVar
 
 from fastapi import (
     APIRouter,
@@ -372,7 +372,7 @@ class RouteGroup:
 
         @self.router.get("/health")
         def handler(
-            app_service: Facade = Depends(App.get),
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, Any]:
             """Report liveness."""
             return app_service.health()
@@ -385,7 +385,7 @@ class RouteGroup:
         @self.router.post("/auth/login", response_model=AuthLoginResponse)
         async def handler(
             payload: AuthLoginRequest,
-            app_service: Facade = Depends(App.get),
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> AuthLoginResponse:
             """Handle the request and return the response model."""
             return await app_service.login(payload.email, payload.password)
@@ -397,8 +397,8 @@ class RouteGroup:
 
         @self.router.post("/auth/logout")
         async def handler(
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, str]:
             """Handle the request and return the response model."""
             await app_service.logout(token)
@@ -411,8 +411,8 @@ class RouteGroup:
 
         @self.router.get("/session/history")
         async def handler(
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, list[dict[str, Any]]]:
             """Handle the request and return the response model."""
             history = await app_service.history(token)
@@ -425,8 +425,8 @@ class RouteGroup:
 
         @self.router.delete("/session/history", status_code=204, response_class=Response)
         async def handler(
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> Response:
             """Handle the request and return the response model."""
             await app_service.clear_history(token)
@@ -444,10 +444,10 @@ class RouteGroup:
         )
         async def handler(
             request: Request,
-            file: UploadFile = File(...),
-            company: str | None = Form(default=None),
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            file: Annotated[UploadFile, File(...)],
+            company: Annotated[str | None, Form(default=None)],
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> DocumentUploadResponse:
             """Handle the request and return the response model."""
             enforce_upload_limit(request, app_service.container)
@@ -486,10 +486,10 @@ class RouteGroup:
         )
         async def handler(
             request: Request,
-            files: list[UploadFile] = File(...),
-            company: str | None = Form(default=None),
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            files: Annotated[list[UploadFile], File(...)],
+            company: Annotated[str | None, Form(default=None)],
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> BatchIngestResponse:
             """Handle the request and return the response model."""
             enforce_upload_limit(request, app_service.container)
@@ -542,8 +542,8 @@ class RouteGroup:
 
         @self.router.get("/documents")
         async def handler(
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, list[dict[str, Any]]]:
             """Handle the request and return the response model."""
             documents = await app_service.list_documents(token)
@@ -557,8 +557,8 @@ class RouteGroup:
         @self.router.get("/documents/{document_id}/status")
         async def handler(
             document_id: str,
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, Any]:
             """Handle the request and return the response model."""
             document = await app_service.document_status(token, document_id)
@@ -572,8 +572,8 @@ class RouteGroup:
         @self.router.delete("/documents/{document_id}", status_code=204, response_class=Response)
         async def handler(
             document_id: str,
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> Response:
             """Handle the request and return the response model."""
             await app_service.delete_document(token, document_id)
@@ -594,8 +594,8 @@ class RouteGroup:
         @self.router.post("/query", response_model=QueryResponse)
         async def handler(
             payload: QueryRequest,
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> QueryResponse:
             """Handle the request and return the response model."""
             if (
@@ -634,10 +634,10 @@ class RouteGroup:
         @self.router.post("/ingest/async")
         async def handler(
             request: Request,
-            file: UploadFile = File(...),
-            company: str | None = Form(default=None),
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            file: Annotated[UploadFile, File(...)],
+            company: Annotated[str | None, Form(default=None)],
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, str]:
             """Handle the request and return the response model."""
             enforce_upload_limit(request, app_service.container)
@@ -661,10 +661,10 @@ class RouteGroup:
         """Stream agent / planner events as Server-Sent Events."""
 
         @self.router.post("/query/stream")
-        async def handler(
+        def handler(
             payload: QueryRequest,
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> StreamingResponse:
             """Handle the request and return the response model."""
             resolved_tools = set(payload.tools_enabled) if payload.tools_enabled else set()
@@ -703,8 +703,8 @@ class RouteGroup:
         @self.router.post("/agent/run", response_model=QueryResponse)
         async def handler(
             payload: QueryRequest,
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> QueryResponse:
             """Handle the request and return the response model."""
             return await app_service.query_with_flags(
@@ -731,8 +731,8 @@ class RouteGroup:
 
         @self.admin_router.get("/documents")
         async def handler(
-            _admin: User = Depends(Auth.admin),
-            app_service: Facade = Depends(App.get),
+            admin_user: Annotated[User, Depends(Auth.admin)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> list[dict[str, Any]]:
             """Handle the request and return the response model."""
             docs = await app_service.container.uow.document_repo.list_all()
@@ -745,8 +745,8 @@ class RouteGroup:
 
         @self.admin_router.get("/users")
         async def handler(
-            _admin: User = Depends(Auth.admin),
-            app_service: Facade = Depends(App.get),
+            admin_user: Annotated[User, Depends(Auth.admin)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> list[dict[str, Any]]:
             """Handle the request and return the response model."""
             users = await app_service.container.user_store.list_users()
@@ -759,8 +759,8 @@ class RouteGroup:
 
         @self.admin_router.get("/stats")
         async def handler(
-            _admin: User = Depends(Auth.admin),
-            app_service: Facade = Depends(App.get),
+            admin_user: Annotated[User, Depends(Auth.admin)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, Any]:
             """Handle the request and return the response model."""
             docs = await app_service.container.uow.document_repo.list_all()
@@ -786,8 +786,8 @@ class RouteGroup:
             response_model=PreferencesResponse,
         )
         async def handler(
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> PreferencesResponse:
             """Handle the request and return the response model."""
             user_id = await Auth.user_id(app_service, token)
@@ -806,8 +806,8 @@ class RouteGroup:
         )
         async def handler(
             payload: PreferencesPatch,
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> PreferencesResponse:
             """Handle the request and return the response model."""
             user_id = await Auth.user_id(app_service, token)
@@ -827,8 +827,8 @@ class RouteGroup:
         )
         async def handler(
             key: str,
-            token: str = Depends(Bearer.dependency),
-            app_service: Facade = Depends(App.get),
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
         ) -> None:
             """Handle the request and return the response model."""
             user_id = await Auth.user_id(app_service, token)

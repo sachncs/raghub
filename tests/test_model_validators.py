@@ -133,5 +133,5 @@ def test_pipeline_result_success_verifies():
 def test_pipeline_result_failure_requires_error():
     """Pipeline.verify() requires an error message when the run failed."""
     r = Pipeline(pipeline_id="a", pipeline_name="b", error=ErrorInfo(kind="x", message=""))
-    with pytest.raises(VerificationError, match="error.message required"):
+    with pytest.raises(VerificationError, match=r"error\.message required"):
         r.verify()

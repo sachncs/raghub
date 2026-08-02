@@ -32,8 +32,8 @@ import hashlib
 from collections.abc import AsyncIterator, Callable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from enum import Enum
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from enum import StrEnum
+from typing import Any, Protocol, TypedDict, TypeVar, runtime_checkable
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -104,7 +104,7 @@ def deterministic_id(*parts: str, length: int = 16) -> str:
 # ---------------------------------------------------------------------------
 
 
-class DocumentLifecycleStatus(str, Enum):
+class DocumentLifecycleStatus(StrEnum):
     """Document lifecycle states.
 
     Legal transitions are validated by
@@ -126,7 +126,7 @@ class DocumentLifecycleStatus(str, Enum):
     FAILED = "FAILED"
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     """Document visibility levels.
 
     * ``PRIVATE``: only the owner can read.
@@ -139,7 +139,7 @@ class Visibility(str, Enum):
     PUBLIC = "public"
 
 
-class Classification(str, Enum):
+class Classification(StrEnum):
     """Simplified data classification levels.
 
     Used by RBAC filters and the redaction layer to gate sensitive
@@ -161,7 +161,7 @@ class Classification(str, Enum):
 # -----------------------------------------------------------------------------
 
 
-class SessionKind(str, Enum):
+class SessionKind(StrEnum):
     """Discriminator for :class:`Session` types."""
 
     STANDARD = "standard"
@@ -169,7 +169,7 @@ class SessionKind(str, Enum):
     REFRESH = "refresh"
 
 
-class DocType(str, Enum):
+class DocType(StrEnum):
     """Discriminator for :class:`Document` types."""
 
     PDF = "pdf"
@@ -181,7 +181,7 @@ class DocType(str, Enum):
     UNKNOWN = "unknown"
 
 
-class ChunkType(str, Enum):
+class ChunkType(StrEnum):
     """Discriminator for :class:`Chunk` types."""
 
     TEXT = "text"
@@ -192,7 +192,7 @@ class ChunkType(str, Enum):
     LIST_ITEM = "list_item"
 
 
-class SectionType(str, Enum):
+class SectionType(StrEnum):
     """Discriminator for :class:`Section` types."""
 
     TEXT = "text"
@@ -202,7 +202,7 @@ class SectionType(str, Enum):
     REFERENCE = "reference"
 
 
-class BlockType(str, Enum):
+class BlockType(StrEnum):
     """Discriminator for :class:`Block` types."""
 
     TEXT = "text"
@@ -213,7 +213,7 @@ class BlockType(str, Enum):
     HEADING = "heading"
 
 
-class CitationType(str, Enum):
+class CitationType(StrEnum):
     """Discriminator for :class:`Citation` types."""
 
     DIRECT = "direct"
@@ -221,7 +221,7 @@ class CitationType(str, Enum):
     INFERENCE = "inference"
 
 
-class HitType(str, Enum):
+class HitType(StrEnum):
     """Discriminator for :class:`Hit` types."""
 
     DENSE = "dense"
@@ -230,7 +230,7 @@ class HitType(str, Enum):
     KEYWORD = "keyword"
 
 
-class ResponseType(str, Enum):
+class ResponseType(StrEnum):
     """Discriminator for :class:`Response` types."""
 
     ANSWER = "answer"
@@ -239,7 +239,7 @@ class ResponseType(str, Enum):
     ERROR = "error"
 
 
-class BundleType(str, Enum):
+class BundleType(StrEnum):
     """Discriminator for :class:`Bundle` types."""
 
     OKF = "okf"
@@ -248,7 +248,7 @@ class BundleType(str, Enum):
     PDF = "pdf"
 
 
-class PipelineType(str, Enum):
+class PipelineType(StrEnum):
     """Discriminator for :class:`Pipeline` types."""
 
     INGEST = "ingest"
@@ -257,7 +257,7 @@ class PipelineType(str, Enum):
     EVAL = "eval"
 
 
-class JobType(str, Enum):
+class JobType(StrEnum):
     """Discriminator for :class:`Job` types."""
 
     INGEST = "ingest"
@@ -266,7 +266,7 @@ class JobType(str, Enum):
     EXPORT = "export"
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     """Discriminator for :class:`Event` types."""
 
     THOUGHT = "thought"
@@ -276,7 +276,7 @@ class EventType(str, Enum):
     FINAL = "final"
 
 
-class UserKind(str, Enum):
+class UserKind(StrEnum):
     """Discriminator for :class:`User` types."""
 
     STANDARD = "standard"
@@ -284,14 +284,14 @@ class UserKind(str, Enum):
     SERVICE = "service"
 
 
-class ManifestType(str, Enum):
+class ManifestType(StrEnum):
     """Discriminator for :class:`Manifest` types."""
 
     INCREMENTAL = "incremental"
     SNAPSHOT = "snapshot"
 
 
-class EmbeddingType(str, Enum):
+class EmbeddingType(StrEnum):
     """Discriminator for :class:`Embedding` types."""
 
     DENSE = "dense"
@@ -299,7 +299,7 @@ class EmbeddingType(str, Enum):
     COLBERT = "colbert"
 
 
-class RankType(str, Enum):
+class RankType(StrEnum):
     """Discriminator for :class:`RankedList` types."""
 
     RRF = "rrf"
@@ -307,7 +307,7 @@ class RankType(str, Enum):
     COHERE = "cohere"
 
 
-class ResultType(str, Enum):
+class ResultType(StrEnum):
     """Discriminator for :class:`Result` (eval)."""
 
     PASSED = "passed"
@@ -320,7 +320,7 @@ class ResultType(str, Enum):
 # -----------------------------------------------------------------------------
 
 
-class State(str, Enum):
+class State(StrEnum):
     """Lifecycle state shared across entities with a state machine."""
 
     NEW = "new"
@@ -330,7 +330,7 @@ class State(str, Enum):
     ARCHIVED = "archived"
 
 
-class Class(str, Enum):
+class Class(StrEnum):
     """Security classification shared across entities."""
 
     PUBLIC = "public"
@@ -339,7 +339,7 @@ class Class(str, Enum):
     CONFIDENTIAL = "confidential"
 
 
-class Access(str, Enum):
+class Access(StrEnum):
     """Visibility scope shared across entities."""
 
     PUBLIC = "public"
@@ -544,7 +544,7 @@ class Document(BaseModel):
             raise VerificationError("Document: empty id")
         if self.state == State.FAILED and not self.error:
             raise VerificationError("Document: error required when state=FAILED")
-        if self.state in (State.READY, State.ARCHIVED) and not self.chunks:
+        if self.state in {State.READY, State.ARCHIVED} and not self.chunks:
             raise VerificationError("Document: chunks empty for non-FAILED state")
 
 
@@ -695,7 +695,7 @@ Session.model_rebuild()
 # ---------------------------------------------------------------------------
 
 
-class BlockKind(str, Enum):
+class BlockKind(StrEnum):
     """Coarse kinds of :class:`DocumentBlock`.
 
     * ``TEXT`` — running prose.
@@ -1372,6 +1372,58 @@ class GeneratorProtocol(Protocol):
     ) -> AsyncIterator[str]:
         """Stream-generated answer tokens."""
         ...
+
+
+class RagQueryRequest(TypedDict, total=False):
+    """Optional inputs for :meth:`raghub.rag.RAG.aquery` and :meth:`astream`.
+
+    All keys are optional except ``question``. Used to bundle the
+    wide parameter set into a single argument so the facade methods
+    stay below :pylint:`too-many-arguments`.
+    """
+
+    question: str
+    user: Any
+    session_id: str
+    top_k: int
+    metadata_filter: dict[str, Any]
+    response_model: type
+    tools_enabled: list[str]
+    agent: bool
+    web: bool
+    graph: bool
+    summaries: bool
+    reranker: str
+    long_context_pass: bool
+    query_transforms: list[str]
+    max_steps: int
+
+
+class RagComponents(TypedDict, total=False):
+    """Optional injectable components for :class:`raghub.rag.RAG`.
+
+    Every key is optional; :class:`RAG` substitutes a sensible
+    default when a key is missing. Use this to thread many
+    collaborators through a single parameter without exploding the
+    signature.
+    """
+
+    settings: Any
+    registry: Any
+    knowledge_repo: Any
+    vector_store: Any
+    embedder: Any
+    llm: Any
+    llm_timeout_seconds: float | None
+    converter: Any
+    chunker: Any
+    generator: Any
+    reranker: Any
+    structured: Any
+    telemetry: Any
+    background_service: Any
+    manifest: Any
+    transformer: Any
 
 
 class KnowledgeRepository(Protocol):

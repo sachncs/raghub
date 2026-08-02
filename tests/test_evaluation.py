@@ -11,6 +11,7 @@ import pytest
 
 from raghub.errors import ConfigurationError
 from raghub.eval import Gate, Judge, compare, parse
+from raghub.llm import GenerationRequest
 
 # ---------------------------------------------------------------------------
 # Pure parser tests (parse)
@@ -74,10 +75,10 @@ class FakeGenerator:
     def __init__(self, responses: list[str] | str, raise_on: set[int] | None = None) -> None:
         self._responses = [responses] if isinstance(responses, str) else list(responses)
         self._raise_on = raise_on or set()
-        self.calls: list[dict] = []
+        self.calls: list[GenerationRequest] = []
 
-    async def async_generate(self, **kwargs) -> str:
-        self.calls.append(kwargs)
+    async def async_generate(self, request) -> str:
+        self.calls.append(request)
         idx = len(self.calls) - 1
         if idx in self._raise_on:
             raise RuntimeError(f"simulated failure on call {idx}")
@@ -138,7 +139,7 @@ def test_llm_judge_prompt_includes_answer_and_contexts() -> None:
     judge = Judge(fake)
     run_async(judge.faithfulness("the answer is 42", ["first context", "second context"]))
     assert len(fake.calls) == 1
-    prompt = fake.calls[0]["system_prompt"]
+    prompt = fake.calls[0].system_prompt
     assert "the answer is 42" in prompt
     assert "first context" in prompt
     assert "second context" in prompt
@@ -149,7 +150,7 @@ def test_llm_judge_relevance_prompt_includes_question() -> None:
     fake = FakeGenerator("0.5")
     judge = Judge(fake)
     run_async(judge.answer_relevance("the answer", "the question"))
-    prompt = fake.calls[0]["system_prompt"]
+    prompt = fake.calls[0].system_prompt
     assert "the question" in prompt
     assert "the answer" in prompt
 

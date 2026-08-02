@@ -89,7 +89,8 @@ class File(ABC):
 class Pdf(File):
     """PDF file using :mod:`pypdf`."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
+    @staticmethod
+    def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Parse a PDF into one section per page.
 
         Args:
@@ -137,7 +138,8 @@ class Pdf(File):
 class HTML(File):
     """HTML file using :mod:`BeautifulSoup`."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
+    @staticmethod
+    def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Parse an HTML document into a single section.
 
         Args:
@@ -178,7 +180,8 @@ class HTML(File):
 class Image(File):
     """PNG/JPEG/GIF/BMP/TIFF/WebP image."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
+    @staticmethod
+    def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Decode an image and extract its metadata (and optional OCR text).
 
         Args:
@@ -229,7 +232,8 @@ class Image(File):
 class Office(File):
     """DOCX/XLSX/PPTX (also DOC/XLS/PPT) document."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
+    @staticmethod
+    def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Dispatch an Office document to its format-specific parser.
 
         Args:
@@ -253,10 +257,10 @@ class Office(File):
         ext = file_name.lower().rsplit(".", 1)[-1] if "." in file_name else ""
         sections: list[ParsedSection] = []
 
-        if mime_type in (
+        if mime_type in {
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/msword",
-        ) or ext in ("docx", "doc"):
+        } or ext in {"docx", "doc"}:
             try:
                 from docx import Document
             except ImportError:
@@ -275,10 +279,10 @@ class Office(File):
                 )
             )
 
-        elif mime_type in (
+        elif mime_type in {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/vnd.ms-excel",
-        ) or ext in ("xlsx", "xls"):
+        } or ext in {"xlsx", "xls"}:
             try:
                 from openpyxl import load_workbook
             except ImportError:
@@ -303,10 +307,10 @@ class Office(File):
                 )
             wb.close()
 
-        elif mime_type in (
+        elif mime_type in {
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "application/vnd.ms-powerpoint",
-        ) or ext in ("pptx", "ppt"):
+        } or ext in {"pptx", "ppt"}:
             try:
                 from pptx import Presentation
             except ImportError:
@@ -332,7 +336,8 @@ class Office(File):
 class Csv(File):
     """CSV file (UTF-8 decoded, no structural splitting)."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
+    @staticmethod
+    def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Decode CSV bytes as UTF-8 and emit one whole-file section.
 
         Args:
@@ -360,7 +365,8 @@ class Csv(File):
 class Txt(File):
     """Plain text file."""
 
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
+    @staticmethod
+    def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Decode text bytes as UTF-8 and emit one whole-file section.
 
         Args:

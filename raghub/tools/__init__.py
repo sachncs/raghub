@@ -149,7 +149,8 @@ class Tool(ToolProtocol, ABC):
 
         """
 
-    def context(self, **overrides: Any) -> ToolContext:
+    @staticmethod
+    def context(**overrides: Any) -> ToolContext:
         """Return a fresh :class:`ToolContext` for this tool.
 
         Use this when invoking the tool outside the agent loop. The
@@ -328,7 +329,8 @@ class DateToday(Tool):
         "additionalProperties": False,
     }
 
-    async def execute(self, context: ToolContext, **_: Any) -> ToolResult:
+    @staticmethod
+    async def execute(context: ToolContext, **_: Any) -> ToolResult:
         """Return today's date in UTC ISO 8601 format."""
         from datetime import UTC, datetime
 

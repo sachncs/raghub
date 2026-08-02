@@ -14,14 +14,14 @@ from __future__ import annotations
 
 # Sub-modules surfaced as `raghub.X` namespaces for convenience.
 from raghub import (
-    api_auth,  # noqa: F401
-    api_ratelimit,  # noqa: F401
-    api_response,  # noqa: F401
-    api_sse,  # noqa: F401
-    cli_commands,  # noqa: F401
-    evaluation,  # noqa: F401
+    api_auth,
+    api_ratelimit,
+    api_response,
+    api_sse,
+    cli_commands,
+    evaluation,
 )
-from raghub import services as services_module  # noqa: F401
+from raghub import services as services_module
 
 # Domain wrappers.
 from raghub.auth import AuthService
@@ -120,7 +120,7 @@ from raghub.models import (
 )
 
 # Pipeline builders.
-from raghub.pipeline import PipelineBuilder
+from raghub.pipeline import Cache, PipelineBuilder, Router
 
 # Plugin.
 from raghub.plugins import PluginRegistry
@@ -163,21 +163,6 @@ from raghub.telemetry import (
 from raghub.telemetry import (
     PrometheusMetrics as Prometheus,
 )
-
-
-# RAG facade -- the primary user-facing entry point.
-def __getattr__(name: str) -> object:
-    """Lazy-import the heavy RAG facade so the package loads cheaply."""
-    if name == "Cache":
-        from raghub.pipeline import Cache
-
-        return Cache
-    if name == "Router":
-        from raghub.pipeline import Router
-
-        return Router
-    raise AttributeError(f"module 'raghub' has no attribute {name!r}")
-
 
 __all__ = [
     "RAG",
@@ -249,4 +234,11 @@ __all__ = [
     "VectorStoreError",
     "VerificationError",
     "WordChunker",
+    "api_auth",
+    "api_ratelimit",
+    "api_response",
+    "api_sse",
+    "cli_commands",
+    "evaluation",
+    "services_module",
 ]

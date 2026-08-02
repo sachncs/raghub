@@ -39,6 +39,7 @@ from raghub import (
     Settings,
 )
 from raghub.embedder import Hasher
+from raghub.gen import DefaultGenerator
 from raghub.ingest import WordChunker
 from raghub.lifecycle import PlainTextConverter
 from raghub.llm import HeuristicProvider
@@ -55,7 +56,7 @@ def rag() -> RAG:
         settings=Settings(embedding_dim=16),
         converter=PlainTextConverter(),
         embedder=Hasher(dimension=16, model_name="test-hasher"),
-        generator=HeuristicProvider(),
+        generator=DefaultGenerator(llm=HeuristicProvider()),
     )
 
 
@@ -136,7 +137,7 @@ def test_empty_query_rejected() -> None:
         settings=Settings(embedding_dim=16),
         converter=PlainTextConverter(),
         embedder=Hasher(dimension=16, model_name="x"),
-        generator=HeuristicProvider(),
+        generator=DefaultGenerator(llm=HeuristicProvider()),
     )
     with pytest.raises(IngestionError, match="non-empty"):
         r.query("")

@@ -38,7 +38,8 @@ class DocumentState:
 
     status: DocumentLifecycleStatus
 
-    def transition(self, target: DocumentLifecycleStatus) -> DocumentState:
+    @staticmethod
+    def transition(target: DocumentLifecycleStatus) -> DocumentState:
         """Return a new :class:`DocumentState` with ``target`` as the status.
 
         This is a low-level constructor; **callers are responsible for

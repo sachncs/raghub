@@ -18,6 +18,7 @@ import mimetypes
 import os
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Sequence
+from dataclasses import dataclass
 from types import TracebackType
 from typing import Any, Literal, Self
 
@@ -29,6 +30,7 @@ from raghub.utils import aretry, retry
 
 __all__ = [
     "LLM_API_KEY_ENV_VARS",
+    "GenerationRequest",
     "Generator",
     "HeuristicProvider",
     "LiteLLM",
@@ -67,6 +69,32 @@ def any_llm_api_key_present() -> bool:
     return any(os.getenv(name) for name in LLM_API_KEY_ENV_VARS)
 
 
+@dataclass(frozen=True, slots=True)
+class GenerationRequest:
+    """Inputs for a single :class:`Generator` invocation.
+
+    Attributes:
+        question: The user's question.
+        system_prompt: System-level instructions, including
+            tenant-specific formatting guidance.
+        conversation: Recent in-window turns from the conversation
+            manager.
+        context: Retrieved source chunks (already RBAC-filtered).
+        image_paths: Optional on-disk image paths to attach to the
+            final user message (vision-capable providers only).
+        session_history: Optional prior turns from the persistent
+            session store; format mirrors :class:`raghub.models.Turn`.
+
+    """
+
+    question: str
+    system_prompt: str = ""
+    conversation: Sequence[Turn] = ()
+    context: Sequence[object] = ()
+    image_paths: list[str] | None = None
+    session_history: list[dict[str, Any]] | None = None
+
+
 class Generator(ABC):
     """Abstract LLM provider.
 
@@ -79,56 +107,20 @@ class Generator(ABC):
     model_name: str
 
     @abstractmethod
-    def generate(
-        self,
-        *,
-        system_prompt: str,
-        conversation: Sequence[Turn],
-        context: Sequence[str],
-        question: str,
-        image_paths: list[str] | None = None,
-        session_history: list[dict[str, Any]] | None = None,
-    ) -> str:
+    def generate(self, request: GenerationRequest) -> str:
         """Generate an answer from a fully-constructed prompt.
 
         Args:
-            system_prompt: The system-level instructions, including
-                tenant-specific formatting guidance.
-            conversation: Recent in-window turns from the conversation
-                manager.
-            context: Retrieved source chunks (already RBAC-filtered).
-            question: The user's most recent question.
-            image_paths: Optional list of on-disk image paths to attach
-                to the final user message (vision-capable providers only).
-            session_history: Optional prior turns from the persistent
-                session store. Format mirrors
-                :class:`raghub.models.Turn` dicts.
+            request: The prompt components for this invocation.
 
         Returns:
             The provider-generated answer as a plain string.
 
         """
 
-    async def async_generate(
-        self,
-        *,
-        system_prompt: str,
-        conversation: Sequence[Turn] = (),
-        context: Sequence[str] = (),
-        question: str,
-        image_paths: list[str] | None = None,
-        session_history: list[dict[str, Any]] | None = None,
-    ) -> str:
+    async def async_generate(self, request: GenerationRequest) -> str:
         """Generate without blocking the event loop."""
-        return await asyncio.to_thread(
-            self.generate,
-            system_prompt=system_prompt,
-            conversation=conversation,
-            context=context,
-            question=question,
-            image_paths=image_paths,
-            session_history=session_history,
-        )
+        return await asyncio.to_thread(self.generate, request)
 
 
 class LLMValueErrorBoundary:
@@ -164,41 +156,29 @@ class HeuristicProvider(Generator):
 
     model_name: str = "heuristic"
 
-    def generate(
-        self,
-        *,
-        system_prompt: str = "",
-        conversation: Sequence[Turn] = (),
-        context: Sequence[object] = (),
-        question: str,
-        image_paths: list[str] | None = None,
-        session_history: list[dict[str, Any]] | None = None,
-    ) -> str:
+    @staticmethod
+    def generate(request: GenerationRequest) -> str:
         """Generate an answer from context using simple heuristics.
 
         Args:
-            system_prompt: Ignored by this provider.
-            conversation: Prior conversation turns (ignored).
-            context: Retrieved source chunks.
-            question: The user's question.
-            image_paths: Ignored by this provider.
-            session_history: Ignored by this provider.
+            request: The prompt components; only ``context`` and
+                ``question`` are used by this provider.
 
         Returns:
             The first relevant sentence from context, or a default
             message if no context is available.
 
         """
-        if not context:
+        if not request.context:
             return "No context was retrieved. Configure an LLM API key for full answer generation."
         # Normalise: context may be Sequence[str] or Sequence[Hit] (with .chunk.text).
         texts: list[str] = []
-        for entry in context:
+        for entry in request.context:
             if isinstance(entry, str):
                 texts.append(entry)
             else:
                 texts.append(getattr(getattr(entry, "chunk", entry), "text", str(entry)))
-        question_lower = question.lower()
+        question_lower = request.question.lower()
         question_words = set(question_lower.split())
         scored: list[tuple[int, str]] = []
         for chunk in texts:
@@ -285,63 +265,47 @@ class LiteLLM(Generator):
         else:
             self.direct_url = None
 
-    def require_litellm(self) -> None:
+    @staticmethod
+    def require_litellm() -> None:
         """Raise a clear error if LiteLLM is not installed."""
         if not LITELLM_AVAILABLE:
             raise ConfigurationError("litellm is not installed; run `pip install litellm`.")
 
-    def build_messages(
-        self,
-        *,
-        system_prompt: str,
-        conversation: Sequence[Turn] = (),
-        context: Sequence[str] = (),
-        question: str,
-        image_paths: list[str] | None = None,
-        session_history: list[dict[str, Any]] | None = None,
-    ) -> list[dict[str, Any]]:
+    @staticmethod
+    def build_messages(request: GenerationRequest) -> list[dict[str, Any]]:
         """Assemble an OpenAI-style message list.
 
         Args:
-            system_prompt: System instructions; becomes the first
-                ``system`` message.
-            conversation: Recent in-window question/answer turns.
-            context: Retrieved chunks; joined into a single system
-                message labelled ``"Context:"``.
-            question: The latest user question. When ``image_paths``
-                is empty the question is a plain string; otherwise it
-                is a content array with one ``image_url`` entry per
-                file.
-            image_paths: Optional list of on-disk image paths.
-            session_history: Optional prior turns; ``role`` maps to
-                ``user`` / ``assistant`` / ``system``.
+            request: The prompt components for one invocation.
 
         Returns:
             A list of OpenAI-style message dicts in the order they
             should be sent to the model.
 
         """
-        messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+        messages: list[dict[str, Any]] = [{"role": "system", "content": request.system_prompt}]
 
-        if not session_history:
-            for turn in conversation:
+        if not request.session_history:
+            for turn in request.conversation:
                 messages.append({"role": "user", "content": turn.question})
                 messages.append({"role": "assistant", "content": turn.answer})
 
-        if session_history:
-            for session_item in session_history:
+        if request.session_history:
+            for session_item in request.session_history:
                 role = session_item.get("role", "user")
                 if role not in {"user", "assistant", "system"}:
                     role = "user"
                 messages.append({"role": role, "content": session_item.get("content", "")})
 
-        if context:
-            formatted_context = "\n\n---\n\n".join(context)
+        if request.context:
+            formatted_context = "\n\n---\n\n".join(str(item) for item in request.context)
             messages.append({"role": "system", "content": f"Context:\n{formatted_context}"})
 
-        if image_paths:
-            human_content: list[dict[str, Any]] = [{"type": "text", "text": question}]
-            for path in image_paths:
+        if request.image_paths:
+            human_content: list[dict[str, Any]] = [
+                {"type": "text", "text": request.question}
+            ]
+            for path in request.image_paths:
                 with open(path, "rb") as f:
                     encoded = base64.b64encode(f.read()).decode("utf-8")
                 mime_type, _ = mimetypes.guess_type(path)
@@ -355,33 +319,17 @@ class LiteLLM(Generator):
                 )
             messages.append({"role": "user", "content": human_content})
         else:
-            messages.append({"role": "user", "content": question})
+            messages.append({"role": "user", "content": request.question})
 
         return messages
 
-    def generate(
-        self,
-        *,
-        system_prompt: str,
-        conversation: Sequence[Turn] = (),
-        context: Sequence[str] = (),
-        question: str,
-        image_paths: list[str] | None = None,
-        session_history: list[dict[str, Any]] | None = None,
-    ) -> str:
+    def generate(self, request: GenerationRequest) -> str:
         """Generate a final string answer.
 
         Also populates ``self.last_usage`` with a dict of token
         counts so the RAG facade can record them to telemetry.
         """
-        messages = self.build_messages(
-            system_prompt=system_prompt,
-            conversation=conversation,
-            context=context,
-            question=question,
-            image_paths=image_paths,
-            session_history=session_history,
-        )
+        messages = self.build_messages(request)
         self.require_litellm()
         options = {
             "model": self.model_name,
@@ -416,16 +364,7 @@ class LiteLLM(Generator):
             raise GenerationError(f"LLM returned unexpected response shape: {exc}") from exc
         return str(content or "")
 
-    async def async_generate(
-        self,
-        *,
-        system_prompt: str,
-        conversation: Sequence[Turn] = (),
-        context: Sequence[str] = (),
-        question: str,
-        image_paths: list[str] | None = None,
-        session_history: list[dict[str, Any]] | None = None,
-    ) -> str:
+    async def async_generate(self, request: GenerationRequest) -> str:
         """Generate a final answer with the configured backend.
 
         When ``api_base`` is set, the call goes through a shared
@@ -434,14 +373,7 @@ class LiteLLM(Generator):
         ``litellm.acompletion`` path). Otherwise we fall back to
         LiteLLM's native async client.
         """
-        messages = self.build_messages(
-            system_prompt=system_prompt,
-            conversation=conversation,
-            context=context,
-            question=question,
-            image_paths=image_paths,
-            session_history=session_history,
-        )
+        messages = self.build_messages(request)
         self.require_litellm()
         if self.direct_client is not None and self.direct_url is not None:
             response = await self.direct_chat(messages)
@@ -503,16 +435,7 @@ class LiteLLM(Generator):
             return dict(response.model_dump())
         return dict(response) if response is not None else {}
 
-    async def astream(
-        self,
-        *,
-        system_prompt: str,
-        conversation: Sequence[Turn] = (),
-        context: Sequence[str] = (),
-        question: str,
-        image_paths: list[str] | None = None,
-        session_history: list[dict[str, Any]] | None = None,
-    ) -> AsyncIterator[str]:
+    async def astream(self, request: GenerationRequest) -> AsyncIterator[str]:
         """Async-stream the answer token-by-token.
 
         Token usage is captured by asking LiteLLM to include it in
@@ -520,14 +443,7 @@ class LiteLLM(Generator):
         The streaming loop honours :pyattr:`timeout_seconds` with
         :func:`asyncio.timeout` so a slow LLM does not block indefinitely.
         """
-        messages = self.build_messages(
-            system_prompt=system_prompt,
-            conversation=conversation,
-            context=context,
-            question=question,
-            image_paths=image_paths,
-            session_history=session_history,
-        )
+        messages = self.build_messages(request)
         self.require_litellm()
         options = {
             "model": self.model_name,

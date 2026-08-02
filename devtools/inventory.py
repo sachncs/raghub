@@ -32,7 +32,7 @@ import ast
 import json
 import sys
 from collections import defaultdict
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -59,12 +59,15 @@ def _module_all(tree: ast.Module) -> list[str]:
     for node in tree.body:
         if isinstance(node, ast.Assign):
             for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == "__all__":
-                    if isinstance(node.value, (ast.List, ast.Tuple)):
-                        return [
-                            elt.value for elt in node.value.elts  # type: ignore[attr-defined]
-                            if isinstance(elt, ast.Constant)
-                        ]
+                if (
+                    isinstance(target, ast.Name)
+                    and target.id == "__all__"
+                    and isinstance(node.value, (ast.List, ast.Tuple))
+                ):
+                    return [
+                        elt.value for elt in node.value.elts  # type: ignore[attr-defined]
+                        if isinstance(elt, ast.Constant)
+                    ]
     return []
 
 
@@ -106,7 +109,6 @@ def main() -> int:
     REPORTS_ROOT.mkdir(exist_ok=True)
     classes: dict[str, list[dict[str, str]]] = defaultdict(list)
     functions: list[dict[str, str | int]] = []
-    enums: list[dict[str, str | int]] = []
     all_exports: dict[str, list[str]] = {}
     private_candidates: list[dict[str, str | int]] = []
 
@@ -118,7 +120,8 @@ def main() -> int:
         for sym in _defined_public_symbols(tree):
             sym["file"] = rel
             if sym["kind"] == "class":
-                # Filter for enum-like classes (heuristic: end with Enum, BaseModel with str Enum parent).
+                # Filter for enum-like classes (heuristic: end with Enum,
+                # or a BaseModel subclass with a str Enum parent).
                 classes[sym["name"]].append({"file": rel, "line": str(sym["line"])})
             elif sym["kind"] == "function":
                 functions.append(sym)
@@ -135,11 +138,15 @@ def main() -> int:
     # is an enum candidate — record candidates and let humans confirm.
     enum_candidates: list[dict[str, str | int]] = []
     for cls_name, locations in classes.items():
-        if any(loc["file"].endswith("models.py") or loc["file"].endswith("domain.py") for loc in locations):
-            if cls_name.endswith("Type") or cls_name in {"State", "Class", "Access", "Kind"}:
-                enum_candidates.append(
-                    {"name": cls_name, "kind": "enum-class", "line": int(locations[0]["line"])}
-                )
+        in_models = any(
+            loc["file"].endswith("models.py") or loc["file"].endswith("domain.py")
+            for loc in locations
+        )
+        is_enum_like = cls_name.endswith("Type") or cls_name in {"State", "Class", "Access", "Kind"}
+        if in_models and is_enum_like:
+            enum_candidates.append(
+                {"name": cls_name, "kind": "enum-class", "line": int(locations[0]["line"])}
+            )
 
     # Collisions: classes defined in more than one file.
     collisions = {
@@ -171,7 +178,7 @@ def main() -> int:
         _to_markdown(inventory), encoding="utf-8"
     )
     print(f"wrote reports/inventory.json ({inventory['summary']['files_scanned']} files)")
-    print(f"wrote reports/inventory.md")
+    print("wrote reports/inventory.md")
     return 0
 
 

@@ -37,6 +37,7 @@ def financebench(
 
         async def factory(_example: object) -> str:
             """Stub factory: returns the empty answer for every example."""
+            await asyncio.sleep(0)
             return ""
 
         results = await run(evaluator, examples_list, response_factory=factory)
@@ -78,6 +79,7 @@ def frames(
 
         async def factory(_example: object) -> str:
             """Stub factory: returns the empty answer for every example."""
+            await asyncio.sleep(0)
             return ""
 
         results = await run(evaluator, examples_list, response_factory=factory)

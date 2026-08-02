@@ -8,6 +8,7 @@ workers, missing_doc, and the simple Module-level accessors.
 from __future__ import annotations
 
 import json
+from typing import ClassVar
 from unittest.mock import MagicMock
 
 import pytest
@@ -250,12 +251,11 @@ def test_seed_blocked_false_when_safe(monkeypatch: pytest.MonkeyPatch) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_upload_record_returns_document() -> None:
+def test_upload_record_returns_document() -> None:
     """upload_record extracts a Document from an IngestionResult-like input."""
 
     class _StubResult:
-        document = {"id": "d1", "version": 1}
+        document: ClassVar[dict[str, object]] = {"id": "d1", "version": 1}
 
-    result = await upload_record(_StubResult())  # type: ignore[arg-type]
-    assert result is not None
+    result = upload_record(_StubResult())  # type: ignore[arg-type]
+    assert result["id"] == "d1"

@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from raghub.llm import HeuristicProvider, LiteLLM, any_llm_api_key_present
+from raghub.llm import GenerationRequest, HeuristicProvider, LiteLLM, any_llm_api_key_present
 
 # ---------------------------------------------------------------------------
 # any_llm_api_key_present
@@ -60,7 +60,7 @@ def test_heuristic_provider_no_context_returns_default() -> None:
     """HeuristicProvider returns the default when context is empty."""
 
     provider = HeuristicProvider()
-    answer = provider.generate(question="what is raghub?", context=[])
+    answer = provider.generate(GenerationRequest(question="what is raghub?", context=[]))
     assert "No context" in answer
 
 
@@ -73,7 +73,7 @@ def test_heuristic_provider_selects_relevant_sentence() -> None:
         "Some unrelated content here.",
         "RAGHub supports chunking and embedding.",
     ]
-    answer = provider.generate(question="raghub", context=context)
+    answer = provider.generate(GenerationRequest(question="raghub", context=context))
     assert "RAGHub" in answer
 
 
@@ -86,7 +86,7 @@ def test_heuristic_provider_handles_hit_objects() -> None:
         chunk = MagicMock()
         chunk.text = "Python is great for AI development"
 
-    answer = provider.generate(question="python", context=[_Hit()])
+    answer = provider.generate(GenerationRequest(question="python", context=[_Hit()]))
     assert "Python" in answer
 
 
@@ -94,7 +94,7 @@ def test_heuristic_provider_handles_string_context() -> None:
     """HeuristicProvider accepts plain string chunks."""
 
     provider = HeuristicProvider()
-    answer = provider.generate(question="anything", context=["Just a string."])
+    answer = provider.generate(GenerationRequest(question="anything", context=["Just a string."]))
     assert isinstance(answer, str)
 
 
@@ -102,7 +102,7 @@ def test_heuristic_provider_empty_texts_returns_truncated() -> None:
     """HeuristicProvider returns a truncated string when no scored sentences."""
 
     provider = HeuristicProvider()
-    answer = provider.generate(question="unrelated", context=[""])
+    answer = provider.generate(GenerationRequest(question="unrelated", context=[""]))
     assert isinstance(answer, str)
 
 
@@ -118,10 +118,12 @@ def test_heuristic_provider_ignores_system_and_conversation() -> None:
 
     provider = HeuristicProvider()
     answer = provider.generate(
-        question="x",
-        system_prompt="ignore",
-        conversation=[],
-        context=["hello world"],
+        GenerationRequest(
+            question="x",
+            system_prompt="ignore",
+            conversation=[],
+            context=["hello world"],
+        )
     )
     # The context has no overlap with the question.
     assert isinstance(answer, str)

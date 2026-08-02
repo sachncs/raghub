@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field
 
 from raghub.config import AgentConfig, Settings
 from raghub.errors import AgentBudgetError, GenerationError, ToolError
+from raghub.llm import GenerationRequest, Generator
 from raghub.models import Turn, User
 from raghub.telemetry import NoOpTelemetry
 from raghub.tools import (
@@ -86,6 +87,7 @@ SYSTEM_PROMPT = """You are a planner. You solve the user's question by either:
 1. Calling a tool — reply with JSON
    {"thought": "...", "action": {"name": "<tool>", "args": {...}}}
 2. Producing a final answer — reply with JSON
+
    {"thought": "...", "final_answer": "..."}
 
 Rules:
@@ -99,6 +101,8 @@ Rules:
 Available tools:
 {tool_schemas}
 """
+
+TOOL_SCHEMAS_PLACEHOLDER = "{tool_schemas}"
 
 OBSERVATION_PROMPT = """Tool `{name}` returned:
 {observation}
@@ -202,7 +206,7 @@ def render_system_prompt(tool_schemas: list[dict[str, Any]]) -> str:
             if schema.get("json_schema"):
                 lines.append("  args: " + json.dumps(schema["json_schema"], separators=(",", ":")))
         catalog = "\n".join(lines)
-    return SYSTEM_PROMPT.replace("{tool_schemas}", catalog)
+    return SYSTEM_PROMPT.replace(TOOL_SCHEMAS_PLACEHOLDER, catalog)
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +252,28 @@ class ResolvedConfig:
             "query_transforms": list(self.query_transforms),
             "max_steps": self.max_steps,
         }
+
+
+@dataclass(frozen=True)
+class AgentRequest:
+    """Inputs for the agent loop entry points.
+
+    Attributes:
+        question: The user's question.
+        history: Prior conversation turns.
+        tools_enabled: Tool names to expose to the agent.
+        user: The principal for RBAC and tool contexts.
+        session_id: The conversation session id.
+        session_overrides: Per-session settings overrides.
+
+    """
+
+    question: str
+    history: Sequence[Turn] | None = None
+    tools_enabled: set[str] | None = None
+    user: User | None = None
+    session_id: str | None = None
+    session_overrides: dict[str, Any] | None = None
 
 
 def coerce_tools(value: Any) -> set[str]:
@@ -324,11 +350,11 @@ def resolve(
     if not tools:
         tools = coerce_tools(user.get("tools_enabled"))
     if request.get("web") is True:
-        tools = tools | {"web_search"}
+        tools |= {"web_search"}
     if request.get("graph") is True:
-        tools = tools | {"graph_search"}
+        tools |= {"graph_search"}
     if request.get("summaries") is True:
-        tools = tools | {"summary_search"}
+        tools |= {"summary_search"}
 
     requested_reranker = pick_value(layers, "reranker")
     reranker = coerce_reranker(
@@ -427,7 +453,7 @@ class Agent:
     def __init__(
         self,
         *,
-        llm: Any,
+        llm: Generator,
         tool_registry: ToolRegistry,
         settings: AgentConfig,
         telemetry: Any | None = None,
@@ -438,26 +464,10 @@ class Agent:
         self.settings = settings
         self.telemetry = telemetry or NoOpTelemetry()
 
-    async def run(
-        self,
-        *,
-        question: str,
-        history: Sequence[Turn] | None = None,
-        tools_enabled: set[str] | None = None,
-        user: User | None = None,
-        session_id: str | None = None,
-        session_overrides: dict[str, Any] | None = None,
-    ) -> AgentTrace:
+    async def run(self, request: AgentRequest) -> AgentTrace:
         """Run the agent to completion; return the captured trace."""
-        trace = AgentTrace(question=question)
-        async for event in self.iterate(
-            question=question,
-            history=list(history or []),
-            tools_enabled=tools_enabled,
-            user=user,
-            session_id=session_id,
-            session_overrides=session_overrides,
-        ):
+        trace = AgentTrace(question=request.question)
+        async for event in self.iterate(request):
             trace.events.append(event)
             if event.kind == "answer_chunk":
                 trace.final_answer += event.payload.get("text", "")
@@ -471,39 +481,15 @@ class Agent:
                 trace.budget_exceeded = True
         return trace
 
-    async def astream(
-        self,
-        *,
-        question: str,
-        history: Sequence[Turn] | None = None,
-        tools_enabled: set[str] | None = None,
-        user: User | None = None,
-        session_id: str | None = None,
-        session_overrides: dict[str, Any] | None = None,
-    ) -> AsyncIterator[PlannerEvent]:
+    async def astream(self, request: AgentRequest) -> AsyncIterator[PlannerEvent]:
         """Stream :class:`PlannerEvent` instances as the loop runs."""
-        async for event in self.iterate(
-            question=question,
-            history=list(history or []),
-            tools_enabled=tools_enabled,
-            user=user,
-            session_id=session_id,
-            session_overrides=session_overrides,
-        ):
+        async for event in self.iterate(request):
             yield event
 
-    async def iterate(
-        self,
-        *,
-        question: str,
-        history: list[Turn],
-        tools_enabled: set[str] | None,
-        user: User | None,
-        session_id: str | None,
-        session_overrides: dict[str, Any] | None,
-    ) -> AsyncIterator[PlannerEvent]:
+    async def iterate(self, request: AgentRequest) -> AsyncIterator[PlannerEvent]:
         """Yield events for the agent loop shared by ``run`` and ``astream``."""
-        enabled = self.resolve_enabled_tools(tools_enabled)
+        question = request.question
+        enabled = self.resolve_enabled_tools(request.tools_enabled)
         tool_schemas = [
             {"name": name, "description": tool.description, "json_schema": tool.json_schema}
             for name, tool in enabled.items()
@@ -511,15 +497,15 @@ class Agent:
         messages: list[dict[str, str]] = [
             {"role": "system", "content": render_system_prompt(tool_schemas)},
         ]
-        for turn in history[-self.settings.max_steps :]:
+        for turn in (request.history or [])[-self.settings.max_steps :]:
             messages.append({"role": "user", "content": turn.question})
             messages.append({"role": "assistant", "content": turn.answer})
         messages.append({"role": "user", "content": question})
 
         ctx = ToolContext(
-            user=user,
-            session_id=session_id,
-            session_overrides=session_overrides,
+            user=request.user,
+            session_id=request.session_id,
+            session_overrides=request.session_overrides,
             question=question,
         )
 
@@ -552,24 +538,7 @@ class Agent:
                     f"agent exceeded tool-call budget ({self.settings.max_tool_calls})"
                 )
 
-            with self.telemetry.span("agent.llm", step=step) as sp:
-                sp.set_attribute("messages", len(messages))
-                try:
-                    raw = await self.llm.async_generate(
-                        system_prompt=messages[0]["content"],
-                        conversation=[],
-                        context=[],
-                        question=self.render_question_turn(messages[1:]),
-                    )
-                except (
-                    TimeoutError,
-                    GenerationError,
-                    ConnectionError,
-                    ValueError,
-                    AttributeError,
-                ) as exc:
-                    raise AgentBudgetError(f"agent LLM call failed: {exc}") from exc
-
+            raw = await self.__generate_reply(messages, step)
             parsed = parse_turn(raw or "")
             if isinstance(parsed, PlannerAction):
                 yield PlannerEvent(
@@ -664,12 +633,35 @@ class Agent:
             )
         raise AgentBudgetError(f"agent exceeded step budget ({self.settings.max_steps})")
 
+    async def __generate_reply(self, messages: list[dict[str, str]], step: int) -> str:
+        """Call the LLM for one agent turn; wrap failures as budget errors."""
+        with self.telemetry.span("agent.llm", step=step) as sp:
+            sp.set_attribute("messages", len(messages))
+            try:
+                return await self.llm.async_generate(
+                    GenerationRequest(
+                        system_prompt=messages[0]["content"],
+                        conversation=[],
+                        context=[],
+                        question=self.render_question_turn(messages[1:]),
+                    )
+                )
+            except (
+                TimeoutError,
+                GenerationError,
+                ConnectionError,
+                ValueError,
+                AttributeError,
+            ) as exc:
+                raise AgentBudgetError(f"agent LLM call failed: {exc}") from exc
+
     def resolve_enabled_tools(self, tools_enabled: set[str] | None) -> dict[str, Any]:
         """Filter the registry to the requested tools (or all of them)."""
         names = set(tools_enabled) if tools_enabled else set(self.tools.names())
         return {name: self.tools.get(name) for name in names if name in self.tools}
 
-    def render_question_turn(self, prior: list[dict[str, str]]) -> str:
+    @staticmethod
+    def render_question_turn(prior: list[dict[str, str]]) -> str:
         """Render the LLM-facing question body from the message list."""
         if not prior:
             return ""
