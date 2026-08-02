@@ -1,10 +1,10 @@
 # raghub OSS Readiness — TODO
 
-> **Status (v1.0.0 re-tagged, gates green: 734 passed / 9 skipped, ruff 0 (7 Phase 1.20 rules restored; 15 remain in ignore per Stage 6 follow-up), mypy 40 files clean, interrogate 100 %, naming hook PASS, `python -c "import raghub"` ok).**
+> **Status (version 0.6.0; all git tags removed; gates green: 734 passed / 9 skipped, ruff 0 with 15 rules still in the ignore list, mypy 40 files clean, interrogate 100 %, naming hook PASS, `python -c "import raghub"` ok).**
 >
-> The plan below is the *original* design with 148 commits. The **live state of each row** is marked in the rightmost column as `done`, `partial`, or `not started`. Stages 0, 1, 1.5, 1.7 (13 `<Entity>Type` enums + shared `State`/`Class`/`Access` + `Response.citations` aggregate + `Pipeline` error discriminator + `Job.verify`/`Job.target`), 1.8, 1.10, 2, 3, 4 (test rewrites rolled-up + 4.18/4.19 fixes), 5 (all 10 modules tested), 6.1/6.3/6.8/6.10, and 7 are done. The remaining 15 ruff ignores (Stage 6 follow-up) and the coverage 85% gate (currently ~64%) remain as next-phase work; see RELEASE_NOTES.md.
+> The plan below is the *original* design with 148 commits. The **live state of each row** is marked in the rightmost column as `done`, `partial`, or `not started`. Stages 0, 1, 1.5, 1.7 (13 `<Entity>Type` enums + shared `State`/`Class`/`Access` + `Response.citations` aggregate + `Pipeline` error discriminator + `Job.verify`/`Job.target`), 1.8, 1.10, 2, 3, 4 (test rewrites rolled-up + 4.18/4.19 fixes), 5 (all 10 modules tested), 6.1/6.3/6.8/6.10, and 7 are done. The remaining 15 ruff ignores (Stage 6 follow-up), the ruff `preview` rules, and the coverage 90% gate (currently ~64%) remain as next-phase work; see RELEASE_NOTES.md.
 
-> **Phase 5 coverage is at ~65 % globally** (up from 52 %). The 85 % CI gate remains a stretch goal; what was previously partial coverage is now exercised by the new test files: `auth`, `cli`, `evaluation`, `api` (+ sub-modules), `knowledge`, `parsers`, `stores`, `repos`, `retrieval`, `telemetry`, `migrate`, `plugins`, `conv`, `prompts`, `services`, `sessions`, `ingest`, `llm`. Each file ships with content-based assertions.
+> **Phase 5 coverage is at ~64 % globally** (up from 52 %). The 90 % CI gate remains a stretch goal; what was previously partial coverage is now exercised by the new test files: `auth`, `cli`, `evaluation`, `api` (+ sub-modules), `knowledge`, `parsers`, `stores`, `repos`, `retrieval`, `telemetry`, `migrate`, `plugins`, `conv`, `prompts`, `services`, `sessions`, `ingest`, `llm`. Each file ships with content-based assertions.
 
 ---
 
@@ -297,13 +297,13 @@ def test_invalid_input_fails_at_boundary_not_silently():
 | 6.5 | `docs/quickstart.md` | docs | 10-line plugin-author example. | **done** |
 | 6.6 | `docs/style/01-naming.md` | docs | the rules R1-R10 codified for contributors. | **done** |
 | 6.7 | `docs/style/02-docstrings.md` | docs | Google-style spec. | **done** |
-| 6.8 | `README.md` updated | `README.md` | quickstart matches new public surface. | **partial** — `README.md` updated to v1.0 module paths; the v1.0 surface list in the README is not the same as the curated essentials in `raghub/__init__.py`. |
-| 6.9 | `pyproject.toml` description update | `pyproject.toml` | "v1.0 OSS" notes. | **done** (`version = "1.0.0"`) |
-| 6.10 | `CHANGELOG.md` v1.0 entry | `CHANGELOG.md` | single breaking rename summary. | **not started** — `CHANGELOG.md` does not yet have a `[1.0.0]` entry that summarises the breaking-rename cascade; the 0.5.0 entry is the latest. |
+| 6.8 | `README.md` updated | `README.md` | quickstart matches new public surface. | **partial** — `README.md` updated to 0.6 module paths; the surface list in the README is not the same as the curated essentials in `raghub/__init__.py`. |
+| 6.9 | `pyproject.toml` description update | `pyproject.toml` | "0.6.0" notes. | **done** (`version = "0.6.0"`) |
+| 6.10 | `CHANGELOG.md` 0.6.0 entry | `CHANGELOG.md` | single breaking rename summary. | **done** — `CHANGELOG.md` has a `[0.6.0]` entry that summarises the breaking-rename cascade. |
 
 ---
 
-## Phase 7 — v1.0 tag
+## Phase 7 — v0.6.0 readiness
 
 | # | Commit | What | Status |
 | --- | --- | --- | --- |
@@ -315,7 +315,7 @@ def test_invalid_input_fails_at_boundary_not_silently():
 | 7.6 | `python -c "from raghub import RAG; print(RAG)"` smoke | import works. | **done** (verified today). |
 | 7.7 | `pytest --cov=raghub --cov-fail-under=85` green | coverage hits. | **not started** — coverage is ~52 % today. |
 | 7.8 | `ruff check`, `ruff format`, `interrogate`, `mypy` green | all lint. | **partial** — `ruff check` is green (0 errors with the rule ignore list in place); `ruff format` is green; `interrogate` is green (100.0 %); `mypy` is green (0 errors in 40 files). But 9 ruff rules remain in the ignore list. |
-| 7.9 | `git tag -a v1.0.0 -m "OSS-ready release"` | tagging. | **done** — `v1.0.0` is on master (commit `164a9e4`'s parent). |
+| 7.9 | `git tag -a v1.0.0 -m "OSS-ready release"` | tagging. | **superseded** — all release tags removed; version pinned at `0.6.0`. |
 | 7.10 | Tag push + release notes | finalisation. | **not started** — release notes file is not in the tree. |
 
 ---
@@ -432,7 +432,7 @@ git status                   → clean
 1. **Phase 5 coverage work** (10 commits, ~10 test files) — this is the only way to unblock the Phase 7.7 coverage gate.
 2. **Phase 4.2–4.20** (19 test rewrites) — these can be done in parallel with Phase 5 since they don't depend on coverage thresholds.
 3. **Phase 1.7 discriminator enums + per-entity `verify()` + typed `metadata`** (Phase 1.7.10–1.7.18, 1.7.20) — about 11 partials. The `<Entity>Type` enums and `verify()` are the load-bearing pieces; the typed `Metadata` `TypedDict` per entity (1.7.20) is the only meaningful change for R10.
-4. **Phase 6 cleanup** (6.2, 6.3, 6.8, 6.10) — flat submodule re-exports, dead `__all__` cleanup, README surface sync, CHANGELOG v1.0 entry.
+4. **Phase 6 cleanup** (6.2, 6.3, 6.8) — flat submodule re-exports, dead `__all__` cleanup, README surface sync.
 5. **Phase 7 hardening** (7.1, 7.4, 7.5, 7.7, 7.10) — coverage gate in CI, migrate dry-run, clean-install test, release notes.
 
-Estimated total commits remaining: **~50–60** to reach the plan's 148-commit budget and the `v1.0.0` coverage-tag gate. The work is mechanical and the contracts are already in `todo.md`.
+Estimated total commits remaining: **~50–60** to reach the plan's 148-commit budget and the 90 % coverage gate. The work is mechanical and the contracts are already in `todo.md`.

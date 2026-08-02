@@ -8,12 +8,13 @@ Each entry below lists the originating Git commit (short SHA) and its
 ISO 8601 timestamp with timezone. Entries are ordered from newest to
 oldest.
 
-## [1.0.0] - 2026-07-31
+## [0.6.0] - 2026-07-31
 
 ### Post-release hardening (2026-08-01)
 
-Additional commits landed on master between v1.0.0 and the re-tag of the
-release. The release tag has been force-moved onto the current HEAD.
+Additional commits landed on master after the 0.5.x series. The
+public surface continues to harden; release notes are tracked in
+`RELEASE_NOTES.md`.
 
 ### Added
 
@@ -38,10 +39,8 @@ release. The release tag has been force-moved onto the current HEAD.
 
 ### Changed (BREAKING)
 
-The v1.0 release is the **OSS-ready** release. The previous 0.5.x series
-shipped as a co-development tree; v1.0 freezes the public surface.
-
-There are **no backward-compat aliases** and **no deprecation period**.
+The 0.6 series continues the restructuring of the 0.5.x releases. There
+are **no backward-compat aliases** and **no deprecation period**.
 Old names simply do not exist any more. See `docs/migration.md` for the
 old → new rename table; the rename is mechanical.
 
