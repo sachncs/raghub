@@ -172,7 +172,7 @@ class SessionWrap:
     @property
     def session_id(self) -> str:
         """Return the session id from the wrapped record."""
-        return str(self.record.session_id)
+        return str(self.record.id)
 
     @property
     def history(self) -> list[Turn]:
