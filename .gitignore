@@ -21,6 +21,10 @@ docs/site/
 .env.local
 devtools/report.json
 
+# Local agent + tooling output
+AGENTS.md
+interrogate-output.txt
+
 # Phase 0.1: untracked local tooling + generated reports
 lint/
 reports/

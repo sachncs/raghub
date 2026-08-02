@@ -53,7 +53,7 @@ class MyStructuredProvider(StructuredOutputProvider):
 
 class MyPlugin:
     name = "my-plugin"
-    version = "1.0.0"
+    version = "0.6.0"
 
     def register(self, registry: PluginRegistry) -> None:
         registry.register_structured("my-provider", MyStructuredProvider())

@@ -1,13 +1,13 @@
-# RAGHub v1.0.0 — Release Notes
+# RAGHub 0.6.0 — Release Notes
 
-> Frozen public surface for the OSS-ready release.
+> Public-surface hardening for the next stable release.
 
 ## Summary
 
-`v1.0.0` is the **OSS-ready** release of `raghub`. The 0.5.x series
-shipped as a co-development tree; v1.0 freezes the public surface,
-canonicalises the universal entity schema, removes `_`-prefix
-private symbols, and migrates the on-disk manifest format to v2.
+`0.6.0` continues the hardening of `raghub` after the 0.5.x series.
+The public surface is canonicalised around the universal entity schema,
+`_`-prefix private symbols are removed, and the on-disk manifest format
+migrates to v2.
 
 There are **no backward-compat aliases** and **no deprecation period**.
 Old names simply do not exist; `docs/migration.md` provides mechanical
@@ -95,9 +95,8 @@ to upgrade on-disk `manifest.json` files from v0/v1 to v2 in place.
 
 ## Post-release hardening (2026-08-01)
 
-Additional commits landed on master between v1.0.0 and the re-tag of
-the release. The v1.0.0 release tag has been force-moved onto the
-current HEAD.
+Additional commits landed on master after the 0.5.x series; the release
+notes above describe the state of the tree at the time of writing.
 
 ### Added
 
@@ -133,4 +132,4 @@ R10 No `Any` outside `metadata`. `metadata` is the only `Any` slot.
 ```
 
 ---
-*This release notes file is the source of truth for the v1.0.0 OSS-ready release.*
+*This release notes file tracks the 0.6.0 public-surface hardening.*
