@@ -481,9 +481,7 @@ class Metrics:
         relevant_ids: Sequence[str],
         answer: str,
         contexts: Sequence[str],
-        ground_truth: str = "",
-        question: str = "",
-        k: int = 5,
+        **options: Any,
     ) -> dict[str, float]:
         """Compute every retrieval and answer metric for a single example.
 
@@ -495,11 +493,15 @@ class Metrics:
             ground_truth: The reference answer (optional).
             question: The question (optional, for context precision).
             k: Cutoff for @K metrics.
+            **options: Reserved for future overrides.
 
         Returns:
             A dict of metric name → value.
 
         """
+        ground_truth: str = options.get("ground_truth", "")
+        question: str = options.get("question", "")
+        k: int = options.get("k", 5)
         metrics: dict[str, float] = {
             f"recall_at_{k}": Metrics.recall_at_k(retrieved_ids, relevant_ids, k),
             f"precision_at_{k}": Metrics.precision_at_k(retrieved_ids, relevant_ids, k),

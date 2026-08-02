@@ -335,6 +335,25 @@ def user_store_or_503(app_service: Facade) -> Any:
     return store
 
 
+def _query_request_has_flags(payload: Any) -> bool:
+    """Return ``True`` when any advanced-RAG flag is set on the payload."""
+    return any(
+        getattr(payload, field) is not None
+        for field in (
+            "tools_enabled",
+            "agent",
+            "web",
+            "graph",
+            "summaries",
+            "reranker",
+            "long_context_pass",
+            "query_transforms",
+            "max_steps",
+            "top_k",
+        )
+    )
+
+
 # ---------------------------------------------------------------------------
 # Versioned routes (v1) + admin + preferences
 # ---------------------------------------------------------------------------
@@ -367,7 +386,7 @@ class RouteGroup:
 
     # ----- v1: auth / session -----------------------------------------
 
-    def health(self) -> Callable[..., Any]:
+    def _health(self) -> Callable[..., Any]:
         """Liveness probe; delegates to :meth:`Facade.health`."""
 
         @self.router.get("/health")
@@ -379,7 +398,7 @@ class RouteGroup:
 
         return handler
 
-    def login(self) -> Callable[..., Any]:
+    def _login(self) -> Callable[..., Any]:
         """Authenticate a user and return a session token."""
 
         @self.router.post("/auth/login", response_model=AuthLoginResponse)
@@ -392,7 +411,7 @@ class RouteGroup:
 
         return handler
 
-    def logout(self) -> Callable[..., Any]:
+    def _logout(self) -> Callable[..., Any]:
         """Invalidate the bearer token presented in the ``Authorization`` header."""
 
         @self.router.post("/auth/logout")
@@ -406,7 +425,7 @@ class RouteGroup:
 
         return handler
 
-    def session_history(self) -> Callable[..., Any]:
+    def _session_history(self) -> Callable[..., Any]:
         """Return the conversation history for the current session."""
 
         @self.router.get("/session/history")
@@ -420,7 +439,7 @@ class RouteGroup:
 
         return handler
 
-    def clear_history(self) -> Callable[..., Any]:
+    def _clear_history(self) -> Callable[..., Any]:
         """Empty the conversation history for the current session."""
 
         @self.router.delete("/session/history", status_code=204, response_class=Response)
@@ -436,7 +455,7 @@ class RouteGroup:
 
     # ----- v1: documents ----------------------------------------------
 
-    def upload_document(self) -> Callable[..., Any]:
+    def _upload_document(self) -> Callable[..., Any]:
         """Upload a PDF document and synchronously index it."""
 
         @self.router.post(
@@ -469,7 +488,7 @@ class RouteGroup:
 
         return handler
 
-    def ingest_documents_batch(self) -> Callable[..., Any]:
+    def _ingest_documents_batch(self) -> Callable[..., Any]:
         """Ingest multiple documents in a single request.
 
         Accepts one or more files as multipart upload. Each file is
@@ -537,7 +556,7 @@ class RouteGroup:
 
         return handler
 
-    def list_documents(self) -> Callable[..., Any]:
+    def _list_documents(self) -> Callable[..., Any]:
         """List the documents visible to the calling user."""
 
         @self.router.get("/documents")
@@ -551,7 +570,7 @@ class RouteGroup:
 
         return handler
 
-    def document_status(self) -> Callable[..., Any]:
+    def _document_status(self) -> Callable[..., Any]:
         """Return the latest status for a single document."""
 
         @self.router.get("/documents/{document_id}/status")
@@ -566,7 +585,7 @@ class RouteGroup:
 
         return handler
 
-    def delete_document(self) -> Callable[..., Any]:
+    def _delete_document(self) -> Callable[..., Any]:
         """Delete a document and all of its chunks. Admin-only."""
 
         @self.router.delete("/documents/{document_id}", status_code=204, response_class=Response)
@@ -583,7 +602,7 @@ class RouteGroup:
 
     # ----- v1: query ---------------------------------------------------
 
-    def query(self) -> Callable[..., Any]:
+    def _query(self) -> Callable[..., Any]:
         """Answer a question using the application service.
 
         Advanced-RAG flags (``agent``, ``web``, ``tools_enabled``
@@ -598,18 +617,7 @@ class RouteGroup:
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> QueryResponse:
             """Handle the request and return the response model."""
-            if (
-                payload.tools_enabled is None
-                and payload.agent is None
-                and payload.web is None
-                and payload.graph is None
-                and payload.summaries is None
-                and payload.reranker is None
-                and payload.long_context_pass is None
-                and payload.query_transforms is None
-                and payload.max_steps is None
-                and payload.top_k is None
-            ):
+            if not _query_request_has_flags(payload):
                 return await app_service.query(token=token, question=payload.question)
             return await app_service.query_with_flags(
                 token=token,
@@ -628,7 +636,7 @@ class RouteGroup:
 
         return handler
 
-    def ingest_async(self) -> Callable[..., Any]:
+    def _ingest_async(self) -> Callable[..., Any]:
         """Queue a document for asynchronous ingestion."""
 
         @self.router.post("/ingest/async")
@@ -657,7 +665,7 @@ class RouteGroup:
 
     # ----- v1: streaming ----------------------------------------------
 
-    def query_stream(self) -> Callable[..., Any]:
+    def _query_stream(self) -> Callable[..., Any]:
         """Stream agent / planner events as Server-Sent Events."""
 
         @self.router.post("/query/stream")
@@ -697,7 +705,7 @@ class RouteGroup:
 
         return handler
 
-    def agent_run(self) -> Callable[..., Any]:
+    def _agent_run(self) -> Callable[..., Any]:
         """Run the agent end-to-end and return the full :class:`QueryResponse`."""
 
         @self.router.post("/agent/run", response_model=QueryResponse)
@@ -726,7 +734,7 @@ class RouteGroup:
 
     # ----- v1/admin ---------------------------------------------------
 
-    def admin_documents(self) -> Callable[..., Any]:
+    def _admin_documents(self) -> Callable[..., Any]:
         """Admin-only: list every document in the registry."""
 
         @self.admin_router.get("/documents")
@@ -740,7 +748,7 @@ class RouteGroup:
 
         return handler
 
-    def admin_users(self) -> Callable[..., Any]:
+    def _admin_users(self) -> Callable[..., Any]:
         """Admin-only: list every user in the user store (sensitive fields redacted)."""
 
         @self.admin_router.get("/users")
@@ -754,7 +762,7 @@ class RouteGroup:
 
         return handler
 
-    def admin_stats(self) -> Callable[..., Any]:
+    def _admin_stats(self) -> Callable[..., Any]:
         """Admin-only: high-level system counters."""
 
         @self.admin_router.get("/stats")
@@ -778,7 +786,7 @@ class RouteGroup:
 
     # ----- v1/users/me/preferences ------------------------------------
 
-    def preferences_get(self) -> Callable[..., Any]:
+    def _preferences_get(self) -> Callable[..., Any]:
         """Return every stored preference for the authenticated user."""
 
         @self.preferences_router.get(
@@ -797,7 +805,7 @@ class RouteGroup:
 
         return handler
 
-    def preferences_patch(self) -> Callable[..., Any]:
+    def _preferences_patch(self) -> Callable[..., Any]:
         """Upsert one or more preferences for the authenticated user."""
 
         @self.preferences_router.patch(
@@ -818,7 +826,7 @@ class RouteGroup:
 
         return handler
 
-    def preferences_delete(self) -> Callable[..., Any]:
+    def _preferences_delete(self) -> Callable[..., Any]:
         """Delete a single preference by key."""
 
         @self.preferences_router.delete(
@@ -846,26 +854,26 @@ class RouteGroup:
         re-decorate on a fresh router if they need to.
         """
         for builder in (
-            self.health,
-            self.login,
-            self.logout,
-            self.session_history,
-            self.clear_history,
-            self.upload_document,
-            self.ingest_documents_batch,
-            self.list_documents,
-            self.document_status,
-            self.delete_document,
-            self.query,
-            self.ingest_async,
-            self.query_stream,
-            self.agent_run,
-            self.admin_documents,
-            self.admin_users,
-            self.admin_stats,
-            self.preferences_get,
-            self.preferences_patch,
-            self.preferences_delete,
+                    self._health,
+            self._login,
+            self._logout,
+            self._session_history,
+            self._clear_history,
+            self._upload_document,
+            self._ingest_documents_batch,
+            self._list_documents,
+            self._document_status,
+            self._delete_document,
+            self._query,
+            self._ingest_async,
+            self._query_stream,
+            self._agent_run,
+            self._admin_documents,
+            self._admin_users,
+            self._admin_stats,
+            self._preferences_get,
+            self._preferences_patch,
+            self._preferences_delete,
         ):
             builder()
 

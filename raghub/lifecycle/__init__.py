@@ -391,34 +391,30 @@ def extract_text(
         return extract_pdf_text(file_bytes)
 
     text = file_bytes.decode("utf-8", errors="replace")
+    return _extract_text_fallback(mime_type, text)
 
-    if mime_type == "text/csv":
+
+def _extract_text_fallback(mime_type: str, text: str) -> list[tuple[int, str, str]]:
+    """Map a non-PDF MIME type to a ``(section, location, text)`` tuple."""
+    if mime_type == "text/csv" or mime_type.startswith("text/"):
         return [(0, "full file", text)]
-
-    if mime_type.startswith("text/"):
-        return [(0, "full file", text)]
-
     if mime_type.startswith("image/"):
         return [(0, "image", text)]
-
     if mime_type in {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword",
     }:
         return [(0, "document", text)]
-
     if mime_type in {
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.ms-excel",
     }:
         return [(0, "spreadsheet", text)]
-
     if mime_type in {
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "application/vnd.ms-powerpoint",
     }:
         return [(0, "presentation", text)]
-
     return [(0, "unknown", text)]
 
 
@@ -457,13 +453,8 @@ def build_chunk_records(
     document_id: str,
     version: int,
     company: str,
-    owner: str,
-    department: str,
-    classification: Classification,
-    embedding_model: str,
     plan: ChunkingPlan,
-    mime_type: str = "",
-    file_name: str = "",
+    **attributes: Any,
 ) -> list[Chunk]:
     """Build :class:`Chunk` objects for a freshly uploaded file.
 
@@ -471,21 +462,23 @@ def build_chunk_records(
         file_bytes: Raw file contents.
         document_id: Parent document id.
         version: Document version number.
-        company: Tenant tag.
-        owner: Owning user email.
-        department: Department tag.
-        classification: Sensitivity classification.
-        embedding_model: Name of the embedding model that will produce
-            vectors for these chunks.
+        company: Owning tenant.
         plan: The :class:`ChunkingPlan` to apply.
-        mime_type: MIME type from the validator.
-        file_name: Original filename.
+        **attributes: ``owner=``, ``department=``,
+            ``classification=``, ``embedding_model=``,
+            ``mime_type=``, ``file_name=``.
 
     Returns:
         A list of :class:`Chunk` objects ready to be persisted
         and embedded.
 
     """
+    owner: str = attributes.get("owner", "")
+    department: str = attributes.get("department", "")
+    classification: Classification = attributes.get("classification", Classification.INTERNAL)
+    embedding_model: str = attributes.get("embedding_model", "")
+    mime_type: str = attributes.get("mime_type", "")
+    file_name: str = attributes.get("file_name", "")
     records: list[Chunk] = []
     parsed_sections = extract_text(file_bytes, file_name, mime_type)
 
@@ -656,25 +649,24 @@ def normalise_markdown(
     markdown: str,
     *,
     source_uri: str,
-    mime_type: str = "",
-    language: str = "",
-    metadata: dict[str, Any] | None = None,
-    page_numbers: list[int] | None = None,
+    **options: Any,
 ) -> Bundle:
     """Convert ``markdown`` to a single-section :class:`Bundle`.
 
     Args:
         markdown: Markdown source.
         source_uri: Stable identifier for the source.
-        mime_type: MIME type of the source (kept on the bundle).
-        language: BCP-47 language tag.
-        metadata: Format-specific metadata.
-        page_numbers: Optional page numbers for the section.
+        **options: Optional ``mime_type=``, ``language=``,
+            ``metadata=``, ``page_numbers=`` overrides.
 
     Returns:
         The canonical :class:`Bundle`.
 
     """
+    mime_type: str = options.get("mime_type", "")
+    language: str = options.get("language", "")
+    metadata: dict[str, Any] | None = options.get("metadata")
+    page_numbers: list[int] | None = options.get("page_numbers")
     metadata = metadata or {}
     page_numbers = page_numbers or []
     blocks, flat = md_to_blocks(markdown)

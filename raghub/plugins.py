@@ -141,7 +141,7 @@ class PluginRegistry:
     # Entry-point discovery
     # ------------------------------------------------------------------
 
-    def discover_entrypoints(self, group: str = "raghub.plugins") -> int:
+    def _discover_entrypoints(self, group: str = "raghub.plugins") -> int:
         """Discover and load plugins exposed as entry points.
 
         Args:
