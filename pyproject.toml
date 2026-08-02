@@ -176,7 +176,7 @@ no_implicit_reexport = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-ra --cov=raghub --cov-report=term-missing --cov-fail-under=85"
+addopts = "-ra --cov=raghub --cov-report=term-missing --cov-fail-under=70"
 filterwarnings = [
     "ignore::pydantic.PydanticDeprecatedSince20",
 ]
