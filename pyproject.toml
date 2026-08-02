@@ -151,7 +151,7 @@ preview = true
 # Tests: pytest-idiom exceptions only (magic numbers / long signatures in
 # fixtures, docstrings, test-class methods that don't use `self`, async
 # test helpers without an await). Library code has zero ignores.
-"tests/*" = ["PLR2004", "PLR0913", "D", "PLR6301", "RUF029"]
+"tests/*" = ["PLR2004", "PLR0913", "D", "PLR6301", "RUF029", "B903", "SIM117", "RUF012"]
 "docs/*" = ["D"]
 "devtools/*" = ["PLR0913", "D"]
 

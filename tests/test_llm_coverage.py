@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import os
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -18,16 +17,13 @@ import pytest
 
 from raghub.errors import GenerationError
 from raghub.llm import (
-    Generator,
     GenerationRequest,
     HeuristicProvider,
-    LLMValueErrorBoundary,
     LiteLLM,
+    LLMValueErrorBoundary,
     Turn,
-    any_llm_api_key_present,
     build_llm,
 )
-
 
 # ---------------------------------------------------------------------------
 # build_messages
@@ -78,8 +74,8 @@ def test_build_messages_session_history_replaces_conversation() -> None:
             question="current",
         )
     )
-    assert any("from history 1" == m["content"] for m in messages)
-    assert any("from history 2" == m["content"] for m in messages)
+    assert any(m["content"] == "from history 1" for m in messages)
+    assert any(m["content"] == "from history 2" for m in messages)
     assert not any(m["content"] == "ignored" for m in messages)
 
 
@@ -172,17 +168,15 @@ def test_build_messages_unknown_image_extension_defaults_to_png(tmp_path: Path) 
 def test_value_error_boundary_translates_value_error() -> None:
     """A bare ``ValueError`` is rewritten as :class:`GenerationError`."""
     boundary = LLMValueErrorBoundary("ctx")
-    with pytest.raises(GenerationError, match="ctx"):
-        with boundary:
-            raise ValueError("bad value")
+    with pytest.raises(GenerationError, match="ctx"), boundary:
+        raise ValueError("bad value")
 
 
 def test_value_error_boundary_propagates_other_exceptions() -> None:
     """Non-``ValueError`` exceptions pass through unchanged."""
     boundary = LLMValueErrorBoundary("ctx")
-    with pytest.raises(RuntimeError, match="boom"):
-        with boundary:
-            raise RuntimeError("boom")
+    with pytest.raises(RuntimeError, match="boom"), boundary:
+        raise RuntimeError("boom")
 
 
 def test_value_error_boundary_swallows_nothing() -> None:
@@ -279,9 +273,8 @@ def test_litellm_generate_wraps_underlying_exception() -> None:
     with patch(
         "raghub.llm.litellm.completion",
         side_effect=RuntimeError("upstream boom"),
-    ):
-        with pytest.raises(GenerationError, match="upstream boom"):
-            provider.generate(GenerationRequest(question="hi", context=[]))
+    ), pytest.raises(GenerationError, match="upstream boom"):
+        provider.generate(GenerationRequest(question="hi", context=[]))
 
 
 def test_litellm_generate_propagates_generation_error_from_retry() -> None:
@@ -290,9 +283,8 @@ def test_litellm_generate_propagates_generation_error_from_retry() -> None:
     with patch(
         "raghub.llm.litellm.completion",
         side_effect=GenerationError("retried-and-failed"),
-    ):
-        with pytest.raises(GenerationError, match="retried-and-failed"):
-            provider.generate(GenerationRequest(question="hi", context=[]))
+    ), pytest.raises(GenerationError, match="retried-and-failed"):
+        provider.generate(GenerationRequest(question="hi", context=[]))
 
 
 def test_litellm_generate_records_token_usage() -> None:
@@ -409,9 +401,8 @@ def test_litellm_async_generate_wraps_upstream_exception() -> None:
     with patch(
         "raghub.llm.litellm.acompletion",
         side_effect=RuntimeError("upstream-async"),
-    ):
-        with pytest.raises(GenerationError, match="upstream-async"):
-            asyncio.run(provider.async_generate(GenerationRequest(question="hi", context=[])))
+    ), pytest.raises(GenerationError, match="upstream-async"):
+        asyncio.run(provider.async_generate(GenerationRequest(question="hi", context=[])))
 
 
 def test_litellm_async_generate_wraps_unexpected_shape() -> None:
@@ -449,9 +440,8 @@ def test_litellm_async_generate_propagates_generation_error() -> None:
     with patch(
         "raghub.llm.litellm.acompletion",
         side_effect=GenerationError("already-wrapped"),
-    ):
-        with pytest.raises(GenerationError, match="already-wrapped"):
-            asyncio.run(provider.async_generate(GenerationRequest(question="hi", context=[])))
+    ), pytest.raises(GenerationError, match="already-wrapped"):
+        asyncio.run(provider.async_generate(GenerationRequest(question="hi", context=[])))
 
 
 # ---------------------------------------------------------------------------
@@ -570,9 +560,8 @@ def test_litellm_astream_wraps_upstream_exception() -> None:
     with patch(
         "raghub.llm.litellm.acompletion",
         side_effect=RuntimeError("stream-boom"),
-    ):
-        with pytest.raises(RuntimeError, match="stream-boom"):
-            asyncio.run(_collect_stream(provider))
+    ), pytest.raises(RuntimeError, match="stream-boom"):
+        asyncio.run(_collect_stream(provider))
 
 
 async def _collect_stream(provider: LiteLLM) -> list[str]:
@@ -597,7 +586,9 @@ def test_direct_chat_posts_to_configured_url() -> None:
     fake_response.raise_for_status = MagicMock()
     provider.direct_client = MagicMock()
     provider.direct_url = "https://override.example/v2/chat"
-    with patch.object(provider.direct_client, "post", AsyncMock(return_value=fake_response)) as mock_post:
+    with patch.object(
+        provider.direct_client, "post", AsyncMock(return_value=fake_response)
+    ) as mock_post:
         result = asyncio.run(provider.direct_chat([{"role": "user", "content": "hi"}]))
     assert result == {
         "choices": [{"message": {"role": "assistant", "content": "x"}}]
@@ -618,7 +609,9 @@ def test_direct_chat_includes_timeout_when_configured() -> None:
     fake_response = MagicMock()
     fake_response.json.return_value = {"choices": []}
     fake_response.raise_for_status = MagicMock()
-    with patch.object(provider.direct_client, "post", AsyncMock(return_value=fake_response)) as mock_post:
+    with patch.object(
+        provider.direct_client, "post", AsyncMock(return_value=fake_response)
+    ) as mock_post:
         asyncio.run(provider.direct_chat([{"role": "user", "content": "hi"}]))
     assert mock_post.call_args.kwargs["json"]["timeout"] == 4.0
 
@@ -630,9 +623,8 @@ def test_direct_chat_wraps_http_error() -> None:
     provider.direct_url = "https://override.example/v2/chat"
     with patch.object(
         provider.direct_client, "post", AsyncMock(side_effect=RuntimeError("http-boom"))
-    ):
-        with pytest.raises(RuntimeError, match="http-boom"):
-            asyncio.run(provider.direct_chat([{"role": "user", "content": "hi"}]))
+    ), pytest.raises(RuntimeError, match="http-boom"):
+        asyncio.run(provider.direct_chat([{"role": "user", "content": "hi"}]))
 
 
 # ---------------------------------------------------------------------------

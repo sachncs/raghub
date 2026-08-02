@@ -233,6 +233,7 @@ class DocStore(DocumentRepository):
     @staticmethod
     def record_params(record: Document) -> tuple[Any, ...]:
         """Serialise ``record`` to the SQL bind-tuple shape."""
+        chunks = list(getattr(record, "chunks", []) or getattr(record, "chunk_ids", []))
         return (
             record.id,
             record.version,
@@ -254,7 +255,7 @@ class DocStore(DocumentRepository):
             getattr(record, "file_type", ""),
             getattr(record, "mime_type", ""),
             getattr(record, "chunk_count", 0),
-            json.dumps(getattr(record, "chunk_ids", [])),
+            json.dumps(chunks),
             getattr(record, "error", None),
         )
 
@@ -401,6 +402,10 @@ class DocStore(DocumentRepository):
         data["updated_at"] = datetime.fromisoformat(data["updated_at"])
         data["tags"] = json.loads(data.get("tags", "[]"))
         data["chunks"] = json.loads(data.get("chunk_ids", "[]"))
+        # The SQL column is ``document_id``; the model field is ``id``.
+        # Bridge the gap so pydantic does not fall back to a fresh UUID.
+        if "document_id" in data and "id" not in data:
+            data["id"] = data["document_id"]
         return Document(**data)
 
 
@@ -441,6 +446,9 @@ class SessionStore(SessionRepository):
                 "[]",
             ),
         )
+        if self.db_manager is None:
+            await conn.commit()
+            await conn.close()
 
     async def create_from_record(self, record: Session) -> None:
         """Insert a full :class:`Session` including its history.

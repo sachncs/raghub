@@ -7,14 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
-from raghub.conv import (
-    ConversationManager,
-    Memory,
-    SlidingWindowManager,
-    Tokenizer
-    )
+from raghub.conv import ConversationManager, Memory, SlidingWindowManager, Tokenizer
 from raghub.models import Session, Turn
 from raghub.repos import UnitOfWork
 
