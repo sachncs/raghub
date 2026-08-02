@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 
@@ -30,9 +29,9 @@ class FakeGenerator:
         self._responses = list(responses)
         self.calls: list[str] = []
 
-    async def async_generate(self, **kwargs: Any) -> str:
+    async def async_generate(self, request) -> str:
         # The prompt is the question — pop the next response.
-        self.calls.append(kwargs.get("question", ""))
+        self.calls.append(request.question)
         return self._responses.pop(0) if self._responses else ""
 
 
@@ -194,7 +193,7 @@ def test_synthetic_dataset_rejects_chunk_without_text() -> None:
         pass
 
     gen = FakeGenerator([])
-    with pytest.raises(ValueError, match="no .text attribute"):
+    with pytest.raises(ValueError, match=r"no \.text attribute"):
         ds = SyntheticDataset(corpus=[BadChunk()], llm=gen, n_questions=1)
         asyncio.run(ds.generate())
 

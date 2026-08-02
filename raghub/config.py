@@ -30,6 +30,8 @@ __all__ = [
     "WebSearchConfig",
 ]
 
+JWT_SECRET_MIN_BYTES = 32
+
 
 class Settings(BaseModel):
     """Runtime configuration for the platform.
@@ -675,7 +677,7 @@ def production_check(settings: Settings) -> None:
     secret = settings.jwt_secret.get_secret_value()
     if not secret:
         raise RuntimeError("JWT_SECRET environment variable is required in production mode")
-    if len(secret.encode("utf-8")) < 32:
+    if len(secret.encode("utf-8")) < JWT_SECRET_MIN_BYTES:
         raise RuntimeError(
             "JWT_SECRET must be at least 32 bytes long in production mode "
             "(PyJWT rejects shorter keys for HS256)."

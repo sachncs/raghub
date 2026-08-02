@@ -23,6 +23,8 @@ from typing import Any
 from raghub.errors import ConfigurationError, MissingDepError
 from raghub.models import Evaluator, Result
 
+RAGAS_PASS_THRESHOLD = 0.5
+
 
 def import_ragas() -> Any:
     """Import ragas lazily; raise ``MissingDepError`` when not installed.
@@ -133,7 +135,8 @@ class RagasAdapter(Evaluator):
         self.embeddings = embeddings
         self.metric_instances: list[Any] = []  # populated lazily in evaluate()
 
-    def build_dataset(self, examples: list[dict[str, Any]]) -> Any:
+    @staticmethod
+    def build_dataset(examples: list[dict[str, Any]]) -> Any:
         """Translate RAGHub examples into a ragas Dataset.
 
         Args:
@@ -224,7 +227,10 @@ class RagasAdapter(Evaluator):
         outcomes: list[Result] = []
         for idx, example in enumerate(rows):
             metrics_for_row = {f"ragas_{name}": scores[name][idx] for name in self.metric_names}
-            passed = all(metrics_for_row[f"ragas_{name}"] >= 0.5 for name in self.metric_names)
+            passed = all(
+                metrics_for_row[f"ragas_{name}"] >= RAGAS_PASS_THRESHOLD
+                for name in self.metric_names
+            )
             outcomes.append(
                 Result(
                     benchmark=self.benchmark,

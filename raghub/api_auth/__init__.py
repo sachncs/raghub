@@ -13,7 +13,7 @@ Class summary::
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Annotated, cast
 
 from fastapi import Depends, Header, HTTPException, Request
 
@@ -75,8 +75,8 @@ class Auth:
 
     @staticmethod
     async def admin(
-        authorization: str | None = Header(default=None),
-        app_service: Facade = Depends(App.get),
+        authorization: Annotated[str | None, Header(default=None)],
+        app_service: Annotated[Facade, Depends(App.get)],
     ) -> User:
         """Resolve the bearer token and require an admin principal.
 

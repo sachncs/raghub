@@ -222,7 +222,7 @@ def test_canonical_filters_hashable(filters: dict) -> None:
     """canonical_filters returns a hashable tuple for any dict input."""
     result = canonical_filters(filters)
     assert isinstance(result, tuple)
-    {result: 1}
+    assert isinstance(hash(result), int)
 
 
 @given(

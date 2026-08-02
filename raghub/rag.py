@@ -69,6 +69,8 @@ from raghub.models import (
     DocumentConverter,
     Pipeline,
     PipelineCtx,
+    RagComponents,
+    RagQueryRequest,
     Response,
     Result,
     Turn,
@@ -223,6 +225,18 @@ def default_embedder(embedding_model: str, embedding_dim: int) -> Embedder:
     from raghub.embedder import LiteLLMEmbedder
 
     return LiteLLMEmbedder(model=embedding_model)
+
+
+def _agent_required(requirements: dict[str, Any]) -> bool:
+    """Decide whether the agent loop must be built eagerly."""
+    raptor = requirements.get("raptor")
+    graph = requirements.get("graph")
+    return bool(
+        requirements.get("agent_enabled")
+        or requirements.get("web_enabled")
+        or (requirements.get("summary_enabled") and raptor is not None)
+        or (requirements.get("graph_enabled") and graph is not None)
+    )
 
 
 def default_llm(llm_model: str) -> Any:
@@ -417,98 +431,71 @@ class RAG:
         self,
         *,
         settings: Settings | None = None,
-        converter: Any = None,
-        chunker: Any = None,
-        embedder: Any = None,
-        llm: Any = None,
-        llm_timeout_seconds: float | None = None,
-        vector_store: Any = None,
-        generator: Any = None,
-        reranker: Any = None,
-        knowledge_repo: Any = None,
-        structured: Any | None = None,
-        telemetry: Any = None,
-        registry: Any = None,
-        background_service: Any = None,
-        manifest: Any = None,
-        transformer: Any = None,
+        components: RagComponents | None = None,
+        **kwargs: Any,
     ) -> None:
         """Initialise the facade.
 
         Args:
             settings: Configuration; default uses
                 :func:`load_settings`.
-            converter: Document converter. Defaults to
-                :class:`Marker` (with
-                :class:`PlainTextConverter` fallback).
-            chunker: Chunker. Defaults to Chonkie (with
-                :class:`WordChunker` fallback).
-            embedder: Embedding provider. Defaults to
-                :class:`LiteLLMEmbedder` (with
-                :class:`Hasher` fallback).
-            llm: LLM provider. Defaults to
-                :class:`LiteLLM` when an API key is available;
-                :class:`HeuristicProvider` (offline fallback) otherwise.
-            llm_timeout_seconds: Maximum completion time for the default generator.
-            vector_store: Vector store. Defaults to
-                :class:`QdrantVectorStore` (with
-                :class:`MemoryStore` fallback).
-            generator: Answer generator. Defaults to
-                :class:`DefaultGenerator` wrapping ``llm``.
-            reranker: Reranker. Defaults to
-                :class:`IdentityReranker`.
-            knowledge_repo: Knowledge repository. Defaults to
-                :class:`MemoryRepo`.
-            structured: Structured-output provider. Defaults to
-                :class:`Instructor`; falls
-                back to ``None`` when Instructor is not installed.
-            telemetry: Telemetry provider. Defaults to Langfuse
-                (when credentials are present); falls back to
-                :class:`NoOpTelemetry`. The default is wrapped in
-                :class:`RedactingTelemetry` to scrub secrets.
-            registry: Optional plugin registry.
-            background_service: Optional background ingestion
-                service. A
-                :class:`Resumable` is
-                instantiated on demand when callers invoke
-                :meth:`ingest_async`.
-            manifest: Optional source manifest. Defaults to a
-                ``manifest.json`` next to the data directory.
-            transformer: Optional pre-built query-transform composer.
-                Defaults to :func:`raghub.api.defaults.default_transforms`
-                built from ``settings.query_transforms.enabled`` and
-                ``self.llm``. Pass an empty :class:`ComposeTransformer`
-                to disable transforms explicitly.
+            components: Optional injection of every collaborator
+                (converter, chunker, embedder, llm, vector_store,
+                generator, reranker, knowledge_repo, structured,
+                telemetry, registry, background_service, manifest,
+                transformer). Missing keys default to the standard
+                implementation. Legacy keyword arguments
+                (``converter=``, ``llm=``, etc.) remain supported
+                for backward compatibility; they are merged into
+                ``components`` before resolution.
+            **kwargs: Legacy keyword arguments accepted for
+                backward compatibility. They are merged into
+                ``components`` so older callers keep working.
 
         """
-        self.settings = settings or Settings.load()
-        self.registry = registry or PluginRegistry()
+        components_dict: dict[str, Any] = dict(components) if components is not None else {}
+        components_dict.update(kwargs)
+        components_dict.setdefault("settings", settings)
+        self.settings: Settings = components_dict.get("settings") or Settings.load()
+        self.registry: Any = components_dict.get("registry") or PluginRegistry()
 
-        self.knowledge_repo = knowledge_repo or MemoryRepo()
-        self.vector_store = vector_store or default_vector_store(self.settings.embedding_dim)
-        self.embedder = embedder or default_embedder(
+        self.knowledge_repo: Any = components_dict.get("knowledge_repo") or MemoryRepo()
+        self.vector_store: Any = (
+            components_dict.get("vector_store") or default_vector_store(self.settings.embedding_dim)
+        )
+        self.embedder: Any = components_dict.get("embedder") or default_embedder(
             self.settings.embedding_model, self.settings.embedding_dim
         )
-        self.llm = llm or default_llm(self.settings.llm_model)
-        self.converter = converter or default_converter()
-        self.chunker = chunker or default_chunker(
+        self.llm: Any = components_dict.get("llm") or default_llm(self.settings.llm_model)
+        self.converter: Any = components_dict.get("converter") or default_converter()
+        self.chunker: Any = components_dict.get("chunker") or default_chunker(
             self.settings.chunk_size_words,
             self.settings.chunk_overlap_words,
             chunker_strategy=self.settings.chunker_strategy,
             embedding_model_chunker=self.settings.embedding_model_chunker,
         )
-        self.reranker = reranker or build_reranker(self.settings, llm=self.llm)
-        self.generator = cast(
-            Any,
-            generator or DefaultGenerator(llm=self.llm, timeout_seconds=llm_timeout_seconds),
+        self.reranker: Any = components_dict.get("reranker") or build_reranker(
+            self.settings, llm=self.llm
         )
-        self.structured = structured if structured is not None else default_structured()
+        self.generator: Any = cast(
+            Any,
+            components_dict.get("generator")
+            or DefaultGenerator(
+                llm=self.llm,
+                timeout_seconds=components_dict.get("llm_timeout_seconds"),
+            ),
+        )
+        self.structured: Any = (
+            components_dict.get("structured")
+            if components_dict.get("structured") is not None
+            else default_structured()
+        )
 
-        if telemetry is None:
+        if components_dict.get("telemetry") is None:
             inner = default_telemetry()
             self.telemetry: Any = RedactingTelemetry(inner)
         else:
-            self.telemetry = telemetry
+            self.telemetry = components_dict["telemetry"]
         # Phase 4.8: register the Prometheus metrics instance so
         # rerankers (and future hot-path components) can record
         # observations without coupling to the telemetry provider.
@@ -533,15 +520,11 @@ class RAG:
             if self.settings.enable_query_cache
             else None
         )
-        self.transformer = (
-            transformer
-            if transformer is not None
-            else default_transforms(
-                self.llm,
-                enabled=list(self.settings.query_transforms.enabled),
-                hyde_n=self.settings.query_transforms.hyde_n,
-                multi_query_n=self.settings.query_transforms.multi_query_n,
-            )
+        self.transformer: Any = components_dict.get("transformer") or default_transforms(
+            self.llm,
+            enabled=list(self.settings.query_transforms.enabled),
+            hyde_n=self.settings.query_transforms.hyde_n,
+            multi_query_n=self.settings.query_transforms.multi_query_n,
         )
         # Phase 2.8: build a RetrievalPipeline so multi-variant
         # retrieval can delegate to ``retrieve_variants``. Identity
@@ -591,11 +574,15 @@ class RAG:
         )
         self.agent: Any | None = None
         self.agentic_pipeline: Any | None = None
-        if (
-            self.settings.agent.enabled
-            or self.settings.web_search.enabled
-            or (self.settings.summary_search_enabled and self.raptor is not None)
-            or (self.settings.graph_search_enabled and self.graph is not None)
+        if _agent_required(
+            {
+                "agent_enabled": self.settings.agent.enabled,
+                "web_enabled": self.settings.web_search.enabled,
+                "summary_enabled": self.settings.summary_search_enabled,
+                "raptor": self.raptor,
+                "graph_enabled": self.settings.graph_search_enabled,
+                "graph": self.graph,
+            }
         ):
             self.agent = Agent(
                 llm=self.llm,
@@ -628,8 +615,10 @@ class RAG:
             agentic_pipeline=self.agentic_pipeline,
         )
 
-        self.manifest: Manifest = manifest or Manifest(self.settings.data_dir / "manifest.json")
-        self.background_ingestion = background_service
+        self.manifest: Manifest = (
+            components_dict.get("manifest") or Manifest(self.settings.data_dir / "manifest.json")
+        )
+        self.background_ingestion = components_dict.get("background_service")
 
     # ------------------------------------------------------------------
     # Construction
@@ -718,27 +707,18 @@ class RAG:
     def ingest(
         self,
         source: str | Path | bytes,
-        *,
-        source_uri: str | None = None,
-        mime_type: str = "text/plain",
-        metadata: dict[str, Any] | None = None,
-        force: bool = False,
-        user: Any | None = None,
+        **options: Any,
     ) -> Pipeline:
         """Ingest a file, directory, or raw bytes synchronously.
 
         Args:
             source: Path to a file/directory or raw bytes.
-            source_uri: Override the source URI (when ``source`` is
-                raw bytes).
-            mime_type: MIME hint for raw bytes.
-            metadata: Optional extra metadata.
-            force: When ``True``, bypass incremental-indexing dedup
-                and always re-embed.
-            user: Optional :class:`User`. When set, the
-                user's email is recorded as the chunk owner and the
-                user's primary company is used as the document
-                tenant.
+            **options: Optional overrides (``source_uri=``,
+                ``mime_type=``, ``metadata=``, ``force=``,
+                ``user=``). See the previous signature for
+                semantics; ``**options`` keeps the call site
+                backward-compatible while collapsing the named
+                parameter list.
 
         Returns:
             A :class:`Pipeline` for a single source, or a
@@ -751,17 +731,26 @@ class RAG:
         if isinstance(source, (str, Path)):
             p = Path(source)
             if p.is_dir():
-                return self.ingest_directory_sync(p, metadata, user)
+                return self._ingest_directory_sync(p, options.get("metadata"), options.get("user"))
             file_bytes = p.read_bytes()
             uri = str(p.resolve())
         else:
             file_bytes = bytes(source)
-            uri = source_uri or "bytes://memory"
+            uri = options.get("source_uri") or "bytes://memory"
         if not file_bytes:
             raise IngestionError(f"ingest({source!r}) received empty bytes; nothing to index.")
         result = cast(
             Pipeline,
-            maybe_await(self.ingest_one_async(file_bytes, uri, mime_type, metadata, force, user)),
+            maybe_await(
+                self._ingest_one_async(
+                    file_bytes,
+                    uri,
+                    options.get("mime_type", "text/plain"),
+                    metadata=options.get("metadata"),
+                    force=options.get("force", False),
+                    user=options.get("user"),
+                )
+            ),
         )
         if getattr(result, "error", None) is not None:
             raise IngestionError(
@@ -769,7 +758,7 @@ class RAG:
             )
         return result
 
-    def ingest_directory_sync(
+    def _ingest_directory_sync(
         self,
         directory: Path,
         metadata: dict[str, Any] | None,
@@ -805,14 +794,15 @@ class RAG:
     async def aingest(
         self,
         source: str | Path | bytes,
-        *,
-        source_uri: str | None = None,
-        mime_type: str = "text/plain",
-        metadata: dict[str, Any] | None = None,
-        force: bool = False,
-        user: Any | None = None,
+        **options: Any,
     ) -> Pipeline:
         """Async version of :meth:`ingest`.
+
+        Args:
+            source: Path to a file/directory or raw bytes.
+            **options: Optional overrides (``source_uri=``,
+                ``mime_type=``, ``metadata=``, ``force=``,
+                ``user=``). See :meth:`ingest` for semantics.
 
         Raises:
             IngestionError: When ingestion cannot complete.
@@ -821,17 +811,26 @@ class RAG:
         if isinstance(source, (str, Path)):
             p = Path(source)
             if p.is_dir():
-                return await self.ingest_directory_async(p, metadata, user)
+                return await self._ingest_directory_async(
+                    p, options.get("metadata"), options.get("user")
+                )
             file_bytes = p.read_bytes()
             uri = str(p.resolve())
         else:
             file_bytes = bytes(source)
-            uri = source_uri or "bytes://memory"
+            uri = options.get("source_uri") or "bytes://memory"
         if not file_bytes:
             raise IngestionError(f"aingest({source!r}) received empty bytes; nothing to index.")
-        return await self.ingest_one_async(file_bytes, uri, mime_type, metadata, force, user)
+        return await self._ingest_one_async(
+            file_bytes,
+            uri,
+            options.get("mime_type", "text/plain"),
+            metadata=options.get("metadata"),
+            force=options.get("force", False),
+            user=options.get("user"),
+        )
 
-    async def ingest_directory_async(
+    async def _ingest_directory_async(
         self,
         directory: Path,
         metadata: dict[str, Any] | None,
@@ -907,7 +906,7 @@ class RAG:
             )
 
         n_workers = max(1, min(max_workers or os.cpu_count() or 4, len(files)))
-        settings_path = self.settings_serialise_path()
+        settings_path = self._settings_serialise_path()
         embedder_signature = (self.embedder.model_name, self.embedder.dimension)
 
         with ProcessPoolExecutor(
@@ -943,7 +942,7 @@ class RAG:
             outputs={"batch": worker_outputs, "files": [str(p) for p in files]},
         )
 
-    def settings_serialise_path(self) -> str:
+    def _settings_serialise_path(self) -> str:
         """Write the active settings to a sidecar file and return its path.
 
         Workers re-build ``Settings`` from the file rather than from
@@ -964,16 +963,24 @@ class RAG:
         )
         return str(path)
 
-    async def ingest_one_async(
+    async def _ingest_one_async(
         self,
         file_bytes: bytes,
         source_uri: str,
         mime_type: str,
-        metadata: dict[str, Any] | None,
-        force: bool = False,
-        user: Any | None = None,
+        **options: Any,
     ) -> Pipeline:
-        """Run a single ingest pipeline asynchronously."""
+        """Run a single ingest pipeline asynchronously.
+
+        Args:
+            file_bytes: Raw bytes to ingest.
+            source_uri: Stable source URI for the file.
+            mime_type: MIME hint for the converter.
+            **options: Optional overrides (``metadata=``,
+                ``force=``, ``user=``).
+
+        """
+        user: Any | None = options.get("user")
         context = PipelineCtx(
             pipeline_name="ingest",
             metadata={"user_id": getattr(user, "email", None)} if user is not None else {},
@@ -983,8 +990,8 @@ class RAG:
             file_bytes=file_bytes,
             source_uri=source_uri,
             mime_type=mime_type,
-            metadata=metadata or {},
-            force=force,
+            metadata=options.get("metadata") or {},
+            force=options.get("force", False),
             user=user,
         )
         if getattr(result, "error", None) is not None:
@@ -1036,33 +1043,17 @@ class RAG:
     # Querying
     # ------------------------------------------------------------------
 
-    def query(
-        self,
-        question: str,
-        *,
-        user: Any | None = None,
-        session_id: str | None = None,
-        top_k: int = 5,
-        metadata_filter: dict[str, Any] | None = None,
-        response_model: type | None = None,
-    ) -> Response:
+    def query(self, question: str, **kwargs: Any) -> Response:
         """Ask a question and return a typed :class:`Response`."""
         return cast(
             Response,
             maybe_await(
-                self.aquery(
-                    question,
-                    user=user,
-                    session_id=session_id,
-                    top_k=top_k,
-                    metadata_filter=metadata_filter,
-                    response_model=response_model,
-                )
+                self.aquery(question, **kwargs)
             ),
         )
 
     @staticmethod
-    def scoped_session_id(user: Any, session_id: str | None) -> str | None:
+    def _scoped_session_id(user: Any, session_id: str | None) -> str | None:
         """Combine ``user`` and ``session_id`` into a single opaque key.
 
         The conversation store is keyed by this combined value so two
@@ -1087,7 +1078,7 @@ class RAG:
         uid = getattr(user, "user_id", None) or getattr(user, "email", None) or "anonymous"
         return f"{uid}::{session_id}"
 
-    def session_overrides(
+    def _session_overrides(
         self, scoped_session_id: str | None, user: Any | None = None
     ) -> dict[str, Any] | None:
         """Return the session's tool/agent overrides (Phase 1.12).
@@ -1116,20 +1107,8 @@ class RAG:
         self,
         question: str,
         *,
-        user: Any | None = None,
-        session_id: str | None = None,
-        top_k: int = 5,
-        metadata_filter: dict[str, Any] | None = None,
-        response_model: type | None = None,
-        tools_enabled: list[str] | None = None,
-        agent: bool | None = None,
-        web: bool | None = None,
-        graph: bool | None = None,
-        summaries: bool | None = None,
-        reranker: str | None = None,
-        long_context_pass: bool | None = None,
-        query_transforms: list[str] | None = None,
-        max_steps: int | None = None,
+        request: RagQueryRequest | None = None,
+        **kwargs: Any,
     ) -> Response:
         """Async version of :meth:`query`.
 
@@ -1142,26 +1121,14 @@ class RAG:
 
         Args:
             question: The user's question.
-            user: Optional :class:`User` for RBAC and per-user
-                tool defaults.
-            session_id: Optional session id; conversation history is
-                loaded from the conversation store.
-            top_k: Override of the default retrieval depth.
-            metadata_filter: Optional metadata filter applied on top
-                of the RBAC filter.
-            response_model: Optional Pydantic model for structured
-                output.
-            tools_enabled: Tool allow-list override. ``None`` defers
-                to session/user/global defaults.
-            agent: When ``True``, force the agent loop on (Phase 7).
-            web: Shortcut for ``"web_search" in tools_enabled``.
-            graph: Shortcut for ``"graph_search" in tools_enabled``.
-            summaries: Shortcut for ``"summary_search" in tools_enabled``.
-            reranker: Per-request reranker override.
-            long_context_pass: Per-request toggle for the second-pass
-                long-context rerank.
-            query_transforms: Per-request list of transform names.
-            max_steps: Per-request cap on planner steps.
+            request: Optional :class:`RagQueryRequest` that bundles
+                the remaining advanced-RAG overrides.
+            **kwargs: Convenience overrides accepted as keyword
+                arguments (``user=``, ``session_id=``,
+                ``tools_enabled=``, ``agent=``, ``web=``, ``graph=``,
+                ``summaries=``, ``reranker=``, ``long_context_pass=``,
+                ``query_transforms=``, ``max_steps=``, ``top_k=``,
+                ``metadata_filter=``, ``response_model=``).
 
         Returns:
             A typed :class:`Response`.
@@ -1170,9 +1137,16 @@ class RAG:
             IngestionError: When ``question`` is empty or whitespace-only.
 
         """
+        merged: dict[str, Any] = dict(request) if request is not None else {}
+        merged.update(kwargs)
+        user: Any | None = merged.get("user")
+        session_id: str | None = merged.get("session_id")
+        top_k: int = merged.get("top_k", 5)
+        metadata_filter: dict[str, Any] | None = merged.get("metadata_filter")
+        response_model: type | None = merged.get("response_model")
         if not question or not question.strip():
             raise IngestionError("query() requires a non-empty question")
-        scoped = self.scoped_session_id(user, session_id)
+        scoped = self._scoped_session_id(user, session_id)
         context = PipelineCtx(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
@@ -1184,17 +1158,17 @@ class RAG:
 
         resolved = resolve(
             request_overrides={
-                "tools_enabled": tools_enabled,
-                "agent": agent,
-                "web": web,
-                "graph": graph,
-                "summaries": summaries,
-                "reranker": reranker,
-                "long_context_pass": long_context_pass,
-                "query_transforms": query_transforms,
-                "max_steps": max_steps,
+                "tools_enabled": merged.get("tools_enabled"),
+                "agent": merged.get("agent"),
+                "web": merged.get("web"),
+                "graph": merged.get("graph"),
+                "summaries": merged.get("summaries"),
+                "reranker": merged.get("reranker"),
+                "long_context_pass": merged.get("long_context_pass"),
+                "query_transforms": merged.get("query_transforms"),
+                "max_steps": merged.get("max_steps"),
             },
-            session_overrides=self.session_overrides(scoped, user),
+            session_overrides=self._session_overrides(scoped, user),
             user_prefs=getattr(user, "tool_settings", None) if user else None,
             settings=self.settings,
         )
@@ -1222,19 +1196,8 @@ class RAG:
         self,
         question: str,
         *,
-        user: Any | None = None,
-        session_id: str | None = None,
-        top_k: int = 5,
-        metadata_filter: dict[str, Any] | None = None,
-        tools_enabled: list[str] | None = None,
-        agent: bool | None = None,
-        web: bool | None = None,
-        graph: bool | None = None,
-        summaries: bool | None = None,
-        reranker: str | None = None,
-        long_context_pass: bool | None = None,
-        query_transforms: list[str] | None = None,
-        max_steps: int | None = None,
+        request: RagQueryRequest | None = None,
+        **kwargs: Any,
     ) -> AsyncIterator[str]:
         """Stream the answer token-by-token via the LLM's ``astream``.
 
@@ -1243,7 +1206,13 @@ class RAG:
         resolved config is attached to the streaming span for
         observability.
         """
-        scoped = self.scoped_session_id(user, session_id)
+        merged: dict[str, Any] = dict(request) if request is not None else {}
+        merged.update(kwargs)
+        user: Any | None = merged.get("user")
+        session_id: str | None = merged.get("session_id")
+        top_k: int = merged.get("top_k", 5)
+        metadata_filter: dict[str, Any] | None = merged.get("metadata_filter")
+        scoped = self._scoped_session_id(user, session_id)
         context = PipelineCtx(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
@@ -1251,17 +1220,17 @@ class RAG:
 
         resolved = resolve(
             request_overrides={
-                "tools_enabled": tools_enabled,
-                "agent": agent,
-                "web": web,
-                "graph": graph,
-                "summaries": summaries,
-                "reranker": reranker,
-                "long_context_pass": long_context_pass,
-                "query_transforms": query_transforms,
-                "max_steps": max_steps,
+                "tools_enabled": merged.get("tools_enabled"),
+                "agent": merged.get("agent"),
+                "web": merged.get("web"),
+                "graph": merged.get("graph"),
+                "summaries": merged.get("summaries"),
+                "reranker": merged.get("reranker"),
+                "long_context_pass": merged.get("long_context_pass"),
+                "query_transforms": merged.get("query_transforms"),
+                "max_steps": merged.get("max_steps"),
             },
-            session_overrides=self.session_overrides(scoped, user),
+            session_overrides=self._session_overrides(scoped, user),
             user_prefs=getattr(user, "tool_settings", None) if user else None,
             settings=self.settings,
         )
@@ -1281,27 +1250,20 @@ class RAG:
         self,
         question: str,
         *,
-        user: Any | None = None,
-        session_id: str | None = None,
-        tools_enabled: list[str] | None = None,
-        agent: bool | None = None,
-        web: bool | None = None,
-        graph: bool | None = None,
-        summaries: bool | None = None,
-        reranker: str | None = None,
-        long_context_pass: bool | None = None,
-        query_transforms: list[str] | None = None,
-        max_steps: int | None = None,
+        request: RagQueryRequest | None = None,
+        **kwargs: Any,
     ) -> AsyncIterator[Any]:
         """Stream :class:`PlannerEvent` instances from the agent loop.
 
         Args:
             question: The user's question.
-            user: Optional :class:`User` for RBAC.
-            session_id: Optional session id.
-            tools_enabled, agent, web, graph, summaries, reranker,
-            long_context_pass, query_transforms, max_steps: Same
-                semantics as :meth:`aquery`.
+            request: Optional :class:`RagQueryRequest` that bundles
+                the remaining advanced-RAG overrides.
+            **kwargs: Convenience overrides accepted as keyword
+                arguments (``user=``, ``session_id=``,
+                ``tools_enabled=``, ``agent=``, ``web=``, ``graph=``,
+                ``summaries=``, ``reranker=``, ``long_context_pass=``,
+                ``query_transforms=``, ``max_steps=``).
 
         Yields:
             :class:`PlannerEvent` instances. SSE encoding is the
@@ -1309,37 +1271,15 @@ class RAG:
             :meth:`raghub.api_sse.Sse.format`.
 
         """
-        scoped = self.scoped_session_id(user, session_id)
-        resolved = resolve(
-            request_overrides={
-                "tools_enabled": tools_enabled,
-                "agent": agent,
-                "web": web,
-                "graph": graph,
-                "summaries": summaries,
-                "reranker": reranker,
-                "long_context_pass": long_context_pass,
-                "query_transforms": query_transforms,
-                "max_steps": max_steps,
-            },
-            session_overrides=self.session_overrides(scoped, user),
-            user_prefs=getattr(user, "tool_settings", None) if user else None,
-            settings=self.settings,
-        )
+        merged: dict[str, Any] = dict(request) if request is not None else {}
+        merged.update(kwargs)
+        user: Any | None = merged.get("user")
+        session_id: str | None = merged.get("session_id")
+        scoped = self._scoped_session_id(user, session_id)
+        resolved = self._resolve_agent_config(merged, scoped, user)
         if self.agentic_pipeline is None:
-            # No agent configured — wrap planner tokens as events.
-            async for piece in self.astream(
-                question,
-                user=user,
-                session_id=session_id,
-                top_k=5,
-                metadata_filter=None,
-            ):
-                yield PlannerEvent(
-                    kind="answer_chunk",
-                    step=0,
-                    payload={"text": piece},
-                )
+            async for event in self._fallback_planner_events(question, session_id):
+                yield event
             return
         context = PipelineCtx(
             pipeline_name="query_agent",
@@ -1357,6 +1297,54 @@ class RAG:
             history=[],
         ):
             yield event
+
+    def _resolve_agent_config(
+        self,
+        merged: dict[str, Any],
+        scoped: str | None,
+        user: Any,
+    ) -> Any:
+        """Resolve the effective advanced-RAG config for a request."""
+        return resolve(
+            request_overrides={
+                "tools_enabled": merged.get("tools_enabled"),
+                "agent": merged.get("agent"),
+                "web": merged.get("web"),
+                "graph": merged.get("graph"),
+                "summaries": merged.get("summaries"),
+                "reranker": merged.get("reranker"),
+                "long_context_pass": merged.get("long_context_pass"),
+                "query_transforms": merged.get("query_transforms"),
+                "max_steps": merged.get("max_steps"),
+            },
+            session_overrides=self._session_overrides(scoped, user),
+            user_prefs=getattr(user, "tool_settings", None) if user else None,
+            settings=self.settings,
+        )
+
+    async def _fallback_planner_events(
+        self,
+        question: str,
+        session_id: str | None,
+    ) -> AsyncIterator[Any]:
+        """Yield planner events from the non-agentic path.
+
+        When the agentic pipeline is not configured the facade
+        wraps each token of the streaming answer as a planner
+        event so SSE consumers see a uniform stream.
+        """
+        async for piece in self.astream(
+            question,
+            user=None,
+            session_id=session_id,
+            top_k=5,
+            metadata_filter=None,
+        ):
+            yield PlannerEvent(
+                kind="answer_chunk",
+                step=0,
+                payload={"text": piece},
+            )
 
     # ------------------------------------------------------------------
     # Evaluation
@@ -1486,62 +1474,66 @@ class RAG:
         files = sorted(p for p in directory.rglob("*") if p.is_file())
         iterator = tqdm(files, desc="Syncing index", disable=not show_progress, unit="file")
         for child in iterator:
-            if not child.is_file():
-                continue
-            uri = str(child.resolve())
-            seen.add(uri)
-            data = child.read_bytes()
-            checksum = sha256_bytes(data)
-            prior = None
-            if uri in self.manifest:
-                prior = self.manifest[uri]
-            bundle_id = deterministic_id("bundle", uri, checksum)
-            if prior is None:
-                result = self.ingest(child, metadata=metadata, user=user)
-                if isinstance(result, Pipeline) and getattr(result, "error", None) is not None:
-                    raise IngestionError(result.error or f"failed to ingest {uri}")
-                self.manifest.record(
-                    uri,
-                    bundle_id=bundle_id,
-                    checksum=checksum,
-                )
-                summary["added"].append(uri)
-            elif prior.get("checksum") != checksum:
-                # Retire the prior bundle id from the manifest before
-                # re-ingesting so the manifest lookup cannot return a
-                # stale record on the next incremental ingest.
-                prior_bundle_id = str(prior.get("bundle_id", ""))
-                result = self.ingest(child, metadata=metadata, force=True, user=user)
-                if isinstance(result, Pipeline) and getattr(result, "error", None) is not None:
-                    raise IngestionError(result.error or f"failed to ingest {uri}")
-                if prior_bundle_id and prior_bundle_id != bundle_id:
-                    # ``delete`` uses both ``bundle_id`` from the
-                    # manifest and ``source_uri`` so the old vector
-                    # chunks are removed even if the bundle_id is
-                    # later reused.
-                    self.delete(prior_bundle_id)
-                self.manifest.record(
-                    uri,
-                    bundle_id=bundle_id,
-                    checksum=checksum,
-                )
-                summary["modified"].append(uri)
-            else:
-                summary["unchanged"].append(uri)
+            self._sync_one(child, metadata, user, seen, summary)
 
         for prior_uri in self.manifest.sources():
             if prior_uri in seen:
                 continue
             if not prior_uri.startswith(str(directory.resolve())):
                 continue
-            prior_record = self.manifest[prior_uri]
-            bundle_id = str(prior_record.get("bundle_id", ""))
-            self.delete(bundle_id)
-            self.manifest.remove(prior_uri)
-            summary["removed"].append(prior_uri)
+            self._remove_prior(prior_uri, summary)
 
         self.manifest.save()
         return summary
+
+    def _sync_one(
+        self,
+        child: Path,
+        metadata: dict[str, Any] | None,
+        user: Any | None,
+        seen: set[str],
+        summary: dict[str, list[str]],
+    ) -> None:
+        """Reconcile a single file against the manifest."""
+        if not child.is_file():
+            return
+        uri = str(child.resolve())
+        seen.add(uri)
+        data = child.read_bytes()
+        checksum = sha256_bytes(data)
+        prior = self.manifest.get(uri)
+        bundle_id = deterministic_id("bundle", uri, checksum)
+        if prior is None:
+            result = self.ingest(child, metadata=metadata, user=user)
+            if isinstance(result, Pipeline) and getattr(result, "error", None) is not None:
+                raise IngestionError(result.error or f"failed to ingest {uri}")
+            self.manifest.record(uri, bundle_id=bundle_id, checksum=checksum)
+            summary["added"].append(uri)
+            return
+        if prior.get("checksum") == checksum:
+            summary["unchanged"].append(uri)
+            return
+        # Changed file: retire the prior bundle id before re-ingesting.
+        prior_bundle_id = str(prior.get("bundle_id", ""))
+        result = self.ingest(child, metadata=metadata, force=True, user=user)
+        if isinstance(result, Pipeline) and getattr(result, "error", None) is not None:
+            raise IngestionError(result.error or f"failed to ingest {uri}")
+        if prior_bundle_id and prior_bundle_id != bundle_id:
+            self.delete(prior_bundle_id)
+        self.manifest.record(uri, bundle_id=bundle_id, checksum=checksum)
+        summary["modified"].append(uri)
+
+    def _remove_prior(
+        self,
+        prior_uri: str,
+        summary: dict[str, list[str]],
+    ) -> None:
+        """Drop a manifest entry that no longer has a file on disk."""
+        prior_record = self.manifest[prior_uri]
+        bundle_id = str(prior_record.get("bundle_id", ""))
+        self.delete(bundle_id)
+        self.manifest.remove(prior_uri)
+        summary["removed"].append(prior_uri)
 
     def ingest_async(
         self,
@@ -1611,7 +1603,7 @@ class RAG:
             first.
 
         """
-        scoped = self.scoped_session_id(user, session_id) or session_id
+        scoped = self._scoped_session_id(user, session_id) or session_id
         return cast(list[Any], self.conversation_store.load(scoped, limit=limit))
 
     def clear_conversation(
@@ -1629,5 +1621,5 @@ class RAG:
                 omitted, the raw ``session_id`` is used.
 
         """
-        scoped = self.scoped_session_id(user, session_id) or session_id
+        scoped = self._scoped_session_id(user, session_id) or session_id
         self.conversation_store.clear(scoped)

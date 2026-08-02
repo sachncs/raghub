@@ -53,6 +53,7 @@ from raghub.rag import RAG
 
 
 _FETCH_CONCURRENCY = 8
+HTTP_OK = 200
 
 
 async def _fetch_one(client: Any, url: str, out_dir: Path) -> tuple[str, bool]:
@@ -70,7 +71,7 @@ async def _fetch_one(client: Any, url: str, out_dir: Path) -> tuple[str, bool]:
         response = await client.get(url, timeout=20.0, follow_redirects=True)
     except Exception:  # pragma: no cover - network errors
         return url, False
-    if response.status_code != 200:
+    if response.status_code != HTTP_OK:
         return url, False
     text = _html_to_text(response.text)
     if not text:
@@ -135,7 +136,7 @@ async def fetch_corpus(corpus_dir: Path, *, force: bool = False) -> None:
                 return await _fetch_one(client, u, corpus_dir)
 
         for batch in asyncio.as_completed([bound(u) for u in urls]):
-            url, fetched_ok = await batch
+            _, fetched_ok = await batch
             if fetched_ok:
                 ok += 1
     print(f"fetched {ok}/{len(urls)} pages")

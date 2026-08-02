@@ -146,50 +146,9 @@ async def _run(args: argparse.Namespace) -> BenchmarkResult:
     rag.ingest_pipeline.chunker = rag.chunker
     startup_seconds = time.perf_counter() - started
 
-    # Ingest
-    ingest_started = time.perf_counter()
-    ingest_chunks = 0
-    for i in range(args.documents):
-        text = _random_text(args.words_per_document, seed=i)
-        result = await rag.aingest(
-            text.encode("utf-8"),
-            source_uri=f"file://bench/doc-{i}.txt",
-            mime_type="text/plain",
-        )
-        if result.success:
-            ingest_chunks += result.outputs.get("chunk_count", 0) or 0
-    ingestion_seconds = time.perf_counter() - ingest_started
-    throughput = ingest_chunks / ingestion_seconds if ingestion_seconds else 0.0
-
-    # Query latency
-    if args.realistic:
-        from raghub.eval import Finance
-
-        evaluator = Finance()
-        examples = evaluator.ensure_examples()
-        all_questions = [ex.get("question", "") for ex in examples if ex.get("question")]
-        if not all_questions:
-            print("WARNING: No Finance questions found; falling back to synthetic queries.")
-            all_questions = [
-                "What was the revenue growth?",
-                "How is the cash flow trending?",
-                "What is the outlook for next quarter?",
-            ]
-        queries = all_questions
-    else:
-        queries = [
-            "What was the revenue growth?",
-            "How is the cash flow trending?",
-            "What is the outlook for next quarter?",
-        ]
-    latencies = await _run_queries(
-        rag, queries * (args.queries // len(queries) + 1), args.concurrency
-    )
-    latencies = latencies[: args.queries]
-    latencies_sorted = sorted(latencies)
-    p50 = latencies_sorted[len(latencies_sorted) // 2]
-    p95 = latencies_sorted[int(len(latencies_sorted) * 0.95)]
-    qps = args.queries / (sum(latencies) / 1000 / args.concurrency)
+    ingestion_seconds, ingest_chunks, throughput = await _ingest_documents(rag, args)
+    queries = _collect_queries(args)
+    p50, p95, qps = await _measure_query_latency(rag, args, queries)
 
     return BenchmarkResult(
         documents=args.documents,
@@ -205,6 +164,63 @@ async def _run(args: argparse.Namespace) -> BenchmarkResult:
         queries_per_second=round(qps, 2),
         memory_peak_mb=_peak_memory_mb(),
     )
+
+
+async def _ingest_documents(rag: RAG, args: argparse.Namespace) -> tuple[float, int, float]:
+    """Ingest ``args.documents`` synthetic files and report throughput."""
+    ingest_started = time.perf_counter()
+    ingest_chunks = 0
+    for i in range(args.documents):
+        text = _random_text(args.words_per_document, seed=i)
+        result = await rag.aingest(
+            text.encode("utf-8"),
+            source_uri=f"file://bench/doc-{i}.txt",
+            mime_type="text/plain",
+        )
+        if result.success:
+            ingest_chunks += result.outputs.get("chunk_count", 0) or 0
+    ingestion_seconds = time.perf_counter() - ingest_started
+    throughput = ingest_chunks / ingestion_seconds if ingestion_seconds else 0.0
+    return ingestion_seconds, ingest_chunks, throughput
+
+
+FALLBACK_QUERIES = [
+    "What was the revenue growth?",
+    "How is the cash flow trending?",
+    "What is the outlook for next quarter?",
+]
+
+
+def _collect_queries(args: argparse.Namespace) -> list[str]:
+    """Return the query set: real Finance questions or synthetic ones."""
+    if not args.realistic:
+        return list(FALLBACK_QUERIES)
+    from raghub.eval import Finance
+
+    evaluator = Finance()
+    examples = evaluator.ensure_examples()
+    all_questions = [ex.get("question", "") for ex in examples if ex.get("question")]
+    if not all_questions:
+        print("WARNING: No Finance questions found; falling back to synthetic queries.")
+        return list(FALLBACK_QUERIES)
+    return all_questions
+
+
+async def _measure_query_latency(
+    rag: RAG,
+    args: argparse.Namespace,
+    queries: list[str],
+) -> tuple[float, float, float]:
+    """Run the query workload and return ``(p50, p95, qps)``."""
+    latencies = await _run_queries(
+        rag, queries * (args.queries // len(queries) + 1), args.concurrency
+    )
+    latencies = latencies[: args.queries]
+    latencies_sorted = sorted(latencies)
+    p50 = latencies_sorted[len(latencies_sorted) // 2]
+    p95 = latencies_sorted[int(len(latencies_sorted) * 0.95)]
+    qps = args.queries / (sum(latencies) / 1000 / args.concurrency)
+    return p50, p95, qps
 
 
 def main() -> int:

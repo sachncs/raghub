@@ -26,7 +26,7 @@ from typing import Any, TypeVar, cast
 from pydantic import BaseModel
 
 from raghub.errors import MissingDepError
-from raghub.llm import Generator
+from raghub.llm import GenerationRequest, Generator
 from raghub.models import (
     Hit,
     StructuredOutputProvider,
@@ -110,22 +110,17 @@ class DefaultGenerator:
             else:
                 context_texts.append(entry.chunk.text)
         turns = [Turn(question=t.question, answer=t.answer) for t in conversation]
+        request = GenerationRequest(
+            system_prompt=self.system_prompt,
+            conversation=turns,
+            context=context_texts,
+            question=question,
+        )
         async_generate = getattr(self.llm, "async_generate", None)
         if callable(async_generate):
-            completion = async_generate(
-                system_prompt=self.system_prompt,
-                conversation=turns,
-                context=context_texts,
-                question=question,
-            )
+            completion = async_generate(request)
         else:
-            completion = asyncio.to_thread(
-                self.llm.generate,
-                system_prompt=self.system_prompt,
-                conversation=turns,
-                context=context_texts,
-                question=question,
-            )
+            completion = asyncio.to_thread(self.llm.generate, request)
         if inspect.isawaitable(completion):
             answer = str(
                 await completion
@@ -162,10 +157,12 @@ class DefaultGenerator:
             context_texts = [hit.chunk.text for hit in context]
             turns = [Turn(question=t.question, answer=t.answer) for t in conversation]
             async for piece in astream(
-                system_prompt=self.system_prompt,
-                conversation=turns,
-                context=context_texts,
-                question=question,
+                GenerationRequest(
+                    system_prompt=self.system_prompt,
+                    conversation=turns,
+                    context=context_texts,
+                    question=question,
+                )
             ):
                 if piece:
                     yield piece
@@ -331,6 +328,7 @@ class Instructor(StructuredOutputProvider):
 
         async def stream() -> AsyncIterator[T]:
             """Yield ``result`` once when the upstream generator completes."""
+            await asyncio.sleep(0)
             yield result
 
         return stream()

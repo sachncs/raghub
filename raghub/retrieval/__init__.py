@@ -43,6 +43,7 @@ from raghub.config import LongContextConfig, Settings
 from raghub.core import allowed_company_filter
 from raghub.embedder import Embedder
 from raghub.errors import GraphUnavailableError, RerankerError
+from raghub.llm import GenerationRequest
 from raghub.models import (
     Chunk,
     Classification,
@@ -131,11 +132,13 @@ class Identity:
 
     name = "identity"
 
-    def rerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
+    @staticmethod
+    def rerank(*, question: str, hits: Sequence[Hit]) -> list[Hit]:
         """Return ``hits`` unchanged (identity pass-through)."""
         return list(hits)
 
-    async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
+    @staticmethod
+    async def arerank(*, question: str, hits: Sequence[Hit]) -> list[Hit]:
         """Async identity pass-through."""
         return list(hits)
 
@@ -400,10 +403,12 @@ class LlmJudge:
             "sorted by descending score. No prose, no markdown."
         )
         raw = await self.llm.async_generate(
-            system_prompt="You rank passages for retrieval relevance.",
-            conversation=[],
-            context=[],
-            question=prompt,
+            GenerationRequest(
+                system_prompt="You rank passages for retrieval relevance.",
+                conversation=[],
+                context=[],
+                question=prompt,
+            )
         )
         parsed = extract_json_array(raw or "")
         ordered: list[Hit] = []
@@ -574,10 +579,12 @@ class Context:
         started = time.perf_counter()
         try:
             raw = await self.llm.async_generate(
-                system_prompt=CONTEXT,
-                conversation=[],
-                context=[],
-                question=context_prompt(question, candidates),
+                GenerationRequest(
+                    system_prompt=CONTEXT,
+                    conversation=[],
+                    context=[],
+                    question=context_prompt(question, candidates),
+                )
             )
             parsed = extract_json_object(raw or "")
             if parsed is None:
@@ -845,10 +852,12 @@ class Hyde:
         variants: list[Variant] = []
         for _ in range(self.n):
             text = await self.llm.async_generate(
-                system_prompt=HYDE,
-                conversation=list(history),
-                context=[],
-                question=prompt,
+                GenerationRequest(
+                    system_prompt=HYDE,
+                    conversation=list(history),
+                    context=[],
+                    question=prompt,
+                )
             )
             text = (text or "").strip()
             if text:
@@ -903,10 +912,12 @@ class MultiQuery:
     ) -> list[Variant]:
         """Generate ``n`` alternative phrasings."""
         raw = await self.llm.async_generate(
-            system_prompt=MULTI_QUERY,
-            conversation=list(history),
-            context=[],
-            question=multi_query_prompt(question, self.n),
+            GenerationRequest(
+                system_prompt=MULTI_QUERY,
+                conversation=list(history),
+                context=[],
+                question=multi_query_prompt(question, self.n),
+            )
         )
         phrasings = extract_string_array(raw or "")
         return [Variant(text=phrase, kind="multi_query") for phrase in phrasings[: self.n]]
@@ -955,10 +966,12 @@ class Decompose:
     ) -> list[Variant]:
         """Produce sub-question variants."""
         raw = await self.llm.async_generate(
-            system_prompt=DECOMPOSE,
-            conversation=list(history),
-            context=[],
-            question=decompose_prompt(question),
+            GenerationRequest(
+                system_prompt=DECOMPOSE,
+                conversation=list(history),
+                context=[],
+                question=decompose_prompt(question),
+            )
         )
         sub_questions = extract_string_array(raw or "")
         return [Variant(text=q, kind="sub") for q in sub_questions]
@@ -1007,10 +1020,12 @@ class StepBack:
     ) -> list[Variant]:
         """Produce the abstract reformulation."""
         abstract = await self.llm.async_generate(
-            system_prompt=STEP_BACK,
-            conversation=list(history),
-            context=[],
-            question=step_back_prompt(question),
+            GenerationRequest(
+                system_prompt=STEP_BACK,
+                conversation=list(history),
+                context=[],
+                question=step_back_prompt(question),
+            )
         )
         text = (abstract or "").strip()
         if not text:

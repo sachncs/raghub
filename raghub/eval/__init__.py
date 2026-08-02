@@ -31,10 +31,18 @@ from pathlib import Path
 from typing import Any
 
 from raghub.errors import ConfigurationError, EvaluationError
+from raghub.llm import GenerationRequest
 from raghub.models import Evaluator, Result
 from raghub.utils import capture
 
 TOKEN_RE = re.compile(r"\w+")
+
+MIN_SENTENCES_FOR_COHERENCE = 2
+
+GENERATION_TUPLE_ARITY = 4
+
+NUMERIC_PASS_THRESHOLD = 0.99
+OVERLAP_PASS_THRESHOLD = 0.6
 
 
 class Metrics:
@@ -429,7 +437,7 @@ class Metrics:
         if not text:
             return 0.0
         sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
-        if len(sentences) < 2:
+        if len(sentences) < MIN_SENTENCES_FOR_COHERENCE:
             return 0.5
         from itertools import pairwise
 
@@ -716,7 +724,7 @@ async def evaluate(
             str(example.get("id", idx))
         ]
         predicted: object
-        if isinstance(out, tuple) and len(out) == 4:
+        if isinstance(out, tuple) and len(out) == GENERATION_TUPLE_ARITY:
             predicted, contexts, retrieved_ids, relevant_ids = out
         else:
             predicted = out
@@ -740,7 +748,7 @@ async def evaluate(
                 benchmark=benchmark,
                 example_id=str(example.get("id", idx)),
                 metrics=metrics,
-                passed=numeric >= 0.99 or overlap >= 0.6,
+                passed=numeric >= NUMERIC_PASS_THRESHOLD or overlap >= OVERLAP_PASS_THRESHOLD,
                 details={
                     "question": question,
                     "gold": str(gold),
@@ -887,7 +895,8 @@ class Frames(Evaluator):
             return [self.normalise_row(r) for r in data]
         return [self.normalise_row(data)]
 
-    def load_tsv(self, path: Path) -> list[dict[str, Any]]:
+    @staticmethod
+    def load_tsv(path: Path) -> list[dict[str, Any]]:
         """Parse a TSV / CSV file with the FRAMES schema."""
         try:
             import csv
@@ -897,7 +906,8 @@ class Frames(Evaluator):
             reader = csv.DictReader(fh, delimiter="\t" if path.suffix == ".tsv" else ",")
             return [row for row in reader]
 
-    def normalise_row(self, row: dict[str, Any]) -> dict[str, Any]:
+    @staticmethod
+    def normalise_row(row: dict[str, Any]) -> dict[str, Any]:
         """Map a FRAMES row to the canonical ``Evaluator`` schema."""
         raw_links = row.get("wiki_links")
         if raw_links is None:
@@ -1077,10 +1087,12 @@ class Judge:
         prompt = prompt_template.format(**kwargs)
         try:
             response = await self.llm.async_generate(
-                system_prompt=prompt,
-                conversation=(),
-                context=(),
-                question=prompt,
+                GenerationRequest(
+                    system_prompt=prompt,
+                    conversation=(),
+                    context=(),
+                    question=prompt,
+                )
             )
         except Exception:
             return None

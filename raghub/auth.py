@@ -238,7 +238,8 @@ class SqliteUsers:
             rows = await cursor.fetchall()
             return [self.row_to_record(row) for row in rows]
 
-    def row_to_record(self, row: aiosqlite.Row) -> UserRecord:
+    @staticmethod
+    def row_to_record(row: aiosqlite.Row) -> UserRecord:
         """Hydrate a :class:`UserRecord` from a SQLite row.
 
         Args:
@@ -390,7 +391,8 @@ class Authz:
                 )
         return allowed
 
-    async def filter_companies(self, user: User) -> list[str]:
+    @staticmethod
+    async def filter_companies(user: User) -> list[str]:
         """Return the set of companies ``user`` may access.
 
         Admins see an empty list (a sentinel meaning "everything").

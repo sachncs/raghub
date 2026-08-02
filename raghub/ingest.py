@@ -52,6 +52,7 @@ from raghub.lifecycle import (
     normalize_text,
     validate_upload,
 )
+from raghub.llm import GenerationRequest
 from raghub.models import (
     Chunk,
     Chunker,
@@ -97,13 +98,15 @@ class RAGHubGenie:
         """Generate a chunking response for ``prompt``."""
         return str(
             self.llm.generate(
-                system_prompt=(
-                    "You are a text chunking assistant. "
-                    "Split the text at natural boundaries."
-                ),
-                conversation=[],
-                context=[],
-                question=prompt,
+                GenerationRequest(
+                    system_prompt=(
+                        "You are a text chunking assistant. "
+                        "Split the text at natural boundaries."
+                    ),
+                    conversation=[],
+                    context=[],
+                    question=prompt,
+                )
             )
         )
 
@@ -517,7 +520,7 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
             return Chonkie(chunker_name=name, **kwargs)
         if name != "auto":
             raise ConfigurationError("chonkie is not installed")
-    if name in ("chonkie", "word_window", "auto"):
+    if name in {"chonkie", "word_window", "auto"}:
         if name == "chonkie":
             if CHONKIE_AVAILABLE:
                 return Chonkie(**kwargs)

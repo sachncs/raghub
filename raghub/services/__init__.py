@@ -46,7 +46,7 @@ from raghub.embedder import Embedder, build_embedder
 from raghub.errors import AuthorizationError, IngestionError
 from raghub.ingest import IngestionResult, Ingestor
 from raghub.lifecycle import Lifecycle, detect_mime_type
-from raghub.llm import Generator, build_llm
+from raghub.llm import GenerationRequest, Generator, build_llm
 from raghub.models import (
     AuthLoginResponse,
     BackgroundWorker,
@@ -116,7 +116,7 @@ class Mixin:
 # ---------------------------------------------------------------------------
 
 
-async def upload_record(result: IngestionResult | Any) -> Document:
+def upload_record(result: IngestionResult | Any) -> Document:
     """Return the :class:`Document` carried by an ingestion result."""
     return result.document
 
@@ -177,7 +177,7 @@ class DocumentSvc(Mixin):
             owner=user,
             organization=target_company,
         )
-        document = await upload_record(result)
+        document = upload_record(result)
 
         self.emit_metric("document_ingest_latency_ms", started)
         self.log(
@@ -351,12 +351,14 @@ class Query(Mixin):
             )
         ]
         answer = self.container.llm.generate(
-            system_prompt=self.container.prompt_builder.config.system_prompt,
-            conversation=history,
-            context=context_list,
-            question=question,
-            image_paths=[],
-            session_history=session_history,
+            GenerationRequest(
+                system_prompt=self.container.prompt_builder.config.system_prompt,
+                conversation=history,
+                context=context_list,
+                question=question,
+                image_paths=[],
+                session_history=session_history,
+            )
         )
         await self.container.conversation.append(
             token, question, answer, metadata={"top_k": self.container.settings.top_k}
@@ -392,7 +394,8 @@ class Synchronous(BackgroundWorker):
     propagate to the caller unchanged.
     """
 
-    def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    @staticmethod
+    def submit(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """Invoke ``fn(*args, **kwargs)`` and return its result directly."""
         try:
             return fn(*args, **kwargs)

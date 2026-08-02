@@ -177,7 +177,8 @@ class DocStore(DocumentRepository):
         await self.migrate_schema(conn)
         await self.maybe_commit_close(conn)
 
-    async def migrate_schema(self, conn: aiosqlite.Connection) -> None:
+    @staticmethod
+    async def migrate_schema(conn: aiosqlite.Connection) -> None:
         """Rebuild the single-column documents table in place."""
         cursor = await conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='documents'"
@@ -229,7 +230,8 @@ class DocStore(DocumentRepository):
             CREATE UNIQUE INDEX IF NOT EXISTS ux_documents_checksum ON documents(checksum);
         """)
 
-    def record_params(self, record: Document) -> tuple[Any, ...]:
+    @staticmethod
+    def record_params(record: Document) -> tuple[Any, ...]:
         """Serialise ``record`` to the SQL bind-tuple shape."""
         return (
             record.id,
@@ -391,7 +393,8 @@ class DocStore(DocumentRepository):
         )
         await self.maybe_commit_close(conn)
 
-    def row_to_record(self, row: aiosqlite.Row) -> Document:
+    @staticmethod
+    def row_to_record(row: aiosqlite.Row) -> Document:
         """Convert an aiosqlite row into a :class:`Document`."""
         data: dict[str, Any] = dict(row)
         data["created_at"] = datetime.fromisoformat(data["created_at"])

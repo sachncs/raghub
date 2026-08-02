@@ -23,7 +23,7 @@ import random
 from collections.abc import Sequence
 from typing import Any, cast
 
-from raghub.llm import Generator
+from raghub.llm import GenerationRequest, Generator
 
 
 def chunk_text(chunk: Any) -> str:
@@ -159,10 +159,12 @@ class SyntheticDataset:
         """Run the question-generation prompt and return the cleaned response."""
         prompt = self.QUESTION_PROMPT.format(passage=text)
         response = await self.llm.async_generate(
-            system_prompt=prompt,
-            conversation=(),
-            context=(),
-            question=prompt,
+            GenerationRequest(
+                system_prompt=prompt,
+                conversation=(),
+                context=(),
+                question=prompt,
+            )
         )
         return clean_response(response)
 
@@ -170,10 +172,12 @@ class SyntheticDataset:
         """Run the answer-generation prompt and return the cleaned response."""
         prompt = self.ANSWER_PROMPT.format(passage=text, question=question)
         response = await self.llm.async_generate(
-            system_prompt=prompt,
-            conversation=(),
-            context=(),
-            question=prompt,
+            GenerationRequest(
+                system_prompt=prompt,
+                conversation=(),
+                context=(),
+                question=prompt,
+            )
         )
         return clean_response(response)
 

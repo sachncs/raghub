@@ -63,6 +63,9 @@ for _key, _value in _DEV_ENV_DEFAULTS.items():
     os.environ.setdefault(_key, _value)
 
 
+MIN_QUOTED_LENGTH = 2
+
+
 # Pipeline configurations: chunking size, top_k, and whether to use
 # the HyDE query transform.
 PIPELINES: dict[str, dict[str, Any]] = {
@@ -218,8 +221,8 @@ def _build_pdf_converter() -> Any:
     class PdfConverter:
         """Pypdf-backed PDF text extractor."""
 
+        @staticmethod
         def convert(
-            self,
             *,
             source_uri: str,
             file_bytes: bytes,
@@ -270,6 +273,7 @@ def _build_pdf_converter() -> Any:
 
 
 async def _run_pipeline(
+    *,
     pipeline: str,
     examples: list[dict[str, Any]],
     data_dir: str,
@@ -296,14 +300,22 @@ async def _run_pipeline(
             f"no PDFs matched any of the {len(examples)} example companies; "
             f"check that {pdfs_dir} contains the right files."
         )
-    print(f"[{pipeline}] matched {len(pdfs)} PDFs in {time.perf_counter() - t_total:.1f}s", flush=True)
+    print(
+        f"[{pipeline}] matched {len(pdfs)} PDFs in "
+        f"{time.perf_counter() - t_total:.1f}s",
+        flush=True,
+    )
 
     print(f"[{pipeline}] staging {len(pdfs)} PDFs...", flush=True)
     staged_dir = Path(data_dir) / "staged"
     _stage_pdfs(pdfs, staged_dir)
     print(f"[{pipeline}] staging done in {time.perf_counter() - t_total:.1f}s", flush=True)
 
-    print(f"[{pipeline}] ingesting {len(pdfs)} PDFs (timeout {ingest_timeout_secs}s)...", flush=True)
+    print(
+        f"[{pipeline}] ingesting {len(pdfs)} PDFs "
+        f"(timeout {ingest_timeout_secs}s)...",
+        flush=True,
+    )
     t0 = time.perf_counter()
     async with asyncio.timeout(ingest_timeout_secs):
         await rag.ingest_directory_async(
@@ -410,7 +422,12 @@ async def _async_main(args: argparse.Namespace) -> int:
         print(f"[main] === starting pipeline: {name} ===", flush=True)
         t0 = time.perf_counter()
         result = await _run_pipeline(
-            name, examples, args.data_dir, llm, pdfs_dir, args.ingest_timeout,
+            pipeline=name,
+            examples=examples,
+            data_dir=args.data_dir,
+            llm=llm,
+            pdfs_dir=pdfs_dir,
+            ingest_timeout_secs=args.ingest_timeout,
         )
         print(
             f"[main] pipeline {name} done in {time.perf_counter() - t0:.1f}s"
@@ -449,7 +466,7 @@ def _load_env(path: Path) -> None:
         key, _, value = line.partition("=")
         key = key.strip()
         value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        if len(value) >= MIN_QUOTED_LENGTH and value[0] == value[-1] and value[0] in {"'", '"'}:
             value = value[1:-1]
         os.environ.setdefault(key, value)
 

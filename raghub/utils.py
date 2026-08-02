@@ -26,10 +26,7 @@ import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, TypeVar
-
-T = TypeVar("T")
-
+from typing import Any
 
 __all__ = [
     "DurationTimer",
@@ -108,7 +105,7 @@ def capture(call: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, E
         return None, error
 
 
-def retry(
+def retry[T](
     fn: Callable[[], T],
     max_retries: int = 3,
     base_delay: float = 1.0,
@@ -166,7 +163,7 @@ def retry(
     raise RuntimeError("unreachable")
 
 
-async def aretry(
+async def aretry[T](
     fn: Callable[[], Awaitable[T]],
     max_retries: int = 3,
     base_delay: float = 1.0,
@@ -211,7 +208,7 @@ async def aretry(
     raise RuntimeError("unreachable")
 
 
-async def maybe_await(value: T | Awaitable[T]) -> T:
+async def maybe_await[T](value: T | Awaitable[T]) -> T:
     """Await ``value`` if it is awaitable; otherwise return it as-is.
 
     Bridges sync and async callables at API boundaries so a single

@@ -28,6 +28,7 @@ Section map:
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import time
 from collections.abc import AsyncIterator, Sequence
@@ -39,7 +40,7 @@ from typing import Any, cast
 from pydantic import ConfigDict
 from tqdm import tqdm
 
-from raghub.agent import Agent, AgentTrace
+from raghub.agent import Agent, AgentRequest, AgentTrace
 from raghub.conv import Memory
 from raghub.embedder import Embedder
 from raghub.errors import PipelineError, VectorStoreError
@@ -86,6 +87,7 @@ def awaitable(value: Any) -> Any:
     # Inline async coroutine factory (one level deep, no nested def).
     async def _lift() -> Any:
         """Lift a sync return value into a coroutine."""
+        await asyncio.sleep(0)
         return value
 
     return _lift()
@@ -153,8 +155,8 @@ class Cache:
         self.ttl = ttl_seconds
         self.store: dict[tuple[Any, ...], tuple[float, Pipeline]] = {}
 
+    @staticmethod
     def make_key(
-        self,
         question: str,
         user_id: str | None,
         filters: dict[str, Any] | str | None,
@@ -460,7 +462,7 @@ class Ingest(PipelineRunner):
             mime_type: str = inputs.get("mime_type", "")
             language: str = inputs.get("language", "")
             metadata: dict[str, Any] = dict(inputs.get("metadata") or {})
-            force: bool = bool(inputs.get("force", False))
+            force: bool = bool(inputs.get("force"))
             user: Any | None = inputs.get("user")
             tenant_company: str = str(
                 inputs.get("company") or primary_company(user) or metadata.get("company", "")
@@ -613,7 +615,8 @@ class QueryPipeline(PipelineRunner):
         self.long_context_pass = long_context_pass
         self.agentic_pipeline = agentic_pipeline
 
-    def metadata_filter_for_user(self, user: Any) -> dict[str, Any] | str:
+    @staticmethod
+    def metadata_filter_for_user(user: Any) -> dict[str, Any] | str:
         """Derive a metadata filter for the vector store from a user."""
         if user is None:
             return ""
@@ -980,11 +983,13 @@ class AgentPipeline(PipelineRunner):
                     sp.set_attribute("session_id", session_id)
 
                 trace = await self.agent.run(
-                    question=question,
-                    history=history,
-                    tools_enabled=tools_enabled,
-                    user=user,
-                    session_id=session_id,
+                    AgentRequest(
+                        question=question,
+                        history=history,
+                        tools_enabled=tools_enabled,
+                        user=user,
+                        session_id=session_id,
+                    )
                 )
 
                 citations = citations_from_trace(trace)
@@ -999,17 +1004,16 @@ class AgentPipeline(PipelineRunner):
                         hits = await self.long_context_pass.rerank(question=question, hits=hits)
 
                 agent_answer = trace.final_answer
-                _generator_text_result = await awaitable(
+                generator_result = await awaitable(
                     self.generator.generate(
                         question=question,
                         context=hits,
                         conversation=history,
                     )
                 )
-                if isinstance(_generator_text_result, tuple):
-                    _generator_text, generator_citations = _generator_text_result
-                else:
-                    _generator_text = _generator_text_result
+                generator_citations = (
+                    generator_result[1] if isinstance(generator_result, tuple) else citations
+                )
                 if not generator_citations:
                     generator_citations = cast(list[Citation], citations)
                 answer = agent_answer
@@ -1043,11 +1047,13 @@ class AgentPipeline(PipelineRunner):
         tools_enabled: set[str] | None = inputs.get("tools_enabled")
         history: Sequence[Turn] = list(inputs.get("history") or [])
         async for event in self.agent.astream(
-            question=question,
-            history=history,
-            tools_enabled=tools_enabled,
-            user=user,
-            session_id=session_id,
+            AgentRequest(
+                question=question,
+                history=history,
+                tools_enabled=tools_enabled,
+                user=user,
+                session_id=session_id,
+            )
         ):
             yield event
 

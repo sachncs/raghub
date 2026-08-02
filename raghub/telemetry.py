@@ -136,7 +136,8 @@ class NullMetrics:
     REGISTRY would otherwise leak state between runs.
     """
 
-    def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
+    @staticmethod
+    def record_latency(name: str, value_ms: float, **labels: Any) -> None:
         """Discard a latency record.
 
         Args:
@@ -147,7 +148,8 @@ class NullMetrics:
         """
         return None
 
-    def increment(self, name: str, value: int = 1, **labels: Any) -> None:
+    @staticmethod
+    def increment(name: str, value: int = 1, **labels: Any) -> None:
         """Discard a counter increment.
 
         Args:
@@ -332,7 +334,8 @@ class PrometheusMetrics:
         """
         self.error_total.labels(error_type=error_type).inc()
 
-    def register_app(self, app: Any) -> None:
+    @staticmethod
+    def register_app(app: Any) -> None:
         """Attach a ``/metrics`` route to ``app`` when it is FastAPI.
 
         Args:
@@ -345,7 +348,7 @@ class PrometheusMetrics:
         if isinstance(app, FastAPI):
 
             @app.get("/metrics")
-            async def metrics() -> Response:
+            def metrics() -> Response:
                 """Expose Prometheus metrics in OpenMetrics text format."""
                 payload = cast(Callable[[CollectorRegistry], bytes], generate_latest)(REGISTRY)
                 return Response(
@@ -601,7 +604,8 @@ class LoguruTelemetryProvider(TelemetryProvider):
         """
         return LoguruSpan(name, self.logger, self.metrics, attrs)
 
-    def end_span(self, span: Span) -> None:
+    @staticmethod
+    def end_span(span: Span) -> None:
         """Close the supplied span."""
         span.end()
 
@@ -761,8 +765,9 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         """
         return fn(*args, **kwargs)
 
+    @staticmethod
     def build_langfuse_client(
-        self, host: str | None, public_key: str, secret_key: str, flush_interval: float
+        host: str | None, public_key: str, secret_key: str, flush_interval: float
     ) -> Any:
         """Build a v3 client if available, else fall back to v2.
 
@@ -859,7 +864,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         """
         if self.client is None:
             return NoopSpan(name)
-        propagate = {k: v for k, v in attrs.items() if k in ("user_id", "session_id") and v}
+        propagate = {k: v for k, v in attrs.items() if k in {"user_id", "session_id"} and v}
         if propagate:
             self.propagate_to_langfuse(**propagate)
         start_obs = getattr(self.client, "start_as_current_observation", None)
@@ -874,7 +879,8 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         if propagate is not None:
             propagate(**attrs)
 
-    def end_span(self, span: Span) -> None:
+    @staticmethod
+    def end_span(span: Span) -> None:
         """Close a span.
 
         Args:
@@ -945,7 +951,8 @@ class NoOpTelemetry(TelemetryProvider):
     def increment(self, name: str, value: int = 1, **labels: Any) -> None:
         """No-op."""
 
-    def start_span(self, name: str, **attrs: Any) -> Span:
+    @staticmethod
+    def start_span(name: str, **attrs: Any) -> Span:
         """Return a no-op span.
 
         Args:
@@ -1065,7 +1072,8 @@ class SafeConsoleSpanExporter:
         """Forward shutdown to the parent exporter."""
         self._parent.shutdown()
 
-    def failed_export_result(self) -> Any:
+    @staticmethod
+    def failed_export_result() -> Any:
         """Return the OTel FAILURE result without importing it at module load."""
         try:
             from opentelemetry.sdk.trace.export import SpanExportResult
@@ -1134,7 +1142,8 @@ class Tracer:
         exporter = OTLPSpanExporter(endpoint=endpoint, insecure=insecure)
         self.provider.add_span_processor(BatchSpanProcessor(exporter))
 
-    def instrument_app(self, app: Any) -> None:
+    @staticmethod
+    def instrument_app(app: Any) -> None:
         """Auto-instrument a FastAPI app with OpenTelemetry middleware.
 
         Args:

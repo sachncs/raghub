@@ -401,22 +401,22 @@ def extract_text(
     if mime_type.startswith("image/"):
         return [(0, "image", text)]
 
-    if mime_type in (
+    if mime_type in {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword",
-    ):
+    }:
         return [(0, "document", text)]
 
-    if mime_type in (
+    if mime_type in {
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.ms-excel",
-    ):
+    }:
         return [(0, "spreadsheet", text)]
 
-    if mime_type in (
+    if mime_type in {
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "application/vnd.ms-powerpoint",
-    ):
+    }:
         return [(0, "presentation", text)]
 
     return [(0, "unknown", text)]
@@ -736,8 +736,8 @@ class PlainTextConverter(DocumentConverter):
     :func:`normalise_markdown`. There is no structure to preserve.
     """
 
+    @staticmethod
     def convert(
-        self,
         *,
         source_uri: str,
         file_bytes: bytes,
