@@ -845,6 +845,19 @@ class QueryPipeline(PipelineRunner):
 
     @staticmethod
     def _resolved_triggers_agent(inputs: dict[str, Any]) -> bool:
+        """Return whether ``resolved_config`` activates the agent loop.
+
+        Args:
+            inputs: The resolved ``inputs`` mapping for the request.
+                Looks for ``resolved_config`` and inspects it for
+                ``agent_enabled`` / ``tools_enabled`` keys.
+
+        Returns:
+            ``True`` when either flag is set in ``resolved_config``;
+            ``False`` otherwise (including when ``resolved_config``
+            is absent or not a dict).
+
+        """
         record_overrides = inputs.get("resolved_config")
         if not isinstance(record_overrides, dict):
             return False
