@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from raghub.models import Turn
 from raghub.prompts import (
+    SYSTEM_PROMPT_TEMPLATE,
     PromptBuilder,
     PromptConfig,
-    SYSTEM_PROMPT_TEMPLATE,
     TokenCounter,
 )
-
 
 # ---------------------------------------------------------------------------
 # SYSTEM_PROMPT_TEMPLATE
