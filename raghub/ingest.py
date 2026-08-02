@@ -140,13 +140,22 @@ def build_chonkie_inner(
     *,
     chunk_size: int,
     chunk_overlap: int,
-    tokenizer: str = "character",
-    chunker_name: str = "recursive",
-    embedding_model: str = "minishlab/potion-base-8M",
-    language: str = "auto",
-    genie: Any = None,
+    **options: Any,
 ) -> Any:
-    """Build the best available Chonkie chunker for the configuration."""
+    """Build the best available Chonkie chunker for the configuration.
+
+    Args:
+        chunk_size: Tokens per chunk.
+        chunk_overlap: Token overlap.
+        **options: ``tokenizer=``, ``chunker_name=``,
+            ``embedding_model=``, ``language=``, ``genie=``.
+
+    """
+    tokenizer: str = options.get("tokenizer", "character")
+    chunker_name: str = options.get("chunker_name", "recursive")
+    embedding_model: str = options.get("embedding_model", "minishlab/potion-base-8M")
+    language: str = options.get("language", "auto")
+    genie: Any = options.get("genie")
     if not CHONKIE_AVAILABLE or CHONKIE_MODULE is None:
         raise ConfigurationError(
             "chonkie is not installed; install it via `pip install chonkie` or use WordChunker."
@@ -179,33 +188,11 @@ def build_chonkie_inner(
     auto_probe = ("RecursiveChunker", "TokenChunker", "SentenceChunker")
 
     if chunker_name == "auto":
-        for cls_name in auto_probe:
-            cls = getattr(CHONKIE_MODULE, cls_name, None)
-            if cls is None:
-                continue
-            sig, signature_error = capture(inspect.signature, cls)
-            if isinstance(signature_error, (TypeError, ValueError)):
-                sig = None
-            kwargs: dict[str, Any] = {}
-            if sig is not None:
-                params = sig.parameters
-                for key, value in (
-                    ("tokenizer", tokenizer),
-                    ("tokenizer_or_token_counter", tokenizer),
-                    ("chunk_size", chunk_size),
-                    ("chunk_overlap", chunk_overlap),
-                    ("return_type", "chunks"),
-                ):
-                    if key in params:
-                        kwargs[key] = value
-            inner, initialization_error = capture(cls, **kwargs)
-            if initialization_error is None:
-                return inner
-            if not isinstance(initialization_error, TypeError):
-                raise initialization_error
-        raise ConfigurationError(
-            "chonkie is installed but no documented chunker accepted the "
-            "configuration; please check the installed chonkie version."
+        return _auto_select_chunker(
+            auto_probe=auto_probe,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            tokenizer=tokenizer,
         )
 
     if chunker_name not in chunker_builders:
@@ -213,6 +200,7 @@ def build_chonkie_inner(
 
     cls_name, kwargs = chunker_builders[chunker_name]
     cls = getattr(CHONKIE_MODULE, cls_name, None)
+
     if cls is None:
         raise ConfigurationError(
             f"chonkie chunker {cls_name!r} not available; "
@@ -228,6 +216,44 @@ def build_chonkie_inner(
     ) from initialization_error
 
 
+def _auto_select_chunker(
+    *,
+    auto_probe: tuple[str, ...],
+    chunk_size: int,
+    chunk_overlap: int,
+    tokenizer: str,
+) -> Any:
+    """Pick the first Chonkie chunker that accepts the auto-probed kwargs."""
+    for cls_name in auto_probe:
+        cls = getattr(CHONKIE_MODULE, cls_name, None)
+        if cls is None:
+            continue
+        sig, signature_error = capture(inspect.signature, cls)
+        if isinstance(signature_error, (TypeError, ValueError)):
+            sig = None
+        kwargs: dict[str, Any] = {}
+        if sig is not None:
+            params = sig.parameters
+            for key, value in (
+                ("tokenizer", tokenizer),
+                ("tokenizer_or_token_counter", tokenizer),
+                ("chunk_size", chunk_size),
+                ("chunk_overlap", chunk_overlap),
+                ("return_type", "chunks"),
+            ):
+                if key in params:
+                    kwargs[key] = value
+        inner, initialization_error = capture(cls, **kwargs)
+        if initialization_error is None:
+            return inner
+        if not isinstance(initialization_error, TypeError):
+            raise initialization_error
+    raise ConfigurationError(
+        "chonkie is installed but no documented chunker accepted the "
+        "configuration; please check the installed chonkie version."
+    )
+
+
 class Chonkie(Chunker):
     """Chonkie-backed chunker supporting all strategies."""
 
@@ -239,22 +265,17 @@ class Chonkie(Chunker):
         *,
         chunk_size: int = 512,
         chunk_overlap: int = 64,
-        tokenizer: str = "character",
-        chunker_name: str = "recursive",
-        embedding_model: str = "minishlab/potion-base-8M",
-        language: str = "auto",
-        llm_provider: Any = None,
+        **options: Any,
     ) -> None:
         """Initialise the Chonkie chunker.
 
         Args:
             chunk_size: Tokens per chunk.
             chunk_overlap: Token overlap.
-            tokenizer: Tokenizer name (``"character"``, ``"gpt2"``, …).
-            chunker_name: Chunking strategy.
-            embedding_model: Model for semantic/late chunkers.
-            language: Language for CodeChunker.
-            llm_provider: raghub LLM provider for SlumberChunker.
+            **options: Optional overrides — ``tokenizer=``,
+                ``chunker_name=``, ``embedding_model=``,
+                ``language=``, ``llm_provider=`` (for
+                SlumberChunker).
 
         """
         if not CHONKIE_AVAILABLE:
@@ -264,8 +285,10 @@ class Chonkie(Chunker):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
+        chunker_name = options.get("chunker_name", "recursive")
         genie = None
         if chunker_name == "slumber":
+            llm_provider = options.get("llm_provider")
             if llm_provider is None:
                 raise ConfigurationError(
                     "SlumberChunker requires an LLM provider; pass llm_provider="
@@ -275,13 +298,15 @@ class Chonkie(Chunker):
         self.inner = build_chonkie_inner(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
-            tokenizer=tokenizer,
-            chunker_name=chunker_name,
-            embedding_model=embedding_model,
-            language=language,
+            tokenizer=options.get("tokenizer", "character"),
+            chunker_name=options.get("chunker_name", "recursive"),
+            embedding_model=options.get("embedding_model", "minishlab/potion-base-8M"),
+            language=options.get("language", "auto"),
             genie=genie,
         )
-        self.refinery = build_refinery(context_size=chunk_overlap, tokenizer=tokenizer)
+        self.refinery = build_refinery(
+            context_size=chunk_overlap, tokenizer=options.get("tokenizer", "character")
+        )
 
     def chonkie_text_chunks(self, text: str) -> list[Any]:
         """Invoke the underlying Chonkie chunker; tolerate API drift."""
@@ -559,11 +584,23 @@ def record_from_pipeline(
     mime_type: str,
     owner: User,
     organization: str,
-    classification: Classification,
-    checksum: str,
-    tags: list[str] | None,
+    **options: Any,
 ) -> Document:
-    """Project a :class:`Pipeline` into a :class:`Document`."""
+    """Project a :class:`Pipeline` into a :class:`Document`.
+
+    Args:
+        result: The pipeline result to project.
+        file_name: Source filename.
+        mime_type: Source MIME type.
+        owner: Document owner.
+        organization: Owning organisation.
+        **options: Optional ``classification=``,
+            ``checksum=``, ``tags=`` overrides.
+
+    """
+    classification: Classification = options.get("classification", Classification.INTERNAL)
+    checksum: str = options.get("checksum", "")
+    tags: list[str] | None = options.get("tags")
     chunks = result.outputs.get("chunks") or []
     if chunks and isinstance(chunks[0], dict):
         chunk_records = [Chunk.model_validate(c) for c in chunks]
@@ -608,18 +645,26 @@ class Ingestor:
         embedding_provider: Embedder,
         lifecycle_manager: Lifecycle,
         max_upload_bytes: int,
-        virus_scan_hook: VirusScanHook | None = None,
-        pipeline: Ingest | None = None,
-        plan: object | None = None,
+        **options: Any,
     ) -> None:
-        """Initialise the service."""
+        """Initialise the service.
+
+        Args:
+            uow: Unit of work for repos / stores.
+            embedding_provider: Embedding provider.
+            lifecycle_manager: Lifecycle hook manager.
+            max_upload_bytes: Maximum upload size in bytes.
+            **options: Optional overrides — ``virus_scan_hook=``,
+                ``pipeline=``, ``plan=``.
+
+        """
         self.uow = uow
         self.embedding_provider = embedding_provider
         self.lifecycle_manager = lifecycle_manager
         self.max_upload_bytes = max_upload_bytes
-        self.virus_scan_hook = virus_scan_hook or (lambda _: None)
-        self.plan = plan
-        self.make_pipeline: Ingest | None = pipeline
+        self.virus_scan_hook = options.get("virus_scan_hook") or (lambda _: None)
+        self.plan = options.get("plan")
+        self.make_pipeline: Ingest | None = options.get("pipeline")
 
     def build_pipeline(self) -> Ingest:
         """Construct the default :class:`Ingest`."""
@@ -637,22 +682,28 @@ class Ingestor:
         file_bytes: bytes,
         owner: User,
         organization: str,
-        department: str = "",
-        tags: list[str] | None = None,
-        classification: Classification = Classification.INTERNAL,
-        background_service: Batch | None = None,
+        **options: Any,
     ) -> str:
-        """Submit ``ingest`` to a background thread pool."""
-        svc = background_service or Batch()
+        """Submit ``ingest`` to a background thread pool.
+
+        Args:
+            file_name: Original filename.
+            file_bytes: Raw file content.
+            owner: The uploading user principal.
+            organization: Tenant (company) identifier.
+            **options: Optional overrides — ``department=``,
+                ``tags=``, ``classification=``,
+                ``background_service=``.
+
+        """
+        svc = options.get("background_service") or Batch()
         return svc.submit(
             self.ingest,
             file_name=file_name,
             file_bytes=file_bytes,
             owner=owner,
             organization=organization,
-            department=department,
-            tags=tags,
-            classification=classification,
+            **options,
         )
 
     async def ingest(
@@ -662,9 +713,7 @@ class Ingestor:
         file_bytes: bytes,
         owner: User,
         organization: str,
-        department: str = "",
-        tags: list[str] | None = None,
-        classification: Classification = Classification.INTERNAL,
+        **options: Any,
     ) -> IngestionResult:
         """Run the canonical ingest pipeline for a single upload.
 
@@ -676,6 +725,7 @@ class Ingestor:
             department: Optional department tag.
             tags: Optional tag list.
             classification: Sensitivity classification.
+            **options: Reserved for future overrides.
 
         Returns:
             An :class:`IngestionResult` carrying the final document
@@ -687,6 +737,11 @@ class Ingestor:
                 persisted.
 
         """
+        department: str = options.get("department", "")
+        tags: list[str] | None = options.get("tags")
+        classification: Classification = options.get(
+            "classification", Classification.INTERNAL
+        )
         mime_type = validate_upload(file_name, file_bytes, self.max_upload_bytes)
         self.virus_scan_hook(file_bytes)
         checksum = sha256(file_bytes).hexdigest()
