@@ -14,6 +14,7 @@ import typer
 from raghub.await_sync import capture
 from raghub.cli_commands import (
     CliConfig,
+    FeedbackCommand,
     IngestCommand,
     InitCommand,
     QueryCommand,
@@ -42,6 +43,7 @@ QueryCommand.register(app)
 IngestCommand.register(app)
 InitCommand.register(app)
 ServerCommand.register(app)
+FeedbackCommand.register(app)
 
 
 @app.command(name="health")

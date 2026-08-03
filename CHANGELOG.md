@@ -21,6 +21,40 @@ oldest.
 
 - Removed the redundant `.dockerignore` file.
 
+## [0.9.2] - 2026-08-27
+
+### Changed
+
+### Added
+
+- `Bm25BoostScorer.refresh` + `Bm25BoostScorer.boost` returns the
+  actual algorithm output (no longer a no-op stub). The
+  constructor still caches; call :meth:`refresh` to reload after
+  new feedback arrives, or use :meth:`boost_async` for live
+  reads.
+- `VectorDownWeightScorer.refresh` + `boost` returns the actual
+  algorithm output (no longer a no-op stub).
+- `FeedbackRouter` mounted at ``/v1/feedback`` with
+  ``POST /feedback``, ``GET /feedback/{id}``,
+  ``DELETE /feedback/{id}``, and ``GET /feedback/aggregate``.
+  503 is returned when ``feedback_store`` is not configured.
+- ``raghub feedback export --jsonl <path> [--tenant <id>]`` CLI
+  sub-command.
+- ``raghub feedback stats [--tenant <id>]`` CLI sub-command.
+- ``raghub.feedback.FeedbackSubmission`` and
+  ``raghub.feedback.FeedbackAggregateResponse`` Pydantic models
+  for the new endpoints.
+- 13 new tests covering scorer behavior, the API router
+  round-trip, aggregate counts, and CLI sub-commands.
+
+### Changed
+
+- ``SqliteFeedbackStore`` methods set ``row_factory = sqlite3.Row``
+  on every connection so dict-style row access works.
+- ``raghub.feedback._redact_comment`` now calls the module-level
+  ``raghub.telemetry.redact_record`` (the previous
+  ``RedactingTelemetry.redact_record`` method did not exist).
+
 ## [0.9.1] - 2026-08-26
 
 ### Changed
