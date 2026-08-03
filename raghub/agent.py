@@ -497,27 +497,7 @@ class Agent:
 
     async def iterate(self, request: AgentRequest) -> AsyncIterator[PlannerEvent]:
         """Yield events for the agent loop shared by ``run`` and ``astream``."""
-        question = request.question
-        enabled = self.resolve_enabled_tools(request.tools_enabled)
-        tool_schemas = [
-            {"name": name, "description": tool.description, "json_schema": tool.json_schema}
-            for name, tool in enabled.items()
-        ]
-        messages: list[dict[str, str]] = [
-            {"role": "system", "content": render_system_prompt(tool_schemas)},
-        ]
-        for turn in (request.history or [])[-self.settings.max_steps :]:
-            messages.append({"role": "user", "content": turn.question})
-            messages.append({"role": "assistant", "content": turn.answer})
-        messages.append({"role": "user", "content": question})
-
-        ctx = ToolContext(
-            user=request.user,
-            session_id=request.session_id,
-            session_overrides=request.session_overrides,
-            question=question,
-        )
-
+        enabled, messages, ctx = self.__build_initial_state(request)
         state = self.__budget_state()
         for step in range(self.settings.max_steps):
             state.steps += 1
@@ -525,7 +505,6 @@ class Agent:
             if budget_event is not None:
                 yield budget_event
                 self.__raise_budget_error(state)
-
             raw = await self.__generate_reply(messages, state.steps)
             parsed = parse_turn(raw or "")
             if isinstance(parsed, PlannerAction):
@@ -543,24 +522,49 @@ class Agent:
                 async for event in self.__dispatch_final(parsed, state.steps):
                     yield event
                 return
-            yield PlannerEvent(
-                kind="thought",
-                step=state.steps,
-                payload={
-                    "error": "parse_failed",
-                    "raw": getattr(parsed, "raw", ""),
-                },
-            )
-            messages.append(
-                {
-                    "role": "user",
-                    "content": (
-                        "Your previous reply was not valid JSON. Reply "
-                        "with JSON only, no prose, no markdown."
-                    ),
-                }
-            )
+            self.__emit_parse_failure(parsed, state, messages)
         self.__raise_budget_error(state)
+
+    def __build_initial_state(
+        self, request: AgentRequest
+    ) -> tuple[dict[str, Any], list[dict[str, str]], ToolContext]:
+        """Resolve tools, build the message history, and build the ToolContext."""
+        enabled = self.resolve_enabled_tools(request.tools_enabled)
+        tool_schemas = [
+            {"name": name, "description": tool.description, "json_schema": tool.json_schema}
+            for name, tool in enabled.items()
+        ]
+        messages: list[dict[str, str]] = [
+            {"role": "system", "content": render_system_prompt(tool_schemas)},
+        ]
+        for turn in (request.history or [])[-self.settings.max_steps :]:
+            messages.append({"role": "user", "content": turn.question})
+            messages.append({"role": "assistant", "content": turn.answer})
+        messages.append({"role": "user", "content": request.question})
+        ctx = ToolContext(
+            user=request.user,
+            session_id=request.session_id,
+            session_overrides=request.session_overrides,
+            question=request.question,
+        )
+        return enabled, messages, ctx
+
+    def __emit_parse_failure(
+        self,
+        parsed: Any,
+        state: AgentBudgetState,
+        messages: list[dict[str, str]],
+    ) -> None:
+        """Emit a parse-failure event and append the retry prompt."""
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "Your previous reply was not valid JSON. Reply "
+                    "with JSON only, no prose, no markdown."
+                ),
+            }
+        )
 
     def __budget_state(self) -> AgentBudgetState:
         """Initialise a fresh :class:`AgentBudgetState` for one iterate call."""

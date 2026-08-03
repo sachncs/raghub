@@ -49,11 +49,17 @@ oldest.
   ``RagContainer``; ``MemoryQueue.submit`` /
   ``Synchronous.submit`` take ``Callable[..., JSONValue]`` and
   return ``Future[JSONValue]``.
+- R10: tighten ``rag.py`` attribute types — ``knowledge_repo``,
+  ``converter``, ``generator``, ``structured`` use Protocol
+  references instead of bare ``Any``.
+- C1: decompose ``Agent.iterate`` (217 LOC) into ``iterate`` +
+  ``__build_initial_state`` + ``__emit_parse_failure``.
 - Fix pre-existing test data so the verify() assertions pass —
   ``conftest.sample_chunk`` computes the SHA-256 checksum from
   the text; ``test_sqlite_store._chunk`` and
   ``test_pipeline`` / ``test_production_readiness`` use the correct
-  per-text checksums.
+  per-text checksums; ``test_store_memory._chunk`` recomputes the
+  SHA-256 checksum from its text parameter.
 
 ### Security
 
