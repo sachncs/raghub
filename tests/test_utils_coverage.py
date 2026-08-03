@@ -9,17 +9,10 @@ from typing import Any
 
 import pytest
 
-from raghub.utils import (
-    DurationTimer,
-    aretry,
-    atomic_write_json,
-    capture,
-    load_json,
-    maybe_await,
-    maybe_await_sync,
-    retry,
-    write_json,
-)
+from raghub.await_sync import capture, maybe_await, maybe_await_sync
+from raghub.io import atomic_write_json, load_json, write_json
+from raghub.retry import aretry, retry
+from raghub.timing import DurationTimer
 
 # ---------------------------------------------------------------------------
 # load_json
