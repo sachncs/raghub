@@ -14,6 +14,7 @@ provide one explicitly.
 from __future__ import annotations
 
 from collections.abc import Callable
+from enum import StrEnum
 from importlib import metadata
 from typing import Any
 
@@ -31,117 +32,220 @@ from raghub.models import (
 )
 
 __all__ = [
+    "PluginKind",
     "PluginRegistry",
 ]
 
 
+class PluginKind(StrEnum):
+    """Catalogue of plugin kinds accepted by :class:`PluginRegistry`.
+
+    Adding a new kind requires registering a corresponding Protocol
+    in :mod:`raghub.models`.
+    """
+
+    CONVERTER = "converter"
+    CHUNKER = "chunker"
+    EMBEDDER = "embedder"
+    VECTOR_STORE = "vector_store"
+    KNOWLEDGE_REPO = "knowledge_repo"
+    GENERATOR = "generator"
+    STRUCTURED = "structured"
+    TELEMETRY_LOGGER = "telemetry_logger"
+    TELEMETRY_METRICS = "telemetry_metrics"
+    EVALUATOR = "evaluator"
+    FACTORY = "factory"
+
+
+_PLUGIN_KIND_TYPE_MAP: dict[PluginKind, str] = {
+    PluginKind.CONVERTER: "converters",
+    PluginKind.CHUNKER: "chunkers",
+    PluginKind.EMBEDDER: "embedders",
+    PluginKind.VECTOR_STORE: "vector_stores",
+    PluginKind.KNOWLEDGE_REPO: "knowledge_repos",
+    PluginKind.GENERATOR: "generators",
+    PluginKind.STRUCTURED: "structured",
+    PluginKind.TELEMETRY_LOGGER: "telemetry_loggers",
+    PluginKind.TELEMETRY_METRICS: "telemetry_metrics",
+    PluginKind.EVALUATOR: "evaluators",
+    PluginKind.FACTORY: "factories",
+}
+
+
 class PluginRegistry:
-    """Catalog of pluggable components keyed by name and type."""
+    """Catalog of pluggable components keyed by ``(kind, name)``."""
 
     def __init__(self) -> None:
         """Initialise an empty registry."""
-        self.converters: dict[str, DocumentConverter] = {}
-        self.chunkers: dict[str, Chunker] = {}
-        self.embedders: dict[str, EmbeddingProvider] = {}
-        self.vector_stores: dict[str, VectorStore] = {}
-        self.knowledge_repos: dict[str, KnowledgeRepository] = {}
-        self.generators: dict[str, GeneratorProtocol] = {}
-        self.structured: dict[str, StructuredOutputProvider] = {}
-        self.telemetry_loggers: dict[str, Logger] = {}
-        self.telemetry_metrics: dict[str, Metrics] = {}
-        self.evaluators: dict[str, Evaluator] = {}
-        self.factories: dict[str, Callable[..., Any]] = {}
+        self.entries: dict[tuple[PluginKind, str], Any] = {}
 
     # ------------------------------------------------------------------
     # Generic helpers
     # ------------------------------------------------------------------
 
+    def register(
+        self,
+        kind: PluginKind,
+        name: str,
+        obj: Any,
+    ) -> None:
+        """Register ``obj`` under ``(kind, name)``.
+
+        Args:
+            kind: The plugin kind.
+            name: Unique name within ``kind``.
+            obj: The plugin object (Protocol-conformant).
+
+        """
+        self.entries[kind, name] = obj
+
+    def get(self, kind: PluginKind, name: str) -> Any:
+        """Return the registered plugin or raise :class:`KeyError`."""
+        return self.entries[kind, name]
+
+    def has(self, kind: PluginKind, name: str) -> bool:
+        """Return ``True`` when a plugin is registered for ``kind``/``name``."""
+        return (kind, name) in self.entries
+
+    def kinds(self) -> list[PluginKind]:
+        """Return the distinct kinds that have at least one registered plugin."""
+        return sorted({kind for kind, _ in self.entries.keys()}, key=lambda k: k.value)
+
+    def names(self, kind: PluginKind) -> list[str]:
+        """Return the names registered under ``kind``."""
+        return sorted(name for k, name in self.entries.keys() if k == kind)
+
+    # ------------------------------------------------------------------
+    # Convenience accessors (kept for backward-compat ergonomics)
+    # ------------------------------------------------------------------
+
     def register_converter(self, name: str, converter: DocumentConverter) -> None:
         """Register a converter under ``name``."""
-        self.converters[name] = converter
+        self.register(PluginKind.CONVERTER, name, converter)
 
     def register_chunker(self, name: str, chunker: Chunker) -> None:
         """Register a chunker under ``name``."""
-        self.chunkers[name] = chunker
+        self.register(PluginKind.CHUNKER, name, chunker)
 
     def register_embedder(self, name: str, embedder: EmbeddingProvider) -> None:
         """Register an embedder under ``name``."""
-        self.embedders[name] = embedder
+        self.register(PluginKind.EMBEDDER, name, embedder)
 
     def register_vector_store(self, name: str, store: VectorStore) -> None:
         """Register a vector store under ``name``."""
-        self.vector_stores[name] = store
+        self.register(PluginKind.VECTOR_STORE, name, store)
 
     def register_knowledge_repo(self, name: str, repo: KnowledgeRepository) -> None:
         """Register a knowledge repository under ``name``."""
-        self.knowledge_repos[name] = repo
+        self.register(PluginKind.KNOWLEDGE_REPO, name, repo)
 
     def register_generator(self, name: str, generator: GeneratorProtocol) -> None:
         """Register a generator under ``name``."""
-        self.generators[name] = generator
+        self.register(PluginKind.GENERATOR, name, generator)
 
     def register_structured(self, name: str, provider: StructuredOutputProvider) -> None:
         """Register a structured-output provider under ``name``."""
-        self.structured[name] = provider
-
-    def register_telemetry(self, name: str, logger: Logger, metrics: Metrics) -> None:
-        """Register a telemetry pair under ``name``."""
-        self.telemetry_loggers[name] = logger
-        self.telemetry_metrics[name] = metrics
+        self.register(PluginKind.STRUCTURED, name, provider)
 
     def register_evaluator(self, name: str, evaluator: Evaluator) -> None:
         """Register an evaluator under ``name``."""
-        self.evaluators[name] = evaluator
+        self.register(PluginKind.EVALUATOR, name, evaluator)
 
     def register_factory(self, name: str, factory: Callable[..., Any]) -> None:
         """Register a generic factory under ``name``."""
-        self.factories[name] = factory
+        self.register(PluginKind.FACTORY, name, factory)
+
+    def register_telemetry(self, name: str, logger: Logger, metrics: Metrics) -> None:
+        """Register a telemetry pair under ``name``.
+
+        The logger and metrics are stored under
+        ``(TELEMETRY_LOGGER, name)`` and
+        ``(TELEMETRY_METRICS, name)`` respectively.
+        """
+        self.register(PluginKind.TELEMETRY_LOGGER, name, logger)
+        self.register(PluginKind.TELEMETRY_METRICS, name, metrics)
 
     # ------------------------------------------------------------------
-    # Resolution helpers
+    # Legacy accessors (per-kind dicts)
     # ------------------------------------------------------------------
 
-    def get_converter(self, name: str) -> DocumentConverter:
-        """Return the named converter or raise :class:`KeyError`."""
-        return self.converters[name]
+    @property
+    def converters(self) -> dict[str, DocumentConverter]:
+        """Return a snapshot of registered converters (legacy accessor)."""
+        return {
+            name: self.entries[PluginKind.CONVERTER, name]
+            for name in self.names(PluginKind.CONVERTER)
+        }
 
-    def get_chunker(self, name: str) -> Chunker:
-        """Return the named chunker or raise :class:`KeyError`."""
-        return self.chunkers[name]
+    @property
+    def chunkers(self) -> dict[str, Chunker]:
+        """Return a snapshot of registered chunkers (legacy accessor)."""
+        return {
+            name: self.entries[PluginKind.CHUNKER, name]
+            for name in self.names(PluginKind.CHUNKER)
+        }
 
-    def get_embedder(self, name: str) -> EmbeddingProvider:
-        """Return the named embedder or raise :class:`KeyError`."""
-        return self.embedders[name]
+    @property
+    def embedders(self) -> dict[str, EmbeddingProvider]:
+        """Return a snapshot of registered embedders (legacy accessor)."""
+        return {
+            name: self.entries[PluginKind.EMBEDDER, name]
+            for name in self.names(PluginKind.EMBEDDER)
+        }
 
-    def get_vector_store(self, name: str) -> VectorStore:
-        """Return the named vector store or raise :class:`KeyError`."""
-        return self.vector_stores[name]
+    @property
+    def vector_stores(self) -> dict[str, VectorStore]:
+        """Return a snapshot of registered vector stores (legacy accessor)."""
+        return {
+            name: self.entries[PluginKind.VECTOR_STORE, name]
+            for name in self.names(PluginKind.VECTOR_STORE)
+        }
 
-    def get_knowledge_repo(self, name: str) -> KnowledgeRepository:
-        """Return the named knowledge repository or raise :class:`KeyError`."""
-        return self.knowledge_repos[name]
+    @property
+    def knowledge_repos(self) -> dict[str, KnowledgeRepository]:
+        """Return a snapshot of registered knowledge repos (legacy accessor)."""
+        return {
+            name: self.entries[PluginKind.KNOWLEDGE_REPO, name]
+            for name in self.names(PluginKind.KNOWLEDGE_REPO)
+        }
 
-    def get_generator(self, name: str) -> GeneratorProtocol:
-        """Return the named generator or raise :class:`KeyError`."""
-        return self.generators[name]
+    @property
+    def generators(self) -> dict[str, GeneratorProtocol]:
+        """Return a snapshot of registered generators (legacy accessor)."""
+        return {
+            name: self.entries[PluginKind.GENERATOR, name]
+            for name in self.names(PluginKind.GENERATOR)
+        }
 
-    def get_structured(self, name: str) -> StructuredOutputProvider:
-        """Return the named structured-output provider or raise :class:`KeyError`."""
-        return self.structured[name]
+    @property
+    def structured(self) -> dict[str, StructuredOutputProvider]:
+        """Return a snapshot of registered structured-output providers."""
+        return {
+            name: self.entries[PluginKind.STRUCTURED, name]
+            for name in self.names(PluginKind.STRUCTURED)
+        }
 
-    def get_evaluator(self, name: str) -> Evaluator:
-        """Return the named evaluator or raise :class:`KeyError`."""
-        return self.evaluators[name]
+    @property
+    def evaluators(self) -> dict[str, Evaluator]:
+        """Return a snapshot of registered evaluators (legacy accessor)."""
+        return {
+            name: self.entries[PluginKind.EVALUATOR, name]
+            for name in self.names(PluginKind.EVALUATOR)
+        }
 
-    def get_telemetry(self, name: str) -> tuple[Logger, Metrics]:
-        """Return the named telemetry pair or raise :class:`KeyError`."""
-        return self.telemetry_loggers[name], self.telemetry_metrics[name]
+    @property
+    def factories(self) -> dict[str, Callable[..., Any]]:
+        """Return a snapshot of registered factories (legacy accessor)."""
+        return {
+            name: self.entries[PluginKind.FACTORY, name]
+            for name in self.names(PluginKind.FACTORY)
+        }
 
     # ------------------------------------------------------------------
     # Entry-point discovery
     # ------------------------------------------------------------------
 
-    def _discover_entrypoints(self, group: str = "raghub.plugins") -> int:
+    def discover_entrypoints(self, group: str = "raghub.plugins") -> int:
         """Discover and load plugins exposed as entry points.
 
         Args:

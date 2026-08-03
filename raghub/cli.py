@@ -11,6 +11,7 @@ import importlib.metadata
 
 import typer
 
+from raghub.await_sync import capture
 from raghub.cli_commands import (
     CliConfig,
     IngestCommand,
@@ -20,7 +21,6 @@ from raghub.cli_commands import (
     ToolConfig,
 )
 from raghub.evaluation import app as eval_app
-from raghub.utils import capture
 
 __all__ = ["health", "main", "version"]
 

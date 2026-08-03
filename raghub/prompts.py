@@ -96,7 +96,10 @@ class TokenCounter:
 
     def decode_tokens(self, tokens: list[int]) -> str:
         """Decode tiktoken token IDs into text."""
-        assert self.enc is not None
+        if self.enc is None:
+            raise RuntimeError(
+                "TokenCounter.decode_tokens requires the tiktoken backend"
+            )
         return str(self.enc.decode(tokens))
 
     def truncate(self, text: str, max_tokens: int) -> str:

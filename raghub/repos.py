@@ -270,11 +270,36 @@ class DocStore(DocumentRepository):
         record: Document,
         max_retries: int = MAX_INSERT_RETRIES,
     ) -> bool:
-        """Insert ``record`` without raising on conflicts."""
-        conn = await self.conn()
-        await conn.execute(INSERT_SQL.format(mode=""), self.record_params(record))
-        await self.maybe_commit_close(conn)
-        return True
+        """Insert ``record`` with exponential-backoff retry on transient errors.
+
+        Retries up to ``max_retries`` times on ``OperationalError`` /
+        ``DatabaseError``. Each retry waits ``RETRY_BASE_DELAY *
+        (2 ** attempt)`` seconds before re-trying.
+
+        Returns:
+            ``True`` on successful insert.
+
+        Raises:
+            The underlying ``aiosqlite`` exception when retries are
+            exhausted.
+
+        """
+        import asyncio
+
+        attempt = 0
+        while True:
+            try:
+                conn = await self.conn()
+                await conn.execute(
+                    INSERT_SQL.format(mode=""), self.record_params(record)
+                )
+                await self.maybe_commit_close(conn)
+                return True
+            except (aiosqlite.OperationalError, aiosqlite.DatabaseError):
+                attempt += 1
+                if attempt >= max_retries:
+                    raise
+                await asyncio.sleep(RETRY_BASE_DELAY * (2 ** (attempt - 1)))
 
     async def get(self, document_id: str) -> Document | None:
         """Return the latest version record for ``document_id``."""
@@ -532,7 +557,8 @@ class UnitOfWork(BaseUnitOfWork):
     async def initialize(self) -> None:
         """Open the database connection and initialise all repositories."""
         if not self.initialized:
-            assert self.db_manager is not None
+            if self.db_manager is None:
+                raise TypeError("UnitOfWork.db_manager must be set before initialize()")
             await self.db_manager.connect()
             await self.document_repo.initialize()
             await self.chunk_repo.initialize()

@@ -100,7 +100,9 @@ class DefaultGenerator:
             conversation: Prior conversation turns.
 
         Returns:
-            ``(answer, citations)`` for the question.
+            The answer text for the question. Citations are emitted
+            inline by the LLM using the ``[chunk:ID]`` convention; the
+            caller extracts them downstream via :mod:`raghub.citations`.
 
         """
         context_texts: list[str] = []
@@ -129,7 +131,7 @@ class DefaultGenerator:
             )
         else:
             answer = str(completion)
-        self.capture_last_usage()
+        self.record_token_usage()
         return answer
 
     def record_tokens(self) -> dict[str, int | str] | None:
@@ -166,13 +168,13 @@ class DefaultGenerator:
             ):
                 if piece:
                     yield piece
-            self.capture_last_usage()
+            self.record_token_usage()
             return
         answer = await self.generate(question=question, context=context, conversation=conversation)
         if answer:
             yield answer
 
-    def capture_last_usage(self) -> None:
+    def record_token_usage(self) -> None:
         """Read the LLM's ``last_usage`` and store it on the generator.
 
         Accepts both the canonical ``prompt_tokens``/``completion_tokens``

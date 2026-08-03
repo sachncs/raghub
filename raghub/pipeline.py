@@ -64,8 +64,8 @@ from raghub.models import (
     VectorStore,
     deterministic_id,
 )
+from raghub.retry import retry as retry_sync
 from raghub.telemetry import NoOpTelemetry
-from raghub.utils import retry as retry_sync
 
 
 def awaitable(value: Any) -> Any:
@@ -475,7 +475,7 @@ class Ingest(PipelineRunner):
             force: bool = bool(inputs.get("force"))
             checksum = sha256_checksum(file_bytes)
             bundle_id = deterministic_id("bundle", source_uri, checksum)
-            resolved = self._resolve_ingest_metadata(
+            resolved = self.resolve_ingest_metadata(
                 inputs=inputs,
                 metadata=metadata_in,
                 user=user,
@@ -485,13 +485,13 @@ class Ingest(PipelineRunner):
             with self.telemetry.span("ingest", source_uri=source_uri, bundle_id=bundle_id) as sp:
                 sp.set_attribute("checksum", checksum)
 
-                cached = self._maybe_cached_bundle(
+                cached = self.maybe_cached_bundle(
                     context, force, bundle_id, checksum, resolved
                 )
                 if cached is not None:
                     return cached
 
-                bundle = self._convert_bundle(
+                bundle = self.convert_bundle(
                     source_uri,
                     file_bytes,
                     resolved.mime_type,
@@ -502,17 +502,17 @@ class Ingest(PipelineRunner):
                 bundle.checksum = checksum
                 bundle.metadata = {**bundle.metadata, **resolved.normalized_metadata}
 
-                chunks = self._chunk_documents(bundle, resolved)
-                vectors = self._embed_chunks(chunks)
-                self._index_chunks(chunks, vectors)
+                chunks = self.chunk_documents(bundle, resolved)
+                vectors = self.embed_chunks(chunks)
+                self.index_chunks(chunks, vectors)
                 self.knowledge_repo.save(bundle)
 
-                return self._build_ingest_result(
+                return self.build_ingest_result(
                     context, bundle, chunks, vectors, incremental=False
                 )
 
     @staticmethod
-    def _resolve_ingest_metadata(
+    def resolve_ingest_metadata(
         *,
         inputs: dict[str, Any],
         metadata: dict[str, Any],
@@ -551,7 +551,7 @@ class Ingest(PipelineRunner):
             language=inputs.get("language", ""),
         )
 
-    def _maybe_cached_bundle(
+    def maybe_cached_bundle(
         self,
         context: PipelineCtx,
         force: bool,
@@ -582,7 +582,7 @@ class Ingest(PipelineRunner):
             },
         )
 
-    def _convert_bundle(
+    def convert_bundle(
         self,
         source_uri: str,
         file_bytes: bytes,
@@ -600,7 +600,7 @@ class Ingest(PipelineRunner):
                 metadata=normalized_metadata,
             )
 
-    def _chunk_documents(
+    def chunk_documents(
         self,
         bundle: Bundle,
         resolved: _IngestResolvedMetadata,
@@ -623,13 +623,13 @@ class Ingest(PipelineRunner):
                 chunks.append(chunk)
         return chunks
 
-    def _embed_chunks(self, chunks: list[Chunk]) -> list[list[float]]:
+    def embed_chunks(self, chunks: list[Chunk]) -> list[list[float]]:
         """Embed every chunk's text and return the vectors in chunk order."""
         texts = [chunk.text for chunk in chunks]
         with self.telemetry.span("ingest.embed", count=len(texts)):
             return self.embedder.embed_texts(texts) if texts else []
 
-    def _index_chunks(
+    def index_chunks(
         self,
         chunks: list[Chunk],
         vectors: list[list[float]],
@@ -654,7 +654,7 @@ class Ingest(PipelineRunner):
                 with self.telemetry.span("ingest.graph"):
                     self.graph.add_chunks(chunks, vectors)
 
-    def _build_ingest_result(
+    def build_ingest_result(
         self,
         context: PipelineCtx,
         bundle: Bundle,
@@ -766,7 +766,7 @@ class QueryPipeline(PipelineRunner):
 
         rbac_filter = self.metadata_filter_for_user(user)
         user_id = getattr(user, "email", None) or getattr(user, "user_id", None)
-        scope = QueryPipeline._scope_triple(user)
+        scope = QueryPipeline.scope_triple(user)
 
         query_ctx = _QueryContext(
             question=question,
@@ -782,7 +782,7 @@ class QueryPipeline(PipelineRunner):
             scope=scope,
         )
 
-        cached = self._maybe_cache_hit(query_ctx)
+        cached = self.maybe_cache_hit(query_ctx)
         if isinstance(cached, Pipeline):
             return cached
 
@@ -793,7 +793,7 @@ class QueryPipeline(PipelineRunner):
         return await self._run_query_leg(context, query_ctx)
 
     @staticmethod
-    def _scope_triple(user: Any) -> tuple[bool, tuple[str, ...], tuple[str, ...]]:
+    def scope_triple(user: Any) -> tuple[bool, tuple[str, ...], tuple[str, ...]]:
         """Build the cache scope tuple for ``user``."""
         return (
             bool(getattr(user, "is_admin", False)),
@@ -801,7 +801,7 @@ class QueryPipeline(PipelineRunner):
             tuple(sorted(str(value) for value in getattr(user, "allowed_groups", []) or [])),
         )
 
-    def _maybe_cache_hit(self, ctx: _QueryContext) -> Pipeline | None:
+    def maybe_cache_hit(self, ctx: _QueryContext) -> Pipeline | None:
         """Return a cached ``Pipeline`` for the request, or ``None``."""
         if self.cache is None:
             return None
@@ -827,7 +827,7 @@ class QueryPipeline(PipelineRunner):
         """Forward to the agentic pipeline when tools are enabled."""
         if self.agentic_pipeline is None or not (
             tools_enabled
-            or self._resolved_triggers_agent(inputs)
+            or self.resolved_triggers_agent(inputs)
         ):
             return None
         return cast(
@@ -844,7 +844,7 @@ class QueryPipeline(PipelineRunner):
         )
 
     @staticmethod
-    def _resolved_triggers_agent(inputs: dict[str, Any]) -> bool:
+    def resolved_triggers_agent(inputs: dict[str, Any]) -> bool:
         """Return whether ``resolved_config`` activates the agent loop.
 
         Args:
@@ -872,7 +872,7 @@ class QueryPipeline(PipelineRunner):
     ) -> Pipeline:
         """Embed → retrieve → rerank → generate → (optional) structured."""
         with self.telemetry.span("query", question=ctx.question[:128], top_k=ctx.top_k) as span:
-            QueryPipeline._annotate_query_span(span, ctx.user, ctx.session_id)
+            QueryPipeline.annotate_query_span(span, ctx.user, ctx.session_id)
 
             hits, transforms_applied = await self._retrieve_hits(
                 ctx.question, ctx.history, ctx.top_k, ctx.rbac_filter, ctx.user_filter
@@ -882,7 +882,7 @@ class QueryPipeline(PipelineRunner):
             structured_output = await self._maybe_structured(
                 ctx.question, hits, ctx.response_model
             )
-            self._record_turn(ctx.record, ctx.session_id, ctx.question, answer)
+            self.record_turn(ctx.record, ctx.session_id, ctx.question, answer)
 
         result = Pipeline(
             pipeline_id=context.pipeline_id,
@@ -897,11 +897,11 @@ class QueryPipeline(PipelineRunner):
                 "resolved_config": context.metadata.get("resolved_config"),
             },
         )
-        self._maybe_cache_store(result, ctx)
+        self.maybe_cache_store(result, ctx)
         return result
 
     @staticmethod
-    def _annotate_query_span(
+    def annotate_query_span(
         span: Any,
         user: Any | None,
         session_id: str | None,
@@ -930,8 +930,8 @@ class QueryPipeline(PipelineRunner):
         if transformed is not None:
             return transformed
 
-        hits = self._vector_search(vector, top_k, rbac_filter)
-        hits = self._filter_user_hits(hits, user_filter)
+        hits = self.vector_search(vector, top_k, rbac_filter)
+        hits = self.filter_user_hits(hits, user_filter)
         if self.reranker is not None:
             with self.telemetry.span("query.rerank"):
                 hits = self.reranker.rerank(question=question, hits=hits)
@@ -963,7 +963,7 @@ class QueryPipeline(PipelineRunner):
             )
         return cast(list[Hit], hits), [v.kind for v in multi]
 
-    def _vector_search(
+    def vector_search(
         self,
         vector: list[float],
         top_k: int,
@@ -982,7 +982,7 @@ class QueryPipeline(PipelineRunner):
         ]
 
     @staticmethod
-    def _filter_user_hits(
+    def filter_user_hits(
         hits: list[Hit],
         user_filter: dict[str, Any] | str,
     ) -> list[Hit]:
@@ -1002,7 +1002,7 @@ class QueryPipeline(PipelineRunner):
         hits: list[Hit],
     ) -> tuple[Any, list[Citation]]:
         """Generate the answer and record token usage on the telemetry span."""
-        citations = self._build_citations(hits)
+        citations = self.build_citations(hits)
         with self.telemetry.span("query.generate"):
             result = await awaitable(
                 self.generator.generate(
@@ -1019,7 +1019,7 @@ class QueryPipeline(PipelineRunner):
         return answer, citations
 
     @staticmethod
-    def _build_citations(hits: list[Hit]) -> list[Citation]:
+    def build_citations(hits: list[Hit]) -> list[Citation]:
         """Convert ``Hit`` objects into the facade's ``Citation`` shape."""
         return [
             Citation(
@@ -1068,7 +1068,7 @@ class QueryPipeline(PipelineRunner):
                 context=hits,
             )
 
-    def _record_turn(
+    def record_turn(
         self,
         record: bool,
         session_id: str | None,
@@ -1083,7 +1083,7 @@ class QueryPipeline(PipelineRunner):
             Turn(question=question, answer=str(answer)),
         )
 
-    def _maybe_cache_store(self, result: Pipeline, ctx: _QueryContext) -> None:
+    def maybe_cache_store(self, result: Pipeline, ctx: _QueryContext) -> None:
         """Persist the pipeline result in the cache when configured."""
         if self.cache is None:
             return
@@ -1113,7 +1113,7 @@ class QueryPipeline(PipelineRunner):
         rbac_filter = self.metadata_filter_for_user(user)
 
         with self.telemetry.span("query.stream", question=question[:128], top_k=top_k) as span:
-            self._annotate_stream_span(span, user, session_id)
+            self.annotate_stream_span(span, user, session_id)
             hits = await self._stream_retrieve_hits(
                 question, top_k, rbac_filter, user_filter
             )
@@ -1125,11 +1125,11 @@ class QueryPipeline(PipelineRunner):
                 if piece:
                     collected.append(piece)
                     yield piece
-            self._stream_record_tokens()
-            self._stream_record_turn(session_id, question, collected)
+            self.stream_record_tokens()
+            self.stream_record_turn(session_id, question, collected)
 
     @staticmethod
-    def _annotate_stream_span(
+    def annotate_stream_span(
         span: Any,
         user: Any | None,
         session_id: str | None,
@@ -1160,7 +1160,7 @@ class QueryPipeline(PipelineRunner):
             Hit(score=float(h["score"]), chunk=h["chunk"])
             for h in raw
         ]
-        hits = QueryPipeline._filter_user_hits(hits, user_filter)
+        hits = QueryPipeline.filter_user_hits(hits, user_filter)
         if self.reranker is not None:
             with self.telemetry.span("query.rerank"):
                 hits = self.reranker.rerank(question=question, hits=hits)
@@ -1186,7 +1186,7 @@ class QueryPipeline(PipelineRunner):
         ):
             yield piece
 
-    def _stream_record_tokens(self) -> None:
+    def stream_record_tokens(self) -> None:
         """Forward streaming token usage to the telemetry provider."""
         record_tokens = getattr(self.generator, "record_tokens", None)
         if not callable(record_tokens):
@@ -1208,7 +1208,7 @@ class QueryPipeline(PipelineRunner):
             model=str(tokens.get("model", "")),
         )
 
-    def _stream_record_turn(
+    def stream_record_turn(
         self,
         session_id: str | None,
         question: str,

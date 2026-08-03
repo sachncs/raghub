@@ -1,10 +1,9 @@
 """Telemetry coverage tests.
 
-Exercises the singleton :class:`MetricsRegistry`, the no-op recorders
-(:class:`NullMetrics`, hot-path functions), the secret-scrubbing
-helpers, and :class:`NoOpTelemetry`. The Prometheus client itself
-is exercised via end-to-end tests in
-``tests/test_integration_data_flow.py``.
+Exercises the Langfuse-based telemetry path, the no-op recorders,
+the secret-scrubbing helpers, and :class:`NoOpTelemetry`. The
+``MetricsRegistry`` / ``PrometheusMetrics`` tests are gone in v0.7.0
+because Prometheus has been removed from the codebase.
 """
 
 from __future__ import annotations
@@ -14,13 +13,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from raghub.telemetry import (
-    DEFAULT_METRICS_REGISTRY,
+    LangfuseTelemetryProvider,
     LoguruLogger,
-    MetricsRegistry,
     NoopSpan,
     NoOpTelemetry,
-    NullMetrics,
-    PrometheusMetrics,
     RedactingTelemetry,
     Tracer,
     record_long_context,
@@ -31,137 +27,64 @@ from raghub.telemetry import (
 )
 
 # ---------------------------------------------------------------------------
-# MetricsRegistry
-# ---------------------------------------------------------------------------
-
-
-def test_metrics_registry_initially_unset() -> None:
-    """A fresh MetricsRegistry has no instance."""
-
-    reg = MetricsRegistry()
-    assert reg.instance is None
-    assert reg.is_available() is False
-
-
-def test_metrics_registry_set_and_get() -> None:
-    """set() installs an instance, current() returns it."""
-
-    reg = MetricsRegistry()
-    metrics = MagicMock()
-    reg.set(metrics)
-    assert reg.current() is metrics
-    assert reg.is_available() is True
-
-
-def test_metrics_registry_clear() -> None:
-    """set(None) clears the registry back to None."""
-
-    reg = MetricsRegistry()
-    reg.set(MagicMock())
-    reg.set(None)
-    assert reg.current() is None
-
-
-def test_default_registry_is_a_metrics_registry() -> None:
-    """The module-level DEFAULT_METRICS_REGISTRY is a MetricsRegistry."""
-
-    assert isinstance(DEFAULT_METRICS_REGISTRY, MetricsRegistry)
-
-
-# ---------------------------------------------------------------------------
-# NullMetrics / PrometheusMetrics constructor
-# ---------------------------------------------------------------------------
-
-
-def test_null_metrics_drops_calls() -> None:
-    """NullMetrics swallows all calls."""
-
-    null = NullMetrics()
-    null.record_latency("any", 10.0, foo="bar")
-    null.increment("any", 1, foo="bar")
-    # No assertion: the contract is no exception, no return.
-
-
-def test_prometheus_metrics_constructs_without_app() -> None:
-    """PrometheusMetrics can be built without a FastAPI app."""
-
-    try:
-        prom = PrometheusMetrics()
-        assert prom is not None
-    except Exception as exc:  # prometheus_client optional
-        pytest.skip(f"prometheus not installed: {exc}")
-
-
-def test_prometheus_metrics_record_latency(monkeypatch: pytest.MonkeyPatch) -> None:
-    """PrometheusMetrics.record_latency delegates to the histogram."""
-
-    try:
-        prom = PrometheusMetrics()
-    except Exception as exc:
-        pytest.skip(f"prometheus not installed: {exc}")
-    # Use a no-op histogram mock to avoid polluting the global registry.
-    fake_histogram = MagicMock()
-    monkeypatch.setattr(prom, "query_duration", fake_histogram)
-    prom.record_latency("test_name", value_ms=10.0)
-    fake_histogram.observe.assert_called()
-
-
-def test_prometheus_metrics_increment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """PrometheusMetrics.increment routes to error_total (default branch)."""
-
-    try:
-        prom = PrometheusMetrics()
-    except Exception as exc:
-        pytest.skip(f"prometheus not installed: {exc}")
-    fake_counter = MagicMock()
-    fake_labels = MagicMock()
-    fake_counter.labels.return_value = fake_labels
-    monkeypatch.setattr(prom, "error_total", fake_counter)
-    prom.increment("anything", value=1)
-    fake_labels.inc.assert_called()
-
-
-# ---------------------------------------------------------------------------
 # Hot-path recorders
 # ---------------------------------------------------------------------------
 
 
-def test_record_rerank_latency_no_op_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
-    """record_rerank_latency is a no-op when no metrics are registered."""
+def test_record_rerank_latency_silent_when_langfuse_unconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``record_rerank_latency`` is a silent no-op when Langfuse is unconfigured."""
 
-    monkeypatch.setattr(DEFAULT_METRICS_REGISTRY, "instance", None)
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+    monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
     record_rerank_latency("cohere", 0.1)  # does not raise
 
 
-def test_record_long_context_no_op_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
-    """record_long_context is a no-op when no metrics are registered."""
+def test_record_long_context_silent_when_langfuse_unconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``record_long_context`` is a silent no-op when Langfuse is unconfigured."""
 
-    monkeypatch.setattr(DEFAULT_METRICS_REGISTRY, "instance", None)
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+    monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
     record_long_context(outcome="ran", seconds=0.05)
 
 
-def test_record_rerank_latency_handles_missing_attribute(
+def test_record_rerank_latency_invokes_langfuse_score_when_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When the metrics object lacks rerank_latency, recorder is silent."""
+    """``record_rerank_latency`` calls ``client.score`` when Langfuse is configured."""
 
-    metrics = MagicMock(spec=[])  # spec=[] -> no attributes
-    metrics.rerank_latency = MagicMock()
-    metrics.rerank_latency.labels.side_effect = Exception("boom")
-    monkeypatch.setattr(DEFAULT_METRICS_REGISTRY, "instance", metrics)
-    record_rerank_latency("cohere", 0.1)  # does not raise
+    fake_client = MagicMock()
+    fake_client.score = MagicMock()
+    monkeypatch.setattr("raghub.telemetry.langfuse_get_client", lambda: fake_client)
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+    record_rerank_latency("cohere", 0.1)
+    fake_client.score.assert_called_once()
+    kwargs = fake_client.score.call_args.kwargs
+    assert kwargs["name"] == "raghub.rerank.latency"
+    assert kwargs["value"] == 0.1
+    assert kwargs["metadata"] == {"provider": "cohere"}
 
 
-def test_record_long_context_handles_missing_attribute(
+def test_record_long_context_invokes_langfuse_score_when_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When the metrics object lacks the counter, recorder is silent."""
+    """``record_long_context`` calls ``client.score`` when Langfuse is configured."""
 
-    metrics = MagicMock(spec=[])
-    metrics.long_context_pass = MagicMock()
-    metrics.long_context_pass.labels.side_effect = Exception("boom")
-    monkeypatch.setattr(DEFAULT_METRICS_REGISTRY, "instance", metrics)
+    fake_client = MagicMock()
+    fake_client.score = MagicMock()
+    monkeypatch.setattr("raghub.telemetry.langfuse_get_client", lambda: fake_client)
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
     record_long_context(outcome="ran", seconds=0.05)
+    fake_client.score.assert_called_once()
+    kwargs = fake_client.score.call_args.kwargs
+    assert kwargs["name"] == "raghub.long_context.duration"
+    assert kwargs["value"] == 0.05
+    assert kwargs["metadata"] == {"outcome": "ran"}
 
 
 # ---------------------------------------------------------------------------
@@ -204,12 +127,21 @@ def test_redact_record_masks_secret_keys() -> None:
 
 
 def test_redact_record_handles_lists() -> None:
-    """redact_record masks top-level secret keys only (matches regex)."""
+    """redact_record handles lists by recursing into them."""
 
-    record = {"api_key": "x", "val": 1}
+    record = {"items": [{"api_key": "x", "val": 1}]}
     redact_record(record)
-    assert record["api_key"] == "***"
-    assert record["val"] == 1
+    assert record["items"][0]["api_key"] == "***"
+    assert record["items"][0]["val"] == 1
+
+
+def test_redact_record_recurses_into_nested_dicts() -> None:
+    """redact_record masks secret keys at any depth."""
+
+    record = {"outer": {"inner": {"password": "x", "ok": "y"}}}
+    redact_record(record)
+    assert record["outer"]["inner"]["password"] == "***"
+    assert record["outer"]["inner"]["ok"] == "y"
 
 
 def test_redact_record_keeps_non_secret_keys_unchanged() -> None:
@@ -285,16 +217,6 @@ def test_noop_telemetry_record_latency_increment_tokens() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_loguru_logger_emits_message(capsys: pytest.CaptureFixture[str]) -> None:
-    """LoguruLogger.info emits via the bound sink."""
-
-    logger = LoguruLogger()
-    logger.info("hello world")
-    output = capsys.readouterr().err
-    # loguru emits to stderr by default.
-    assert "hello world" in output or output == ""  # may go elsewhere
-
-
 def test_loguru_logger_warning_error_calls() -> None:
     """LoguruLogger exposes warning + error methods."""
 
@@ -362,3 +284,31 @@ def test_tracer_construct() -> None:
 
     tracer = Tracer()
     assert isinstance(tracer, Tracer)
+
+
+# ---------------------------------------------------------------------------
+# LangfuseTelemetryProvider configuration
+# ---------------------------------------------------------------------------
+
+
+def test_langfuse_provider_silent_when_unconfigured() -> None:
+    """A Langfuse provider without credentials silently no-ops every call."""
+
+    provider = LangfuseTelemetryProvider(public_key=None, secret_key=None)
+    assert provider.client is None
+    provider.info("anything")
+    provider.warning("anything")
+    provider.error("anything")
+    provider.record_latency("x", 10.0)
+    provider.increment("x", 1)
+
+
+def test_langfuse_is_configured_helper(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``is_configured`` reports env-var presence correctly."""
+
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+    monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+    assert LangfuseTelemetryProvider.is_configured() is False
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+    assert LangfuseTelemetryProvider.is_configured() is True

@@ -29,10 +29,10 @@ import typer
 import uvicorn
 import yaml
 
+from raghub.await_sync import capture
 from raghub.config import Settings
+from raghub.io import write_json as write_json_impl
 from raghub.rag import RAG
-from raghub.utils import capture
-from raghub.utils import write_json as write_json_impl
 
 
 class CliConfig:

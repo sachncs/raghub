@@ -26,7 +26,7 @@ import litellm
 
 from raghub.errors import ConfigurationError, GenerationError
 from raghub.models import Turn
-from raghub.utils import aretry, retry
+from raghub.retry import aretry, retry
 
 __all__ = [
     "LLM_API_KEY_ENV_VARS",
@@ -37,11 +37,6 @@ __all__ = [
     "any_llm_api_key_present",
     "build_llm",
 ]
-
-# Module-level flag retained so existing tests that patch
-# ``raghub.llm.LITELLM_AVAILABLE = False`` can simulate a missing
-# optional dependency even though the package is now required.
-LITELLM_AVAILABLE = True
 
 
 LLM_API_KEY_ENV_VARS: tuple[str, ...] = (
@@ -223,11 +218,9 @@ class LiteLLM(Generator):
             timeout_seconds: Optional LiteLLM request timeout.
 
         Raises:
-            ConfigurationError: When ``litellm`` is not installed.
+            ValueError: When ``timeout_seconds`` is non-positive.
 
         """
-        if not LITELLM_AVAILABLE:
-            raise ConfigurationError("litellm is not installed; run `pip install litellm`.")
         if timeout_seconds is not None and timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be greater than zero")
         self.model_name = model
@@ -268,8 +261,12 @@ class LiteLLM(Generator):
     @staticmethod
     def require_litellm() -> None:
         """Raise a clear error if LiteLLM is not installed."""
-        if not LITELLM_AVAILABLE:
-            raise ConfigurationError("litellm is not installed; run `pip install litellm`.")
+        try:
+            import litellm  # noqa: F401
+        except ImportError as exc:
+            raise ConfigurationError(
+                "litellm is not installed; run `pip install litellm`."
+            ) from exc
 
     @staticmethod
     def build_messages(request: GenerationRequest) -> list[dict[str, Any]]:
@@ -463,29 +460,34 @@ class LiteLLM(Generator):
 
         prompt_tokens = 0
         completion_tokens = 0
-        async with asyncio.timeout(self.timeout_seconds):
-            async for chunk in response:
-                usage = (
-                    chunk.get("usage") if isinstance(chunk, dict) else getattr(chunk, "usage", None)
-                )
-                if usage:
-                    if isinstance(usage, dict):
-                        prompt_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
-                        completion_tokens = (
-                            usage.get("completion_tokens") or usage.get("output_tokens") or 0
-                        )
-                    else:
-                        prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
-                        completion_tokens = getattr(usage, "completion_tokens", 0) or 0
-                if not isinstance(chunk, dict):
-                    continue
-                choices = chunk.get("choices") or []
-                if not choices:
-                    continue
-                delta = choices[0].get("delta") or {}
-                content = delta.get("content")
-                if content:
-                    yield content
+        try:
+            async with asyncio.timeout(self.timeout_seconds):
+                async for chunk in response:
+                    usage = (
+                        chunk.get("usage") if isinstance(chunk, dict) else getattr(chunk, "usage", None)
+                    )
+                    if usage:
+                        if isinstance(usage, dict):
+                            prompt_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
+                            completion_tokens = (
+                                usage.get("completion_tokens") or usage.get("output_tokens") or 0
+                            )
+                        else:
+                            prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+                            completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+                    if not isinstance(chunk, dict):
+                        continue
+                    choices = chunk.get("choices") or []
+                    if not choices:
+                        continue
+                    delta = choices[0].get("delta") or {}
+                    content = delta.get("content")
+                    if content:
+                        yield content
+        except TimeoutError as exc:
+            raise GenerationError(
+                f"LiteLLM stream exceeded timeout_seconds={self.timeout_seconds}"
+            ) from exc
 
         if prompt_tokens or completion_tokens:
             self.last_usage = {

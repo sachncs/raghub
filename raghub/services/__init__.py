@@ -40,7 +40,7 @@ from raghub.config import Settings
 if TYPE_CHECKING:
     from raghub.auth import Authz, SqliteUsers
 
-from raghub.conv import ConversationManager
+from raghub.conv import ConversationHistory
 from raghub.core import can_access_company
 from raghub.embedder import Embedder, build_embedder
 from raghub.errors import AuthorizationError, IngestionError
@@ -74,7 +74,7 @@ from raghub.stores import ImageStore, Sessions
 # services → helper.services) resolve at every intermediate step; the real
 # alias lands at the bottom once ``Facade`` exists.
 # placeholder removed; Facade alias defined near the bottom.
-from raghub.telemetry import PrometheusMetrics, build_logger
+from raghub.telemetry import build_logger
 
 # ---------------------------------------------------------------------------
 # Mixin shared by every service
@@ -471,7 +471,7 @@ class RagContainer:
     metrics: object
     authorization: Authz
     registry: SqliteUsers
-    conversation: ConversationManager
+    conversation: ConversationHistory
     embeddings: Embedder
     llm: Generator
     vector_store: Store
@@ -557,7 +557,7 @@ async def build_container(settings: Settings) -> RagContainer:
     logger, authorization, user_store = await _build_auth_components(settings)
     raw_session_store, uow, vector_store = await _build_storage_components(settings)
     nvidia_api_key = settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
-    model_components = _build_model_components(
+    model_components = build_model_components(
         settings, vector_store, uow, nvidia_api_key
     )
     (
@@ -575,7 +575,7 @@ async def build_container(settings: Settings) -> RagContainer:
     return RagContainer(
         settings=settings,
         logger=logger,
-        metrics=PrometheusMetrics(),
+        metrics=None,
         authorization=authorization,
         registry=user_store,
         conversation=conversation,
@@ -627,7 +627,7 @@ async def _build_storage_components(settings: Settings) -> tuple[Any, Any, Store
     return raw_session_store, uow, vector_store
 
 
-def _build_model_components(
+def build_model_components(
     settings: Settings,
     vector_store: Store,
     uow: Any,
@@ -641,7 +641,7 @@ def _build_model_components(
     )
     llm: Generator = build_llm(settings.llm_model, nvidia_api_key)
     prompt_builder = PromptBuilder()
-    conversation = ConversationManager(uow)
+    conversation = ConversationHistory(uow)
     lifecycle = Lifecycle()
     ingestion = Ingestor(
         uow=uow,
@@ -977,8 +977,7 @@ class Facade:
 
 __all__ = [
     "Auth",
-    "Document",
-    "Facade",
+    "DocumentSvc",
     "Facade",
     "Health",
     "MemoryQueue",

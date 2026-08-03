@@ -47,7 +47,7 @@ class ChunkRef:
     can use the chunk as if it were the underlying Pydantic model.
     """
 
-    def __init__(self, record: ChunkRef) -> None:
+    def __init__(self, record: Chunk) -> None:
         """Wrap ``record``."""
         self.record = record
 

@@ -45,9 +45,10 @@ from tqdm import tqdm
 
 from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
 from raghub.api_response import ResponseBuilder
+from raghub.await_sync import maybe_await_sync as maybe_await
 from raghub.config import Settings
 from raghub.conv import Memory
-from raghub.embedder import Embedder, Hasher
+from raghub.embedder import Embedder, FeatureHashingEmbedder
 from raghub.errors import (
     ConfigurationError,
     IngestionError,
@@ -109,8 +110,7 @@ from raghub.retrieval import (
     build_reranker,
 )
 from raghub.store import MemoryStore
-from raghub.telemetry import DEFAULT_METRICS_REGISTRY, PrometheusMetrics, RedactingTelemetry
-from raghub.utils import maybe_await_sync as maybe_await
+from raghub.telemetry import RedactingTelemetry
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -217,17 +217,17 @@ def default_embedder(embedding_model: str, embedding_dim: int) -> Embedder:
     Returns:
         :class:`LiteLLMEmbedder` when LiteLLM is
         installed and an API key is configured; otherwise
-        :class:`Hasher` for offline operation.
+        :class:`FeatureHashingEmbedder` for offline operation.
 
     """
     if not has_llm_api_key():
-        return Hasher(dimension=embedding_dim, model_name=embedding_model)
+        return FeatureHashingEmbedder(dimension=embedding_dim, model_name=embedding_model)
     from raghub.embedder import LiteLLMEmbedder
 
     return LiteLLMEmbedder(model=embedding_model)
 
 
-def _agent_required(requirements: dict[str, Any]) -> bool:
+def agent_required(requirements: dict[str, Any]) -> bool:
     """Decide whether the agent loop must be built eagerly."""
     raptor = requirements.get("raptor")
     graph = requirements.get("graph")
@@ -496,12 +496,9 @@ class RAG:
             self.telemetry: Any = RedactingTelemetry(inner)
         else:
             self.telemetry = components_dict["telemetry"]
-        # Phase 4.8: register the Prometheus metrics instance so
-        # rerankers (and future hot-path components) can record
-        # observations without coupling to the telemetry provider.
-        metrics = PrometheusMetrics()
-        self.metrics = metrics
-        DEFAULT_METRICS_REGISTRY.set(metrics)
+        # Observability is now Langfuse-only; rerankers and other hot
+        # path components call module-level helpers that route through
+        # Langfuse ``score`` when configured.
 
         self.ingest_pipeline = Ingest(
             converter=self.converter,
@@ -574,7 +571,7 @@ class RAG:
         )
         self.agent: Any | None = None
         self.agentic_pipeline: Any | None = None
-        if _agent_required(
+        if agent_required(
             {
                 "agent_enabled": self.settings.agent.enabled,
                 "web_enabled": self.settings.web_search.enabled,
@@ -619,6 +616,14 @@ class RAG:
             components_dict.get("manifest") or Manifest(self.settings.data_dir / "manifest.json")
         )
         self.background_ingestion = components_dict.get("background_service")
+
+        # Optional v0.7.x collaborators; populated by future releases.
+        self.queue_: Any = None
+        self.feedback_store_: Any = None
+        self.rate_limiter_: Any = None
+        self.archive_: Any = None
+        self.tenant_resolver_: Any = None
+        self.isolation_strategy_: Any = components_dict.get("isolation_strategy")
 
     # ------------------------------------------------------------------
     # Construction
@@ -731,7 +736,7 @@ class RAG:
         if isinstance(source, (str, Path)):
             p = Path(source)
             if p.is_dir():
-                return self._ingest_directory_sync(p, options.get("metadata"), options.get("user"))
+                return self.ingest_directory_sync(p, options.get("metadata"), options.get("user"))
             file_bytes = p.read_bytes()
             uri = str(p.resolve())
         else:
@@ -758,7 +763,7 @@ class RAG:
             )
         return result
 
-    def _ingest_directory_sync(
+    def ingest_directory_sync(
         self,
         directory: Path,
         metadata: dict[str, Any] | None,
@@ -906,7 +911,7 @@ class RAG:
             )
 
         n_workers = max(1, min(max_workers or os.cpu_count() or 4, len(files)))
-        settings_path = self._settings_serialise_path()
+        settings_path = self.settings_serialise_path()
         embedder_signature = (self.embedder.model_name, self.embedder.dimension)
 
         with ProcessPoolExecutor(
@@ -942,7 +947,7 @@ class RAG:
             outputs={"batch": worker_outputs, "files": [str(p) for p in files]},
         )
 
-    def _settings_serialise_path(self) -> str:
+    def settings_serialise_path(self) -> str:
         """Write the active settings to a sidecar file and return its path.
 
         Workers re-build ``Settings`` from the file rather than from
@@ -1053,7 +1058,7 @@ class RAG:
         )
 
     @staticmethod
-    def _scoped_session_id(user: Any, session_id: str | None) -> str | None:
+    def scoped_session_id(user: Any, session_id: str | None) -> str | None:
         """Combine ``user`` and ``session_id`` into a single opaque key.
 
         The conversation store is keyed by this combined value so two
@@ -1078,7 +1083,7 @@ class RAG:
         uid = getattr(user, "user_id", None) or getattr(user, "email", None) or "anonymous"
         return f"{uid}::{session_id}"
 
-    def _session_overrides(
+    def session_overrides(
         self, scoped_session_id: str | None, user: Any | None = None
     ) -> dict[str, Any] | None:
         """Return the session's tool/agent overrides (Phase 1.12).
@@ -1146,7 +1151,7 @@ class RAG:
         response_model: type | None = merged.get("response_model")
         if not question or not question.strip():
             raise IngestionError("query() requires a non-empty question")
-        scoped = self._scoped_session_id(user, session_id)
+        scoped = self.scoped_session_id(user, session_id)
         context = PipelineCtx(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
@@ -1168,7 +1173,7 @@ class RAG:
                 "query_transforms": merged.get("query_transforms"),
                 "max_steps": merged.get("max_steps"),
             },
-            session_overrides=self._session_overrides(scoped, user),
+            session_overrides=self.session_overrides(scoped, user),
             user_prefs=getattr(user, "tool_settings", None) if user else None,
             settings=self.settings,
         )
@@ -1212,7 +1217,7 @@ class RAG:
         session_id: str | None = merged.get("session_id")
         top_k: int = merged.get("top_k", 5)
         metadata_filter: dict[str, Any] | None = merged.get("metadata_filter")
-        scoped = self._scoped_session_id(user, session_id)
+        scoped = self.scoped_session_id(user, session_id)
         context = PipelineCtx(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
@@ -1230,7 +1235,7 @@ class RAG:
                 "query_transforms": merged.get("query_transforms"),
                 "max_steps": merged.get("max_steps"),
             },
-            session_overrides=self._session_overrides(scoped, user),
+            session_overrides=self.session_overrides(scoped, user),
             user_prefs=getattr(user, "tool_settings", None) if user else None,
             settings=self.settings,
         )
@@ -1275,8 +1280,8 @@ class RAG:
         merged.update(kwargs)
         user: Any | None = merged.get("user")
         session_id: str | None = merged.get("session_id")
-        scoped = self._scoped_session_id(user, session_id)
-        resolved = self._resolve_agent_config(merged, scoped, user)
+        scoped = self.scoped_session_id(user, session_id)
+        resolved = self.resolve_agent_config(merged, scoped, user)
         if self.agentic_pipeline is None:
             async for event in self._fallback_planner_events(question, session_id):
                 yield event
@@ -1298,7 +1303,7 @@ class RAG:
         ):
             yield event
 
-    def _resolve_agent_config(
+    def resolve_agent_config(
         self,
         merged: dict[str, Any],
         scoped: str | None,
@@ -1317,7 +1322,7 @@ class RAG:
                 "query_transforms": merged.get("query_transforms"),
                 "max_steps": merged.get("max_steps"),
             },
-            session_overrides=self._session_overrides(scoped, user),
+            session_overrides=self.session_overrides(scoped, user),
             user_prefs=getattr(user, "tool_settings", None) if user else None,
             settings=self.settings,
         )
@@ -1424,6 +1429,38 @@ class RAG:
         }
 
     # ------------------------------------------------------------------
+    # v0.7.x collaborator accessors
+    # ------------------------------------------------------------------
+
+    def queue(self) -> Any:
+        """Return the persistent queue or ``None`` when not configured."""
+        return self.queue_
+
+    def feedback_store(self) -> Any:
+        """Return the feedback store or ``None`` when not configured."""
+        return self.feedback_store_
+
+    def rate_limiter(self) -> Any:
+        """Return the rate limiter or ``None`` when not configured."""
+        return self.rate_limiter_
+
+    def archive(self) -> Any:
+        """Return the archive store or ``None`` when not configured."""
+        return self.archive_
+
+    def tenant_resolver(self) -> Any:
+        """Return the tenant resolver or ``None`` when not configured."""
+        return self.tenant_resolver_
+
+    def isolation_strategy(self) -> Any:
+        """Return the active isolation strategy enum (defaults to ``RowLevel``)."""
+        from raghub.tenants.isolation import IsolationStrategy
+
+        if self.isolation_strategy_ is None:
+            return IsolationStrategy.ROW_LEVEL
+        return self.isolation_strategy_
+
+    # ------------------------------------------------------------------
     # Incremental indexing
     # ------------------------------------------------------------------
 
@@ -1474,19 +1511,19 @@ class RAG:
         files = sorted(p for p in directory.rglob("*") if p.is_file())
         iterator = tqdm(files, desc="Syncing index", disable=not show_progress, unit="file")
         for child in iterator:
-            self._sync_one(child, metadata, user, seen, summary)
+            self.sync_one(child, metadata, user, seen, summary)
 
         for prior_uri in self.manifest.sources():
             if prior_uri in seen:
                 continue
             if not prior_uri.startswith(str(directory.resolve())):
                 continue
-            self._remove_prior(prior_uri, summary)
+            self.remove_prior(prior_uri, summary)
 
         self.manifest.save()
         return summary
 
-    def _sync_one(
+    def sync_one(
         self,
         child: Path,
         metadata: dict[str, Any] | None,
@@ -1523,7 +1560,7 @@ class RAG:
         self.manifest.record(uri, bundle_id=bundle_id, checksum=checksum)
         summary["modified"].append(uri)
 
-    def _remove_prior(
+    def remove_prior(
         self,
         prior_uri: str,
         summary: dict[str, list[str]],
@@ -1603,7 +1640,7 @@ class RAG:
             first.
 
         """
-        scoped = self._scoped_session_id(user, session_id) or session_id
+        scoped = self.scoped_session_id(user, session_id) or session_id
         return cast(list[Any], self.conversation_store.load(scoped, limit=limit))
 
     def clear_conversation(
@@ -1621,5 +1658,5 @@ class RAG:
                 omitted, the raw ``session_id`` is used.
 
         """
-        scoped = self._scoped_session_id(user, session_id) or session_id
+        scoped = self.scoped_session_id(user, session_id) or session_id
         self.conversation_store.clear(scoped)

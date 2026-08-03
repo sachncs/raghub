@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from raghub.await_sync import capture
 from raghub.core import DocumentStateMachine
 from raghub.errors import (
     ConfigurationError,
@@ -60,7 +61,6 @@ from raghub.models import (
     DocumentSection,
     deterministic_id,
 )
-from raghub.utils import capture
 
 # ---------------------------------------------------------------------------
 # Legacy module aliases — see :mod:`raghub.documents.__init__` for the matching
@@ -391,10 +391,10 @@ def extract_text(
         return extract_pdf_text(file_bytes)
 
     text = file_bytes.decode("utf-8", errors="replace")
-    return _extract_text_fallback(mime_type, text)
+    return extract_text_fallback(mime_type, text)
 
 
-def _extract_text_fallback(mime_type: str, text: str) -> list[tuple[int, str, str]]:
+def extract_text_fallback(mime_type: str, text: str) -> list[tuple[int, str, str]]:
     """Map a non-PDF MIME type to a ``(section, location, text)`` tuple."""
     if mime_type == "text/csv" or mime_type.startswith("text/"):
         return [(0, "full file", text)]
