@@ -359,7 +359,7 @@ class Chonkie(Chunker):
                             owner=bundle.metadata.get("owner", ""),
                             department=bundle.metadata.get("department", ""),
                             text=text,
-                            checksum=sha256(text.encode("utf-8")).hexdigest(),
+                            checksum=sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest(),
                             metadata={
                                 "chunker": "chonkie",
                                 "strategy": getattr(self.inner, "__class__", type(None)).__name__,
@@ -401,7 +401,7 @@ class Chonkie(Chunker):
                     company=company,
                     owner=owner,
                     text=text_value,
-                    checksum=sha256(text_value.encode("utf-8")).hexdigest(),
+                    checksum=sha256(text_value.encode("utf-8", errors="surrogatepass")).hexdigest(),
                     metadata={
                         "chunker": "chonkie",
                         "strategy": getattr(self.inner, "__class__", type(None)).__name__,
@@ -467,7 +467,7 @@ class WordChunker(Chunker):
                             owner=bundle.metadata.get("owner", ""),
                             department=bundle.metadata.get("department", ""),
                             text=text,
-                            checksum=sha256(text.encode("utf-8")).hexdigest(),
+                            checksum=sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest(),
                             metadata={
                                 "block_kind": "text",
                                 "block_id": block.block_id,
@@ -503,7 +503,7 @@ class WordChunker(Chunker):
                     company=company,
                     owner=owner,
                     text=chunk_text,
-                    checksum=sha256(chunk_text.encode("utf-8")).hexdigest(),
+                    checksum=sha256(chunk_text.encode("utf-8", errors="surrogatepass")).hexdigest(),
                 )
             )
         return result

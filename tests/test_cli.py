@@ -724,3 +724,224 @@ def test_queue_cli_exits_when_queue_absent() -> None:
         assert "queue not configured" in result.output
     finally:
         CliConfig.make_rag = original_make_rag
+
+
+# ---------------------------------------------------------------------------
+# v0.9.4 Tier 5 — Items 25-30: tenant, migration, backup CLI
+# ---------------------------------------------------------------------------
+
+
+def test_migrate_pgvector_cli_runs(tmp_path) -> None:
+    """Item 25: `raghub migrate-pgvector` calls PgVectorStore.initialize."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from raghub.cli_commands import MigratePgVectorCommand
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    MigratePgVectorCommand.register(app)
+    runner = CliRunner()
+
+    fake_init = AsyncMock()
+    fake_store_cls = MagicMock()
+    fake_store_cls.return_value.initialize = fake_init
+
+    with patch("raghub.stores.pgvector.PgVectorStore", fake_store_cls):
+        result = runner.invoke(
+            app,
+            ["--dsn", "postgres://x/y", "--vector-dim", "768"],
+        )
+    assert result.exit_code == 0, result.output
+    fake_store_cls.assert_called_once_with(
+        dsn="postgres://x/y", embedding_dim=768
+    )
+    fake_init.assert_awaited_once()
+
+
+def test_tenant_cli_list_empty(tmp_path) -> None:
+    """Item 26: `raghub tenant list` prints 'no tenants registered' when empty."""
+    from raghub.cli_commands import CliConfig, TenantCommand
+    from raghub.config import Settings
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    TenantCommand.register(app)
+    runner = CliRunner()
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: type(  # type: ignore[assignment]
+        "R", (), {"settings": Settings(data_dir=tmp_path)}
+    )()
+    try:
+        result = runner.invoke(app, ["tenant", "list"])
+        assert result.exit_code == 0, result.output
+        assert "(no tenants registered)" in result.output
+    finally:
+        CliConfig.make_rag = original_make_rag
+
+
+def test_tenant_cli_validates_tenant_id_format() -> None:
+    """Item 26: ``validate_tenant_id`` rejects uppercase / digit-prefix ids."""
+    from raghub.tenants import validate_tenant_id
+
+    for bad in ("", "ab", "1abc", "ABC", "abc.def", "a" * 65):
+        with __import__("pytest").raises(ValueError, match="invalid tenant id"):
+            validate_tenant_id(bad)
+
+    for good in ("abc", "acme", "tenant-1", "tenant_2", "abc-def-ghi"):
+        validate_tenant_id(good)
+
+
+def test_migrate_tenant_split_cli_runs(tmp_path) -> None:
+    """Item 27: `raghub migrate-tenant-split` calls migrate_tenant_split."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from raghub.cli_commands import MigrateTenantSplitCommand
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    MigrateTenantSplitCommand.register(app)
+    runner = CliRunner()
+
+    fake_migrate = MagicMock(return_value=42)
+
+    # The CLI uses asyncio.to_thread; patch the function so the
+    # thread call returns synchronously.
+    with patch("raghub.tenants.isolation.migrate_tenant_split", fake_migrate):
+        result = runner.invoke(
+            app,
+            [
+                "--from",
+                "row_level",
+                "--to",
+                "schema_per_tenant",
+                "--source-dsn",
+                "postgres://src",
+                "--target-dsn",
+                "postgres://dst",
+            ],
+        )
+    assert result.exit_code == 0, result.output
+    assert "migrated 42 rows" in result.output
+
+
+def test_backup_cli_create(tmp_path) -> None:
+    """Item 28: `raghub backup create` calls create_snapshot + write_archive."""
+    from unittest.mock import MagicMock, patch
+
+    from raghub.cli_commands import BackupCommand, CliConfig
+    from raghub.config import Settings
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    BackupCommand.register(app)
+    runner = CliRunner()
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: MagicMock(settings=Settings(data_dir=tmp_path))  # type: ignore[assignment]
+    try:
+        manifest = MagicMock()
+        manifest.entries = [MagicMock(), MagicMock()]
+        with (
+            patch("raghub.archive.create_snapshot", return_value=(manifest, {})),
+            patch("raghub.archive.write_archive") as mock_write,
+        ):
+            result = runner.invoke(
+                app,
+                ["backup", "create", "--output", str(tmp_path / "out.tar.zst")],
+            )
+        assert result.exit_code == 0, result.output
+        assert "wrote 2 entries" in result.output
+        mock_write.assert_called_once()
+    finally:
+        CliConfig.make_rag = original_make_rag
+
+
+def test_restore_cli_restore(tmp_path) -> None:
+    """Item 29: `raghub backup restore` calls restore_snapshot."""
+    from unittest.mock import MagicMock, patch
+
+    from raghub.cli_commands import BackupCommand, CliConfig
+    from raghub.config import Settings
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    BackupCommand.register(app)
+    runner = CliRunner()
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: MagicMock(settings=Settings(data_dir=tmp_path))  # type: ignore[assignment]
+    try:
+        with patch("raghub.archive.restore_snapshot") as mock_restore:
+            result = runner.invoke(
+                app,
+                ["backup", "restore", "--input", str(tmp_path / "in.tar.zst")],
+            )
+        assert result.exit_code == 0, result.output
+        mock_restore.assert_called_once()
+    finally:
+        CliConfig.make_rag = original_make_rag
+
+
+def test_backup_verify_cli_succeeds_on_valid_archive(tmp_path) -> None:
+    """Item 30: `raghub backup verify` exits 0 on a valid archive."""
+    from unittest.mock import MagicMock, patch
+
+    from raghub.cli_commands import BackupCommand
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    BackupCommand.register(app)
+    runner = CliRunner()
+
+    with patch("raghub.archive.verify_archive") as mock_verify:
+        result = runner.invoke(
+            app, ["backup", "verify", "--input", str(tmp_path / "good.tar.zst")]
+        )
+    assert result.exit_code == 0, result.output
+    assert "verified" in result.output
+
+
+def test_backup_verify_cli_fails_on_tampered_archive(tmp_path) -> None:
+    """Item 30: `raghub backup verify` exits 1 on a tampered archive."""
+    from unittest.mock import patch
+
+    from raghub.archive import ArchiveCorruptionError
+    from raghub.cli_commands import BackupCommand
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    BackupCommand.register(app)
+    runner = CliRunner()
+
+    with patch(
+        "raghub.archive.verify_archive",
+        side_effect=ArchiveCorruptionError("signature mismatch"),
+    ):
+        result = runner.invoke(
+            app, ["backup", "verify", "--input", str(tmp_path / "bad.tar.zst")]
+        )
+    assert result.exit_code == 1
+    assert "signature mismatch" in result.output
+
+
+def test_backup_round_trip(tmp_path) -> None:
+    """Items 28 + 29 + 30 — verify_archive accepts a signed archive."""
+    import os
+
+    from raghub.archive import (
+        create_snapshot,
+        write_archive,
+    )
+
+    os.environ["RAGHUB_ARCHIVE_SIGNING_KEY"] = "x" * 44
+
+    (tmp_path / "data" / "sessions").mkdir(parents=True)
+    (tmp_path / "data" / "sessions" / "s1.db").write_bytes(b"fake-sqlite")
+    (tmp_path / "data" / "manifest.json").write_text("{}")
+
+    manifest, files = create_snapshot(str(tmp_path / "data"))
+    archive_path = tmp_path / "backup.tar.zst"
+    write_archive(manifest, files, str(archive_path))
+    assert archive_path.exists()
+    assert archive_path.stat().st_size > 0

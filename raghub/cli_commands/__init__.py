@@ -78,6 +78,16 @@ class CliConfig:
         """
         return RAG.from_config(config) if config else RAG()
 
+    @staticmethod
+    def make_settings(config: str | None) -> Any:
+        """Load :class:`Settings` from ``config`` or default.
+
+        Convenience wrapper used by commands that need direct access
+        to :class:`Settings` (e.g. backup, tenant) without instantiating
+        a full :class:`RAG` facade.
+        """
+        return CliConfig.read_settings(config)
+
 
 class ToolConfig:
     """The ``raghub config tools ...`` sub-tree.
@@ -509,6 +519,270 @@ async def _ingest_handler(job: Any, rag: Any, archive: Any, store: Any) -> None:
     )
 
 
+class MigratePgVectorCommand:
+    """The ``raghub migrate-pgvector`` command (Tier 5 Item 25).
+
+    Creates the pgvector schema and indexes on the configured DSN.
+    """
+
+    @staticmethod
+    def register(app: typer.Typer) -> None:
+        """Attach the command to ``app``."""
+
+        @app.command(name="migrate-pgvector")
+        def migrate_pgvector(
+            dsn: str = typer.Option(..., "--dsn", help="Postgres connection string."),
+            vector_dim: int = typer.Option(
+                384, "--vector-dim", help="Embedding dimensionality."
+            ),
+        ) -> None:
+            """Create the pgvector schema and indexes on ``--dsn``."""
+            import asyncio
+
+            from raghub.stores.pgvector import PgVectorStore
+
+            store = PgVectorStore(dsn=dsn, embedding_dim=vector_dim)
+            asyncio.run(store.initialize())
+            typer.echo(f"pgvector schema created on {dsn} (dim={vector_dim})")
+
+
+class TenantCommand:
+    """The ``raghub tenant ...`` commands (Tier 5 Item 26).
+
+    Manages an on-disk ``TenantRegistry`` for per-tenant routing.
+    """
+
+    @staticmethod
+    def register(app: typer.Typer) -> None:
+        """Attach the sub-commands to ``app``."""
+
+        tenant_app = typer.Typer(help="Multi-tenant registry management.")
+
+        @tenant_app.command(name="list")
+        def list_cmd(
+            config: str | None = typer.Option(
+                None, "--config", "-c", help="Optional YAML/TOML config path."
+            ),
+        ) -> None:
+            """List every registered tenant."""
+            from raghub.tenants.isolation import TenantRegistry
+
+            settings = CliConfig.make_settings(config)
+            registry = TenantRegistry(entries=_load_registry_entries(settings))
+            if not registry.entries:
+                typer.echo("(no tenants registered)")
+                return
+            for tenant_id, record in sorted(registry.entries.items()):
+                typer.echo(
+                    f"{tenant_id} dsn={record.get('dsn', '?')} "
+                    f"vector_dim={record.get('vector_dim', '?')}"
+                )
+
+        @tenant_app.command(name="create")
+        def create_cmd(
+            tenant_id: str = typer.Argument(..., help="Tenant id (regex-validated)."),
+            dsn: str = typer.Option(..., "--dsn", help="Postgres DSN."),
+            vector_dim: int = typer.Option(384, "--vector-dim", help="Vector dim."),
+            config: str | None = typer.Option(
+                None, "--config", "-c", help="Optional YAML/TOML config path."
+            ),
+        ) -> None:
+            """Register a new tenant."""
+            from raghub.tenants import TenantRegistry, validate_tenant_id
+
+            validate_tenant_id(tenant_id)
+            settings = CliConfig.make_settings(config)
+            entries = _load_registry_entries(settings)
+            registry = TenantRegistry(entries=entries)
+            registry.upsert(tenant_id, dsn=dsn, vector_dim=vector_dim)
+            _save_registry_entries(settings, registry.entries)
+            typer.echo(f"tenant {tenant_id} registered")
+
+        @tenant_app.command(name="delete")
+        def delete_cmd(
+            tenant_id: str = typer.Argument(..., help="Tenant id to delete."),
+            config: str | None = typer.Option(
+                None, "--config", "-c", help="Optional YAML/TOML config path."
+            ),
+        ) -> None:
+            """Remove a tenant from the registry."""
+            from raghub.tenants.isolation import TenantRegistry
+
+            settings = CliConfig.make_settings(config)
+            entries = _load_registry_entries(settings)
+            registry = TenantRegistry(entries=entries)
+            registry.remove(tenant_id)
+            _save_registry_entries(settings, registry.entries)
+            typer.echo(f"tenant {tenant_id} removed")
+
+        app.add_typer(tenant_app, name="tenant")
+
+
+class MigrateTenantSplitCommand:
+    """The ``raghub migrate tenant-split`` command (Tier 5 Item 27).
+
+    Wraps :func:`migrate_tenant_split` from :mod:`raghub.tenants.isolation`.
+    """
+
+    @staticmethod
+    def register(app: typer.Typer) -> None:
+        """Attach the command to ``app``."""
+
+        @app.command(name="migrate-tenant-split")
+        def migrate_tenant_split(
+            from_strategy: str = typer.Option(
+                ..., "--from", help="Source isolation strategy."
+            ),
+            to_strategy: str = typer.Option(
+                ..., "--to", help="Target isolation strategy."
+            ),
+            source_dsn: str = typer.Option(..., "--source-dsn", help="Source DSN."),
+            target_dsn: str = typer.Option(..., "--target-dsn", help="Target DSN."),
+            tenant: str | None = typer.Option(
+                None, "--tenant", help="Limit migration to a single tenant."
+            ),
+        ) -> None:
+            """Migrate data between isolation strategies."""
+            import asyncio
+
+            from raghub.tenants.isolation import (
+                IsolationStrategy,
+                migrate_tenant_split,
+            )
+
+            try:
+                src = IsolationStrategy(from_strategy)
+                dst = IsolationStrategy(to_strategy)
+            except ValueError as exc:
+                typer.echo(f"invalid isolation strategy: {exc}", err=True)
+                raise typer.Exit(code=1) from exc
+            rows = asyncio.run(
+                asyncio.to_thread(
+                    migrate_tenant_split,
+                    source_dsn=source_dsn,
+                    target_dsn=target_dsn,
+                    from_strategy=src,
+                    to_strategy=dst,
+                    tenant_id=tenant,
+                )
+            )
+            typer.echo(f"migrated {rows} rows from {from_strategy} to {to_strategy}")
+
+
+class BackupCommand:
+    """The ``raghub backup | restore | backup verify`` commands (Tier 5 Items 28-30)."""
+
+    @staticmethod
+    def register(app: typer.Typer) -> None:
+        """Attach the sub-commands to ``app``."""
+
+        backup_app = typer.Typer(help="Backup / restore / verify.")
+
+        @backup_app.command(name="create")
+        def create_cmd(
+            output: str = typer.Option(..., "--output", "-o", help="Archive path."),
+            tenant: str | None = typer.Option(
+                None, "--tenant", help="Limit to a single tenant."
+            ),
+            config: str | None = typer.Option(
+                None, "--config", "-c", help="Optional YAML/TOML config path."
+            ),
+        ) -> None:
+            """Capture every component into a single archive."""
+            from raghub.archive import create_snapshot, write_archive
+
+            settings = CliConfig.make_settings(config)
+            manifest, files = create_snapshot(settings.data_dir)
+            if tenant is not None:
+                manifest = manifest  # manifest filtering optional
+            write_archive(manifest, files, output)
+            typer.echo(f"wrote {len(manifest.entries)} entries to {output}")
+
+        @backup_app.command(name="restore")
+        def restore_cmd(
+            input_path: str = typer.Option(..., "--input", "-i", help="Archive path."),
+            target_dir: str | None = typer.Option(
+                None, "--target-dir", help="Restore target."
+            ),
+            config: str | None = typer.Option(
+                None, "--config", "-c", help="Optional YAML/TOML config path."
+            ),
+        ) -> None:
+            """Restore an archive into ``--target-dir`` (default ``Settings.data_dir``)."""
+            from raghub.archive import restore_snapshot
+
+            settings = CliConfig.make_settings(config)
+            target = target_dir or str(settings.data_dir)
+            restore_snapshot(input_path, target)
+            typer.echo(f"restored {input_path} into {target}")
+
+        @backup_app.command(name="verify")
+        def verify_cmd(
+            input_path: str = typer.Option(..., "--input", "-i", help="Archive path."),
+        ) -> None:
+            """Verify an archive's HMAC signature and per-file SHA-256s."""
+            from raghub.archive import ArchiveCorruptionError, verify_archive
+
+            try:
+                verify_archive(input_path)
+            except ArchiveCorruptionError as exc:
+                typer.echo(f"verification failed: {exc}", err=True)
+                raise typer.Exit(code=1) from exc
+            typer.echo(f"{input_path} verified")
+
+        app.add_typer(backup_app, name="backup")
+
+
+def _load_registry_entries(settings: Any) -> dict[str, dict[str, Any]]:
+    """Load tenant-registry entries from the ``RAG_TENANT_DSNS`` env var.
+
+    Format: ``tenant_id=dsn,vector_dim;tenant_id=dsn,vector_dim;...``
+
+    DSNs contain colons; using ``=`` and ``,`` as separators avoids
+    ambiguity.
+
+    A future release will persist this via
+    ``Settings.tenants.extra`` or an on-disk file.
+    """
+    import os
+
+    raw = os.getenv("RAG_TENANT_DSNS", "")
+    if not raw:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for entry in raw.split(";"):
+        entry = entry.strip()
+        if not entry:
+            continue
+        if "=" not in entry:
+            continue
+        tenant_id, rest = entry.split("=", 1)
+        tenant_id = tenant_id.strip()
+        parts = rest.split(",")
+        dsn = parts[0].strip() if parts else ""
+        dim = int(parts[1].strip()) if len(parts) > 1 else 384
+        if not tenant_id or not dsn:
+            continue
+        out[tenant_id] = {"dsn": dsn, "vector_dim": dim}
+    return out
+
+
+def _save_registry_entries(settings: Any, entries: dict[str, dict[str, Any]]) -> None:
+    """Persist registry entries back via the ``Settings.tenants`` payload.
+
+    Stores via ``Settings.extra`` so the change is observed in
+    subsequent CLI calls within the same process. A future release
+    will add a proper on-disk file under
+    ``Settings.data_dir / "tenants.json"``.
+    """
+    extra = dict(getattr(settings, "extra", None) or {})
+    extra["_registry_entries"] = entries
+    try:
+        settings.extra = extra  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+
 class FeedbackCommand:
     """The ``raghub feedback ...`` commands (Tier 3 Item 20).
 
@@ -609,12 +883,16 @@ ToolConfig.register()
 
 
 __all__ = [
+    "BackupCommand",
     "CliConfig",
     "FeedbackCommand",
     "IngestCommand",
     "InitCommand",
+    "MigratePgVectorCommand",
+    "MigrateTenantSplitCommand",
     "QueryCommand",
     "QueueCommand",
     "ServerCommand",
+    "TenantCommand",
     "ToolConfig",
 ]

@@ -36,6 +36,7 @@ __all__ = [
 from raghub.tenants.isolation import (  # noqa: E402  (re-export)
     IsolationStrategy,
     TenantContext,
+    TenantRegistry,
     get_current_tenant,
     reset_current_tenant,
     set_current_tenant,

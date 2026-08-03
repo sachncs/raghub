@@ -13,13 +13,17 @@ import typer
 
 from raghub.await_sync import capture
 from raghub.cli_commands import (
+    BackupCommand,
     CliConfig,
     FeedbackCommand,
     IngestCommand,
     InitCommand,
+    MigratePgVectorCommand,
+    MigrateTenantSplitCommand,
     QueryCommand,
     QueueCommand,
     ServerCommand,
+    TenantCommand,
     ToolConfig,
 )
 from raghub.evaluation import app as eval_app
@@ -46,6 +50,10 @@ InitCommand.register(app)
 ServerCommand.register(app)
 FeedbackCommand.register(app)
 QueueCommand.register(app)
+TenantCommand.register(app)
+MigratePgVectorCommand.register(app)
+MigrateTenantSplitCommand.register(app)
+BackupCommand.register(app)
 
 
 @app.command(name="health")

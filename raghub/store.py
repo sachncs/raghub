@@ -686,7 +686,7 @@ class SqliteStore(Store):
                         company=company or "",
                         owner=owner or "",
                         department=department or "",
-                        checksum=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                        checksum=hashlib.sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest(),
                     ),
                     score,
                 )
@@ -758,7 +758,7 @@ class SqliteStore(Store):
                     company=co or "",
                     owner=ow or "",
                     department=dp or "",
-                    checksum=hashlib.sha256(txt.encode("utf-8")).hexdigest(),
+                    checksum=hashlib.sha256(txt.encode("utf-8", errors="surrogatepass")).hexdigest(),
                 ),
                 "score": 1.0,
                 "chunk_id": cid,
