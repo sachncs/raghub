@@ -96,7 +96,9 @@ class Mixin:
 
     container: Any
 
-    def log(self, message: str, **payload: Any) -> None:
+    def log(
+        self, message: str, **payload: "JSONValue"
+    ) -> None:
         """Emit a structured log event via the container's logger."""
         logger = getattr(self.container, "logger", None)
         log_method = getattr(logger, "info", None) if logger else None
@@ -126,12 +128,12 @@ def missing_doc(document_id: str) -> Document:
     raise IngestionError(f"Unknown document id: {document_id}")
 
 
-async def list_records(uow: Any) -> list[Document]:
+async def list_records(uow: "UnitOfWork") -> list[Document]:
     """Return every document from the repository."""
     return cast(list[Document], await uow.document_repo.list_all())
 
 
-async def get_doc(uow: Any, document_id: str) -> Document:
+async def get_doc(uow: "UnitOfWork", document_id: str) -> Document:
     """Return a single document by id or raise :class:`IngestionError`."""
     record = await uow.document_repo.get(document_id)
     if record is None:
@@ -142,7 +144,7 @@ async def get_doc(uow: Any, document_id: str) -> Document:
 class DocumentSvc(Mixin):
     """Document upload, listing, status, and deletion."""
 
-    def __init__(self, container: Any) -> None:
+    def __init__(self, container: "RagContainer") -> None:
         """Store the container reference."""
         self.container = container
 
@@ -291,7 +293,7 @@ def aggregate_status(probes: dict[str, dict[str, object]]) -> str:
 class Health(Mixin):
     """Aggregate liveness signals from key collaborators."""
 
-    def __init__(self, container: Any) -> None:
+    def __init__(self, container: "RagContainer") -> None:
         """Store the container reference."""
         self.container = container
 
@@ -323,7 +325,7 @@ class Health(Mixin):
 class Query(Mixin):
     """High-level retrieval-augmented Q/A handler."""
 
-    def __init__(self, container: Any) -> None:
+    def __init__(self, container: "RagContainer") -> None:
         """Store the container reference."""
         self.container = container
 
@@ -395,7 +397,7 @@ class Synchronous(BackgroundWorker):
     """
 
     @staticmethod
-    def submit(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    def submit(fn: Callable[..., "JSONValue"], *args: "JSONValue", **kwargs: "JSONValue") -> "JSONValue":
         """Invoke ``fn(*args, **kwargs)`` and return its result directly."""
         try:
             return fn(*args, **kwargs)
@@ -420,7 +422,12 @@ class ThreadPool(BackgroundWorker):
         """
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
-    def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future[Any]:
+    def submit(
+        self,
+        fn: Callable[..., "JSONValue"],
+        *args: "JSONValue",
+        **kwargs: "JSONValue",
+    ) -> Future["JSONValue"]:
         """Submit ``fn`` to the pool and return its :class:`Future`."""
         return self.executor.submit(fn, *args, **kwargs)
 

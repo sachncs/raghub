@@ -287,13 +287,16 @@ class SqliteUsers:
             return None
         return json.loads(row[0])
 
-    async def set_pref(self, user_id: str, key: str, value: Any) -> None:
+    async def set_pref(
+        self, user_id: str, key: str, value: "JSONValue"
+    ) -> None:
         """Upsert a single preference.
 
         Args:
             user_id: Owning user id.
             key: Preference key. Namespaced by caller.
-            value: Any JSON-serialisable value.
+            value: JSON-serialisable value (str, int, float, bool, None,
+                list["JSONValue"], dict[str, "JSONValue"]).
 
         """
         encoded = json.dumps(value)
