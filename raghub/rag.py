@@ -459,7 +459,9 @@ class RAG:
         self.settings: Settings = components_dict.get("settings") or Settings.load()
         self.registry: Any = components_dict.get("registry") or PluginRegistry()
 
-        self.knowledge_repo: Any = components_dict.get("knowledge_repo") or MemoryRepo()
+        self.knowledge_repo: "KnowledgeRepository" = (
+    components_dict.get("knowledge_repo") or MemoryRepo()
+)
         self.vector_store: Any = (
             components_dict.get("vector_store") or default_vector_store(self.settings.embedding_dim)
         )
@@ -467,7 +469,9 @@ class RAG:
             self.settings.embedding_model, self.settings.embedding_dim
         )
         self.llm: Any = components_dict.get("llm") or default_llm(self.settings.llm_model)
-        self.converter: Any = components_dict.get("converter") or default_converter()
+        self.converter: "DocumentConverter" = (
+    components_dict.get("converter") or default_converter()
+)
         self.chunker: Any = components_dict.get("chunker") or default_chunker(
             self.settings.chunk_size_words,
             self.settings.chunk_overlap_words,

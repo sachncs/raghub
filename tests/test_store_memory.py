@@ -31,15 +31,18 @@ from raghub.store import (
 
 
 def make_chunk(**overrides: Any) -> Chunk:
+    from hashlib import sha256 as _sha256
+
     defaults: dict[str, Any] = dict(
         document_id="d1",
         version=1,
         text="Some text for search",
         company="Acme",
         owner="user@acme.com",
-        checksum="b1a26ccd2174d7f80cb473d076a461bab4ffe18e54a19b7b627e49aa9dbc332c",
     )
     defaults.update(overrides)
+    # Recompute the checksum so ``Chunk.verify()`` passes (R8).
+    defaults["checksum"] = _sha256(defaults["text"].encode("utf-8")).hexdigest()
     return Chunk(**defaults)
 
 
@@ -745,6 +748,8 @@ def _chunk(  # type: ignore[no-untyped-def]
 ):
     """Build a minimal Chunk for the isolation tests."""
     from datetime import UTC, datetime
+    from hashlib import sha256 as _sha256
+
     from raghub.models import Chunk, Classification
 
     return Chunk(
@@ -754,7 +759,7 @@ def _chunk(  # type: ignore[no-untyped-def]
         company="acme",
         owner="alice@x",
         classification=Classification.INTERNAL,
-        checksum=cid,
+        checksum=_sha256(text.encode("utf-8")).hexdigest(),
         text=text,
         created_at=datetime.now(UTC),
         tenant_id=tenant_id,
