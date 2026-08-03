@@ -18,6 +18,7 @@ from raghub.cli_commands import (
     IngestCommand,
     InitCommand,
     QueryCommand,
+    QueueCommand,
     ServerCommand,
     ToolConfig,
 )
@@ -44,6 +45,7 @@ IngestCommand.register(app)
 InitCommand.register(app)
 ServerCommand.register(app)
 FeedbackCommand.register(app)
+QueueCommand.register(app)
 
 
 @app.command(name="health")

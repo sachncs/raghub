@@ -21,6 +21,27 @@ oldest.
 
 - Removed the redundant `.dockerignore` file.
 
+## [0.9.3] - 2026-08-28
+
+### Changed
+
+### Added
+
+- ``RAG.ingest_async`` routes through the persistent ``SqliteQueue``
+  when ``Settings.queue.backend == "sqlite"``; otherwise falls back
+  to the legacy ``Resumable`` threadpool path.
+- ``RAG.job_status`` reads from the ``SqliteQueue`` when configured.
+- ``raghub queue list | run | retry | purge`` CLI sub-commands
+  with ``--status``, ``--tenant``, ``--limit``, ``--workers``,
+  ``--max-attempts``, ``--max-wall``, ``--delay`` flags.
+- 4 new CLI tests covering the queue commands.
+
+### Changed
+
+- ``raghub.cli`` registers the ``QueueCommand`` sub-app alongside
+  the other CLI commands.
+- ``raghub.cli_commands.__init__`` exports ``QueueCommand``.
+
 ## [0.9.2] - 2026-08-27
 
 ### Changed

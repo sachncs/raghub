@@ -1665,12 +1665,17 @@ class RAG:
         metadata: dict[str, Any] | None = None,
         user: Any | None = None,
     ) -> str:
-        """Submit an ingest job to the background service."""
-        if self.background_ingestion is None:
-            self.background_ingestion = Resumable(
-                db_path=self.settings.data_dir / "ingestion_jobs.db"
-            )
+        """Submit an ingest job to the background service.
 
+        Routing:
+            * If ``self.queue_`` is a :class:`SqliteQueue`
+              (constructed in :meth:`__init__` when
+              ``Settings.queue.backend == "sqlite"``), the job is
+              submitted to that queue and the queue's UUID-shaped
+              job id is returned.
+            * Otherwise, falls back to the legacy ``Resumable``
+              threadpool path.
+        """
         if isinstance(source, (str, Path)):
             p = Path(source)
             file_bytes = p.read_bytes()
@@ -1678,6 +1683,49 @@ class RAG:
         else:
             file_bytes = bytes(source)
             uri = source_uri or "bytes://memory"
+
+        # Tier 4 Item 21: SqliteQueue path
+        if self.queue_ is not None:
+            import asyncio
+
+            from raghub.jobs import JobStatus
+            from raghub.tenants import get_current_tenant, validate_tenant_id
+
+            tenant_id: str | None = None
+            ctx = get_current_tenant()
+            if ctx is not None:
+                tenant_id = ctx.tenant_id
+                validate_tenant_id(tenant_id)
+            payload = {
+                "source": file_bytes.decode("latin-1"),
+                "source_uri": uri,
+                "mime_type": mime_type,
+                "metadata": metadata or {},
+                "user": getattr(user, "user_id", None) if user else None,
+            }
+
+            async def _submit() -> str:
+                return await self.queue_.submit(
+                    kind="ingest",
+                    payload=payload,
+                    tenant_id=tenant_id,
+                )
+
+            try:
+                asyncio.get_running_loop()
+                # Already inside an event loop — run in a thread.
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                    return ex.submit(lambda: asyncio.run(_submit())).result()
+            except RuntimeError:
+                # No running loop — safe to call asyncio.run.
+                return asyncio.run(_submit())
+
+        if self.background_ingestion is None:
+            self.background_ingestion = Resumable(
+                db_path=self.settings.data_dir / "ingestion_jobs.db"
+            )
 
         return cast(
             str,
@@ -1693,6 +1741,30 @@ class RAG:
 
     def job_status(self, job_id: str) -> str | None:
         """Return the status of a background ingestion job."""
+        # Tier 4 Item 22: SqliteQueue lookup
+        if self.queue_ is not None:
+            import asyncio
+            import concurrent.futures
+
+            from raghub.jobs import JobStatus
+
+            async def _lookup() -> str | None:
+                stats = await self.queue_.stats()
+                if sum(stats.values()) == 0:
+                    return None
+                jobs = await self.queue_.list(status=None, limit=1000)
+                for job in jobs:
+                    if job.id == job_id:
+                        return str(job.status.value)
+                return None
+
+            try:
+                asyncio.get_running_loop()
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                    return ex.submit(lambda: asyncio.run(_lookup())).result()
+            except RuntimeError:
+                return asyncio.run(_lookup())
+
         if self.background_ingestion is None:
             return None
         return cast(str | None, self.background_ingestion.get_status(job_id))
