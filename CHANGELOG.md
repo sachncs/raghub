@@ -39,7 +39,8 @@ oldest.
   prompts.py, embedder.py, repos.py, conv.py, stores/__init__.py,
   cli_commands/__init__.py, lifecycle/__init__.py, and
   tenants/isolation.py now reference named constants from
-  ``raghub.constants``.
+  ``raghub.constants``. New constant ``SQLITE_BUSY_TIMEOUT_MS = 5000``.
+  O1 magic-number violations: 27 → 0.
 - R10: add ``JSONValue`` recursive type alias; use it in
   ``raghub.auth.SqliteUsers.set_pref``,
   ``raghub.services.Mixin.log``, and

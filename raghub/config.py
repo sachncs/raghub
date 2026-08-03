@@ -20,11 +20,15 @@ from typing import Any, Literal, cast
 import yaml
 from pydantic import BaseModel, Field, SecretStr
 from raghub.constants import (
-    DEFAULT_CHUNK_SIZE_WORDS,
     DEFAULT_CHUNK_OVERLAP_WORDS,
+    DEFAULT_CHUNK_SIZE_WORDS,
     DEFAULT_EMBEDDING_DIM,
     DEFAULT_MAX_UPLOAD_BYTES,
     DEFAULT_SESSION_TIMEOUT_SECONDS,
+    DEFAULT_TOP_K,
+    GPT4O_MINI_MODEL,
+    HASHING_BGE_MODEL,
+    MINISHLAB_POTION_MODEL,
 )
 
 __all__ = [
@@ -91,7 +95,7 @@ class Settings(BaseModel):
     chunk_size_words: int = DEFAULT_CHUNK_SIZE_WORDS
     chunk_overlap_words: int = DEFAULT_CHUNK_OVERLAP_WORDS
     chunker_strategy: str = "recursive"
-    embedding_model_chunker: str = "minishlab/potion-base-8M"
+    embedding_model_chunker: str = MINISHLAB_POTION_MODEL
     top_k: int = 5
     embedding_dim: int = DEFAULT_EMBEDDING_DIM
     session_timeout_seconds: int = DEFAULT_SESSION_TIMEOUT_SECONDS
@@ -557,9 +561,9 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
         "sessions_path": Path(
             os.getenv("RAG_SESSIONS_PATH", payload.get("sessions_path", "./data/sessions.json"))
         ),
-        "chunk_size_words": __int("RAG_CHUNK_SIZE_WORDS", payload.get("chunk_size_words", 800)),
+        "chunk_size_words": __int("RAG_CHUNK_SIZE_WORDS", payload.get("chunk_size_words", DEFAULT_CHUNK_SIZE_WORDS)),
         "chunk_overlap_words": __int(
-            "RAG_CHUNK_OVERLAP_WORDS", payload.get("chunk_overlap_words", 100)
+            "RAG_CHUNK_OVERLAP_WORDS", payload.get("chunk_overlap_words", DEFAULT_CHUNK_OVERLAP_WORDS)
         ),
         "chunker_strategy": os.getenv(
             "RAG_CHUNKER_STRATEGY", payload.get("chunker_strategy", "recursive")
@@ -568,18 +572,18 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
             "RAG_EMBEDDING_MODEL_CHUNKER",
             payload.get("embedding_model_chunker", "minishlab/potion-base-8M"),
         ),
-        "top_k": __int("RAG_TOP_K", payload.get("top_k", 5)),
-        "embedding_dim": __int("RAG_EMBEDDING_DIM", payload.get("embedding_dim", 384)),
+        "top_k": __int("RAG_TOP_K", payload.get("top_k", DEFAULT_TOP_K)),
+        "embedding_dim": __int("RAG_EMBEDDING_DIM", payload.get("embedding_dim", DEFAULT_EMBEDDING_DIM)),
         "session_timeout_seconds": __int(
-            "RAG_SESSION_TIMEOUT_SECONDS", payload.get("session_timeout_seconds", 3600)
+            "RAG_SESSION_TIMEOUT_SECONDS", payload.get("session_timeout_seconds", DEFAULT_SESSION_TIMEOUT_SECONDS)
         ),
         "max_upload_bytes": __int(
-            "RAG_MAX_UPLOAD_BYTES", payload.get("max_upload_bytes", 20 * 1024 * 1024)
+            "RAG_MAX_UPLOAD_BYTES", payload.get("max_upload_bytes", DEFAULT_MAX_UPLOAD_BYTES)
         ),
         "embedding_model": os.getenv(
-            "RAG_EMBEDDING_MODEL", payload.get("embedding_model", "hashing-bge")
+            "RAG_EMBEDDING_MODEL", payload.get("embedding_model", HASHING_BGE_MODEL)
         ),
-        "llm_model": os.getenv("RAG_LLM_MODEL", payload.get("llm_model", "gpt-4o-mini")),
+        "llm_model": os.getenv("RAG_LLM_MODEL", payload.get("llm_model", GPT4O_MINI_MODEL)),
         "retrieval_mode": os.getenv("RAG_RETRIEVAL_MODE", payload.get("retrieval_mode", "sync")),
         "log_level": os.getenv("RAG_LOG_LEVEL", payload.get("log_level", "INFO")),
         "worker_backend": os.getenv(
