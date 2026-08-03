@@ -353,6 +353,162 @@ class ServerCommand:
             uvicorn.Server(config).run()
 
 
+class QueueCommand:
+    """The ``raghub queue ...`` commands (Tier 4 Items 23 + 24).
+
+    Four sub-commands:
+
+    * ``raghub queue list`` — show every queued job
+    * ``raghub queue run`` — start a worker pool
+    * ``raghub queue retry <job_id>`` — move a failed job back to pending
+    * ``raghub queue purge`` — delete jobs by status
+    """
+
+    @staticmethod
+    def register(app: typer.Typer) -> None:
+        """Attach the ``queue`` sub-commands to ``app``."""
+
+        queue_app = typer.Typer(help="Persistent ingestion queue management.")
+
+        @queue_app.command(name="list")
+        def list_cmd(
+            config: str | None = typer.Option(
+                None, "--config", "-c", help="Optional YAML/TOML config path."
+            ),
+            status: str | None = typer.Option(
+                None, "--status", help="Filter by job status."
+            ),
+            tenant: str | None = typer.Option(
+                None, "--tenant", help="Filter by tenant id."
+            ),
+            limit: int = typer.Option(100, "--limit", help="Maximum rows."),
+        ) -> None:
+            """List every queued job (optionally filtered)."""
+            import asyncio
+
+            from raghub.jobs import JobStatus
+
+            rag = CliConfig.make_rag(config)
+            queue = rag.queue()
+            if queue is None:
+                typer.echo("queue not configured", err=True)
+                raise typer.Exit(code=1)
+            status_filter = JobStatus(status) if status else None
+            jobs = asyncio.run(queue.list(status=status_filter, limit=limit))
+            if tenant is not None:
+                jobs = [j for j in jobs if j.tenant_id == tenant]
+            typer.echo(
+                f"{'id':<36} {'status':<12} {'attempts':<10} "
+                f"{'next_run_at':<26} {'tenant_id':<16} kind"
+            )
+            for job in jobs:
+                typer.echo(
+                    f"{job.id:<36} {job.status.value:<12} "
+                    f"{job.attempts:<10} {job.next_run_at.isoformat():<26} "
+                    f"{(job.tenant_id or '-'):<16} {job.kind}"
+                )
+
+        @queue_app.command(name="run")
+        def run_cmd(
+            config: str | None = typer.Option(
+                None, "--config", "-c", help="Optional YAML/TOML config path."
+            ),
+            workers: int = typer.Option(2, "--workers", "-w", help="Worker count."),
+            max_attempts: int = typer.Option(3, "--max-attempts", help="Per-job retry cap."),
+            max_wall_seconds: float = typer.Option(
+                30.0, "--max-wall", help="Per-job wall-clock cap."
+            ),
+        ) -> None:
+            """Start a worker pool that drains the queue."""
+            import asyncio
+
+            from raghub.jobs import Worker
+
+            rag = CliConfig.make_rag(config)
+            queue = rag.queue()
+            if queue is None:
+                typer.echo("queue not configured", err=True)
+                raise typer.Exit(code=1)
+            store = rag.feedback_store()
+            archive = rag.archive()
+            worker = Worker(
+                queue=queue,
+                handler=lambda job: _ingest_handler(job, rag, archive, store),
+                concurrency=workers,
+                max_attempts=max_attempts,
+                max_wall_seconds=max_wall_seconds,
+            )
+            typer.echo(f"starting {workers} worker(s); ctrl-c to stop")
+            try:
+                asyncio.run(worker.run())
+            except KeyboardInterrupt:
+                typer.echo("worker stopped")
+
+        @queue_app.command(name="retry")
+        def retry_cmd(
+            job_id: str = typer.Argument(..., help="Job id to retry."),
+            delay_seconds: int = typer.Option(
+                0, "--delay", help="Delay before re-running."
+            ),
+            config: str | None = typer.Option(
+                None, "--config", "-c", help="Optional YAML/TOML config path."
+            ),
+        ) -> None:
+            """Move a failed or dead job back to pending."""
+            import asyncio
+
+            rag = CliConfig.make_rag(config)
+            queue = rag.queue()
+            if queue is None:
+                typer.echo("queue not configured", err=True)
+                raise typer.Exit(code=1)
+            asyncio.run(queue.retry(job_id, delay_seconds=delay_seconds))
+            typer.echo(f"job {job_id} moved back to pending")
+
+        @queue_app.command(name="purge")
+        def purge_cmd(
+            status: str | None = typer.Option(
+                "succeeded", "--status", help="Status to purge (default succeeded)."
+            ),
+            config: str | None = typer.Option(
+                None, "--config", "-c", help="Optional YAML/TOML config path."
+            ),
+        ) -> None:
+            """Delete jobs by status (default: succeeded)."""
+            import asyncio
+
+            from raghub.jobs import JobStatus
+
+            rag = CliConfig.make_rag(config)
+            queue = rag.queue()
+            if queue is None:
+                typer.echo("queue not configured", err=True)
+                raise typer.Exit(code=1)
+            status_filter = JobStatus(status) if status else None
+            removed = asyncio.run(queue.purge(status=status_filter))
+            typer.echo(f"removed {removed} job(s)")
+
+        app.add_typer(queue_app, name="queue")
+
+
+async def _ingest_handler(job: Any, rag: Any, archive: Any, store: Any) -> None:
+    """Default queue handler: re-run ``RAG.ingest`` against the persisted payload."""
+    import asyncio
+    from pathlib import Path
+
+    payload = job.payload
+    source = payload["source"].encode("latin-1")
+    source_uri = payload.get("source_uri", "bytes://queue")
+    mime_type = payload.get("mime_type", "text/plain")
+    metadata = payload.get("metadata") or {}
+    rag.ingest(
+        source=source,
+        source_uri=source_uri,
+        mime_type=mime_type,
+        metadata=metadata,
+    )
+
+
 class FeedbackCommand:
     """The ``raghub feedback ...`` commands (Tier 3 Item 20).
 
@@ -458,6 +614,7 @@ __all__ = [
     "IngestCommand",
     "InitCommand",
     "QueryCommand",
+    "QueueCommand",
     "ServerCommand",
     "ToolConfig",
 ]

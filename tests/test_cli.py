@@ -590,3 +590,137 @@ def test_feedback_cli_exits_when_store_absent(tmp_path) -> None:
         assert "feedback_store not configured" in result.output
     finally:
         CliConfig.make_rag = original_make_rag
+
+
+# ---------------------------------------------------------------------------
+# v0.9.3 Tier 4 — Items 23 + 24: raghub queue CLI
+# ---------------------------------------------------------------------------
+
+
+def test_queue_cli_list_runs(tmp_path) -> None:
+    """`raghub queue list` prints rows from the persistent queue."""
+    from unittest.mock import MagicMock
+
+    from raghub.cli_commands import CliConfig, QueueCommand
+    from raghub.jobs import Job, JobStatus
+
+    async def fake_list(status=None, limit=100):
+        return [
+            Job(
+                id="abc-123",
+                kind="ingest",
+                payload={"source": "hi"},
+                status=JobStatus.PENDING,
+                tenant_id="acme",
+                next_run_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
+            )
+        ]
+
+    queue = MagicMock()
+    queue.list = fake_list
+
+    rag = MagicMock()
+    rag.queue.return_value = queue
+
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    QueueCommand.register(app)
+    runner = CliRunner()
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: rag  # type: ignore[assignment]
+    try:
+        result = runner.invoke(app, ["queue", "list"])
+        assert result.exit_code == 0, result.output
+        assert "abc-123" in result.output
+        assert "pending" in result.output
+        assert "acme" in result.output
+        assert "ingest" in result.output
+    finally:
+        CliConfig.make_rag = original_make_rag
+
+
+def test_queue_cli_retry_runs(tmp_path) -> None:
+    """`raghub queue retry <job_id>` calls queue.retry."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from raghub.cli_commands import CliConfig, QueueCommand
+
+    queue = MagicMock()
+    queue.retry = AsyncMock()
+
+    rag = MagicMock()
+    rag.queue.return_value = queue
+
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    QueueCommand.register(app)
+    runner = CliRunner()
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: rag  # type: ignore[assignment]
+    try:
+        result = runner.invoke(app, ["queue", "retry", "abc-123", "--delay", "5"])
+        assert result.exit_code == 0, result.output
+        queue.retry.assert_awaited_once_with("abc-123", delay_seconds=5)
+        assert "abc-123" in result.output
+    finally:
+        CliConfig.make_rag = original_make_rag
+
+
+def test_queue_cli_purge_runs(tmp_path) -> None:
+    """`raghub queue purge` calls queue.purge and reports removed count."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from raghub.cli_commands import CliConfig, QueueCommand
+
+    queue = MagicMock()
+    queue.purge = AsyncMock(return_value=7)
+
+    rag = MagicMock()
+    rag.queue.return_value = queue
+
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    QueueCommand.register(app)
+    runner = CliRunner()
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: rag  # type: ignore[assignment]
+    try:
+        result = runner.invoke(
+            app, ["queue", "purge", "--status", "succeeded"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "removed 7" in result.output
+        queue.purge.assert_awaited_once()
+    finally:
+        CliConfig.make_rag = original_make_rag
+
+
+def test_queue_cli_exits_when_queue_absent() -> None:
+    """`raghub queue list` exits 1 when no queue is configured."""
+    from unittest.mock import MagicMock
+
+    from raghub.cli_commands import CliConfig, QueueCommand
+
+    rag = MagicMock()
+    rag.queue.return_value = None
+
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    QueueCommand.register(app)
+    runner = CliRunner()
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: rag  # type: ignore[assignment]
+    try:
+        result = runner.invoke(app, ["queue", "list"])
+        assert result.exit_code == 1
+        assert "queue not configured" in result.output
+    finally:
+        CliConfig.make_rag = original_make_rag
