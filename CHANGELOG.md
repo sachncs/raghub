@@ -40,6 +40,15 @@ oldest.
   cli_commands/__init__.py, lifecycle/__init__.py, and
   tenants/isolation.py now reference named constants from
   ``raghub.constants``.
+- R10: add ``JSONValue`` recursive type alias; use it in
+  ``raghub.auth.SqliteUsers.set_pref``,
+  ``raghub.services.Mixin.log``, and
+  ``raghub.services.list_records`` / ``get_doc``.
+- R10: replace ``Any`` with concrete types in service signatures:
+  ``Mixin.__init__``, ``DocumentSvc.__init__``, etc. take a
+  ``RagContainer``; ``MemoryQueue.submit`` /
+  ``Synchronous.submit`` take ``Callable[..., JSONValue]`` and
+  return ``Future[JSONValue]``.
 - Fix pre-existing test data so the verify() assertions pass —
   ``conftest.sample_chunk`` computes the SHA-256 checksum from
   the text; ``test_sqlite_store._chunk`` and
