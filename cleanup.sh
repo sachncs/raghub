@@ -10,8 +10,9 @@ echo "This will remove:"
 echo "  - .venv/  (virtual environment)"
 echo "  - __pycache__/ directories and *.pyc files"
 echo "  - data/  (all runtime data: SQLite DBs, image store, ZVec index)"
-echo "  - *.egg-info/  (package metadata)"
-echo "  - .pytest_cache/"
+echo "  - *.egg-info/ and build/  (package artifacts)"
+echo "  - pytest, mypy, and Ruff caches"
+echo "  - benchmarks/ and coverage reports"
 echo "  - *.pyc, *.pyo, *.~ files"
 echo ""
 
@@ -41,8 +42,9 @@ echo "[3/5] Removing runtime data ..."
 rm -rf data
 echo "  OK"
 
-echo "[4/5] Removing egg-info and build artifacts ..."
-rm -rf *.egg-info .pytest_cache
+echo "[4/5] Removing build, cache, benchmark, and coverage artifacts ..."
+rm -rf -- *.egg-info build dist .pytest_cache .mypy_cache .ruff_cache benchmarks htmlcov
+rm -f -- .coverage .coverage.* coverage.xml
 echo "  OK"
 
 echo "[5/5] Removing backup files ..."
