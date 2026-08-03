@@ -175,11 +175,11 @@ def test_plugin_registry_register_each_type() -> None:
 
 
 def test_conv_module_exports() -> None:
-    """raghub.conv exports ConversationManager + Memory."""
+    """raghub.conv exports ConversationHistory + Memory."""
 
     import raghub.conv as conv_module
 
-    for name in ("ConversationManager", "Memory"):
+    for name in ("ConversationHistory", "Memory"):
         assert hasattr(conv_module, name) or name in conv_module.__dict__
 
 
@@ -212,16 +212,16 @@ def test_tokenizer_module_classes() -> None:
 
 
 def test_conv_sliding_window_manager_attributes() -> None:
-    """SlidingWindowManager exposes the documented attributes."""
+    """SlidingWindowTrimmer exposes the documented attributes."""
 
-    from raghub.conv import SlidingWindowManager
+    from raghub.conv import SlidingWindowTrimmer
 
-    assert hasattr(SlidingWindowManager, "__init__")
+    assert hasattr(SlidingWindowTrimmer, "__init__")
 
 
 def test_conv_conversation_manager_attributes() -> None:
-    """ConversationManager exposes a constructor."""
+    """ConversationHistory exposes a constructor."""
 
-    from raghub.conv import ConversationManager
+    from raghub.conv import ConversationHistory
 
-    assert hasattr(ConversationManager, "__init__")
+    assert hasattr(ConversationHistory, "__init__")

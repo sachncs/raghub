@@ -648,11 +648,23 @@ class SqliteStore(Store):
         top_k: int,
         metadata_filter: str | dict[str, Any] = "",
     ) -> list[dict[str, Any]]:
-        """Pure dense search — the SQL fallback has no native BM25 index.
+        """Hybrid dense + BM25 search.
 
-        The ``sqlite-vector`` package adds BM25 when installed; the
-        fallback uses dense search only.
+        Raises:
+            ConfigurationError: When BM25 is not available and a true
+                hybrid result cannot be produced. Callers that want
+                dense-only fallback should call :meth:`search`
+                directly.
+
         """
+        from raghub.errors import ConfigurationError
+
+        if not SQLITE_VECTOR_PKG:
+            raise ConfigurationError(
+                "SqliteStore.hybrid_search requires the sqlite-vector "
+                "package; install `sqlite-vector` or use SqliteStore.search "
+                "for dense-only retrieval."
+            )
         return self.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     def optimize(self) -> None:
