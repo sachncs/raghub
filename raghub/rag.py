@@ -632,6 +632,83 @@ class RAG:
         self.archive_: Any = None
         self.isolation_strategy_: Any = components_dict.get("isolation_strategy")
 
+    def __build_components_dict(
+        self,
+        settings: Settings | None,
+        components: RagComponents | None,
+        kwargs: Any,
+    ) -> dict[str, Any]:
+        """Merge ``kwargs`` into ``components`` (legacy support)."""
+        components_dict: dict[str, Any] = (
+            dict(components) if components is not None else {}
+        )
+        components_dict.update(kwargs)
+        components_dict.setdefault("settings", settings)
+        return components_dict
+
+    def __wire_components(self, components_dict: dict[str, Any]) -> None:
+        """Resolve every collaborator from ``components_dict`` and bind it.
+
+        Each branch picks an explicit injection when the caller
+        supplied one, otherwise falls back to the standard default
+        factory keyed off ``self.settings``.
+        """
+        self.settings: Settings = (
+            components_dict.get("settings") or Settings.load()
+        )
+        self.registry: Any = (
+            components_dict.get("registry") or PluginRegistry()
+        )
+        self.knowledge_repo: "KnowledgeRepository" = (
+            components_dict.get("knowledge_repo") or MemoryRepo()
+        )
+        self.vector_store: Any = (
+            components_dict.get("vector_store")
+            or default_vector_store(self.settings.embedding_dim)
+        )
+        self.embedder: Any = (
+            components_dict.get("embedder")
+            or default_embedder(
+                self.settings.embedding_model, self.settings.embedding_dim
+            )
+        )
+        self.llm: Any = (
+            components_dict.get("llm") or default_llm(self.settings.llm_model)
+        )
+        self.converter: "DocumentConverter" = (
+            components_dict.get("converter") or default_converter()
+        )
+        self.chunker: Any = (
+            components_dict.get("chunker")
+            or default_chunker(
+                self.settings.chunk_size_words,
+                self.settings.chunk_overlap_words,
+                chunker_strategy=self.settings.chunker_strategy,
+                embedding_model_chunker=self.settings.embedding_model_chunker,
+            )
+        )
+        self.reranker: Any = (
+            components_dict.get("reranker")
+            or build_reranker(self.settings, llm=self.llm)
+        )
+        self.generator: Any = cast(
+            Any,
+            components_dict.get("generator")
+            or DefaultGenerator(
+                llm=self.llm,
+                timeout_seconds=components_dict.get("llm_timeout_seconds"),
+            ),
+        )
+        if components_dict.get("structured") is not None:
+            self.structured: Any = components_dict["structured"]
+        else:
+            self.structured: Any = default_structured()
+
+        if components_dict.get("telemetry") is None:
+            self.telemetry: Any = RedactingTelemetry(default_telemetry())
+        else:
+            self.telemetry = components_dict["telemetry"]
+
     def __init_queue(self, components_dict: dict[str, Any]) -> Any:
         """Construct the persistent ingestion queue.
 
@@ -1802,6 +1879,83 @@ class RAG:
         """
         scoped = self.scoped_session_id(user, session_id) or session_id
         return cast(list[Any], self.conversation_store.load(scoped, limit=limit))
+
+    def __build_components_dict(
+        self,
+        settings: Settings | None,
+        components: RagComponents | None,
+        kwargs: Any,
+    ) -> dict[str, Any]:
+        """Merge kwargs into ``components`` (legacy support)."""
+        components_dict: dict[str, Any] = (
+            dict(components) if components is not None else {}
+        )
+        components_dict.update(kwargs)
+        components_dict.setdefault("settings", settings)
+        return components_dict
+
+    def __wire_components(self, components_dict: dict[str, Any]) -> None:
+        """Resolve every collaborator from ``components_dict`` and bind it.
+
+        Each branch picks an explicit injection when the caller
+        supplied one, otherwise falls back to the standard default
+        factory keyed off ``self.settings``.
+        """
+        self.settings: Settings = (
+            components_dict.get("settings") or Settings.load()
+        )
+        self.registry: Any = (
+            components_dict.get("registry") or PluginRegistry()
+        )
+        self.knowledge_repo: "KnowledgeRepository" = (
+            components_dict.get("knowledge_repo") or MemoryRepo()
+        )
+        self.vector_store: Any = (
+            components_dict.get("vector_store")
+            or default_vector_store(self.settings.embedding_dim)
+        )
+        self.embedder: Any = (
+            components_dict.get("embedder")
+            or default_embedder(
+                self.settings.embedding_model, self.settings.embedding_dim
+            )
+        )
+        self.llm: Any = (
+            components_dict.get("llm") or default_llm(self.settings.llm_model)
+        )
+        self.converter: "DocumentConverter" = (
+            components_dict.get("converter") or default_converter()
+        )
+        self.chunker: Any = (
+            components_dict.get("chunker")
+            or default_chunker(
+                self.settings.chunk_size_words,
+                self.settings.chunk_overlap_words,
+                chunker_strategy=self.settings.chunker_strategy,
+                embedding_model_chunker=self.settings.embedding_model_chunker,
+            )
+        )
+        self.reranker: Any = (
+            components_dict.get("reranker")
+            or build_reranker(self.settings, llm=self.llm)
+        )
+        self.generator: Any = cast(
+            Any,
+            components_dict.get("generator")
+            or DefaultGenerator(
+                llm=self.llm,
+                timeout_seconds=components_dict.get("llm_timeout_seconds"),
+            ),
+        )
+        if components_dict.get("structured") is not None:
+            self.structured: Any = components_dict["structured"]
+        else:
+            self.structured: Any = default_structured()
+
+        if components_dict.get("telemetry") is None:
+            self.telemetry: Any = RedactingTelemetry(default_telemetry())
+        else:
+            self.telemetry = components_dict["telemetry"]
 
     def clear_conversation(
         self,

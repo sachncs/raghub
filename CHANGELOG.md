@@ -64,6 +64,17 @@ oldest.
   ``test_pipeline`` / ``test_production_readiness`` use the correct
   per-text checksums; ``test_store_memory._chunk`` recomputes the
   SHA-256 checksum from its text parameter.
+- R10 batch 3: tighten ``raghub.api`` — ``query_request_has_flags``
+  takes ``QueryRequest`` instead of ``Any``;
+  ``enforce_upload_limit`` takes ``RagContainer``.
+- C1 batch 3: decompose ``Ingestor.record_from_pipeline`` (50 LOC)
+  into ``record_from_pipeline`` + ``__extract_chunks`` +
+  ``__resolve_document_id`` helpers.
+- C1 batch 4: decompose ``RAG.__init__`` (204 LOC) into
+  ``__init__`` + ``__build_components_dict`` +
+  ``__wire_components`` helpers.
+- R10 batch 4: tighten ``raghub.ingest`` — every ``**options: Any``
+  parameter is now ``**options: JSONValue``.
 
 ### Security
 

@@ -140,7 +140,7 @@ def build_chonkie_inner(
     *,
     chunk_size: int,
     chunk_overlap: int,
-    **options: Any,
+    **options: "JSONValue",
 ) -> Any:
     """Build the best available Chonkie chunker for the configuration.
 
@@ -265,7 +265,7 @@ class Chonkie(Chunker):
         *,
         chunk_size: int = 512,
         chunk_overlap: int = 64,
-        **options: Any,
+        **options: "JSONValue",
     ) -> None:
         """Initialise the Chonkie chunker.
 
@@ -584,7 +584,7 @@ def record_from_pipeline(
     mime_type: str,
     owner: User,
     organization: str,
-    **options: Any,
+    **options: "JSONValue",
 ) -> Document:
     """Project a :class:`Pipeline` into a :class:`Document`.
 
@@ -601,17 +601,8 @@ def record_from_pipeline(
     classification: Classification = options.get("classification", Classification.INTERNAL)
     checksum: str = options.get("checksum", "")
     tags: list[str] | None = options.get("tags")
-    chunks = result.outputs.get("chunks") or []
-    if chunks and isinstance(chunks[0], dict):
-        chunk_records = [Chunk.model_validate(c) for c in chunks]
-    else:
-        chunk_records = list(chunks)
-    bundle = result.outputs.get("bundle")
-    document_id = str(result.outputs.get("document_id") or getattr(bundle, "bundle_id", "") or "")
-    for chunk in chunk_records:
-        if not chunk.document_id:
-            chunk.document_id = document_id
-    chunks = [c.id for c in chunk_records]
+    chunks = __extract_chunks(result)
+    document_id = __resolve_document_id(result, chunks)
     return Document(
         id=document_id,
         version=int(result.outputs.get("version") or 1),
@@ -624,9 +615,31 @@ def record_from_pipeline(
         filename=file_name,
         file_type=file_name.rsplit(".", 1)[-1].lower() if "." in file_name else "",
         mime_type=mime_type,
-        chunk_count=len(chunk_records),
-        chunks=chunks,
+        chunk_count=len(chunks),
+        chunks=[c.id for c in chunks],
     )
+
+@staticmethod
+def __extract_chunks(result: Pipeline) -> list["Chunk"]:
+    """Pull Chunk instances (or dicts) out of the Pipeline output."""
+    raw = result.outputs.get("chunks") or []
+    if raw and isinstance(raw[0], dict):
+        return [Chunk.model_validate(c) for c in raw]
+    return list(raw)
+
+@staticmethod
+def __resolve_document_id(result: Pipeline, chunks: list) -> str:
+    """Compute the document_id, threading it onto chunks that lack one."""
+    bundle = result.outputs.get("bundle")
+    document_id = str(
+        result.outputs.get("document_id")
+        or getattr(bundle, "bundle_id", "")
+        or ""
+    )
+    for chunk in chunks:
+        if not chunk.document_id:
+            chunk.document_id = document_id
+    return document_id
 
 
 class Ingestor:
@@ -645,7 +658,7 @@ class Ingestor:
         embedding_provider: Embedder,
         lifecycle_manager: Lifecycle,
         max_upload_bytes: int,
-        **options: Any,
+        **options: "JSONValue",
     ) -> None:
         """Initialise the service.
 
@@ -682,7 +695,7 @@ class Ingestor:
         file_bytes: bytes,
         owner: User,
         organization: str,
-        **options: Any,
+        **options: "JSONValue",
     ) -> str:
         """Submit ``ingest`` to a background thread pool.
 
@@ -713,7 +726,7 @@ class Ingestor:
         file_bytes: bytes,
         owner: User,
         organization: str,
-        **options: Any,
+        **options: "JSONValue",
     ) -> IngestionResult:
         """Run the canonical ingest pipeline for a single upload.
 

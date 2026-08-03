@@ -53,6 +53,7 @@ from raghub.errors import (
 )
 from raghub.ingest import Batch
 from raghub.models import (
+    QueryRequest,
     AuthLoginRequest,
     AuthLoginResponse,
     BatchIngestItem,
@@ -186,7 +187,7 @@ def upload_content_length(request: Request) -> int | None:
 
 def enforce_upload_limit(
     request: Request,
-    container: Any,
+    container: "RagContainer",
     payload: bytes | None = None,
 ) -> None:
     """Raise HTTP 413 when ``request`` (or ``payload``) exceeds the limit.
@@ -346,7 +347,7 @@ def user_store_or_503(app_service: Facade) -> Any:
     return store
 
 
-def query_request_has_flags(payload: Any) -> bool:
+def query_request_has_flags(payload: "QueryRequest") -> bool:
     """Return ``True`` when any advanced-RAG flag is set on the payload."""
     return any(
         getattr(payload, field) is not None
