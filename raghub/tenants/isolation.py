@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from raghub.constants import DEFAULT_EMBEDDING_DIM
 from raghub.errors import AuthorizationError, MissingDepError
 
 __all__ = [
@@ -207,7 +208,7 @@ _DDL_SQL = (
     "ordinal INTEGER NOT NULL, "
     "text TEXT NOT NULL, "
     "metadata JSONB NOT NULL DEFAULT '{}'::jsonb, "
-    "embedding VECTOR(384) NOT NULL, "
+    f"embedding VECTOR({DEFAULT_EMBEDDING_DIM}) NOT NULL, "
     "tenant_id TEXT, "
     "created_at TIMESTAMPTZ NOT NULL DEFAULT now(), "
     "updated_at TIMESTAMPTZ NOT NULL DEFAULT now())"
@@ -231,7 +232,7 @@ class TenantRegistry:
             raise KeyError(f"unknown tenant id: {tenant_id!r}")
         return dict(self.entries[tenant_id])
 
-    def upsert(self, tenant_id: str, dsn: str, vector_dim: int = 384) -> None:
+    def upsert(self, tenant_id: str, dsn: str, vector_dim: int = DEFAULT_EMBEDDING_DIM) -> None:
         """Register or update a tenant record."""
         self.entries[tenant_id] = {"dsn": dsn, "vector_dim": vector_dim}
 

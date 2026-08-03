@@ -28,6 +28,11 @@ from typing import Any
 import typer
 import uvicorn
 import yaml
+from raghub.constants import (
+    DEFAULT_CHUNK_SIZE_WORDS,
+    DEFAULT_CHUNK_OVERLAP_WORDS,
+    DEFAULT_EMBEDDING_DIM,
+)
 
 from raghub.await_sync import capture
 from raghub.config import Settings
@@ -264,11 +269,11 @@ class InitCommand:
     SAMPLE_CONFIG = """# RAGHub configuration — adjust to your environment.
 environment: development
 data_dir: ./data
-chunk_size_words: 800
-chunk_overlap_words: 100
+chunk_size_words: DEFAULT_CHUNK_SIZE_WORDS
+chunk_overlap_words: DEFAULT_CHUNK_OVERLAP_WORDS
 chunker_strategy: recursive
 embedding_model_chunker: minishlab/potion-base-8M
-embedding_dim: 384
+embedding_dim: DEFAULT_EMBEDDING_DIM
 embedding_model: hashing-bge
 llm_model: heuristic-llm
 retrieval_mode: sync
@@ -533,7 +538,7 @@ class MigratePgVectorCommand:
         def migrate_pgvector(
             dsn: str = typer.Option(..., "--dsn", help="Postgres connection string."),
             vector_dim: int = typer.Option(
-                384, "--vector-dim", help="Embedding dimensionality."
+                DEFAULT_EMBEDDING_DIM, "--vector-dim", help="Embedding dimensionality."
             ),
         ) -> None:
             """Create the pgvector schema and indexes on ``--dsn``."""
@@ -582,7 +587,7 @@ class TenantCommand:
         def create_cmd(
             tenant_id: str = typer.Argument(..., help="Tenant id (regex-validated)."),
             dsn: str = typer.Option(..., "--dsn", help="Postgres DSN."),
-            vector_dim: int = typer.Option(384, "--vector-dim", help="Vector dim."),
+            vector_dim: int = typer.Option(DEFAULT_EMBEDDING_DIM, "--vector-dim", help="Vector dim."),
             config: str | None = typer.Option(
                 None, "--config", "-c", help="Optional YAML/TOML config path."
             ),
@@ -760,7 +765,7 @@ def load_registry_entries(settings: Any) -> dict[str, dict[str, Any]]:
         tenant_id = tenant_id.strip()
         parts = rest.split(",")
         dsn = parts[0].strip() if parts else ""
-        dim = int(parts[1].strip()) if len(parts) > 1 else 384
+        dim = int(parts[1].strip()) if len(parts) > 1 else DEFAULT_EMBEDDING_DIM
         if not tenant_id or not dsn:
             continue
         out[tenant_id] = {"dsn": dsn, "vector_dim": dim}

@@ -35,6 +35,11 @@ oldest.
 - R8: invoke ``Session.verify()`` at every session write boundary —
   ``Sessions.create_session_record()`` and
   ``Sessions.update_session()``.
+- O1: name previously magic-number literals — config.py,
+  prompts.py, embedder.py, repos.py, conv.py, stores/__init__.py,
+  cli_commands/__init__.py, lifecycle/__init__.py, and
+  tenants/isolation.py now reference named constants from
+  ``raghub.constants``.
 - Fix pre-existing test data so the verify() assertions pass —
   ``conftest.sample_chunk`` computes the SHA-256 checksum from
   the text; ``test_sqlite_store._chunk`` and

@@ -4,6 +4,7 @@ Everything that used to live in :mod:`raghub.documents.__init__` (apart
 from the parser classes, which moved to :mod:`raghub.documents.parser`).
 The split keeps the public package surface thin while preserving the
 single ``from raghub.parsers import …`` ergonomic for callers.
+from raghub.constants import DEFAULT_CHUNK_SIZE_WORDS
 
 The classes and functions here map onto the document lifecycle::
 
@@ -39,6 +40,7 @@ from importlib import import_module
 from io import BytesIO
 from pathlib import Path
 from typing import Any
+from raghub.constants import DEFAULT_CHUNK_SIZE_WORDS
 from uuid import uuid4
 
 from raghub.await_sync import capture
@@ -280,7 +282,7 @@ class ChunkingPlan:
 
     """
 
-    chunk_size_words: int = 800
+    chunk_size_words: int = DEFAULT_CHUNK_SIZE_WORDS
     overlap_words: int = 100
 
 

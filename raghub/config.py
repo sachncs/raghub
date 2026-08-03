@@ -19,6 +19,13 @@ from typing import Any, Literal, cast
 
 import yaml
 from pydantic import BaseModel, Field, SecretStr
+from raghub.constants import (
+    DEFAULT_CHUNK_SIZE_WORDS,
+    DEFAULT_CHUNK_OVERLAP_WORDS,
+    DEFAULT_EMBEDDING_DIM,
+    DEFAULT_MAX_UPLOAD_BYTES,
+    DEFAULT_SESSION_TIMEOUT_SECONDS,
+)
 
 __all__ = [
     "AgentConfig",
@@ -81,14 +88,14 @@ class Settings(BaseModel):
     data_dir: Path = Path("./data")
     registry_path: Path = Path("./data/registry.json")
     sessions_path: Path = Path("./data/sessions.json")
-    chunk_size_words: int = 800
-    chunk_overlap_words: int = 100
+    chunk_size_words: int = DEFAULT_CHUNK_SIZE_WORDS
+    chunk_overlap_words: int = DEFAULT_CHUNK_OVERLAP_WORDS
     chunker_strategy: str = "recursive"
     embedding_model_chunker: str = "minishlab/potion-base-8M"
     top_k: int = 5
-    embedding_dim: int = 384
-    session_timeout_seconds: int = 3600
-    max_upload_bytes: int = 20 * 1024 * 1024
+    embedding_dim: int = DEFAULT_EMBEDDING_DIM
+    session_timeout_seconds: int = DEFAULT_SESSION_TIMEOUT_SECONDS
+    max_upload_bytes: int = DEFAULT_MAX_UPLOAD_BYTES
     embedding_model: str = "hashing-bge"
     llm_model: str = "gpt-4o-mini"
     log_level: str = "INFO"
