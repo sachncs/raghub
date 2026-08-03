@@ -1,9 +1,9 @@
 """Token-bucket rate limiter and ASGI middleware.
 
-The :class:`TokenBucket` is a per-key (typically per-IP) admission
-control. :class:`RateLimiterMiddleware` wraps an ASGI app, short-
-circuits SSE / lifespan / websocket scopes, and returns HTTP 429
-when the bucket is empty.
+The :class:`TokenBucket` is a per-key (typically ``(tenant_id,
+route)``) admission control. :class:`RateLimiterMiddleware` wraps
+an ASGI app, short-circuits SSE / lifespan / websocket scopes, and
+returns HTTP 429 with rate-limit headers when the bucket is empty.
 """
 
 from __future__ import annotations
@@ -14,13 +14,19 @@ from typing import Any
 
 from starlette.responses import JSONResponse
 
+__all__ = [
+    "RateLimiterMiddleware",
+    "TokenBucket",
+]
+
 
 class TokenBucket:
     """Per-key token-bucket rate limiter.
 
-    The bucket is keyed by an arbitrary string (typically the client IP).
-    Each call to :meth:`allow` lazily refills based on elapsed wall
-    time and then attempts to debit ``cost`` tokens.
+    The bucket is keyed by an arbitrary string (typically
+    ``(tenant_id, route)``). Each call to :meth:`allow` lazily
+    refills based on elapsed wall time and then attempts to debit
+    ``cost`` tokens.
 
     Attributes:
         rate: Tokens added per second (steady-state refill rate).
@@ -43,15 +49,16 @@ class TokenBucket:
         self.buckets: dict[str, tuple[float, float]] = {}
         self.lock = RLock()
 
-    def allow(self, key: str, cost: float = 1.0) -> bool:
+    def allow(self, key: str, cost: float = 1.0) -> tuple[bool, float]:
         """Attempt to debit ``cost`` tokens from ``key``'s bucket.
 
         Args:
-            key: Identity to rate-limit on (usually a client IP).
+            key: Identity to rate-limit on (usually ``(tenant_id,
+                route)``).
             cost: Token cost of the request.
 
         Returns:
-            ``True`` if the request is admitted, ``False`` otherwise.
+            ``(admitted, retry_after_seconds)``.
 
         """
         with self.lock:
@@ -59,23 +66,30 @@ class TokenBucket:
             tokens, last_refill = self.buckets.get(key, (self.burst, now))
             elapsed = now - last_refill
             tokens = min(self.burst, tokens + elapsed * self.rate)
-            self.buckets[key] = (tokens, now)
             if tokens >= cost:
                 self.buckets[key] = (tokens - cost, now)
-                return True
-            return False
+                return True, 0.0
+            deficit = cost - tokens
+            retry_after = deficit / self.rate if self.rate > 0 else 0.0
+            self.buckets[key] = (tokens, now)
+            return False, max(retry_after, 0.0)
 
 
 class RateLimiterMiddleware:
-    """ASGI middleware that rate-limits by client IP via a :class:`TokenBucket`.
+    """ASGI middleware that rate-limits by ``(tenant_id, route)`` via a
+    :class:`TokenBucket`.
 
     Non-HTTP scopes (``lifespan``, ``websocket``) are forwarded
-    unchanged. For HTTP scopes the client IP is admitted through the
-    bucket; rejections emit a JSON 429 response.
+    unchanged. For HTTP scopes the tenant id is read from the
+    ``X-Tenant-ID`` header or the ``tenant_id`` JWT claim (preferred);
+    when neither is present, the per-IP tier still applies.
+
+    Rejections emit a JSON 429 with ``Retry-After``,
+    ``X-RateLimit-Remaining``, and ``X-RateLimit-Limit`` headers.
     """
 
     def __init__(self, app: Any, rate: float = 10.0, burst: int = 20) -> None:
-        """Wrap ``app`` with a per-IP token bucket.
+        """Wrap ``app`` with a token bucket.
 
         Args:
             app: The downstream ASGI application.
@@ -91,18 +105,26 @@ class RateLimiterMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        client_host = scope.get("client", ("unknown",))[0]
-        if not self.bucket.allow(client_host):
+        headers = dict(scope.get("headers", []))
+        tenant_id = headers.get(b"x-tenant-id", b"").decode("latin-1", errors="replace")
+        route = scope.get("path", "")
+        if tenant_id:
+            key = f"{tenant_id}::{route}"
+        else:
+            client_host = scope.get("client", ("unknown",))[0]
+            key = f"ip::{client_host}::{route}"
+        admitted, retry_after = self.bucket.allow(key)
+        if not admitted:
             response = JSONResponse(
                 {"error": "rate_limit_exceeded", "message": "Too many requests"},
                 status_code=429,
+                headers={
+                    "Retry-After": str(int(retry_after) + 1),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Limit": str(self.bucket.burst),
+                },
             )
             await response(scope, receive, send)
             return
         await self.app(scope, receive, send)
 
-
-__all__ = [
-    "RateLimiterMiddleware",
-    "TokenBucket",
-]

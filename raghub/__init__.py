@@ -29,7 +29,7 @@ from raghub.auth import AuthService
 # Config -- Settings is the only public config class.
 from raghub.config import Settings
 from raghub.conv import (
-    ConversationManager as Conversations,
+    ConversationHistory as Conversations,
 )
 from raghub.conv import (
     ConversationStore as Store,
@@ -39,13 +39,13 @@ from raghub.conv import (
     Tokenizer,
 )
 from raghub.conv import (
-    SlidingWindowManager as SlidingWindow,
+    SlidingWindowTrimmer as SlidingWindow,
 )
 
 # Embedders / generators.
 from raghub.embedder import (
     Embedder,
-    Hasher,
+    FeatureHashingEmbedder,
     LiteLLMEmbedder,
 )
 
@@ -157,12 +157,6 @@ from raghub.telemetry import (
 from raghub.telemetry import (
     NoOpTelemetry as Noop,
 )
-from raghub.telemetry import (
-    NullMetrics as Null,
-)
-from raghub.telemetry import (
-    PrometheusMetrics as Prometheus,
-)
 
 __all__ = [
     "RAG",
@@ -181,12 +175,12 @@ __all__ = [
     "Document",
     "Embedder",
     "Facade",
+    "FeatureHashingEmbedder",
     "Finance",
     "Frames",
     "Gate",
     "GenerationError",
     "Generator",
-    "Hasher",
     "Heuristic",
     "Hit",
     "Identity",
@@ -207,12 +201,10 @@ __all__ = [
     "Metrics",
     "MissingDepError",
     "Noop",
-    "Null",
     "Pipeline",
     "PipelineBuilder",
     "PipelineError",
     "PluginRegistry",
-    "Prometheus",
     "RagHubError",
     "Rerank",
     "RerankerFactory",

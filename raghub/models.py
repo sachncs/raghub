@@ -45,10 +45,8 @@ __all__ = [
     "AuthLoginResponse",
     "Bundle",
     "Chunk",
-    "Chunk",
     "Citation",
     "Classification",
-    "Document",
     "Document",
     "DocumentLifecycleStatus",
     "DocumentUploadResponse",
@@ -876,7 +874,7 @@ class Citations(BaseModel):
             cit.verify()
         if chunks is not None:
 
-            def _chunk_id(c: object) -> str | None:
+            def chunk_id(c: object) -> str | None:
                 """Resolve a chunk's id from either ``.id`` or ``.chunk_id``.
 
                 Args:
@@ -892,7 +890,7 @@ class Citations(BaseModel):
                 cid_attr: object = getattr(c, "chunk_id", None)
                 return str(cid_attr) if cid_attr is not None else None
 
-            valid = {_chunk_id(c) for c in chunks}
+            valid = {chunk_id(c) for c in chunks}
             for cit in self.items:
                 if cit.chunk is not None and cit.chunk.id not in valid:
                     raise VerificationError(

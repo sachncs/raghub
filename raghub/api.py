@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated, Any, ClassVar
 
@@ -44,6 +44,7 @@ from raghub.api_response import Redaction
 from raghub.api_sse import (
     Sse,
 )
+from raghub.await_sync import capture
 from raghub.errors import (
     AuthenticationError,
     AuthorizationError,
@@ -62,7 +63,6 @@ from raghub.models import (
     User,
 )
 from raghub.services import Facade as Facade
-from raghub.utils import capture
 
 # ---------------------------------------------------------------------------
 # CORS
@@ -70,11 +70,17 @@ from raghub.utils import capture
 
 
 __all__ = [
+    "AdminRouter",
     "AppFactory",
+    "AuthRouter",
+    "DocumentRouter",
     "ExceptionHandlers",
+    "HealthRouter",
     "Lifespan",
     "PreferencesPatch",
     "PreferencesResponse",
+    "PreferencesRouter",
+    "QueryRouter",
     "RouteGroup",
     "check_upload_size",
     "cors_origins_from_env",
@@ -114,11 +120,13 @@ def validate_cors(origins: list[str]) -> None:
         origins: The list of origins the middleware would advertise.
 
     Raises:
-        RuntimeError: When ``origins`` contains ``"*"``.
+        ConfigurationError: When ``origins`` contains ``"*"``.
 
     """
     if any(origin == "*" for origin in origins):
-        raise RuntimeError(
+        from raghub.errors import ConfigurationError
+
+        raise ConfigurationError(
             "CORS_ORIGINS='*' is incompatible with allow_credentials=True; "
             "set CORS_ORIGINS to a comma-separated list of explicit origins."
         )
@@ -335,7 +343,7 @@ def user_store_or_503(app_service: Facade) -> Any:
     return store
 
 
-def _query_request_has_flags(payload: Any) -> bool:
+def query_request_has_flags(payload: Any) -> bool:
     """Return ``True`` when any advanced-RAG flag is set on the payload."""
     return any(
         getattr(payload, field) is not None
@@ -359,36 +367,17 @@ def _query_request_has_flags(payload: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 
-class RouteGroup:
-    """Register the ``/v1/*`` route group plus the admin and preferences sub-routers.
+class HealthRouter:
+    """Health probe endpoint."""
 
-    Centralises every route definition so :func:`create_app` stays a
-    pure wiring step. ``__init__`` triggers :meth:`build`, so a fresh
-    :class:`RouteGroup` always has every route already decorated onto
-    its three routers. :meth:`register_all` is the only step that
-    needs the live :class:`FastAPI` instance.
-
-    Attributes:
-        router: The :class:`APIRouter` carrying the v1 routes.
-        admin_router: The :class:`APIRouter` mounted under
-            ``/v1/admin`` for admin-only endpoints.
-        preferences_router: The :class:`APIRouter` mounted under
-            ``/v1`` for the per-user preferences endpoints.
-
-    """
+    router: APIRouter
 
     def __init__(self) -> None:
-        """Create the routers and decorate every route on them."""
+        """Build the router."""
         self.router = APIRouter()
-        self.admin_router = APIRouter(prefix="/admin", tags=["admin"])
-        self.preferences_router = APIRouter()
-        self.build()
+        self.__register()
 
-    # ----- v1: auth / session -----------------------------------------
-
-    def _health(self) -> Callable[..., Any]:
-        """Liveness probe; delegates to :meth:`Facade.health`."""
-
+    def __register(self) -> None:
         @self.router.get("/health")
         def handler(
             app_service: Annotated[Facade, Depends(App.get)],
@@ -396,68 +385,70 @@ class RouteGroup:
             """Report liveness."""
             return app_service.health()
 
-        return handler
 
-    def _login(self) -> Callable[..., Any]:
-        """Authenticate a user and return a session token."""
+class AuthRouter:
+    """Auth and session-history endpoints."""
 
+    router: APIRouter
+
+    def __init__(self) -> None:
+        self.router = APIRouter()
+        self.__register_login()
+        self.__register_logout()
+        self.__register_session_history()
+        self.__register_clear_history()
+
+    def __register_login(self) -> None:
         @self.router.post("/auth/login", response_model=AuthLoginResponse)
         async def handler(
             payload: AuthLoginRequest,
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> AuthLoginResponse:
-            """Handle the request and return the response model."""
             return await app_service.login(payload.email, payload.password)
 
-        return handler
-
-    def _logout(self) -> Callable[..., Any]:
-        """Invalidate the bearer token presented in the ``Authorization`` header."""
-
+    def __register_logout(self) -> None:
         @self.router.post("/auth/logout")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, str]:
-            """Handle the request and return the response model."""
             await app_service.logout(token)
             return {"status": "logged_out"}
 
-        return handler
-
-    def _session_history(self) -> Callable[..., Any]:
-        """Return the conversation history for the current session."""
-
+    def __register_session_history(self) -> None:
         @self.router.get("/session/history")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, list[dict[str, Any]]]:
-            """Handle the request and return the response model."""
             history = await app_service.history(token)
             return {"history": [turn.model_dump(mode="json") for turn in history]}
 
-        return handler
-
-    def _clear_history(self) -> Callable[..., Any]:
-        """Empty the conversation history for the current session."""
-
+    def __register_clear_history(self) -> None:
         @self.router.delete("/session/history", status_code=204, response_class=Response)
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> Response:
-            """Handle the request and return the response model."""
             await app_service.clear_history(token)
             return Response(status_code=204)
 
-        return handler
 
-    # ----- v1: documents ----------------------------------------------
+class DocumentRouter:
+    """Document upload, listing, status, and delete endpoints."""
 
-    def _upload_document(self) -> Callable[..., Any]:
-        """Upload a PDF document and synchronously index it."""
+    router: APIRouter
 
+    def __init__(self) -> None:
+        self.router = APIRouter()
+        self.__register_upload()
+        self.__register_ingest_batch()
+        self.__register_list()
+        self.__register_status()
+        self.__register_delete()
+        self.__register_ingest_async()
+
+    def __register_upload(self) -> None:
         @self.router.post(
             "/documents/upload", status_code=202, response_model=DocumentUploadResponse
         )
@@ -468,7 +459,6 @@ class RouteGroup:
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> DocumentUploadResponse:
-            """Handle the request and return the response model."""
             enforce_upload_limit(request, app_service.container)
             content = await file.read()
             enforce_upload_limit(request, app_service.container, payload=content)
@@ -486,18 +476,7 @@ class RouteGroup:
                 filename=document.filename,
             )
 
-        return handler
-
-    def _ingest_documents_batch(self) -> Callable[..., Any]:
-        """Ingest multiple documents in a single request.
-
-        Accepts one or more files as multipart upload. Each file is
-        ingested independently; a failure in one does not affect the
-        others. This is a pipeline boundary method — failures on
-        individual files are captured as :class:`BatchIngestItem`
-        entries and the surrounding batch loop continues.
-        """
-
+    def __register_ingest_batch(self) -> None:
         @self.router.post(
             "/documents/ingest/batch",
             status_code=200,
@@ -510,7 +489,6 @@ class RouteGroup:
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> BatchIngestResponse:
-            """Handle the request and return the response model."""
             enforce_upload_limit(request, app_service.container)
             results: list[BatchIngestItem] = []
             for file in files:
@@ -554,70 +532,81 @@ class RouteGroup:
                     )
             return BatchIngestResponse(documents=results)
 
-        return handler
-
-    def _list_documents(self) -> Callable[..., Any]:
-        """List the documents visible to the calling user."""
-
+    def __register_list(self) -> None:
         @self.router.get("/documents")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, list[dict[str, Any]]]:
-            """Handle the request and return the response model."""
             documents = await app_service.list_documents(token)
-            return {"documents": [document.model_dump(mode="json") for document in documents]}
+            return {
+                "documents": [document.model_dump(mode="json") for document in documents]
+            }
 
-        return handler
-
-    def _document_status(self) -> Callable[..., Any]:
-        """Return the latest status for a single document."""
-
+    def __register_status(self) -> None:
         @self.router.get("/documents/{document_id}/status")
         async def handler(
             document_id: str,
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, Any]:
-            """Handle the request and return the response model."""
             document = await app_service.document_status(token, document_id)
             return document.model_dump(mode="json")
 
-        return handler
-
-    def _delete_document(self) -> Callable[..., Any]:
-        """Delete a document and all of its chunks. Admin-only."""
-
-        @self.router.delete("/documents/{document_id}", status_code=204, response_class=Response)
+    def __register_delete(self) -> None:
+        @self.router.delete(
+            "/documents/{document_id}", status_code=204, response_class=Response
+        )
         async def handler(
             document_id: str,
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> Response:
-            """Handle the request and return the response model."""
             await app_service.delete_document(token, document_id)
             return Response(status_code=204)
 
-        return handler
+    def __register_ingest_async(self) -> None:
+        @self.router.post("/ingest/async")
+        async def handler(
+            request: Request,
+            file: Annotated[UploadFile, File(...)],
+            company: Annotated[str | None, Form(default=None)],
+            token: Annotated[str, Depends(Bearer.dependency)],
+            app_service: Annotated[Facade, Depends(App.get)],
+        ) -> dict[str, str]:
+            enforce_upload_limit(request, app_service.container)
+            content = await file.read()
+            enforce_upload_limit(request, app_service.container, payload=content)
+            background = request.app.state.background_ingestion
+            job_id = background.submit(
+                app_service.upload_document,
+                token=token,
+                filename=file.filename or "upload.pdf",
+                content=content,
+                company=company,
+            )
+            return {"job_id": job_id}
 
-    # ----- v1: query ---------------------------------------------------
 
-    def _query(self) -> Callable[..., Any]:
-        """Answer a question using the application service.
+class QueryRouter:
+    """Synchronous and streaming query endpoints."""
 
-        Advanced-RAG flags (``agent``, ``web``, ``tools_enabled``
-        etc.) are forwarded to the resolver when any of them are
-        supplied; otherwise the early-exit path runs.
-        """
+    router: APIRouter
 
+    def __init__(self) -> None:
+        self.router = APIRouter()
+        self.__register_query()
+        self.__register_stream()
+        self.__register_agent_run()
+
+    def __register_query(self) -> None:
         @self.router.post("/query", response_model=QueryResponse)
         async def handler(
             payload: QueryRequest,
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> QueryResponse:
-            """Handle the request and return the response model."""
-            if not _query_request_has_flags(payload):
+            if not query_request_has_flags(payload):
                 return await app_service.query(token=token, question=payload.question)
             return await app_service.query_with_flags(
                 token=token,
@@ -634,51 +623,16 @@ class RouteGroup:
                 top_k=payload.top_k,
             )
 
-        return handler
-
-    def _ingest_async(self) -> Callable[..., Any]:
-        """Queue a document for asynchronous ingestion."""
-
-        @self.router.post("/ingest/async")
-        async def handler(
-            request: Request,
-            file: Annotated[UploadFile, File(...)],
-            company: Annotated[str | None, Form(default=None)],
-            token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
-        ) -> dict[str, str]:
-            """Handle the request and return the response model."""
-            enforce_upload_limit(request, app_service.container)
-            content = await file.read()
-            enforce_upload_limit(request, app_service.container, payload=content)
-            background = request.app.state.background_ingestion
-            job_id = background.submit(
-                app_service.upload_document,
-                token=token,
-                filename=file.filename or "upload.pdf",
-                content=content,
-                company=company,
-            )
-            return {"job_id": job_id}
-
-        return handler
-
-    # ----- v1: streaming ----------------------------------------------
-
-    def _query_stream(self) -> Callable[..., Any]:
-        """Stream agent / planner events as Server-Sent Events."""
-
+    def __register_stream(self) -> None:
         @self.router.post("/query/stream")
         def handler(
             payload: QueryRequest,
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> StreamingResponse:
-            """Handle the request and return the response model."""
             resolved_tools = set(payload.tools_enabled) if payload.tools_enabled else set()
 
             async def gen() -> AsyncIterator[bytes]:
-                """Yield SSE events for one streamed query."""
                 yield Sse.comment("raghub-query-stream")
                 user, _ = await app_service.auth_svc.resolve_user(token)
                 rag = app_service.container.rag_facade
@@ -703,18 +657,13 @@ class RouteGroup:
 
             return StreamingResponse(gen(), media_type="text/event-stream")
 
-        return handler
-
-    def _agent_run(self) -> Callable[..., Any]:
-        """Run the agent end-to-end and return the full :class:`QueryResponse`."""
-
+    def __register_agent_run(self) -> None:
         @self.router.post("/agent/run", response_model=QueryResponse)
         async def handler(
             payload: QueryRequest,
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> QueryResponse:
-            """Handle the request and return the response model."""
             return await app_service.query_with_flags(
                 token=token,
                 question=payload.question,
@@ -730,47 +679,42 @@ class RouteGroup:
                 top_k=payload.top_k,
             )
 
-        return handler
 
-    # ----- v1/admin ---------------------------------------------------
+class AdminRouter:
+    """Admin-only endpoints mounted under ``/admin``."""
 
-    def _admin_documents(self) -> Callable[..., Any]:
-        """Admin-only: list every document in the registry."""
+    router: APIRouter
 
-        @self.admin_router.get("/documents")
+    def __init__(self) -> None:
+        self.router = APIRouter(prefix="/admin", tags=["admin"])
+        self.__register_documents()
+        self.__register_users()
+        self.__register_stats()
+
+    def __register_documents(self) -> None:
+        @self.router.get("/documents")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> list[dict[str, Any]]:
-            """Handle the request and return the response model."""
             docs = await app_service.container.uow.document_repo.list_all()
             return [doc.model_dump(mode="json") for doc in docs]
 
-        return handler
-
-    def _admin_users(self) -> Callable[..., Any]:
-        """Admin-only: list every user in the user store (sensitive fields redacted)."""
-
-        @self.admin_router.get("/users")
+    def __register_users(self) -> None:
+        @self.router.get("/users")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> list[dict[str, Any]]:
-            """Handle the request and return the response model."""
             users = await app_service.container.user_store.list_users()
             return [Redaction.user(user.model_dump(mode="json")) for user in users]
 
-        return handler
-
-    def _admin_stats(self) -> Callable[..., Any]:
-        """Admin-only: high-level system counters."""
-
-        @self.admin_router.get("/stats")
+    def __register_stats(self) -> None:
+        @self.router.get("/stats")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, Any]:
-            """Handle the request and return the response model."""
             docs = await app_service.container.uow.document_repo.list_all()
             users = await app_service.container.user_store.list_users()
             vector_health = app_service.container.vector_store.health()
@@ -782,14 +726,20 @@ class RouteGroup:
                 "vector_store_size": vector_health.get("size", "unknown"),
             }
 
-        return handler
 
-    # ----- v1/users/me/preferences ------------------------------------
+class PreferencesRouter:
+    """Per-user preferences endpoints."""
 
-    def _preferences_get(self) -> Callable[..., Any]:
-        """Return every stored preference for the authenticated user."""
+    router: APIRouter
 
-        @self.preferences_router.get(
+    def __init__(self) -> None:
+        self.router = APIRouter()
+        self.__register_get()
+        self.__register_patch()
+        self.__register_delete()
+
+    def __register_get(self) -> None:
+        @self.router.get(
             "/users/me/preferences",
             response_model=PreferencesResponse,
         )
@@ -797,18 +747,13 @@ class RouteGroup:
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> PreferencesResponse:
-            """Handle the request and return the response model."""
             user_id = await Auth.user_id(app_service, token)
             store = user_store_or_503(app_service)
             prefs = await store.get_prefs(user_id)
             return PreferencesResponse(prefs=prefs or {})
 
-        return handler
-
-    def _preferences_patch(self) -> Callable[..., Any]:
-        """Upsert one or more preferences for the authenticated user."""
-
-        @self.preferences_router.patch(
+    def __register_patch(self) -> None:
+        @self.router.patch(
             "/users/me/preferences",
             response_model=PreferencesResponse,
         )
@@ -817,19 +762,14 @@ class RouteGroup:
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> PreferencesResponse:
-            """Handle the request and return the response model."""
             user_id = await Auth.user_id(app_service, token)
             store = user_store_or_503(app_service)
             await store.set_prefs(user_id, dict(payload.prefs or {}))
             prefs = await store.get_prefs(user_id)
             return PreferencesResponse(prefs=prefs or {})
 
-        return handler
-
-    def _preferences_delete(self) -> Callable[..., Any]:
-        """Delete a single preference by key."""
-
-        @self.preferences_router.delete(
+    def __register_delete(self) -> None:
+        @self.router.delete(
             "/users/me/preferences/{key}",
             status_code=204,
         )
@@ -838,44 +778,36 @@ class RouteGroup:
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> None:
-            """Handle the request and return the response model."""
             user_id = await Auth.user_id(app_service, token)
             store = user_store_or_503(app_service)
             await store.delete_pref(user_id, key)
 
-        return handler
 
-    # ----- wiring -----------------------------------------------------
+class RouteGroup:
+    """Compose the six focused routers under the ``/v1`` prefix.
 
-    def build(self) -> None:
-        """Decorate every route on the three routers.
+    Attributes:
+        router: The :class:`APIRouter` carrying the v1 routes.
+        admin_router: The :class:`APIRouter` mounted under
+            ``/v1/admin`` for admin-only endpoints.
+        preferences_router: The :class:`APIRouter` mounted under
+            ``/v1`` for the per-user preferences endpoints.
 
-        Called once from :meth:`__init__`. Public so that tests can
-        re-decorate on a fresh router if they need to.
-        """
-        for builder in (
-                    self._health,
-            self._login,
-            self._logout,
-            self._session_history,
-            self._clear_history,
-            self._upload_document,
-            self._ingest_documents_batch,
-            self._list_documents,
-            self._document_status,
-            self._delete_document,
-            self._query,
-            self._ingest_async,
-            self._query_stream,
-            self._agent_run,
-            self._admin_documents,
-            self._admin_users,
-            self._admin_stats,
-            self._preferences_get,
-            self._preferences_patch,
-            self._preferences_delete,
-        ):
-            builder()
+    """
+
+    def __init__(self) -> None:
+        """Construct the six routers and compose them."""
+        health = HealthRouter()
+        auth = AuthRouter()
+        documents = DocumentRouter()
+        query = QueryRouter()
+        admin = AdminRouter()
+        preferences = PreferencesRouter()
+        self.router = APIRouter()
+        for sub in (health.router, auth.router, documents.router, query.router):
+            self.router.include_router(sub)
+        self.admin_router = admin.router
+        self.preferences_router = preferences.router
 
     def register_all(self, app: FastAPI, prefix: str) -> None:
         """Mount the v1, admin, and preferences routers under ``prefix``.
@@ -963,11 +895,6 @@ def create_app(application: Facade) -> FastAPI:
         title=title, version=version, description=description, lifespan=Lifespan(application)
     )
     app.state.application = application
-
-    metrics = getattr(application.container, "metrics", None)
-    register = getattr(metrics, "register_app", None)
-    if callable(register):
-        register(app)
 
     app.state.background_ingestion = Batch(max_workers=2)
 

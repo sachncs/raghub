@@ -20,7 +20,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from raghub.embedder import Hasher
+from raghub.embedder import FeatureHashingEmbedder
 from raghub.ingest import Batch
 from raghub.pipeline import Cache
 
@@ -99,8 +99,9 @@ class TestCorsStartupGuard:
     def test_wildcard_origin_with_credentials_rejected(self) -> None:
         """Wildcard origins must be refused when allow_credentials is True."""
         from raghub.api import validate_cors
+        from raghub.errors import ConfigurationError
 
-        with pytest.raises(RuntimeError, match="incompatible with allow_credentials"):
+        with pytest.raises(ConfigurationError, match="incompatible with allow_credentials"):
             validate_cors(["*"])
 
     def test_explicit_origins_accepted(self) -> None:
@@ -293,7 +294,7 @@ class TestQueryPipelineHistoryPropagation:
         from raghub.models import PipelineCtx, Turn
         from raghub.pipeline import QueryPipeline
 
-        embedder = Hasher(dimension=4, model_name="test")
+        embedder = FeatureHashingEmbedder(dimension=4, model_name="test")
         vector_store = _VectorStoreStub()
         # Seed the store with one chunk so the query returns a hit.
         from raghub.models import Chunk

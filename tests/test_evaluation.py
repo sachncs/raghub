@@ -590,13 +590,13 @@ def test_financebench_cli_empty_examples(monkeypatch: pytest.MonkeyPatch) -> Non
     from raghub.eval import Finance
 
     class _EmptyFinance(Finance):
-        async def ensure_examples(self) -> list[dict[str, Any]]:
+        def ensure_examples(self) -> list[dict[str, Any]]:
             return []
 
     runner = CliRunner()
     monkeypatch.setattr(ev_module, "Finance", _EmptyFinance)
     result = runner.invoke(ev_module.app, ["financebench", "--examples", "0"])
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["summary"]["benchmark"] == "financebench"
     assert payload["summary"]["count"] == 0

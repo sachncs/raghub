@@ -3,7 +3,7 @@
 This module ships:
 
 * :class:`Embedder` — abstract base class.
-* :class:`Hasher` — zero-dependency deterministic
+* :class:`FeatureHashingEmbedder` — zero-dependency deterministic
   embedder backed by feature hashing.
 * :class:`LiteLLMEmbedder` — production embedder, backed by
   LiteLLM (any provider: OpenAI, NVIDIA, Cohere, Bedrock, …).
@@ -25,15 +25,10 @@ from raghub.errors import ConfigurationError
 
 __all__ = [
     "Embedder",
-    "Hasher",
+    "FeatureHashingEmbedder",
     "LiteLLMEmbedder",
     "build_embedder",
 ]
-
-# Module-level flag retained so existing tests that patch
-# ``raghub.embeddings.LITELLM_AVAILABLE = False`` can simulate a
-# missing optional dependency even though the package is now required.
-LITELLM_AVAILABLE = True
 
 
 class Embedder(ABC):
@@ -76,7 +71,7 @@ class Embedder(ABC):
         return [self.embed_text(text) for text in texts]
 
 
-class Hasher(Embedder):
+class FeatureHashingEmbedder(Embedder):
     """Feature-hashing embedder producing deterministic L2-normalised vectors.
 
     The provider hashes each whitespace-delimited, lower-cased token into a
@@ -175,12 +170,7 @@ class LiteLLMEmbedder(Embedder):
             api_key: Optional API key override.
             api_base: Optional API base override.
 
-        Raises:
-            ConfigurationError: When ``litellm`` is not installed.
-
         """
-        if not LITELLM_AVAILABLE:
-            raise ConfigurationError("litellm is not installed; run `pip install litellm`.")
         self.model_name = model
         self.api_key = api_key
         self.api_base = api_base
@@ -246,7 +236,7 @@ def build_embedder(
     """
     name = (model_name or "").lower().strip()
     if "hashing" in name:
-        return Hasher(dimension=dimension, model_name=model_name)
+        return FeatureHashingEmbedder(dimension=dimension, model_name=model_name)
     needs_remote = "litellm" in name or any(
         name.startswith(prefix)
         for prefix in (
@@ -272,7 +262,7 @@ def build_embedder(
         )
         if creds_present:
             return LiteLLMEmbedder(model=model_name, api_key=api_key)
-        return Hasher(dimension=dimension, model_name=model_name)
+        return FeatureHashingEmbedder(dimension=dimension, model_name=model_name)
     raise ConfigurationError(
         f"Unknown embedding model {model_name!r}. "
         "Use a LiteLLM model (e.g. 'openai/text-embedding-3-small', "

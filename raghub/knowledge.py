@@ -21,6 +21,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
 
+from raghub.await_sync import capture
 from raghub.embedder import Embedder
 from raghub.errors import KnowledgeError
 from raghub.llm import GenerationRequest, Generator
@@ -33,7 +34,6 @@ from raghub.models import (
     Hit,
     KnowledgeRepository,
 )
-from raghub.utils import capture
 
 __all__ = [
     "GraphIndex",
@@ -414,15 +414,25 @@ class Raptor(KnowledgeIndex):
         chunks: list[Chunk],
         vectors: list[list[float]],
     ) -> None:
-        """Add a batch of chunks to the leaf level."""
+        """Add a batch of chunks to the leaf level.
+
+        Existing leaves are preserved; incoming chunks are appended
+        and deduped by id. Callers that want a fresh tree should
+        create a new :class:`Raptor` instance; this method is the
+        additive path used by the ingest pipeline.
+        """
         if not chunks:
             return
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors must be parallel")
-        leaves: list[Chunk] = []
+        leaves: list[Chunk] = list(self.levels[0]) if self.levels else []
+        existing_ids = {rec.id for rec in leaves}
         for chunk, vector in zip(chunks, vectors, strict=True):
+            if chunk.id in existing_ids:
+                continue
             record = chunk_to_record(chunk, vector, level=0)
             leaves.append(record)
+            existing_ids.add(chunk.id)
         self.levels = [leaves]
         self.lock_token += 1
         self.rebuild_tree()
@@ -747,7 +757,7 @@ class GraphIndex(KnowledgeIndex):
         """Drop every entity / triple tied to chunks of ``document_id``."""
         to_drop: set[str] = set()
         for chunk_id, record in list(self.chunks.items()):
-            if record.id == document_id:
+            if record.document_id == document_id:
                 del self.chunks[chunk_id]
                 to_drop.add(chunk_id)
         removed = len(to_drop)

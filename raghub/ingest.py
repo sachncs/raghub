@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from raghub.await_sync import capture
 from raghub.embedder import Embedder
 from raghub.errors import (
     ConfigurationError,
@@ -66,7 +67,6 @@ from raghub.models import (
 )
 from raghub.pipeline import Ingest
 from raghub.repos import UnitOfWork
-from raghub.utils import capture
 
 __all__ = [
     "Batch",
@@ -87,7 +87,7 @@ CHONKIE_AVAILABLE = OptionalImportError is None
 CHONKIE_MODULE = chonkie if CHONKIE_AVAILABLE else None
 
 
-class RAGHubGenie:
+class ChonkieGenieAdapter:
     """Adapter bridging raghub's LLMProvider to chonkie's Genie interface."""
 
     def __init__(self, llm_provider: Any) -> None:
@@ -188,7 +188,7 @@ def build_chonkie_inner(
     auto_probe = ("RecursiveChunker", "TokenChunker", "SentenceChunker")
 
     if chunker_name == "auto":
-        return _auto_select_chunker(
+        return auto_select_chunker(
             auto_probe=auto_probe,
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
@@ -216,7 +216,7 @@ def build_chonkie_inner(
     ) from initialization_error
 
 
-def _auto_select_chunker(
+def auto_select_chunker(
     *,
     auto_probe: tuple[str, ...],
     chunk_size: int,
@@ -293,7 +293,7 @@ class Chonkie(Chunker):
                 raise ConfigurationError(
                     "SlumberChunker requires an LLM provider; pass llm_provider="
                 )
-            genie = RAGHubGenie(llm_provider)
+            genie = ChonkieGenieAdapter(llm_provider)
 
         self.inner = build_chonkie_inner(
             chunk_size=chunk_size,
@@ -795,6 +795,7 @@ class Ingestor:
 # ---------------------------------------------------------------------------
 
 
+@dataclass(slots=True)
 class Job:
     """Lightweight value object tracking a single ingestion task.
 
@@ -805,32 +806,22 @@ class Job:
         result: The callable's return value on success, the stringified
             exception on failure, or ``None`` while pending.
         target: Optional owning document id (Phase 1.7.15 contract).
-        state: Lifecycle state enum (Phase 1.7.15 contract).
 
     """
 
     VALID_STATUSES = ("pending", "processing", "completed", "failed")
 
-    def __init__(
-        self,
-        job_id: str,
-        status: str = "pending",
-        result: Any = None,
-        target: str | None = None,
-    ) -> None:
-        """Initialise the job record.
+    job_id: str
+    status: str = "pending"
+    result: Any = None
+    target: str | None = None
 
-        Args:
-            job_id: Stable identifier returned by :meth:`submit`.
-            status: Lifecycle status; defaults to ``"pending"``.
-            result: Optional callable result.
-            target: Optional owning document id.
-
-        """
-        self.job_id = job_id
-        self.status = status
-        self.result = result
-        self.target = target
+    def __post_init__(self) -> None:
+        """Validate the Job's lifecycle status against :attr:`VALID_STATUSES`."""
+        if self.status not in self.VALID_STATUSES:
+            raise ValueError(
+                f"Job: status {self.status!r} not in {self.VALID_STATUSES}"
+            )
 
     def verify(self) -> None:
         """Assert the Job's invariant contract.

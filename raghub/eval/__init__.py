@@ -30,10 +30,10 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
+from raghub.await_sync import capture
 from raghub.errors import ConfigurationError, EvaluationError
 from raghub.llm import GenerationRequest
 from raghub.models import Evaluator, Result
-from raghub.utils import capture
 
 TOKEN_RE = re.compile(r"\w+")
 
@@ -720,8 +720,8 @@ async def evaluate(
     for idx, (example, out) in enumerate(zip(rows, outs, strict=True)):
         question = example.get("question") or example.get("query") or ""
         gold = example.get("answer") or example.get("evidence_text") or ""
-        contexts: list[str] = []
-        retrieved_ids: list[str] = []
+        contexts: list[str] | None = None
+        retrieved_ids: list[str] | None = None
         relevant_ids: list[str] = list(example.get("relevant_ids", [])) or [
             str(example.get("id", idx))
         ]
@@ -733,8 +733,8 @@ async def evaluate(
         overlap = Scoring.jaccard(str(predicted), str(gold))
         numeric = Metrics.within_tolerance(str(predicted), str(gold), tolerance)
         metrics = {"token_overlap": overlap, "within_tolerance": numeric}
-        # Add retrieval-quality metrics when the response
-        # factory returned the tuple form.
+        # Add retrieval-quality metrics only when the response
+        # factory returned the structured tuple form.
         if contexts is not None and retrieved_ids is not None:
             retrieval_metrics = Metrics.evaluate(
                 retrieved_ids=retrieved_ids,

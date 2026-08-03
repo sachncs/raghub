@@ -61,14 +61,18 @@ def test_cors_origins_splits_csv(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_validate_cors_raises_on_wildcard() -> None:
     """validate_cors refuses ``'*'`` because allow_credentials=True forbids it."""
 
-    with pytest.raises(RuntimeError, match="CORS_ORIGINS='\\*'"):
+    from raghub.errors import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match="CORS_ORIGINS='\\*'"):
         validate_cors(["*"])
 
 
 def test_validate_cors_raises_when_list_contains_wildcard() -> None:
     """validate_cors rejects ``'*'`` even when other origins are present."""
 
-    with pytest.raises(RuntimeError, match="CORS_ORIGINS='\\*'"):
+    from raghub.errors import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match="CORS_ORIGINS='\\*'"):
         validate_cors(["https://a.example", "*"])
 
 
@@ -743,9 +747,11 @@ def test_token_bucket_admits_under_burst() -> None:
 
     bucket = TokenBucket(rate=1.0, burst=3)
     for _ in range(3):
-        assert bucket.allow("k") is True
+        admitted, _ = bucket.allow("k")
+        assert admitted is True
     # 4th hits the empty bucket (no time has elapsed for refill).
-    assert bucket.allow("k") is False
+    admitted, _ = bucket.allow("k")
+    assert admitted is False
 
 
 def test_token_bucket_refills_over_time() -> None:
@@ -756,11 +762,15 @@ def test_token_bucket_refills_over_time() -> None:
     from raghub.api_ratelimit import TokenBucket
 
     bucket = TokenBucket(rate=100.0, burst=2)
-    assert bucket.allow("k") is True
-    assert bucket.allow("k") is True
-    assert bucket.allow("k") is False
+    admitted, _ = bucket.allow("k")
+    assert admitted is True
+    admitted, _ = bucket.allow("k")
+    assert admitted is True
+    admitted, _ = bucket.allow("k")
+    assert admitted is False
     time.sleep(0.05)
-    assert bucket.allow("k") is True
+    admitted, _ = bucket.allow("k")
+    assert admitted is True
 
 
 def test_token_bucket_keys_are_independent() -> None:
@@ -769,10 +779,13 @@ def test_token_bucket_keys_are_independent() -> None:
     from raghub.api_ratelimit import TokenBucket
 
     bucket = TokenBucket(rate=0.1, burst=1)
-    assert bucket.allow("a") is True
-    assert bucket.allow("a") is False
+    admitted, _ = bucket.allow("a")
+    assert admitted is True
+    admitted, _ = bucket.allow("a")
+    assert admitted is False
     # Different key starts fresh.
-    assert bucket.allow("b") is True
+    admitted, _ = bucket.allow("b")
+    assert admitted is True
 
 
 @pytest.mark.asyncio

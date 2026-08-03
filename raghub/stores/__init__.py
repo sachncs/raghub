@@ -38,15 +38,16 @@ from uuid import uuid4
 
 from tqdm import tqdm
 
+from raghub.await_sync import capture
 from raghub.domain import DatabaseManager
 from raghub.errors import AuthenticationError, MissingDepError, RagHubError
+from raghub.io import atomic_write_json, load_json
 from raghub.models import (
     Document,
     DocumentLifecycleStatus,
     Session,
     Turn,
 )
-from raghub.utils import atomic_write_json, capture, load_json
 
 
 def __keyed(row: Any) -> bool:
@@ -59,6 +60,20 @@ def __keyed(row: Any) -> bool:
     except ImportError:
         return False
     return isinstance(row, aiosqlite.Row)
+
+
+def serialize_overrides(overrides: dict[str, Any] | None) -> str:
+    """Serialize a session's overrides mapping for SQLite persistence.
+
+    Args:
+        overrides: The mapping; ``None`` and empty mappings both
+            serialise to the JSON object string ``"{}"``.
+
+    Returns:
+        A JSON string suitable for an SQLite TEXT column.
+
+    """
+    return json.dumps(overrides or {})
 
 
 SQLITE_SCHEMA = """
@@ -607,7 +622,7 @@ class Sessions:
                 session.expires_at.isoformat(),
                 session.last_seen_at.isoformat(),
                 json.dumps([t.model_dump(mode="json") for t in session.history]),
-                json.dumps(session.overrides or {}),
+                serialize_overrides(session.overrides),
             ),
         )
         await self.maybe_commit_close(conn)
@@ -639,7 +654,7 @@ class Sessions:
                 session.expires_at.isoformat(),
                 session.last_seen_at.isoformat(),
                 json.dumps([]),
-                json.dumps(session.overrides or {}),
+                serialize_overrides(session.overrides),
             ),
         )
         await self.maybe_commit_close(conn)
@@ -684,7 +699,7 @@ class Sessions:
                 session.last_seen_at.isoformat(),
                 session.expires_at.isoformat(),
                 json.dumps([t.model_dump(mode="json") for t in session.history]),
-                json.dumps(session.overrides or {}),
+                serialize_overrides(session.overrides),
                 session.id,
             ),
         )
@@ -708,7 +723,7 @@ class Sessions:
                 session.expires_at.isoformat(),
                 session.last_seen_at.isoformat(),
                 json.dumps([t.model_dump(mode="json") for t in session.history]),
-                json.dumps(session.overrides or {}),
+                serialize_overrides(session.overrides),
                 session.id,
             ),
         )
@@ -746,7 +761,7 @@ class Sessions:
             return
         await conn.execute(
             "UPDATE sessions SET overrides = ? WHERE session_id = ?",
-            (json.dumps(overrides or {}), session_id),
+            (serialize_overrides(overrides), session_id),
         )
         await self.maybe_commit_close(conn)
 

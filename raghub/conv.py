@@ -3,15 +3,15 @@
 Three coordinated classes that handle every conversation-history
 concern of the framework:
 
-* :class:`ConversationManager` — the canonical, SQLite-backed
+* :class:`ConversationHistory` — the canonical, SQLite-backed
   session-history facade. Owns session creation, append/load/clear,
   re-trim, and per-session tool/agent overrides.
-* :class:`SlidingWindowManager` — token-aware trimmer that keeps the
+* :class:`SlidingWindowTrimmer` — token-aware trimmer that keeps the
   newest contiguous slice of a history that fits within a budget.
   Optional ``gigatoken`` dependency; falls back to whitespace counting
   when unavailable.
 * :class:`Memory` — a thread-safe in-process
-  alternative to :class:`ConversationManager` for callers that do
+  alternative to :class:`ConversationHistory` for callers that do
   not want the SQLite dependency.
 """
 
@@ -66,7 +66,7 @@ class Tokenizer:
             return None
 
 
-class SlidingWindowManager:
+class SlidingWindowTrimmer:
     """Trim a :class:`Turn` history to fit within a token budget.
 
     The manager optionally uses ``tiktoken`` (``cl100k_base``) for accurate
@@ -156,7 +156,7 @@ class SlidingWindowManager:
         return trimmed
 
 
-class ConversationManager:
+class ConversationHistory:
     """High-level conversation-history operations.
 
     Attributes:
@@ -175,7 +175,7 @@ class ConversationManager:
 
         """
         self.uow = uow
-        self.sliding_window = SlidingWindowManager(max_tokens=max_tokens)
+        self.sliding_window = SlidingWindowTrimmer(max_tokens=max_tokens)
 
     async def build(self, user_id: str) -> Session:
         """Create a fresh session for ``user_id`` and persist it.
@@ -195,7 +195,7 @@ class ConversationManager:
             }
         )
         await self.uow.session_repo.save(record)
-        return SessionWrap(record)  # type: ignore[call-arg,arg-type]
+        return SessionWrap(record)
 
     async def resolve(self, token: str) -> Session | None:
         """Resolve a session token to a :class:`Session`.
@@ -210,7 +210,7 @@ class ConversationManager:
         record = await self.uow.session_repo.get_by_token(token)
         if record is None:
             return None
-        return SessionWrap(record)  # type: ignore[call-arg,arg-type]
+        return SessionWrap(record)
 
     async def append(
         self,
@@ -315,7 +315,7 @@ class ConversationManager:
             return []
         history = list(record.history)
         if max_tokens is not None:
-            trimmed = SlidingWindowManager(max_tokens=max_tokens).trim(history)
+            trimmed = SlidingWindowTrimmer(max_tokens=max_tokens).trim(history)
         else:
             trimmed = self.sliding_window.trim(history)
         record.history.clear()

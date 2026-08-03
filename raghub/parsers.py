@@ -15,6 +15,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from raghub.await_sync import capture
 from raghub.errors import MissingDepError
 from raghub.lifecycle import (
     ChunkingPlan,
@@ -24,7 +25,6 @@ from raghub.lifecycle import (
     normalize_text,
     validate_upload,
 )
-from raghub.utils import capture
 
 __all__ = [
     "HTML",

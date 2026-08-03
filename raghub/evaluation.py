@@ -14,7 +14,7 @@ from typing import Any
 import typer
 
 from raghub.eval import Finance, Frames, run
-from raghub.utils import write_json
+from raghub.io import write_json
 
 __all__ = ["financebench", "frames"]
 
@@ -31,8 +31,10 @@ def financebench(
         """Build examples, run the evaluator, and write the JSON summary."""
         evaluator = Finance()
         examples_list: list[dict[str, Any]] = []
-        if examples:
-            rows = await asyncio.to_thread(evaluator.ensure_examples)
+        rows = await asyncio.to_thread(evaluator.ensure_examples)
+        if examples == 0:
+            examples_list.extend(rows)
+        elif examples:
             examples_list.extend(rows[:examples])
 
         async def factory(_example: object) -> str:

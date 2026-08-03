@@ -1,29 +1,23 @@
 """Observability and telemetry surface.
 
-The framework ships four interoperable telemetry layers in a single
+The framework ships three interoperable telemetry layers in a single
 module:
 
 * :class:`LangfuseTelemetryProvider` — v3 Langfuse adapter (the spec
   default). When ``langfuse`` is not installed or no credentials are
   configured, every method silently no-ops so the framework keeps
   running without telemetry.
-* :class:`LoguruTelemetryProvider` — loguru + Prometheus adapter
-  for users who prefer in-process observability without a remote
-  service.
+* :class:`LoguruTelemetryProvider` — loguru adapter for users who
+  prefer in-process logging without a remote service.
 * :class:`NoOpTelemetry` — silent default satisfying the
-  :class:`the telemetry provider protocol` contract
-  with zero I/O.
+  :class:`TelemetryProvider` contract with zero I/O.
 * :class:`RedactingTelemetry` — wraps another provider and scrubs
   kwargs whose keys look like secrets before forwarding.
 
-Spans, metrics, and tracer primitives also live here:
+Spans and tracer primitives also live here:
 
 * :class:`NoopSpan` / :class:`LangfuseSpan` — span implementations.
 * :class:`LoguruSpan` — span that records duration into metrics.
-* :class:`PrometheusMetrics` / :class:`NullMetrics` — metrics
-  recorder + drop-all fallback.
-* :class:`MetricsRegistry` — process-wide holder replacing the
-  previous module-level singleton.
 * :class:`Tracer` — OpenTelemetry tracer with FastAPI auto-instrumentation.
 * :class:`SafeConsoleSpanExporter` — stdout-safe OTel exporter.
 * :func:`build_logger` / :func:`scrub_secrets` / :func:`redact_record` —
@@ -43,25 +37,20 @@ import sys
 import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar
 
 from loguru import logger as loguru_logger
-from prometheus_client import REGISTRY, CollectorRegistry, Counter, Histogram
-from prometheus_client.openmetrics.exposition import generate_latest
 
+from raghub.await_sync import capture
 from raghub.errors import ConfigurationError, MissingDepError
-from raghub.models import Logger, Metrics, Span, TelemetryProvider
-from raghub.utils import capture
+from raghub.models import Logger, Span, TelemetryProvider
 
 T = TypeVar("T")
 
 __all__ = [
-    "DEFAULT_METRICS_REGISTRY",
     "LangfuseTelemetryProvider",
     "LoguruTelemetryProvider",
-    "MetricsRegistry",
     "NoOpTelemetry",
-    "PrometheusMetrics",
     "RedactingTelemetry",
     "build_logger",
 ]
@@ -87,275 +76,6 @@ SECRET_KEY_RE = re.compile(
     r"(?i)(password|passwd|secret|api_key|apikey|access_token|refresh_token|jwt|authorization)"
 )
 
-known_collectors: dict[str, object] = {}
-
-
-class MetricsRegistry:
-    """Process-wide holder for the active :class:`PrometheusMetrics`.
-
-    Hot-path helpers (:func:`record_rerank_latency`,
-    :func:`record_long_context`) delegate to :meth:`current`; the
-    facade calls :meth:`set` once during construction.
-
-    Attributes:
-        instance: The currently-registered :class:`PrometheusMetrics`
-            (or ``None`` when nothing is registered).
-
-    """
-
-    def __init__(self) -> None:
-        """Initialise the registry with no instance registered."""
-        self.instance: PrometheusMetrics | None = None
-
-    def set(self, value: PrometheusMetrics | None) -> None:
-        """Register the active metrics instance for this process.
-
-        Args:
-            value: The :class:`PrometheusMetrics` to expose to
-                hot-path callers, or ``None`` to clear the registry.
-
-        """
-        self.instance = value
-
-    def current(self) -> PrometheusMetrics | None:
-        """Return the currently-registered instance, or ``None``."""
-        return self.instance
-
-    def is_available(self) -> bool:
-        """Return ``True`` when an instance is registered."""
-        return self.instance is not None
-
-
-DEFAULT_METRICS_REGISTRY = MetricsRegistry()
-
-
-class NullMetrics:
-    """Metrics recorder that drops every call.
-
-    Useful in tests and minimal contexts where Prometheus' global
-    REGISTRY would otherwise leak state between runs.
-    """
-
-    @staticmethod
-    def record_latency(name: str, value_ms: float, **labels: Any) -> None:
-        """Discard a latency record.
-
-        Args:
-            name: Latency metric name (ignored).
-            value_ms: Latency in milliseconds (ignored).
-            **labels: Optional label set (ignored).
-
-        """
-        return None
-
-    @staticmethod
-    def increment(name: str, value: int = 1, **labels: Any) -> None:
-        """Discard a counter increment.
-
-        Args:
-            name: Counter name (ignored).
-            value: Increment amount (ignored).
-            **labels: Optional label set (ignored).
-
-        """
-        return None
-
-
-class PrometheusMetrics:
-    """Prometheus-backed metrics with idempotent metric registration.
-
-    The class is safe to instantiate multiple times (e.g. across
-    FastAPI reloads) because every metric is registered through
-    helper functions that consult the global ``REGISTRY`` first.
-
-    Attributes:
-        query_duration: Histogram of query durations in milliseconds.
-        ingestion_duration: Histogram of ingestion durations in ms.
-        auth_duration: Histogram of auth call durations in ms.
-        auth_total: Counter of auth attempts labelled by success.
-        error_total: Counter of errors labelled by ``error_type``.
-
-    """
-
-    def __init__(self, app: Any | None = None) -> None:
-        """Register metrics and (optionally) the FastAPI ``/metrics`` route.
-
-        Args:
-            app: Optional FastAPI app. When provided, ``/metrics``
-                is registered and serves the OpenMetrics exposition
-                format.
-
-        """
-
-        def collector_registered(name: str) -> bool:
-            """Return True when a metric named ``name`` has been registered."""
-            public_name = name.removesuffix("_total")
-            return any(metric.name == public_name for metric in REGISTRY.collect())
-
-        def safe_histogram(name: str, desc: str, buckets: list[float]) -> Histogram:
-            """Return a histogram by name; create and register on first use."""
-            existing = known_collectors.get(name)
-            if (
-                existing is not None
-                and isinstance(existing, Histogram)
-                and collector_registered(name)
-            ):
-                return existing
-            collector = Histogram(name, desc, buckets=buckets, registry=REGISTRY)
-            known_collectors[name] = collector
-            return collector
-
-        def safe_counter(name: str, desc: str, labels: list[str] | None = None) -> Counter:
-            """Return a counter by name; create and register on first use."""
-            existing = known_collectors.get(name)
-            if (
-                existing is not None
-                and isinstance(existing, Counter)
-                and collector_registered(name)
-            ):
-                return existing
-            collector = Counter(name, desc, labels or [], registry=REGISTRY)
-            known_collectors[name] = collector
-            return collector
-
-        self.query_duration: Histogram = safe_histogram(
-            "raghub_query_duration_ms",
-            "Query execution duration in milliseconds",
-            [10, 50, 100, 250, 500, 1000, 2500, 5000],
-        )
-        self.ingestion_duration: Histogram = safe_histogram(
-            "raghub_ingestion_duration_ms",
-            "Ingestion duration in milliseconds",
-            [50, 100, 250, 500, 1000, 2500, 5000, 10000],
-        )
-        self.auth_duration: Histogram = safe_histogram(
-            "raghub_auth_duration_ms",
-            "Authentication duration in milliseconds",
-            [5, 10, 25, 50, 100, 250, 500],
-        )
-        self.auth_total: Counter = safe_counter(
-            "raghub_auth_total",
-            "Total authentication attempts",
-            ["success"],
-        )
-        self.error_total: Counter = safe_counter(
-            "raghub_error_total",
-            "Total errors",
-            ["error_type"],
-        )
-        self.prompt_tokens: Counter = safe_counter(
-            "raghub_prompt_tokens_total",
-            "Total prompt tokens",
-            ["model"],
-        )
-        self.completion_tokens: Counter = safe_counter(
-            "raghub_completion_tokens_total",
-            "Total completion tokens",
-            ["model"],
-        )
-        self.rerank_latency: Histogram = safe_histogram(
-            "raghub_rerank_latency_seconds",
-            "Reranker wall-clock latency in seconds",
-            [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
-        )
-        self.long_context_pass: Counter = safe_counter(
-            "raghub_long_context_pass_used_total",
-            "Long-context second-pass rerank invocations",
-            ["outcome"],
-        )
-        if app is not None:
-            self.register_app(app)
-
-    def record_query(self, duration_ms: float, top_k: int) -> None:
-        """Record a query duration observation.
-
-        Args:
-            duration_ms: Query duration in milliseconds.
-            top_k: Requested top-k value (currently not exported as a
-                label).
-
-        """
-        self.query_duration.observe(duration_ms)
-
-    def record_ingestion(self, duration_ms: float, chunk_count: int) -> None:
-        """Record an ingestion duration observation.
-
-        Args:
-            duration_ms: Ingestion duration in milliseconds.
-            chunk_count: Number of chunks produced (currently not
-                exported as a label; retained for forward
-
-        """
-        self.ingestion_duration.observe(duration_ms)
-
-    def record_auth(self, duration_ms: float, success: bool) -> None:
-        """Record an authentication attempt.
-
-        Args:
-            duration_ms: Auth duration in milliseconds.
-            success: ``True`` for successful auth, ``False`` otherwise.
-
-        """
-        self.auth_duration.observe(duration_ms)
-        self.auth_total.labels(success=str(success)).inc()
-
-    def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
-        """Record latency in the matching public histogram."""
-        normalized = name.lower()
-        if "ingest" in normalized:
-            self.ingestion_duration.observe(value_ms)
-        elif "auth" in normalized:
-            self.auth_duration.observe(value_ms)
-        else:
-            self.query_duration.observe(value_ms)
-
-    def increment(self, name: str, value: int = 1, **labels: Any) -> None:
-        """Increment the matching public counter."""
-        normalized = name.lower()
-        model = str(labels.get("model", ""))
-        if normalized in {"tokens.prompt", "prompt_tokens", "prompt_tokens_total"}:
-            self.prompt_tokens.labels(model=model).inc(value)
-        elif normalized in {
-            "tokens.completion",
-            "completion_tokens",
-            "completion_tokens_total",
-        }:
-            self.completion_tokens.labels(model=model).inc(value)
-        else:
-            self.error_total.labels(error_type=name).inc(value)
-
-    def record_error(self, error_type: str) -> None:
-        """Increment the error counter for ``error_type``.
-
-        Args:
-            error_type: A short label used as the ``error_type``
-                metric dimension.
-
-        """
-        self.error_total.labels(error_type=error_type).inc()
-
-    @staticmethod
-    def register_app(app: Any) -> None:
-        """Attach a ``/metrics`` route to ``app`` when it is FastAPI.
-
-        Args:
-            app: A FastAPI application instance.
-
-        """
-        from fastapi import FastAPI
-        from fastapi.responses import Response
-
-        if isinstance(app, FastAPI):
-
-            @app.get("/metrics")
-            def metrics() -> Response:
-                """Expose Prometheus metrics in OpenMetrics text format."""
-                payload = cast(Callable[[CollectorRegistry], bytes], generate_latest)(REGISTRY)
-                return Response(
-                    content=payload,
-                    media_type="text/plain",
-                )
-
 
 def try_import_submodule(module_name: str, target_name: str) -> Any:
     """Import ``target_name`` from ``module_name``; return ``None`` on failure."""
@@ -368,60 +88,67 @@ def try_import_submodule(module_name: str, target_name: str) -> Any:
     return getattr(module, target_name, None)
 
 
-def set_active_metrics(instance: PrometheusMetrics | None) -> None:
-    """Register the process-wide :class:`PrometheusMetrics` instance.
-
-    Rerankers and other hot-path components call :func:`record_rerank_latency`
-    which needs a back-reference to the active Prometheus registry. The
-    facade calls this once during construction; rerankers read it lazily.
-
-    Args:
-        instance: The :class:`PrometheusMetrics` to expose to hot-path
-            callers, or ``None`` to clear the registry.
-
-    """
-    DEFAULT_METRICS_REGISTRY.set(instance)
-
-
 def record_rerank_latency(provider: str, seconds: float) -> None:
-    """Observe a rerank latency into the active Prometheus histogram.
+    """Record a rerank latency as a Langfuse score.
 
-    No-op when no :class:`PrometheusMetrics` is registered yet (e.g. in
-    unit tests). ``provider`` becomes the ``provider`` label.
+    Silent no-op when Langfuse is unconfigured.
 
     Args:
         provider: Provider label (e.g. ``"cohere"``).
         seconds: Latency in seconds.
 
     """
-    metrics = DEFAULT_METRICS_REGISTRY.current()
-    if metrics is None:
+    client = langfuse_client()
+    if client is None:
         return
-    histogram, error = capture(metrics.rerank_latency.labels, provider=provider)
-    if error is not None:
+    try:
+        score = getattr(client, "score", None)
+        if score is None:
+            return
+        score(name="raghub.rerank.latency", value=seconds, metadata={"provider": provider})
+    except Exception:
         return
-    histogram.observe(seconds)
 
 
 def record_long_context(*, outcome: str, seconds: float) -> None:
-    """Increment the long-context pass counter.
+    """Record a long-context second-pass event as a Langfuse score.
+
+    Silent no-op when Langfuse is unconfigured.
 
     Args:
         outcome: One of ``"ran"``, ``"skipped"``, ``"bad_json"``,
-            ``"error"``. Unknown values still increment the counter
-            under that label so the operator sees them.
-        seconds: Observed wall-clock latency (recorded only for
-            informational purposes; the metric is a counter, not a
-            histogram).
+            ``"error"``. Unknown values still recorded under that label.
+        seconds: Observed wall-clock latency in seconds.
 
     """
-    metrics = DEFAULT_METRICS_REGISTRY.current()
-    if metrics is None:
+    client = langfuse_client()
+    if client is None:
         return
-    counter, error = capture(metrics.long_context_pass.labels, outcome=outcome)
-    if error is not None:
+    try:
+        score = getattr(client, "score", None)
+        if score is None:
+            return
+        score(
+            name="raghub.long_context.duration",
+            value=seconds,
+            metadata={"outcome": outcome},
+        )
+    except Exception:
         return
-    counter.inc()
+
+
+def langfuse_client() -> Any:
+    """Return the active Langfuse client or ``None`` when not configured."""
+    if langfuse_get_client is None:
+        return None
+    public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
+    secret_key = os.getenv("LANGFUSE_SECRET_KEY")
+    if not public_key or not secret_key:
+        return None
+    try:
+        return langfuse_get_client()
+    except Exception:
+        return None
 
 
 def scrub_secrets(kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -443,24 +170,26 @@ def redact_record(record: dict[str, Any]) -> None:
     Args:
         record: The mutable loguru ``record.message`` dictionary; values
             whose key matches :data:`SECRET_KEY_RE` are replaced by
-            ``"***"``. Nested dicts are scrubbed recursively.
+            ``"***"``. Nested dicts and lists are scrubbed recursively;
+            keys at every depth are checked against the secret pattern.
 
     """
 
     def scrub(value: Any) -> Any:
-        """Recursively mask any value whose key matches the secret pattern."""
+        """Recursively mask any dict value whose key matches the secret pattern."""
         if isinstance(value, dict):
-            return {k: scrub(v) for k, v in value.items()}
+            scrubbed: dict[str, Any] = {}
+            for key, inner in value.items():
+                if SECRET_KEY_RE.search(str(key)):
+                    scrubbed[key] = "***"
+                else:
+                    scrubbed[key] = scrub(inner)
+            return scrubbed
         if isinstance(value, list):
             return [scrub(item) for item in value]
         return value
 
-    scrubbed: dict[str, Any] = {}
-    for key, value in record.items():
-        if SECRET_KEY_RE.search(str(key)):
-            scrubbed[key] = "***"
-        else:
-            scrubbed[key] = scrub(value)
+    scrubbed = scrub(record)
     record.clear()
     record.update(scrubbed)
 
@@ -532,26 +261,23 @@ class LoguruLogger(Logger):
 
 
 class LoguruSpan(Span):
-    """Span whose :meth:`end` records duration into :class:`Metrics`."""
+    """Span whose :meth:`end` logs the duration."""
 
     def __init__(
         self,
         name: str,
         logger: LoguruLogger,
-        metrics: Metrics,
         attributes: dict[str, Any],
     ) -> None:
         """Store the span's name and timing metadata."""
         self.name = name
         self.logger = logger
-        self.metrics = metrics
         self.attributes = attributes
         self.started = time.perf_counter()
 
     def end(self) -> None:
-        """Record duration into the metrics sink and log completion."""
+        """Log the span's duration on completion."""
         duration_ms = (time.perf_counter() - self.started) * 1000.0
-        self.metrics.record_latency(f"span.{self.name}", duration_ms, **self.attributes)
         self.logger.info(f"span.end.{self.name}", duration_ms=duration_ms, **self.attributes)
 
     def set_attribute(self, key: str, value: Any) -> None:
@@ -560,16 +286,18 @@ class LoguruSpan(Span):
 
 
 class LoguruTelemetryProvider(TelemetryProvider):
-    """Telemetry provider that sinks through loguru and Prometheus."""
+    """Telemetry provider that sinks through loguru.
 
-    def __init__(
-        self,
-        logger: LoguruLogger | None = None,
-        metrics: Metrics | None = None,
-    ) -> None:
-        """Build the provider with optional collaborators."""
+    Metric emission (``record_latency`` / ``increment`` /
+    ``record_tokens``) is a no-op; observability in this codebase is
+    via Langfuse. The provider still implements the full
+    :class:`TelemetryProvider` contract so it can stand in for the
+    Langfuse provider when no credentials are configured.
+    """
+
+    def __init__(self, logger: LoguruLogger | None = None) -> None:
+        """Build the provider with an optional logger override."""
         self.logger = logger or LoguruLogger()
-        self.metrics = metrics or PrometheusMetrics()
 
     def info(self, message: str, **kwargs: Any) -> None:
         """Emit an ``info``-level record."""
@@ -584,12 +312,12 @@ class LoguruTelemetryProvider(TelemetryProvider):
         self.logger.error(message, **kwargs)
 
     def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
-        """Forward a latency observation to the metrics sink."""
-        self.metrics.record_latency(name, value_ms, **labels)
+        """No-op; Langfuse absorbs metric emission when configured."""
+        return None
 
     def increment(self, name: str, value: int = 1, **labels: Any) -> None:
-        """Forward a counter increment to the metrics sink."""
-        self.metrics.increment(name, value, **labels)
+        """No-op; Langfuse absorbs metric emission when configured."""
+        return None
 
     def start_span(self, name: str, **attrs: Any) -> Span:
         """Open a new span.
@@ -602,7 +330,7 @@ class LoguruTelemetryProvider(TelemetryProvider):
             A :class:`LoguruSpan`.
 
         """
-        return LoguruSpan(name, self.logger, self.metrics, attrs)
+        return LoguruSpan(name, self.logger, attrs)
 
     @staticmethod
     def end_span(span: Span) -> None:
@@ -616,9 +344,7 @@ class LoguruTelemetryProvider(TelemetryProvider):
         completion_tokens: int,
         model: str = "",
     ) -> None:
-        """Record token usage on the dedicated token counters."""
-        self.metrics.increment("tokens.prompt", prompt_tokens, model=model)
-        self.metrics.increment("tokens.completion", completion_tokens, model=model)
+        """Log token usage; metric emission is a no-op."""
         self.logger.info(
             "tokens",
             name=name,
@@ -825,7 +551,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             pass
 
     def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
-        """Record a latency via a span.
+        """Record a latency as a Langfuse score.
 
         Args:
             name: Metric name.
@@ -833,11 +559,18 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             **labels: Optional label set.
 
         """
-        with self.span(f"latency.{name}", value_ms=value_ms, **labels):
-            pass
+        if self.client is None:
+            return
+        score = getattr(self.client, "score", None)
+        if score is None:
+            return
+        try:
+            score(name=f"latency.{name}", value=value_ms, metadata=labels or {})
+        except Exception:
+            return
 
     def increment(self, name: str, value: int = 1, **labels: Any) -> None:
-        """Increment a counter via a span.
+        """Record an increment as a Langfuse score.
 
         Args:
             name: Counter name.
@@ -845,8 +578,15 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             **labels: Optional label set.
 
         """
-        with self.span(f"counter.{name}", increment=value, **labels):
-            pass
+        if self.client is None:
+            return
+        score = getattr(self.client, "score", None)
+        if score is None:
+            return
+        try:
+            score(name=f"counter.{name}", value=value, metadata=labels or {})
+        except Exception:
+            return
 
     def start_span(self, name: str, **attrs: Any) -> Span:
         """Open a Langfuse span (v3) or fall back to a no-op span.

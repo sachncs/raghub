@@ -27,6 +27,7 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
+from raghub.await_sync import capture
 from raghub.config import AgentConfig, Settings
 from raghub.errors import AgentBudgetError, GenerationError, ToolError
 from raghub.llm import GenerationRequest, Generator
@@ -44,7 +45,6 @@ from raghub.tools import (
     VectorSearch,
     WebSearch,
 )
-from raghub.utils import capture
 
 __all__ = [
     "Agent",
@@ -423,6 +423,15 @@ def build_tool_registry(
 
 
 @dataclass
+class AgentBudgetState:
+    """Mutable state shared across the agent loop's per-step helpers."""
+
+    started: float
+    steps: int
+    tool_calls: int
+
+
+@dataclass
 class AgentTrace:
     """Captured state of one agent run."""
 
@@ -509,108 +518,34 @@ class Agent:
             question=question,
         )
 
-        started = time.perf_counter()
-        steps = 0
-        tool_calls = 0
-        emitted_budget_event = False
+        state = self.__budget_state()
         for step in range(self.settings.max_steps):
-            steps += 1
-            if (time.perf_counter() - started) > self.settings.max_wall_seconds:
-                if not emitted_budget_event:
-                    yield PlannerEvent(
-                        kind="thought",
-                        step=step,
-                        payload={"budget_exceeded": True, "reason": "wall_clock"},
-                    )
-                    emitted_budget_event = True
-                raise AgentBudgetError(
-                    f"agent exceeded wall-clock budget ({self.settings.max_wall_seconds}s)"
-                )
-            if tool_calls >= self.settings.max_tool_calls:
-                if not emitted_budget_event:
-                    yield PlannerEvent(
-                        kind="thought",
-                        step=step,
-                        payload={"budget_exceeded": True, "reason": "tool_calls"},
-                    )
-                    emitted_budget_event = True
-                raise AgentBudgetError(
-                    f"agent exceeded tool-call budget ({self.settings.max_tool_calls})"
-                )
+            state.steps += 1
+            budget_event = self.__check_budget(state)
+            if budget_event is not None:
+                yield budget_event
+                self.__raise_budget_error(state)
 
-            raw = await self.__generate_reply(messages, step)
+            raw = await self.__generate_reply(messages, state.steps)
             parsed = parse_turn(raw or "")
             if isinstance(parsed, PlannerAction):
-                yield PlannerEvent(
-                    kind="thought",
-                    step=step,
-                    payload={"thought": parsed.thought},
-                )
-                if parsed.name not in enabled:
-                    yield PlannerEvent(
-                        kind="thought",
-                        step=step,
-                        payload={
-                            "error": f"unknown or disabled tool: {parsed.name!r}",
-                        },
-                    )
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": (
-                                f"Tool {parsed.name!r} is not available. "
-                                f"Try one of: {sorted(enabled)}."
-                            ),
-                        }
-                    )
-                    continue
-                tool_calls += 1
-                yield PlannerEvent(
-                    kind="tool_call",
-                    step=step,
-                    payload={"name": parsed.name, "args": parsed.args},
-                )
-                observation = await self.run_tool(parsed, enabled, ctx)
-                yield PlannerEvent(
-                    kind="tool_result",
-                    step=step,
-                    payload={
-                        "name": parsed.name,
-                        "ok": observation.ok,
-                        "content": observation.content,
-                        "error": observation.error,
-                        "latency_ms": observation.latency_ms,
-                    },
-                )
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": OBSERVATION_PROMPT.format(
-                            name=parsed.name, observation=observation.content
-                        ),
-                    }
-                )
+                async for event in self.__dispatch_action(
+                    parsed=parsed,
+                    step=state.steps,
+                    enabled=enabled,
+                    messages=messages,
+                    ctx=ctx,
+                    state=state,
+                ):
+                    yield event
                 continue
             if isinstance(parsed, PlannerFinal):
-                yield PlannerEvent(
-                    kind="thought",
-                    step=step,
-                    payload={"thought": parsed.thought},
-                )
-                yield PlannerEvent(
-                    kind="answer_chunk",
-                    step=step,
-                    payload={"text": parsed.answer},
-                )
-                yield PlannerEvent(
-                    kind="final",
-                    step=step,
-                    payload={"answer": parsed.answer},
-                )
+                async for event in self.__dispatch_final(parsed, state.steps):
+                    yield event
                 return
             yield PlannerEvent(
                 kind="thought",
-                step=step,
+                step=state.steps,
                 payload={
                     "error": "parse_failed",
                     "raw": getattr(parsed, "raw", ""),
@@ -625,13 +560,135 @@ class Agent:
                     ),
                 }
             )
-        if not emitted_budget_event:
+        self.__raise_budget_error(state)
+
+    def __budget_state(self) -> AgentBudgetState:
+        """Initialise a fresh :class:`AgentBudgetState` for one iterate call."""
+        return AgentBudgetState(
+            started=time.perf_counter(),
+            steps=0,
+            tool_calls=0,
+        )
+
+    def __check_budget(self, state: AgentBudgetState) -> PlannerEvent | None:
+        """Return a budget-exceeded event when any budget is exhausted.
+
+        Args:
+            state: The shared budget state for the current iterate call.
+
+        Returns:
+            A :class:`PlannerEvent` for the first budget that fires, or
+            ``None`` when no budget has been exhausted.
+
+        """
+        if (time.perf_counter() - state.started) > self.settings.max_wall_seconds:
+            return PlannerEvent(
+                kind="thought",
+                step=state.steps,
+                payload={"budget_exceeded": True, "reason": "wall_clock"},
+            )
+        if state.tool_calls >= self.settings.max_tool_calls:
+            return PlannerEvent(
+                kind="thought",
+                step=state.steps,
+                payload={"budget_exceeded": True, "reason": "tool_calls"},
+            )
+        return None
+
+    def __raise_budget_error(self, state: AgentBudgetState) -> None:
+        """Raise the :class:`AgentBudgetError` matching the last fired budget."""
+        if state.tool_calls >= self.settings.max_tool_calls:
+            raise AgentBudgetError(
+                f"agent exceeded tool-call budget ({self.settings.max_tool_calls})"
+            )
+        if (time.perf_counter() - state.started) > self.settings.max_wall_seconds:
+            raise AgentBudgetError(
+                f"agent exceeded wall-clock budget ({self.settings.max_wall_seconds}s)"
+            )
+        raise AgentBudgetError(
+            f"agent exceeded step budget ({self.settings.max_steps})"
+        )
+
+    async def __dispatch_action(
+        self,
+        *,
+        parsed: PlannerAction,
+        step: int,
+        enabled: dict[str, Any],
+        messages: list[dict[str, str]],
+        ctx: ToolContext,
+        state: AgentBudgetState,
+    ) -> AsyncIterator[PlannerEvent]:
+        """Apply a parsed tool action; yield events to the caller."""
+        yield PlannerEvent(
+            kind="thought",
+            step=step,
+            payload={"thought": parsed.thought},
+        )
+        if parsed.name not in enabled:
             yield PlannerEvent(
                 kind="thought",
-                step=steps,
-                payload={"budget_exceeded": True, "reason": "steps"},
+                step=step,
+                payload={"error": f"unknown or disabled tool: {parsed.name!r}"},
             )
-        raise AgentBudgetError(f"agent exceeded step budget ({self.settings.max_steps})")
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"Tool {parsed.name!r} is not available. "
+                        f"Try one of: {sorted(enabled)}."
+                    ),
+                }
+            )
+            return
+        state.tool_calls += 1
+        yield PlannerEvent(
+            kind="tool_call",
+            step=step,
+            payload={"name": parsed.name, "args": parsed.args},
+        )
+        observation = await self.run_tool(parsed, enabled, ctx)
+        yield PlannerEvent(
+            kind="tool_result",
+            step=step,
+            payload={
+                "name": parsed.name,
+                "ok": observation.ok,
+                "content": observation.content,
+                "error": observation.error,
+                "latency_ms": observation.latency_ms,
+            },
+        )
+        messages.append(
+            {
+                "role": "user",
+                "content": OBSERVATION_PROMPT.format(
+                    name=parsed.name, observation=observation.content
+                ),
+            }
+        )
+
+    async def __dispatch_final(
+        self,
+        parsed: PlannerFinal,
+        step: int,
+    ) -> AsyncIterator[PlannerEvent]:
+        """Yield the terminal events for a :class:`PlannerFinal`."""
+        yield PlannerEvent(
+            kind="thought",
+            step=step,
+            payload={"thought": parsed.thought},
+        )
+        yield PlannerEvent(
+            kind="answer_chunk",
+            step=step,
+            payload={"text": parsed.answer},
+        )
+        yield PlannerEvent(
+            kind="final",
+            step=step,
+            payload={"answer": parsed.answer},
+        )
 
     async def __generate_reply(self, messages: list[dict[str, str]], step: int) -> str:
         """Call the LLM for one agent turn; wrap failures as budget errors."""
@@ -653,7 +710,7 @@ class Agent:
                 ValueError,
                 AttributeError,
             ) as exc:
-                raise AgentBudgetError(f"agent LLM call failed: {exc}") from exc
+                raise GenerationError(f"agent LLM call failed: {exc}") from exc
 
     def resolve_enabled_tools(self, tools_enabled: set[str] | None) -> dict[str, Any]:
         """Filter the registry to the requested tools (or all of them)."""

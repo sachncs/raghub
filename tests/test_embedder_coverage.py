@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from raghub.embedder import Hasher, LiteLLMEmbedder, build_embedder
+from raghub.embedder import FeatureHashingEmbedder, LiteLLMEmbedder, build_embedder
 
 # ---------------------------------------------------------------------------
 # Embedder base class
@@ -15,7 +15,7 @@ from raghub.embedder import Hasher, LiteLLMEmbedder, build_embedder
 
 def test_embedder_base_embed_texts_calls_embed_text() -> None:
     """The base class ``embed_texts`` delegates to ``embed_text`` per item."""
-    embedder = Hasher(dimension=8)
+    embedder = FeatureHashingEmbedder(dimension=8)
     results = embedder.embed_texts(["alpha", "beta"])
     assert len(results) == 2
     assert results[0] == embedder.embed_text("alpha")
@@ -23,13 +23,13 @@ def test_embedder_base_embed_texts_calls_embed_text() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Hasher edge cases
+# FeatureHashingEmbedder edge cases
 # ---------------------------------------------------------------------------
 
 
 def test_hasher_empty_text_returns_zero_vector() -> None:
     """An empty input returns an all-zero vector of the configured dim."""
-    embedder = Hasher(dimension=16)
+    embedder = FeatureHashingEmbedder(dimension=16)
     vector = embedder.embed_text("")
     assert len(vector) == 16
     assert all(component == 0.0 for component in vector)
@@ -37,14 +37,14 @@ def test_hasher_empty_text_returns_zero_vector() -> None:
 
 def test_hasher_unicode_text_does_not_crash() -> None:
     """Non-ASCII text is hashed without raising."""
-    embedder = Hasher(dimension=32)
+    embedder = FeatureHashingEmbedder(dimension=32)
     vector = embedder.embed_text("héllo wörld 🌍")
     assert len(vector) == 32
 
 
 def test_hasher_whitespace_only_returns_zero_vector() -> None:
     """Whitespace-only text is empty after stripping; returns zero vector."""
-    embedder = Hasher(dimension=8)
+    embedder = FeatureHashingEmbedder(dimension=8)
     vector = embedder.embed_text("   \t\n  ")
     assert all(component == 0.0 for component in vector)
 
@@ -54,14 +54,17 @@ def test_hasher_whitespace_only_returns_zero_vector() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_litellm_embedder_raises_when_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``__init__`` raises :class:`ConfigurationError` when litellm is unavailable."""
-    from raghub import embedder as embedder_module
-    from raghub.errors import ConfigurationError
+def test_litellm_embedder_constructs_when_litellm_available() -> None:
+    """``LiteLLMEmbedder`` constructs successfully when litellm is installed.
 
-    monkeypatch.setattr(embedder_module, "LITELLM_AVAILABLE", False)
-    with pytest.raises(ConfigurationError, match="litellm is not installed"):
-        LiteLLMEmbedder(model="text-embedding-3-small")
+    v0.7.0 made litellm a core dependency; the previously-tested
+    "unavailable" branch was removed because the flag and the
+    runtime check are gone. This smoke test confirms construction.
+    """
+    embedder = LiteLLMEmbedder(model="text-embedding-3-small")
+    assert embedder.model_name == "text-embedding-3-small"
+    assert embedder.api_key is None
+    assert embedder.api_base is None
 
 
 def test_litellm_embedder_embed_text_calls_litellm(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -123,14 +126,14 @@ def test_build_embedder_returns_hasher_for_unknown(monkeypatch: pytest.MonkeyPat
         monkeypatch.delenv(name, raising=False)
     monkeypatch.delenv("RAG_LLM_API_KEY", raising=False)
     embedder = build_embedder("hashing", dimension=64)
-    assert isinstance(embedder, Hasher)
+    assert isinstance(embedder, FeatureHashingEmbedder)
     assert embedder.dimension == 64
 
 
 def test_build_embedder_hasher_dispatch() -> None:
-    """``"hashing"`` dispatches to :class:`Hasher`."""
+    """``"hashing"`` dispatches to :class:`FeatureHashingEmbedder`."""
     embedder = build_embedder("hashing", dimension=64)
-    assert isinstance(embedder, Hasher)
+    assert isinstance(embedder, FeatureHashingEmbedder)
 
 
 def test_build_embedder_unknown_model_raises(monkeypatch: pytest.MonkeyPatch) -> None:
