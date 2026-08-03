@@ -36,6 +36,7 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 from pydantic import BaseModel, Field
 
 from raghub.errors import ConfigurationError
+from raghub.store import Store
 from raghub.models import User
 
 # ---------------------------------------------------------------------------
@@ -113,7 +114,7 @@ class ToolContext:
 
     """
 
-    user: Any | None = None
+    user: "User" | None = None
     session_id: str | None = None
     session_overrides: dict[str, Any] | None = None
     question: str = ""
@@ -139,7 +140,7 @@ class Tool(ToolProtocol, ABC):
     json_schema: ClassVar[dict[str, Any]]
 
     @abstractmethod
-    async def execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
         """Run the tool.
 
         Args:
@@ -150,7 +151,7 @@ class Tool(ToolProtocol, ABC):
         """
 
     @staticmethod
-    def context(**overrides: Any) -> ToolContext:
+    def context(**overrides: "JSONValue") -> ToolContext:
         """Return a fresh :class:`ToolContext` for this tool.
 
         Use this when invoking the tool outside the agent loop. The
@@ -370,7 +371,7 @@ class GraphSearch(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, graph_index: Any) -> None:
+    def __init__(self, graph_index: "GraphIndex") -> None:
         """Initialise the tool.
 
         Args:
@@ -379,7 +380,7 @@ class GraphSearch(Tool):
         """
         self.index = graph_index
 
-    async def execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
         """Run GraphRAG local or global search."""
         if self.index is None:
             return ToolResult(content="(no graph index configured)")
@@ -439,7 +440,7 @@ class HybridSearch(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, retrieval_pipeline: Any, vector_store: Any) -> None:
+    def __init__(self, retrieval_pipeline: "RetrievalPipeline", vector_store: Store) -> None:
         """Initialise the tool."""
         self.pipeline = retrieval_pipeline
         self.vector_store = vector_store

@@ -75,6 +75,15 @@ oldest.
   ``__wire_components`` helpers.
 - R10 batch 4: tighten ``raghub.ingest`` — every ``**options: Any``
   parameter is now ``**options: JSONValue``.
+- C1 batch 5: decompose ``PromptBuilder.build_messages`` (88 LOC)
+  into ``build_messages`` + ``__consume_system`` +
+  ``__consume_history`` + ``__consume_context`` helpers.
+- R10 batch 5: tighten ``raghub.tools`` — ``ToolContext.user`` takes
+  ``User``; ``GraphSearch.__init__`` and
+  ``HybridSearch.__init__`` take typed parameters; tool
+  ``execute`` methods take ``**kwargs: JSONValue``; the
+  ``ToolRegistry.try_get`` / ``get`` return typed
+  ``ToolProtocol``.
 
 ### Security
 

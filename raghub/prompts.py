@@ -194,49 +194,65 @@ class PromptBuilder:
         # the input budget. Negative budgets are clamped to zero by the
         # ``-=`` updates below; we never go negative because each section
         # is gated by ``available_tokens - tokens < 0``.
-        available_tokens = self.config.max_tokens - self.config.reserved_output_tokens
-
-        # System prompt
-        system = self.config.system_prompt
-        available_tokens -= self.token_counter.count(system)
-
-        # History
-        history_messages = []
-        if session_history:
-            # Walk newest-first so we drop the oldest turns when budget
-            # is tight (matches the sliding-window manager's contract).
-            for turn in session_history:
-                turn_text = f"User: {turn.question}\nAssistant: {turn.answer}"
-                tokens = self.token_counter.count(turn_text)
-                if available_tokens - tokens < 0:
-                    break
-                # Emit as two separate messages so the chat template
-                # can attach the correct role tags.
-                history_messages.append({"role": "user", "content": turn.question})
-                history_messages.append({"role": "assistant", "content": turn.answer})
-                available_tokens -= tokens
-
-        # Context chunks
-        context_texts = []
-        if context:
-            for chunk in context:
-                chunk_text = chunk.get("text", str(chunk))
-                # ``+ 10`` reserves tokens for the section header,
-                # citation markup, and trailing newline the template
-                # inserts between chunks.
-                tokens = self.token_counter.count(chunk_text) + 10
-                if available_tokens - tokens < 0:
-                    break
-                context_texts.append(chunk_text)
-                available_tokens -= tokens
-
+        available_tokens = (
+            self.config.max_tokens - self.config.reserved_output_tokens
+        )
+        available_tokens = self.__consume_system(available_tokens)
+        history_messages = self.__consume_history(session_history, available_tokens)
+        context_texts, _ = self.__consume_context(context, available_tokens)
         return {
-            "system": system,
+            "system": self.config.system_prompt,
             "history": history_messages,
             "context": context_texts,
             "question": question,
             "image_paths": image_paths or [],
         }
+
+    def __consume_system(self, available_tokens: int) -> int:
+        """Subtract the system prompt's tokens and return the remainder."""
+        return available_tokens - self.token_counter.count(self.config.system_prompt)
+
+    def __consume_history(
+        self,
+        session_history: list[Turn] | None,
+        available_tokens: int,
+    ) -> list[dict[str, str]]:
+        """Walk history newest-first; break on overflow."""
+        history_messages: list[dict[str, str]] = []
+        if not session_history:
+            return history_messages
+        for turn in session_history:
+            turn_text = f"User: {turn.question}\nAssistant: {turn.answer}"
+            tokens = self.token_counter.count(turn_text)
+            if available_tokens - tokens < 0:
+                break
+            # Emit as two separate messages so the chat template
+            # can attach the correct role tags.
+            history_messages.append({"role": "user", "content": turn.question})
+            history_messages.append({"role": "assistant", "content": turn.answer})
+            available_tokens -= tokens
+        return history_messages
+
+    def __consume_context(
+        self,
+        context: list[dict[str, Any]] | None,
+        available_tokens: int,
+    ) -> tuple[list[str], int]:
+        """Walk context in order; break on overflow. Returns (texts, remaining_tokens)."""
+        context_texts: list[str] = []
+        if not context:
+            return context_texts, available_tokens
+        for chunk in context:
+            chunk_text = chunk.get("text", str(chunk))
+            # ``+ 10`` reserves tokens for the section header, citation
+            # markup, and trailing newline the template inserts
+            # between chunks.
+            tokens = self.token_counter.count(chunk_text) + 10
+            if available_tokens - tokens < 0:
+                break
+            context_texts.append(chunk_text)
+            available_tokens -= tokens
+        return context_texts, available_tokens
 
 
 # Canonical system prompt. Phrased to instruct the model to ignore
