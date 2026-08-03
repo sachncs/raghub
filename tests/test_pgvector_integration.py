@@ -25,7 +25,7 @@ class TestPgVectorStoreLive:
         from datetime import UTC, datetime
 
         from raghub.models import Chunk, Classification
-        from raghub.store.pgvector import PgVectorStore
+        from raghub.stores.pgvector import PgVectorStore
 
         dsn = os.environ[PG_DSN_ENV]
         # Unique tenant ids per test run to avoid collisions

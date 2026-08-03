@@ -21,6 +21,37 @@ oldest.
 
 - Removed the redundant `.dockerignore` file.
 
+## [0.9.4] - 2026-08-29
+
+### Added
+
+- ``raghub migrate-pgvector --dsn <dsn> [--vector-dim <dim>]`` CLI
+  sub-command.
+- ``raghub tenant list | create <id> | delete <id>`` CLI
+  sub-commands. Tenant id is regex-validated; the registry round-trips
+  via the ``RAG_TENANT_DSNS`` env var (``tenant=dsn,dim;...`` format).
+- ``raghub migrate-tenant-split --from <s> --to <s>
+  --source-dsn <dsn> --target-dsn <dsn> [--tenant <id>]`` CLI
+  sub-command wrapping :func:`migrate_tenant_split`.
+- ``raghub backup create --output <path> [--tenant <id>]``,
+  ``raghub backup restore --input <path> [--target-dir <dir>]``,
+  and ``raghub backup verify --input <path>`` CLI sub-commands.
+- ``CliConfig.make_settings`` convenience wrapper for commands that
+  need direct access to :class:`Settings` without instantiating a
+  full :class:`RAG`.
+- 9 new CLI tests covering migration, tenant, and backup commands.
+- ``raghub.tenants.TenantRegistry`` re-exported from the public
+  ``raghub.tenants`` package.
+- ``CliConfig.make_settings`` exposes ``Settings`` for commands that
+  need it directly.
+
+### Changed
+
+- Move ``raghub/store/pgvector.py`` → ``raghub/stores/pgvector.py``
+  to fix a ``raghub.store`` vs ``raghub.store.*`` package collision
+  (the old single-file ``raghub/store.py`` shadowed the new
+  ``raghub/store/`` package).
+
 ## [0.9.3] - 2026-08-28
 
 ### Changed

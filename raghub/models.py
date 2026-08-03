@@ -93,7 +93,8 @@ def deterministic_id(*parts: str, length: int = 16) -> str:
 
     """
     clamped = max(8, min(length, 64))
-    digest = hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
+    joined = "\x1f".join(parts).encode("utf-8", errors="surrogatepass")
+    digest = hashlib.sha256(joined).hexdigest()
     return digest[:clamped]
 
 
