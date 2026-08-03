@@ -8,7 +8,16 @@ from unittest.mock import patch
 
 import pytest
 
-from raghub.config import Settings, csv_to_transforms, env_bool
+from raghub.config import (
+    ArchiveConfig,
+    FeedbackConfig,
+    QueueConfig,
+    RateLimitConfig,
+    Settings,
+    TenantsConfig,
+    csv_to_transforms,
+    env_bool,
+)
 
 
 class TestEnvBool:
@@ -151,3 +160,131 @@ class TestProductionValidation:
             pytest.raises(RuntimeError, match="Passwordless login"),
         ):
             Settings.load("production")
+
+
+# ---------------------------------------------------------------------------
+# v0.9.0 Tier 1 — Item 1: Settings.queue block
+# ---------------------------------------------------------------------------
+
+
+class TestQueueConfig:
+    def test_queue_config_defaults(self) -> None:
+        """Default QueueConfig has memory backend, max_inflight 256."""
+        settings = Settings()
+        assert isinstance(settings.queue, QueueConfig)
+        assert settings.queue.backend == "memory"
+        assert settings.queue.db_path is None
+        assert settings.queue.max_inflight == 256
+
+    def test_queue_config_env_override(self) -> None:
+        """Env vars RAG_QUEUE_BACKEND and RAG_QUEUE_MAX_INFLIGHT parse."""
+        env = {
+            "RAG_QUEUE_BACKEND": "sqlite",
+            "RAG_QUEUE_MAX_INFLIGHT": "512",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            settings = Settings.load()
+        assert settings.queue.backend == "sqlite"
+        assert settings.queue.max_inflight == 512
+
+    def test_queue_config_constructor_override(self) -> None:
+        """Constructor injection wins over defaults."""
+        settings = Settings(
+            queue=QueueConfig(backend="sqlite", max_inflight=1024)
+        )
+        assert settings.queue.backend == "sqlite"
+        assert settings.queue.max_inflight == 1024
+
+
+# ---------------------------------------------------------------------------
+# v0.9.0 Tier 1 — Item 2: Settings.feedback block
+# ---------------------------------------------------------------------------
+
+
+class TestFeedbackConfig:
+    def test_feedback_config_defaults(self) -> None:
+        """Default FeedbackConfig has none backend."""
+        settings = Settings()
+        assert isinstance(settings.feedback, FeedbackConfig)
+        assert settings.feedback.backend == "none"
+        assert settings.feedback.db_path is None
+        assert settings.feedback.dsn is None
+
+    def test_feedback_config_env_override(self) -> None:
+        """Env vars RAG_FEEDBACK_BACKEND and RAG_FEEDBACK_DSN parse."""
+        env = {
+            "RAG_FEEDBACK_BACKEND": "postgres",
+            "RAG_FEEDBACK_DSN": "postgres://localhost/rag",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            settings = Settings.load()
+        assert settings.feedback.backend == "postgres"
+        assert settings.feedback.dsn == "postgres://localhost/rag"
+
+
+# ---------------------------------------------------------------------------
+# v0.9.0 Tier 1 — Item 3: Settings.rate_limit block
+# ---------------------------------------------------------------------------
+
+
+class TestRateLimitConfig:
+    def test_rate_limit_config_defaults(self) -> None:
+        """Default RateLimitConfig has memory backend, 10 rps / 20 burst."""
+        from raghub.constants import RATE_LIMIT_BURST, RATE_LIMIT_RPS
+
+        settings = Settings()
+        assert isinstance(settings.rate_limit, RateLimitConfig)
+        assert settings.rate_limit.backend == "memory"
+        assert settings.rate_limit.per_tenant_rps == RATE_LIMIT_RPS == 10.0
+        assert settings.rate_limit.per_tenant_burst == RATE_LIMIT_BURST == 20
+
+    def test_rate_limit_config_env_override(self) -> None:
+        """Env vars parse correctly; exempt_tenants is CSV-parsed."""
+        env = {
+            "RAG_RATE_LIMIT_EXEMPT_TENANTS": "acme, beta ,gamma",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            settings = Settings.load()
+        assert settings.rate_limit.exempt_tenants == ["acme", "beta", "gamma"]
+
+
+# ---------------------------------------------------------------------------
+# v0.9.0 Tier 1 — Item 4: Settings.archive block
+# ---------------------------------------------------------------------------
+
+
+class TestArchiveConfig:
+    def test_archive_config_defaults(self) -> None:
+        """Default ArchiveConfig has none backend, local_dir ./data/archives."""
+        settings = Settings()
+        assert isinstance(settings.archive, ArchiveConfig)
+        assert settings.archive.backend == "none"
+        assert Path(settings.archive.local_dir) == Path("./data/archives")
+
+    def test_archive_config_env_override(self) -> None:
+        """RAG_ARCHIVE_DIR parses to Path."""
+        env = {"RAG_ARCHIVE_DIR": "/tmp/archives"}
+        with patch.dict(os.environ, env, clear=False):
+            settings = Settings.load()
+        assert Path(settings.archive.local_dir) == Path("/tmp/archives")
+
+
+# ---------------------------------------------------------------------------
+# v0.9.0 Tier 1 — Item 5: Settings.tenants block
+# ---------------------------------------------------------------------------
+
+
+class TestTenantsConfig:
+    def test_tenants_config_defaults(self) -> None:
+        """Default TenantsConfig has none resolver, row_level isolation."""
+        settings = Settings()
+        assert isinstance(settings.tenants, TenantsConfig)
+        assert settings.tenants.resolver == "none"
+        assert settings.tenants.isolation == "row_level"
+
+    def test_tenants_config_env_override(self) -> None:
+        """RAG_TENANTS_ISOLATION parses."""
+        env = {"RAG_TENANTS_ISOLATION": "schema_per_tenant"}
+        with patch.dict(os.environ, env, clear=False):
+            settings = Settings.load()
+        assert settings.tenants.isolation == "schema_per_tenant"

@@ -262,7 +262,7 @@ class LiteLLM(Generator):
     def require_litellm() -> None:
         """Raise a clear error if LiteLLM is not installed."""
         try:
-            import litellm  # noqa: F401
+            import litellm
         except ImportError as exc:
             raise ConfigurationError(
                 "litellm is not installed; run `pip install litellm`."
