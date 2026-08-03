@@ -123,9 +123,10 @@ def _redact_comment(comment: str | None) -> str | None:
     """Redact secrets from ``comment`` before persistence."""
     if not comment:
         return comment
-    redactor = RedactingTelemetry(_NullTelemetry())
+    from raghub.telemetry import redact_record
+
     sanitized: dict[str, Any] = {"comment": comment}
-    redactor.redact_record(sanitized)
+    redact_record(sanitized)
     return sanitized.get("comment")
 
 
@@ -182,6 +183,7 @@ class SqliteFeedbackStore:
     async def get(self, feedback_id: str) -> Feedback | None:
         """Return the feedback or ``None``."""
         with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             row = conn.execute(
                 "SELECT * FROM raghub_feedback WHERE id = ?",
                 (feedback_id,),
@@ -193,6 +195,7 @@ class SqliteFeedbackStore:
     async def list_for_session(self, session_id: str) -> list[Feedback]:
         """Return every feedback record for the session."""
         with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 "SELECT * FROM raghub_feedback WHERE session_id = ? "
                 "ORDER BY created_at DESC",
@@ -203,6 +206,7 @@ class SqliteFeedbackStore:
     async def list_for_chunk(self, chunk_id: str) -> list[Feedback]:
         """Return every feedback record for the chunk."""
         with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 "SELECT * FROM raghub_feedback WHERE chunk_id = ? "
                 "ORDER BY created_at DESC",
@@ -215,6 +219,7 @@ class SqliteFeedbackStore:
     ) -> list[Feedback]:
         """Return every feedback record for the tenant (capped at ``limit``)."""
         with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 "SELECT * FROM raghub_feedback WHERE tenant_id = ? "
                 "ORDER BY created_at DESC LIMIT ?",
@@ -486,6 +491,11 @@ class Bm25BoostScorer:
       ``(1 + alpha * log(1 + positive_count))``.
     * Negative feedback for ``chunk_id``: multiply by
       ``(1 - beta * log(1 + negative_count))``.
+
+    Feedback counts are loaded once at construction time and cached
+    in memory; call :meth:`refresh` to reload after new feedback
+    arrives, or use :meth:`boost_async` which always reads the live
+    store.
     """
 
     def __init__(
@@ -504,11 +514,13 @@ class Bm25BoostScorer:
         self.tenant_id = tenant_id
         self.alpha = alpha
         self.beta = beta
+        self._counts: dict[str, tuple[int, int]] = {}
 
-    async def __load_counts(self) -> dict[str, tuple[int, int]]:
+    async def refresh(self) -> None:
+        """Reload feedback counts from the store into the in-memory cache."""
         aggregate = await self.store.aggregate(self.tenant_id)
         counts: dict[str, tuple[int, int]] = {}
-        for chunk_id, total in aggregate.by_chunk.items():
+        for chunk_id in aggregate.by_chunk:
             chunk_feedback = await self.store.list_for_chunk(chunk_id)
             positive = sum(
                 1 for f in chunk_feedback if int(f.rating) == int(Rating.POSITIVE)
@@ -517,27 +529,36 @@ class Bm25BoostScorer:
                 1 for f in chunk_feedback if int(f.rating) == int(Rating.NEGATIVE)
             )
             counts[chunk_id] = (positive, negative)
-        return counts
+        self._counts = counts
 
     async def boost_async(self, chunk_id: str, base_score: float) -> float:
-        counts = await self.__load_counts()
-        return self.__apply(chunk_id, base_score, counts)
+        """Live boost that always reads the feedback store."""
+        chunk_feedback = await self.store.list_for_chunk(chunk_id)
+        positive = sum(
+            1 for f in chunk_feedback if int(f.rating) == int(Rating.POSITIVE)
+        )
+        negative = sum(
+            1 for f in chunk_feedback if int(f.rating) == int(Rating.NEGATIVE)
+        )
+        return self._apply(chunk_id, base_score, positive, negative)
 
     def boost(self, chunk_id: str, base_score: float) -> float:
-        """Synchronous boost used in pure-Python retrieval pipelines.
+        """Synchronous boost using the in-memory cache.
 
-        Uses an in-memory snapshot of the feedback aggregate; for
-        long-running pipelines call :meth:`boost_async` periodically.
+        Populate the cache once via :meth:`refresh` (or instantiate
+        with counts loaded eagerly) before relying on this method.
+        For live reads, use :meth:`boost_async`.
         """
-        return base_score  # See boost_async for the full implementation.
+        positive, negative = self._counts.get(chunk_id, (0, 0))
+        return self._apply(chunk_id, base_score, positive, negative)
 
-    def __apply(
+    def _apply(
         self,
         chunk_id: str,
         base_score: float,
-        counts: dict[str, tuple[int, int]],
+        positive: int,
+        negative: int,
     ) -> float:
-        positive, negative = counts.get(chunk_id, (0, 0))
         multiplier = 1.0
         if positive:
             multiplier *= 1.0 + self.alpha * math.log1p(positive)
@@ -552,6 +573,10 @@ class VectorDownWeightScorer:
     Negative feedback for ``chunk_id`` multiplies dense similarity by
     a configurable factor (default ``0.5``); positive feedback has
     no effect on dense scoring in this algorithm.
+
+    Like :class:`Bm25BoostScorer`, this scorer caches a boolean
+    per chunk (``True`` if the chunk has any negative feedback).
+    Use :meth:`refresh` to reload.
     """
 
     def __init__(
@@ -566,12 +591,31 @@ class VectorDownWeightScorer:
         self.store = store
         self.tenant_id = tenant_id
         self.negative_factor = negative_factor
+        self._has_negative: dict[str, bool] = {}
+
+    async def refresh(self) -> None:
+        """Reload the ``has_negative`` cache from the store."""
+        aggregate = await self.store.aggregate(self.tenant_id)
+        result: dict[str, bool] = {}
+        for chunk_id in aggregate.by_chunk:
+            chunk_feedback = await self.store.list_for_chunk(chunk_id)
+            result[chunk_id] = any(
+                int(f.rating) == int(Rating.NEGATIVE) for f in chunk_feedback
+            )
+        self._has_negative = result
 
     def boost(self, chunk_id: str, base_score: float) -> float:
-        """Synchronous boost — requires pre-loaded feedback in production."""
-        return base_score  # See boost_async for the full implementation.
+        """Synchronous boost using the in-memory cache.
+
+        Populate the cache once via :meth:`refresh` before relying on
+        this method. For live reads, use :meth:`boost_async`.
+        """
+        if self._has_negative.get(chunk_id, False):
+            return base_score * self.negative_factor
+        return base_score
 
     async def boost_async(self, chunk_id: str, base_score: float) -> float:
+        """Live boost that always reads the feedback store."""
         chunk_feedback = await self.store.list_for_chunk(chunk_id)
         has_negative = any(
             int(f.rating) == int(Rating.NEGATIVE) for f in chunk_feedback

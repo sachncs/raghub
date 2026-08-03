@@ -621,8 +621,9 @@ class RAG:
         # Components supplied via ``components=`` win over Settings.
         self.queue_ = self.__init_queue(components_dict)
         self.tenant_resolver_ = self.__init_tenant_resolver(components_dict)
+        # Tier 3 Item 19: FeedbackStore wired from Settings.feedback.
+        self.feedback_store_ = self.__init_feedback_store(components_dict)
         # The rest stay as ``None`` until Tier 1's later items wire them.
-        self.feedback_store_: Any = None
         self.rate_limiter_: Any = None
         self.archive_: Any = None
         self.isolation_strategy_: Any = components_dict.get("isolation_strategy")
@@ -679,6 +680,33 @@ class RAG:
             return JwtClaimTenantResolver()
         if resolver == "header":
             return HeaderTenantResolver()
+        return None
+
+    def __init_feedback_store(self, components_dict: dict[str, Any]) -> Any:
+        """Construct the feedback store (Tier 3 Item 19).
+
+        Priority:
+            1. ``components_dict["feedback_store"]`` if supplied.
+            2. ``Settings.feedback.backend == "sqlite"`` -> SqliteFeedbackStore.
+            3. Otherwise ``None``.
+        """
+        supplied = components_dict.get("feedback_store")
+        if supplied is not None:
+            return supplied
+        backend = self.settings.feedback.backend
+        if backend == "none":
+            return None
+        if backend == "sqlite":
+            from raghub.feedback import SqliteFeedbackStore
+
+            db_path = (
+                self.settings.feedback.db_path
+                or self.settings.data_dir / "feedback.db"
+            )
+            store = SqliteFeedbackStore(db_path=str(db_path))
+            store.initialize()
+            return store
+        # postgres backend requires asyncpg; deferred to a future release
         return None
 
     # ------------------------------------------------------------------

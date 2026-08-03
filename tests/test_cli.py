@@ -6,6 +6,8 @@ Exercises the Typer CLI commands assembled in :mod:`raghub.cli` and
 
 from __future__ import annotations
 
+import asyncio
+import typer
 import json
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -445,3 +447,146 @@ def test_server_command_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None
     result = runner.invoke(app, ["run"])
     assert result.exit_code == 0
     fake_server.run.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# v0.9.2 Tier 3 — Item 20: raghub feedback CLI
+# ---------------------------------------------------------------------------
+
+
+def test_feedback_cli_export_writes_jsonl(tmp_path) -> None:
+    """`raghub feedback export --jsonl <path>` writes one JSON per line."""
+    import json
+    import os
+    from datetime import UTC, datetime
+    from unittest.mock import MagicMock
+
+    from raghub.cli_commands import FeedbackCommand
+    from raghub.feedback import Feedback, Rating, SqliteFeedbackStore, new_feedback_id
+
+    feedback_db = tmp_path / "fb.db"
+    store = SqliteFeedbackStore(db_path=str(feedback_db))
+    store.initialize()
+    asyncio.run(
+        store.record(
+            Feedback(
+                id=new_feedback_id(),
+                session_id="s1",
+                query_id="q1",
+                chunk_id="c1",
+                answer_id=None,
+                user_id="alice",
+                tenant_id="acme",
+                rating=Rating.POSITIVE,
+                comment="great",
+                created_at=datetime.now(UTC),
+            )
+        )
+    )
+
+    rag = MagicMock()
+    rag.feedback_store.return_value = store
+
+    from raghub.cli_commands import CliConfig
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: rag  # type: ignore[assignment]
+    try:
+        jsonl_path = tmp_path / "out.jsonl"
+        from typer.testing import CliRunner
+
+        app = typer.Typer()
+        FeedbackCommand.register(app)
+        runner = CliRunner()
+        result = runner.invoke(
+            app, ["feedback", "export", "--jsonl", str(jsonl_path), "--tenant", "acme"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "wrote 1 feedback records" in result.output
+        lines = jsonl_path.read_text().strip().split("\n")
+        assert len(lines) == 1
+        record = json.loads(lines[0])
+        assert record["tenant_id"] == "acme"
+        assert record["rating"] == 1
+        assert record["comment"] == "great"
+    finally:
+        CliConfig.make_rag = original_make_rag
+
+
+def test_feedback_cli_stats_prints_counts(tmp_path) -> None:
+    """`raghub feedback stats` prints aggregate counts."""
+    from datetime import UTC, datetime
+    from unittest.mock import MagicMock
+
+    from raghub.cli_commands import FeedbackCommand
+    from raghub.feedback import (
+        Feedback,
+        Rating,
+        SqliteFeedbackStore,
+        new_feedback_id,
+    )
+
+    feedback_db = tmp_path / "fb.db"
+    store = SqliteFeedbackStore(db_path=str(feedback_db))
+    store.initialize()
+    for i, rating in enumerate(
+        (Rating.POSITIVE, Rating.POSITIVE, Rating.NEGATIVE)
+    ):
+        asyncio.run(
+            store.record(
+                Feedback(
+                    id=new_feedback_id(),
+                    session_id=f"s{i}",
+                    query_id="q1",
+                    chunk_id="c1",
+                    answer_id=None,
+                    user_id=f"alice-{i}",
+                    tenant_id="acme",
+                    rating=rating,
+                    comment=None,
+                    created_at=datetime.now(UTC),
+                )
+            )
+        )
+
+    rag = MagicMock()
+    rag.feedback_store.return_value = store
+
+    from raghub.cli_commands import CliConfig
+    from typer.testing import CliRunner
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: rag  # type: ignore[assignment]
+    try:
+        app = typer.Typer()
+        FeedbackCommand.register(app)
+        runner = CliRunner()
+        result = runner.invoke(app, ["feedback", "stats"])
+        assert result.exit_code == 0, result.output
+        assert "positive=2" in result.output
+        assert "negative=1" in result.output
+    finally:
+        CliConfig.make_rag = original_make_rag
+
+
+def test_feedback_cli_exits_when_store_absent(tmp_path) -> None:
+    """`raghub feedback export` exits 1 when feedback_store is not configured."""
+    from unittest.mock import MagicMock
+
+    from raghub.cli_commands import CliConfig, FeedbackCommand
+    from typer.testing import CliRunner
+
+    rag = MagicMock()
+    rag.feedback_store.return_value = None
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: rag  # type: ignore[assignment]
+    try:
+        app = typer.Typer()
+        FeedbackCommand.register(app)
+        runner = CliRunner()
+        result = runner.invoke(app, ["feedback", "export", "--jsonl", str(tmp_path / "out.jsonl")])
+        assert result.exit_code == 1
+        assert "feedback_store not configured" in result.output
+    finally:
+        CliConfig.make_rag = original_make_rag

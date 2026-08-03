@@ -75,6 +75,9 @@ __all__ = [
     "AuthRouter",
     "DocumentRouter",
     "ExceptionHandlers",
+    "FeedbackAggregateResponse",
+    "FeedbackRouter",
+    "FeedbackSubmission",
     "HealthRouter",
     "Lifespan",
     "PreferencesPatch",
@@ -783,8 +786,138 @@ class PreferencesRouter:
             await store.delete_pref(user_id, key)
 
 
+class FeedbackSubmission(BaseModel):
+    """Inbound feedback payload."""
+
+    session_id: str
+    query_id: str
+    chunk_id: str | None = None
+    answer_id: str | None = None
+    rating: int  # -1, 0, or 1
+    comment: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class FeedbackAggregateResponse(BaseModel):
+    """Aggregate counts response."""
+
+    tenant_id: str | None
+    positive: int
+    negative: int
+    neutral: int
+    by_chunk: dict[str, int]
+
+
+class FeedbackRouter:
+    """Feedback capture endpoints (Tier 3 Item 18).
+
+    Endpoints:
+        - ``POST /feedback`` — record feedback
+        - ``GET /feedback/{id}`` — retrieve one record
+        - ``DELETE /feedback/{id}`` — delete one record
+        - ``GET /feedback/aggregate?tenant_id=…`` — aggregate counts
+    """
+
+    router: APIRouter
+
+    def __init__(self) -> None:
+        self.router = APIRouter()
+        # Register aggregate BEFORE the {feedback_id} catch-all so
+        # ``/feedback/aggregate`` does not get treated as a lookup for
+        # feedback id "aggregate".
+        self.__register_aggregate()
+        self.__register_submit()
+        self.__register_get()
+        self.__register_delete()
+
+    def __feedback_store(self, app_service: Facade) -> Any:
+        """Return the configured FeedbackStore or raise ``503`` if absent."""
+        from fastapi import HTTPException
+
+        store = getattr(app_service.container, "feedback_store", None)
+        if store is None:
+            raise HTTPException(
+                status_code=503,
+                detail="feedback_store not configured",
+            )
+        return store
+
+    def __register_submit(self) -> None:
+        @self.router.post(
+            "/feedback",
+            status_code=201,
+        )
+        async def handler(
+            payload: FeedbackSubmission,
+            app_service: Annotated[Facade, Depends(App.get)],
+        ) -> dict[str, str]:
+            from raghub.feedback import Feedback, Rating, new_feedback_id, now_utc
+
+            store = self.__feedback_store(app_service)
+            feedback = Feedback(
+                id=new_feedback_id(),
+                session_id=payload.session_id,
+                query_id=payload.query_id,
+                chunk_id=payload.chunk_id,
+                answer_id=payload.answer_id,
+                user_id="anonymous",
+                tenant_id="default",
+                rating=Rating(payload.rating),
+                comment=payload.comment,
+                created_at=now_utc(),
+                metadata=payload.metadata,
+            )
+            await store.record(feedback)
+            return {"id": feedback.id}
+
+    def __register_get(self) -> None:
+        @self.router.get("/feedback/{feedback_id}")
+        async def handler(
+            feedback_id: str,
+            app_service: Annotated[Facade, Depends(App.get)],
+        ) -> dict[str, Any]:
+            from fastapi import HTTPException
+
+            store = self.__feedback_store(app_service)
+            feedback = await store.get(feedback_id)
+            if feedback is None:
+                raise HTTPException(status_code=404, detail="feedback not found")
+            from dataclasses import asdict
+
+            return asdict(feedback)
+
+    def __register_delete(self) -> None:
+        @self.router.delete("/feedback/{feedback_id}", status_code=204)
+        async def handler(
+            feedback_id: str,
+            app_service: Annotated[Facade, Depends(App.get)],
+        ) -> Response:
+            store = self.__feedback_store(app_service)
+            await store.delete(feedback_id)
+            return Response(status_code=204)
+
+    def __register_aggregate(self) -> None:
+        @self.router.get(
+            "/feedback/aggregate",
+            response_model=FeedbackAggregateResponse,
+        )
+        async def handler(
+            app_service: Annotated[Facade, Depends(App.get)],
+            tenant_id: str | None = None,
+        ) -> FeedbackAggregateResponse:
+            store = self.__feedback_store(app_service)
+            aggregate = await store.aggregate(tenant_id)
+            return FeedbackAggregateResponse(
+                tenant_id=aggregate.tenant_id,
+                positive=aggregate.positive,
+                negative=aggregate.negative,
+                neutral=aggregate.neutral,
+                by_chunk=aggregate.by_chunk,
+            )
+
+
 class RouteGroup:
-    """Compose the six focused routers under the ``/v1`` prefix.
+    """Compose the focused routers under the ``/v1`` prefix.
 
     Attributes:
         router: The :class:`APIRouter` carrying the v1 routes.
@@ -796,15 +929,16 @@ class RouteGroup:
     """
 
     def __init__(self) -> None:
-        """Construct the six routers and compose them."""
+        """Construct the routers and compose them."""
         health = HealthRouter()
         auth = AuthRouter()
         documents = DocumentRouter()
         query = QueryRouter()
+        feedback = FeedbackRouter()
         admin = AdminRouter()
         preferences = PreferencesRouter()
         self.router = APIRouter()
-        for sub in (health.router, auth.router, documents.router, query.router):
+        for sub in (health.router, auth.router, documents.router, query.router, feedback.router):
             self.router.include_router(sub)
         self.admin_router = admin.router
         self.preferences_router = preferences.router

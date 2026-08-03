@@ -898,3 +898,149 @@ async def test_rate_limiter_middleware_no_client() -> None:
     await middleware(scope, _receive, _send)
     await middleware(scope, _receive, _send)
     assert len(downstream_calls) == 1
+
+
+# ---------------------------------------------------------------------------
+# v0.9.2 Tier 3 — Item 18: FeedbackRouter
+# ---------------------------------------------------------------------------
+
+
+def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
+    """POST /feedback, GET /feedback/{id}, DELETE /feedback/{id} all work."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from raghub.api import FeedbackRouter
+    from raghub.feedback import SqliteFeedbackStore
+
+    feedback_db = tmp_path / "feedback.db"
+    store = SqliteFeedbackStore(db_path=str(feedback_db))
+    store.initialize()
+
+    class StubContainer:
+        feedback_store = store
+
+    class StubFacade:
+        def __init__(self):
+            self.container = StubContainer()
+
+    app = FastAPI()
+    app.include_router(FeedbackRouter().router)
+    app.state.application = StubFacade()
+
+    client = TestClient(app)
+
+    # POST /feedback
+    response = client.post(
+        "/feedback",
+        json={
+            "session_id": "s1",
+            "query_id": "q1",
+            "chunk_id": "c1",
+            "rating": 1,
+            "comment": "great",
+        },
+    )
+    assert response.status_code == 201, response.text
+    feedback_id = response.json()["id"]
+
+    # GET /feedback/{id}
+    response = client.get(f"/feedback/{feedback_id}")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["chunk_id"] == "c1"
+    assert body["rating"] == 1
+
+    # GET /feedback/aggregate
+    response = client.get("/feedback/aggregate")
+    assert response.status_code == 200, response.text
+    aggregate = response.json()
+    assert aggregate["positive"] == 1
+
+    # DELETE /feedback/{id}
+    response = client.delete(f"/feedback/{feedback_id}")
+    assert response.status_code == 204, response.text
+
+
+def test_feedback_router_aggregate_returns_counts(tmp_path) -> None:
+    """GET /feedback/aggregate returns positive/negative/neutral counts."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from raghub.api import FeedbackRouter
+    from raghub.feedback import (
+        Feedback,
+        Rating,
+        SqliteFeedbackStore,
+        new_feedback_id,
+        now_utc,
+    )
+
+    store = SqliteFeedbackStore(db_path=str(tmp_path / "feedback.db"))
+    store.initialize()
+    for i, rating in enumerate(
+        (Rating.POSITIVE, Rating.POSITIVE, Rating.NEGATIVE, Rating.NEUTRAL)
+    ):
+        asyncio.run(
+            store.record(
+                Feedback(
+                    id=new_feedback_id(),
+                    session_id=f"s{i}",
+                    query_id="q1",
+                    chunk_id="c1",
+                    answer_id=None,
+                    user_id=f"alice-{i}",
+                    tenant_id="acme",
+                    rating=rating,
+                    comment=None,
+                    created_at=now_utc(),
+                )
+            )
+        )
+
+    class StubContainer:
+        feedback_store = store
+
+    class StubFacade:
+        def __init__(self):
+            self.container = StubContainer()
+
+    app = FastAPI()
+    app.include_router(FeedbackRouter().router)
+    app.state.application = StubFacade()
+
+    client = TestClient(app)
+
+    response = client.get("/feedback/aggregate")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["positive"] == 2
+    assert body["negative"] == 1
+    assert body["neutral"] == 1
+
+
+def test_feedback_router_503_when_store_absent() -> None:
+    """503 returned when feedback_store is not configured."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from raghub.api import FeedbackRouter
+
+    class StubContainer:
+        feedback_store = None
+
+    class StubFacade:
+        def __init__(self):
+            self.container = StubContainer()
+
+    app = FastAPI()
+    app.include_router(FeedbackRouter().router)
+    app.state.application = StubFacade()
+
+    client = TestClient(app)
+
+    response = client.post(
+        "/feedback",
+        json={"session_id": "s1", "query_id": "q1", "rating": 1},
+    )
+    assert response.status_code == 503
