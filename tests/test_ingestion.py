@@ -20,7 +20,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from raghub.embedder import Hasher
+from raghub.embedder import FeatureHashingEmbedder
 from raghub.ingest import (
     Batch,
     IngestionResult,
@@ -229,7 +229,7 @@ class TestIngestorInit:
 
         mock_uow = MagicMock()
         mock_uow.vector_store = MagicMock()
-        embedder = Hasher(dimension=4, model_name="test")
+        embedder = FeatureHashingEmbedder(dimension=4, model_name="test")
         ingestor = Ingestor(
             uow=mock_uow,
             embedding_provider=embedder,
