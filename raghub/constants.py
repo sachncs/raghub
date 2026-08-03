@@ -51,3 +51,6 @@ RATE_LIMIT_USER_BURST: int = 10
 
 # Archive
 DEFAULT_ARCHIVE_DIR = "./data/archives"
+
+# SQLite
+SQLITE_BUSY_TIMEOUT_MS: int = 5000

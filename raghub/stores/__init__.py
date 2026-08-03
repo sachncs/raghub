@@ -879,7 +879,7 @@ async def migrate_from_json(
     session_repo = repositories.SessionStore(db_path)
     await session_repo.initialize()
 
-    json_sessions = Sessions.json(Path(sessions_path), timeout_seconds=3600)
+    json_sessions = Sessions.json(Path(sessions_path), timeout_seconds=DEFAULT_SESSION_TIMEOUT_SECONDS)
     for session in tqdm(
         list(json_sessions.sessions.values()),
         desc="Migrating sessions",

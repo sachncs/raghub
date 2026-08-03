@@ -81,7 +81,7 @@ class FeatureHashingEmbedder(Embedder):
     for a real text embedding model.
 
     Attributes:
-        dimension: Output vector dimensionality. Default 384 matches the
+        dimension: Output vector dimensionality. Default matches DEFAULT_EMBEDDING_DIM
             NV-Embed-QA model used in production so downstream cosine
             comparisons are dimensionally compatible.
         model_name: Stable identifier reported as the provider name; useful

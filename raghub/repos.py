@@ -19,7 +19,10 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
+from raghub.constants import (
+    DEFAULT_SESSION_TIMEOUT_SECONDS,
+    SQLITE_BUSY_TIMEOUT_MS,
+)
 
 import aiosqlite
 
@@ -161,7 +164,7 @@ class DocStore(DocumentRepository):
         conn = await aiosqlite.connect(self.db_path)
         conn.row_factory = aiosqlite.Row
         await conn.execute("PRAGMA journal_mode=WAL")
-        await conn.execute("PRAGMA busy_timeout=5000")
+        await conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
         return conn
 
     async def maybe_commit_close(self, conn: aiosqlite.Connection) -> None:
@@ -537,7 +540,7 @@ class SessionStore(SessionRepository):
 class UnitOfWork(BaseUnitOfWork):
     """Coordinate repositories over a shared SQLite transaction."""
 
-    def __init__(self, db_path: str, vector_store: Store, session_timeout: int = 3600) -> None:
+    def __init__(self, db_path: str, vector_store: Store, session_timeout: int = DEFAULT_SESSION_TIMEOUT_SECONDS) -> None:
         """Bind the three collaborators behind one transaction boundary."""
         self.db_path = db_path
         self.vector_store = vector_store
