@@ -71,7 +71,7 @@ class ChunkRef:
         else:
             setattr(self.record, name, value)
 
-    def update(self, **kwargs: Any) -> ChunkRef:
+    def update(self, **kwargs: "JSONValue") -> ChunkRef:
         """Bulk-set fields on the wrapped record.
 
         Args:
@@ -127,7 +127,7 @@ class DocumentRef:
         else:
             setattr(self.record, name, value)
 
-    def update(self, **kwargs: Any) -> DocumentRef:
+    def update(self, **kwargs: "JSONValue") -> DocumentRef:
         """Bulk-set fields and bump ``updated_at``.
 
         Args:
@@ -194,7 +194,7 @@ class SessionWrap:
         else:
             setattr(self.record, name, value)
 
-    def add_turn(self, question: str, answer: str, **kwargs: Any) -> SessionWrap:
+    def add_turn(self, question: str, answer: str, **kwargs: "JSONValue") -> SessionWrap:
         """Append a new conversation turn and bump ``last_seen_at``.
 
         Args:

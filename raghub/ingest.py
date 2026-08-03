@@ -513,7 +513,7 @@ class WordChunker(Chunker):
         return chunk_words(normalize_text(text), self.plan)
 
 
-def build_chonkie_chunker(name: str = "auto", **kwargs: Any) -> Chunker:
+def build_chonkie_chunker(name: str = "auto", **kwargs: "JSONValue") -> Chunker:
     """Pick a chunker by name.
 
     Args:
@@ -920,7 +920,7 @@ class Batch:
         self.jobs: dict[str, Job] = {}
         self.closed = False
 
-    def submit(self, fn: Any, *args: Any, **kwargs: Any) -> str:
+    def submit(self, fn: Any, *args: Any, **kwargs: "JSONValue") -> str:
         """Submit a callable for background execution."""
         if self.closed:
             raise RuntimeError("Batch is shut down")
@@ -1055,7 +1055,7 @@ class Resumable(Batch):
                 result=record["result"],
             )
 
-    def submit(self, fn: Any, *args: Any, **kwargs: Any) -> str:
+    def submit(self, fn: Any, *args: Any, **kwargs: "JSONValue") -> str:
         """Submit ``fn`` for background execution."""
         job_id = super().submit(fn, *args, **kwargs)
         self.store.upsert(job_id, "pending")

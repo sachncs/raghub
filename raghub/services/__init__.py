@@ -764,7 +764,7 @@ class Preference:
         *,
         token: str,
         question: str,
-        **flags: Any,
+        **flags: "JSONValue",
     ) -> QueryResponse:
         """Resolve advanced-RAG flags against user prefs and route accordingly.
 
@@ -780,8 +780,26 @@ class Preference:
         """
         container = self.facade.container
         user, _ = await container.auth.resolve_user(token)
+        resolved = self.__resolve_user_flags(user, flags, container)
+        rag = getattr(container, "rag_facade", None)
+        if rag is None:
+            return await self.__query_without_rag(
+                token=token, question=question, flags=flags, resolved=resolved
+            )
+        return await self.__query_with_rag(
+            token=token,
+            question=question,
+            flags=flags,
+            resolved=resolved,
+            user=user,
+            rag=rag,
+        )
+
+    def __resolve_user_flags(
+        self, user: Any, flags: dict[str, Any], container: Any
+    ) -> Any:
         prefs = dict(getattr(user, "tool_settings", None) or {})
-        resolved = resolve(
+        return resolve(
             request_overrides={
                 "tools_enabled": flags.get("tools_enabled"),
                 "agent": flags.get("agent"),
@@ -798,15 +816,32 @@ class Preference:
             settings=container.settings,
         )
 
-        rag: Any | None = getattr(container, "rag_facade", None)
-        if rag is None:
-            response = await self.facade.query_svc.query(token=token, question=question)
-            response.metadata = dict(response.metadata or {})
-            response.metadata["resolved_config"] = resolved.to_dict()
-            if flags.get("top_k") is not None:
-                response.metadata["requested_top_k"] = flags["top_k"]
-            return cast(QueryResponse, response)
+    async def __query_without_rag(
+        self,
+        *,
+        token: str,
+        question: str,
+        flags: dict[str, Any],
+        resolved: Any,
+    ) -> QueryResponse:
+        response = await self.facade.query_svc.query(token=token, question=question)
+        response.metadata = dict(response.metadata or {})
+        response.metadata["resolved_config"] = resolved.to_dict()
+        if flags.get("top_k") is not None:
+            response.metadata["requested_top_k"] = flags["top_k"]
+        return cast(QueryResponse, response)
 
+    async def __query_with_rag(
+        self,
+        *,
+        token: str,
+        question: str,
+        flags: dict[str, Any],
+        resolved: Any,
+        user: Any,
+        rag: Any,
+    ) -> QueryResponse:
+        container = self.facade.container
         session = await container.store.get_by_token(token)
         principal = User(
             id=user.id,

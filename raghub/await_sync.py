@@ -12,7 +12,7 @@ T = TypeVar("T")
 __all__ = ["capture", "maybe_await", "maybe_await_sync"]
 
 
-def capture(call: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, Exception | None]:
+def capture(call: Callable[..., "JSONValue"], *args: Any, **kwargs: "JSONValue") -> tuple[Any, Exception | None]:
     """Return a callable result and any raised exception."""
     try:
         return call(*args, **kwargs), None

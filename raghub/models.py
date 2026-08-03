@@ -1449,15 +1449,15 @@ class KnowledgeRepository(Protocol):
 class Logger(Protocol):
     """Structured logger contract."""
 
-    def info(self, message: str, **kwargs: Any) -> None:
+    def info(self, message: str, **kwargs: "JSONValue") -> None:
         """Log an info-level message."""
         ...
 
-    def warning(self, message: str, **kwargs: Any) -> None:
+    def warning(self, message: str, **kwargs: "JSONValue") -> None:
         """Log a warning-level message."""
         ...
 
-    def error(self, message: str, **kwargs: Any) -> None:
+    def error(self, message: str, **kwargs: "JSONValue") -> None:
         """Log an error-level message."""
         ...
 
@@ -1670,7 +1670,7 @@ class LLMProvider(Protocol):
         conversation: Sequence[Turn],
         context: Sequence[str],
         question: str,
-        **options: Any,
+        **options: "JSONValue",
     ) -> str:
         """Generate a response from prompt sections.
 
@@ -1698,7 +1698,7 @@ class PipelineRunner(Protocol):
 class BackgroundWorker(Protocol):
     """Schedules background tasks."""
 
-    def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    def submit(self, fn: Callable[..., "JSONValue"], *args: Any, **kwargs: "JSONValue") -> Any:
         """Submit a background task."""
         ...
 

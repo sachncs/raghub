@@ -247,15 +247,15 @@ class LoguruLogger(Logger):
         """
         self.logger = loguru_logger.bind(component="raghub")
 
-    def info(self, message: str, **kwargs: Any) -> None:
+    def info(self, message: str, **kwargs: "JSONValue") -> None:
         """Emit an ``INFO``-level record with structured ``kwargs``."""
         self.logger.bind(**kwargs).info(message)
 
-    def warning(self, message: str, **kwargs: Any) -> None:
+    def warning(self, message: str, **kwargs: "JSONValue") -> None:
         """Emit a ``WARNING``-level record."""
         self.logger.bind(**kwargs).warning(message)
 
-    def error(self, message: str, **kwargs: Any) -> None:
+    def error(self, message: str, **kwargs: "JSONValue") -> None:
         """Emit an ``ERROR``-level record."""
         self.logger.bind(**kwargs).error(message)
 
@@ -299,15 +299,15 @@ class LoguruTelemetryProvider(TelemetryProvider):
         """Build the provider with an optional logger override."""
         self.logger = logger or LoguruLogger()
 
-    def info(self, message: str, **kwargs: Any) -> None:
+    def info(self, message: str, **kwargs: "JSONValue") -> None:
         """Emit an ``info``-level record."""
         self.logger.info(message, **kwargs)
 
-    def warning(self, message: str, **kwargs: Any) -> None:
+    def warning(self, message: str, **kwargs: "JSONValue") -> None:
         """Emit a ``warning``-level record."""
         self.logger.warning(message, **kwargs)
 
-    def error(self, message: str, **kwargs: Any) -> None:
+    def error(self, message: str, **kwargs: "JSONValue") -> None:
         """Emit an ``error``-level record."""
         self.logger.error(message, **kwargs)
 
@@ -477,7 +477,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         )
 
     @staticmethod
-    def try_call(fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    def try_call(fn: Callable[..., T], *args: Any, **kwargs: "JSONValue") -> T:
         """Invoke ``fn`` and return its value; errors propagate.
 
         Args:
@@ -517,7 +517,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             flush_interval=flush_interval,
         )
 
-    def info(self, message: str, **kwargs: Any) -> None:
+    def info(self, message: str, **kwargs: "JSONValue") -> None:
         """Emit an info log via a span.
 
         Args:
@@ -528,7 +528,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         with self.span(f"log.info.{message}", level="info", **kwargs):
             pass
 
-    def warning(self, message: str, **kwargs: Any) -> None:
+    def warning(self, message: str, **kwargs: "JSONValue") -> None:
         """Emit a warning log via a span.
 
         Args:
@@ -539,7 +539,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         with self.span(f"log.warning.{message}", level="warning", **kwargs):
             pass
 
-    def error(self, message: str, **kwargs: Any) -> None:
+    def error(self, message: str, **kwargs: "JSONValue") -> None:
         """Emit an error log via a span.
 
         Args:
@@ -676,13 +676,13 @@ class LangfuseTelemetryProvider(TelemetryProvider):
 class NoOpTelemetry(TelemetryProvider):
     """Silent telemetry provider; satisfies the contract."""
 
-    def info(self, message: str, **kwargs: Any) -> None:
+    def info(self, message: str, **kwargs: "JSONValue") -> None:
         """No-op."""
 
-    def warning(self, message: str, **kwargs: Any) -> None:
+    def warning(self, message: str, **kwargs: "JSONValue") -> None:
         """No-op."""
 
-    def error(self, message: str, **kwargs: Any) -> None:
+    def error(self, message: str, **kwargs: "JSONValue") -> None:
         """No-op."""
 
     def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
@@ -730,15 +730,15 @@ class RedactingTelemetry(TelemetryProvider):
         """
         self.inner = inner
 
-    def info(self, message: str, **kwargs: Any) -> None:
+    def info(self, message: str, **kwargs: "JSONValue") -> None:
         """Forward ``info`` with redacted kwargs."""
         self.inner.info(message, **scrub_secrets(kwargs))
 
-    def warning(self, message: str, **kwargs: Any) -> None:
+    def warning(self, message: str, **kwargs: "JSONValue") -> None:
         """Forward ``warning`` with redacted kwargs."""
         self.inner.warning(message, **scrub_secrets(kwargs))
 
-    def error(self, message: str, **kwargs: Any) -> None:
+    def error(self, message: str, **kwargs: "JSONValue") -> None:
         """Forward ``error`` with redacted kwargs."""
         self.inner.error(message, **scrub_secrets(kwargs))
 
@@ -779,7 +779,7 @@ class SafeConsoleSpanExporter:
     that swallows the error and returns a ``FAILURE`` result.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: "JSONValue") -> None:
         """Lazy-import the parent :class:`ConsoleSpanExporter`."""
         try:
             from opentelemetry.sdk.trace.export import ConsoleSpanExporter
