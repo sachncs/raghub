@@ -204,8 +204,9 @@ class RagasAdapter(Evaluator):
             else:
                 outs.append(out)
         for example, answer in zip(rows, outs, strict=True):
-            if "answer" not in example:
-                example["answer"] = answer
+            # Always override the row's "answer" with the factory's
+            # output — that's the whole point of a response_factory.
+            example["answer"] = answer
             example.setdefault("contexts", [])
             example.setdefault("ground_truth", "")
 

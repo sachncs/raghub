@@ -554,8 +554,8 @@ async def build_container(settings: Settings) -> RagContainer:
         RuntimeError: When ``JWT_SECRET`` is missing.
 
     """
-    logger, authorization, user_store = await _build_auth_components(settings)
-    raw_session_store, uow, vector_store = await _build_storage_components(settings)
+    logger, authorization, user_store = await build_auth_components(settings)
+    raw_session_store, uow, vector_store = await build_storage_components(settings)
     nvidia_api_key = settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
     model_components = build_model_components(
         settings, vector_store, uow, nvidia_api_key
@@ -571,7 +571,7 @@ async def build_container(settings: Settings) -> RagContainer:
         parser_registry,
     ) = model_components
     del model_components
-    await _maybe_seed_demo_users(settings, logger, user_store)
+    await maybe_seed_demo_users(settings, logger, user_store)
     return RagContainer(
         settings=settings,
         logger=logger,
@@ -593,7 +593,7 @@ async def build_container(settings: Settings) -> RagContainer:
     )
 
 
-async def _build_auth_components(
+async def build_auth_components(
     settings: Settings,
 ) -> tuple[Any, Any, Any]:
     """Build the logger, ``Authz`` coordinator, and user store."""
@@ -609,7 +609,7 @@ async def _build_auth_components(
     return logger, authorization, user_store
 
 
-async def _build_storage_components(settings: Settings) -> tuple[Any, Any, Store]:
+async def build_storage_components(settings: Settings) -> tuple[Any, Any, Store]:
     """Build the raw session store, the unit of work, and the vector store."""
     raw_session_store = Sessions(
         settings.data_dir / "sessions.db",
@@ -668,7 +668,7 @@ def build_model_components(
     )
 
 
-async def _maybe_seed_demo_users(
+async def maybe_seed_demo_users(
     settings: Settings,
     logger: Any,
     user_store: Any,

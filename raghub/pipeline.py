@@ -79,12 +79,12 @@ def awaitable(value: Any) -> Any:
         return value
 
     # Inline async coroutine factory (one level deep, no nested def).
-    async def _lift() -> Any:
+    async def lift() -> Any:
         """Lift a sync return value into a coroutine."""
         await asyncio.sleep(0)
         return value
 
-    return _lift()
+    return lift()
 
 
 __all__ = [
@@ -386,7 +386,7 @@ def primary_company(user: Any) -> str:
 
 
 @dataclass(frozen=True, slots=True)
-class _IngestResolvedMetadata:
+class IngestResolvedMetadata:
     """Resolved per-request metadata for :meth:`Ingest.run`."""
 
     normalized_metadata: dict[str, Any]
@@ -400,7 +400,7 @@ class _IngestResolvedMetadata:
 
 
 @dataclass(frozen=True, slots=True)
-class _QueryContext:
+class QueryContext:
     """Per-request context passed through the :class:`QueryPipeline` helpers."""
 
     question: str
@@ -518,7 +518,7 @@ class Ingest(PipelineRunner):
         metadata: dict[str, Any],
         user: Any | None,
         bundle_id: str,
-    ) -> _IngestResolvedMetadata:
+    ) -> IngestResolvedMetadata:
         """Resolve the per-request ingest metadata (tenant, owner, classification)."""
         tenant_company = str(
             inputs.get("company") or primary_company(user) or metadata.get("company", "")
@@ -533,7 +533,7 @@ class Ingest(PipelineRunner):
             or metadata.get("classification")
             or Classification.INTERNAL
         )
-        return _IngestResolvedMetadata(
+        return IngestResolvedMetadata(
             normalized_metadata={
                 **metadata,
                 "company": tenant_company,
@@ -557,7 +557,7 @@ class Ingest(PipelineRunner):
         force: bool,
         bundle_id: str,
         checksum: str,
-        resolved: _IngestResolvedMetadata,
+        resolved: IngestResolvedMetadata,
     ) -> Pipeline | None:
         """Return a cached ``Pipeline`` when the bundle is already indexed."""
         if force:
@@ -603,7 +603,7 @@ class Ingest(PipelineRunner):
     def chunk_documents(
         self,
         bundle: Bundle,
-        resolved: _IngestResolvedMetadata,
+        resolved: IngestResolvedMetadata,
     ) -> list[Chunk]:
         """Run the chunker and stamp per-chunk identity fields."""
         with self.telemetry.span("ingest.chunk"):
@@ -768,7 +768,7 @@ class QueryPipeline(PipelineRunner):
         user_id = getattr(user, "email", None) or getattr(user, "user_id", None)
         scope = QueryPipeline.scope_triple(user)
 
-        query_ctx = _QueryContext(
+        query_ctx = QueryContext(
             question=question,
             top_k=top_k,
             user_filter=user_filter,
@@ -786,11 +786,11 @@ class QueryPipeline(PipelineRunner):
         if isinstance(cached, Pipeline):
             return cached
 
-        agent_result = await self._maybe_dispatch_agentic(context, inputs, query_ctx, tools_enabled)
+        agent_result = await self.maybe_dispatch_agentic(context, inputs, query_ctx, tools_enabled)
         if agent_result is not None:
             return agent_result
 
-        return await self._run_query_leg(context, query_ctx)
+        return await self.run_query_leg(context, query_ctx)
 
     @staticmethod
     def scope_triple(user: Any) -> tuple[bool, tuple[str, ...], tuple[str, ...]]:
@@ -801,7 +801,7 @@ class QueryPipeline(PipelineRunner):
             tuple(sorted(str(value) for value in getattr(user, "allowed_groups", []) or [])),
         )
 
-    def maybe_cache_hit(self, ctx: _QueryContext) -> Pipeline | None:
+    def maybe_cache_hit(self, ctx: QueryContext) -> Pipeline | None:
         """Return a cached ``Pipeline`` for the request, or ``None``."""
         if self.cache is None:
             return None
@@ -817,11 +817,11 @@ class QueryPipeline(PipelineRunner):
         )
         return cached if isinstance(cached, Pipeline) else None
 
-    async def _maybe_dispatch_agentic(
+    async def maybe_dispatch_agentic(
         self,
         context: PipelineCtx,
         inputs: dict[str, Any],
-        ctx: _QueryContext,
+        ctx: QueryContext,
         tools_enabled: set[str] | None,
     ) -> Pipeline | None:
         """Forward to the agentic pipeline when tools are enabled."""
@@ -865,21 +865,21 @@ class QueryPipeline(PipelineRunner):
             record_overrides.get("agent_enabled") or record_overrides.get("tools_enabled")
         )
 
-    async def _run_query_leg(
+    async def run_query_leg(
         self,
         context: PipelineCtx,
-        ctx: _QueryContext,
+        ctx: QueryContext,
     ) -> Pipeline:
         """Embed → retrieve → rerank → generate → (optional) structured."""
         with self.telemetry.span("query", question=ctx.question[:128], top_k=ctx.top_k) as span:
             QueryPipeline.annotate_query_span(span, ctx.user, ctx.session_id)
 
-            hits, transforms_applied = await self._retrieve_hits(
+            hits, transforms_applied = await self.retrieve_hits(
                 ctx.question, ctx.history, ctx.top_k, ctx.rbac_filter, ctx.user_filter
             )
 
-            answer, citations = await self._generate_answer(ctx.question, ctx.history, hits)
-            structured_output = await self._maybe_structured(
+            answer, citations = await self.generate_answer(ctx.question, ctx.history, hits)
+            structured_output = await self.maybe_structured(
                 ctx.question, hits, ctx.response_model
             )
             self.record_turn(ctx.record, ctx.session_id, ctx.question, answer)
@@ -914,7 +914,7 @@ class QueryPipeline(PipelineRunner):
         if session_id:
             span.set_attribute("session_id", session_id)
 
-    async def _retrieve_hits(
+    async def retrieve_hits(
         self,
         question: str,
         history: list[Turn],
@@ -926,7 +926,7 @@ class QueryPipeline(PipelineRunner):
         with self.telemetry.span("query.embed_query"):
             vector = self.embedder.embed_text(question)
 
-        transformed = await self._maybe_transform(question, history, top_k)
+        transformed = await self.maybe_transform(question, history, top_k)
         if transformed is not None:
             return transformed
 
@@ -940,7 +940,7 @@ class QueryPipeline(PipelineRunner):
                 hits = await self.long_context_pass.rerank(question=question, hits=hits)
         return hits, []
 
-    async def _maybe_transform(
+    async def maybe_transform(
         self,
         question: str,
         history: list[Turn],
@@ -995,7 +995,7 @@ class QueryPipeline(PipelineRunner):
             if all(getattr(h.chunk, k, None) == v for k, v in user_filter.items())
         ]
 
-    async def _generate_answer(
+    async def generate_answer(
         self,
         question: str,
         history: list[Turn],
@@ -1015,7 +1015,7 @@ class QueryPipeline(PipelineRunner):
                 answer, citations = result
             else:
                 answer = result
-            await self._maybe_record_generate_tokens()
+            await self.maybe_record_generate_tokens()
         return answer, citations
 
     @staticmethod
@@ -1035,7 +1035,7 @@ class QueryPipeline(PipelineRunner):
             for h in hits
         ]
 
-    async def _maybe_record_generate_tokens(self) -> None:
+    async def maybe_record_generate_tokens(self) -> None:
         """Forward LLM token usage to the telemetry provider when available."""
         record_tokens = getattr(self.generator, "record_tokens", None)
         if not callable(record_tokens):
@@ -1052,7 +1052,7 @@ class QueryPipeline(PipelineRunner):
             model=str(tokens.get("model", "")),
         )
 
-    async def _maybe_structured(
+    async def maybe_structured(
         self,
         question: str,
         hits: list[Hit],
@@ -1083,7 +1083,7 @@ class QueryPipeline(PipelineRunner):
             Turn(question=question, answer=str(answer)),
         )
 
-    def maybe_cache_store(self, result: Pipeline, ctx: _QueryContext) -> None:
+    def maybe_cache_store(self, result: Pipeline, ctx: QueryContext) -> None:
         """Persist the pipeline result in the cache when configured."""
         if self.cache is None:
             return
@@ -1114,14 +1114,14 @@ class QueryPipeline(PipelineRunner):
 
         with self.telemetry.span("query.stream", question=question[:128], top_k=top_k) as span:
             self.annotate_stream_span(span, user, session_id)
-            hits = await self._stream_retrieve_hits(
+            hits = await self.stream_retrieve_hits(
                 question, top_k, rbac_filter, user_filter
             )
             history: list[Turn] = []
             if session_id:
                 history = self.conversation_store.load(session_id, limit=20)
             collected: list[str] = []
-            async for piece in self._stream_answer(question, hits, history):
+            async for piece in self.stream_answer(question, hits, history):
                 if piece:
                     collected.append(piece)
                     yield piece
@@ -1140,7 +1140,7 @@ class QueryPipeline(PipelineRunner):
         if session_id:
             span.set_attribute("session_id", session_id)
 
-    async def _stream_retrieve_hits(
+    async def stream_retrieve_hits(
         self,
         question: str,
         top_k: int,
@@ -1169,7 +1169,7 @@ class QueryPipeline(PipelineRunner):
                 hits = await self.long_context_pass.rerank(question=question, hits=hits)
         return hits
 
-    async def _stream_answer(
+    async def stream_answer(
         self,
         question: str,
         hits: list[Hit],

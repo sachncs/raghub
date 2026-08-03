@@ -251,7 +251,7 @@ class TenantSecretCipher:
     def __init__(self, db_path: str) -> None:
         self.db_path = db_path
 
-    def _fernet(self) -> Any:
+    def fernet(self) -> Any:
         try:
             from cryptography.fernet import Fernet
         except ImportError as exc:
@@ -290,12 +290,12 @@ class TenantSecretCipher:
             ).fetchone()
         if row is None:
             return None
-        return self._fernet().decrypt(row[0].encode("utf-8")).decode("utf-8")
+        return self.fernet().decrypt(row[0].encode("utf-8")).decode("utf-8")
 
     def set(self, tenant_id: str, key: str, value: str) -> None:
         """Encrypt and store ``value`` under ``(tenant_id, key)``."""
         require_tenant()
-        token = self._fernet().encrypt(value.encode("utf-8")).decode("utf-8")
+        token = self.fernet().encrypt(value.encode("utf-8")).decode("utf-8")
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 "INSERT INTO raghub_tenant_secrets (tenant_id, key, value) "
@@ -354,24 +354,24 @@ def migrate_tenant_split(
             "asyncpg",
             "pip install raghub[pgvector]",
         ) from exc
-    conn_src = _sync_connect(asyncpg, source_dsn)
-    conn_dst = _sync_connect(asyncpg, target_dsn)
+    conn_src = sync_connect(asyncpg, source_dsn)
+    conn_dst = sync_connect(asyncpg, target_dsn)
     try:
         if (
             from_strategy == IsolationStrategy.ROW_LEVEL
             and to_strategy == IsolationStrategy.SCHEMA_PER_TENANT
         ):
-            return _migrate_row_to_schema(conn_src, conn_dst, tenant_id)
+            return migrate_row_to_schema(conn_src, conn_dst, tenant_id)
         if (
             from_strategy == IsolationStrategy.SCHEMA_PER_TENANT
             and to_strategy == IsolationStrategy.DATABASE_PER_TENANT
         ):
-            return _migrate_schema_to_db(conn_src, conn_dst, tenant_id)
+            return migrate_schema_to_db(conn_src, conn_dst, tenant_id)
         if (
             from_strategy == IsolationStrategy.ROW_LEVEL
             and to_strategy == IsolationStrategy.DATABASE_PER_TENANT
         ):
-            return _migrate_row_to_db(conn_src, conn_dst, tenant_id)
+            return migrate_row_to_db(conn_src, conn_dst, tenant_id)
         raise TenantMigrationError(
             f"unsupported migration direction: "
             f"{from_strategy.value} -> {to_strategy.value}"
@@ -381,7 +381,7 @@ def migrate_tenant_split(
         conn_dst.close()
 
 
-def _sync_connect(asyncpg: Any, dsn: str) -> Any:
+def sync_connect(asyncpg: Any, dsn: str) -> Any:
     """Synchronously open a connection.
 
     Uses :func:`asyncio.run` under the hood. Production code should
@@ -392,7 +392,7 @@ def _sync_connect(asyncpg: Any, dsn: str) -> Any:
     return asyncio.run(asyncpg.connect(dsn))
 
 
-def _migrate_row_to_schema(src: Any, dst: Any, tenant_id: str | None) -> int:
+def migrate_row_to_schema(src: Any, dst: Any, tenant_id: str | None) -> int:
     """Copy rows from the source table to a tenant-scoped schema.
 
     Args:
@@ -407,7 +407,7 @@ def _migrate_row_to_schema(src: Any, dst: Any, tenant_id: str | None) -> int:
     """
     import asyncio
 
-    async def _migrate() -> int:
+    async def migrate() -> int:
         where = ""
         params: list[Any] = []
         if tenant_id is not None:
@@ -444,10 +444,10 @@ def _migrate_row_to_schema(src: Any, dst: Any, tenant_id: str | None) -> int:
                 copied += 1
         return copied
 
-    return asyncio.run(_migrate())
+    return asyncio.run(migrate())
 
 
-def _migrate_schema_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
+def migrate_schema_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
     """Copy rows from a tenant schema in the source database to a separate target database.
 
     Args:
@@ -459,7 +459,7 @@ def _migrate_schema_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
     """
     import asyncio
 
-    async def _migrate() -> int:
+    async def migrate() -> int:
         copied = 0
         if tenant_id is not None:
             schemas = [f"tenant_{tenant_id}"]
@@ -491,10 +491,10 @@ def _migrate_schema_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
                 copied += 1
         return copied
 
-    return asyncio.run(_migrate())
+    return asyncio.run(migrate())
 
 
-def _migrate_row_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
+def migrate_row_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
     """Copy rows from the source row-level table directly to a per-tenant database.
 
     Args:
@@ -507,7 +507,7 @@ def _migrate_row_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
     """
     import asyncio
 
-    async def _migrate() -> int:
+    async def migrate() -> int:
         await dst.execute(_DDL_SQL)
         where = ""
         params: list[Any] = []
@@ -535,4 +535,4 @@ def _migrate_row_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
             copied += 1
         return copied
 
-    return asyncio.run(_migrate())
+    return asyncio.run(migrate())

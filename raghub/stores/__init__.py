@@ -19,7 +19,7 @@ Module-level helpers::
     migrate_from_json        - one-shot JSON → SQLite migration utility.
 
 Names follow the no-suffix rule:
-``Database`` (was ``DatabaseManager``), ``ImageStore`` (was ``FilesystemImageStore``),
+``Database`` (was ``Database``), ``ImageStore`` (was ``FilesystemImageStore``),
 ``Documents`` (was ``JsonDocumentRegistry``), ``Sessions`` (was ``SqliteSessionStore``,
 the canonical SQLite-backed class), ``JsonSessions`` (was ``JsonSessionStore``).
 Call ``Sessions.json(path, timeout)`` to get a JSON-backed instance.
@@ -39,7 +39,7 @@ from uuid import uuid4
 from tqdm import tqdm
 
 from raghub.await_sync import capture
-from raghub.domain import DatabaseManager
+from raghub.domain import Database
 from raghub.errors import AuthenticationError, MissingDepError, RagHubError
 from raghub.io import atomic_write_json, load_json
 from raghub.models import (
@@ -536,7 +536,7 @@ class Sessions:
         self,
         db_path: str | Path,
         timeout_seconds: int = 3600,
-        db: DatabaseManager | None = None,
+        db: Database | None = None,
     ) -> None:
         """Initialise the store."""
         self.db_path = str(db_path)
