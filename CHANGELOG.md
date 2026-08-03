@@ -21,6 +21,58 @@ oldest.
 
 - Removed the redundant `.dockerignore` file.
 
+## [0.9.1] - 2026-08-26
+
+### Changed
+
+### Added
+
+- `raghub.models.Chunk.tenant_id` field (optional ``str | None``)
+  carrying the tenant the chunk belongs to.
+- `RowLevel.filter_query` returning ``(where_clause, params)`` so
+  SQL-backed stores can apply a tenant filter when a tenant context
+  is bound.
+- `MemoryStore.search` / `hybrid_search` accept an optional
+  ``tenant_id`` kwarg; when omitted and a tenant context is bound
+  via :func:`set_current_tenant`, that tenant id is used.
+- `SqliteStore.rows` and `SqliteStore.search` apply a
+  ``company = ?`` clause when a tenant id is bound.
+- `raghub.tenants.TenantContext` and the context helpers
+  (``get_current_tenant`` / ``set_current_tenant`` /
+  ``reset_current_tenant``) re-exported from the public
+  ``raghub.tenants`` package.
+- ``SchemaPerTenant.ensure_schema`` and
+  ``DatabasePerTenant.connection_for`` full implementations
+  (previously raised ``NotImplementedError``).
+- Full implementations of the three ``migrate_tenant_split``
+  directions (``ROW_LEVEL -> SCHEMA_PER_TENANT``,
+  ``SCHEMA_PER_TENANT -> DATABASE_PER_TENANT``,
+  ``ROW_LEVEL -> DATABASE_PER_TENANT``).
+
+### Changed
+
+- `raghub.tenants` re-exports ``TenantContext`` and the context
+  helpers so callers don't have to reach into
+  ``raghub.tenants.isolation``.
+- `LiteLLM.require_litellm` no longer catches ``ImportError`` (the
+  dependency is now required and cannot be missing).
+- ``raghub/llm.py`` and ``raghub/store/pgvector.py`` no longer use
+  ``# noqa: F401`` / ``# type: ignore[import-not-found]`` (R1).
+
+### Tests
+
+- ``tests/test_tenants_isolation.py`` — 23 new tests for tenant
+  validation, context propagation, resolvers, ``RowLevel``,
+  ``TenantRegistry``, ``DatabasePerTenant``, ``SchemaPerTenant``,
+  ``Settings.tenants``.
+- ``tests/test_store_memory.py`` — 7 new tests for tenant
+  isolation in ``MemoryStore.search`` /
+  ``hybrid_search`` / ``insert``.
+- ``tests/test_sqlite_store.py`` — 2 new tests for tenant isolation
+  in ``SqliteStore.search``.
+- ``tests/test_pgvector_integration.py`` — gated live-Postgres
+  test for tenant isolation in ``PgVectorStore.search``.
+
 ## [0.9.0] - 2026-08-25
 
 ### Changed

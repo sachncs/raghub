@@ -295,20 +295,48 @@ class MemoryStore(Store):
         return float(np.dot(lhs, rhs) / denom)
 
     def search(
-        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict[str, Any] = ""
+        self,
+        *,
+        vector: Sequence[float],
+        top_k: int,
+        metadata_filter: str | dict[str, Any] = "",
+        tenant_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Cosine-similarity search with metadata pre-filtering."""
+        """Cosine-similarity search with metadata and tenant pre-filtering.
+
+        Args:
+            vector: Query embedding.
+            top_k: Number of hits to return.
+            metadata_filter: Optional metadata filter (string SQL or dict).
+            tenant_id: Optional explicit tenant id; if ``None`` and a
+                tenant context is bound via :func:`set_current_tenant`,
+                that tenant id is used. Records whose ``chunk.tenant_id``
+                does not match are excluded.
+
+        """
         if isinstance(metadata_filter, dict):
             dict_filter = metadata_filter
             str_filter: str | None = None
         else:
             dict_filter = None
             str_filter = metadata_filter
+        # Tier 2 Item 9: tenant_id isolation
+        from raghub.tenants import get_current_tenant
+
+        effective_tenant = tenant_id
+        if effective_tenant is None:
+            ctx = get_current_tenant()
+            if ctx is not None:
+                effective_tenant = ctx.tenant_id
         with self.lock:
             records = [
                 record
                 for record in self.records.values()
-                if (dict_filter is None or matches_metadata_dict(record, dict_filter))
+                if (
+                    effective_tenant is None
+                    or getattr(record.chunk, "tenant_id", None) == effective_tenant
+                )
+                and (dict_filter is None or matches_metadata_dict(record, dict_filter))
                 and (dict_filter is not None or matches_metadata_string(record, str_filter or ""))
             ]
             scored = [(rec, self.compute_score(vector, rec.vector)) for rec in records]
@@ -322,6 +350,7 @@ class MemoryStore(Store):
         vector: Sequence[float],
         top_k: int,
         metadata_filter: str | dict[str, Any] = "",
+        tenant_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Combine cosine + BM25 via reciprocal-rank fusion."""
         if isinstance(metadata_filter, dict):
@@ -330,11 +359,23 @@ class MemoryStore(Store):
         else:
             dict_filter = None
             str_filter = metadata_filter
+        # Tier 2 Item 9: tenant_id isolation
+        from raghub.tenants import get_current_tenant
+
+        effective_tenant = tenant_id
+        if effective_tenant is None:
+            ctx = get_current_tenant()
+            if ctx is not None:
+                effective_tenant = ctx.tenant_id
         with self.lock:
             records = [
                 rec
                 for rec in self.records.values()
-                if (dict_filter is None or matches_metadata_dict(rec, dict_filter))
+                if (
+                    effective_tenant is None
+                    or getattr(rec.chunk, "tenant_id", None) == effective_tenant
+                )
+                and (dict_filter is None or matches_metadata_dict(rec, dict_filter))
                 and (dict_filter is not None or matches_metadata_string(rec, str_filter or ""))
             ]
             ids = [rec.chunk.id for rec in records]
@@ -481,32 +522,32 @@ class SqliteStore(Store):
 
     def rows(
         self,
-        metadata_filter: str | dict[str, Any] | None,
+        metadata_filter: str | dict[str, Any] | None = None,
+        *,
+        tenant_id: str | None = None,
     ) -> list[tuple[str, str, int, str, str, str, str, str, str, bytes]]:
-        """Return raw chunk rows matching ``metadata_filter``."""
+        """Return raw chunk rows matching ``metadata_filter`` and tenant_id."""
         columns = (
             "chunk_id, document_id, version, classification, "
             "text, source_location, company, owner, department, vector"
         )
-        if metadata_filter is None or metadata_filter == "":
-            return list(
-                self.conn.execute(
-                    f"SELECT {columns} FROM {self.collection}"
-                )
-            )
-        if isinstance(metadata_filter, dict):
-            clauses = " AND ".join(f"{k} = ?" for k in metadata_filter)
-            params = list(metadata_filter.values())
-        else:
-            clauses = metadata_filter
-            params = []
-        columns = (
-            "chunk_id, document_id, version, classification, "
-            "text, source_location, company, owner, department, vector"
-        )
+        clauses: list[str] = []
+        params: list[Any] = []
+        if metadata_filter is not None and metadata_filter != "":
+            if isinstance(metadata_filter, dict):
+                clauses.extend(f"{k} = ?" for k in metadata_filter)
+                params.extend(metadata_filter.values())
+            else:
+                clauses.append(metadata_filter)
+        if tenant_id is not None:
+            clauses.append("company = ?")
+            params.append(tenant_id)
+        where = ""
+        if clauses:
+            where = " WHERE " + " AND ".join(clauses)
         return list(
             self.conn.execute(
-                f"SELECT {columns} FROM {self.collection} WHERE {clauses}",
+                f"SELECT {columns} FROM {self.collection}{where}",
                 params,
             )
         )
@@ -587,10 +628,32 @@ class SqliteStore(Store):
             self.conn.commit()
 
     def search(
-        self, *, vector: Sequence[float], top_k: int, metadata_filter: str | dict[str, Any] = ""
+        self,
+        *,
+        vector: Sequence[float],
+        top_k: int,
+        metadata_filter: str | dict[str, Any] = "",
+        tenant_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Cosine-similarity search with metadata pre-filtering."""
-        rows = self.rows(metadata_filter)
+        """Cosine-similarity search with metadata + tenant pre-filtering.
+
+        Args:
+            vector: Query embedding.
+            top_k: Number of hits.
+            metadata_filter: Optional metadata filter.
+            tenant_id: Optional explicit tenant id; if ``None`` and a
+                tenant context is bound, that tenant id is used.
+
+        """
+        # Tier 2 Item 11: tenant_id isolation
+        from raghub.tenants import get_current_tenant
+
+        effective_tenant = tenant_id
+        if effective_tenant is None:
+            ctx = get_current_tenant()
+            if ctx is not None:
+                effective_tenant = ctx.tenant_id
+        rows = self.rows(metadata_filter, tenant_id=effective_tenant)
         if not rows:
             return []
         query = np.asarray(vector, dtype=np.float32)

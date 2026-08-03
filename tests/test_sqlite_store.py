@@ -91,3 +91,88 @@ def test_concurrent_inserts_are_safe(sqlite_store, sample_chunks):
     assert sorted(results) == [5, 5]
     count = sqlite_store.conn.execute("SELECT COUNT(*) FROM raghub").fetchone()[0]
     assert count == 10
+
+
+# ---------------------------------------------------------------------------
+# v0.9.0 Tier 2 — Item 11: SqliteStore tenant_id column filter
+# ---------------------------------------------------------------------------
+
+
+def test_sqlite_store_search_filters_by_tenant_id(tmp_path):
+    """Item 11: SqliteStore.search adds ``company = ?`` when tenant_id is bound."""
+    from datetime import UTC, datetime
+    from raghub.config import Settings, TenantsConfig
+    from raghub.config import Settings as _S
+    from raghub.models import Chunk, Classification
+    from raghub.store import SqliteStore
+    from raghub.tenants import TenantContext, set_current_tenant, reset_current_tenant
+
+    db = tmp_path / "vecstore.db"
+    store = SqliteStore(path=str(db), embedding_dim=2)
+
+    def _chunk(cid, *, company):
+        return Chunk(
+            id=cid,
+            document_id=f"doc-{cid}",
+            version=1,
+            company=company,
+            owner="alice@x",
+            classification=Classification.INTERNAL,
+            checksum=cid,
+            text=f"text-{cid}",
+            created_at=datetime.now(UTC),
+        )
+
+    store.insert(
+        [_chunk("a", company="acme"), _chunk("b", company="beta")],
+        [[0.1, 0.2], [0.1, 0.2]],
+    )
+
+    token = set_current_tenant(TenantContext(tenant_id="acme"))
+    try:
+        hits = store.search(vector=[0.1, 0.2], top_k=10)
+    finally:
+        reset_current_tenant(token)
+    assert {h["chunk_id"] for h in hits} == {"a"}
+
+    token = set_current_tenant(TenantContext(tenant_id="beta"))
+    try:
+        hits = store.search(vector=[0.1, 0.2], top_k=10)
+    finally:
+        reset_current_tenant(token)
+    assert {h["chunk_id"] for h in hits} == {"b"}
+
+
+def test_sqlite_store_search_explicit_tenant_overrides_context(tmp_path):
+    """Explicit tenant_id wins over the bound tenant context."""
+    from datetime import UTC, datetime
+    from raghub.models import Chunk, Classification
+    from raghub.store import SqliteStore
+    from raghub.tenants import TenantContext, set_current_tenant, reset_current_tenant
+
+    db = tmp_path / "vecstore.db"
+    store = SqliteStore(path=str(db), embedding_dim=2)
+
+    def _chunk(cid, *, company):
+        return Chunk(
+            id=cid,
+            document_id=f"doc-{cid}",
+            version=1,
+            company=company,
+            owner="alice@x",
+            classification=Classification.INTERNAL,
+            checksum=cid,
+            text=f"text-{cid}",
+            created_at=datetime.now(UTC),
+        )
+
+    store.insert(
+        [_chunk("a", company="acme"), _chunk("b", company="beta")],
+        [[0.1, 0.2], [0.1, 0.2]],
+    )
+    token = set_current_tenant(TenantContext(tenant_id="beta"))
+    try:
+        hits = store.search(vector=[0.1, 0.2], top_k=10, tenant_id="acme")
+    finally:
+        reset_current_tenant(token)
+    assert {h["chunk_id"] for h in hits} == {"a"}

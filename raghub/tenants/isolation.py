@@ -96,7 +96,16 @@ def require_tenant() -> TenantContext:
 
 
 class RowLevel:
-    """Default isolation: every store query adds an explicit tenant filter."""
+    """Default isolation: every store query adds an explicit tenant filter.
+
+    Two helpers are provided:
+
+    * :meth:`apply_to_kwargs` — keyword-argument injection for
+      in-memory stores (used by :class:`MemoryStore`).
+    * :meth:`filter_query` — SQL ``WHERE`` clause + params for
+      SQL-backed stores (used by :class:`SqliteStore`,
+      :class:`PgVectorStore`).
+    """
 
     def apply_to_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         """Return ``kwargs`` with a ``tenant_id`` key when set."""
@@ -106,6 +115,33 @@ class RowLevel:
         kwargs = dict(kwargs)
         kwargs.setdefault("tenant_id", context.tenant_id)
         return kwargs
+
+    def filter_query(
+        self,
+        *,
+        column: str = "tenant_id",
+        operator: str = "=",
+    ) -> tuple[str, dict[str, Any]]:
+        """Return a SQL ``WHERE`` fragment and bind params for the bound tenant.
+
+        Args:
+            column: Column name to filter on. Default ``"tenant_id"``.
+            operator: SQL comparison operator. Default ``"="``.
+
+        Returns:
+            ``(where_clause, params)`` where ``where_clause`` is either
+            ``""`` (no tenant bound) or ``f"{column} {operator} :tenant_id"``.
+            ``params`` carries ``{"tenant_id": "..."}`` when a clause is
+            returned.
+
+        """
+        context = _tenant_context.get()
+        if context is None:
+            return "", {}
+        return (
+            f"{column} {operator} :tenant_id",
+            {"tenant_id": context.tenant_id},
+        )
 
 
 class SchemaPerTenant:
@@ -357,15 +393,146 @@ def _sync_connect(asyncpg: Any, dsn: str) -> Any:
 
 
 def _migrate_row_to_schema(src: Any, dst: Any, tenant_id: str | None) -> int:
-    """Copy rows from ``public.raghub_chunks`` to ``tenant_<id>.raghub_chunks``."""
-    raise NotImplementedError("row -> schema migration ships in a future release")
+    """Copy rows from the source table to a tenant-scoped schema.
+
+    Args:
+        src: An open asyncpg connection to the source database.
+        dst: An open asyncpg connection to the target database.
+        tenant_id: When ``None``, all tenants are migrated (one schema
+            per tenant). When set, only that tenant's rows are migrated.
+
+    Returns:
+        The number of rows copied.
+
+    """
+    import asyncio
+
+    async def _migrate() -> int:
+        where = ""
+        params: list[Any] = []
+        if tenant_id is not None:
+            where = " WHERE tenant_id = $1"
+            params = [tenant_id]
+        # Discover tenants in the source table.
+        rows = await src.fetch(
+            f"SELECT DISTINCT tenant_id FROM raghub_chunks{where}", *params
+        )
+        copied = 0
+        for row in rows:
+            tid = row["tenant_id"]
+            schema = f"tenant_{tid}"
+            await dst.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
+            await dst.execute(f'SET search_path TO "{schema}", public')
+            await dst.execute(_DDL_SQL)
+            tenant_rows = await src.fetch(
+                "SELECT * FROM raghub_chunks WHERE tenant_id = $1", tid
+            )
+            for tr in tenant_rows:
+                await dst.execute(
+                    "INSERT INTO raghub_chunks "
+                    "(id, document_id, ordinal, text, metadata, embedding, tenant_id) "
+                    "VALUES ($1, $2, $3, $4, $5::jsonb, $6::vector, $7) "
+                    "ON CONFLICT (id) DO NOTHING",
+                    tr["id"],
+                    tr["document_id"],
+                    tr["ordinal"],
+                    tr["text"],
+                    tr["metadata"],
+                    tr["embedding"],
+                    tr["tenant_id"],
+                )
+                copied += 1
+        return copied
+
+    return asyncio.run(_migrate())
 
 
 def _migrate_schema_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
-    """Dump a schema's contents into a separate database."""
-    raise NotImplementedError("schema -> database migration ships in a future release")
+    """Copy rows from a tenant schema in the source database to a separate target database.
+
+    Args:
+        src: Connection to the source (multi-tenant) database.
+        dst: Connection to the target (per-tenant) database.
+        tenant_id: When ``None``, every tenant schema is migrated.
+            When set, only that tenant's schema is migrated.
+
+    """
+    import asyncio
+
+    async def _migrate() -> int:
+        copied = 0
+        if tenant_id is not None:
+            schemas = [f"tenant_{tenant_id}"]
+        else:
+            schema_rows = await src.fetch(
+                "SELECT schema_name FROM information_schema.schemata "
+                "WHERE schema_name LIKE 'tenant_%'"
+            )
+            schemas = [row["schema_name"] for row in schema_rows]
+        for schema in schemas:
+            await dst.execute(_DDL_SQL)
+            rows = await src.fetch(
+                f'SELECT * FROM "{schema}".raghub_chunks'
+            )
+            for r in rows:
+                await dst.execute(
+                    "INSERT INTO raghub_chunks "
+                    "(id, document_id, ordinal, text, metadata, embedding, tenant_id) "
+                    "VALUES ($1, $2, $3, $4, $5::jsonb, $6::vector, $7) "
+                    "ON CONFLICT (id) DO NOTHING",
+                    r["id"],
+                    r["document_id"],
+                    r["ordinal"],
+                    r["text"],
+                    r["metadata"],
+                    r["embedding"],
+                    r["tenant_id"],
+                )
+                copied += 1
+        return copied
+
+    return asyncio.run(_migrate())
 
 
 def _migrate_row_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
-    """Copy rows from the row-level table into a per-tenant database."""
-    raise NotImplementedError("row -> database migration ships in a future release")
+    """Copy rows from the source row-level table directly to a per-tenant database.
+
+    Args:
+        src: Connection to the source database.
+        dst: Connection to the target (per-tenant) database.
+        tenant_id: When ``None``, every tenant is migrated into a
+            separate target database row. When set, only that
+            tenant's rows are migrated.
+
+    """
+    import asyncio
+
+    async def _migrate() -> int:
+        await dst.execute(_DDL_SQL)
+        where = ""
+        params: list[Any] = []
+        if tenant_id is not None:
+            where = " WHERE tenant_id = $1"
+            params = [tenant_id]
+        rows = await src.fetch(
+            f"SELECT * FROM raghub_chunks{where}", *params
+        )
+        copied = 0
+        for r in rows:
+            await dst.execute(
+                "INSERT INTO raghub_chunks "
+                "(id, document_id, ordinal, text, metadata, embedding, tenant_id) "
+                "VALUES ($1, $2, $3, $4, $5::jsonb, $6::vector, $7) "
+                "ON CONFLICT (id) DO NOTHING",
+                r["id"],
+                r["document_id"],
+                r["ordinal"],
+                r["text"],
+                r["metadata"],
+                r["embedding"],
+                r["tenant_id"],
+            )
+            copied += 1
+        return copied
+
+    return asyncio.run(_migrate())
