@@ -432,7 +432,7 @@ class RAG:
         *,
         settings: Settings | None = None,
         components: RagComponents | None = None,
-        **kwargs: Any,
+        **kwargs: "JSONValue",
     ) -> None:
         """Initialise the facade.
 
@@ -877,7 +877,7 @@ class RAG:
     def ingest(
         self,
         source: str | Path | bytes,
-        **options: Any,
+        **options: "JSONValue",
     ) -> Pipeline:
         """Ingest a file, directory, or raw bytes synchronously.
 
@@ -964,7 +964,7 @@ class RAG:
     async def aingest(
         self,
         source: str | Path | bytes,
-        **options: Any,
+        **options: "JSONValue",
     ) -> Pipeline:
         """Async version of :meth:`ingest`.
 
@@ -1138,7 +1138,7 @@ class RAG:
         file_bytes: bytes,
         source_uri: str,
         mime_type: str,
-        **options: Any,
+        **options: "JSONValue",
     ) -> Pipeline:
         """Run a single ingest pipeline asynchronously.
 
@@ -1213,7 +1213,7 @@ class RAG:
     # Querying
     # ------------------------------------------------------------------
 
-    def query(self, question: str, **kwargs: Any) -> Response:
+    def query(self, question: str, **kwargs: "JSONValue") -> Response:
         """Ask a question and return a typed :class:`Response`."""
         return cast(
             Response,
@@ -1278,7 +1278,7 @@ class RAG:
         question: str,
         *,
         request: RagQueryRequest | None = None,
-        **kwargs: Any,
+        **kwargs: "JSONValue",
     ) -> Response:
         """Async version of :meth:`query`.
 
@@ -1367,7 +1367,7 @@ class RAG:
         question: str,
         *,
         request: RagQueryRequest | None = None,
-        **kwargs: Any,
+        **kwargs: "JSONValue",
     ) -> AsyncIterator[str]:
         """Stream the answer token-by-token via the LLM's ``astream``.
 
@@ -1421,7 +1421,7 @@ class RAG:
         question: str,
         *,
         request: RagQueryRequest | None = None,
-        **kwargs: Any,
+        **kwargs: "JSONValue",
     ) -> AsyncIterator[Any]:
         """Stream :class:`PlannerEvent` instances from the agent loop.
 

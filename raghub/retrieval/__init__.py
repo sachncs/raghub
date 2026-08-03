@@ -1258,7 +1258,7 @@ class Retrieval:
         vector_results: list[Hit],
         keyword_weight: float = 0.3,
         vector_weight: float = 0.7,
-        **options: Any,
+        **options: "JSONValue",
     ) -> list[Hit]:
         """Combine keyword and vector hits with the configured fusion.
 

@@ -154,7 +154,7 @@ class Cache:
         question: str,
         user_id: str | None,
         filters: dict[str, Any] | str | None,
-        **options: Any,
+        **options: "JSONValue",
     ) -> tuple[Any, ...]:
         """Build the cache key for the given query context.
 
@@ -210,7 +210,7 @@ class Cache:
         question: str,
         user_id: str | None = None,
         filters: dict[str, Any] | str | None = None,
-        **options: Any,
+        **options: "JSONValue",
     ) -> Pipeline | None:
         """Return a cached :class:`Pipeline` or ``None``."""
         key = self.make_key(question, user_id, filters, **options)
@@ -229,7 +229,7 @@ class Cache:
         user_id: str | None,
         filters: dict[str, Any] | str | None,
         result: Pipeline,
-        **options: Any,
+        **options: "JSONValue",
     ) -> None:
         """Store a :class:`Pipeline` in the cache."""
         key = self.make_key(question, user_id, filters, **options)

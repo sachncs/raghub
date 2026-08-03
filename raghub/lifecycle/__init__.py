@@ -651,7 +651,7 @@ def normalise_markdown(
     markdown: str,
     *,
     source_uri: str,
-    **options: Any,
+    **options: "JSONValue",
 ) -> Bundle:
     """Convert ``markdown`` to a single-section :class:`Bundle`.
 

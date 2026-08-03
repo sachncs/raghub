@@ -84,6 +84,13 @@ oldest.
   ``execute`` methods take ``**kwargs: JSONValue``; the
   ``ToolRegistry.try_get`` / ``get`` return typed
   ``ToolProtocol``.
+- R10 batch 6: replace every ``**kwargs: Any`` / ``**options: Any``
+  (33 sites across 11 files) with ``**kwargs: JSONValue``.
+- R10 batch 6: replace every ``Callable[..., Any]`` (3 sites)
+  with ``Callable[..., JSONValue]``.
+- C1 batch 6: decompose ``Preference.query_with_flags`` (80 LOC)
+  into ``query_with_flags`` + ``__resolve_user_flags`` +
+  ``__query_without_rag`` + ``__query_with_rag`` helpers.
 
 ### Security
 

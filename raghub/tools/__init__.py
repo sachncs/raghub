@@ -445,7 +445,7 @@ class HybridSearch(Tool):
         self.pipeline = retrieval_pipeline
         self.vector_store = vector_store
 
-    async def execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
         """Fuse dense + sparse retrieval with reciprocal-rank fusion."""
         from raghub.retrieval import rrf
 
@@ -538,7 +538,7 @@ class KeywordSearch(Tool):
         """
         self.vector_store = vector_store
 
-    async def execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
         """Run the keyword search and return the joined hit list."""
         text = (str(kwargs.get("query", "")) or context.question or "").strip()
         if not text:
@@ -605,7 +605,7 @@ class SummarySearch(Tool):
         """
         self.index = raptor_index
 
-    async def execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
         """Run the RAPTOR summary search."""
         if self.index is None:
             return ToolResult(content="(no summary index configured)")
@@ -660,7 +660,7 @@ class VectorSearch(Tool):
         """
         self.pipeline = retrieval_pipeline
 
-    async def execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
         """Run the dense vector search and return the joined hit list."""
         text = (str(kwargs.get("query", "")) or context.question or "").strip()
         if not text:
@@ -728,7 +728,7 @@ class WebSearch(Tool):
     async def execute(
         self,
         context: ToolContext,
-        **kwargs: Any,
+        **kwargs: "JSONValue",
     ) -> ToolResult:
         """Run a DuckDuckGo web search."""
         text = (str(kwargs.get("query", "")) or "").strip()
