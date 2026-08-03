@@ -144,12 +144,12 @@ def test_generate_passes_conversation_as_turns() -> None:
 
 
 # ---------------------------------------------------------------------------
-# DefaultGenerator.generate — capture_last_usage
+# DefaultGenerator.generate — record_token_usage
 # ---------------------------------------------------------------------------
 
 
 def test_capture_last_usage_reads_prompt_completion_keys() -> None:
-    """``capture_last_usage`` honours ``prompt_tokens``/``completion_tokens``."""
+    """``record_token_usage`` honours ``prompt_tokens``/``completion_tokens``."""
     llm = MagicMock()
     llm.last_usage = {
         "prompt_tokens": 11,

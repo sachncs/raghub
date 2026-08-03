@@ -129,7 +129,7 @@ def test_plugin_registry_records() -> None:
     reg = PluginRegistry()
     reg.register_factory("noop", lambda: None)
     assert reg.factories["noop"]() is None
-    assert reg._discover_entrypoints(group="raghub.plugins.does.not.exist") == 0
+    assert reg.discover_entrypoints(group="raghub.plugins.does.not.exist") == 0
 
 
 # ---------------------------------------------------------------------------

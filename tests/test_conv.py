@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from raghub.conv import ConversationManager, Memory, SlidingWindowManager, Tokenizer
+from raghub.conv import ConversationHistory, Memory, SlidingWindowTrimmer, Tokenizer
 from raghub.models import Session, Turn
 from raghub.repos import UnitOfWork
 
@@ -68,13 +68,13 @@ def test_tokenizer_load_returns_none_on_init_failure() -> None:
 
 
 # ---------------------------------------------------------------------------
-# SlidingWindowManager.counttokenize
+# SlidingWindowTrimmer.counttokenize
 # ---------------------------------------------------------------------------
 
 
 def test_sliding_window_counttokenize_with_tiktoken() -> None:
     """When the encoder is set, ``counttokenize`` delegates to it."""
-    manager = SlidingWindowManager()
+    manager = SlidingWindowTrimmer()
     manager.enc = MagicMock()
     manager.enc.encode.return_value = [1, 2, 3]
     assert manager.counttokenize("hello") == 3
@@ -82,26 +82,26 @@ def test_sliding_window_counttokenize_with_tiktoken() -> None:
 
 def test_sliding_window_counttokenize_without_tiktoken() -> None:
     """Without an encoder, ``counttokenize`` falls back to whitespace."""
-    manager = SlidingWindowManager()
+    manager = SlidingWindowTrimmer()
     manager.enc = None
     assert manager.counttokenize("hello world") == 2
     assert manager.counttokenize("") == 0
 
 
 # ---------------------------------------------------------------------------
-# SlidingWindowManager.trim
+# SlidingWindowTrimmer.trim
 # ---------------------------------------------------------------------------
 
 
 def test_sliding_window_trim_empty_history() -> None:
     """Trimming an empty history returns an empty list."""
-    manager = SlidingWindowManager()
+    manager = SlidingWindowTrimmer()
     assert manager.trim([]) == []
 
 
 def test_sliding_window_trim_returns_history_when_within_budget() -> None:
     """When the history fits, every turn survives."""
-    manager = SlidingWindowManager(max_tokens=1000)
+    manager = SlidingWindowTrimmer(max_tokens=1000)
     history = [
         Turn(question="q1", answer="a1"),
         Turn(question="q2", answer="a2"),
@@ -112,7 +112,7 @@ def test_sliding_window_trim_returns_history_when_within_budget() -> None:
 
 def test_sliding_window_trim_drops_oldest_when_over_budget() -> None:
     """Older turns are dropped first to honour the token budget."""
-    manager = SlidingWindowManager(max_tokens=30)
+    manager = SlidingWindowTrimmer(max_tokens=30)
     history = [
         Turn(question="q1", answer="a1"),
         Turn(question="q2", answer="a2"),
@@ -123,14 +123,14 @@ def test_sliding_window_trim_drops_oldest_when_over_budget() -> None:
 
 def test_sliding_window_trim_returns_empty_when_first_turn_too_big() -> None:
     """If even a single turn exceeds the budget, the result is empty."""
-    manager = SlidingWindowManager(max_tokens=5)
+    manager = SlidingWindowTrimmer(max_tokens=5)
     history = [Turn(question="a very long question that is too big", answer="x")]
     assert manager.trim(history) == []
 
 
 def test_sliding_window_trim_does_not_mutate_input() -> None:
     """The original list is not mutated by ``trim``."""
-    manager = SlidingWindowManager(max_tokens=10)
+    manager = SlidingWindowTrimmer(max_tokens=10)
     history = [
         Turn(question="q1", answer="a1"),
         Turn(question="q2", answer="a2"),
@@ -142,14 +142,14 @@ def test_sliding_window_trim_does_not_mutate_input() -> None:
 
 
 # ---------------------------------------------------------------------------
-# ConversationManager
+# ConversationHistory
 # ---------------------------------------------------------------------------
 
 
 def test_conversation_manager_constructs_sliding_window() -> None:
-    """A custom ``max_tokens`` is forwarded to :class:`SlidingWindowManager`."""
+    """A custom ``max_tokens`` is forwarded to :class:`SlidingWindowTrimmer`."""
     uow = MagicMock(spec=UnitOfWork)
-    manager = ConversationManager(uow=uow, max_tokens=512)
+    manager = ConversationHistory(uow=uow, max_tokens=512)
     assert manager.sliding_window.max_tokens == 512
 
 
@@ -161,7 +161,7 @@ def test_conversation_manager_build_creates_session() -> None:
     sidestep it and validate the persistence side.
     """
     uow = _make_uow_with_session(None)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     with patch("raghub.conv.SessionWrap", lambda rec: rec):
         session = asyncio.run(manager.build("user-1"))
     assert session.user_id == "user-1"
@@ -180,7 +180,7 @@ def test_conversation_manager_resolve_returns_session() -> None:
     """
     record = _make_session()
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     with patch("raghub.conv.SessionWrap", lambda rec: rec):
         session = asyncio.run(manager.resolve("t1"))
     assert session is record
@@ -189,14 +189,14 @@ def test_conversation_manager_resolve_returns_session() -> None:
 def test_conversation_manager_resolve_returns_none_for_unknown_token() -> None:
     """``resolve`` returns ``None`` when the token is unknown."""
     uow = _make_uow_with_session(None)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     assert asyncio.run(manager.resolve("missing")) is None
 
 
 def test_conversation_manager_append_noop_for_unknown_token() -> None:
     """``append`` is a no-op when the token is unknown."""
     uow = _make_uow_with_session(None)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     asyncio.run(manager.append("missing", "q", "a"))
     uow.session_repo.save.assert_not_called()
 
@@ -205,7 +205,7 @@ def test_conversation_manager_append_persists_turn() -> None:
     """``append`` adds the turn to the session record and persists it."""
     record = _make_session()
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     before = datetime.now(UTC)
     asyncio.run(manager.append("t1", "hello", "world", metadata={"k": "v"}))
     assert len(record.history) == 1
@@ -221,7 +221,7 @@ def test_conversation_manager_append_default_metadata_is_empty_dict() -> None:
     """When no metadata is supplied, the turn's metadata is ``{}``."""
     record = _make_session()
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     asyncio.run(manager.append("t1", "q", "a"))
     assert record.history[0].metadata == {}
 
@@ -231,7 +231,7 @@ def test_conversation_manager_load_returns_history() -> None:
     record = _make_session(token="t1", history=[Turn(question="q1", answer="a1")]
     )
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     history = asyncio.run(manager.load("t1"))
     assert len(history) == 1
     assert history[0].question == "q1"
@@ -240,14 +240,14 @@ def test_conversation_manager_load_returns_history() -> None:
 def test_conversation_manager_load_returns_empty_for_unknown() -> None:
     """``load`` returns ``[]`` when the token is unknown."""
     uow = _make_uow_with_session(None)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     assert asyncio.run(manager.load("missing")) == []
 
 
 def test_conversation_manager_clear_noop_for_unknown() -> None:
     """``clear`` is a no-op when the token is unknown."""
     uow = _make_uow_with_session(None)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     asyncio.run(manager.clear("missing"))
     uow.session_repo.save.assert_not_called()
 
@@ -257,7 +257,7 @@ def test_conversation_manager_clear_empties_history() -> None:
     record = _make_session(token="t1", history=[Turn(question="q", answer="a")]
     )
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     asyncio.run(manager.clear("t1"))
     assert record.history == []
     uow.session_repo.save.assert_awaited()
@@ -267,7 +267,7 @@ def test_conversation_manager_add_turn_trims() -> None:
     """``add_turn`` appends the turn then trims to the configured budget."""
     record = _make_session(session_id="sess-1", history=[])
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow, max_tokens=10000)
+    manager = ConversationHistory(uow=uow, max_tokens=10000)
     asyncio.run(manager.add_turn("sess-1", Turn(question="q", answer="a")))
     assert len(record.history) == 1
 
@@ -275,7 +275,7 @@ def test_conversation_manager_add_turn_trims() -> None:
 def test_conversation_manager_add_turn_noop_for_unknown_session() -> None:
     """``add_turn`` is a no-op when the session id is unknown."""
     uow = _make_uow_with_session(None)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     asyncio.run(manager.add_turn("missing", Turn(question="q", answer="a")))
     uow.session_repo.save.assert_not_called()
 
@@ -287,7 +287,7 @@ def test_conversation_manager_trim_history_with_explicit_budget() -> None:
         ]
     )
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow, max_tokens=10000)
+    manager = ConversationHistory(uow=uow, max_tokens=10000)
     trimmed = asyncio.run(manager.trim_history("sess-1", max_tokens=10))
     assert len(trimmed) <= 2
 
@@ -296,7 +296,7 @@ def test_conversation_manager_trim_history_uses_default_budget() -> None:
     """Without an override, the configured ``sliding_window`` is used."""
     record = _make_session(session_id="sess-1", history=[Turn(question="q", answer="a")])
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow, max_tokens=10000)
+    manager = ConversationHistory(uow=uow, max_tokens=10000)
     trimmed = asyncio.run(manager.trim_history("sess-1"))
     assert len(trimmed) == 1
     assert trimmed[0].question == "q"
@@ -306,7 +306,7 @@ def test_conversation_manager_trim_history_uses_default_budget() -> None:
 def test_conversation_manager_trim_history_noop_for_unknown() -> None:
     """``trim_history`` returns ``[]`` when the session is unknown."""
     uow = _make_uow_with_session(None)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     assert asyncio.run(manager.trim_history("missing")) == []
 
 
@@ -314,7 +314,7 @@ def test_conversation_manager_get_overrides_returns_dict() -> None:
     """``get_overrides`` returns a shallow copy of the overrides."""
     record = _make_session(overrides={"a": 1})
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     overrides = asyncio.run(manager.get_overrides("sess-1"))
     assert overrides == {"a": 1}
     overrides["a"] = 999
@@ -324,7 +324,7 @@ def test_conversation_manager_get_overrides_returns_dict() -> None:
 def test_conversation_manager_get_overrides_returns_empty_for_unknown() -> None:
     """``get_overrides`` returns ``{}`` when the session is unknown."""
     uow = _make_uow_with_session(None)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     assert asyncio.run(manager.get_overrides("missing")) == {}
 
 
@@ -332,7 +332,7 @@ def test_conversation_manager_get_overrides_returns_empty_when_unset() -> None:
     """``get_overrides`` returns ``{}`` when the session has no overrides."""
     record = _make_session(overrides={})
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     assert asyncio.run(manager.get_overrides("sess-1")) == {}
 
 
@@ -340,7 +340,7 @@ def test_conversation_manager_set_overrides_replaces() -> None:
     """``set_overrides`` replaces the session's overrides mapping."""
     record = _make_session(overrides={"old": True})
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     asyncio.run(manager.set_overrides("sess-1", {"new": True}))
     assert record.overrides == {"new": True}
 
@@ -349,7 +349,7 @@ def test_conversation_manager_set_overrides_clears_with_empty() -> None:
     """An empty / ``None`` overrides mapping resets to an empty dict."""
     record = _make_session(session_id="sess-1", overrides={"a": 1})
     uow = _make_uow_with_session(record)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     asyncio.run(manager.set_overrides("sess-1", {}))
     assert record.overrides == {}
 
@@ -357,7 +357,7 @@ def test_conversation_manager_set_overrides_clears_with_empty() -> None:
 def test_conversation_manager_set_overrides_noop_for_unknown() -> None:
     """``set_overrides`` is a no-op when the session is unknown."""
     uow = _make_uow_with_session(None)
-    manager = ConversationManager(uow=uow)
+    manager = ConversationHistory(uow=uow)
     asyncio.run(manager.set_overrides("missing", {"a": 1}))
     uow.session_repo.save.assert_not_called()
 

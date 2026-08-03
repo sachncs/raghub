@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from raghub.utils import retry
+from raghub.retry import retry
 
 
 def test_retry_succeeds_after_failure():

@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from raghub.embedder import Hasher
+from raghub.embedder import FeatureHashingEmbedder
 from raghub.models import (
     BlockKind,
     Bundle,
@@ -46,9 +46,9 @@ def make_section(texts: list[str], index: int = 0) -> DocumentSection:
     )
 
 
-def build_embedding_provider() -> Hasher:
+def build_embedding_provider() -> FeatureHashingEmbedder:
     """Return a 16-dim hashing embedder for fast in-process tests."""
-    return Hasher(dimension=16, model_name="test")
+    return FeatureHashingEmbedder(dimension=16, model_name="test")
 
 
 def build_generator(answer: str = "the answer") -> MagicMock:

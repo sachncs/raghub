@@ -22,7 +22,7 @@ This file, by contrast, raises if any stage:
 - or returns a content-empty answer.
 
 The tests use the offline-deterministic providers that ship with
-the OSS distribution (``Hasher``, ``MemoryStore``, ``Memory``,
+the OSS distribution (``FeatureHashingEmbedder``, ``MemoryStore``, ``Memory``,
 ``HeuristicProvider``); nothing in the assertions depends on any
 network call. The :class:`RAG` instance wires real components end
 to end.
@@ -38,7 +38,7 @@ from raghub import (
     RAG,
     Settings,
 )
-from raghub.embedder import Hasher
+from raghub.embedder import FeatureHashingEmbedder
 from raghub.gen import DefaultGenerator
 from raghub.ingest import WordChunker
 from raghub.lifecycle import PlainTextConverter
@@ -55,7 +55,7 @@ def rag() -> RAG:
     return RAG(
         settings=Settings(embedding_dim=16),
         converter=PlainTextConverter(),
-        embedder=Hasher(dimension=16, model_name="test-hasher"),
+        embedder=FeatureHashingEmbedder(dimension=16, model_name="test-hasher"),
         generator=DefaultGenerator(llm=HeuristicProvider()),
     )
 
@@ -136,7 +136,7 @@ def test_empty_query_rejected() -> None:
     r = RAG(
         settings=Settings(embedding_dim=16),
         converter=PlainTextConverter(),
-        embedder=Hasher(dimension=16, model_name="x"),
+        embedder=FeatureHashingEmbedder(dimension=16, model_name="x"),
         generator=DefaultGenerator(llm=HeuristicProvider()),
     )
     with pytest.raises(IngestionError, match="non-empty"):
