@@ -8,6 +8,19 @@ Each entry below lists the originating Git commit (short SHA) and its
 ISO 8601 timestamp with timezone. Entries are ordered from newest to
 oldest.
 
+## [Unreleased]
+
+### Changed
+
+- Consolidated generated Python tooling, benchmark, and coverage artifacts in
+  `.gitignore`.
+- Expanded `cleanup.sh` to remove build outputs, mypy and Ruff caches,
+  benchmark data, and coverage reports.
+
+### Removed
+
+- Removed the redundant `.dockerignore` file.
+
 ## [0.6.0] - 2026-07-31
 
 ### Post-release hardening (2026-08-01)
