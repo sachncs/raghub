@@ -54,6 +54,9 @@ oldest.
   references instead of bare ``Any``.
 - C1: decompose ``Agent.iterate`` (217 LOC) into ``iterate`` +
   ``__build_initial_state`` + ``__emit_parse_failure``.
+- C1: decompose ``Office.parse`` (100 LOC) into ``parse`` +
+  ``__is_docx`` / ``__is_xlsx`` / ``__is_pptx`` dispatchers +
+  ``__parse_docx`` / ``__parse_xlsx`` / ``__parse_pptx`` readers.
 - Fix pre-existing test data so the verify() assertions pass —
   ``conftest.sample_chunk`` computes the SHA-256 checksum from
   the text; ``test_sqlite_store._chunk`` and
