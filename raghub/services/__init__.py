@@ -332,56 +332,83 @@ class Query(Mixin):
     async def query(self, *, token: str, question: str) -> QueryResponse:
         """Run a single RAG turn end-to-end.
 
-        Steps: resolve the token → retrieve top-k → flatten history →
-        call the LLM → append the new turn → build citations →
-        emit metric and log.
+        Steps: resolve the token → retrieve top-k → call the LLM →
+        append the new turn → build citations → emit metric and log.
         """
         started = time.perf_counter()
-        auth: Any = self.container.auth
-        user, history = await auth.resolve_user(token)
-        hits = self.container.retrieval.retrieve(
-            user=user, question=question, top_k=self.container.settings.top_k
+        user, history = await self.__resolve_user(token)
+        chunks = await self.__retrieve_chunks(user, question)
+        answer = await self.__generate_answer(chunks, history, question)
+        await self.__record_turn(token, question, answer)
+        self.emit_metric("retrieval_latency_ms", started)
+        self.log(
+            "query_completed",
+            user=user.email,
+            citations=len(chunks),
         )
-        chunks = [hit.chunk for hit in hits]
-        context_list = [chunk.text for chunk in chunks]
+        return QueryResponse(
+            answer=answer,
+            citations=[self.__citation_for(c) for c in chunks],
+            source_chunks=[c.model_dump(mode="json") for c in chunks],
+        )
+
+    async def __resolve_user(self, token: str) -> tuple[Any, list]:
+        """Resolve token into (user, recent history)."""
+        return await self.container.auth.resolve_user(token)
+
+    async def __retrieve_chunks(self, user: Any, question: str) -> list:
+        """Run retrieval and return the chunk list."""
+        hits = self.container.retrieval.retrieve(
+            user=user,
+            question=question,
+            top_k=self.container.settings.top_k,
+        )
+        return [hit.chunk for hit in hits]
+
+    async def __generate_answer(
+        self,
+        chunks: list,
+        history: list,
+        question: str,
+    ) -> str:
+        """Build the prompt and call the LLM."""
         session_history = [
             msg
-            for t in history[-4:]
+            for turn in history[-4:]
             for msg in (
-                {"role": "user", "content": t.question},
-                {"role": "assistant", "content": t.answer},
+                {"role": "user", "content": turn.question},
+                {"role": "assistant", "content": turn.answer},
             )
         ]
-        answer = self.container.llm.generate(
+        return self.container.llm.generate(
             GenerationRequest(
                 system_prompt=self.container.prompt_builder.config.system_prompt,
                 conversation=history,
-                context=context_list,
+                context=[c.text for c in chunks],
                 question=question,
                 image_paths=[],
                 session_history=session_history,
             )
         )
+
+    async def __record_turn(self, token: str, question: str, answer: str) -> None:
+        """Persist the new turn in the conversation store."""
         await self.container.conversation.append(
-            token, question, answer, metadata={"top_k": self.container.settings.top_k}
+            token,
+            question,
+            answer,
+            metadata={"top_k": self.container.settings.top_k},
         )
-        citations = [
-            {
-                "document_id": chunk.document_id,
-                "version": chunk.version,
-                "page": chunk.page,
-                "section": chunk.section,
-                "chunk_id": chunk.id,
-            }
-            for chunk in chunks
-        ]
-        self.emit_metric("retrieval_latency_ms", started)
-        self.log("query_completed", user=user.email, citations=len(citations))
-        return QueryResponse(
-            answer=answer,
-            citations=citations,
-            source_chunks=[chunk.model_dump(mode="json") for chunk in chunks],
-        )
+
+    def __citation_for(self, chunk: Any) -> dict[str, Any]:
+        """Build the citation dict for a single chunk."""
+        return {
+            "document_id": chunk.document_id,
+            "version": chunk.version,
+            "page": chunk.page,
+            "section": chunk.section,
+            "chunk_id": chunk.id,
+        }
 
 
 # ---------------------------------------------------------------------------
