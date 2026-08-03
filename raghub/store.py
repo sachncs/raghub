@@ -219,6 +219,8 @@ class MemoryStore(Store):
                 raise VectorStoreError(
                     f"vector dimension mismatch: expected {self.embedding_dim}, got {len(vector)}"
                 )
+        for chunk in chunks:
+            chunk.verify()
         written = 0
         with self.lock:
             for chunk, vector in zip(chunks, vectors, strict=True):
@@ -563,6 +565,8 @@ class SqliteStore(Store):
                 ``self.embedding_dim``.
 
         """
+        for chunk in chunks:
+            chunk.verify()
         for vector in vectors:
             if len(vector) != self.embedding_dim:
                 raise VectorStoreError(

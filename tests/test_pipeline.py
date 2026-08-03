@@ -218,7 +218,7 @@ class TestCacheBehavior:
                 text="hi",
                 company="acme",
                 owner="u@b.com",
-                checksum="seed",
+                checksum="8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4",
             )
         ]
         store.upsert(chunks, [embedder.embed_text("hi")])

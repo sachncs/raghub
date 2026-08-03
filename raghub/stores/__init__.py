@@ -604,6 +604,7 @@ class Sessions:
 
     async def create_session_record(self, session: Session) -> None:
         """Insert a full :class:`Session` including its history."""
+        session.verify()
         conn = await self.conn()
         await conn.execute(
             """
@@ -707,7 +708,8 @@ class Sessions:
         return session
 
     async def update_session(self, session: Session) -> None:
-        """Overwrite a session row with the supplied record."""
+        """Overwrite a session row wit
+        session.verify()h the supplied record."""
         conn = await self.conn()
         await conn.execute(
             """

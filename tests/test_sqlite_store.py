@@ -54,7 +54,15 @@ def test_insert_or_ignore_skips_duplicates(sqlite_store, sample_chunks, sample_v
     """
     written1 = sqlite_store.insert(sample_chunks, sample_vectors)
     assert written1 == 1
-    dupe = sample_chunks[0].model_copy(update={"text": "different text"})
+    new_text = "different text"
+    import hashlib as _hashlib
+
+    dupe = sample_chunks[0].model_copy(
+        update={
+            "text": new_text,
+            "checksum": _hashlib.sha256(new_text.encode("utf-8")).hexdigest(),
+        }
+    )
     written2 = sqlite_store.insert([dupe], sample_vectors)
     assert written2 == 0
     row = sqlite_store.conn.execute(
@@ -111,6 +119,9 @@ def test_sqlite_store_search_filters_by_tenant_id(tmp_path):
     store = SqliteStore(path=str(db), embedding_dim=2)
 
     def _chunk(cid, *, company):
+        from hashlib import sha256
+
+        text = f"text-{cid}"
         return Chunk(
             id=cid,
             document_id=f"doc-{cid}",
@@ -118,8 +129,8 @@ def test_sqlite_store_search_filters_by_tenant_id(tmp_path):
             company=company,
             owner="alice@x",
             classification=Classification.INTERNAL,
-            checksum=cid,
-            text=f"text-{cid}",
+            checksum=sha256(text.encode("utf-8")).hexdigest(),
+            text=text,
             created_at=datetime.now(UTC),
         )
 
@@ -154,6 +165,9 @@ def test_sqlite_store_search_explicit_tenant_overrides_context(tmp_path):
     store = SqliteStore(path=str(db), embedding_dim=2)
 
     def _chunk(cid, *, company):
+        from hashlib import sha256
+
+        text = f"text-{cid}"
         return Chunk(
             id=cid,
             document_id=f"doc-{cid}",
@@ -161,8 +175,8 @@ def test_sqlite_store_search_explicit_tenant_overrides_context(tmp_path):
             company=company,
             owner="alice@x",
             classification=Classification.INTERNAL,
-            checksum=cid,
-            text=f"text-{cid}",
+            checksum=sha256(text.encode("utf-8")).hexdigest(),
+            text=text,
             created_at=datetime.now(UTC),
         )
 
