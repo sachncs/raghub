@@ -17,6 +17,7 @@ import os
 from abc import ABC, abstractmethod
 from hashlib import sha256
 from typing import Any
+from raghub.constants import DEFAULT_EMBEDDING_DIM, HASHING_BGE_MODEL
 
 import litellm
 import numpy as np
@@ -88,7 +89,7 @@ class FeatureHashingEmbedder(Embedder):
 
     """
 
-    def __init__(self, dimension: int = 384, model_name: str = "hashing-bge") -> None:
+    def __init__(self, dimension: int = DEFAULT_EMBEDDING_DIM, model_name: str = HASHING_BGE_MODEL) -> None:
         """Initialise the embedder.
 
         Args:

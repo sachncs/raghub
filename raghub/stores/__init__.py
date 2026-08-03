@@ -34,6 +34,7 @@ from hashlib import sha256
 from pathlib import Path
 from threading import RLock
 from typing import Any
+from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
 from uuid import uuid4
 
 from tqdm import tqdm
@@ -535,7 +536,7 @@ class Sessions:
     def __init__(
         self,
         db_path: str | Path,
-        timeout_seconds: int = 3600,
+        timeout_seconds: int = DEFAULT_SESSION_TIMEOUT_SECONDS,
         db: Database | None = None,
     ) -> None:
         """Initialise the store."""
@@ -544,7 +545,7 @@ class Sessions:
         self.db = db
 
     @classmethod
-    def json(cls, path: Path, timeout_seconds: int = 3600) -> JsonSessions:
+    def json(cls, path: Path, timeout_seconds: int = DEFAULT_SESSION_TIMEOUT_SECONDS) -> JsonSessions:
         """Construct a JSON-backed session store.
 
         Args:

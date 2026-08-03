@@ -27,6 +27,7 @@ from typing import Any
 
 import tiktoken
 
+from raghub.constants import DEFAULT_PROMPT_MAX_TOKENS, DEFAULT_PROMPT_RESERVED_TOKENS
 from raghub.models import Turn
 
 __all__ = [
@@ -53,8 +54,8 @@ class PromptConfig:
     """
 
     system_prompt: str = "You are a helpful RAG assistant. Answer based on the provided context."
-    max_tokens: int = 4096
-    reserved_output_tokens: int = 512
+    max_tokens: int = DEFAULT_PROMPT_MAX_TOKENS
+    reserved_output_tokens: int = DEFAULT_PROMPT_RESERVED_TOKENS
 
 
 class TokenCounter:

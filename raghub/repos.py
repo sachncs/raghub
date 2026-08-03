@@ -19,6 +19,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
 
 import aiosqlite
 
@@ -440,7 +441,7 @@ class SessionStore(SessionRepository):
     def __init__(
         self,
         db_path: str | Path,
-        timeout_seconds: int = 3600,
+        timeout_seconds: int = DEFAULT_SESSION_TIMEOUT_SECONDS,
         db_manager: Database | None = None,
     ) -> None:
         """Wrap a Sessions-backed SQLite store in the repository protocol."""
