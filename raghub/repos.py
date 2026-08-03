@@ -10,7 +10,7 @@ always wired together by :class:`UnitOfWork`:
 * :class:`DocStore` — versioned document rows.
 * :class:`SessionStore` — session rows.
 * :class:`UnitOfWork` — the transaction coordinator that ties them
-  to a single :class:`DatabaseManager`.
+  to a single :class:`Database`.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import aiosqlite
 
 from raghub.domain import (
     ChunkRepository,
-    DatabaseManager,
+    Database,
     DocumentRepository,
     SessionRepository,
 )
@@ -148,7 +148,7 @@ class DocStore(DocumentRepository):
         :meth:`initialize`.
     """
 
-    def __init__(self, db_path: str | Path, db_manager: DatabaseManager | None = None) -> None:
+    def __init__(self, db_path: str | Path, db_manager: Database | None = None) -> None:
         """Store ``db_path`` for the SQLite database."""
         self.db_path = str(db_path)
         self.db_manager = db_manager
@@ -441,7 +441,7 @@ class SessionStore(SessionRepository):
         self,
         db_path: str | Path,
         timeout_seconds: int = 3600,
-        db_manager: DatabaseManager | None = None,
+        db_manager: Database | None = None,
     ) -> None:
         """Wrap a Sessions-backed SQLite store in the repository protocol."""
         self.inner = Sessions(db_path, timeout_seconds, db=db_manager)
@@ -566,7 +566,7 @@ class UnitOfWork(BaseUnitOfWork):
             self.initialized = True
 
     async def close(self) -> None:
-        """Close the underlying :class:`DatabaseManager`.
+        """Close the underlying :class:`Database`.
 
         Idempotent: a second call is a no-op.
         """

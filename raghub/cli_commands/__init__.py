@@ -443,7 +443,7 @@ class QueueCommand:
             archive = rag.archive()
             worker = Worker(
                 queue=queue,
-                handler=lambda job: _ingest_handler(job, rag, archive, store),
+                handler=lambda job: ingest_handler(job, rag, archive, store),
                 concurrency=workers,
                 max_attempts=max_attempts,
                 max_wall_seconds=max_wall_seconds,
@@ -501,7 +501,7 @@ class QueueCommand:
         app.add_typer(queue_app, name="queue")
 
 
-async def _ingest_handler(job: Any, rag: Any, archive: Any, store: Any) -> None:
+async def ingest_handler(job: Any, rag: Any, archive: Any, store: Any) -> None:
     """Default queue handler: re-run ``RAG.ingest`` against the persisted payload."""
     import asyncio
     from pathlib import Path
@@ -568,7 +568,7 @@ class TenantCommand:
             from raghub.tenants.isolation import TenantRegistry
 
             settings = CliConfig.make_settings(config)
-            registry = TenantRegistry(entries=_load_registry_entries(settings))
+            registry = TenantRegistry(entries=load_registry_entries(settings))
             if not registry.entries:
                 typer.echo("(no tenants registered)")
                 return
@@ -592,10 +592,10 @@ class TenantCommand:
 
             validate_tenant_id(tenant_id)
             settings = CliConfig.make_settings(config)
-            entries = _load_registry_entries(settings)
+            entries = load_registry_entries(settings)
             registry = TenantRegistry(entries=entries)
             registry.upsert(tenant_id, dsn=dsn, vector_dim=vector_dim)
-            _save_registry_entries(settings, registry.entries)
+            save_registry_entries(settings, registry.entries)
             typer.echo(f"tenant {tenant_id} registered")
 
         @tenant_app.command(name="delete")
@@ -609,10 +609,10 @@ class TenantCommand:
             from raghub.tenants.isolation import TenantRegistry
 
             settings = CliConfig.make_settings(config)
-            entries = _load_registry_entries(settings)
+            entries = load_registry_entries(settings)
             registry = TenantRegistry(entries=entries)
             registry.remove(tenant_id)
-            _save_registry_entries(settings, registry.entries)
+            save_registry_entries(settings, registry.entries)
             typer.echo(f"tenant {tenant_id} removed")
 
         app.add_typer(tenant_app, name="tenant")
@@ -733,7 +733,7 @@ class BackupCommand:
         app.add_typer(backup_app, name="backup")
 
 
-def _load_registry_entries(settings: Any) -> dict[str, dict[str, Any]]:
+def load_registry_entries(settings: Any) -> dict[str, dict[str, Any]]:
     """Load tenant-registry entries from the ``RAG_TENANT_DSNS`` env var.
 
     Format: ``tenant_id=dsn,vector_dim;tenant_id=dsn,vector_dim;...``
@@ -767,7 +767,7 @@ def _load_registry_entries(settings: Any) -> dict[str, dict[str, Any]]:
     return out
 
 
-def _save_registry_entries(settings: Any, entries: dict[str, dict[str, Any]]) -> None:
+def save_registry_entries(settings: Any, entries: dict[str, dict[str, Any]]) -> None:
     """Persist registry entries back via the ``Settings.tenants`` payload.
 
     Stores via ``Settings.extra`` so the change is observed in

@@ -119,7 +119,7 @@ SCHEMA_SQL = (
 )
 
 
-def _redact_comment(comment: str | None) -> str | None:
+def redact_comment(comment: str | None) -> str | None:
     """Redact secrets from ``comment`` before persistence."""
     if not comment:
         return comment
@@ -130,7 +130,7 @@ def _redact_comment(comment: str | None) -> str | None:
     return sanitized.get("comment")
 
 
-class _NullTelemetry:
+class NullTelemetry:
     """Inner stub for :class:`RedactingTelemetry`."""
 
     def info(self, *_args: Any, **_kwargs: Any) -> None: ...
@@ -157,7 +157,7 @@ class SqliteFeedbackStore:
 
     async def record(self, feedback: Feedback) -> None:
         """Persist ``feedback`` with redacted comment."""
-        redacted_comment = _redact_comment(feedback.comment)
+        redacted_comment = redact_comment(feedback.comment)
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 "INSERT INTO raghub_feedback "
@@ -190,7 +190,7 @@ class SqliteFeedbackStore:
             ).fetchone()
         if row is None:
             return None
-        return _row_to_feedback(row)
+        return row_to_feedback(row)
 
     async def list_for_session(self, session_id: str) -> list[Feedback]:
         """Return every feedback record for the session."""
@@ -201,7 +201,7 @@ class SqliteFeedbackStore:
                 "ORDER BY created_at DESC",
                 (session_id,),
             ).fetchall()
-        return [_row_to_feedback(r) for r in rows]
+        return [row_to_feedback(r) for r in rows]
 
     async def list_for_chunk(self, chunk_id: str) -> list[Feedback]:
         """Return every feedback record for the chunk."""
@@ -212,7 +212,7 @@ class SqliteFeedbackStore:
                 "ORDER BY created_at DESC",
                 (chunk_id,),
             ).fetchall()
-        return [_row_to_feedback(r) for r in rows]
+        return [row_to_feedback(r) for r in rows]
 
     async def list_for_tenant(
         self, tenant_id: str, limit: int = 1000
@@ -225,7 +225,7 @@ class SqliteFeedbackStore:
                 "ORDER BY created_at DESC LIMIT ?",
                 (tenant_id, limit),
             ).fetchall()
-        return [_row_to_feedback(r) for r in rows]
+        return [row_to_feedback(r) for r in rows]
 
     async def delete(self, feedback_id: str) -> None:
         """Delete one feedback record by id."""
@@ -292,7 +292,7 @@ class PgFeedbackStore:
             raise MissingDepError(
                 "asyncpg", "pip install raghub[pgvector]"
             ) from exc
-        redacted_comment = _redact_comment(feedback.comment)
+        redacted_comment = redact_comment(feedback.comment)
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute(
@@ -330,7 +330,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return _row_to_feedback(row) if row else None
+        return row_to_feedback(row) if row else None
 
     async def list_for_session(self, session_id: str) -> list[Feedback]:
         """Return every feedback record for the session."""
@@ -349,7 +349,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return [_row_to_feedback(r) for r in rows]
+        return [row_to_feedback(r) for r in rows]
 
     async def list_for_chunk(self, chunk_id: str) -> list[Feedback]:
         """Return every feedback record for the chunk."""
@@ -368,7 +368,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return [_row_to_feedback(r) for r in rows]
+        return [row_to_feedback(r) for r in rows]
 
     async def list_for_tenant(
         self, tenant_id: str, limit: int = 1000
@@ -390,7 +390,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return [_row_to_feedback(r) for r in rows]
+        return [row_to_feedback(r) for r in rows]
 
     async def delete(self, feedback_id: str) -> None:
         """Delete one feedback record by id."""
@@ -447,7 +447,7 @@ class PgFeedbackStore:
         )
 
 
-def _row_to_feedback(row: Any) -> Feedback:
+def row_to_feedback(row: Any) -> Feedback:
     """Convert a SQLite / asyncpg row to a :class:`Feedback`."""
     metadata = json.loads(row["metadata"]) if row["metadata"] else {}
     rating_value = int(row["rating"])
@@ -540,7 +540,7 @@ class Bm25BoostScorer:
         negative = sum(
             1 for f in chunk_feedback if int(f.rating) == int(Rating.NEGATIVE)
         )
-        return self._apply(chunk_id, base_score, positive, negative)
+        return self.apply(chunk_id, base_score, positive, negative)
 
     def boost(self, chunk_id: str, base_score: float) -> float:
         """Synchronous boost using the in-memory cache.
@@ -550,9 +550,9 @@ class Bm25BoostScorer:
         For live reads, use :meth:`boost_async`.
         """
         positive, negative = self._counts.get(chunk_id, (0, 0))
-        return self._apply(chunk_id, base_score, positive, negative)
+        return self.apply(chunk_id, base_score, positive, negative)
 
-    def _apply(
+    def apply(
         self,
         chunk_id: str,
         base_score: float,

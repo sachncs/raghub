@@ -31,7 +31,7 @@ from raghub.models import (
 __all__ = [
     "ChunkRef",
     "ChunkRepository",
-    "DatabaseManager",
+    "Database",
     "DocumentRef",
     "DocumentRepository",
     "SessionRepository",
@@ -342,7 +342,7 @@ class UnitOfWork:
 
     Wraps :class:`DocumentRepository`, :class:`ChunkRepository`, and
     :class:`SessionRepository` so callers can perform cross-aggregate
-    writes atomically when a shared :class:`DatabaseManager` is in
+    writes atomically when a shared :class:`Database` is in
     use. The unit also doubles as an ``async with`` context manager.
     """
 
@@ -351,7 +351,7 @@ class UnitOfWork:
         document_repo: DocumentRepository,
         chunk_repo: ChunkRepository,
         session_repo: SessionRepository,
-        db_manager: DatabaseManager | None = None,
+        db_manager: Database | None = None,
     ) -> None:
         """Store the per-repository handles and optional DB manager."""
         self.document_repo = document_repo
@@ -404,7 +404,7 @@ class UnitOfWork:
             await self.db_manager.close()
 
 
-class DatabaseManager(Protocol):
+class Database(Protocol):
     """Async connection lifecycle for the shared SQLite handle.
 
     Implementations are responsible for opening the connection in

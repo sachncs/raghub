@@ -204,15 +204,15 @@ class SqliteQueue:
 
     async def initialize(self) -> None:
         """Create the ``raghub_queue`` table on first use."""
-        async with self._connect() as conn:
+        async with self.connect() as conn:
             await conn.executescript(SCHEMA_SQL)
 
-    def _connect(self) -> _AioSqliteConnection:
+    def connect(self) -> AioSqliteConnection:
         import aiosqlite
 
-        return _AioSqliteConnection(aiosqlite.connect(self.db_path))
+        return AioSqliteConnection(aiosqlite.connect(self.db_path))
 
-    async def _count(self, conn: Any) -> int:
+    async def count(self, conn: Any) -> int:
         cursor = await conn.execute(
             "SELECT COUNT(*) FROM raghub_queue "
             "WHERE status IN (?, ?)",
@@ -234,8 +234,8 @@ class SqliteQueue:
 
         job_id = str(uuid.uuid4())
         now = datetime.now(UTC).isoformat()
-        async with self._connect() as conn:
-            current = await self._count(conn)
+        async with self.connect() as conn:
+            current = await self.count(conn)
             if current >= self.max_inflight:
                 raise QueueSaturatedError(
                     f"queue saturated: {current} pending/running jobs"
@@ -265,7 +265,7 @@ class SqliteQueue:
         import aiosqlite
 
         now = datetime.now(UTC)
-        async with self._connect() as conn:
+        async with self.connect() as conn:
             conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
                 "SELECT * FROM raghub_queue "
@@ -289,12 +289,12 @@ class SqliteQueue:
                 ),
             )
             await conn.commit()
-            return _row_to_job(row)
+            return row_to_job(row)
 
     async def ack(self, job_id: str) -> None:
         """Mark ``job_id`` as succeeded."""
         now = datetime.now(UTC).isoformat()
-        async with self._connect() as conn:
+        async with self.connect() as conn:
             await conn.execute(
                 "UPDATE raghub_queue SET status = ?, updated_at = ? WHERE id = ?",
                 (JobStatus.SUCCEEDED.value, now, job_id),
@@ -306,7 +306,7 @@ class SqliteQueue:
         import aiosqlite
 
         now = datetime.now(UTC)
-        async with self._connect() as conn:
+        async with self.connect() as conn:
             conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
                 "SELECT * FROM raghub_queue WHERE id = ?", (job_id,)
@@ -349,7 +349,7 @@ class SqliteQueue:
     async def dead_letter(self, job_id: str) -> None:
         """Move ``job_id`` to the ``dead`` state."""
         now = datetime.now(UTC).isoformat()
-        async with self._connect() as conn:
+        async with self.connect() as conn:
             await conn.execute(
                 "UPDATE raghub_queue SET status = ?, updated_at = ? WHERE id = ?",
                 (JobStatus.DEAD.value, now, job_id),
@@ -362,7 +362,7 @@ class SqliteQueue:
             datetime.now(UTC) + timedelta(seconds=delay_seconds)
         ).isoformat()
         now = datetime.now(UTC).isoformat()
-        async with self._connect() as conn:
+        async with self.connect() as conn:
             await conn.execute(
                 "UPDATE raghub_queue SET status = ?, next_run_at = ?, "
                 "worker_id = NULL, updated_at = ? WHERE id = ?",
@@ -372,7 +372,7 @@ class SqliteQueue:
 
     async def purge(self, status: JobStatus | None = None) -> int:
         """Delete jobs by status; return the count deleted."""
-        async with self._connect() as conn:
+        async with self.connect() as conn:
             if status is None:
                 cursor = await conn.execute("DELETE FROM raghub_queue")
             else:
@@ -391,7 +391,7 @@ class SqliteQueue:
         """List jobs, optionally filtered by status."""
         import aiosqlite
 
-        async with self._connect() as conn:
+        async with self.connect() as conn:
             conn.row_factory = aiosqlite.Row
             if status is None:
                 cursor = await conn.execute(
@@ -405,12 +405,12 @@ class SqliteQueue:
                     (status.value, limit),
                 )
             rows = await cursor.fetchall()
-            return [_row_to_job(row) for row in rows]
+            return [row_to_job(row) for row in rows]
 
     async def stats(self) -> dict[str, int]:
         """Return counts per status."""
         counts: dict[str, int] = {s.value: 0 for s in JobStatus}
-        async with self._connect() as conn:
+        async with self.connect() as conn:
             cursor = await conn.execute(
                 "SELECT status, COUNT(*) FROM raghub_queue GROUP BY status"
             )
@@ -420,7 +420,7 @@ class SqliteQueue:
         return counts
 
 
-class _AioSqliteConnection:
+class AioSqliteConnection:
     """Async context manager wrapping ``aiosqlite.connect``."""
 
     def __init__(self, coro: Any) -> None:
@@ -434,7 +434,7 @@ class _AioSqliteConnection:
         await self.conn.close()
 
 
-def _row_to_job(row: Any) -> Job:
+def row_to_job(row: Any) -> Job:
     """Convert a SQLite row to a :class:`Job`."""
     import json
 
@@ -470,9 +470,9 @@ class Worker:
 
     async def run(self) -> None:
         """Run the worker pool until cancelled."""
-        await asyncio.gather(*(self._loop(f"worker-{i}") for i in range(self.concurrency)))
+        await asyncio.gather(*(self.loop(f"worker-{i}") for i in range(self.concurrency)))
 
-    async def _loop(self, worker_id: str) -> None:
+    async def loop(self, worker_id: str) -> None:
         while True:
             job = await self.queue.claim(worker_id, lease_seconds=self.lease_seconds)
             if job is None:

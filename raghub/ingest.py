@@ -737,45 +737,31 @@ class Ingestor:
                 persisted.
 
         """
-        department: str = options.get("department", "")
-        tags: list[str] | None = options.get("tags")
-        classification: Classification = options.get(
-            "classification", Classification.INTERNAL
-        )
+        department, tags, classification = self.__extract_options(options)
         mime_type = validate_upload(file_name, file_bytes, self.max_upload_bytes)
         self.virus_scan_hook(file_bytes)
         checksum = sha256(file_bytes).hexdigest()
 
         previous = await self.uow.document_repo.get_by_checksum(checksum)
-        if previous is not None and previous.status == DocumentLifecycleStatus.READY:
-            return IngestionResult(document=previous, chunks=list(previous.chunks))
+        cached = self.__maybe_return_cached(previous)
+        if cached is not None:
+            return cached
 
-        context = PipelineCtx(pipeline_name="ingest", metadata={"user_id": owner.email})
-        if self.make_pipeline is None:
-            self.make_pipeline = self.build_pipeline()
-        result = await self.make_pipeline.run(
-            context,
+        result = await self.__run_pipeline(
             file_bytes=file_bytes,
-            source_uri=file_name,
+            file_name=file_name,
             mime_type=mime_type,
-            metadata={
-                "department": department,
-                "tags": tags or [],
-                "classification": classification.value,
-            },
-            user=owner,
-            company=organization,
+            owner=owner,
+            organization=organization,
+            department=department,
+            tags=tags,
+            classification=classification,
         )
         if result.error is not None:
-            error_message = (result.error.message if result.error else None) or "ingestion failed"
-            if previous is not None:
-                previous.status = DocumentLifecycleStatus.FAILED
-                previous.error = (
-                    error_message if isinstance(error_message, str) else error_message.message
-                )
-                await self.uow.document_repo.save(previous)
-            raise IngestionError(error_message)
-
+            await self.__mark_failed(previous, result)
+            raise IngestionError(
+                result.error.message if result.error else "ingestion failed"
+            )
         record = record_from_pipeline(
             result,
             file_name=file_name,
@@ -788,6 +774,65 @@ class Ingestor:
         )
         await self.uow.document_repo.save(record)
         return IngestionResult(document=record, chunks=list(record.chunks))
+
+    def __extract_options(self, options: Any) -> tuple[str, list[str] | None, Classification]:
+        """Pull typed fields from the kwargs blob."""
+        return (
+            options.get("department", ""),
+            options.get("tags"),
+            options.get("classification", Classification.INTERNAL),
+        )
+
+    def __maybe_return_cached(self, previous: Any) -> IngestionResult | None:
+        """Return the cached IngestionResult when the prior doc is READY."""
+        if previous is not None and previous.status == DocumentLifecycleStatus.READY:
+            return IngestionResult(document=previous, chunks=list(previous.chunks))
+        return None
+
+    async def __run_pipeline(
+        self,
+        *,
+        file_bytes: bytes,
+        file_name: str,
+        mime_type: str,
+        owner: User,
+        organization: str,
+        department: str,
+        tags: list[str] | None,
+        classification: Classification,
+    ) -> Any:
+        """Run the configured Ingest pipeline and return the result."""
+        context = PipelineCtx(
+            pipeline_name="ingest", metadata={"user_id": owner.email}
+        )
+        if self.make_pipeline is None:
+            self.make_pipeline = self.build_pipeline()
+        return await self.make_pipeline.run(
+            context,
+            file_bytes=file_bytes,
+            source_uri=file_name,
+            mime_type=mime_type,
+            metadata={
+                "department": department,
+                "tags": tags or [],
+                "classification": classification.value,
+            },
+            user=owner,
+            company=organization,
+        )
+
+    async def __mark_failed(self, previous: Any, result: Any) -> None:
+        """Persist the failed status on the previous document, if any."""
+        if previous is None:
+            return
+        error_message = (
+            result.error.message if result.error else None
+        ) or "ingestion failed"
+        previous.status = DocumentLifecycleStatus.FAILED
+        previous.error = (
+            error_message if isinstance(error_message, str) else error_message.message
+        )
+        await self.uow.document_repo.save(previous)
 
 
 # ---------------------------------------------------------------------------

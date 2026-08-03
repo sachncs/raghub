@@ -18,7 +18,7 @@ from raghub.models import Chunk, Hit
 __all__ = ["PgVectorStore"]
 
 
-class _AsyncPgModule(Protocol):
+class AsyncPgModule(Protocol):
     """Slim asyncpg-shaped protocol used by :class:`PgVectorStore`."""
 
     async def connect(self, dsn: str) -> Any: ...
@@ -48,7 +48,7 @@ CREATE INDEX IF NOT EXISTS raghub_chunks_text_search
 """
 
 
-def _try_import_asyncpg() -> Any:
+def try_import_asyncpg() -> Any:
     """Return the asyncpg module or raise :class:`ConfigurationError`."""
     try:
         import asyncpg
@@ -89,7 +89,7 @@ class PgVectorStore:
 
     async def initialize(self) -> None:
         """Create the schema, indexes, and pgvector extension."""
-        asyncpg = _try_import_asyncpg()
+        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             schema = SCHEMA_SQL.format(dim=self.embedding_dim)
@@ -126,7 +126,7 @@ class PgVectorStore:
         """Insert ``chunks`` with their ``vectors``."""
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors must be parallel")
-        asyncpg = _try_import_asyncpg()
+        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             inserted = 0
@@ -144,9 +144,9 @@ class PgVectorStore:
                     chunk.document_id,
                     getattr(chunk, "ordinal", 0),
                     chunk.text,
-                    _jsonb_dumps(chunk.metadata),
-                    _format_vector(vector),
-                    _tenant_id(chunk),
+                    jsonb_dumps(chunk.metadata),
+                    format_vector(vector),
+                    tenant_id(chunk),
                 )
                 inserted += 1
             return inserted
@@ -161,7 +161,7 @@ class PgVectorStore:
         """Upsert ``chunks``; returns the count."""
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors must be parallel")
-        asyncpg = _try_import_asyncpg()
+        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             updated = 0
@@ -178,9 +178,9 @@ class PgVectorStore:
                     chunk.document_id,
                     getattr(chunk, "ordinal", 0),
                     chunk.text,
-                    _jsonb_dumps(chunk.metadata),
-                    _format_vector(vector),
-                    _tenant_id(chunk),
+                    jsonb_dumps(chunk.metadata),
+                    format_vector(vector),
+                    tenant_id(chunk),
                 )
                 updated += 1
             return updated
@@ -189,7 +189,7 @@ class PgVectorStore:
 
     async def delete(self, chunk_id: str) -> None:
         """Delete one chunk."""
-        asyncpg = _try_import_asyncpg()
+        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute(
@@ -200,7 +200,7 @@ class PgVectorStore:
 
     async def delete_document(self, document_id: str) -> None:
         """Delete every chunk tied to ``document_id``."""
-        asyncpg = _try_import_asyncpg()
+        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute(
@@ -224,12 +224,12 @@ class PgVectorStore:
                 f"vector dimension mismatch: expected {self.embedding_dim}, "
                 f"got {len(query_vector)}"
             )
-        asyncpg = _try_import_asyncpg()
+        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             await self.__set_session(conn, tenant_id=tenant_id or "")
             where = ["tenant_id IS NULL"]
-            params: list[Any] = [_format_vector(query_vector), int(top_k)]
+            params: list[Any] = [format_vector(query_vector), int(top_k)]
             if tenant_id is not None:
                 where = ["tenant_id = $2"]
                 params.append(tenant_id)
@@ -257,7 +257,7 @@ class PgVectorStore:
         tenant_id: str | None = None,
     ) -> list[Hit]:
         """Hybrid dense + Postgres FTS search, fused by RRF."""
-        asyncpg = _try_import_asyncpg()
+        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             await self.__set_session(conn, tenant_id=tenant_id or "")
@@ -265,7 +265,7 @@ class PgVectorStore:
                 "SELECT id, 1 - (embedding <=> $1) AS score "
                 "FROM raghub_chunks "
                 "ORDER BY embedding <=> $1 LIMIT $2",
-                _format_vector(query_vector),
+                format_vector(query_vector),
                 int(top_k),
             )
             fts_rows = await conn.fetch(
@@ -296,7 +296,7 @@ class PgVectorStore:
         top_k: int = 5,
     ) -> list[Hit]:
         """Postgres FTS-only search."""
-        asyncpg = _try_import_asyncpg()
+        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             rows = await conn.fetch(
@@ -314,7 +314,7 @@ class PgVectorStore:
 
     async def optimize(self) -> None:
         """VACUUM ANALYZE; rebuilds HNSW if drift is high."""
-        asyncpg = _try_import_asyncpg()
+        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute("VACUUM ANALYZE raghub_chunks")
@@ -326,7 +326,7 @@ class PgVectorStore:
 
     async def health(self) -> dict[str, Any]:
         """Return a status dict."""
-        asyncpg = _try_import_asyncpg()
+        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             row = await conn.fetchrow("SELECT COUNT(*) AS n FROM raghub_chunks")
@@ -336,18 +336,18 @@ class PgVectorStore:
         return {"status": "ok", "backend": "pgvector", "chunks": count}
 
 
-def _format_vector(vector: Sequence[float]) -> str:
+def format_vector(vector: Sequence[float]) -> str:
     """Format ``vector`` as the pgvector literal ``'[v1,v2,...]'``."""
     return "[" + ",".join(f"{v:.7f}" for v in vector) + "]"
 
 
-def _jsonb_dumps(metadata: dict[str, Any] | None) -> str:
+def jsonb_dumps(metadata: dict[str, Any] | None) -> str:
     """Serialise metadata to a JSONB-safe JSON string."""
     import json
 
     return json.dumps(metadata or {}, default=str)
 
 
-def _tenant_id(chunk: Chunk) -> str | None:
+def tenant_id(chunk: Chunk) -> str | None:
     """Extract the tenant id from a chunk's metadata, if any."""
     return getattr(chunk, "tenant_id", None)

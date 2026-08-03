@@ -645,21 +645,45 @@ class SqliteStore(Store):
                 tenant context is bound, that tenant id is used.
 
         """
-        # Tier 2 Item 11: tenant_id isolation
-        from raghub.tenants import get_current_tenant
-
-        effective_tenant = tenant_id
-        if effective_tenant is None:
-            ctx = get_current_tenant()
-            if ctx is not None:
-                effective_tenant = ctx.tenant_id
-        rows = self.rows(metadata_filter, tenant_id=effective_tenant)
+        rows = self.rows(metadata_filter, tenant_id=self.__effective_tenant(tenant_id))
         if not rows:
             return []
+        scored = self.__score_rows(rows, vector)
+        scored.sort(key=lambda pair: pair[1], reverse=True)
+        return self.__materialize(scored[:top_k])
+
+    def __effective_tenant(self, tenant_id: str | None) -> str | None:
+        """Resolve ``tenant_id`` against the bound tenant context."""
+        if tenant_id is not None:
+            return tenant_id
+        from raghub.tenants import get_current_tenant
+
+        ctx = get_current_tenant()
+        return ctx.tenant_id if ctx is not None else None
+
+    def __score_rows(
+        self,
+        rows: list[tuple[Any, ...]],
+        vector: Sequence[float],
+    ) -> list[tuple[Any, float]]:
+        """Compute cosine similarity for every row."""
         query = np.asarray(vector, dtype=np.float32)
         denom = float(np.linalg.norm(query)) or 1.0
         scored: list[tuple[Any, float]] = []
-        for (
+        for row in rows:
+            score = self.__cosine(query, row[-1], denom)
+            scored.append((self.__row_to_chunk(row), score))
+        return scored
+
+    def __cosine(self, query: Any, blob: Any, denom: float) -> float:
+        """Cosine similarity between the query vector and a stored blob."""
+        v = np.frombuffer(blob, dtype=np.float32)
+        d = float(np.linalg.norm(v)) or 1.0
+        return float(np.dot(query, v) / (denom * d))
+
+    def __row_to_chunk(self, row: tuple[Any, ...]) -> Any:
+        """Convert a raw row tuple to a :class:`Chunk`."""
+        (
             chunk_id,
             document_id,
             version,
@@ -670,28 +694,26 @@ class SqliteStore(Store):
             owner,
             department,
             blob,
-        ) in rows:
-            v = np.frombuffer(blob, dtype=np.float32)
-            d = float(np.linalg.norm(v)) or 1.0
-            score = float(np.dot(query, v) / (denom * d))
-            scored.append(
-                (
-                    Chunk(
-                        id=chunk_id,
-                        document_id=document_id,
-                        version=version,
-                        classification=cast(Classification, classification),
-                        text=text,
-                        source_location=source_location,
-                        company=company or "",
-                        owner=owner or "",
-                        department=department or "",
-                        checksum=hashlib.sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest(),
-                    ),
-                    score,
-                )
-            )
-        scored.sort(key=lambda pair: pair[1], reverse=True)
+        ) = row
+        return Chunk(
+            id=chunk_id,
+            document_id=document_id,
+            version=version,
+            classification=cast(Classification, classification),
+            text=text,
+            source_location=source_location,
+            company=company or "",
+            owner=owner or "",
+            department=department or "",
+            checksum=hashlib.sha256(
+                text.encode("utf-8", errors="surrogatepass")
+            ).hexdigest(),
+        )
+
+    def __materialize(
+        self, scored: list[tuple[Any, float]]
+    ) -> list[dict[str, Any]]:
+        """Format scored chunks into the public dict shape."""
         return [
             {
                 "chunk": chunk,
@@ -700,7 +722,7 @@ class SqliteStore(Store):
                 "document_id": chunk.document_id,
                 "version": chunk.version,
             }
-            for chunk, score in scored[:top_k]
+            for chunk, score in scored
         ]
 
     def hybrid_search(

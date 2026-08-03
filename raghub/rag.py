@@ -831,7 +831,7 @@ class RAG:
         result = cast(
             Pipeline,
             maybe_await(
-                self._ingest_one_async(
+                self.ingest_one_async(
                     file_bytes,
                     uri,
                     options.get("mime_type", "text/plain"),
@@ -900,7 +900,7 @@ class RAG:
         if isinstance(source, (str, Path)):
             p = Path(source)
             if p.is_dir():
-                return await self._ingest_directory_async(
+                return await self.ingest_directory_async(
                     p, options.get("metadata"), options.get("user")
                 )
             file_bytes = p.read_bytes()
@@ -910,7 +910,7 @@ class RAG:
             uri = options.get("source_uri") or "bytes://memory"
         if not file_bytes:
             raise IngestionError(f"aingest({source!r}) received empty bytes; nothing to index.")
-        return await self._ingest_one_async(
+        return await self.ingest_one_async(
             file_bytes,
             uri,
             options.get("mime_type", "text/plain"),
@@ -919,7 +919,7 @@ class RAG:
             user=options.get("user"),
         )
 
-    async def _ingest_directory_async(
+    async def ingest_directory_async(
         self,
         directory: Path,
         metadata: dict[str, Any] | None,
@@ -1052,7 +1052,7 @@ class RAG:
         )
         return str(path)
 
-    async def _ingest_one_async(
+    async def ingest_one_async(
         self,
         file_bytes: bytes,
         source_uri: str,
@@ -1367,7 +1367,7 @@ class RAG:
         scoped = self.scoped_session_id(user, session_id)
         resolved = self.resolve_agent_config(merged, scoped, user)
         if self.agentic_pipeline is None:
-            async for event in self._fallback_planner_events(question, session_id):
+            async for event in self.fallback_planner_events(question, session_id):
                 yield event
             return
         context = PipelineCtx(
@@ -1411,7 +1411,7 @@ class RAG:
             settings=self.settings,
         )
 
-    async def _fallback_planner_events(
+    async def fallback_planner_events(
         self,
         question: str,
         session_id: str | None,
@@ -1704,7 +1704,7 @@ class RAG:
                 "user": getattr(user, "user_id", None) if user else None,
             }
 
-            async def _submit() -> str:
+            async def submit() -> str:
                 return await self.queue_.submit(
                     kind="ingest",
                     payload=payload,
@@ -1717,10 +1717,10 @@ class RAG:
                 import concurrent.futures
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                    return ex.submit(lambda: asyncio.run(_submit())).result()
+                    return ex.submit(lambda: asyncio.run(submit())).result()
             except RuntimeError:
                 # No running loop — safe to call asyncio.run.
-                return asyncio.run(_submit())
+                return asyncio.run(submit())
 
         if self.background_ingestion is None:
             self.background_ingestion = Resumable(
@@ -1748,7 +1748,7 @@ class RAG:
 
             from raghub.jobs import JobStatus
 
-            async def _lookup() -> str | None:
+            async def lookup() -> str | None:
                 stats = await self.queue_.stats()
                 if sum(stats.values()) == 0:
                     return None
@@ -1761,9 +1761,9 @@ class RAG:
             try:
                 asyncio.get_running_loop()
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                    return ex.submit(lambda: asyncio.run(_lookup())).result()
+                    return ex.submit(lambda: asyncio.run(lookup())).result()
             except RuntimeError:
-                return asyncio.run(_lookup())
+                return asyncio.run(lookup())
 
         if self.background_ingestion is None:
             return None

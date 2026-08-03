@@ -347,9 +347,9 @@ def restore_snapshot(
     target_dir.mkdir(parents=True, exist_ok=True)
 
     raw = archive_path.read_bytes()
-    tar_bytes = _zstd_decompress(raw)
+    tar_bytes = zstd_decompress(raw)
 
-    manifest_bytes = _extract_member(tar_bytes, "manifest.json")
+    manifest_bytes = extract_member(tar_bytes, "manifest.json")
     manifest_dict = json.loads(manifest_bytes.decode("utf-8"))
     if int(manifest_dict["format_version"]) != MANIFEST_FORMAT_VERSION:
         raise ArchiveCorruptionError(
@@ -379,7 +379,7 @@ def restore_snapshot(
     for entry in manifest.entries:
         if not include_embeddings and entry.kind == "embeddings":
             continue
-        data = _extract_member(tar_bytes, entry.path)
+        data = extract_member(tar_bytes, entry.path)
         sha = hashlib.sha256(data).hexdigest()
         if sha != entry.sha256:
             raise ArchiveCorruptionError(
@@ -390,7 +390,7 @@ def restore_snapshot(
         target.write_bytes(data)
 
 
-def _zstd_decompress(data: bytes) -> bytes:
+def zstd_decompress(data: bytes) -> bytes:
     """Decompress ``data`` with zstd; fall back to no-op when zstd is unavailable."""
     try:
         import zstandard
@@ -400,7 +400,7 @@ def _zstd_decompress(data: bytes) -> bytes:
     return zstandard.ZstdDecompressor().decompress(data, max_output_size=1 << 32)
 
 
-def _zstd_compress(data: bytes) -> bytes:
+def zstd_compress(data: bytes) -> bytes:
     """Compress ``data`` with zstd when available; fall back to plain bytes."""
     try:
         import zstandard
@@ -409,7 +409,7 @@ def _zstd_compress(data: bytes) -> bytes:
     return zstandard.ZstdCompressor().compress(data)
 
 
-def _extract_member(tar_bytes: bytes, member_path: str) -> bytes:
+def extract_member(tar_bytes: bytes, member_path: str) -> bytes:
     """Return the bytes of ``member_path`` from a tar archive.
 
     Rejects absolute paths and ``..`` traversal.
@@ -459,7 +459,7 @@ def write_archive(
 ) -> None:
     """Build the archive, compress, and write to ``output_path``."""
     tar_bytes = make_tar(manifest, files)
-    compressed = _zstd_compress(tar_bytes)
+    compressed = zstd_compress(tar_bytes)
     Path(output_path).write_bytes(compressed)
 
 
@@ -473,9 +473,9 @@ def verify_archive(archive_path: str | Path) -> None:
     """
     archive_path = Path(archive_path)
     raw = archive_path.read_bytes()
-    tar_bytes = _zstd_decompress(raw)
+    tar_bytes = zstd_decompress(raw)
 
-    manifest_bytes = _extract_member(tar_bytes, "manifest.json")
+    manifest_bytes = extract_member(tar_bytes, "manifest.json")
     manifest_dict = json.loads(manifest_bytes.decode("utf-8"))
     if int(manifest_dict["format_version"]) != MANIFEST_FORMAT_VERSION:
         raise ArchiveCorruptionError(
@@ -500,7 +500,7 @@ def verify_archive(archive_path: str | Path) -> None:
     )
     manifest.verify_signature(signing_key())
     for entry in manifest.entries:
-        data = _extract_member(tar_bytes, entry.path)
+        data = extract_member(tar_bytes, entry.path)
         sha = hashlib.sha256(data).hexdigest()
         if sha != entry.sha256:
             raise ArchiveCorruptionError(
