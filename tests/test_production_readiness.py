@@ -323,7 +323,7 @@ class TestQueryPipelineHistoryPropagation:
             text="revenue grew 12 percent",
             company="acme",
             owner="alice@x.com",
-            checksum="seed",
+            checksum="66ae6abbda82296610a97c23c8df7a494ded1222447f7cb5a01b2753b1117d6c",
         )
 
         from raghub.store import MemoryStore

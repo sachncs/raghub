@@ -34,16 +34,20 @@ if str(ROOT) not in sys.path:
 @pytest.fixture
 def sample_chunk() -> Chunk:
     """Build one minimal :class:`Chunk` for tests."""
+    import hashlib as _hashlib
+
+    text = "Revenue grew 12 percent in Q3 2024."
     return Chunk(
         id="test-chunk-1",
         document_id="doc-1",
         version=1,
-        text="Revenue grew 12 percent in Q3 2024.",
+        text=text,
         classification=Classification.INTERNAL,
         company="acme",
         owner="alice@example.com",
         department="finance",
-        checksum="9e3530a3ac3b60c19ce7a2f9d8c0314e405782a1ca63566000004f3cd3abbf1c",
+        # Compute the checksum so Chunk.verify() (R8) passes.
+        checksum=_hashlib.sha256(text.encode("utf-8")).hexdigest(),
         page=0,
         source_location="page 1",
     )

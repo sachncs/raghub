@@ -29,6 +29,18 @@ oldest.
 
 ### Changed
 
+- R8: invoke ``Chunk.verify()`` at every storage boundary —
+  ``MemoryStore.insert()`` and ``SqliteStore.insert()`` validate
+  each chunk's invariant contract before persistence.
+- R8: invoke ``Session.verify()`` at every session write boundary —
+  ``Sessions.create_session_record()`` and
+  ``Sessions.update_session()``.
+- Fix pre-existing test data so the verify() assertions pass —
+  ``conftest.sample_chunk`` computes the SHA-256 checksum from
+  the text; ``test_sqlite_store._chunk`` and
+  ``test_pipeline`` / ``test_production_readiness`` use the correct
+  per-text checksums.
+
 ### Security
 
 ## [0.9.4] - 2026-08-29
