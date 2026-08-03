@@ -344,3 +344,78 @@ def test_rag_job_status_no_background() -> None:
     rag = RAG(converter=PlainTextConverter())
     assert rag.background_ingestion is None
     assert rag.job_status("some-job") is None
+
+
+# ---------------------------------------------------------------------------
+# v0.9.0 Tier 1 — Items 6 & 7: RAG wires v0.7.x collaborators
+# ---------------------------------------------------------------------------
+
+
+def test_rag_constructs_sqlite_queue_from_settings() -> None:
+    """When Settings.queue.backend == 'sqlite', RAG.__init__ builds a SqliteQueue."""
+    from raghub.config import QueueConfig, Settings
+    from raghub.jobs import SqliteQueue
+
+    rag = RAG(settings=Settings(queue=QueueConfig(backend="sqlite")))
+    assert rag.queue_ is not None
+    assert isinstance(rag.queue_, SqliteQueue)
+    assert rag.queue() is rag.queue_
+    assert rag.settings.queue.max_inflight == 256
+
+
+def test_rag_queue_accessor_returns_none_when_memory_backend() -> None:
+    """When Settings.queue.backend == 'memory', queue() returns None."""
+    rag = RAG(converter=PlainTextConverter())
+    assert rag.queue() is None
+    assert rag.queue_ is None
+
+
+def test_rag_constructs_tenant_resolver_from_settings() -> None:
+    """When Settings.tenants.resolver == 'composite', RAG builds CompositeTenantResolver."""
+    from raghub.config import Settings, TenantsConfig
+    from raghub.tenants import CompositeTenantResolver
+
+    rag = RAG(settings=Settings(tenants=TenantsConfig(resolver="composite")))
+    assert rag.tenant_resolver_ is not None
+    assert isinstance(rag.tenant_resolver_, CompositeTenantResolver)
+    assert rag.tenant_resolver() is rag.tenant_resolver_
+
+
+def test_rag_tenant_resolver_jwt() -> None:
+    """When Settings.tenants.resolver == 'jwt', RAG builds JwtClaimTenantResolver."""
+    from raghub.config import Settings, TenantsConfig
+    from raghub.tenants import JwtClaimTenantResolver
+
+    rag = RAG(settings=Settings(tenants=TenantsConfig(resolver="jwt")))
+    assert isinstance(rag.tenant_resolver_, JwtClaimTenantResolver)
+
+
+def test_rag_tenant_resolver_header() -> None:
+    """When Settings.tenants.resolver == 'header', RAG builds HeaderTenantResolver."""
+    from raghub.config import Settings, TenantsConfig
+    from raghub.tenants import HeaderTenantResolver
+
+    rag = RAG(settings=Settings(tenants=TenantsConfig(resolver="header")))
+    assert isinstance(rag.tenant_resolver_, HeaderTenantResolver)
+
+
+def test_rag_tenant_resolver_returns_none_when_resolver_none() -> None:
+    """When Settings.tenants.resolver == 'none', tenant_resolver() returns None."""
+    rag = RAG(converter=PlainTextConverter())
+    assert rag.tenant_resolver_ is None
+    assert rag.tenant_resolver() is None
+
+
+def test_rag_components_dict_overrides_settings_queue() -> None:
+    """Components supplied via components= win over Settings."""
+    from raghub.config import QueueConfig, Settings
+
+    class StubQueue:
+        pass
+
+    stub = StubQueue()
+    rag = RAG(
+        settings=Settings(queue=QueueConfig(backend="sqlite")),
+        components={"queue": stub},
+    )
+    assert rag.queue_ is stub

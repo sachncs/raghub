@@ -22,11 +22,16 @@ from pydantic import BaseModel, Field, SecretStr
 
 __all__ = [
     "AgentConfig",
+    "ArchiveConfig",
+    "FeedbackConfig",
     "HybridConfig",
     "LongContextConfig",
     "QueryTransformsConfig",
+    "QueueConfig",
+    "RateLimitConfig",
     "RerankerConfig",
     "Settings",
+    "TenantsConfig",
     "WebSearchConfig",
 ]
 
@@ -106,6 +111,13 @@ class Settings(BaseModel):
     long_context_pass: LongContextConfig = Field(default_factory=lambda: LongContextConfig())
     hybrid: HybridConfig = Field(default_factory=lambda: HybridConfig())
     query_transforms: QueryTransformsConfig = Field(default_factory=lambda: QueryTransformsConfig())
+
+    # -- v0.9.0 Tier 1 collaborators ---------------------------------------
+    queue: QueueConfig = Field(default_factory=lambda: QueueConfig())
+    feedback: FeedbackConfig = Field(default_factory=lambda: FeedbackConfig())
+    rate_limit: RateLimitConfig = Field(default_factory=lambda: RateLimitConfig())
+    archive: ArchiveConfig = Field(default_factory=lambda: ArchiveConfig())
+    tenants: TenantsConfig = Field(default_factory=lambda: TenantsConfig())
 
     class Config:
         """Pydantic configuration."""
@@ -296,6 +308,101 @@ class QueryTransformsConfig(BaseModel):
     )
     hyde_n: int = 1
     multi_query_n: int = 4
+
+
+# ---------------------------------------------------------------------------
+# v0.9.0 Tier 1 collaborator config blocks
+# ---------------------------------------------------------------------------
+
+
+class QueueConfig(BaseModel):
+    """Persistent ingestion queue configuration.
+
+    Attributes:
+        backend: ``"memory"`` (no queue; legacy Resumable path) or
+            ``"sqlite"`` (durable SqliteQueue backed by ``db_path``).
+        db_path: SQLite file path; defaults to
+            ``{data_dir}/queue.db``.
+        max_inflight: Maximum pending+running jobs before
+            :meth:`SqliteQueue.submit` raises
+            :class:`QueueSaturatedError`.
+
+    """
+
+    backend: Literal["memory", "sqlite"] = "memory"
+    db_path: Path | None = None
+    max_inflight: int = 256
+
+
+class FeedbackConfig(BaseModel):
+    """Feedback capture configuration.
+
+    Attributes:
+        backend: ``"none"`` (no feedback store), ``"sqlite"``
+            (SqliteFeedbackStore), or ``"postgres"``
+            (PgFeedbackStore reusing the pgvector pool).
+        db_path: SQLite file path; defaults to
+            ``{data_dir}/feedback.db``.
+        dsn: Postgres connection string when
+            ``backend == "postgres"``.
+
+    """
+
+    backend: Literal["sqlite", "postgres", "none"] = "none"
+    db_path: Path | None = None
+    dsn: str | None = None
+
+
+class RateLimitConfig(BaseModel):
+    """Per-tenant rate limiting configuration.
+
+    Attributes:
+        backend: ``"memory"`` (process-local TokenBucket) or
+            ``"sqlite"`` (durable backend).
+        per_tenant_rps: Sustained refill rate per tenant.
+        per_tenant_burst: Maximum bucket capacity per tenant.
+        per_user_rps: Sustained refill rate per user.
+        per_user_burst: Maximum bucket capacity per user.
+        exempt_tenants: Tenants that bypass rate limits.
+
+    """
+
+    backend: Literal["memory", "sqlite"] = "memory"
+    per_tenant_rps: float = 10.0
+    per_tenant_burst: int = 20
+    per_user_rps: float = 5.0
+    per_user_burst: int = 10
+    exempt_tenants: list[str] = Field(default_factory=list)
+
+
+class ArchiveConfig(BaseModel):
+    """Backup archive configuration.
+
+    Attributes:
+        backend: ``"none"`` or ``"local"`` (LocalArchiveStore).
+        local_dir: Directory under which archives are written.
+
+    """
+
+    backend: Literal["local", "none"] = "none"
+    local_dir: Path = Path("./data/archives")
+
+
+class TenantsConfig(BaseModel):
+    """Multi-tenant configuration.
+
+    Attributes:
+        resolver: TenantResolver implementation. ``"none"`` skips
+            tenant resolution; ``"header"`` reads ``X-Tenant-ID``;
+            ``"jwt"`` reads the JWT claim; ``"composite"`` prefers
+            JWT and falls back to header.
+        isolation: IsolationStrategy. ``"row_level"`` (default),
+            ``"schema_per_tenant"``, or ``"database_per_tenant"``.
+
+    """
+
+    resolver: Literal["none", "header", "jwt", "composite"] = "none"
+    isolation: Literal["row_level", "schema_per_tenant", "database_per_tenant"] = "row_level"
 
 
 # ---------------------------------------------------------------------------
@@ -670,6 +777,112 @@ def load_transforms(payload: dict[str, Any]) -> QueryTransformsConfig:
     )
 
 
+def load_queue(payload: dict[str, Any]) -> QueueConfig:
+    """Build :class:`QueueConfig` from env + payload."""
+    queue_payload = payload.get("queue", {})
+    return QueueConfig(
+        backend=cast(
+            "Literal['memory', 'sqlite']",
+            os.getenv("RAG_QUEUE_BACKEND", queue_payload.get("backend", "memory")),
+        ),
+        max_inflight=__int(
+            "RAG_QUEUE_MAX_INFLIGHT", queue_payload.get("max_inflight", 256)
+        ),
+    )
+
+
+def load_feedback(payload: dict[str, Any]) -> FeedbackConfig:
+    """Build :class:`FeedbackConfig` from env + payload."""
+    feedback_payload = payload.get("feedback", {})
+    return FeedbackConfig(
+        backend=cast(
+            "Literal['sqlite', 'postgres', 'none']",
+            os.getenv(
+                "RAG_FEEDBACK_BACKEND", feedback_payload.get("backend", "none")
+            ),
+        ),
+        dsn=os.getenv("RAG_FEEDBACK_DSN") or feedback_payload.get("dsn"),
+    )
+
+
+def load_rate_limit(payload: dict[str, Any]) -> RateLimitConfig:
+    """Build :class:`RateLimitConfig` from env + payload."""
+    rate_limit_payload = payload.get("rate_limit", {})
+    exempt_raw = os.getenv("RAG_RATE_LIMIT_EXEMPT_TENANTS", "")
+    if exempt_raw:
+        exempt = [t.strip() for t in exempt_raw.split(",") if t.strip()]
+    else:
+        exempt = list(rate_limit_payload.get("exempt_tenants", []))
+    return RateLimitConfig(
+        backend=cast(
+            "Literal['memory', 'sqlite']",
+            os.getenv(
+                "RAG_RATE_LIMIT_BACKEND", rate_limit_payload.get("backend", "memory")
+            ),
+        ),
+        per_tenant_rps=float(
+            os.getenv(
+                "RAG_RATE_LIMIT_RPS",
+                str(rate_limit_payload.get("per_tenant_rps", 10.0)),
+            )
+        ),
+        per_tenant_burst=int(
+            os.getenv(
+                "RAG_RATE_LIMIT_BURST",
+                str(rate_limit_payload.get("per_tenant_burst", 20)),
+            )
+        ),
+        per_user_rps=float(
+            os.getenv(
+                "RAG_RATE_LIMIT_USER_RPS",
+                str(rate_limit_payload.get("per_user_rps", 5.0)),
+            )
+        ),
+        per_user_burst=int(
+            os.getenv(
+                "RAG_RATE_LIMIT_USER_BURST",
+                str(rate_limit_payload.get("per_user_burst", 10)),
+            )
+        ),
+        exempt_tenants=exempt,
+    )
+
+
+def load_archive(payload: dict[str, Any]) -> ArchiveConfig:
+    """Build :class:`ArchiveConfig` from env + payload."""
+    archive_payload = payload.get("archive", {})
+    local_dir_raw = os.getenv("RAG_ARCHIVE_DIR") or archive_payload.get(
+        "local_dir", "./data/archives"
+    )
+    return ArchiveConfig(
+        backend=cast(
+            "Literal['local', 'none']",
+            os.getenv("RAG_ARCHIVE_BACKEND", archive_payload.get("backend", "none")),
+        ),
+        local_dir=Path(local_dir_raw),
+    )
+
+
+def load_tenants(payload: dict[str, Any]) -> TenantsConfig:
+    """Build :class:`TenantsConfig` from env + payload."""
+    tenants_payload = payload.get("tenants", {})
+    return TenantsConfig(
+        resolver=cast(
+            "Literal['none', 'header', 'jwt', 'composite']",
+            os.getenv(
+                "RAG_TENANTS_RESOLVER", tenants_payload.get("resolver", "none")
+            ),
+        ),
+        isolation=cast(
+            "Literal['row_level', 'schema_per_tenant', 'database_per_tenant']",
+            os.getenv(
+                "RAG_TENANTS_ISOLATION",
+                tenants_payload.get("isolation", "row_level"),
+            ),
+        ),
+    )
+
+
 def production_check(settings: Settings) -> None:
     """Raise ``RuntimeError`` if production-mode invariants are violated."""
     if settings.environment != "production":
@@ -712,6 +925,11 @@ def load_from_env(profile: str | None = None) -> Settings:
     env_payload["summary_search_enabled"] = env_bool(
         "RAG_SUMMARY_ENABLED", payload.get("summary_search_enabled", False)
     )
+    env_payload["queue"] = load_queue(payload)
+    env_payload["feedback"] = load_feedback(payload)
+    env_payload["rate_limit"] = load_rate_limit(payload)
+    env_payload["archive"] = load_archive(payload)
+    env_payload["tenants"] = load_tenants(payload)
     settings = Settings(
         **env_payload,
         profile_path=profile_path if profile_path.exists() else None,

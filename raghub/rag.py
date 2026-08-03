@@ -617,13 +617,69 @@ class RAG:
         )
         self.background_ingestion = components_dict.get("background_service")
 
-        # Optional v0.7.x collaborators; populated by future releases.
-        self.queue_: Any = None
+        # v0.9.0 Tier 1: optional collaborators wired through Settings.
+        # Components supplied via ``components=`` win over Settings.
+        self.queue_ = self.__init_queue(components_dict)
+        self.tenant_resolver_ = self.__init_tenant_resolver(components_dict)
+        # The rest stay as ``None`` until Tier 1's later items wire them.
         self.feedback_store_: Any = None
         self.rate_limiter_: Any = None
         self.archive_: Any = None
-        self.tenant_resolver_: Any = None
         self.isolation_strategy_: Any = components_dict.get("isolation_strategy")
+
+    def __init_queue(self, components_dict: dict[str, Any]) -> Any:
+        """Construct the persistent ingestion queue.
+
+        Priority:
+            1. ``components_dict["queue"]`` if explicitly supplied.
+            2. ``Settings.queue.backend == "sqlite"`` -> ``SqliteQueue``.
+            3. Otherwise ``None`` (legacy threadpool path).
+        """
+        supplied = components_dict.get("queue")
+        if supplied is not None:
+            return supplied
+        backend = self.settings.queue.backend
+        if backend == "sqlite":
+            from raghub.jobs import SqliteQueue
+
+            db_path = (
+                self.settings.queue.db_path
+                or self.settings.data_dir / "queue.db"
+            )
+            queue = SqliteQueue(
+                db_path=str(db_path),
+                max_inflight=self.settings.queue.max_inflight,
+            )
+            return queue
+        return None
+
+    def __init_tenant_resolver(self, components_dict: dict[str, Any]) -> Any:
+        """Construct the tenant resolver.
+
+        Priority:
+            1. ``components_dict["tenant_resolver"]`` if supplied.
+            2. ``Settings.tenants.resolver == "composite" | "jwt" | "header"``.
+            3. Otherwise ``None``.
+        """
+        supplied = components_dict.get("tenant_resolver")
+        if supplied is not None:
+            return supplied
+        resolver = self.settings.tenants.resolver
+        if resolver == "none":
+            return None
+        from raghub.tenants import (
+            CompositeTenantResolver,
+            HeaderTenantResolver,
+            JwtClaimTenantResolver,
+        )
+
+        if resolver == "composite":
+            return CompositeTenantResolver()
+        if resolver == "jwt":
+            return JwtClaimTenantResolver()
+        if resolver == "header":
+            return HeaderTenantResolver()
+        return None
 
     # ------------------------------------------------------------------
     # Construction

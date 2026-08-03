@@ -39,3 +39,15 @@ WEB_SEARCH_MAX_RESULTS: int = 25
 
 # Uploads
 DEFAULT_MAX_UPLOAD_BYTES: int = 20 * 1024 * 1024
+
+# Queue
+MAX_INFLIGHT_DEFAULT: int = 256
+
+# Rate limit
+RATE_LIMIT_RPS: float = 10.0
+RATE_LIMIT_BURST: int = 20
+RATE_LIMIT_USER_RPS: float = 5.0
+RATE_LIMIT_USER_BURST: int = 10
+
+# Archive
+DEFAULT_ARCHIVE_DIR = "./data/archives"

@@ -21,6 +21,41 @@ oldest.
 
 - Removed the redundant `.dockerignore` file.
 
+## [0.9.0] - 2026-08-25
+
+### Changed
+
+### Added
+
+- `raghub.constants`: new `MAX_INFLIGHT_DEFAULT`, `RATE_LIMIT_RPS`,
+  `RATE_LIMIT_BURST`, `RATE_LIMIT_USER_RPS`, `RATE_LIMIT_USER_BURST`,
+  `DEFAULT_ARCHIVE_DIR` constants.
+- `raghub.config.QueueConfig` — persistent ingestion queue block.
+- `raghub.config.FeedbackConfig` — feedback capture block.
+- `raghub.config.RateLimitConfig` — per-tenant rate limiting block.
+- `raghub.config.ArchiveConfig` — backup archive block.
+- `raghub.config.TenantsConfig` — multi-tenant resolver / isolation
+  block.
+- Env-var parsing for every new block (`RAG_QUEUE_*`,
+  `RAG_FEEDBACK_*`, `RAG_RATE_LIMIT_*`, `RAG_ARCHIVE_*`,
+  `RAG_TENANTS_*`).
+- `RAG.__init__` constructs `SqliteQueue` when
+  `Settings.queue.backend == "sqlite"`.
+- `RAG.__init__` constructs `CompositeTenantResolver`,
+  `JwtClaimTenantResolver`, or `HeaderTenantResolver` based on
+  `Settings.tenants.resolver`.
+- Components supplied via `components=` win over `Settings`.
+- New tests for every new config block (defaults, env override,
+  constructor override).
+
+### Notes
+
+- v0.9.0 is the start of the "what the plan claimed was shipped,
+  actually shipped" series. Tiers 2-14 land in subsequent
+  releases.
+- v0.9.0 introduces no breaking changes; every accessor added
+  in v0.7.x is now wired by default.
+
 ## [0.8.0] - 2026-08-24
 
 ### Changed (BREAKING — R4)

@@ -51,7 +51,7 @@ CREATE INDEX IF NOT EXISTS raghub_chunks_text_search
 def _try_import_asyncpg() -> Any:
     """Return the asyncpg module or raise :class:`ConfigurationError`."""
     try:
-        import asyncpg  # type: ignore[import-not-found]
+        import asyncpg
     except ImportError as exc:
         raise ConfigurationError(
             "PgVectorStore requires asyncpg; install with `pip install raghub[pgvector]`."
