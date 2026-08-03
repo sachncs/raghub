@@ -19,11 +19,27 @@ from typing import Any, Protocol
 __all__ = [
     "CompositeTenantResolver",
     "HeaderTenantResolver",
+    "IsolationStrategy",
     "JwtClaimTenantResolver",
     "NoTenantResolver",
+    "TenantContext",
     "TenantId",
     "TenantResolver",
+    "get_current_tenant",
+    "reset_current_tenant",
+    "set_current_tenant",
+    "validate_tenant_id",
 ]
+
+# Re-export context helpers and the dataclass so callers don't have to
+# reach into ``raghub.tenants.isolation`` for routine use.
+from raghub.tenants.isolation import (  # noqa: E402  (re-export)
+    IsolationStrategy,
+    TenantContext,
+    get_current_tenant,
+    reset_current_tenant,
+    set_current_tenant,
+)
 
 TenantId = str
 

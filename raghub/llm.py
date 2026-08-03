@@ -260,13 +260,14 @@ class LiteLLM(Generator):
 
     @staticmethod
     def require_litellm() -> None:
-        """Raise a clear error if LiteLLM is not installed."""
-        try:
-            import litellm
-        except ImportError as exc:
-            raise ConfigurationError(
-                "litellm is not installed; run `pip install litellm`."
-            ) from exc
+        """Verify the ``litellm`` package is importable.
+
+        ``litellm`` is a required core dependency since v0.7.0, so this
+        is a defensive sanity check that surfaces a clear error if a
+        downstream consumer manages to import this module without
+        ``litellm`` installed.
+        """
+        import litellm  # noqa: F401  # presence check
 
     @staticmethod
     def build_messages(request: GenerationRequest) -> list[dict[str, Any]]:

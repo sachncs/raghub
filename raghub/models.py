@@ -584,6 +584,7 @@ class Chunk(BaseModel):
     text: str
     metadata: dict[str, Any] = Field(default_factory=dict)
     type: ChunkType = ChunkType.TEXT
+    tenant_id: str | None = None
 
     def verify(self) -> None:
         """Assert the chunk's invariant contract.
