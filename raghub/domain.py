@@ -27,6 +27,7 @@ from raghub.models import (
     Session,
     Turn,
 )
+from raghub.types import JSONValue
 
 __all__ = [
     "ChunkRef",
@@ -71,7 +72,7 @@ class ChunkRef:
         else:
             setattr(self.record, name, value)
 
-    def update(self, **kwargs: "JSONValue") -> ChunkRef:
+    def update(self, **kwargs: JSONValue) -> ChunkRef:
         """Bulk-set fields on the wrapped record.
 
         Args:
@@ -127,7 +128,7 @@ class DocumentRef:
         else:
             setattr(self.record, name, value)
 
-    def update(self, **kwargs: "JSONValue") -> DocumentRef:
+    def update(self, **kwargs: JSONValue) -> DocumentRef:
         """Bulk-set fields and bump ``updated_at``.
 
         Args:
@@ -194,7 +195,7 @@ class SessionWrap:
         else:
             setattr(self.record, name, value)
 
-    def add_turn(self, question: str, answer: str, **kwargs: "JSONValue") -> SessionWrap:
+    def add_turn(self, question: str, answer: str, **kwargs: JSONValue) -> SessionWrap:
         """Append a new conversation turn and bump ``last_seen_at``.
 
         Args:

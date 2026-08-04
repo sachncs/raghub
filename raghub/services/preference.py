@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from raghub.agent import resolve
 from raghub.models import QueryResponse, User
+from raghub.types import JSONValue
 
 if TYPE_CHECKING:
     from raghub.services.facade import Facade
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 class Preference:
     """Routes advanced-RAG requests based on resolved user prefs."""
 
-    def __init__(self, facade: "Facade") -> None:
+    def __init__(self, facade: Facade) -> None:
         """Store the facade reference."""
         self.facade = facade
 
@@ -23,7 +24,7 @@ class Preference:
         *,
         token: str,
         question: str,
-        **flags: "JSONValue",
+        **flags: JSONValue,
     ) -> QueryResponse:
         """Resolve advanced-RAG flags against user prefs and route accordingly."""
         container = self.facade.container

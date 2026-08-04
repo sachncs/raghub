@@ -8,6 +8,7 @@ from queue import Queue
 from typing import Any
 
 from raghub.models import BackgroundWorker, TaskQueue
+from raghub.types import JSONValue
 
 
 class Synchronous(BackgroundWorker):
@@ -18,7 +19,7 @@ class Synchronous(BackgroundWorker):
     """
 
     @staticmethod
-    def submit(fn: Callable[..., "JSONValue"], *args: "JSONValue", **kwargs: "JSONValue") -> "JSONValue":
+    def submit(fn: Callable[..., JSONValue], *args: JSONValue, **kwargs: JSONValue) -> JSONValue:
         """Invoke ``fn(*args, **kwargs)`` and return its result directly."""
         try:
             return fn(*args, **kwargs)
@@ -45,10 +46,10 @@ class ThreadPool(BackgroundWorker):
 
     def submit(
         self,
-        fn: Callable[..., "JSONValue"],
-        *args: "JSONValue",
-        **kwargs: "JSONValue",
-    ) -> Future["JSONValue"]:
+        fn: Callable[..., JSONValue],
+        *args: JSONValue,
+        **kwargs: JSONValue,
+    ) -> Future[JSONValue]:
         """Submit ``fn`` to the pool and return its :class:`Future`."""
         return self.executor.submit(fn, *args, **kwargs)
 

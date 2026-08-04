@@ -24,9 +24,10 @@ from raghub.retrieval import (
 from raghub.store import Store
 from raghub.stores import ImageStore
 from raghub.telemetry import build_logger
+from raghub.types import JSONValue
 
 
-def emit_log(container: Any, message: str, **payload: "JSONValue") -> None:
+def emit_log(container: Any, message: str, **payload: JSONValue) -> None:
     """Emit a structured log event via the container's logger."""
     logger = getattr(container, "logger", None)
     log_method = getattr(logger, "info", None) if logger else None

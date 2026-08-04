@@ -30,6 +30,7 @@ from raghub.ingest import Resumable
 from raghub.knowledge import sha256_bytes
 from raghub.models import Pipeline, PipelineCtx, deterministic_id
 from raghub.rag.defaults import ingest_one_worker
+from raghub.types import JSONValue
 
 
 class IngestMixin:
@@ -38,7 +39,7 @@ class IngestMixin:
     def ingest(
         self,
         source: str | Path | bytes,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> Pipeline:
         """Ingest a file, directory, or raw bytes synchronously.
 
@@ -100,7 +101,7 @@ class IngestMixin:
     async def aingest(
         self,
         source: str | Path | bytes,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> Pipeline:
         """Async version of :meth:`ingest`.
 
@@ -266,7 +267,7 @@ class IngestMixin:
         file_bytes: bytes,
         source_uri: str,
         mime_type: str,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> Pipeline:
         """Run a single ingest pipeline asynchronously.
 
@@ -444,7 +445,6 @@ class IngestMixin:
     def job_status(self, job_id: str) -> str | None:
         """Return the status of a background ingestion job."""
         if self.queue_ is not None:
-            from raghub.jobs import JobStatus
 
             async def lookup() -> str | None:
                 stats = await self.queue_.stats()

@@ -30,6 +30,7 @@ from raghub.models import (
     StructuredOutputProvider,
     VectorStore,
 )
+from raghub.types import JSONValue
 
 __all__ = [
     "PluginKind",
@@ -151,7 +152,7 @@ class Plugins:
         """Register an evaluator under ``name``."""
         self.register(PluginKind.EVALUATOR, name, evaluator)
 
-    def register_factory(self, name: str, factory: Callable[..., "JSONValue"]) -> None:
+    def register_factory(self, name: str, factory: Callable[..., JSONValue]) -> None:
         """Register a generic factory under ``name``."""
         self.register(PluginKind.FACTORY, name, factory)
 
@@ -234,7 +235,7 @@ class Plugins:
         }
 
     @property
-    def factories(self) -> dict[str, Callable[..., "JSONValue"]]:
+    def factories(self) -> dict[str, Callable[..., JSONValue]]:
         """Return a snapshot of registered factories (legacy accessor)."""
         return {
             name: self.entries[PluginKind.FACTORY, name]

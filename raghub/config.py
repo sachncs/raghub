@@ -19,6 +19,7 @@ from typing import Any, Literal, cast
 
 import yaml
 from pydantic import BaseModel, Field, SecretStr
+
 from raghub.constants import (
     DEFAULT_CHUNK_OVERLAP_WORDS,
     DEFAULT_CHUNK_SIZE_WORDS,

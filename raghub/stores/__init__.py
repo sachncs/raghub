@@ -34,13 +34,12 @@ from hashlib import sha256
 from pathlib import Path
 from threading import RLock
 from typing import Any
-from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
 from uuid import uuid4
 
 from tqdm import tqdm
 
+from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
 from raghub.coroutines import capture
-from raghub.domain import Database
 from raghub.errors import AuthenticationError, MissingDepError, RagHubError
 from raghub.io import atomic_write_json, load_json
 from raghub.models import (
@@ -710,7 +709,8 @@ class Sessions:
 
     async def update_session(self, session: Session) -> None:
         """Overwrite a session row wit
-        session.verify()h the supplied record."""
+        session.verify()h the supplied record.
+        """
         conn = await self.conn()
         await conn.execute(
             """

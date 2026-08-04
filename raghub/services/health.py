@@ -11,6 +11,7 @@ from raghub.services.helpers import (
     probe_embedder,
     probe_vector_store,
 )
+from raghub.types import JSONValue
 
 if TYPE_CHECKING:
     from raghub.services.container import RagContainer
@@ -19,11 +20,11 @@ if TYPE_CHECKING:
 class Health:
     """Aggregate liveness signals from key collaborators."""
 
-    def __init__(self, container: "RagContainer") -> None:
+    def __init__(self, container: RagContainer) -> None:
         """Store the container reference."""
         self.container = container
 
-    def log(self, message: str, **payload: "JSONValue") -> None:
+    def log(self, message: str, **payload: JSONValue) -> None:
         """Emit a structured log event."""
         emit_log(self.container, message, **payload)
 

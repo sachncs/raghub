@@ -7,7 +7,6 @@ import importlib.util
 from typing import Any, cast
 
 from raghub.models import AuthLoginResponse, Document, QueryResponse, Turn, User
-
 from raghub.services.documents import Documents
 from raghub.services.health import Health
 from raghub.services.preference import Preference
@@ -153,4 +152,4 @@ class Facade:
         await self.shutdown_coordinator.release()
 
 
-__all__ = ["Facade", "RAG_FACADE_AVAILABLE"]
+__all__ = ["RAG_FACADE_AVAILABLE", "Facade"]

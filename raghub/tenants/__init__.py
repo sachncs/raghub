@@ -24,6 +24,7 @@ __all__ = [
     "NoTenantResolver",
     "TenantContext",
     "TenantId",
+    "TenantRegistry",
     "TenantResolver",
     "current",
     "reset",
@@ -33,7 +34,7 @@ __all__ = [
 
 # Re-export context helpers and the dataclass so callers don't have to
 # reach into ``raghub.tenants.isolation`` for routine use.
-from raghub.tenants.isolation import (  # noqa: E402  (re-export)
+from raghub.tenants.isolation import (
     Isolation,
     TenantContext,
     TenantRegistry,

@@ -34,6 +34,7 @@ from raghub.coroutines import capture
 from raghub.errors import ConfigurationError, EvaluationError
 from raghub.llm import GenerationRequest
 from raghub.models import Evaluator, Result
+from raghub.types import JSONValue
 
 TOKEN_RE = re.compile(r"\w+")
 
@@ -481,7 +482,7 @@ class Metrics:
         relevant_ids: Sequence[str],
         answer: str,
         contexts: Sequence[str],
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> dict[str, float]:
         """Compute every retrieval and answer metric for a single example.
 

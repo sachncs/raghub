@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 from raghub.llm import GenerationRequest
 from raghub.models import QueryResponse
-
 from raghub.services.helpers import emit_log, emit_metric
+from raghub.types import JSONValue
 
 if TYPE_CHECKING:
     from raghub.services.container import RagContainer
@@ -17,11 +17,11 @@ if TYPE_CHECKING:
 class Query:
     """High-level retrieval-augmented Q/A handler."""
 
-    def __init__(self, container: "RagContainer") -> None:
+    def __init__(self, container: RagContainer) -> None:
         """Store the container reference."""
         self.container = container
 
-    def log(self, message: str, **payload: "JSONValue") -> None:
+    def log(self, message: str, **payload: JSONValue) -> None:
         """Emit a structured log event."""
         emit_log(self.container, message, **payload)
 

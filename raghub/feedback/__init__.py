@@ -43,6 +43,7 @@ __all__ = [
     "NoOpFeedbackScorer",
     "PgFeedbackStore",
     "Rating",
+    "RedactingTelemetry",
     "SqliteFeedbackStore",
     "VectorDownWeightScorer",
 ]

@@ -37,12 +37,10 @@ from loguru import logger as loguru_logger
 from pydantic import BaseModel, Field
 
 from raghub.authhelpers import (
+    App,
     Auth,
     Bearer,
-    App,
 )
-from raghub.response import Redaction
-from raghub.sse import Sse
 from raghub.errors import (
     AuthenticationError,
     AuthorizationError,
@@ -60,8 +58,9 @@ from raghub.models import (
     QueryResponse,
     User,
 )
+from raghub.response import Redaction
 from raghub.services import Facade
-
+from raghub.sse import Sse
 
 __all__ = [
     "AdminRoute",
@@ -90,7 +89,7 @@ def user_store_or_raise(app_service: Facade) -> Any:
     return store
 
 
-def has_flags(payload: "QueryRequest") -> bool:
+def has_flags(payload: QueryRequest) -> bool:
     """Return ``True`` when any advanced-RAG flag is set on the payload."""
     return any(
         getattr(payload, field) is not None
@@ -293,7 +292,7 @@ class DocumentRoute:
         self.register_delete()
         self.register_ingest_async()
 
-    def register_upload(self, *, enforce_limit: Any | None = None) -> None:  # noqa: ARG002 - injected by app factory
+    def register_upload(self, *, enforce_limit: Any | None = None) -> None:
         @self.router.post(
             "/documents/upload", status_code=202, response_model=DocumentUploadResponse
         )
@@ -483,7 +482,7 @@ class QueryRoute:
         ) -> StreamingResponse:
             resolved_tools = set(payload.tools_enabled) if payload.tools_enabled else set()
 
-            async def gen() -> "AsyncIterator[bytes]":
+            async def gen() -> AsyncIterator[bytes]:
                 yield Sse.comment("raghub-query-stream")
                 user, _ = await app_service.auth.resolve_user(token)
                 rag = app_service.container.rag_facade
@@ -658,7 +657,6 @@ class FeedbackRoute:
 
     def feedback_store(self, app_service: Facade) -> Any:
         """Return the configured FeedbackStore or raise ``503`` if absent."""
-
         store = getattr(app_service.container, "feedback_store", None)
         if store is None:
             raise HTTPException(

@@ -11,7 +11,6 @@ import importlib.metadata
 
 import typer
 
-from raghub.coroutines import capture
 from raghub.commands import (
     BackupCommand,
     CliConfig,
@@ -25,6 +24,7 @@ from raghub.commands import (
     TenantCommand,
     ToolConfig,
 )
+from raghub.coroutines import capture
 from raghub.evaluation import app as eval_app
 
 __all__ = ["health", "main", "version"]

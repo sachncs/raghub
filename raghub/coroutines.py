@@ -7,12 +7,14 @@ import inspect
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
+from raghub.types import JSONValue
+
 T = TypeVar("T")
 
 __all__ = ["capture", "maybe_await", "maybe_run"]
 
 
-def capture(call: Callable[..., "JSONValue"], *args: Any, **kwargs: "JSONValue") -> tuple[Any, Exception | None]:
+def capture(call: Callable[..., JSONValue], *args: Any, **kwargs: JSONValue) -> tuple[Any, Exception | None]:
     """Return a callable result and any raised exception."""
     try:
         return call(*args, **kwargs), None

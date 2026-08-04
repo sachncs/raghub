@@ -28,12 +28,13 @@ from raghub.errors import ConfigurationError, IngestionError, RagHubError
 from raghub.eval import Finance
 from raghub.models import PipelineCtx, RagQueryRequest, Response, Result
 from raghub.response import ResponseBuilder
+from raghub.types import JSONValue
 
 
 class QueryMixin:
     """Mixin providing query, streaming, agent, and evaluation entry points."""
 
-    def query(self, question: str, **kwargs: "JSONValue") -> Response:
+    def query(self, question: str, **kwargs: JSONValue) -> Response:
         """Ask a question and return a typed :class:`Response`."""
         return cast(
             Response,
@@ -98,7 +99,7 @@ class QueryMixin:
         question: str,
         *,
         request: RagQueryRequest | None = None,
-        **kwargs: "JSONValue",
+        **kwargs: JSONValue,
     ) -> Response:
         """Async version of :meth:`query`.
 
@@ -185,7 +186,7 @@ class QueryMixin:
         question: str,
         *,
         request: RagQueryRequest | None = None,
-        **kwargs: "JSONValue",
+        **kwargs: JSONValue,
     ) -> AsyncIterator[str]:
         """Stream the answer token-by-token via the LLM's ``astream``.
 
@@ -239,7 +240,7 @@ class QueryMixin:
         question: str,
         *,
         request: RagQueryRequest | None = None,
-        **kwargs: "JSONValue",
+        **kwargs: JSONValue,
     ) -> AsyncIterator[Any]:
         """Stream :class:`PlannerEvent` instances from the agent loop.
 

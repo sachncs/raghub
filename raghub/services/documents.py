@@ -9,21 +9,20 @@ from raghub.core import can_access_company
 from raghub.errors import AuthorizationError
 from raghub.lifecycle import detect_mime_type
 from raghub.models import Document
-
 from raghub.services.helpers import emit_log, emit_metric, upload_record
+from raghub.types import JSONValue
 
 if TYPE_CHECKING:
     from raghub.repos import UnitOfWork
-
     from raghub.services.container import RagContainer
 
 
-async def list_records(uow: "UnitOfWork") -> list[Document]:
+async def list_records(uow: UnitOfWork) -> list[Document]:
     """Return every document from the repository."""
     return cast(list[Document], await uow.document_repo.list_all())
 
 
-async def get_doc(uow: "UnitOfWork", document_id: str) -> Document:
+async def get_doc(uow: UnitOfWork, document_id: str) -> Document:
     """Return a single document by id or raise :class:`IngestionError`."""
     record = await uow.document_repo.get(document_id)
     if record is None:
@@ -36,11 +35,11 @@ async def get_doc(uow: "UnitOfWork", document_id: str) -> Document:
 class Documents:
     """Document upload, listing, status, and deletion."""
 
-    def __init__(self, container: "RagContainer") -> None:
+    def __init__(self, container: RagContainer) -> None:
         """Store the container reference."""
         self.container = container
 
-    def log(self, message: str, **payload: "JSONValue") -> None:
+    def log(self, message: str, **payload: JSONValue) -> None:
         """Emit a structured log event."""
         emit_log(self.container, message, **payload)
 

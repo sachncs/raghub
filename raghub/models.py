@@ -39,6 +39,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from raghub.errors import VerificationError
+from raghub.types import JSONValue
 
 __all__ = [
     "AuthLoginRequest",
@@ -1453,15 +1454,15 @@ class KnowledgeRepository(Protocol):
 class Logger(Protocol):
     """Structured logger contract."""
 
-    def info(self, message: str, **kwargs: "JSONValue") -> None:
+    def info(self, message: str, **kwargs: JSONValue) -> None:
         """Log an info-level message."""
         ...
 
-    def warning(self, message: str, **kwargs: "JSONValue") -> None:
+    def warning(self, message: str, **kwargs: JSONValue) -> None:
         """Log a warning-level message."""
         ...
 
-    def error(self, message: str, **kwargs: "JSONValue") -> None:
+    def error(self, message: str, **kwargs: JSONValue) -> None:
         """Log an error-level message."""
         ...
 
@@ -1674,7 +1675,7 @@ class LLMProvider(Protocol):
         conversation: Sequence[Turn],
         context: Sequence[str],
         question: str,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> str:
         """Generate a response from prompt sections.
 
@@ -1702,7 +1703,7 @@ class PipelineRunner(Protocol):
 class BackgroundWorker(Protocol):
     """Schedules background tasks."""
 
-    def submit(self, fn: Callable[..., "JSONValue"], *args: Any, **kwargs: "JSONValue") -> Any:
+    def submit(self, fn: Callable[..., JSONValue], *args: Any, **kwargs: JSONValue) -> Any:
         """Submit a background task."""
         ...
 
