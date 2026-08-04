@@ -458,7 +458,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         self.flush_interval = flush_interval
         self.client: Any = None
         if LANGFUSE_AVAILABLE and public_key and secret_key:
-            self.client = self.build_langfuse_client(host, public_key, secret_key, flush_interval)
+            self.client = self.langfuse_client(host, public_key, secret_key, flush_interval)
 
     @staticmethod
     def is_configured() -> bool:
@@ -492,7 +492,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         return fn(*args, **kwargs)
 
     @staticmethod
-    def build_langfuse_client(
+    def langfuse_client(
         host: str | None, public_key: str, secret_key: str, flush_interval: float
     ) -> Any:
         """Build a v3 client if available, else fall back to v2.
@@ -606,14 +606,14 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             return NoopSpan(name)
         propagate = {k: v for k, v in attrs.items() if k in {"user_id", "session_id"} and v}
         if propagate:
-            self.propagate_to_langfuse(**propagate)
+            self.propagate_langfuse(**propagate)
         start_obs = getattr(self.client, "start_as_current_observation", None)
         if start_obs is None:
             return NoopSpan(name)
         ctx = start_obs(as_type="span", name=name, **{"input": attrs})
         return LangfuseSpan(ctx, name)
 
-    def propagate_to_langfuse(self, **attrs: Any) -> None:
+    def propagate_langfuse(self, **attrs: Any) -> None:
         """Call Langfuse ``propagate_attributes`` if available."""
         propagate = getattr(self.client, "propagate_attributes", None)
         if propagate is not None:
@@ -788,7 +788,7 @@ class SafeConsoleSpanExporter:
                 "opentelemetry-sdk",
                 "pip install raghub[otel]",
             ) from None
-        self._parent = ConsoleSpanExporter(*args, **kwargs)
+        self.parent = ConsoleSpanExporter(*args, **kwargs)
 
     def export(self, spans: Sequence[Any]) -> Any:
         """Forward to the parent exporter; suppress closed-stdout errors.
@@ -801,19 +801,19 @@ class SafeConsoleSpanExporter:
             on a closed-stdout error.
 
         """
-        result, error = capture(self._parent.export, spans)
+        result, error = capture(self.parent.export, spans)
         if error is None:
             return result
         if "closed file" in str(error):
-            return self.failed_export_result()
+            return self.failure()
         raise error
 
     def shutdown(self) -> None:
         """Forward shutdown to the parent exporter."""
-        self._parent.shutdown()
+        self.parent.shutdown()
 
     @staticmethod
-    def failed_export_result() -> Any:
+    def failure() -> Any:
         """Return the OTel FAILURE result without importing it at module load."""
         try:
             from opentelemetry.sdk.trace.export import SpanExportResult
@@ -865,7 +865,7 @@ class Tracer:
         self.provider = provider
         self.tracer = trace.get_tracer(service_name)
 
-    def add_otlp_exporter(self, *, endpoint: str, insecure: bool = True) -> None:
+    def add_exporter(self, *, endpoint: str, insecure: bool = True) -> None:
         """Replace the default console exporter with an OTLP one.
 
         Args:

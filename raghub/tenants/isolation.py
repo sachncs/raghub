@@ -9,7 +9,7 @@ Three isolation strategies ship as first-class:
 * :class:`DatabasePerTenant` — Postgres only, generic; maps
   ``tenant_id`` to a per-tenant DSN and routes connections.
 
-Each strategy implements the same :class:`IsolationStrategy`
+Each strategy implements the same :class:`Isolation`
 Protocol. The default is :class:`RowLevel`. Per-tenant secrets
 (API keys) are encrypted at rest with Fernet and stored in the
 ``raghub_tenant_secrets`` table (schema in
@@ -30,7 +30,7 @@ from raghub.errors import AuthorizationError, MissingDepError
 
 __all__ = [
     "DatabasePerTenant",
-    "IsolationStrategy",
+    "Isolation",
     "RowLevel",
     "SchemaPerTenant",
     "TenantContext",
@@ -39,7 +39,7 @@ __all__ = [
 ]
 
 
-class IsolationStrategy(StrEnum):
+class Isolation(StrEnum):
     """The three shipped isolation strategies."""
 
     ROW_LEVEL = "row_level"
@@ -54,7 +54,7 @@ class TenantContext:
     tenant_id: str
     user_id: str | None = None
     is_admin: bool = False
-    isolation: IsolationStrategy = IsolationStrategy.ROW_LEVEL
+    isolation: Isolation = Isolation.ROW_LEVEL
 
 
 _tenant_context: ContextVar[TenantContext | None] = ContextVar(
@@ -62,17 +62,17 @@ _tenant_context: ContextVar[TenantContext | None] = ContextVar(
 )
 
 
-def get_current_tenant() -> TenantContext | None:
+def current() -> TenantContext | None:
     """Return the current :class:`TenantContext` or ``None``."""
     return _tenant_context.get()
 
 
-def set_current_tenant(context: TenantContext | None) -> Any:
+def set_current(context: TenantContext | None) -> Any:
     """Bind ``context`` for the current task; return a reset token."""
     return _tenant_context.set(context)
 
 
-def reset_current_tenant(token: Any) -> None:
+def reset(token: Any) -> None:
     """Reset the tenant context to its prior state."""
     _tenant_context.reset(token)
 
@@ -81,8 +81,8 @@ def require_tenant() -> TenantContext:
     """Return the current tenant context or raise
     :class:`AuthorizationError`.
 
-    Under :attr:`IsolationStrategy.SCHEMA_PER_TENANT` and
-    :attr:`IsolationStrategy.DATABASE_PER_TENANT`, every storage
+    Under :attr:`Isolation.SCHEMA_PER_TENANT` and
+    :attr:`Isolation.DATABASE_PER_TENANT`, every storage
     call must run inside a tenant context; the absence of one is
     an authz failure, not a runtime error.
     """
@@ -90,8 +90,8 @@ def require_tenant() -> TenantContext:
     if context is None:
         raise AuthorizationError(
             "missing tenant context under "
-            f"{IsolationStrategy.SCHEMA_PER_TENANT.value} or "
-            f"{IsolationStrategy.DATABASE_PER_TENANT.value}"
+            f"{Isolation.SCHEMA_PER_TENANT.value} or "
+            f"{Isolation.DATABASE_PER_TENANT.value}"
         )
     return context
 
@@ -332,8 +332,8 @@ def migrate_tenant_split(
     source_dsn: str,
     target_dsn: str,
     *,
-    from_strategy: IsolationStrategy,
-    to_strategy: IsolationStrategy,
+    from_strategy: Isolation,
+    to_strategy: Isolation,
     tenant_id: str | None = None,
 ) -> int:
     """Migrate data between isolation strategies.
@@ -359,18 +359,18 @@ def migrate_tenant_split(
     conn_dst = sync_connect(asyncpg, target_dsn)
     try:
         if (
-            from_strategy == IsolationStrategy.ROW_LEVEL
-            and to_strategy == IsolationStrategy.SCHEMA_PER_TENANT
+            from_strategy == Isolation.ROW_LEVEL
+            and to_strategy == Isolation.SCHEMA_PER_TENANT
         ):
             return migrate_row_to_schema(conn_src, conn_dst, tenant_id)
         if (
-            from_strategy == IsolationStrategy.SCHEMA_PER_TENANT
-            and to_strategy == IsolationStrategy.DATABASE_PER_TENANT
+            from_strategy == Isolation.SCHEMA_PER_TENANT
+            and to_strategy == Isolation.DATABASE_PER_TENANT
         ):
             return migrate_schema_to_db(conn_src, conn_dst, tenant_id)
         if (
-            from_strategy == IsolationStrategy.ROW_LEVEL
-            and to_strategy == IsolationStrategy.DATABASE_PER_TENANT
+            from_strategy == Isolation.ROW_LEVEL
+            and to_strategy == Isolation.DATABASE_PER_TENANT
         ):
             return migrate_row_to_db(conn_src, conn_dst, tenant_id)
         raise TenantMigrationError(

@@ -407,7 +407,7 @@ class TenantsConfig(BaseModel):
             tenant resolution; ``"header"`` reads ``X-Tenant-ID``;
             ``"jwt"`` reads the JWT claim; ``"composite"`` prefers
             JWT and falls back to header.
-        isolation: IsolationStrategy. ``"row_level"`` (default),
+        isolation: Isolation. ``"row_level"`` (default),
             ``"schema_per_tenant"``, or ``"database_per_tenant"``.
 
     """

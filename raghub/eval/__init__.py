@@ -58,7 +58,7 @@ class Metrics:
         return set(t.lower() for t in TOKEN_RE.findall(text or ""))
 
     @staticmethod
-    def recall_at_k(retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int) -> float:
+    def recall(retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int) -> float:
         """Recall@K — fraction of relevant items in the top-k.
 
         Args:
@@ -79,7 +79,7 @@ class Metrics:
         return len(relevant & top) / len(relevant)
 
     @staticmethod
-    def precision_at_k(retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int) -> float:
+    def precision(retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int) -> float:
         """Precision@K — fraction of the top-k that is relevant.
 
         Args:
@@ -105,7 +105,7 @@ class Metrics:
 
         Returns ``0.0`` when either precision or recall is zero
         (the harmonic mean collapses to zero); the underlying
-        :meth:`precision_at_k` / :meth:`recall_at_k` methods handle
+        :meth:`precision` / :meth:`recall` methods handle
         degenerate edge cases (empty top-k, empty relevant set).
 
         Args:
@@ -117,14 +117,14 @@ class Metrics:
             A value in ``[0.0, 1.0]``.
 
         """
-        precision = Metrics.precision_at_k(retrieved_ids, relevant_ids, k)
-        recall = Metrics.recall_at_k(retrieved_ids, relevant_ids, k)
+        precision = Metrics.precision(retrieved_ids, relevant_ids, k)
+        recall = Metrics.recall(retrieved_ids, relevant_ids, k)
         if precision + recall == 0.0:
             return 0.0
         return 2.0 * precision * recall / (precision + recall)
 
     @staticmethod
-    def mean_reciprocal_rank(retrieved_ids: Sequence[str], relevant_ids: Iterable[str]) -> float:
+    def mrr(retrieved_ids: Sequence[str], relevant_ids: Iterable[str]) -> float:
         """Mean Reciprocal Rank (MRR) — 1 / rank of first relevant hit.
 
         Args:
@@ -143,7 +143,7 @@ class Metrics:
         return 0.0
 
     @staticmethod
-    def hit_rate_at_k(retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int) -> float:
+    def hit_rate(retrieved_ids: Sequence[str], relevant_ids: Iterable[str], k: int) -> float:
         """Hit rate@K — ``1.0`` if any retrieved item is in the relevant set.
 
         Args:
@@ -164,7 +164,7 @@ class Metrics:
         return 1.0 if any(rid in relevant for rid in top) else 0.0
 
     @staticmethod
-    def mean_average_precision(retrieved_ids: Sequence[str], relevant_ids: Iterable[str]) -> float:
+    def map(retrieved_ids: Sequence[str], relevant_ids: Iterable[str]) -> float:
         """Mean Average Precision (MAP) for a single query.
 
         Computes the AP for a single ranked list:
@@ -503,12 +503,12 @@ class Metrics:
         question: str = options.get("question", "")
         k: int = options.get("k", 5)
         metrics: dict[str, float] = {
-            f"recall_at_{k}": Metrics.recall_at_k(retrieved_ids, relevant_ids, k),
-            f"precision_at_{k}": Metrics.precision_at_k(retrieved_ids, relevant_ids, k),
+            f"recall_at_{k}": Metrics.recall(retrieved_ids, relevant_ids, k),
+            f"precision_at_{k}": Metrics.precision(retrieved_ids, relevant_ids, k),
             f"f1_at_{k}": Metrics.f1_at_k(retrieved_ids, relevant_ids, k),
-            f"hit_rate_at_{k}": Metrics.hit_rate_at_k(retrieved_ids, relevant_ids, k),
-            "mrr": Metrics.mean_reciprocal_rank(retrieved_ids, relevant_ids),
-            "map": Metrics.mean_average_precision(retrieved_ids, relevant_ids),
+            f"hit_rate_at_{k}": Metrics.hit_rate(retrieved_ids, relevant_ids, k),
+            "mrr": Metrics.mrr(retrieved_ids, relevant_ids),
+            "map": Metrics.map(retrieved_ids, relevant_ids),
             "context_recall": Metrics.context_recall(answer, contexts),
             "context_precision": Metrics.context_precision(question, contexts),
             "completeness": Metrics.completeness(answer, contexts),

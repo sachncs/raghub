@@ -185,7 +185,7 @@ class SqliteUsers:
             row = await cursor.fetchone()
             if row is None:
                 return None
-            return self.row_to_record(row)
+            return self.as_record(row)
 
     async def get_by_id(self, user_id: str) -> UserRecord | None:
         """Look up a user by id.
@@ -203,7 +203,7 @@ class SqliteUsers:
             row = await cursor.fetchone()
             if row is None:
                 return None
-            return self.row_to_record(row)
+            return self.as_record(row)
 
     async def verify_password(self, email: str, password: str) -> UserRecord | None:
         """Verify ``password`` against the stored bcrypt hash.
@@ -235,10 +235,10 @@ class SqliteUsers:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("SELECT * FROM users ORDER BY created_at DESC")
             rows = await cursor.fetchall()
-            return [self.row_to_record(row) for row in rows]
+            return [self.as_record(row) for row in rows]
 
     @staticmethod
-    def row_to_record(row: aiosqlite.Row) -> UserRecord:
+    def as_record(row: aiosqlite.Row) -> UserRecord:
         """Hydrate a :class:`UserRecord` from a SQLite row.
 
         Args:

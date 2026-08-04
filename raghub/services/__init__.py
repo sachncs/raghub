@@ -3,7 +3,7 @@
 Consolidates every support file in the old
 ``raghub/services/`` package into one helper module. Class summary::
 
-    DocumentService      - document management.
+    Documents            - document management.
     Health               - liveness aggregation.
     Query                - RAG hot path.
     Synchronous / ThreadPool / MemoryQueue
@@ -52,7 +52,7 @@ from raghub.models import (
     User,
 )
 from raghub.parsers import Catalog
-from raghub.prompts import PromptBuilder
+from raghub.prompts import Prompt
 from raghub.repos import UnitOfWork
 from raghub.retrieval import (
     Identity as IdentityReranker,
@@ -76,7 +76,7 @@ from raghub.telemetry import build_logger
 # ---------------------------------------------------------------------------
 
 
-def _emit_log(container: Any, message: str, **payload: "JSONValue") -> None:
+def emit_log(container: Any, message: str, **payload: "JSONValue") -> None:
     """Emit a structured log event via the container's logger."""
     logger = getattr(container, "logger", None)
     log_method = getattr(logger, "info", None) if logger else None
@@ -84,7 +84,7 @@ def _emit_log(container: Any, message: str, **payload: "JSONValue") -> None:
         log_method(message, extra=payload)
 
 
-def _emit_metric(container: Any, name: str, started_at: float) -> None:
+def emit_metric(container: Any, name: str, started_at: float) -> None:
     """Record a latency metric given a ``perf_counter`` start time."""
     metrics = getattr(container, "metrics", None)
     recorder = getattr(metrics, "record_latency", None) if metrics else None
@@ -120,7 +120,7 @@ async def get_doc(uow: "UnitOfWork", document_id: str) -> Document:
     return cast(Document, record)
 
 
-class DocumentService:
+class Documents:
     """Document upload, listing, status, and deletion."""
 
     def __init__(self, container: "RagContainer") -> None:
@@ -129,11 +129,11 @@ class DocumentService:
 
     def log(self, message: str, **payload: "JSONValue") -> None:
         """Emit a structured log event."""
-        _emit_log(self.container, message, **payload)
+        emit_log(self.container, message, **payload)
 
     def emit_metric(self, name: str, started_at: float) -> None:
         """Record a latency metric."""
-        _emit_metric(self.container, name, started_at)
+        emit_metric(self.container, name, started_at)
 
     async def upload_document(
         self,
@@ -297,11 +297,11 @@ class Health:
 
     def log(self, message: str, **payload: "JSONValue") -> None:
         """Emit a structured log event."""
-        _emit_log(self.container, message, **payload)
+        emit_log(self.container, message, **payload)
 
     def emit_metric(self, name: str, started_at: float) -> None:
         """Record a latency metric."""
-        _emit_metric(self.container, name, started_at)
+        emit_metric(self.container, name, started_at)
 
     def health(self) -> dict[str, object]:
         """Return a structured health report.
@@ -337,11 +337,11 @@ class Query:
 
     def log(self, message: str, **payload: "JSONValue") -> None:
         """Emit a structured log event."""
-        _emit_log(self.container, message, **payload)
+        emit_log(self.container, message, **payload)
 
     def emit_metric(self, name: str, started_at: float) -> None:
         """Record a latency metric."""
-        _emit_metric(self.container, name, started_at)
+        emit_metric(self.container, name, started_at)
 
     async def query(self, *, token: str, question: str) -> QueryResponse:
         """Run a single RAG turn end-to-end.
@@ -350,10 +350,10 @@ class Query:
         append the new turn → build citations → emit metric and log.
         """
         started = time.perf_counter()
-        user, history = await self.__resolve_user(token)
-        chunks = await self.__retrieve_chunks(user, question)
-        answer = await self.__generate_answer(chunks, history, question)
-        await self.__record_turn(token, question, answer)
+        user, history = await self.resolve_user(token)
+        chunks = await self.retrieve_chunks(user, question)
+        answer = await self.generate_answer(chunks, history, question)
+        await self.record_turn(token, question, answer)
         self.emit_metric("retrieval_latency_ms", started)
         self.log(
             "query_completed",
@@ -362,15 +362,15 @@ class Query:
         )
         return QueryResponse(
             answer=answer,
-            citations=[self.__citation_for(c) for c in chunks],
+            citations=[self.citation(c) for c in chunks],
             source_chunks=[c.model_dump(mode="json") for c in chunks],
         )
 
-    async def __resolve_user(self, token: str) -> tuple[Any, list]:
+    async def resolve_user(self, token: str) -> tuple[Any, list]:
         """Resolve token into (user, recent history)."""
         return await self.container.auth.resolve_user(token)
 
-    async def __retrieve_chunks(self, user: Any, question: str) -> list:
+    async def retrieve_chunks(self, user: Any, question: str) -> list:
         """Run retrieval and return the chunk list."""
         hits = self.container.retrieval.retrieve(
             user=user,
@@ -379,7 +379,7 @@ class Query:
         )
         return [hit.chunk for hit in hits]
 
-    async def __generate_answer(
+    async def generate_answer(
         self,
         chunks: list,
         history: list,
@@ -405,7 +405,7 @@ class Query:
             )
         )
 
-    async def __record_turn(self, token: str, question: str, answer: str) -> None:
+    async def record_turn(self, token: str, question: str, answer: str) -> None:
         """Persist the new turn in the conversation store."""
         await self.container.conversation.append(
             token,
@@ -414,7 +414,7 @@ class Query:
             metadata={"top_k": self.container.settings.top_k},
         )
 
-    def __citation_for(self, chunk: Any) -> dict[str, Any]:
+    def citation(self, chunk: Any) -> dict[str, Any]:
         """Build the citation dict for a single chunk."""
         return {
             "document_id": chunk.document_id,
@@ -523,7 +523,7 @@ class RagContainer:
     embeddings: Embedder
     llm: Generator
     vector_store: Store
-    prompt_builder: PromptBuilder
+    prompt_builder: Prompt
     ingestion: Ingestor
     retrieval: RetrievalPipeline
     image_store: ImageStore
@@ -605,7 +605,7 @@ async def build_container(settings: Settings) -> RagContainer:
     logger, authorization, user_store = await build_auth_components(settings)
     raw_session_store, uow, vector_store = await build_storage_components(settings)
     nvidia_api_key = settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
-    model_components = build_model_components(
+    model_components = build_models(
         settings, vector_store, uow, nvidia_api_key
     )
     (
@@ -675,7 +675,7 @@ async def build_storage_components(settings: Settings) -> tuple[Any, Any, Store]
     return raw_session_store, uow, vector_store
 
 
-def build_model_components(
+def build_models(
     settings: Settings,
     vector_store: Store,
     uow: Any,
@@ -688,7 +688,7 @@ def build_model_components(
         nvidia_api_key,
     )
     llm: Generator = build_llm(settings.llm_model, nvidia_api_key)
-    prompt_builder = PromptBuilder()
+    prompt_builder = Prompt()
     conversation = ConversationHistory(uow)
     lifecycle = Lifecycle()
     ingestion = Ingestor(
@@ -740,29 +740,6 @@ async def maybe_seed_demo_users(
 RAG_FACADE_AVAILABLE: bool = importlib.util.find_spec("raghub.rag") is not None
 
 
-class Auth:
-    """Auth-shaped coordinator on the facade."""
-
-    def __init__(self, facade: Any) -> None:
-        """Store the facade reference."""
-        self.facade = facade
-
-    async def login(self, email: str, password: str) -> AuthLoginResponse:
-        """Authenticate a user and return a session token."""
-        return cast(AuthLoginResponse, await self.facade.auth_svc.login(email, password))
-
-    async def logout(self, token: str) -> None:
-        """Invalidate ``token`` in the session store."""
-        await self.facade.auth_svc.logout(token)
-
-    async def resolve_user(self, token: str) -> tuple[User, list[Turn]]:
-        """Resolve a bearer token to a principal plus history."""
-        return cast(
-            tuple[User, list[Turn]],
-            await self.facade.auth_svc.resolve_user(token),
-        )
-
-
 class Shutdown:
     """Release collaborators held by the :class:`RagContainer`."""
 
@@ -810,13 +787,13 @@ class Preference:
         """Resolve advanced-RAG flags against user prefs and route accordingly."""
         container = self.facade.container
         user, _ = await container.auth.resolve_user(token)
-        resolved = self.__resolve_user_flags(user, flags, container)
+        resolved = self.resolve_flags(user, flags, container)
         rag = getattr(container, "rag_facade", None)
         if rag is None:
-            return await self.__query_without_rag(
+            return await self.query_basic(
                 token=token, question=question, flags=flags, resolved=resolved
             )
-        return await self.__query_with_rag(
+        return await self.query_advanced(
             token=token,
             question=question,
             flags=flags,
@@ -825,7 +802,7 @@ class Preference:
             rag=rag,
         )
 
-    def __resolve_user_flags(
+    def resolve_flags(
         self, user: Any, flags: dict[str, Any], container: Any
     ) -> Any:
         prefs = dict(getattr(user, "tool_settings", None) or {})
@@ -846,7 +823,7 @@ class Preference:
             settings=container.settings,
         )
 
-    async def __query_without_rag(
+    async def query_basic(
         self,
         *,
         token: str,
@@ -854,14 +831,14 @@ class Preference:
         flags: dict[str, Any],
         resolved: Any,
     ) -> QueryResponse:
-        response = await self.facade.query_svc.query(token=token, question=question)
+        response = await self.facade.query.query(token=token, question=question)
         response.metadata = dict(response.metadata or {})
         response.metadata["resolved_config"] = resolved.to_dict()
         if flags.get("top_k") is not None:
             response.metadata["requested_top_k"] = flags["top_k"]
         return cast(QueryResponse, response)
 
-    async def __query_with_rag(
+    async def query_advanced(
         self,
         *,
         token: str,
@@ -914,23 +891,22 @@ class Facade:
 
     def __init__(self, container: Any) -> None:
         """Initialise the facade and wire service handles back into the container."""
-        from raghub.auth import AuthService
+        from raghub.auth import Auth
 
         self.container = container
-        self.auth_svc = AuthService(container)
-        self.documents_svc = DocumentService(container)
-        self.query_svc = Query(container)
-        self.health_svc = Health(container)
-        container.auth = self.auth_svc
-        container.documents = self.documents_svc
-        container.query = self.query_svc
-        container.health = self.health_svc
-        self.auth = Auth(self)
+        self.auth = Auth(container)
+        self.documents = Documents(container)
+        self.query = Query(container)
+        self.health = Health(container)
+        container.auth = self.auth
+        container.documents = self.documents
+        container.query = self.query
+        container.health = self.health
         self.shutdown_coordinator = Shutdown(container)
         self.preferences = Preference(self)
 
     @staticmethod
-    def build_rag_facade(container: Any) -> Any | None:
+    def build_rag(container: Any) -> Any | None:
         """Construct a :class:`raghub.RAG` from the container's collaborators."""
         if not RAG_FACADE_AVAILABLE:
             return None
@@ -949,7 +925,7 @@ class Facade:
     def rag_facade(self) -> Any | None:
         """Return the lazily-built :class:`raghub.RAG` instance."""
         if getattr(self.container, "rag_facade", None) is None:
-            self.container.rag_facade = self.build_rag_facade(self.container)
+            self.container.rag_facade = self.build_rag(self.container)
         return self.container.rag_facade
 
     async def login(self, email: str, password: str) -> AuthLoginResponse:
@@ -973,21 +949,21 @@ class Facade:
         company: str | None = None,
     ) -> Document:
         """Upload ``content`` as a new document owned by the calling user."""
-        return await self.documents_svc.upload_document(
+        return await self.documents.upload_document(
             token=token, filename=filename, content=content, company=company
         )
 
     async def list_documents(self, token: str) -> list[Document]:
         """List the documents visible to the caller."""
-        return await self.documents_svc.list_documents(token)
+        return await self.documents.list_documents(token)
 
     async def document_status(self, token: str, document_id: str) -> Document:
         """Return the status of a single document."""
-        return await self.documents_svc.document_status(token, document_id)
+        return await self.documents.document_status(token, document_id)
 
     async def delete_document(self, token: str, document_id: str) -> None:
         """Delete a document and all of its chunks."""
-        await self.documents_svc.delete_document(token, document_id)
+        await self.documents.delete_document(token, document_id)
 
     async def clear_history(self, token: str) -> None:
         """Empty the conversation history for ``token``."""
@@ -1002,11 +978,11 @@ class Facade:
 
     def health(self) -> dict[str, object]:
         """Run liveness checks and return a status dict."""
-        return self.health_svc.health()
+        return self.health.health()
 
     async def query(self, *, token: str, question: str) -> QueryResponse:
         """Run a single retrieval-augmented Q/A turn."""
-        return await self.query_svc.query(token=token, question=question)
+        return await self.query.query(token=token, question=question)
 
     async def query_with_flags(
         self,
@@ -1032,11 +1008,11 @@ class Facade:
 
     def log(self, message: str, **payload: object) -> None:
         """Emit a structured log event via the health service."""
-        self.health_svc.log(message, **payload)
+        self.health.log(message, **payload)
 
     def emit_metric(self, name: str, started_at: float) -> None:
         """Emit a latency metric given a perf-counter start time."""
-        self.health_svc.emit_metric(name, started_at)
+        self.health.emit_metric(name, started_at)
 
     async def shutdown(self) -> None:
         """Release all resources held by the application."""
@@ -1048,8 +1024,7 @@ class Facade:
 # via the star-import in :mod:`raghub.services`.
 
 __all__ = [
-    "Auth",
-    "DocumentService",
+    "Documents",
     "Facade",
     "Health",
     "MemoryQueue",

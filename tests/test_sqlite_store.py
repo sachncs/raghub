@@ -115,7 +115,7 @@ def test_sqlite_store_search_filters_by_tenant_id(tmp_path):
     from raghub.config import Settings as _S
     from raghub.models import Chunk, Classification
     from raghub.store import SqliteStore
-    from raghub.tenants import TenantContext, set_current_tenant, reset_current_tenant
+    from raghub.tenants import TenantContext, set_current, reset
 
     db = tmp_path / "vecstore.db"
     store = SqliteStore(path=str(db), embedding_dim=2)
@@ -142,18 +142,18 @@ def test_sqlite_store_search_filters_by_tenant_id(tmp_path):
         [[0.1, 0.2], [0.1, 0.2]],
     )
 
-    token = set_current_tenant(TenantContext(tenant_id="acme"))
+    token = set_current(TenantContext(tenant_id="acme"))
     try:
         hits = store.search(vector=[0.1, 0.2], top_k=10)
     finally:
-        reset_current_tenant(token)
+        reset(token)
     assert {h["chunk_id"] for h in hits} == {"a"}
 
-    token = set_current_tenant(TenantContext(tenant_id="beta"))
+    token = set_current(TenantContext(tenant_id="beta"))
     try:
         hits = store.search(vector=[0.1, 0.2], top_k=10)
     finally:
-        reset_current_tenant(token)
+        reset(token)
     assert {h["chunk_id"] for h in hits} == {"b"}
 
 
@@ -162,7 +162,7 @@ def test_sqlite_store_search_explicit_tenant_overrides_context(tmp_path):
     from datetime import UTC, datetime
     from raghub.models import Chunk, Classification
     from raghub.store import SqliteStore
-    from raghub.tenants import TenantContext, set_current_tenant, reset_current_tenant
+    from raghub.tenants import TenantContext, set_current, reset
 
     db = tmp_path / "vecstore.db"
     store = SqliteStore(path=str(db), embedding_dim=2)
@@ -188,9 +188,9 @@ def test_sqlite_store_search_explicit_tenant_overrides_context(tmp_path):
         [_chunk("a", company="acme"), _chunk("b", company="beta")],
         [[0.1, 0.2], [0.1, 0.2]],
     )
-    token = set_current_tenant(TenantContext(tenant_id="beta"))
+    token = set_current(TenantContext(tenant_id="beta"))
     try:
         hits = store.search(vector=[0.1, 0.2], top_k=10, tenant_id="acme")
     finally:
-        reset_current_tenant(token)
+        reset(token)
     assert {h["chunk_id"] for h in hits} == {"a"}

@@ -1644,7 +1644,7 @@ class Reranker(Protocol):
         ...
 
 
-class PromptBuilder(Protocol):
+class Prompt(Protocol):
     """Builds structured prompts without manual concatenation."""
 
     def build_system_prompt(self) -> str:

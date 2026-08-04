@@ -6,10 +6,10 @@ Five focused classes that all serve the ReAct agent pipeline:
   events emitted by the loop.
 * :class:`PlannerAction` / :class:`PlannerFinal` /
   :class:`PlannerParseError` / :func:`parse_turn` /
-  :func:`render_system_prompt` — the JSON-tool-call parser.
+  :func:`system_prompt` — the JSON-tool-call parser.
 * :class:`ResolvedConfig` / :func:`resolve` — the precedence resolver
   for tool/agent flags.
-* :func:`build_tool_registry` — the tool-registry factory.
+* :func:`build_tools` — the tool-registry factory.
 * :class:`Agent` / :class:`AgentTrace` — the ReAct loop itself.
 
 Co-locating them in :mod:`raghub.agent` removes five per-class
@@ -23,6 +23,7 @@ import re
 import time
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
@@ -31,7 +32,7 @@ from raghub.await_sync import capture
 from raghub.config import AgentConfig, Settings
 from raghub.errors import AgentBudgetError, GenerationError, ToolError
 from raghub.llm import GenerationRequest, Generator
-from raghub.models import Turn, User
+from raghub.models import Chunk, Hit, Turn, User
 from raghub.telemetry import NoOpTelemetry
 from raghub.tools import (
     DateToday,
@@ -50,7 +51,7 @@ __all__ = [
     "Agent",
     "AgentTrace",
     "PlannerEvent",
-    "build_tool_registry",
+    "build_tools",
     "resolve",
 ]
 
@@ -136,13 +137,13 @@ class PlannerParseError:
     raw: str = ""
 
 
-def json_loads_or_none(s: str) -> Any:
+def loads_or_none(s: str) -> Any:
     """Parse ``s`` as JSON, returning ``None`` on failure."""
     parsed, _ = capture(json.loads, s)
     return parsed
 
 
-def extract_json_object(raw: str) -> dict[str, Any] | None:
+def extract_json(raw: str) -> dict[str, Any] | None:
     """Pull the first balanced JSON object out of a string."""
     if not raw:
         return None
@@ -164,7 +165,7 @@ def extract_json_object(raw: str) -> dict[str, Any] | None:
                 break
     if end == -1:
         return None
-    parsed = json_loads_or_none(candidate[start:end])
+    parsed = loads_or_none(candidate[start:end])
     return parsed if isinstance(parsed, dict) else None
 
 
@@ -180,7 +181,7 @@ def parse_turn(raw: str) -> PlannerAction | PlannerFinal | PlannerParseError:
         * :class:`PlannerParseError` when neither can be parsed.
 
     """
-    obj = extract_json_object(raw or "")
+    obj = extract_json(raw or "")
     if obj is None:
         return PlannerParseError(raw=raw or "")
     thought = str(obj.get("thought", "") or "")
@@ -195,7 +196,7 @@ def parse_turn(raw: str) -> PlannerAction | PlannerFinal | PlannerParseError:
     return PlannerParseError(raw=raw or "")
 
 
-def render_system_prompt(tool_schemas: list[dict[str, Any]]) -> str:
+def system_prompt(tool_schemas: list[dict[str, Any]]) -> str:
     """Compose the ReAct system prompt for a given tool catalog."""
     if not tool_schemas:
         catalog = "(no tools available — produce final_answer only)"
@@ -303,13 +304,13 @@ def coerce_reranker(value: Any) -> str:
     return "none"
 
 
-def coerce_max_steps(value: Any, fallback: int) -> int:
+def coerce_steps(value: Any, fallback: int) -> int:
     """Return ``value`` as an int clamped to ``[1, 64]``; fallback on bad input."""
-    coerced = cast_or_none_int(value)
+    coerced = int_or_none(value)
     return fallback if coerced is None else max(1, min(coerced, 64))
 
 
-def cast_or_none_int(value: Any) -> int | None:
+def int_or_none(value: Any) -> int | None:
     """Coerce ``value`` to ``int``; return ``None`` when conversion fails."""
     coerced, _ = capture(int, value)
     return coerced if isinstance(coerced, int) and not isinstance(coerced, bool) else None
@@ -377,7 +378,7 @@ def resolve(
     raw_steps = pick_value(layers, "max_steps")
     if raw_steps is None:
         raw_steps = settings.agent.max_steps
-    max_steps = coerce_max_steps(raw_steps, settings.agent.max_steps)
+    max_steps = coerce_steps(raw_steps, settings.agent.max_steps)
 
     return ResolvedConfig(
         agent_enabled=agent_enabled,
@@ -394,7 +395,7 @@ def resolve(
 # ---------------------------------------------------------------------------
 
 
-def build_tool_registry(
+def build_tools(
     settings: Settings,
     *,
     retrieval_pipeline: Any,
@@ -453,6 +454,65 @@ class AgentTrace:
             "event_count": len(self.events),
         }
 
+    def citations(self) -> list[dict[str, Any]]:
+        """Build citation dicts from the tool observations."""
+        citations: list[dict[str, Any]] = []
+        for observation in self.observations:
+            for hit in observation.get("data", {}).get("hits", []) or []:
+                citations.append(
+                    {
+                        "document_id": hit.get("document_id"),
+                        "chunk_id": hit.get("chunk_id"),
+                        "score": hit.get("score"),
+                        "source": observation.get("name"),
+                    }
+                )
+        return citations
+
+    def hits(self, top_k: int) -> list[Any]:
+        """Reconstruct :class:`Hit` instances from observations, top-k limited."""
+        hits: list[Hit] = []
+        for observation in self.observations:
+            name = observation.get("name", "")
+            if name not in {
+                "vector_search",
+                "keyword_search",
+                "hybrid_search",
+                "summary_search",
+                "graph_search",
+            }:
+                continue
+            for hit in observation.get("data", {}).get("hits", []) or []:
+                text = hit.get("text", "")
+                record = Chunk(
+                    id=hit.get("chunk_id", ""),
+                    document_id=hit.get("document_id") or "graphrag://summary",
+                    version=1,
+                    page=1,
+                    source_location=name,
+                    section="",
+                    company="",
+                    owner="",
+                    department="",
+                    tenant_id=hit.get("tenant_id") or "",
+                    text=text,
+                    checksum=sha256(text.encode("utf-8")).hexdigest(),
+                    metadata={"source_tool": name, **hit.get("metadata", {})},
+                )
+                hits.append(
+                    Hit(
+                        score=float(hit.get("score", 0.0) or 0.0),
+                        chunk=record,
+                    )
+                )
+        deduped: dict[str, Hit] = {}
+        for hit in hits:
+            prior = deduped.get(hit.chunk_id)
+            if prior is None or hit.score > prior.score:
+                deduped[hit.chunk_id] = hit
+        ordered = sorted(deduped.values(), key=lambda h: h.score, reverse=True)
+        return ordered[: int(top_k)]
+
 
 class Agent:
     """ReAct planner (Phase 7.2)."""
@@ -497,18 +557,18 @@ class Agent:
 
     async def iterate(self, request: AgentRequest) -> AsyncIterator[PlannerEvent]:
         """Yield events for the agent loop shared by ``run`` and ``astream``."""
-        enabled, messages, ctx = self.__build_initial_state(request)
-        state = self.__budget_state()
+        enabled, messages, ctx = self.build_state(request)
+        state = self.budget_state()
         for step in range(self.settings.max_steps):
             state.steps += 1
-            budget_event = self.__check_budget(state)
+            budget_event = self.check_budget(state)
             if budget_event is not None:
                 yield budget_event
-                self.__raise_budget_error(state)
-            raw = await self.__generate_reply(messages, state.steps)
+                self.raise_budget_error(state)
+            raw = await self.generate_reply(messages, state.steps)
             parsed = parse_turn(raw or "")
             if isinstance(parsed, PlannerAction):
-                async for event in self.__dispatch_action(
+                async for event in self.dispatch_action(
                     parsed=parsed,
                     step=state.steps,
                     enabled=enabled,
@@ -519,13 +579,13 @@ class Agent:
                     yield event
                 continue
             if isinstance(parsed, PlannerFinal):
-                async for event in self.__dispatch_final(parsed, state.steps):
+                async for event in self.dispatch_final(parsed, state.steps):
                     yield event
                 return
-            self.__emit_parse_failure(parsed, state, messages)
-        self.__raise_budget_error(state)
+            self.emit_parse_failure(parsed, state, messages)
+        self.raise_budget_error(state)
 
-    def __build_initial_state(
+    def build_state(
         self, request: AgentRequest
     ) -> tuple[dict[str, Any], list[dict[str, str]], ToolContext]:
         """Resolve tools, build the message history, and build the ToolContext."""
@@ -535,7 +595,7 @@ class Agent:
             for name, tool in enabled.items()
         ]
         messages: list[dict[str, str]] = [
-            {"role": "system", "content": render_system_prompt(tool_schemas)},
+            {"role": "system", "content": system_prompt(tool_schemas)},
         ]
         for turn in (request.history or [])[-self.settings.max_steps :]:
             messages.append({"role": "user", "content": turn.question})
@@ -549,7 +609,7 @@ class Agent:
         )
         return enabled, messages, ctx
 
-    def __emit_parse_failure(
+    def emit_parse_failure(
         self,
         parsed: Any,
         state: AgentBudgetState,
@@ -566,7 +626,7 @@ class Agent:
             }
         )
 
-    def __budget_state(self) -> AgentBudgetState:
+    def budget_state(self) -> AgentBudgetState:
         """Initialise a fresh :class:`AgentBudgetState` for one iterate call."""
         return AgentBudgetState(
             started=time.perf_counter(),
@@ -574,7 +634,7 @@ class Agent:
             tool_calls=0,
         )
 
-    def __check_budget(self, state: AgentBudgetState) -> PlannerEvent | None:
+    def check_budget(self, state: AgentBudgetState) -> PlannerEvent | None:
         """Return a budget-exceeded event when any budget is exhausted.
 
         Args:
@@ -599,7 +659,7 @@ class Agent:
             )
         return None
 
-    def __raise_budget_error(self, state: AgentBudgetState) -> None:
+    def raise_budget_error(self, state: AgentBudgetState) -> None:
         """Raise the :class:`AgentBudgetError` matching the last fired budget."""
         if state.tool_calls >= self.settings.max_tool_calls:
             raise AgentBudgetError(
@@ -613,7 +673,7 @@ class Agent:
             f"agent exceeded step budget ({self.settings.max_steps})"
         )
 
-    async def __dispatch_action(
+    async def dispatch_action(
         self,
         *,
         parsed: PlannerAction,
@@ -672,7 +732,7 @@ class Agent:
             }
         )
 
-    async def __dispatch_final(
+    async def dispatch_final(
         self,
         parsed: PlannerFinal,
         step: int,
@@ -694,7 +754,7 @@ class Agent:
             payload={"answer": parsed.answer},
         )
 
-    async def __generate_reply(self, messages: list[dict[str, str]], step: int) -> str:
+    async def generate_reply(self, messages: list[dict[str, str]], step: int) -> str:
         """Call the LLM for one agent turn; wrap failures as budget errors."""
         with self.telemetry.span("agent.llm", step=step) as sp:
             sp.set_attribute("messages", len(messages))

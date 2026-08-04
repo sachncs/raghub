@@ -87,7 +87,7 @@ CHONKIE_AVAILABLE = OptionalImportError is None
 CHONKIE_MODULE = chonkie if CHONKIE_AVAILABLE else None
 
 
-class ChonkieGenieAdapter:
+class Genie:
     """Adapter bridging raghub's LLMProvider to chonkie's Genie interface."""
 
     def __init__(self, llm_provider: Any) -> None:
@@ -293,7 +293,7 @@ class Chonkie(Chunker):
                 raise ConfigurationError(
                     "SlumberChunker requires an LLM provider; pass llm_provider="
                 )
-            genie = ChonkieGenieAdapter(llm_provider)
+            genie = Genie(llm_provider)
 
         self.inner = build_chonkie_inner(
             chunk_size=chunk_size,
@@ -328,9 +328,9 @@ class Chonkie(Chunker):
 
     def chunk(self, bundle: Any) -> list[Chunk]:
         """Chunk a bundle via Chonkie."""
-        from raghub.tenants import get_current_tenant
+        from raghub.tenants import current
 
-        ctx = get_current_tenant()
+        ctx = current()
         tenant_id = ctx.tenant_id if ctx else ""
         chunks: list[Chunk] = []
         for section in bundle.sections:
@@ -385,9 +385,9 @@ class Chonkie(Chunker):
         owner: str = "",
     ) -> list[Chunk]:
         """Chunk raw ``text`` via Chonkie."""
-        from raghub.tenants import get_current_tenant
+        from raghub.tenants import current
 
-        ctx = get_current_tenant()
+        ctx = current()
         tenant_id = ctx.tenant_id if ctx else ""
         pieces = self.chonkie_text_chunks(text)
         chunks: list[Chunk] = []
@@ -450,9 +450,9 @@ class WordChunker(Chunker):
 
     def chunk(self, bundle: Any) -> list[Chunk]:
         """Chunk ``bundle`` into overlapping windows."""
-        from raghub.tenants import get_current_tenant
+        from raghub.tenants import current
 
-        ctx = get_current_tenant()
+        ctx = current()
         tenant_id = ctx.tenant_id if ctx else ""
         chunks: list[Chunk] = []
         for section in bundle.sections:
@@ -502,9 +502,9 @@ class WordChunker(Chunker):
         owner: str = "",
     ) -> list[Chunk]:
         """Chunk raw ``text`` (no bundle)."""
-        from raghub.tenants import get_current_tenant
+        from raghub.tenants import current
 
-        ctx = get_current_tenant()
+        ctx = current()
         tenant_id = ctx.tenant_id if ctx else ""
         result: list[Chunk] = []
         for chunk_text in self.word_window_chunks(text):
@@ -621,8 +621,8 @@ def record_from_pipeline(
     classification: Classification = options.get("classification", Classification.INTERNAL)
     checksum: str = options.get("checksum", "")
     tags: list[str] | None = options.get("tags")
-    chunks = __extract_chunks(result)
-    document_id = __resolve_document_id(result, chunks)
+    chunks = extract_chunks(result)
+    document_id = resolve_document_id(result, chunks)
     return Document(
         id=document_id,
         version=int(result.outputs.get("version") or 1),
@@ -640,7 +640,7 @@ def record_from_pipeline(
     )
 
 @staticmethod
-def __extract_chunks(result: Pipeline) -> list["Chunk"]:
+def extract_chunks(result: Pipeline) -> list["Chunk"]:
     """Pull Chunk instances (or dicts) out of the Pipeline output."""
     raw = result.outputs.get("chunks") or []
     if raw and isinstance(raw[0], dict):
@@ -648,7 +648,7 @@ def __extract_chunks(result: Pipeline) -> list["Chunk"]:
     return list(raw)
 
 @staticmethod
-def __resolve_document_id(result: Pipeline, chunks: list) -> str:
+def resolve_document_id(result: Pipeline, chunks: list) -> str:
     """Compute the document_id, threading it onto chunks that lack one."""
     bundle = result.outputs.get("bundle")
     document_id = str(
@@ -708,7 +708,7 @@ class Ingestor:
             vector_store=self.uow.vector_store,
         )
 
-    def submit_async(
+    def submit(
         self,
         *,
         file_name: str,
@@ -770,17 +770,17 @@ class Ingestor:
                 persisted.
 
         """
-        department, tags, classification = self.__extract_options(options)
+        department, tags, classification = self.extract_options(options)
         mime_type = validate_upload(file_name, file_bytes, self.max_upload_bytes)
         self.virus_scan_hook(file_bytes)
         checksum = sha256(file_bytes).hexdigest()
 
         previous = await self.uow.document_repo.get_by_checksum(checksum)
-        cached = self.__maybe_return_cached(previous)
+        cached = self.cached_result(previous)
         if cached is not None:
             return cached
 
-        result = await self.__run_pipeline(
+        result = await self.run_pipeline(
             file_bytes=file_bytes,
             file_name=file_name,
             mime_type=mime_type,
@@ -791,7 +791,7 @@ class Ingestor:
             classification=classification,
         )
         if result.error is not None:
-            await self.__mark_failed(previous, result)
+            await self.mark_failed(previous, result)
             raise IngestionError(
                 result.error.message if result.error else "ingestion failed"
             )
@@ -808,7 +808,7 @@ class Ingestor:
         await self.uow.document_repo.save(record)
         return IngestionResult(document=record, chunks=list(record.chunks))
 
-    def __extract_options(self, options: Any) -> tuple[str, list[str] | None, Classification]:
+    def extract_options(self, options: Any) -> tuple[str, list[str] | None, Classification]:
         """Pull typed fields from the kwargs blob."""
         return (
             options.get("department", ""),
@@ -816,13 +816,13 @@ class Ingestor:
             options.get("classification", Classification.INTERNAL),
         )
 
-    def __maybe_return_cached(self, previous: Any) -> IngestionResult | None:
+    def cached_result(self, previous: Any) -> IngestionResult | None:
         """Return the cached IngestionResult when the prior doc is READY."""
         if previous is not None and previous.status == DocumentLifecycleStatus.READY:
             return IngestionResult(document=previous, chunks=list(previous.chunks))
         return None
 
-    async def __run_pipeline(
+    async def run_pipeline(
         self,
         *,
         file_bytes: bytes,
@@ -854,7 +854,7 @@ class Ingestor:
             company=organization,
         )
 
-    async def __mark_failed(self, previous: Any, result: Any) -> None:
+    async def mark_failed(self, previous: Any, result: Any) -> None:
         """Persist the failed status on the previous document, if any."""
         if previous is None:
             return

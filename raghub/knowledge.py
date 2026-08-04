@@ -546,7 +546,7 @@ def cluster(items: list[Chunk], cluster_size: int) -> list[list[Chunk]]:
     return [group for group in groups.values() if group]
 
 
-async def summarise_async(
+async def summarise(
     cluster_items: list[Chunk],
     llm: Any,
     max_chars: int,
@@ -578,8 +578,8 @@ def summarise(
     import asyncio
 
     async def driver() -> str:
-        """Thin async shim that calls :func:`summarise_async`."""
-        return await summarise_async(cluster_items, llm, max_chars)
+        """Thin async shim that calls :func:`summarise`."""
+        return await summarise(cluster_items, llm, max_chars)
 
     _, error = capture(asyncio.get_running_loop)
     running = error is None
@@ -881,7 +881,7 @@ class GraphIndex(KnowledgeIndex):
     async def drive_extraction(self, chunks: list[Chunk]) -> None:
         """Async body of :meth:`extract_and_link`."""
         for chunk in chunks:
-            parsed = await self.extract_async(chunk.text)
+            parsed = await self.extract(chunk.text)
             if not parsed:
                 continue
             entities = parsed.get("entities", []) or []
@@ -901,7 +901,7 @@ class GraphIndex(KnowledgeIndex):
                 self.graph[s].add(o)
                 self.graph[o].add(s)
 
-    async def extract_async(self, text: str) -> dict[str, Any] | None:
+    async def extract(self, text: str) -> dict[str, Any] | None:
         """Run the extraction prompt on a single chunk."""
         if self.llm is None or not text:
             return None

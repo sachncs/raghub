@@ -108,7 +108,7 @@ class SlidingWindowTrimmer:
         self.max_tokens = max_tokens
         self.enc: Any = Tokenizer.load()
 
-    def counttokenize(self, text: str) -> int:
+    def count(self, text: str) -> int:
         """Count tokens in a single string.
 
         Args:
@@ -149,7 +149,7 @@ class SlidingWindowTrimmer:
         total = 0
         trimmed: list[Turn] = []
         for turn in reversed(history):
-            turn_tokens = self.counttokenize(turn.question) + self.counttokenize(turn.answer) + 10
+            turn_tokens = self.count(turn.question) + self.count(turn.answer) + 10
             if total + turn_tokens > self.max_tokens:
                 break
             trimmed.insert(0, turn)

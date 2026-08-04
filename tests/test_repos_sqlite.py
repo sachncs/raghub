@@ -323,8 +323,8 @@ async def test_doc_store_update_status() -> None:
         await mgr.close()
 
 
-async def test_doc_store_row_to_record_round_trip() -> None:
-    """``row_to_record`` reconstructs a Document from an aiosqlite row."""
+async def test_doc_store_as_record_round_trip() -> None:
+    """``as_record`` reconstructs a Document from an aiosqlite row."""
     mgr = Database(":memory:")
     await mgr.connect()
     try:
@@ -338,7 +338,7 @@ async def test_doc_store_row_to_record_round_trip() -> None:
             "SELECT * FROM documents WHERE document_id = ?", ("d1",)
         )
         row = await cursor.fetchone()
-        reconstructed = DocStore.row_to_record(row)
+        reconstructed = DocStore.as_record(row)
         assert reconstructed.id == "d1"
         assert reconstructed.tags == ["a", "b"]
         assert reconstructed.chunks == ["c1", "c2"]

@@ -358,7 +358,7 @@ class ServerCommand:
             ``--reload`` is for development.
             """
             config = uvicorn.Config(
-                "raghub.api:AppFactory.create_app",
+                "raghub.api:App.create_app",
                 factory=True,
                 host=host,
                 port=port,
@@ -567,13 +567,13 @@ class MigrateCommand:
             import asyncio
 
             from raghub.tenants.isolation import (
-                IsolationStrategy,
+                Isolation,
                 migrate_tenant_split,
             )
 
             try:
-                src = IsolationStrategy(from_strategy)
-                dst = IsolationStrategy(to_strategy)
+                src = Isolation(from_strategy)
+                dst = Isolation(to_strategy)
             except ValueError as exc:
                 typer.echo(f"invalid isolation strategy: {exc}", err=True)
                 raise typer.Exit(code=1) from exc
@@ -634,9 +634,9 @@ class TenantCommand:
             ),
         ) -> None:
             """Register a new tenant."""
-            from raghub.tenants import TenantRegistry, validate_tenant_id
+            from raghub.tenants import TenantRegistry, validate_tenant
 
-            validate_tenant_id(tenant_id)
+            validate_tenant(tenant_id)
             settings = CliConfig.make_settings(config)
             entries = load_registry_entries(settings)
             registry = TenantRegistry(entries=entries)

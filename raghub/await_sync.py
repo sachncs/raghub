@@ -9,7 +9,7 @@ from typing import Any, TypeVar
 
 T = TypeVar("T")
 
-__all__ = ["capture", "maybe_await", "maybe_await_sync"]
+__all__ = ["capture", "maybe_await", "maybe_run"]
 
 
 def capture(call: Callable[..., "JSONValue"], *args: Any, **kwargs: "JSONValue") -> tuple[Any, Exception | None]:
@@ -40,7 +40,7 @@ async def maybe_await[T](value: T | Awaitable[T]) -> T:
     return value
 
 
-def maybe_await_sync(awaitable: Any) -> Any:
+def maybe_run(awaitable: Any) -> Any:
     """Run ``awaitable`` whether or not a loop is already running.
 
     Sync counterpart to :func:`maybe_await`. If a loop is running,

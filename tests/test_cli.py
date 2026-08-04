@@ -462,7 +462,7 @@ def test_feedback_cli_export_writes_jsonl(tmp_path) -> None:
     from unittest.mock import MagicMock
 
     from raghub.cli_commands import FeedbackCommand
-    from raghub.feedback import Feedback, Rating, SqliteFeedbackStore, new_feedback_id
+    from raghub.feedback import Feedback, Rating, SqliteFeedbackStore, new_id
 
     feedback_db = tmp_path / "fb.db"
     store = SqliteFeedbackStore(db_path=str(feedback_db))
@@ -470,7 +470,7 @@ def test_feedback_cli_export_writes_jsonl(tmp_path) -> None:
     asyncio.run(
         store.record(
             Feedback(
-                id=new_feedback_id(),
+                id=new_id(),
                 session_id="s1",
                 query_id="q1",
                 chunk_id="c1",
@@ -523,7 +523,7 @@ def test_feedback_cli_stats_prints_counts(tmp_path) -> None:
         Feedback,
         Rating,
         SqliteFeedbackStore,
-        new_feedback_id,
+        new_id,
     )
 
     feedback_db = tmp_path / "fb.db"
@@ -535,7 +535,7 @@ def test_feedback_cli_stats_prints_counts(tmp_path) -> None:
         asyncio.run(
             store.record(
                 Feedback(
-                    id=new_feedback_id(),
+                    id=new_id(),
                     session_id=f"s{i}",
                     query_id="q1",
                     chunk_id="c1",
@@ -781,15 +781,15 @@ def test_tenant_cli_list_empty(tmp_path) -> None:
 
 
 def test_tenant_cli_validates_tenant_id_format() -> None:
-    """Item 26: ``validate_tenant_id`` rejects uppercase / digit-prefix ids."""
-    from raghub.tenants import validate_tenant_id
+    """Item 26: ``validate_tenant`` rejects uppercase / digit-prefix ids."""
+    from raghub.tenants import validate_tenant
 
     for bad in ("", "ab", "1abc", "ABC", "abc.def", "a" * 65):
         with __import__("pytest").raises(ValueError, match="invalid tenant id"):
-            validate_tenant_id(bad)
+            validate_tenant(bad)
 
     for good in ("abc", "acme", "tenant-1", "tenant_2", "abc-def-ghi"):
-        validate_tenant_id(good)
+        validate_tenant(good)
 
 
 def test_tenant_list_create_delete_round_trip(tmp_path, monkeypatch) -> None:

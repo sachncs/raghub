@@ -117,20 +117,20 @@ class TestCorsStartupGuard:
 
 
 class TestUploadSize413:
-    def test_check_upload_size_accepts_within_budget(self) -> None:
-        from raghub.api import check_upload_size
+    def test_check_size_accepts_within_budget(self) -> None:
+        from raghub.api import check_size
 
-        assert check_upload_size(500, 1024) is False
+        assert check_size(500, 1024) is False
 
-    def test_check_upload_size_rejects_oversize(self) -> None:
-        from raghub.api import check_upload_size
+    def test_check_size_rejects_oversize(self) -> None:
+        from raghub.api import check_size
 
-        assert check_upload_size(2048, 1024) is True
+        assert check_size(2048, 1024) is True
 
-    def test_check_upload_size_handles_missing_content_length(self) -> None:
-        from raghub.api import check_upload_size
+    def test_check_size_handles_missing_content_length(self) -> None:
+        from raghub.api import check_size
 
-        assert check_upload_size(None, 1024) is False
+        assert check_size(None, 1024) is False
 
 
 # ---------------------------------------------------------------------------

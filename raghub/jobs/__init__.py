@@ -74,7 +74,7 @@ class Job:
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
-    def can_transition_to(self, target: JobStatus) -> bool:
+    def can_transition(self, target: JobStatus) -> bool:
         """Return ``True`` when the transition is allowed."""
         return target in _VALID_TRANSITIONS[self.status]
 
@@ -85,7 +85,7 @@ class Job:
             JobStateError: When the transition is not permitted.
 
         """
-        if not self.can_transition_to(target):
+        if not self.can_transition(target):
             raise JobStateError(
                 f"Job {self.id}: illegal transition {self.status} -> {target}"
             )

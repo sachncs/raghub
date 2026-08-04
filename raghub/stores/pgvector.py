@@ -94,11 +94,11 @@ class PgVectorStore:
         try:
             schema = SCHEMA_SQL.format(dim=self.embedding_dim)
             await conn.execute(schema)
-            await self.__set_session(conn)
+            await self.set_session(conn)
         finally:
             await conn.close()
 
-    async def __set_session(self, conn: Any, *, user_id: str = "", tenant_id: str = "") -> None:
+    async def set_session(self, conn: Any, *, user_id: str = "", tenant_id: str = "") -> None:
         """Propagate the per-request identity into the session."""
         try:
             await conn.execute(
@@ -227,7 +227,7 @@ class PgVectorStore:
         asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
-            await self.__set_session(conn, tenant_id=tenant_id or "")
+            await self.set_session(conn, tenant_id=tenant_id or "")
             where = ["tenant_id IS NULL"]
             params: list[Any] = [format_vector(query_vector), int(top_k)]
             if tenant_id is not None:
@@ -260,7 +260,7 @@ class PgVectorStore:
         asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
-            await self.__set_session(conn, tenant_id=tenant_id or "")
+            await self.set_session(conn, tenant_id=tenant_id or "")
             dense_rows = await conn.fetch(
                 "SELECT id, 1 - (embedding <=> $1) AS score "
                 "FROM raghub_chunks "

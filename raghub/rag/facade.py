@@ -44,9 +44,9 @@ import yaml
 from pydantic import BaseModel
 from tqdm import tqdm
 
-from raghub.agent import Agent, PlannerEvent, build_tool_registry, resolve
+from raghub.agent import Agent, PlannerEvent, build_tools, resolve
 from raghub.api_response import ResponseBuilder
-from raghub.await_sync import maybe_await_sync as maybe_await
+from raghub.await_sync import maybe_run as maybe_await
 from raghub.config import Settings
 from raghub.conv import Memory
 from raghub.errors import (
@@ -147,71 +147,71 @@ class RAG:
         **kwargs: "JSONValue",
     ) -> None:
         """Initialise the facade."""
-        components_dict: dict[str, Any] = dict(components) if components is not None else {}
-        components_dict.update(kwargs)
-        components_dict.setdefault("settings", settings)
-        self.__wire_components(components_dict)
-        self.__wire_ingest_pipeline()
-        self.__wire_query_pipeline(components_dict)
+        component_map: dict[str, Any] = dict(components) if components is not None else {}
+        component_map.update(kwargs)
+        component_map.setdefault("settings", settings)
+        self.wire_components(component_map)
+        self.wire_ingest()
+        self.wire_query(component_map)
         self.manifest: Manifest = (
-            components_dict.get("manifest") or Manifest(self.settings.data_dir / "manifest.json")
+            component_map.get("manifest") or Manifest(self.settings.data_dir / "manifest.json")
         )
-        self.background_ingestion = components_dict.get("background_service")
-        self.queue_ = self.__init_queue(components_dict)
-        self.worker_ = self.__init_worker(components_dict)
+        self.background_ingestion = component_map.get("background_service")
+        self.queue_ = self.init_queue(component_map)
+        self.worker_ = self.init_worker(component_map)
         self.worker_task_: asyncio.Task[None] | None = None
-        self.tenant_resolver_ = self.__init_tenant_resolver(components_dict)
-        self.feedback_store_ = self.__init_feedback_store(components_dict)
+        self.tenant_resolver_ = self.init_tenant(component_map)
+        self.feedback_store_ = self.init_feedback(component_map)
         self.rate_limiter_: Any = None
         self.archive_: Any = None
-        self.isolation_strategy_: Any = components_dict.get("isolation_strategy")
+        self.isolation: Any = component_map.get("isolation_strategy")
 
-    def __wire_components(self, components_dict: dict[str, Any]) -> None:
-        """Resolve core collaborators from ``components_dict`` or defaults."""
-        self.settings: Settings = components_dict.get("settings") or Settings.load()
-        self.registry: Any = components_dict.get("registry") or PluginRegistry()
+    def wire_components(self, components: dict[str, Any]) -> None:
+        """Resolve core collaborators from ``components`` or defaults."""
+        self.settings: Settings = components.get("settings") or Settings.load()
+        self.registry: Any = components.get("registry") or PluginRegistry()
         self.knowledge_repo: "KnowledgeRepository" = (
-            components_dict.get("knowledge_repo") or MemoryRepo()
+            components.get("knowledge_repo") or MemoryRepo()
         )
         self.vector_store: Any = (
-            components_dict.get("vector_store") or default_vector_store(self.settings.embedding_dim)
+            components.get("vector_store") or default_vector_store(self.settings.embedding_dim)
         )
-        self.embedder: Any = components_dict.get("embedder") or default_embedder(
+        self.embedder: Any = components.get("embedder") or default_embedder(
             self.settings.embedding_model, self.settings.embedding_dim
         )
-        self.llm: Any = components_dict.get("llm") or default_llm(self.settings.llm_model)
+        self.llm: Any = components.get("llm") or default_llm(self.settings.llm_model)
         self.converter: "DocumentConverter" = (
-            components_dict.get("converter") or default_converter()
+            components.get("converter") or default_converter()
         )
-        self.chunker: Any = components_dict.get("chunker") or default_chunker(
+        self.chunker: Any = components.get("chunker") or default_chunker(
             self.settings.chunk_size_words,
             self.settings.chunk_overlap_words,
             chunker_strategy=self.settings.chunker_strategy,
             embedding_model_chunker=self.settings.embedding_model_chunker,
         )
-        self.reranker: Any = components_dict.get("reranker") or build_reranker(
+        self.reranker: Any = components.get("reranker") or build_reranker(
             self.settings, llm=self.llm
         )
         self.generator: Any = cast(
             Any,
-            components_dict.get("generator")
+            components.get("generator")
             or DefaultGenerator(
                 llm=self.llm,
-                timeout_seconds=components_dict.get("llm_timeout_seconds"),
+                timeout_seconds=components.get("llm_timeout_seconds"),
             ),
         )
         self.structured: Any = (
-            components_dict.get("structured")
-            if components_dict.get("structured") is not None
+            components.get("structured")
+            if components.get("structured") is not None
             else default_structured()
         )
-        if components_dict.get("telemetry") is None:
+        if components.get("telemetry") is None:
             inner = default_telemetry()
             self.telemetry: Any = RedactingTelemetry(inner)
         else:
-            self.telemetry = components_dict["telemetry"]
+            self.telemetry = components["telemetry"]
 
-    def __wire_ingest_pipeline(self) -> None:
+    def wire_ingest(self) -> None:
         """Build the ingestion pipeline and conversation store."""
         self.ingest_pipeline = Ingest(
             converter=self.converter,
@@ -225,14 +225,14 @@ class RAG:
         )
         self.conversation_store: Any = Memory()
 
-    def __wire_query_pipeline(self, components_dict: dict[str, Any]) -> None:
+    def wire_query(self, components: dict[str, Any]) -> None:
         """Build retrieval, query, and agent pipelines."""
         self.query_cache: Cache | None = (
             Cache(ttl_seconds=self.settings.query_cache_ttl_seconds)
             if self.settings.enable_query_cache
             else None
         )
-        self.transformer: Any = components_dict.get("transformer") or default_transforms(
+        self.transformer: Any = components.get("transformer") or default_transforms(
             self.llm,
             enabled=list(self.settings.query_transforms.enabled),
             hyde_n=self.settings.query_transforms.hyde_n,
@@ -254,7 +254,7 @@ class RAG:
             self.raptor = Raptor(llm=self.llm, embedder=self.embedder, depth=2)
         if self.settings.graph_search_enabled:
             self.graph = GraphIndex(llm=self.llm, embedder=self.embedder)
-        self.tool_registry = build_tool_registry(
+        self.tool_registry = build_tools(
             self.settings,
             retrieval_pipeline=self.retrieval_pipeline,
             vector_store=self.vector_store,
@@ -303,15 +303,15 @@ class RAG:
             agentic_pipeline=self.agentic_pipeline,
         )
 
-    def __init_queue(self, components_dict: dict[str, Any]) -> Any:
+    def init_queue(self, components: dict[str, Any]) -> Any:
         """Construct the persistent ingestion queue.
 
         Priority:
-            1. ``components_dict["queue"]`` if explicitly supplied.
+            1. ``components["queue"]`` if explicitly supplied.
             2. ``Settings.queue.backend == "sqlite"`` -> ``SqliteQueue``.
             3. Otherwise ``None`` (legacy threadpool path).
         """
-        supplied = components_dict.get("queue")
+        supplied = components.get("queue")
         if supplied is not None:
             return supplied
         backend = self.settings.queue.backend
@@ -329,17 +329,17 @@ class RAG:
             return queue
         return None
 
-    def __init_worker(self, components_dict: dict[str, Any]) -> Any:
+    def init_worker(self, components: dict[str, Any]) -> Any:
         """Construct a :class:`Worker` when a persistent queue is configured.
 
         Priority:
-            1. ``components_dict["worker"]`` if explicitly supplied.
+            1. ``components["worker"]`` if explicitly supplied.
             2. ``self.queue_`` is a :class:`SqliteQueue` (built above when
                ``Settings.queue.backend == "sqlite"``) -> build a Worker
                bound to that queue with a default ingest handler.
             3. Otherwise ``None``.
         """
-        supplied = components_dict.get("worker")
+        supplied = components.get("worker")
         if supplied is not None:
             return supplied
         if self.queue_ is None:
@@ -397,15 +397,15 @@ class RAG:
         except (asyncio.CancelledError, Exception):
             pass
 
-    def __init_tenant_resolver(self, components_dict: dict[str, Any]) -> Any:
+    def init_tenant(self, components: dict[str, Any]) -> Any:
         """Construct the tenant resolver.
 
         Priority:
-            1. ``components_dict["tenant_resolver"]`` if supplied.
+            1. ``components["tenant_resolver"]`` if supplied.
             2. ``Settings.tenants.resolver == "composite" | "jwt" | "header"``.
             3. Otherwise ``None``.
         """
-        supplied = components_dict.get("tenant_resolver")
+        supplied = components.get("tenant_resolver")
         if supplied is not None:
             return supplied
         resolver = self.settings.tenants.resolver
@@ -425,15 +425,15 @@ class RAG:
             return HeaderTenantResolver()
         return None
 
-    def __init_feedback_store(self, components_dict: dict[str, Any]) -> Any:
+    def init_feedback(self, components: dict[str, Any]) -> Any:
         """Construct the feedback store (Tier 3 Item 19).
 
         Priority:
-            1. ``components_dict["feedback_store"]`` if supplied.
+            1. ``components["feedback_store"]`` if supplied.
             2. ``Settings.feedback.backend == "sqlite"`` -> SqliteFeedbackStore.
             3. Otherwise ``None``.
         """
-        supplied = components_dict.get("feedback_store")
+        supplied = components.get("feedback_store")
         if supplied is not None:
             return supplied
         backend = self.settings.feedback.backend
@@ -563,7 +563,16 @@ class RAG:
         if isinstance(source, (str, Path)):
             p = Path(source)
             if p.is_dir():
-                return self.ingest_directory_sync(p, options.get("metadata"), options.get("user"))
+                files = sorted(p for p in p.rglob("*") if p.is_file())
+                results: list[Pipeline] = []
+                iterator = tqdm(files, desc="Ingesting", unit="file")
+                for child in iterator:
+                    results.append(self.ingest(child, metadata=options.get("metadata"), user=options.get("user")))
+                return Pipeline(
+                    pipeline_id="batch",
+                    pipeline_name="ingest",
+                    outputs={"batch": results},
+                )
             file_bytes = p.read_bytes()
             uri = str(p.resolve())
         else:
@@ -574,7 +583,7 @@ class RAG:
         result = cast(
             Pipeline,
             maybe_await(
-                self.ingest_one_async(
+                self.ingest_one(
                     file_bytes,
                     uri,
                     options.get("mime_type", "text/plain"),
@@ -589,39 +598,6 @@ class RAG:
                 f"ingest({source!r}) failed: {result.error.message if result.error else 'unknown'}"
             )
         return result
-
-    def ingest_directory_sync(
-        self,
-        directory: Path,
-        metadata: dict[str, Any] | None,
-        user: Any | None,
-        *,
-        show_progress: bool = True,
-    ) -> Pipeline:
-        """Recursively ingest a directory synchronously.
-
-        Args:
-            directory: Directory to walk.
-            metadata: Optional per-file metadata.
-            user: Optional :class:`User`.
-            show_progress: When ``True`` (default), wrap the file loop
-                in a :class:`tqdm.tqdm` progress bar. Suppress with
-                ``False`` for non-interactive callers.
-
-        Returns:
-            A :class:`Pipeline` summarising the batch.
-
-        """
-        files = sorted(p for p in directory.rglob("*") if p.is_file())
-        results: list[Pipeline] = []
-        iterator = tqdm(files, desc="Ingesting", disable=not show_progress, unit="file")
-        for child in iterator:
-            results.append(self.ingest(child, metadata=metadata, user=user))
-        return Pipeline(
-            pipeline_id="batch",
-            pipeline_name="ingest",
-            outputs={"batch": results},
-        )
 
     async def aingest(
         self,
@@ -643,7 +619,7 @@ class RAG:
         if isinstance(source, (str, Path)):
             p = Path(source)
             if p.is_dir():
-                return await self.ingest_directory_async(
+                return await self.ingest_directory(
                     p, options.get("metadata"), options.get("user")
                 )
             file_bytes = p.read_bytes()
@@ -653,7 +629,7 @@ class RAG:
             uri = options.get("source_uri") or "bytes://memory"
         if not file_bytes:
             raise IngestionError(f"aingest({source!r}) received empty bytes; nothing to index.")
-        return await self.ingest_one_async(
+        return await self.ingest_one(
             file_bytes,
             uri,
             options.get("mime_type", "text/plain"),
@@ -662,7 +638,7 @@ class RAG:
             user=options.get("user"),
         )
 
-    async def ingest_directory_async(
+    async def ingest_directory(
         self,
         directory: Path,
         metadata: dict[str, Any] | None,
@@ -721,7 +697,7 @@ class RAG:
         into the local store. The main process inserts them into the
         shared vector store and rebuilds BM25 once at the end.
 
-        The previous path (:meth:`ingest_directory_async`) stays as
+        The previous path (:meth:`ingest_directory`) stays as
         the in-process option for environments where fork isn't
         reliable; this method picks up the same per-file work in
         parallel processes.
@@ -738,7 +714,7 @@ class RAG:
             )
 
         n_workers = max(1, min(max_workers or os.cpu_count() or 4, len(files)))
-        settings_path = self.settings_serialise_path()
+        settings_path = self.settings_path()
         embedder_signature = (self.embedder.model_name, self.embedder.dimension)
 
         with ProcessPoolExecutor(
@@ -774,7 +750,7 @@ class RAG:
             outputs={"batch": worker_outputs, "files": [str(p) for p in files]},
         )
 
-    def settings_serialise_path(self) -> str:
+    def settings_path(self) -> str:
         """Write the active settings to a sidecar file and return its path.
 
         Workers re-build ``Settings`` from the file rather than from
@@ -795,7 +771,7 @@ class RAG:
         )
         return str(path)
 
-    async def ingest_one_async(
+    async def ingest_one(
         self,
         file_bytes: bytes,
         source_uri: str,
@@ -905,7 +881,7 @@ class RAG:
         )
 
     @staticmethod
-    def scoped_session_id(user: Any, session_id: str | None) -> str | None:
+    def scoped(user: Any, session_id: str | None) -> str | None:
         """Combine ``user`` and ``session_id`` into a single opaque key.
 
         The conversation store is keyed by this combined value so two
@@ -931,13 +907,13 @@ class RAG:
         return f"{uid}::{session_id}"
 
     def session_overrides(
-        self, scoped_session_id: str | None, user: Any | None = None
+        self, scoped: str | None, user: Any | None = None
     ) -> dict[str, Any] | None:
         """Return the session's tool/agent overrides (Phase 1.12).
 
         Args:
-            scoped_session_id: The namespaced session id produced by
-                :meth:`scoped_session_id`.
+            scoped: The namespaced session id produced by
+                :meth:`scoped`.
             user: Optional user principal. The conversation store is
                 keyed by the scoped id, so the caller must pass the
                 user that was used to build that scoped id.
@@ -948,12 +924,12 @@ class RAG:
             default in the resolver.
 
         """
-        if scoped_session_id is None:
+        if scoped is None:
             return None
         get_overrides = getattr(self.conversation_store, "get_overrides", None)
         if not callable(get_overrides):
             return None
-        return cast(dict[str, Any] | None, get_overrides(scoped_session_id))
+        return cast(dict[str, Any] | None, get_overrides(scoped))
 
     async def aquery(
         self,
@@ -1003,7 +979,7 @@ class RAG:
                 "No LLM API key configured; set RAG_LLM_API_KEY "
                 "(or another provider key) before calling query()."
             )
-        scoped = self.scoped_session_id(user, session_id)
+        scoped = self.scoped(user, session_id)
         context = PipelineCtx(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
@@ -1069,7 +1045,7 @@ class RAG:
         session_id: str | None = merged.get("session_id")
         top_k: int = merged.get("top_k", 5)
         metadata_filter: dict[str, Any] | None = merged.get("metadata_filter")
-        scoped = self.scoped_session_id(user, session_id)
+        scoped = self.scoped(user, session_id)
         context = PipelineCtx(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
@@ -1132,8 +1108,8 @@ class RAG:
         merged.update(kwargs)
         user: Any | None = merged.get("user")
         session_id: str | None = merged.get("session_id")
-        scoped = self.scoped_session_id(user, session_id)
-        resolved = self.resolve_agent_config(merged, scoped, user)
+        scoped = self.scoped(user, session_id)
+        resolved = self.resolve_agent(merged, scoped, user)
         if self.agentic_pipeline is None:
             async for event in self.fallback_planner_events(question, session_id, user):
                 yield event
@@ -1155,7 +1131,7 @@ class RAG:
         ):
             yield event
 
-    def resolve_agent_config(
+    def resolve_agent(
         self,
         merged: dict[str, Any],
         scoped: str | None,
@@ -1307,11 +1283,11 @@ class RAG:
 
     def isolation_strategy(self) -> Any:
         """Return the active isolation strategy enum (defaults to ``RowLevel``)."""
-        from raghub.tenants.isolation import IsolationStrategy
+        from raghub.tenants.isolation import Isolation
 
-        if self.isolation_strategy_ is None:
-            return IsolationStrategy.ROW_LEVEL
-        return self.isolation_strategy_
+        if self.isolation is None:
+            return Isolation.ROW_LEVEL
+        return self.isolation
 
     # ------------------------------------------------------------------
     # Incremental indexing
@@ -1458,13 +1434,13 @@ class RAG:
             import asyncio
 
             from raghub.jobs import JobStatus
-            from raghub.tenants import get_current_tenant, validate_tenant_id
+            from raghub.tenants import current, validate_tenant
 
             tenant_id: str | None = None
-            ctx = get_current_tenant()
+            ctx = current()
             if ctx is not None:
                 tenant_id = ctx.tenant_id
-                validate_tenant_id(tenant_id)
+                validate_tenant(tenant_id)
 
             content_hash = hashlib.sha256(file_bytes).hexdigest()
             payload = {
@@ -1581,7 +1557,7 @@ class RAG:
             first.
 
         """
-        scoped = self.scoped_session_id(user, session_id) or session_id
+        scoped = self.scoped(user, session_id) or session_id
         return cast(list[Any], self.conversation_store.load(scoped, limit=limit))
 
     def clear_conversation(
@@ -1599,5 +1575,5 @@ class RAG:
                 omitted, the raw ``session_id`` is used.
 
         """
-        scoped = self.scoped_session_id(user, session_id) or session_id
+        scoped = self.scoped(user, session_id) or session_id
         self.conversation_store.clear(scoped)

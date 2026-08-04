@@ -20,9 +20,9 @@ from raghub.pipeline import canonical_filters
     relevant=st.lists(st.text(min_size=1, max_size=10), min_size=0, max_size=10),
     k=st.integers(min_value=1, max_value=20),
 )
-def test_recall_at_k_bounds(retrieved: list[str], relevant: list[str], k: int) -> None:
+def test_recall_bounds(retrieved: list[str], relevant: list[str], k: int) -> None:
     """Recall@K is always in [0, 1] (or 1 when there are no relevant items)."""
-    value = Metrics.recall_at_k(retrieved, relevant, k)
+    value = Metrics.recall(retrieved, relevant, k)
     assert 0.0 <= value <= 1.0
 
 
@@ -31,9 +31,9 @@ def test_recall_at_k_bounds(retrieved: list[str], relevant: list[str], k: int) -
     relevant=st.lists(st.text(min_size=1, max_size=10), min_size=0, max_size=10),
     k=st.integers(min_value=1, max_value=20),
 )
-def test_precision_at_k_bounds(retrieved: list[str], relevant: list[str], k: int) -> None:
+def test_precision_bounds(retrieved: list[str], relevant: list[str], k: int) -> None:
     """Precision@K is always in [0, 1] (or 0 when k is 0)."""
-    value = Metrics.precision_at_k(retrieved, relevant, k)
+    value = Metrics.precision(retrieved, relevant, k)
     assert 0.0 <= value <= 1.0
 
 
@@ -71,7 +71,7 @@ def test_coherence_bounds(text: str) -> None:
 )
 def test_mrr_bounds(retrieved: list[str], relevant: list[str]) -> None:
     """MRR is always in [0, 1] (or 0 when no relevant item is found)."""
-    value = Metrics.mean_reciprocal_rank(retrieved, relevant)
+    value = Metrics.mrr(retrieved, relevant)
     assert 0.0 <= value <= 1.0
 
 

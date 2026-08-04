@@ -311,7 +311,7 @@ class MemoryStore(Store):
             top_k: Number of hits to return.
             metadata_filter: Optional metadata filter (string SQL or dict).
             tenant_id: Optional explicit tenant id; if ``None`` and a
-                tenant context is bound via :func:`set_current_tenant`,
+                tenant context is bound via :func:`set_current`,
                 that tenant id is used. Records whose ``chunk.tenant_id``
                 does not match are excluded.
 
@@ -651,14 +651,14 @@ class SqliteStore(Store):
                 tenant context is bound, that tenant id is used.
 
         """
-        rows = self.rows(metadata_filter, tenant_id=self.__effective_tenant(tenant_id))
+        rows = self.rows(metadata_filter, tenant_id=self.effective_tenant(tenant_id))
         if not rows:
             return []
-        scored = self.__score_rows(rows, vector)
+        scored = self.score_rows(rows, vector)
         scored.sort(key=lambda pair: pair[1], reverse=True)
-        return self.__materialize(scored[:top_k])
+        return self.materialize(scored[:top_k])
 
-    def __effective_tenant(self, tenant_id: str | None) -> str | None:
+    def effective_tenant(self, tenant_id: str | None) -> str | None:
         """Resolve ``tenant_id`` against the bound tenant context."""
         if tenant_id is not None:
             return tenant_id
@@ -666,7 +666,7 @@ class SqliteStore(Store):
 
         return RowLevel().apply_to_kwargs({}).get("tenant_id")
 
-    def __score_rows(
+    def score_rows(
         self,
         rows: list[tuple[Any, ...]],
         vector: Sequence[float],
@@ -676,17 +676,17 @@ class SqliteStore(Store):
         denom = float(np.linalg.norm(query)) or 1.0
         scored: list[tuple[Any, float]] = []
         for row in rows:
-            score = self.__cosine(query, row[-1], denom)
-            scored.append((self.__row_to_chunk(row), score))
+            score = self.cosine(query, row[-1], denom)
+            scored.append((self.row_to_chunk(row), score))
         return scored
 
-    def __cosine(self, query: Any, blob: Any, denom: float) -> float:
+    def cosine(self, query: Any, blob: Any, denom: float) -> float:
         """Cosine similarity between the query vector and a stored blob."""
         v = np.frombuffer(blob, dtype=np.float32)
         d = float(np.linalg.norm(v)) or 1.0
         return float(np.dot(query, v) / (denom * d))
 
-    def __row_to_chunk(self, row: tuple[Any, ...]) -> Any:
+    def row_to_chunk(self, row: tuple[Any, ...]) -> Any:
         """Convert a raw row tuple to a :class:`Chunk`."""
         (
             chunk_id,
@@ -717,7 +717,7 @@ class SqliteStore(Store):
             ).hexdigest(),
         )
 
-    def __materialize(
+    def materialize(
         self, scored: list[tuple[Any, float]]
     ) -> list[dict[str, Any]]:
         """Format scored chunks into the public dict shape."""

@@ -1,7 +1,7 @@
 """Retrieval coverage tests.
 
 Exercises the pure helpers in :mod:`raghub.retrieval`: rrf fusion,
-extract_json_array/extract_string_array, merge_with_rrf, linear_combine,
+extract_array/extract_strings, merge_rrf, linear_combine,
 and prompt templates. Heavy classes (Cascade, Context, GraphRAG) are
 exercised end-to-end via the data-path tests.
 """
@@ -16,15 +16,15 @@ from raghub.retrieval import (
     Fusion,
     context_prompt,
     decompose_prompt,
-    extract_json_array,
-    extract_string_array,
+    extract_array,
+    extract_strings,
     hyde_prompt,
     linear_combine,
-    merge_with_rrf,
-    multi_query_prompt,
+    merge_rrf,
+    query_prompt,
     reorder_candidates,
     rrf,
-    step_back_prompt,
+    step_prompt,
 )
 
 # ---------------------------------------------------------------------------
@@ -63,12 +63,12 @@ def test_rrf_rejects_non_strings() -> None:
         rrf([[1, 2]])  # type: ignore[list-item]
 
 
-def test_merge_with_rrf_dedupes() -> None:
-    """merge_with_rrf returns each chunk only once, sorted by RRF score."""
+def test_merge_rrf_dedupes() -> None:
+    """merge_rrf returns each chunk only once, sorted by RRF score."""
 
     hit_a = type("Hit", (), {"chunk_id": "a", "score": 1.0})()
     hit_b = type("Hit", (), {"chunk_id": "b", "score": 0.9})()
-    result = merge_with_rrf([[hit_a, hit_b], [hit_a, hit_b]])
+    result = merge_rrf([[hit_a, hit_b], [hit_a, hit_b]])
     ids = [h.chunk_id for h in result]
     assert ids == ["a", "b"]
 
@@ -99,55 +99,55 @@ def test_linear_combine_empty_channel() -> None:
 
 
 # ---------------------------------------------------------------------------
-# extract_json_array / extract_string_array
+# extract_array / extract_strings
 # ---------------------------------------------------------------------------
 
 
-def test_extract_json_array_from_fenced() -> None:
-    """extract_json_array strips a fenced ```json block."""
+def test_extract_array_from_fenced() -> None:
+    """extract_array strips a fenced ```json block."""
 
     raw = 'Here:\n```json\n[{"a": 1}, {"b": 2}]\n```\nDone'
-    assert extract_json_array(raw) == [{"a": 1}, {"b": 2}]
+    assert extract_array(raw) == [{"a": 1}, {"b": 2}]
 
 
-def test_extract_json_array_inline() -> None:
-    """extract_json_array picks the first JSON array inline."""
+def test_extract_array_inline() -> None:
+    """extract_array picks the first JSON array inline."""
 
     raw = 'the list is [{"x": 1}, {"x": 2}] thanks'
-    assert extract_json_array(raw) == [{"x": 1}, {"x": 2}]
+    assert extract_array(raw) == [{"x": 1}, {"x": 2}]
 
 
-def test_extract_json_array_no_array() -> None:
-    """extract_json_array returns [] when no array is present."""
+def test_extract_array_no_array() -> None:
+    """extract_array returns [] when no array is present."""
 
-    assert extract_json_array("no json") == []
+    assert extract_array("no json") == []
 
 
-def test_extract_json_array_filters_non_dicts() -> None:
-    """extract_json_array keeps only dict items in the array."""
+def test_extract_array_filters_non_dicts() -> None:
+    """extract_array keeps only dict items in the array."""
 
     raw = '[{"a": 1}, 2, "x", {"b": 2}]'
-    out = extract_json_array(raw)
+    out = extract_array(raw)
     assert out == [{"a": 1}, {"b": 2}]
 
 
-def test_extract_string_array_inline() -> None:
-    """extract_string_array parses an inline JSON array of strings."""
+def test_extract_strings_inline() -> None:
+    """extract_strings parses an inline JSON array of strings."""
 
-    assert extract_string_array('here ["a", "b", "c"]') == ["a", "b", "c"]
+    assert extract_strings('here ["a", "b", "c"]') == ["a", "b", "c"]
 
 
-def test_extract_string_array_fenced() -> None:
-    """extract_string_array strips a fenced json code block."""
+def test_extract_strings_fenced() -> None:
+    """extract_strings strips a fenced json code block."""
 
     raw = '```json\n["x", "y"]\n```'
-    assert extract_string_array(raw) == ["x", "y"]
+    assert extract_strings(raw) == ["x", "y"]
 
 
-def test_extract_string_array_no_json() -> None:
-    """extract_string_array returns [] when nothing parsable is present."""
+def test_extract_strings_no_json() -> None:
+    """extract_strings returns [] when nothing parsable is present."""
 
-    assert extract_string_array("no json here") == []
+    assert extract_strings("no json here") == []
 
 
 # ---------------------------------------------------------------------------
@@ -184,10 +184,10 @@ def test_hyde_prompt() -> None:
     assert len(text) > 0
 
 
-def test_multi_query_prompt() -> None:
-    """multi_query_prompt asks the model for a number of variants."""
+def test_query_prompt() -> None:
+    """query_prompt asks the model for a number of variants."""
 
-    text = multi_query_prompt("test question", n=4)
+    text = query_prompt("test question", n=4)
     assert "4" in text
     assert "test question" in text
 
@@ -199,10 +199,10 @@ def test_decompose_prompt() -> None:
     assert "complex question?" in text
 
 
-def test_step_back_prompt() -> None:
-    """step_back_prompt asks for the abstract question."""
+def test_step_prompt() -> None:
+    """step_prompt asks for the abstract question."""
 
-    text = step_back_prompt("specific question")
+    text = step_prompt("specific question")
     assert "specific question" in text
 
 

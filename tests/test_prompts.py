@@ -5,7 +5,7 @@ from __future__ import annotations
 from raghub.models import Turn
 from raghub.prompts import (
     SYSTEM_PROMPT_TEMPLATE,
-    PromptBuilder,
+    Prompt,
     PromptConfig,
     TokenCounter,
 )
@@ -111,13 +111,13 @@ def test_token_counter_truncate_handles_zero_budget() -> None:
 
 
 # ---------------------------------------------------------------------------
-# PromptBuilder.__init__
+# Prompt.__init__
 # ---------------------------------------------------------------------------
 
 
 def test_prompt_builder_defaults() -> None:
-    """``PromptBuilder`` defaults to a fresh :class:`PromptConfig`."""
-    builder = PromptBuilder()
+    """``Prompt`` defaults to a fresh :class:`PromptConfig`."""
+    builder = Prompt()
     assert isinstance(builder.config, PromptConfig)
     assert builder.token_counter is not None
 
@@ -125,18 +125,18 @@ def test_prompt_builder_defaults() -> None:
 def test_prompt_builder_custom_config() -> None:
     """A supplied :class:`PromptConfig` is stored verbatim."""
     config = PromptConfig(max_tokens=1024, reserved_output_tokens=64)
-    builder = PromptBuilder(config=config)
+    builder = Prompt(config=config)
     assert builder.config is config
 
 
 # ---------------------------------------------------------------------------
-# PromptBuilder.build_messages
+# Prompt.build_messages
 # ---------------------------------------------------------------------------
 
 
 def test_build_messages_returns_expected_keys() -> None:
     """The payload exposes ``system``, ``history``, ``context``, ``question``."""
-    builder = PromptBuilder()
+    builder = Prompt()
     payload = builder.build_messages(question="q", context=[{"text": "ctx"}])
     assert set(payload.keys()) >= {
         "system",
@@ -151,7 +151,7 @@ def test_build_messages_returns_expected_keys() -> None:
 
 def test_build_messages_preserves_question_under_tight_budget() -> None:
     """The question is always emitted, even when the budget is exhausted."""
-    builder = PromptBuilder(
+    builder = Prompt(
         config=PromptConfig(max_tokens=10, reserved_output_tokens=5)
     )
     payload = builder.build_messages(
@@ -164,7 +164,7 @@ def test_build_messages_preserves_question_under_tight_budget() -> None:
 def test_build_messages_truncates_context_to_budget() -> None:
     """Context chunks are dropped once the budget overflows."""
     config = PromptConfig(max_tokens=30, reserved_output_tokens=5)
-    builder = PromptBuilder(config=config)
+    builder = Prompt(config=config)
     payload = builder.build_messages(
         question="q",
         context=[{"text": "alpha " * 30}, {"text": "beta " * 30}],
@@ -175,7 +175,7 @@ def test_build_messages_truncates_context_to_budget() -> None:
 def test_build_messages_truncates_history_newest_first() -> None:
     """History is walked newest-first, dropping the oldest turns first."""
     config = PromptConfig(max_tokens=30, reserved_output_tokens=5)
-    builder = PromptBuilder(config=config)
+    builder = Prompt(config=config)
     history = [Turn(question=f"q{i}", answer=f"a{i}") for i in range(5)]
     payload = builder.build_messages(question="q", context=None, session_history=history)
     roles = [m["role"] for m in payload["history"]]
@@ -185,7 +185,7 @@ def test_build_messages_truncates_history_newest_first() -> None:
 def test_build_messages_skips_history_when_budget_exhausted() -> None:
     """History is skipped when no token remains for it."""
     config = PromptConfig(max_tokens=10, reserved_output_tokens=9)
-    builder = PromptBuilder(config=config)
+    builder = Prompt(config=config)
     history = [Turn(question="q1", answer="a1 long long long long long long")]
     payload = builder.build_messages(question="q", context=None, session_history=history)
     assert payload["history"] == []
@@ -193,21 +193,21 @@ def test_build_messages_skips_history_when_budget_exhausted() -> None:
 
 def test_build_messages_stringifies_dict_without_text_key() -> None:
     """Dicts lacking a ``text`` key fall back to ``str(chunk)``."""
-    builder = PromptBuilder()
+    builder = Prompt()
     payload = builder.build_messages(question="q", context=[{"other": "value"}])
     assert payload["context"] == ["{'other': 'value'}"]
 
 
 def test_build_messages_dict_with_text_key() -> None:
     """A dict with a ``text`` key uses that text."""
-    builder = PromptBuilder()
+    builder = Prompt()
     payload = builder.build_messages(question="q", context=[{"text": "hello"}])
     assert payload["context"] == ["hello"]
 
 
 def test_build_messages_includes_image_paths() -> None:
     """``image_paths`` is propagated to the payload."""
-    builder = PromptBuilder()
+    builder = Prompt()
     payload = builder.build_messages(
         question="q",
         image_paths=["/tmp/a.png", "/tmp/b.jpg"],
@@ -217,7 +217,7 @@ def test_build_messages_includes_image_paths() -> None:
 
 def test_build_messages_no_args() -> None:
     """``build_messages`` works with only a question."""
-    builder = PromptBuilder()
+    builder = Prompt()
     payload = builder.build_messages(question="q")
     assert payload["question"] == "q"
     assert payload["context"] == []
@@ -229,6 +229,6 @@ def test_build_messages_uses_custom_system_prompt() -> None:
     config = PromptConfig(
         system_prompt="be terse", max_tokens=4096, reserved_output_tokens=512
     )
-    builder = PromptBuilder(config=config)
+    builder = Prompt(config=config)
     payload = builder.build_messages(question="q")
     assert payload["system"] == "be terse"

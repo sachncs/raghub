@@ -21,7 +21,7 @@ Section map:
 * :class:`AgentPipeline` — agent-driven query pipeline.
 * :func:`get_chunks` / :func:`primary_company` /
   :func:`sha256_checksum` — small ingest helpers.
-* :func:`citations_from_trace` / :func:`hits_from_trace` —
+* :meth:`AgentTrace.citations` / :meth:`AgentTrace.hits` —
   agent-trace → citation/hit coercion.
 * :func:`canonical_filters` — flatten filters into hashable tuples.
 """
@@ -42,7 +42,7 @@ from typing import Any, cast
 from pydantic import ConfigDict
 from tqdm import tqdm
 
-from raghub.agent import Agent, AgentRequest, AgentTrace
+from raghub.agent import Agent, AgentRequest
 from raghub.conv import Memory
 from raghub.embedder import Embedder
 from raghub.errors import PipelineError, VectorStoreError
@@ -332,11 +332,11 @@ class PipelineBuilder:
 
 def get_chunks(bundle: Bundle, document_id: str, company: str = "") -> list[Chunk]:
     """Materialise the :class:`Chunk` list for a bundle's sections."""
-    from raghub.tenants import get_current_tenant
+    from raghub.tenants import current
 
     chunks: list[Chunk] = []
     tenant_company = company or bundle.metadata.get("company", "")
-    ctx = get_current_tenant()
+    ctx = current()
     tenant_id = ctx.tenant_id if ctx else ""
     for section in bundle.sections:
         for block in section.blocks:
@@ -460,7 +460,7 @@ class Ingest(PipelineRunner):
         self.graph = components.get("graph")
         self.show_progress = True
 
-    def vectors_already_indexed(self, chunks: list[Chunk]) -> bool:
+    def indexed(self, chunks: list[Chunk]) -> bool:
         """Return ``True`` when every chunk already lives in the vector store."""
         if not chunks:
             return True
@@ -483,7 +483,7 @@ class Ingest(PipelineRunner):
             force: bool = bool(inputs.get("force"))
             checksum = sha256_checksum(file_bytes)
             bundle_id = deterministic_id("bundle", source_uri, checksum)
-            resolved = self.resolve_ingest_metadata(
+            resolved = self.resolve_metadata(
                 inputs=inputs,
                 metadata=metadata_in,
                 user=user,
@@ -493,7 +493,7 @@ class Ingest(PipelineRunner):
             with self.telemetry.span("ingest", source_uri=source_uri, bundle_id=bundle_id) as sp:
                 sp.set_attribute("checksum", checksum)
 
-                cached = self.maybe_cached_bundle(
+                cached = self.cached_bundle(
                     context, force, bundle_id, checksum, resolved
                 )
                 if cached is not None:
@@ -515,12 +515,12 @@ class Ingest(PipelineRunner):
                 self.index_chunks(chunks, vectors)
                 self.knowledge_repo.save(bundle)
 
-                return self.build_ingest_result(
+                return self.ingest_result(
                     context, bundle, chunks, vectors, incremental=False
                 )
 
     @staticmethod
-    def resolve_ingest_metadata(
+    def resolve_metadata(
         *,
         inputs: dict[str, Any],
         metadata: dict[str, Any],
@@ -559,7 +559,7 @@ class Ingest(PipelineRunner):
             language=inputs.get("language", ""),
         )
 
-    def maybe_cached_bundle(
+    def cached_bundle(
         self,
         context: PipelineCtx,
         force: bool,
@@ -576,7 +576,7 @@ class Ingest(PipelineRunner):
         prior_chunks = get_chunks(
             existing, resolved.document_id, company=resolved.tenant_company
         )
-        if not self.vectors_already_indexed(prior_chunks):
+        if not self.indexed(prior_chunks):
             return None
         return Pipeline(
             pipeline_id=context.pipeline_id,
@@ -614,9 +614,9 @@ class Ingest(PipelineRunner):
         resolved: IngestResolvedMetadata,
     ) -> list[Chunk]:
         """Run the chunker and stamp per-chunk identity fields."""
-        from raghub.tenants import get_current_tenant
+        from raghub.tenants import current
 
-        ctx = get_current_tenant()
+        ctx = current()
         tenant_id = ctx.tenant_id if ctx else ""
         with self.telemetry.span("ingest.chunk"):
             raw_chunks = self.chunker.chunk(bundle)
@@ -667,7 +667,7 @@ class Ingest(PipelineRunner):
                 with self.telemetry.span("ingest.graph"):
                     self.graph.add_chunks(chunks, vectors)
 
-    def build_ingest_result(
+    def ingest_result(
         self,
         context: PipelineCtx,
         bundle: Bundle,
@@ -740,7 +740,7 @@ class QueryPipeline(PipelineRunner):
         self.agentic_pipeline = components.get("agentic_pipeline")
 
     @staticmethod
-    def metadata_filter_for_user(user: Any) -> dict[str, Any] | str:
+    def user_filter(user: Any) -> dict[str, Any] | str:
         """Derive a metadata filter for the vector store from a user.
 
         Security-sensitive: a non-admin user with an empty
@@ -788,7 +788,7 @@ class QueryPipeline(PipelineRunner):
         if session_id:
             history = self.conversation_store.load(session_id, limit=20)
 
-        rbac_filter = self.metadata_filter_for_user(user)
+        rbac_filter = self.user_filter(user)
         user_id = getattr(user, "email", None) or getattr(user, "user_id", None)
         scope = QueryPipeline.scope_triple(user)
 
@@ -806,7 +806,7 @@ class QueryPipeline(PipelineRunner):
             scope=scope,
         )
 
-        cached = self.maybe_cache_hit(query_ctx)
+        cached = self.cache_hit(query_ctx)
         if isinstance(cached, Pipeline):
             return cached
 
@@ -825,7 +825,7 @@ class QueryPipeline(PipelineRunner):
             tuple(sorted(str(value) for value in getattr(user, "allowed_groups", []) or [])),
         )
 
-    def maybe_cache_hit(self, ctx: QueryContext) -> Pipeline | None:
+    def cache_hit(self, ctx: QueryContext) -> Pipeline | None:
         """Return a cached ``Pipeline`` for the request, or ``None``."""
         if self.cache is None:
             return None
@@ -851,7 +851,7 @@ class QueryPipeline(PipelineRunner):
         """Forward to the agentic pipeline when tools are enabled."""
         if self.agentic_pipeline is None or not (
             tools_enabled
-            or self.resolved_triggers_agent(inputs)
+            or self.triggers_agent(inputs)
         ):
             return None
         return cast(
@@ -868,7 +868,7 @@ class QueryPipeline(PipelineRunner):
         )
 
     @staticmethod
-    def resolved_triggers_agent(inputs: dict[str, Any]) -> bool:
+    def triggers_agent(inputs: dict[str, Any]) -> bool:
         """Return whether ``resolved_config`` activates the agent loop.
 
         Args:
@@ -896,7 +896,7 @@ class QueryPipeline(PipelineRunner):
     ) -> Pipeline:
         """Embed → retrieve → rerank → generate → (optional) structured."""
         with self.telemetry.span("query", question=ctx.question[:128], top_k=ctx.top_k) as span:
-            QueryPipeline.annotate_query_span(span, ctx.user, ctx.session_id)
+            QueryPipeline.annotate_span(span, ctx.user, ctx.session_id)
 
             hits, transforms_applied = await self.retrieve_hits(
                 ctx.question, ctx.history, ctx.top_k, ctx.rbac_filter, ctx.user_filter
@@ -921,11 +921,11 @@ class QueryPipeline(PipelineRunner):
                 "resolved_config": context.metadata.get("resolved_config"),
             },
         )
-        self.maybe_cache_store(result, ctx)
+        self.cache_store(result, ctx)
         return result
 
     @staticmethod
-    def annotate_query_span(
+    def annotate_span(
         span: Any,
         user: Any | None,
         session_id: str | None,
@@ -955,7 +955,7 @@ class QueryPipeline(PipelineRunner):
             return transformed
 
         hits = self.vector_search(vector, top_k, rbac_filter)
-        hits = self.filter_user_hits(hits, user_filter)
+        hits = self.filter_hits(hits, user_filter)
         if self.reranker is not None:
             with self.telemetry.span("query.rerank"):
                 hits = self.reranker.rerank(question=question, hits=hits)
@@ -1006,7 +1006,7 @@ class QueryPipeline(PipelineRunner):
         ]
 
     @staticmethod
-    def filter_user_hits(
+    def filter_hits(
         hits: list[Hit],
         user_filter: dict[str, Any] | str,
     ) -> list[Hit]:
@@ -1116,7 +1116,7 @@ class QueryPipeline(PipelineRunner):
             Turn(question=question, answer=str(answer)),
         )
 
-    def maybe_cache_store(self, result: Pipeline, ctx: QueryContext) -> None:
+    def cache_store(self, result: Pipeline, ctx: QueryContext) -> None:
         """Persist the pipeline result in the cache when configured."""
         if self.cache is None:
             return
@@ -1143,10 +1143,10 @@ class QueryPipeline(PipelineRunner):
         user_filter: dict[str, Any] | str = inputs.get("metadata_filter") or {}
         user: Any | None = inputs.get("user")
         session_id: str | None = inputs.get("session_id")
-        rbac_filter = self.metadata_filter_for_user(user)
+        rbac_filter = self.user_filter(user)
 
         with self.telemetry.span("query.stream", question=question[:128], top_k=top_k) as span:
-            self.annotate_stream_span(span, user, session_id)
+            self.annotate_stream(span, user, session_id)
             hits = await self.stream_retrieve_hits(
                 question, top_k, rbac_filter, user_filter
             )
@@ -1158,11 +1158,11 @@ class QueryPipeline(PipelineRunner):
                 if piece:
                     collected.append(piece)
                     yield piece
-            self.stream_record_tokens()
-            self.stream_record_turn(session_id, question, collected)
+            self.record_tokens()
+            self.record_streamed(session_id, question, collected)
 
     @staticmethod
-    def annotate_stream_span(
+    def annotate_stream(
         span: Any,
         user: Any | None,
         session_id: str | None,
@@ -1193,7 +1193,7 @@ class QueryPipeline(PipelineRunner):
             Hit(score=float(h["score"]), chunk=h["chunk"])
             for h in raw
         ]
-        hits = QueryPipeline.filter_user_hits(hits, user_filter)
+        hits = QueryPipeline.filter_hits(hits, user_filter)
         if self.reranker is not None:
             with self.telemetry.span("query.rerank"):
                 hits = self.reranker.rerank(question=question, hits=hits)
@@ -1219,7 +1219,7 @@ class QueryPipeline(PipelineRunner):
         ):
             yield piece
 
-    def stream_record_tokens(self) -> None:
+    def record_tokens(self) -> None:
         """Forward streaming token usage to the telemetry provider."""
         record_tokens = getattr(self.generator, "record_tokens", None)
         if not callable(record_tokens):
@@ -1241,7 +1241,7 @@ class QueryPipeline(PipelineRunner):
             model=str(tokens.get("model", "")),
         )
 
-    def stream_record_turn(
+    def record_streamed(
         self,
         session_id: str | None,
         question: str,
@@ -1340,8 +1340,8 @@ class AgentPipeline(PipelineRunner):
                     )
                 )
 
-                citations = citations_from_trace(trace)
-                hits = hits_from_trace(trace, top_k)
+                citations = trace.citations()
+                hits = trace.hits(top_k)
 
                 if (
                     self.long_context_pass is not None
@@ -1406,62 +1406,4 @@ class AgentPipeline(PipelineRunner):
             yield event
 
 
-def citations_from_trace(trace: AgentTrace) -> list[dict[str, Any]]:
-    """Build citation dicts from the agent's tool observations."""
-    citations: list[dict[str, Any]] = []
-    for observation in trace.observations:
-        for hit in observation.get("data", {}).get("hits", []) or []:
-            citations.append(
-                {
-                    "document_id": hit.get("document_id"),
-                    "chunk_id": hit.get("chunk_id"),
-                    "score": hit.get("score"),
-                    "source": observation.get("name"),
-                }
-            )
-    return citations
 
-
-def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
-    """Reconstruct :class:`Hit` instances from observations."""
-    hits: list[Hit] = []
-    for observation in trace.observations:
-        name = observation.get("name", "")
-        if name not in {
-            "vector_search",
-            "keyword_search",
-            "hybrid_search",
-            "summary_search",
-            "graph_search",
-        }:
-            continue
-        for hit in observation.get("data", {}).get("hits", []) or []:
-            text = hit.get("text", "")
-            record = Chunk(
-                id=hit.get("chunk_id", ""),
-                document_id=hit.get("document_id") or "graphrag://summary",
-                version=1,
-                page=1,
-                source_location=name,
-                section="",
-                company="",
-                owner="",
-                department="",
-                tenant_id=hit.get("tenant_id") or "",
-                text=text,
-                checksum=sha256(text.encode("utf-8")).hexdigest(),
-                metadata={"source_tool": name, **hit.get("metadata", {})},
-            )
-            hits.append(
-                Hit(
-                    score=float(hit.get("score", 0.0) or 0.0),
-                    chunk=record,
-                )
-            )
-    deduped: dict[str, Hit] = {}
-    for hit in hits:
-        prior = deduped.get(hit.chunk_id)
-        if prior is None or hit.score > prior.score:
-            deduped[hit.chunk_id] = hit
-    ordered = sorted(deduped.values(), key=lambda h: h.score, reverse=True)
-    return ordered[: int(top_k)]
