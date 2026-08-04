@@ -45,8 +45,8 @@ from pydantic import BaseModel
 from tqdm import tqdm
 
 from raghub.agent import Agent, PlannerEvent, build_tools, resolve
-from raghub.api_response import ResponseBuilder
-from raghub.await_sync import maybe_run as maybe_await
+from raghub.response import ResponseBuilder
+from raghub.coroutines import maybe_run as maybe_await
 from raghub.config import Settings
 from raghub.conv import Memory
 from raghub.errors import (
@@ -75,7 +75,7 @@ from raghub.models import (
     deterministic_id,
 )
 from raghub.pipeline import AgentPipeline, Cache, Ingest, QueryPipeline
-from raghub.plugins import PluginRegistry
+from raghub.plugins import Plugins
 from raghub.rag.defaults import (
     LLM_API_KEY_ENV_VARS,
     agent_required,
@@ -169,7 +169,7 @@ class RAG:
     def wire_components(self, components: dict[str, Any]) -> None:
         """Resolve core collaborators from ``components`` or defaults."""
         self.settings: Settings = components.get("settings") or Settings.load()
-        self.registry: Any = components.get("registry") or PluginRegistry()
+        self.registry: Any = components.get("registry") or Plugins()
         self.knowledge_repo: "KnowledgeRepository" = (
             components.get("knowledge_repo") or MemoryRepo()
         )
@@ -1101,7 +1101,7 @@ class RAG:
         Yields:
             :class:`PlannerEvent` instances. SSE encoding is the
             caller's responsibility — the FastAPI route uses
-            :meth:`raghub.api_sse.Sse.format`.
+            :meth:`raghub.sse.Sse.format`.
 
         """
         merged: dict[str, Any] = dict(request) if request is not None else {}

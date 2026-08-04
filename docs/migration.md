@@ -128,7 +128,7 @@ from ragub.helper.auth import App  # typo-prone module name
 from raghub.errors import GenerationError, MissingDepError
 from raghub.models import Chunk, Document, Session
 from raghub.rag import RAG
-from raghub.api_auth import App
+from raghub.authhelpers import App
 ```
 
 ## Storage migration

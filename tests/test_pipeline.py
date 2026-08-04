@@ -61,7 +61,7 @@ def build_generator(answer: str = "the answer") -> MagicMock:
 class _StubChunker:
     """A Chunker that splits each text block into a single Chunk with checksum set.
 
-    Used in pipeline tests to avoid the default WordChunker (which currently
+    Used in pipeline tests to avoid the default Words (which currently
     does not populate the required ``checksum`` field).
     """
 

@@ -1,7 +1,7 @@
 """Ingest module coverage tests.
 
 Exercises the small helpers in :mod:`raghub.ingest`: build_refinery,
-apply_refinery, record_from_pipeline, Job, Batch, JobStore, Resumable,
+apply_refinery, record_from_pipeline, Job, Batch, Jobs, Resumable,
 and the IngestionResult / Ingestor class skeletons.
 """
 
@@ -17,7 +17,7 @@ from raghub.ingest import (
     Batch,
     IngestionResult,
     Job,
-    JobStore,
+    Jobs,
     Resumable,
     apply_refinery,
     build_refinery,
@@ -158,14 +158,14 @@ async def _wait_for_status(batch: Batch, job_id: str, status: str, timeout: floa
 
 
 # ---------------------------------------------------------------------------
-# JobStore
+# Jobs
 # ---------------------------------------------------------------------------
 
 
 def test_job_store_upsert_and_get(tmp_path: Any) -> None:
-    """JobStore.upsert + get round-trip."""
+    """Jobs.upsert + get round-trip."""
 
-    store = JobStore(tmp_path / "jobs.db")
+    store = Jobs(tmp_path / "jobs.db")
     store.upsert("j1", "completed", {"ok": True})
     loaded = store.get("j1")
     assert loaded is not None
@@ -174,17 +174,17 @@ def test_job_store_upsert_and_get(tmp_path: Any) -> None:
 
 
 def test_job_store_get_unknown_returns_none(tmp_path: Any) -> None:
-    """JobStore.get returns None for unknown ids."""
+    """Jobs.get returns None for unknown ids."""
 
-    store = JobStore(tmp_path / "jobs.db")
+    store = Jobs(tmp_path / "jobs.db")
     assert store.get("missing") is None
     store.close()
 
 
 def test_job_store_all_jobs_yields_each(tmp_path: Any) -> None:
-    """JobStore.all_jobs yields every persisted job."""
+    """Jobs.all_jobs yields every persisted job."""
 
-    store = JobStore(tmp_path / "jobs.db")
+    store = Jobs(tmp_path / "jobs.db")
     store.upsert("j1", "completed", None)
     store.upsert("j2", "pending", None)
     jobs = list(store.all_jobs())
@@ -198,7 +198,7 @@ def test_job_store_all_jobs_yields_each(tmp_path: Any) -> None:
 
 
 def test_resumable_init_with_db_path(tmp_path: Any) -> None:
-    """Resumable uses its db_path to open a JobStore."""
+    """Resumable uses its db_path to open a Jobs."""
 
     r = Resumable(db_path=tmp_path / "jobs.db", max_workers=1)
     assert r.executor is not None

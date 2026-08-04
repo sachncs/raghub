@@ -28,18 +28,18 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
-from raghub.await_sync import capture
+from raghub.coroutines import capture
 from raghub.config import AgentConfig, Settings
 from raghub.errors import AgentBudgetError, GenerationError, ToolError
 from raghub.llm import GenerationRequest, Generator
 from raghub.models import Chunk, Hit, Turn, User
 from raghub.telemetry import NoOpTelemetry
 from raghub.tools import (
-    DateToday,
     GraphSearch,
     HybridSearch,
-    KeywordSearch,
+    Keyword,
     SummarySearch,
+    Today,
     ToolContext,
     ToolRegistry,
     ToolResult,
@@ -406,9 +406,9 @@ def build_tools(
     """Build the planner's tool catalog."""
     registry = ToolRegistry()
     registry.register(VectorSearch(retrieval_pipeline))
-    registry.register(KeywordSearch(vector_store))
+    registry.register(Keyword(vector_store))
     registry.register(HybridSearch(retrieval_pipeline, vector_store))
-    registry.register(DateToday())
+    registry.register(Today())
     if settings.web_search.enabled:
         registry.register(WebSearch(max_results=settings.web_search.max_results))
     if settings.summary_search_enabled and raptor is not None:

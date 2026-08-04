@@ -14,12 +14,12 @@ from __future__ import annotations
 
 # Sub-modules surfaced as `raghub.X` namespaces for convenience.
 from raghub import (
-    api_auth,
-    api_ratelimit,
-    api_response,
-    api_sse,
-    cli_commands,
+    authhelpers,
+    commands,
     evaluation,
+    ratelimit,
+    response,
+    sse,
 )
 from raghub import services as services_module
 
@@ -80,8 +80,8 @@ from raghub.gen import Generator
 from raghub.ingest import (
     Ingestor,
     Job,
-    JobStore,
-    WordChunker,
+    Jobs,
+    Words,
 )
 
 # Knowledge repo + manifest.
@@ -118,7 +118,7 @@ from raghub.models import (
 from raghub.pipeline import Cache, PipelineBuilder, Router
 
 # Plugin.
-from raghub.plugins import PluginRegistry
+from raghub.plugins import Plugins
 
 # RAG facade.
 from raghub.rag import RAG
@@ -182,7 +182,7 @@ __all__ = [
     "IngestionError",
     "Ingestor",
     "Job",
-    "JobStore",
+    "Jobs",
     "JsonSessions",
     "Judge",
     "Langfuse",
@@ -198,7 +198,7 @@ __all__ = [
     "Pipeline",
     "PipelineBuilder",
     "PipelineError",
-    "PluginRegistry",
+    "Plugins",
     "RagHubError",
     "Rerank",
     "RerankerFactory",
@@ -219,12 +219,12 @@ __all__ = [
     "User",
     "VectorStoreError",
     "VerificationError",
-    "WordChunker",
-    "api_auth",
-    "api_ratelimit",
-    "api_response",
-    "api_sse",
-    "cli_commands",
+    "Words",
+    "authhelpers",
+    "commands",
     "evaluation",
+    "ratelimit",
+    "response",
     "services_module",
+    "sse",
 ]

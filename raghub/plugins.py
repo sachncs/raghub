@@ -4,7 +4,7 @@ Plugins can register converters, chunkers, embedders, vector stores,
 retrievers, rerankers, generators, telemetry providers, and
 evaluators. The framework discovers plugins via entry points
 (``group="raghub.plugins"``) and via explicit registration through
-:class:`PluginRegistry`.
+:class:`Plugins`.
 
 The registry is the lookup table used by the framework's
 :class:`RAG` facade to resolve components when a caller does not
@@ -33,12 +33,12 @@ from raghub.models import (
 
 __all__ = [
     "PluginKind",
-    "PluginRegistry",
+    "Plugins",
 ]
 
 
 class PluginKind(StrEnum):
-    """Catalogue of plugin kinds accepted by :class:`PluginRegistry`.
+    """Catalogue of plugin kinds accepted by :class:`Plugins`.
 
     Adding a new kind requires registering a corresponding Protocol
     in :mod:`raghub.models`.
@@ -72,7 +72,7 @@ _PLUGIN_KIND_TYPE_MAP: dict[PluginKind, str] = {
 }
 
 
-class PluginRegistry:
+class Plugins:
     """Catalog of pluggable components keyed by ``(kind, name)``."""
 
     def __init__(self) -> None:

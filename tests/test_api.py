@@ -479,7 +479,7 @@ class _FakeApp:
 def test_inject_get_returns_application() -> None:
     """App.get reads the application facade off the request app's state."""
 
-    from raghub.api_auth import App
+    from raghub.authhelpers import App
 
     application = MagicMock()
     request = MagicMock()
@@ -490,7 +490,7 @@ def test_inject_get_returns_application() -> None:
 def test_bearer_require_strips_token() -> None:
     """Bearer.require returns the trailing token, trimmed."""
 
-    from raghub.api_auth import Bearer
+    from raghub.authhelpers import Bearer
 
     assert Bearer.require("Bearer my-token  ") == "my-token"
 
@@ -498,7 +498,7 @@ def test_bearer_require_strips_token() -> None:
 def test_bearer_require_lowercase() -> None:
     """Bearer.require is case-insensitive on the scheme."""
 
-    from raghub.api_auth import Bearer
+    from raghub.authhelpers import Bearer
 
     assert Bearer.require("bearer t") == "t"
 
@@ -506,7 +506,7 @@ def test_bearer_require_lowercase() -> None:
 def test_bearer_require_missing_raises() -> None:
     """Bearer.require raises HTTPException(401) when header is missing."""
 
-    from raghub.api_auth import Bearer
+    from raghub.authhelpers import Bearer
 
     with pytest.raises(HTTPException) as exc_info:
         Bearer.require(None)
@@ -516,7 +516,7 @@ def test_bearer_require_missing_raises() -> None:
 def test_bearer_require_wrong_scheme_raises() -> None:
     """Bearer.require rejects non-Bearer schemes."""
 
-    from raghub.api_auth import Bearer
+    from raghub.authhelpers import Bearer
 
     with pytest.raises(HTTPException) as exc_info:
         Bearer.require("Basic xyz")
@@ -526,7 +526,7 @@ def test_bearer_require_wrong_scheme_raises() -> None:
 def test_auth_admin_resolves_admin() -> None:
     """Auth.admin returns the user when is_admin is True."""
 
-    from raghub.api_auth import Auth
+    from raghub.authhelpers import Auth
 
     admin = MagicMock()
     admin.is_admin = True
@@ -546,7 +546,7 @@ def test_auth_admin_resolves_admin() -> None:
 def test_auth_admin_403_for_non_admin() -> None:
     """Auth.admin raises 403 for non-admin users."""
 
-    from raghub.api_auth import Auth
+    from raghub.authhelpers import Auth
 
     user = MagicMock()
     user.is_admin = False
@@ -568,7 +568,7 @@ def test_auth_admin_403_for_non_admin() -> None:
 def test_auth_user_id_helper() -> None:
     """Auth.user_id returns user.id from the inner auth service."""
 
-    from raghub.api_auth import Auth
+    from raghub.authhelpers import Auth
 
     user = MagicMock()
     user.id = "u-1"
@@ -595,7 +595,7 @@ def test_auth_user_id_helper() -> None:
 def test_redaction_user_strips_sensitive_keys() -> None:
     """Redaction.user replaces sensitive keys with ``***``."""
 
-    from raghub.api_response import Redaction
+    from raghub.response import Redaction
 
     payload = {"email": "a@x.com", "password": "x", "password_hash": "h", "token": "t"}
     redacted = Redaction.user(payload)
@@ -608,7 +608,7 @@ def test_redaction_user_strips_sensitive_keys() -> None:
 def test_redaction_user_case_insensitive() -> None:
     """Redaction matches sensitive keys case-insensitively."""
 
-    from raghub.api_response import Redaction
+    from raghub.response import Redaction
 
     payload = {"PASSWORD": "x", "Secret": "y", "Token": "z"}
     redacted = Redaction.user(payload)
@@ -618,7 +618,7 @@ def test_redaction_user_case_insensitive() -> None:
 def test_response_builder_from_pipeline() -> None:
     """ResponseBuilder.from_pipeline builds a Response from a Pipeline result."""
 
-    from raghub.api_response import ResponseBuilder
+    from raghub.response import ResponseBuilder
 
     pipeline = MagicMock()
     pipeline.pipeline_id = "p1"
@@ -640,7 +640,7 @@ def test_response_builder_from_pipeline() -> None:
 def test_response_builder_with_structured_output() -> None:
     """ResponseBuilder serialises the structured output as JSON."""
 
-    from raghub.api_response import ResponseBuilder
+    from raghub.response import ResponseBuilder
 
     structured = MagicMock()
     structured.model_dump_json.return_value = '{"x":1}'
@@ -666,7 +666,7 @@ def test_response_builder_with_structured_output() -> None:
 def test_response_builder_with_hits() -> None:
     """ResponseBuilder converts hits into source_chunks (Hit objects)."""
 
-    from raghub.api_response import ResponseBuilder
+    from raghub.response import ResponseBuilder
     from raghub.models import Chunk, Hit
 
     chunk = Chunk(
@@ -703,7 +703,7 @@ def test_response_builder_with_hits() -> None:
 def test_sse_format_serialises_dict() -> None:
     """Sse.format JSON-encodes dict payloads."""
 
-    from raghub.api_sse import Sse
+    from raghub.sse import Sse
 
     encoded = Sse.format("event", {"x": 1})
     text = encoded.decode("utf-8")
@@ -714,7 +714,7 @@ def test_sse_format_serialises_dict() -> None:
 def test_sse_format_passes_through_string() -> None:
     """Sse.format does not re-JSON a string payload."""
 
-    from raghub.api_sse import Sse
+    from raghub.sse import Sse
 
     encoded = Sse.format("event", "hello")
     text = encoded.decode("utf-8")
@@ -724,7 +724,7 @@ def test_sse_format_passes_through_string() -> None:
 def test_sse_comment() -> None:
     """Sse.comment emits an SSE comment frame."""
 
-    from raghub.api_sse import Sse
+    from raghub.sse import Sse
 
     encoded = Sse.comment("keep-alive")
     text = encoded.decode("utf-8")
@@ -733,16 +733,16 @@ def test_sse_comment() -> None:
 
 
 # ---------------------------------------------------------------------------
-# api_ratelimit: TokenBucket + RateLimiterMiddleware
+# api_ratelimit: Bucket + Ratelimit
 # ---------------------------------------------------------------------------
 
 
 def test_token_bucket_admits_under_burst() -> None:
-    """TokenBucket.allow admits up to ``burst`` requests immediately."""
+    """Bucket.allow admits up to ``burst`` requests immediately."""
 
-    from raghub.api_ratelimit import TokenBucket
+    from raghub.ratelimit import Bucket
 
-    bucket = TokenBucket(rate=1.0, burst=3)
+    bucket = Bucket(rate=1.0, burst=3)
     for _ in range(3):
         admitted, _ = bucket.allow("k")
         assert admitted is True
@@ -756,9 +756,9 @@ def test_token_bucket_refills_over_time() -> None:
 
     import time
 
-    from raghub.api_ratelimit import TokenBucket
+    from raghub.ratelimit import Bucket
 
-    bucket = TokenBucket(rate=100.0, burst=2)
+    bucket = Bucket(rate=100.0, burst=2)
     admitted, _ = bucket.allow("k")
     assert admitted is True
     admitted, _ = bucket.allow("k")
@@ -773,9 +773,9 @@ def test_token_bucket_refills_over_time() -> None:
 def test_token_bucket_keys_are_independent() -> None:
     """Different keys have independent buckets."""
 
-    from raghub.api_ratelimit import TokenBucket
+    from raghub.ratelimit import Bucket
 
-    bucket = TokenBucket(rate=0.1, burst=1)
+    bucket = Bucket(rate=0.1, burst=1)
     admitted, _ = bucket.allow("a")
     assert admitted is True
     admitted, _ = bucket.allow("a")
@@ -789,14 +789,14 @@ def test_token_bucket_keys_are_independent() -> None:
 async def test_rate_limiter_middleware_admits_http() -> None:
     """A rate-limited middleware lets through the first burst."""
 
-    from raghub.api_ratelimit import RateLimiterMiddleware
+    from raghub.ratelimit import Ratelimit
 
     downstream_calls: list[str] = []
 
     async def _app(_scope: Any, _receive: Any, _send: Any) -> None:
         downstream_calls.append("hit")
 
-    middleware = RateLimiterMiddleware(_app, rate=10.0, burst=2)
+    middleware = Ratelimit(_app, rate=10.0, burst=2)
     scope: dict[str, Any] = {"type": "http", "client": ("1.2.3.4", 0)}
     sent: list[Any] = []
 
@@ -816,14 +816,14 @@ async def test_rate_limiter_middleware_admits_http() -> None:
 async def test_rate_limiter_middleware_short_circuits() -> None:
     """When the bucket is empty, the middleware emits 429 and skips the downstream."""
 
-    from raghub.api_ratelimit import RateLimiterMiddleware
+    from raghub.ratelimit import Ratelimit
 
     downstream_calls: list[str] = []
 
     async def _app(_scope: Any, _receive: Any, _send: Any) -> None:
         downstream_calls.append("hit")
 
-    middleware = RateLimiterMiddleware(_app, rate=10.0, burst=1)
+    middleware = Ratelimit(_app, rate=10.0, burst=1)
     scope: dict[str, Any] = {"type": "http", "client": ("1.2.3.4", 0)}
     sent: list[Any] = []
 
@@ -843,14 +843,14 @@ async def test_rate_limiter_middleware_short_circuits() -> None:
 async def test_rate_limiter_middleware_passes_lifespan() -> None:
     """Lifespan scopes are forwarded unchanged to the downstream app."""
 
-    from raghub.api_ratelimit import RateLimiterMiddleware
+    from raghub.ratelimit import Ratelimit
 
     seen: list[str] = []
 
     async def _app(scope: Any, _receive: Any, _send: Any) -> None:
         seen.append(scope["type"])
 
-    middleware = RateLimiterMiddleware(_app)
+    middleware = Ratelimit(_app)
     await middleware({"type": "lifespan"}, lambda: None, lambda msg: None)
     assert seen == ["lifespan"]
 
@@ -859,14 +859,14 @@ async def test_rate_limiter_middleware_passes_lifespan() -> None:
 async def test_rate_limiter_middleware_passes_websocket() -> None:
     """Websocket scopes are forwarded unchanged."""
 
-    from raghub.api_ratelimit import RateLimiterMiddleware
+    from raghub.ratelimit import Ratelimit
 
     seen: list[str] = []
 
     async def _app(scope: Any, _receive: Any, _send: Any) -> None:
         seen.append(scope["type"])
 
-    middleware = RateLimiterMiddleware(_app)
+    middleware = Ratelimit(_app)
     await middleware({"type": "websocket"}, lambda: None, lambda msg: None)
     assert seen == ["websocket"]
 
@@ -875,14 +875,14 @@ async def test_rate_limiter_middleware_passes_websocket() -> None:
 async def test_rate_limiter_middleware_no_client() -> None:
     """When scope lacks ``client``, the middleware uses 'unknown' as the key."""
 
-    from raghub.api_ratelimit import RateLimiterMiddleware
+    from raghub.ratelimit import Ratelimit
 
     downstream_calls: list[str] = []
 
     async def _app(_scope: Any, _receive: Any, _send: Any) -> None:
         downstream_calls.append("hit")
 
-    middleware = RateLimiterMiddleware(_app, rate=10.0, burst=1)
+    middleware = Ratelimit(_app, rate=10.0, burst=1)
     scope: dict[str, Any] = {"type": "http"}  # no client
     sent: list[Any] = []
 

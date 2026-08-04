@@ -233,20 +233,20 @@ Precedence (highest first): constructor arguments → env vars → built-in defa
 | `raghub.config.Settings` | class | Typed configuration loaded from env + YAML |
 | `raghub.models.User` | model | Per-user identity with `allowed_companies` and `is_admin` |
 | `raghub.api:AppFactory.create_app` | factory | FastAPI app factory (use `uvicorn raghub.api:app_factory.create_app --factory`) |
-| `raghub.plugins.PluginRegistry` | class | Register converters, chunkers, vector stores, etc. |
+| `raghub.plugins.Plugins` | class | Register converters, chunkers, vector stores, etc. |
 | `raghub.eval.Finance` | class | Recall@K, Precision@K, MRR, Faithfulness, Context Recall/Precision, Answer Correctness |
 | `raghub.cli:main` | CLI | `raghub init / ingest / query / health / version` |
 | `raghub-financebench` | CLI | `raghub-financebench --examples N` |
 
 ## Examples
 
-Plugins register converters, chunkers, embedders, vector stores, retrievers, rerankers, generators, telemetry providers, and evaluators on `PluginRegistry`. They are discovered via entry points (`group="raghub.plugins"`) and can be registered programmatically:
+Plugins register converters, chunkers, embedders, vector stores, retrievers, rerankers, generators, telemetry providers, and evaluators on `Plugins`. They are discovered via entry points (`group="raghub.plugins"`) and can be registered programmatically:
 
 ```python
-from raghub.plugins import PluginRegistry
+from raghub.plugins import Plugins
 from raghub.lifecycle import Marker
 
-registry = PluginRegistry()
+registry = Plugins()
 registry.register_converter("marker", Marker())
 rag = RAG(registry=registry)
 ```
@@ -289,11 +289,11 @@ raghub/
 │   ├── services/           # Facade, container wiring
 │   ├── tools/              # ToolRegistry + built-in tools
 │   ├── lifecycle/          # Document lifecycle state machines
-│   ├── api_auth/           # Auth helpers (App, Auth, Bearer)
-│   ├── api_response/       # ResponseBuilder + Redaction
-│   ├── api_sse/            # SSE framing
-│   ├── api_ratelimit/      # Token bucket + ASGI middleware
-│   ├── cli_commands/       # CLI sub-commands
+│   ├── authhelpers/        # Auth helpers (App, Auth, Bearer)
+│   ├── response/           # ResponseBuilder + Redaction
+│   ├── sse/                # SSE framing
+│   ├── ratelimit/          # Token bucket + ASGI middleware
+│   ├── commands/           # CLI sub-commands
 │   ├── knowledge.py        # RAPTOR, GraphRAG
 │   ├── conv.py             # Conversation memory
 │   ├── telemetry.py        # Telemetry providers, Prometheus metrics

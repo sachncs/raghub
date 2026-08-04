@@ -368,7 +368,7 @@ class RateLimitConfig(BaseModel):
     """Per-tenant rate limiting configuration.
 
     Attributes:
-        backend: ``"memory"`` (process-local TokenBucket) or
+        backend: ``"memory"`` (process-local Bucket) or
             ``"sqlite"`` (durable backend).
         per_tenant_rps: Sustained refill rate per tenant.
         per_tenant_burst: Maximum bucket capacity per tenant.

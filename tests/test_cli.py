@@ -1,7 +1,7 @@
 """CLI surface coverage tests.
 
 Exercises the Typer CLI commands assembled in :mod:`raghub.cli` and
-:mod:`raghub.cli_commands`. Uses :class:`typer.testing.CliRunner`.
+:mod:`raghub.commands`. Uses :class:`typer.testing.CliRunner`.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from typer.testing import CliRunner
 
 import raghub.cli as cli_module
 from raghub.cli import app
-from raghub.cli_commands import CliConfig, InitCommand, ToolConfig
+from raghub.commands import CliConfig, InitCommand, ToolConfig
 
 runner = CliRunner()
 
@@ -442,8 +442,8 @@ def test_server_command_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None
     """``raghub run`` constructs an uvicorn.Server and calls .run()."""
     fake_server = MagicMock()
     fake_config = MagicMock()
-    monkeypatch.setattr("raghub.cli_commands.uvicorn.Config", lambda *args, **kwargs: fake_config)
-    monkeypatch.setattr("raghub.cli_commands.uvicorn.Server", lambda config: fake_server)
+    monkeypatch.setattr("raghub.commands.uvicorn.Config", lambda *args, **kwargs: fake_config)
+    monkeypatch.setattr("raghub.commands.uvicorn.Server", lambda config: fake_server)
     result = runner.invoke(app, ["run"])
     assert result.exit_code == 0
     fake_server.run.assert_called_once()
@@ -461,7 +461,7 @@ def test_feedback_cli_export_writes_jsonl(tmp_path) -> None:
     from datetime import UTC, datetime
     from unittest.mock import MagicMock
 
-    from raghub.cli_commands import FeedbackCommand
+    from raghub.commands import FeedbackCommand
     from raghub.feedback import Feedback, Rating, SqliteFeedbackStore, new_id
 
     feedback_db = tmp_path / "fb.db"
@@ -487,7 +487,7 @@ def test_feedback_cli_export_writes_jsonl(tmp_path) -> None:
     rag = MagicMock()
     rag.feedback_store.return_value = store
 
-    from raghub.cli_commands import CliConfig
+    from raghub.commands import CliConfig
 
     original_make_rag = CliConfig.make_rag
     CliConfig.make_rag = lambda config: rag  # type: ignore[assignment]
@@ -518,7 +518,7 @@ def test_feedback_cli_stats_prints_counts(tmp_path) -> None:
     from datetime import UTC, datetime
     from unittest.mock import MagicMock
 
-    from raghub.cli_commands import FeedbackCommand
+    from raghub.commands import FeedbackCommand
     from raghub.feedback import (
         Feedback,
         Rating,
@@ -552,7 +552,7 @@ def test_feedback_cli_stats_prints_counts(tmp_path) -> None:
     rag = MagicMock()
     rag.feedback_store.return_value = store
 
-    from raghub.cli_commands import CliConfig
+    from raghub.commands import CliConfig
     from typer.testing import CliRunner
 
     original_make_rag = CliConfig.make_rag
@@ -573,7 +573,7 @@ def test_feedback_cli_exits_when_store_absent(tmp_path) -> None:
     """`raghub feedback export` exits 1 when feedback_store is not configured."""
     from unittest.mock import MagicMock
 
-    from raghub.cli_commands import CliConfig, FeedbackCommand
+    from raghub.commands import CliConfig, FeedbackCommand
     from typer.testing import CliRunner
 
     rag = MagicMock()
@@ -601,7 +601,7 @@ def test_queue_cli_list_runs(tmp_path) -> None:
     """`raghub queue list` prints rows from the persistent queue."""
     from unittest.mock import MagicMock
 
-    from raghub.cli_commands import CliConfig, QueueCommand
+    from raghub.commands import CliConfig, QueueCommand
     from raghub.jobs import Job, JobStatus
 
     async def fake_list(status=None, limit=100):
@@ -645,7 +645,7 @@ def test_queue_cli_retry_runs(tmp_path) -> None:
     """`raghub queue retry <job_id>` calls queue.retry."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from raghub.cli_commands import CliConfig, QueueCommand
+    from raghub.commands import CliConfig, QueueCommand
 
     queue = MagicMock()
     queue.retry = AsyncMock()
@@ -674,7 +674,7 @@ def test_queue_cli_purge_runs(tmp_path) -> None:
     """`raghub queue purge` calls queue.purge and reports removed count."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from raghub.cli_commands import CliConfig, QueueCommand
+    from raghub.commands import CliConfig, QueueCommand
 
     queue = MagicMock()
     queue.purge = AsyncMock(return_value=7)
@@ -705,7 +705,7 @@ def test_queue_cli_exits_when_queue_absent() -> None:
     """`raghub queue list` exits 1 when no queue is configured."""
     from unittest.mock import MagicMock
 
-    from raghub.cli_commands import CliConfig, QueueCommand
+    from raghub.commands import CliConfig, QueueCommand
 
     rag = MagicMock()
     rag.queue.return_value = None
@@ -735,7 +735,7 @@ def test_migrate_pgvector_runs(tmp_path) -> None:
     """Item 25: `raghub migrate pgvector` calls PgVectorStore.initialize."""
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from raghub.cli_commands import MigrateCommand
+    from raghub.commands import MigrateCommand
     from typer.testing import CliRunner
 
     app = typer.Typer()
@@ -760,7 +760,7 @@ def test_migrate_pgvector_runs(tmp_path) -> None:
 
 def test_tenant_cli_list_empty(tmp_path) -> None:
     """Item 26: `raghub tenant list` prints 'no tenants registered' when empty."""
-    from raghub.cli_commands import CliConfig, TenantCommand
+    from raghub.commands import CliConfig, TenantCommand
     from raghub.config import Settings
     from typer.testing import CliRunner
 
@@ -796,7 +796,7 @@ def test_tenant_list_create_delete_round_trip(tmp_path, monkeypatch) -> None:
     """Item 26: create → list → delete (with --force) round-trip."""
     from unittest.mock import MagicMock, patch
 
-    from raghub.cli_commands import CliConfig, TenantCommand
+    from raghub.commands import CliConfig, TenantCommand
     from raghub.config import Settings
     from raghub.tenants.isolation import TenantRegistry
     from typer.testing import CliRunner
@@ -812,10 +812,10 @@ def test_tenant_list_create_delete_round_trip(tmp_path, monkeypatch) -> None:
         settings=Settings(data_dir=tmp_path)
     )
     original_load = __import__(
-        "raghub.cli_commands", fromlist=["load_registry_entries"]
+        "raghub.commands", fromlist=["load_registry_entries"]
     ).load_registry_entries
     original_save = __import__(
-        "raghub.cli_commands", fromlist=["save_registry_entries"]
+        "raghub.commands", fromlist=["save_registry_entries"]
     ).save_registry_entries
 
     def mock_load(settings):
@@ -825,8 +825,8 @@ def test_tenant_list_create_delete_round_trip(tmp_path, monkeypatch) -> None:
         shared_registry.entries = dict(entries)
 
     try:
-        with patch("raghub.cli_commands.load_registry_entries", mock_load), \
-             patch("raghub.cli_commands.save_registry_entries", mock_save):
+        with patch("raghub.commands.load_registry_entries", mock_load), \
+             patch("raghub.commands.save_registry_entries", mock_save):
             result = runner.invoke(
                 app,
                 ["tenant", "create", "acme", "--dsn", "postgres://localhost/acme"],
@@ -857,7 +857,7 @@ def test_migrate_tenant_split_runs(tmp_path) -> None:
     """Item 27: `raghub migrate tenant-split` calls migrate_tenant_split."""
     from unittest.mock import MagicMock, patch
 
-    from raghub.cli_commands import MigrateCommand
+    from raghub.commands import MigrateCommand
     from typer.testing import CliRunner
 
     app = typer.Typer()
@@ -890,7 +890,7 @@ def test_backup_creates_archive(tmp_path) -> None:
     """Item 28: `raghub backup create` calls create_snapshot + write_archive."""
     from unittest.mock import MagicMock, patch
 
-    from raghub.cli_commands import BackupCommand, CliConfig
+    from raghub.commands import BackupCommand, CliConfig
     from raghub.config import Settings
     from typer.testing import CliRunner
 
@@ -922,7 +922,7 @@ def test_restore_round_trip(tmp_path) -> None:
     """Item 29: `raghub backup restore` calls restore_snapshot."""
     from unittest.mock import MagicMock, patch
 
-    from raghub.cli_commands import BackupCommand, CliConfig
+    from raghub.commands import BackupCommand, CliConfig
     from raghub.config import Settings
     from typer.testing import CliRunner
 
@@ -948,7 +948,7 @@ def test_backup_verify_succeeds_on_valid_archive(tmp_path) -> None:
     """Item 30: `raghub backup verify` exits 0 on a valid archive."""
     from unittest.mock import MagicMock, patch
 
-    from raghub.cli_commands import BackupCommand
+    from raghub.commands import BackupCommand
     from typer.testing import CliRunner
 
     app = typer.Typer()
@@ -968,7 +968,7 @@ def test_backup_verify_fails_on_tampered_archive(tmp_path) -> None:
     from unittest.mock import patch
 
     from raghub.archive import ArchiveCorruptionError
-    from raghub.cli_commands import BackupCommand
+    from raghub.commands import BackupCommand
     from typer.testing import CliRunner
 
     app = typer.Typer()
@@ -1017,7 +1017,7 @@ def test_queue_run_cli(tmp_path, monkeypatch) -> None:
     """Item 24: `raghub queue run` starts a worker (verified by mock)."""
     from unittest.mock import patch, MagicMock, AsyncMock
 
-    from raghub.cli_commands import CliConfig, QueueCommand
+    from raghub.commands import CliConfig, QueueCommand
     from raghub.config import Settings
     from typer.testing import CliRunner
 

@@ -133,7 +133,7 @@ async def _run(args: argparse.Namespace) -> BenchmarkResult:
     Returns:
         The aggregated benchmark result.
     """
-    from raghub.ingest import WordChunker
+    from raghub.ingest import Words
     from raghub.lifecycle import PlainTextConverter
 
     started = time.perf_counter()
@@ -142,7 +142,7 @@ async def _run(args: argparse.Namespace) -> BenchmarkResult:
     # benchmark works without a real PDF or LLM endpoint.
     rag.converter = PlainTextConverter()
     rag.ingest_pipeline.converter = rag.converter
-    rag.chunker = WordChunker(chunk_size=20, chunk_overlap=2)
+    rag.chunker = Words(chunk_size=20, chunk_overlap=2)
     rag.ingest_pipeline.chunker = rag.chunker
     startup_seconds = time.perf_counter() - started
 

@@ -107,7 +107,7 @@ def default_chunker(
 
     Returns:
         :class:`Chonkie` when Chonkie is available;
-        :class:`WordChunker` otherwise.
+        :class:`Words` otherwise.
 
     """
     return build_chonkie_chunker(

@@ -11,10 +11,10 @@ Class summary::
 
 Concrete tools (one class per format family, no ``Tool`` suffix):
 
-    DateToday       - UTC date stub.
+    Today           - UTC date stub.
     GraphSearch     - GraphRAG local / global search.
     HybridSearch    - dense + sparse, RRF-fused.
-    KeywordSearch   - BM25 / TF keyword search.
+    Keyword         - BM25 / TF keyword search.
     SummarySearch   - RAPTOR summary search.
     VectorSearch    - top-K dense retrieval.
     WebSearch       - DuckDuckGo web search.
@@ -312,7 +312,7 @@ def as_admin_user(user: User | None) -> User:
 # ---------------------------------------------------------------------------
 
 
-class DateToday(Tool):
+class Today(Tool):
     """UTC date stub.
 
     Attributes:
@@ -505,7 +505,7 @@ class HybridSearch(Tool):
         )
 
 
-class KeywordSearch(Tool):
+class Keyword(Tool):
     """BM25 keyword search.
 
     Attributes:
@@ -759,11 +759,11 @@ class WebSearch(Tool):
 
 
 __all__ = [
-    "DateToday",
     "GraphSearch",
     "HybridSearch",
-    "KeywordSearch",
+    "Keyword",
     "SummarySearch",
+    "Today",
     "Tool",
     "ToolContext",
     "ToolProtocol",

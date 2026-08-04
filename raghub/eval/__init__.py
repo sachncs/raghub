@@ -30,7 +30,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from raghub.await_sync import capture
+from raghub.coroutines import capture
 from raghub.errors import ConfigurationError, EvaluationError
 from raghub.llm import GenerationRequest
 from raghub.models import Evaluator, Result

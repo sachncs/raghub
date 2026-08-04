@@ -2,7 +2,7 @@
 
 The first first-class vector-store adapter. Opt-in via
 ``pip install raghub[pgvector]``. Other backends (Qdrant, FAISS,
-Chroma, Milvus) remain pluggable via :class:`raghub.plugins.PluginRegistry`
+Chroma, Milvus) remain pluggable via :class:`raghub.plugins.Plugins`
 and the entry-point ``group="raghub.vector_stores"``; no
 first-class adapters ship in this release.
 """

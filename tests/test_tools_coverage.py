@@ -11,10 +11,10 @@ import pytest
 from raghub.errors import ConfigurationError
 from raghub.models import User
 from raghub.tools import (
-    DateToday,
     GraphSearch,
     HybridSearch,
-    KeywordSearch,
+    Keyword,
+    Today,
     Tool,
     ToolContext,
     ToolRegistry,
@@ -149,14 +149,14 @@ def test_as_admin_user_synthesises_admin() -> None:
 
 
 # ---------------------------------------------------------------------------
-# DateToday
+# Today
 # ---------------------------------------------------------------------------
 
 
 def test_date_today_metadata() -> None:
-    """``DateToday.execute`` returns today's date with structured data."""
+    """``Today.execute`` returns today's date with structured data."""
     context = ToolContext(user=_user())
-    result = asyncio.run(DateToday.execute(context))
+    result = asyncio.run(Today.execute(context))
     assert result.content  # ISO date string
     assert "iso" in result.data
     assert "year" in result.data
@@ -164,19 +164,19 @@ def test_date_today_metadata() -> None:
 
 
 def test_date_today_name_and_schema() -> None:
-    """``DateToday`` exposes a stable name and JSON schema."""
-    assert DateToday.name == "date_today"
-    assert "type" in DateToday.json_schema
+    """``Today`` exposes a stable name and JSON schema."""
+    assert Today.name == "date_today"
+    assert "type" in Today.json_schema
 
 
 # ---------------------------------------------------------------------------
-# KeywordSearch, GraphSearch, HybridSearch, WebSearch
+# Keyword, GraphSearch, HybridSearch, WebSearch
 # ---------------------------------------------------------------------------
 
 
 def test_keyword_search_uses_dependencies() -> None:
-    """``KeywordSearch`` is constructed with a vector store."""
-    tool = KeywordSearch(vector_store=MagicMock())
+    """``Keyword`` is constructed with a vector store."""
+    tool = Keyword(vector_store=MagicMock())
     assert tool is not None
 
 

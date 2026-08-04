@@ -39,7 +39,7 @@ from uuid import uuid4
 
 from tqdm import tqdm
 
-from raghub.await_sync import capture
+from raghub.coroutines import capture
 from raghub.domain import Database
 from raghub.errors import AuthenticationError, MissingDepError, RagHubError
 from raghub.io import atomic_write_json, load_json
