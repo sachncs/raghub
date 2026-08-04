@@ -379,7 +379,7 @@ def test_rag_ingest_async_with_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
         def submit(*args: object, **kwargs: object) -> str:
             return "mock-job-1"
 
-    monkeypatch.setattr("raghub.rag.facade.Resumable", _MockBgService)
+    monkeypatch.setattr("raghub.rag.ingest_mixin.Resumable", _MockBgService)
 
     rag = RAG(converter=PlainTextConverter())
     rag.settings.data_dir.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,156 @@
+"""High-level facade exposing every public action."""
+
+from __future__ import annotations
+
+import importlib
+import importlib.util
+from typing import Any, cast
+
+from raghub.models import AuthLoginResponse, Document, QueryResponse, Turn, User
+
+from raghub.services.documents import Documents
+from raghub.services.health import Health
+from raghub.services.preference import Preference
+from raghub.services.query import Query
+from raghub.services.shutdown import Shutdown
+
+RAG_FACADE_AVAILABLE: bool = importlib.util.find_spec("raghub.rag") is not None
+
+
+class Facade:
+    """High-level facade exposing every public action.
+
+    The application holds the container and four service handles. Each
+    public method delegates to the appropriate service so the facade
+    stays thin.
+    """
+
+    def __init__(self, container: Any) -> None:
+        """Initialise the facade and wire service handles back into the container."""
+        from raghub.authhelpers import Auth
+
+        self.container = container
+        self.auth = Auth(container)
+        self.documents = Documents(container)
+        self.query = Query(container)
+        self.health = Health(container)
+        container.auth = self.auth
+        container.documents = self.documents
+        container.query = self.query
+        container.health = self.health
+        self.shutdown_coordinator = Shutdown(container)
+        self.preferences = Preference(self)
+
+    @staticmethod
+    def build_rag(container: Any) -> Any | None:
+        """Construct a :class:`raghub.RAG` from the container's collaborators."""
+        if not RAG_FACADE_AVAILABLE:
+            return None
+        rag_module = importlib.import_module("raghub.rag")
+        return rag_module.RAG(
+            settings=container.settings,
+            embedder=container.embeddings,
+            llm=container.llm,
+            vector_store=container.vector_store,
+            knowledge_repo=container.registry,
+            conversation_store=getattr(container, "conversation_store", None),
+        )
+
+    def rag_facade(self) -> Any | None:
+        """Return the lazily-built :class:`raghub.RAG` instance."""
+        if getattr(self.container, "rag_facade", None) is None:
+            self.container.rag_facade = self.build_rag(self.container)
+        return self.container.rag_facade
+
+    async def login(self, email: str, password: str) -> AuthLoginResponse:
+        """Authenticate a user and return a session token."""
+        return await self.auth.login(email, password)
+
+    async def logout(self, token: str) -> None:
+        """Invalidate ``token`` in the session store."""
+        return await self.auth.logout(token)
+
+    async def resolve_user(self, token: str) -> tuple[User, list[Turn]]:
+        """Resolve a bearer token to a principal plus conversation history."""
+        return await self.auth.resolve_user(token)
+
+    async def upload_document(
+        self,
+        *,
+        token: str,
+        filename: str,
+        content: bytes,
+        company: str | None = None,
+    ) -> Document:
+        """Upload ``content`` as a new document owned by the calling user."""
+        return await self.documents.upload_document(
+            token=token, filename=filename, content=content, company=company
+        )
+
+    async def list_documents(self, token: str) -> list[Document]:
+        """List the documents visible to the caller."""
+        return await self.documents.list_documents(token)
+
+    async def document_status(self, token: str, document_id: str) -> Document:
+        """Return the status of a single document."""
+        return await self.documents.document_status(token, document_id)
+
+    async def delete_document(self, token: str, document_id: str) -> None:
+        """Delete a document and all of its chunks."""
+        await self.documents.delete_document(token, document_id)
+
+    async def clear_history(self, token: str) -> None:
+        """Empty the conversation history for ``token``."""
+        await self.container.conversation.clear(token)
+
+    async def history(self, token: str) -> list[Turn]:
+        """Return the full conversation history for ``token``."""
+        return cast(
+            list[Turn],
+            await self.container.conversation.load(token),
+        )
+
+    def health(self) -> dict[str, object]:
+        """Run liveness checks and return a status dict."""
+        return self.health.health()
+
+    async def query(self, *, token: str, question: str) -> QueryResponse:
+        """Run a single retrieval-augmented Q/A turn."""
+        return await self.query.query(token=token, question=question)
+
+    async def query_with_flags(
+        self,
+        *,
+        token: str,
+        question: str,
+        **flags: Any,
+    ) -> QueryResponse:
+        """Resolve advanced-RAG flags against user prefs and route accordingly.
+
+        Args:
+            token: The session token.
+            question: The user's question.
+            **flags: Optional advanced-RAG overrides forwarded to
+                :meth:`preferences.query_with_flags`.
+
+        """
+        return await self.preferences.query_with_flags(
+            token=token,
+            question=question,
+            **flags,
+        )
+
+    def log(self, message: str, **payload: object) -> None:
+        """Emit a structured log event via the health service."""
+        self.health.log(message, **payload)
+
+    def emit_metric(self, name: str, started_at: float) -> None:
+        """Emit a latency metric given a perf-counter start time."""
+        self.health.emit_metric(name, started_at)
+
+    async def shutdown(self) -> None:
+        """Release all resources held by the application."""
+        await self.shutdown_coordinator.release()
+
+
+__all__ = ["Facade", "RAG_FACADE_AVAILABLE"]
