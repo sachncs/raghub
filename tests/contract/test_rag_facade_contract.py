@@ -29,11 +29,15 @@ def test_rag_health_returns_dict() -> None:
 
 
 def test_rag_query_with_bytes_smoke() -> None:
-    """``RAG.query`` returns a typed ``Response``."""
+    """``RAG.query`` returns a typed ``Response`` carrying the ingested text."""
     rag = _new_rag()
     rag.ingest(b"Revenue grew 12% YoY in Q3 2024.")
     response = rag.query("revenue")
     assert response.answer
+    # At least one citation should reference the ingested document
+    # so the round-trip really traversed the pipeline.
+    assert response.citations
+    assert any("Revenue" in c.chunk.text for c in response.citations if c.chunk)
 
 
 def test_rag_ingest_async_returns_job_id() -> None:
@@ -63,39 +67,34 @@ def test_rag_clear_conversation_smoke() -> None:
     rag.clear_conversation("s1", user=user)
 
 
-def test_rag_archive_accessor_returns_value() -> None:
-    """``RAG.archive`` returns the configured ``LocalArchiveStore`` or ``None``."""
+def test_rag_archive_accessor_returns_none_when_unconfigured() -> None:
+    """``RAG.archive`` returns ``None`` when no archive has been configured."""
     rag = _new_rag()
-    archive = rag.archive()
-    assert archive is None or hasattr(archive, "put")
+    assert rag.archive() is None
 
 
-def test_rag_queue_accessor_returns_value() -> None:
-    """``RAG.queue`` returns the configured queue or ``None``."""
+def test_rag_queue_accessor_returns_none_when_unconfigured() -> None:
+    """``RAG.queue`` returns ``None`` when no queue has been configured."""
     rag = _new_rag()
-    queue = rag.queue()
-    assert queue is None or hasattr(queue, "submit")
+    assert rag.queue() is None
 
 
-def test_rag_feedback_store_accessor_returns_value() -> None:
-    """``RAG.feedback_store`` returns the configured store or ``None``."""
+def test_rag_feedback_store_accessor_returns_none_when_unconfigured() -> None:
+    """``RAG.feedback_store`` returns ``None`` when no store has been configured."""
     rag = _new_rag()
-    store = rag.feedback_store()
-    assert store is None or hasattr(store, "record")
+    assert rag.feedback_store() is None
 
 
-def test_rag_rate_limiter_accessor_returns_value() -> None:
-    """``RAG.rate_limiter`` returns the configured limiter or ``None``."""
+def test_rag_rate_limiter_accessor_returns_none_when_unconfigured() -> None:
+    """``RAG.rate_limiter`` returns ``None`` when no limiter has been configured."""
     rag = _new_rag()
-    limiter = rag.rate_limiter()
-    assert limiter is None or hasattr(limiter, "allow")
+    assert rag.rate_limiter() is None
 
 
-def test_rag_tenant_resolver_accessor_returns_value() -> None:
-    """``RAG.tenant_resolver`` returns the configured resolver or ``None``."""
+def test_rag_tenant_resolver_accessor_returns_none_when_unconfigured() -> None:
+    """``RAG.tenant_resolver`` returns ``None`` when no resolver has been configured."""
     rag = _new_rag()
-    resolver = rag.tenant_resolver()
-    assert resolver is None or hasattr(resolver, "resolve")
+    assert rag.tenant_resolver() is None
 
 
 def test_rag_isolation_strategy_accessor_returns_value() -> None:

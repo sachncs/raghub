@@ -231,47 +231,101 @@ def test_loguru_logger_warning_error_calls() -> None:
 
 
 def test_redacting_telemetry_wraps_inner() -> None:
-    """RedactingTelemetry stores the inner provider."""
+    """RedactingTelemetry stores the inner provider for delegation."""
 
-    inner = MagicMock()
+    inner = NoOpTelemetry()
     rt = RedactingTelemetry(inner)
     assert rt.inner is inner
 
 
 def test_redacting_telemetry_span_passes_through() -> None:
-    """RedactingTelemetry.start_span forwards to the inner provider."""
+    """RedactingTelemetry.start_span forwards to the inner provider.
 
-    inner = MagicMock()
+    Uses :class:`NoOpTelemetry` (a real provider) as the inner so the
+    test exercises the real delegation path. The wrapped span name
+    surfaces through the NoOp span, so a regression that returned a
+    different name or no span at all would be caught.
+    """
+
+    inner = NoOpTelemetry()
     rt = RedactingTelemetry(inner)
-    rt.start_span("op")
-    inner.start_span.assert_called_once_with("op")
+    span = rt.start_span("op")
+    assert span.name == "op"
+    rt.end_span(span)
 
 
-def test_redacting_telemetry_record_event_passes_through() -> None:
-    """RedactingTelemetry.info forwards to the inner provider."""
+def test_redacting_telemetry_info_scrubs_secret_keys() -> None:
+    """``info`` is forwarded to the inner with secret-shaped keys replaced by ``***``.
 
-    inner = MagicMock()
+    The inner provider captures the call's kwargs; we assert the
+    secrets were redacted before forwarding. A regression that
+    forwarded the raw value would fail this test.
+    """
+
+    captured: list[tuple[str, dict[str, object]]] = []
+
+    class _CapturingTelemetry:
+        def info(self, name: str, **kwargs: object) -> None:
+            captured.append((name, dict(kwargs)))
+
+    inner = _CapturingTelemetry()
     rt = RedactingTelemetry(inner)
-    rt.info("name", foo="bar")
-    inner.info.assert_called_once_with("name", foo="bar")
+    rt.info(
+        "user login",
+        username="alice",
+        password="hunter2",
+        api_key="sk-12345",
+        nested={"authorization": "Bearer abc", "ok": "keep"},
+    )
+
+    assert captured, "Inner provider never received the call"
+    name, kwargs = captured[0]
+    assert name == "user login"
+    assert kwargs["username"] == "alice"
+    assert kwargs["password"] == "***"
+    assert kwargs["api_key"] == "***"
+    assert kwargs["nested"]["authorization"] == "***"
+    assert kwargs["nested"]["ok"] == "keep"
 
 
-def test_redacting_telemetry_end_span_passes_through() -> None:
-    """RedactingTelemetry.end_span forwards to the inner provider."""
+def test_redacting_telemetry_record_latency_scrubs_labels() -> None:
+    """``record_latency`` scrubs labels that match the secret-key regex."""
 
-    inner = MagicMock()
-    rt = RedactingTelemetry(inner)
-    rt.end_span(MagicMock())
-    inner.end_span.assert_called_once()
+    captured: list[tuple[str, float, dict[str, object]]] = []
+
+    class _CapturingTelemetry:
+        def record_latency(self, name: str, value_ms: float, **labels: object) -> None:
+            captured.append((name, value_ms, dict(labels)))
+
+    rt = RedactingTelemetry(_CapturingTelemetry())
+    rt.record_latency("op", 1.5, secret="raw", route="/v1")
+
+    assert captured, "Inner provider never received the call"
+    name, value_ms, labels = captured[0]
+    assert name == "op"
+    assert value_ms == 1.5
+    assert labels["secret"] == "***"
+    assert labels["route"] == "/v1"
 
 
 def test_redacting_telemetry_record_tokens_passes_through() -> None:
-    """RedactingTelemetry.record_tokens forwards to the inner provider."""
+    """``record_tokens`` forwards to the inner provider (no secret-shaped kwargs)."""
 
-    inner = MagicMock()
-    rt = RedactingTelemetry(inner)
+    captured: list[tuple[str, int, int, str]] = []
+
+    class _CapturingTelemetry:
+        def record_tokens(
+            self,
+            name: str,
+            prompt_tokens: int,
+            completion_tokens: int,
+            model: str = "",
+        ) -> None:
+            captured.append((name, prompt_tokens, completion_tokens, model))
+
+    rt = RedactingTelemetry(_CapturingTelemetry())
     rt.record_tokens("x", 1, 2, model="m")
-    inner.record_tokens.assert_called_once()
+    assert captured == [("x", 1, 2, "m")]
 
 
 # ---------------------------------------------------------------------------

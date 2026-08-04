@@ -119,10 +119,36 @@ def test_catalog_parse_unknown_returns_utf8_fallback() -> None:
 
 
 def test_module_level_parse_uses_fresh_catalog() -> None:
-    """parse(...) builds a fresh default Catalog each call."""
+    """``parse(...)`` builds a fresh default :class:`Catalog` each call.
 
-    sections = parse(b"data", "x.bin", "application/octet-stream")
+    Two assertions protect this contract:
+    - the section text matches the input bytes (so the parsing
+      itself isn't a no-op);
+    - registering a parser for a private MIME on a first call
+      does not leak into the second call (so the catalog really is
+      fresh rather than module-global).
+    """
+
+    from raghub.parsers import Catalog, File, ParsedSection
+
+    sections = parse(b"hello world", "x.bin", "application/octet-stream")
     assert len(sections) == 1
+    assert sections[0].text == "hello world"
+    assert sections[0].source_location == "unknown"
+
+    # Mutate a global catalog instance and confirm parse() is not
+    # affected: subsequent calls must build their own catalog and
+    # ignore the global state.
+    class _NoiseParser(File):
+        @staticmethod
+        def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
+            return [ParsedSection(0, file_name, "NOISE", {})]
+
+    Catalog().register("application/octet-stream", _NoiseParser())
+    fresh = parse(b"still hello", "x.bin", "application/octet-stream")
+    assert fresh[0].text == "still hello", (
+        "Module-level parse() must not consult a leaked catalog"
+    )
 
 
 def test_module_level_parse_dispatches_text() -> None:

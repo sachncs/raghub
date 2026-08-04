@@ -7,6 +7,7 @@ so the suite runs without external services.
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import pytest
 
@@ -293,7 +294,10 @@ PG_DSN_ENV = "RAG_TEST_PGVECTOR_DSN"
 
 @pytest.mark.skipif(
     not os.environ.get(PG_DSN_ENV),
-    reason=f"{PG_DSN_ENV} not set; skipping live Postgres test",
+    reason=(
+        f"{PG_DSN_ENV} environment variable is not set; live Postgres test "
+        "skipped. Set RAG_TEST_PGVECTOR_DSN to a Postgres DSN to enable."
+    ),
 )
 class TestSchemaPerTenantLive:
     @pytest.mark.asyncio
@@ -311,7 +315,10 @@ class TestSchemaPerTenantLive:
 
 @pytest.mark.skipif(
     not os.environ.get(PG_DSN_ENV),
-    reason=f"{PG_DSN_ENV} not set; skipping live Postgres test",
+    reason=(
+        f"{PG_DSN_ENV} environment variable is not set; live Postgres test "
+        "skipped. Set RAG_TEST_PGVECTOR_DSN to a Postgres DSN to enable."
+    ),
 )
 class TestDatabasePerTenantLive:
     @pytest.mark.asyncio
@@ -336,7 +343,10 @@ class TestDatabasePerTenantLive:
 
 @pytest.mark.skipif(
     not os.environ.get(PG_DSN_ENV),
-    reason=f"{PG_DSN_ENV} not set; skipping live Postgres test",
+    reason=(
+        f"{PG_DSN_ENV} environment variable is not set; live Postgres test "
+        "skipped. Set RAG_TEST_PGVECTOR_DSN to a Postgres DSN to enable."
+    ),
 )
 class TestMigrateRowToSchema:
     """Item 15: migrate_row_to_schema round-trip test."""
@@ -389,3 +399,77 @@ class TestMigrateRowToSchema:
         finally:
             await src_conn.close()
             await dst_conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Non-Postgres: RowLevel isolation end-to-end via in-process stores
+# ---------------------------------------------------------------------------
+
+
+class TestRowLevelEndToEnd:
+    """Round-trip RowLevel isolation against the in-process :class:`MemoryStore`.
+
+    Without a Postgres database the wiring test is still meaningful:
+    the strategy must filter chunks at search time. The setup
+    ingests one chunk per tenant; switching the tenant context
+    must change which chunks surface.
+    """
+
+    def _build_chunk(self, chunk_id: str, tenant_id: str, text: str) -> Any:
+        from datetime import UTC, datetime
+        from hashlib import sha256
+
+        from raghub.models import Chunk, Classification
+
+        return Chunk(
+            id=chunk_id,
+            document_id=f"doc-{chunk_id}",
+            version=1,
+            company="acme",
+            owner="alice@example.com",
+            classification=Classification.INTERNAL,
+            checksum=sha256(text.encode("utf-8")).hexdigest(),
+            text=text,
+            created_at=datetime.now(UTC),
+            tenant_id=tenant_id,
+        )
+
+    def test_row_level_isolation_across_search_calls(self) -> None:
+        """A chunk ingested for tenant A is invisible when tenant B is active."""
+        from raghub.store import MemoryStore
+
+        store = MemoryStore(embedding_dim=2)
+        store.insert(
+            [
+                self._build_chunk("a1", tenant_id="acme", text="acme secret"),
+                self._build_chunk("b1", tenant_id="bobco", text="bobco secret"),
+            ],
+            [[0.1, 0.2], [0.3, 0.4]],
+        )
+        store.rebuild_index()
+
+        token_a = set_current_tenant(TenantContext(tenant_id="acme"))
+        try:
+            hits_a = store.search(vector=[0.1, 0.2], top_k=10)
+        finally:
+            reset_current_tenant(token_a)
+        ids_a = {h["chunk_id"] for h in hits_a}
+        assert ids_a == {"a1"}, f"tenant acme must see only its own chunk; got {ids_a}"
+
+        token_b = set_current_tenant(TenantContext(tenant_id="bobco"))
+        try:
+            hits_b = store.search(vector=[0.3, 0.4], top_k=10)
+        finally:
+            reset_current_tenant(token_b)
+        ids_b = {h["chunk_id"] for h in hits_b}
+        assert ids_b == {"b1"}, f"tenant bobco must see only its own chunk; got {ids_b}"
+
+        # Without a tenant context, both chunks are reachable (the
+        # admin-style read path). This is the contract that admin
+        # users and the anonymous fallback depend on.
+        token_none = set_current_tenant(None)
+        try:
+            hits_none = store.search(vector=[0.1, 0.2], top_k=10)
+        finally:
+            reset_current_tenant(token_none)
+        assert {h["chunk_id"] for h in hits_none} == {"a1", "b1"}

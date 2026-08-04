@@ -172,7 +172,12 @@ def test_html_parse_raises_missing_dep_when_bs4_missing() -> None:
 
 
 def test_image_parse_returns_single_section_with_metadata() -> None:
-    """Image parser emits a single section with dimensions and modes."""
+    """Image parser emits a single section carrying the OCR text and image metadata.
+
+    ``pytesseract.image_to_string`` is stubbed to return
+    ``"OCR-TEXT"`` so the test verifies that the parser forwards
+    OCR output into ``section.text`` rather than leaving it empty.
+    """
 
     class _Image:
         def __init__(self) -> None:
@@ -187,10 +192,18 @@ def test_image_parse_returns_single_section_with_metadata() -> None:
     image_instance = _Image()
     fake_image_class = MagicMock()
     fake_image_class.open.return_value = image_instance
-    with patch.dict("sys.modules", {"PIL": MagicMock(Image=fake_image_class)}):
+    fake_pytesseract = MagicMock()
+    fake_pytesseract.image_to_string.return_value = "OCR-TEXT"
+    with patch.dict(
+        "sys.modules",
+        {
+            "PIL": MagicMock(Image=fake_image_class),
+            "pytesseract": fake_pytesseract,
+        },
+    ):
         sections = Image.parse(b"\x89PNG\r\n\x1a\n", "img.png", "image/png")
     assert len(sections) == 1
-    assert sections[0].text == ""
+    assert sections[0].text == "OCR-TEXT"
     assert sections[0].metadata["size"] == (640, 480)
     assert sections[0].metadata["format"] == "PNG"
     assert sections[0].metadata["mode"] == "RGBA"

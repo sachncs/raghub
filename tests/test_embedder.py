@@ -64,6 +64,22 @@ class TestHashingEmbeddingProvider:
         vec = provider.embed_text("x" * 100_000)
         assert len(vec) == 8
 
+    def test_long_distinct_inputs_get_distinct_vectors(self) -> None:
+        """Two long but distinct inputs produce distinct vectors, not a constant.
+
+        A regression where a truncated or constant input path
+        returned the same vector regardless of input would silently
+        collapse an entire document collection onto a single point.
+        Driving two long strings and asserting they differ exercises
+        that path end-to-end.
+        """
+        provider = FeatureHashingEmbedder(dimension=8)
+        vec_x = provider.embed_text("x" * 100_000)
+        vec_y = provider.embed_text("y" * 100_000)
+        assert vec_x != vec_y, (
+            "Long inputs with distinct characters must hash to distinct vectors"
+        )
+
     def test_embed_texts_returns_list_of_vectors(self) -> None:
         provider = FeatureHashingEmbedder(dimension=8)
         result = provider.embed_texts(["a", "b", "c"])
