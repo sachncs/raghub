@@ -31,7 +31,7 @@ import asyncio
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -39,6 +39,11 @@ from raghub.errors import ConfigurationError
 from raghub.models import User
 from raghub.store import Store
 from raghub.types import JSONValue
+
+if TYPE_CHECKING:
+    from raghub.knowledge import GraphIndex, Raptor
+    from raghub.models import VectorStore
+    from raghub.retrieval import Retrieval
 
 # ---------------------------------------------------------------------------
 # Tool contract
@@ -530,7 +535,7 @@ class Keyword(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, vector_store: Any) -> None:
+    def __init__(self, vector_store: VectorStore) -> None:
         """Initialise the tool.
 
         Args:
@@ -597,7 +602,7 @@ class SummarySearch(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, raptor_index: Any) -> None:
+    def __init__(self, raptor_index: Raptor) -> None:
         """Initialise the tool.
 
         Args:
@@ -652,7 +657,7 @@ class VectorSearch(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, retrieval_pipeline: Any) -> None:
+    def __init__(self, retrieval_pipeline: Retrieval) -> None:
         """Initialise the tool.
 
         Args:
