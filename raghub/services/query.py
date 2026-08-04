@@ -6,7 +6,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from raghub.llm import GenerationRequest
-from raghub.models import QueryResponse
+from raghub.models import Chunk, QueryResponse, User
 from raghub.services.helpers import emit_log, emit_metric
 from raghub.types import JSONValue
 
@@ -56,7 +56,7 @@ class Query:
         """Resolve token into (user, recent history)."""
         return await self.container.auth.resolve_user(token)
 
-    async def retrieve_chunks(self, user: Any, question: str) -> list:
+    async def retrieve_chunks(self, user: User, question: str) -> list:
         """Run retrieval and return the chunk list."""
         hits = self.container.retrieval.retrieve(
             user=user,
@@ -100,7 +100,7 @@ class Query:
             metadata={"top_k": self.container.settings.top_k},
         )
 
-    def citation(self, chunk: Any) -> dict[str, Any]:
+    def citation(self, chunk: Chunk) -> dict[str, Any]:
         """Build the citation dict for a single chunk."""
         return {
             "document_id": chunk.document_id,
