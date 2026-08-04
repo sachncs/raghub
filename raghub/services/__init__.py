@@ -3,10 +3,9 @@
 Consolidates every support file in the old
 ``raghub/services/`` package into one helper module. Class summary::
 
-    Mixin                - structured-log + metric helpers shared by every service.
-    Document             - document management (was DocumentService).
-    Health               - liveness aggregation (was HealthService).
-    Query                - RAG hot path (was QueryService).
+    DocumentService      - document management.
+    Health               - liveness aggregation.
+    Query                - RAG hot path.
     Synchronous / ThreadPool / MemoryQueue
                           - in-process worker + queue primitives.
     RagContainer         - composition root for every collaborator.
@@ -16,10 +15,6 @@ Consolidates every support file in the old
 
 The module-level dispatch entry points live in :mod:`raghub.api`
 and the CLI surface in :mod:`raghub.cli.main`.
-
-Names follow the no-suffix rule: ``Document`` (not ``DocumentService``),
-``Synchronous`` (not ``SynchronousWorker``), and ``Facade`` (not
-``ApplicationFacade``).
 """
 
 from __future__ import annotations
@@ -77,40 +72,24 @@ from raghub.stores import ImageStore, Sessions
 from raghub.telemetry import build_logger
 
 # ---------------------------------------------------------------------------
-# Mixin shared by every service
+# Structured-log + metric helpers (formerly Mixin)
 # ---------------------------------------------------------------------------
 
 
-class Mixin:
-    """Provides structured logging and metric helpers to service classes.
+def _emit_log(container: Any, message: str, **payload: "JSONValue") -> None:
+    """Emit a structured log event via the container's logger."""
+    logger = getattr(container, "logger", None)
+    log_method = getattr(logger, "info", None) if logger else None
+    if callable(log_method):
+        log_method(message, extra=payload)
 
-    Both methods gracefully degrade when the container is missing the
-    expected collaborators, so services can be exercised with stub
-    containers in tests.
 
-    Attributes:
-        container: The container (or compatible stub) providing
-            ``logger`` and ``metrics`` attributes.
-
-    """
-
-    container: Any
-
-    def log(
-        self, message: str, **payload: "JSONValue"
-    ) -> None:
-        """Emit a structured log event via the container's logger."""
-        logger = getattr(self.container, "logger", None)
-        log_method = getattr(logger, "info", None) if logger else None
-        if callable(log_method):
-            log_method(message, extra=payload)
-
-    def emit_metric(self, name: str, started_at: float) -> None:
-        """Record a latency metric given a ``perf_counter`` start time."""
-        metrics = getattr(self.container, "metrics", None)
-        recorder = getattr(metrics, "record_latency", None) if metrics else None
-        if callable(recorder):
-            recorder(name, (time.perf_counter() - started_at) * 1000.0)
+def _emit_metric(container: Any, name: str, started_at: float) -> None:
+    """Record a latency metric given a ``perf_counter`` start time."""
+    metrics = getattr(container, "metrics", None)
+    recorder = getattr(metrics, "record_latency", None) if metrics else None
+    if callable(recorder):
+        recorder(name, (time.perf_counter() - started_at) * 1000.0)
 
 
 # ---------------------------------------------------------------------------
@@ -141,12 +120,20 @@ async def get_doc(uow: "UnitOfWork", document_id: str) -> Document:
     return cast(Document, record)
 
 
-class DocumentSvc(Mixin):
+class DocumentService:
     """Document upload, listing, status, and deletion."""
 
     def __init__(self, container: "RagContainer") -> None:
         """Store the container reference."""
         self.container = container
+
+    def log(self, message: str, **payload: "JSONValue") -> None:
+        """Emit a structured log event."""
+        _emit_log(self.container, message, **payload)
+
+    def emit_metric(self, name: str, started_at: float) -> None:
+        """Record a latency metric."""
+        _emit_metric(self.container, name, started_at)
 
     async def upload_document(
         self,
@@ -290,12 +277,20 @@ def aggregate_status(probes: dict[str, dict[str, object]]) -> str:
     return "ok"
 
 
-class Health(Mixin):
+class Health:
     """Aggregate liveness signals from key collaborators."""
 
     def __init__(self, container: "RagContainer") -> None:
         """Store the container reference."""
         self.container = container
+
+    def log(self, message: str, **payload: "JSONValue") -> None:
+        """Emit a structured log event."""
+        _emit_log(self.container, message, **payload)
+
+    def emit_metric(self, name: str, started_at: float) -> None:
+        """Record a latency metric."""
+        _emit_metric(self.container, name, started_at)
 
     def health(self) -> dict[str, object]:
         """Return a structured health report.
@@ -322,12 +317,20 @@ class Health(Mixin):
 # ---------------------------------------------------------------------------
 
 
-class Query(Mixin):
+class Query:
     """High-level retrieval-augmented Q/A handler."""
 
     def __init__(self, container: "RagContainer") -> None:
         """Store the container reference."""
         self.container = container
+
+    def log(self, message: str, **payload: "JSONValue") -> None:
+        """Emit a structured log event."""
+        _emit_log(self.container, message, **payload)
+
+    def emit_metric(self, name: str, started_at: float) -> None:
+        """Record a latency metric."""
+        _emit_metric(self.container, name, started_at)
 
     async def query(self, *, token: str, question: str) -> QueryResponse:
         """Run a single RAG turn end-to-end.
@@ -793,18 +796,7 @@ class Preference:
         question: str,
         **flags: "JSONValue",
     ) -> QueryResponse:
-        """Resolve advanced-RAG flags against user prefs and route accordingly.
-
-        Args:
-            token: The session token.
-            question: The user's question.
-            **flags: Optional ``tools_enabled=``, ``agent=``,
-                ``web=``, ``graph=``, ``summaries=``,
-                ``reranker=``, ``long_context_pass=``,
-                ``query_transforms=``, ``max_steps=``, ``top_k=``
-                overrides.
-
-        """
+        """Resolve advanced-RAG flags against user prefs and route accordingly."""
         container = self.facade.container
         user, _ = await container.auth.resolve_user(token)
         resolved = self.__resolve_user_flags(user, flags, container)
@@ -915,7 +907,7 @@ class Facade:
 
         self.container = container
         self.auth_svc = AuthService(container)
-        self.documents_svc = DocumentSvc(container)
+        self.documents_svc = DocumentService(container)
         self.query_svc = Query(container)
         self.health_svc = Health(container)
         container.auth = self.auth_svc
@@ -1046,11 +1038,10 @@ class Facade:
 
 __all__ = [
     "Auth",
-    "DocumentSvc",
+    "DocumentService",
     "Facade",
     "Health",
     "MemoryQueue",
-    "Mixin",
     "Preference",
     "Query",
     "RagContainer",
