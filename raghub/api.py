@@ -379,9 +379,9 @@ class HealthRouter:
     def __init__(self) -> None:
         """Build the router."""
         self.router = APIRouter()
-        self.__register()
+        self.__register_health()
 
-    def __register(self) -> None:
+    def __register_health(self) -> None:
         @self.router.get("/health")
         def handler(
             app_service: Annotated[Facade, Depends(App.get)],
