@@ -781,7 +781,7 @@ def save_registry_entries(settings: Any, entries: dict[str, dict[str, Any]]) -> 
     extra = dict(getattr(settings, "extra", None) or {})
     extra["_registry_entries"] = entries
     try:
-        settings.extra = extra  # type: ignore[attr-defined]
+        setattr(settings, "extra", extra)
     except Exception:
         pass
 
