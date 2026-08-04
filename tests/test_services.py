@@ -176,21 +176,33 @@ def test_synchronous_worker_runs_synchronously() -> None:
     assert called == ["yes"]
 
 
-def test_thread_pool_worker_submits() -> None:
-    """ThreadPool.submit returns a Future-like object."""
+def test_thread_pool_worker_returns_real_result() -> None:
+    """``ThreadPool.submit`` runs the callable and surfaces its return value via ``future.result``."""
 
     worker = ThreadPool()
-    future = worker.submit(lambda: "result")
+    future = worker.submit(lambda: "expected-result")
     assert future is not None
-    # Don't wait for completion — the test process exits cleanly.
+    # Block until the worker thread finishes and confirm the real
+    # value propagated. A regression that dropped the callable or
+    # returned ``None`` would fail this assertion.
+    assert future.result(timeout=5) == "expected-result"
 
 
 def test_memory_queue_enqueue_round_trip() -> None:
-    """MemoryQueue.enqueue + drain round-trips payloads."""
+    """``MemoryQueue.enqueue`` returns a non-empty id and the entry round-trips via the underlying queue."""
 
     queue = MemoryQueue()
     rid = queue.enqueue("op", {"a": 1})
     assert rid is not None
+    assert rid == "op"  # MemoryQueue returns the op name as the id
+
+    # Confirm the (name, payload) tuple reaches the underlying queue
+    # so a downstream worker would consume it unchanged. A regression
+    # that dropped the payload or stored a placeholder would fail
+    # this assertion.
+    name, payload = queue.queue.get_nowait()
+    assert name == "op"
+    assert payload == {"a": 1}
 
 
 # ---------------------------------------------------------------------------

@@ -183,15 +183,7 @@ def test_conv_module_exports() -> None:
         assert hasattr(conv_module, name) or name in conv_module.__dict__
 
 
-def test_tokenizer_load_returns_or_none() -> None:
-    """Tokenizer.load returns the tokenizer or None when dep missing."""
 
-    from raghub.conv import Tokenizer
-
-    # The method is defensive: it returns None when the dep is missing,
-    # rather than raising, per the contract documented in the class.
-    result = Tokenizer.load(model="any-model")
-    assert result is None or result is not None  # type: ignore[comparison-overlap]
 
 
 def test_tokenizer_default_model_constant() -> None:

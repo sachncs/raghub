@@ -461,10 +461,12 @@ def test_module_all() -> None:
 
 
 def test_route_group_class_exists() -> None:
-    """The RouteGroup class is exported."""
+    """``RouteGroup`` is exported by ``raghub.api``."""
 
-    assert hasattr(RouteGroup, "__init__") or hasattr(RouteGroup, "router")
-    assert "RouteGroup" in vars(__import__("raghub.api", fromlist=["RouteGroup"]))
+    import raghub.api as api_module
+
+    assert "RouteGroup" in vars(api_module)
+    assert hasattr(RouteGroup, "__init__")
 
 
 # ---------------------------------------------------------------------------
@@ -906,7 +908,14 @@ async def test_rate_limiter_middleware_no_client() -> None:
 
 
 def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
-    """POST /feedback, GET /feedback/{id}, DELETE /feedback/{id} all work."""
+    """POST /feedback, GET /feedback/{id}, DELETE /feedback/{id} all work and the user attribution is real.
+
+    The bearer token is required by :class:`Auth.admin` /
+    :class:`Bearer.require`; the facade's auth service is stubbed
+    to resolve ``Bearer alice-token`` to a known user, and the
+    stored feedback is asserted to carry that user's email rather
+    than ``"anonymous"``.
+    """
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
@@ -917,18 +926,29 @@ def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
     store = SqliteFeedbackStore(db_path=str(feedback_db))
     store.initialize()
 
+    class _User:
+        email = "alice@example.com"
+        tenant_id = "acme"
+
+    class _AuthSvc:
+        async def resolve_user(self, token: str) -> tuple[_User, list[Any]]:
+            assert token == "alice-token", f"Expected alice-token; got {token!r}"
+            return _User(), []
+
     class StubContainer:
         feedback_store = store
 
     class StubFacade:
         def __init__(self):
             self.container = StubContainer()
+            self.auth_svc = _AuthSvc()
 
     app = FastAPI()
     app.include_router(FeedbackRouter().router)
     app.state.application = StubFacade()
 
     client = TestClient(app)
+    headers = {"Authorization": "Bearer alice-token"}
 
     # POST /feedback
     response = client.post(
@@ -940,6 +960,7 @@ def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
             "rating": 1,
             "comment": "great",
         },
+        headers=headers,
     )
     assert response.status_code == 201, response.text
     feedback_id = response.json()["id"]
@@ -950,6 +971,9 @@ def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
     body = response.json()
     assert body["chunk_id"] == "c1"
     assert body["rating"] == 1
+    assert body["user_id"] == "alice@example.com", (
+        "Feedback must be attributed to the bearer-token user, not 'anonymous'"
+    )
 
     # GET /feedback/aggregate
     response = client.get("/feedback/aggregate")
@@ -960,6 +984,14 @@ def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
     # DELETE /feedback/{id}
     response = client.delete(f"/feedback/{feedback_id}")
     assert response.status_code == 204, response.text
+
+    # Missing bearer token is still rejected with 401; the endpoint
+    # never silently degrades to an anonymous write.
+    unauth = client.post(
+        "/feedback",
+        json={"session_id": "s1", "query_id": "q1", "rating": 1},
+    )
+    assert unauth.status_code == 401
 
 
 def test_feedback_router_aggregate_returns_counts(tmp_path) -> None:
@@ -1020,11 +1052,25 @@ def test_feedback_router_aggregate_returns_counts(tmp_path) -> None:
 
 
 def test_feedback_router_503_when_store_absent() -> None:
-    """503 returned when feedback_store is not configured."""
+    """503 returned when feedback_store is not configured — but only after the bearer token check passes.
+
+    The auth layer is wired with a stub that resolves any token to
+    a real user so the request reaches the handler. The handler
+    must then return 503 (no store configured), proving the
+    store-absent path is reachable without an auth bypass.
+    """
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     from raghub.api import FeedbackRouter
+
+    class _User:
+        email = "alice@example.com"
+        tenant_id = "acme"
+
+    class _AuthSvc:
+        async def resolve_user(self, token: str) -> tuple[_User, list[Any]]:
+            return _User(), []
 
     class StubContainer:
         feedback_store = None
@@ -1032,15 +1078,24 @@ def test_feedback_router_503_when_store_absent() -> None:
     class StubFacade:
         def __init__(self):
             self.container = StubContainer()
+            self.auth_svc = _AuthSvc()
 
     app = FastAPI()
     app.include_router(FeedbackRouter().router)
     app.state.application = StubFacade()
 
     client = TestClient(app)
+    headers = {"Authorization": "Bearer alice-token"}
 
     response = client.post(
         "/feedback",
         json={"session_id": "s1", "query_id": "q1", "rating": 1},
+        headers=headers,
     )
-    assert response.status_code == 503
+    assert response.status_code == 503, response.text
+    # And without a bearer token the auth layer still rejects with 401.
+    unauth = client.post(
+        "/feedback",
+        json={"session_id": "s1", "query_id": "q1", "rating": 1},
+    )
+    assert unauth.status_code == 401

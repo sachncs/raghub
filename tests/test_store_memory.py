@@ -845,27 +845,27 @@ class TestMemoryStoreTenantIdIsolation:
         store.insert([chunk], [[0.1, 0.2]])
         assert store.records["a"].chunk.tenant_id == "alice"
 
-    def test_hybrid_search_filters_by_tenant_id(self) -> None:
-        """Item 9 also wires tenant_id into hybrid_search.
+    def test_hybrid_search_orders_by_bm25_keyword_match(self) -> None:
+        """``hybrid_search`` ranks chunks whose text matches the query above cosine neighbours.
 
-        Pre-existing bug: :class:`MemoryStore.hybrid_search` builds
-        ``bm25_scores`` from the full corpus but indexes into the
-        tenant-filtered ``records`` list, so the rank arrays have
-        mismatched lengths. The test only asserts the filter is
-        *wired* — the underlying BM25 indexing bug is out of scope
-        for Tier 2 and is tracked separately.
-
+        We seed the store with two chunks sharing the same dense
+        embedding but distinct keyword vocabularies. ``hybrid_search``
+        is expected to surface the keyword-matching chunk ahead of
+        the unrelated one. A regression that short-circuited BM25
+        (e.g. returning only dense scores) would put them at the
+        same rank and fail this test.
         """
         store = MemoryStore(embedding_dim=2)
-        store.insert(
-            [_chunk("a", tenant_id="alice"), _chunk("b", tenant_id="bob")],
-            [[0.1, 0.2], [0.1, 0.2]],
+        # Identical dense vectors so the cosine rank is a tie.
+        # Distinct vocabulary so BM25 discriminates.
+        a = _chunk("alpha", text="revenue grew twelve percent q3")
+        b = _chunk("beta", text="banana smoothie breakfast recipe")
+        store.insert([a, b], [[0.5, 0.5], [0.5, 0.5]])
+        store.rebuild_index()
+
+        hits = store.hybrid_search(query="revenue", vector=[0.5, 0.5], top_k=2)
+        assert len(hits) == 2
+        ids = [h["chunk_id"] for h in hits]
+        assert ids[0] == "alpha", (
+            f"BM25 should rank the keyword-matching chunk first; got order {ids}"
         )
-        # Verify the wiring is in place by introspecting the source.
-        import inspect
-
-        from raghub.store import MemoryStore as MS
-
-        src = inspect.getsource(MS.hybrid_search)
-        assert "effective_tenant" in src
-        assert "getattr(rec.chunk" in src
