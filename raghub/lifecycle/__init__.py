@@ -40,11 +40,11 @@ from importlib import import_module
 from io import BytesIO
 from pathlib import Path
 from typing import Any
-from raghub.constants import DEFAULT_CHUNK_SIZE_WORDS
 from uuid import uuid4
 
-from raghub.coroutines import capture
+from raghub.constants import DEFAULT_CHUNK_SIZE_WORDS
 from raghub.core import DocumentStateMachine
+from raghub.coroutines import capture
 from raghub.errors import (
     ConfigurationError,
     ConversionError,
@@ -63,6 +63,7 @@ from raghub.models import (
     DocumentSection,
     deterministic_id,
 )
+from raghub.types import JSONValue
 
 # ---------------------------------------------------------------------------
 # Legacy module aliases — see :mod:`raghub.documents.__init__` for the matching
@@ -656,7 +657,7 @@ def normalise_markdown(
     markdown: str,
     *,
     source_uri: str,
-    **options: "JSONValue",
+    **options: JSONValue,
 ) -> Bundle:
     """Convert ``markdown`` to a single-section :class:`Bundle`.
 

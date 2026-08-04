@@ -19,16 +19,15 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+import aiosqlite
+
 from raghub.constants import (
     DEFAULT_SESSION_TIMEOUT_SECONDS,
     SQLITE_BUSY_TIMEOUT_MS,
 )
-
-import aiosqlite
-
 from raghub.domain import (
     ChunkRepository,
-    Database,
     DocumentRepository,
     SessionRepository,
 )

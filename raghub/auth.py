@@ -21,6 +21,7 @@ from typing import Any
 from uuid import uuid4
 
 from raghub.errors import AuthenticationError, AuthorizationError, MissingDepError
+from raghub.types import JSONValue
 
 try:
     import aiosqlite
@@ -287,7 +288,7 @@ class SqliteUsers:
         return json.loads(row[0])
 
     async def set_pref(
-        self, user_id: str, key: str, value: "JSONValue"
+        self, user_id: str, key: str, value: JSONValue
     ) -> None:
         """Upsert a single preference.
 
@@ -295,7 +296,7 @@ class SqliteUsers:
             user_id: Owning user id.
             key: Preference key. Namespaced by caller.
             value: JSON-serialisable value (str, int, float, bool, None,
-                list["JSONValue"], dict[str, "JSONValue"]).
+                list[JSONValue], dict[str, JSONValue]).
 
         """
         encoded = json.dumps(value)

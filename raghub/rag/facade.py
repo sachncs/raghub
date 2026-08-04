@@ -77,18 +77,19 @@ from raghub.rag.ingest_mixin import IngestMixin
 from raghub.rag.query_mixin import QueryMixin
 from raghub.rag.sync_mixin import SyncMixin
 from raghub.retrieval import (
+    Colbert as ColbertLateInteraction,
+)
+from raghub.retrieval import (
     Context as LongContextRerankPass,
 )
 from raghub.retrieval import (
     Retrieval as RetrievalPipeline,
 )
 from raghub.retrieval import (
-    Colbert as ColbertLateInteraction,
-)
-from raghub.retrieval import (
     build_reranker,
 )
 from raghub.telemetry import RedactingTelemetry
+from raghub.types import JSONValue
 
 __all__ = [
     "LLM_API_KEY_ENV_VARS",
@@ -137,7 +138,7 @@ class RAG(
         *,
         settings: Settings | None = None,
         components: RagComponents | None = None,
-        **kwargs: "JSONValue",
+        **kwargs: JSONValue,
     ) -> None:
         """Initialise the facade."""
         component_map: dict[str, Any] = dict(components) if components is not None else {}

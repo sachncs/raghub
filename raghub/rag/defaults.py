@@ -56,6 +56,7 @@ def has_llm_api_key() -> bool:
         True when at least one LLM API key env var is set (or a key is
         explicitly provided via constructor). When False, callers must
         configure an LLM API key before invoking the LLM.
+
     """
     return any(os.getenv(k) for k in LLM_API_KEY_ENV_VARS)
 
@@ -210,8 +211,7 @@ def default_telemetry() -> Any:
         configured (env vars set); otherwise :class:`NoOpTelemetry`.
 
     """
-    from raghub.telemetry import LangfuseTelemetryProvider
-    from raghub.telemetry import NoOpTelemetry
+    from raghub.telemetry import LangfuseTelemetryProvider, NoOpTelemetry
 
     if not LangfuseTelemetryProvider.is_configured():
         return NoOpTelemetry()

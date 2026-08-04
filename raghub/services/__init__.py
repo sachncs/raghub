@@ -43,13 +43,13 @@ from raghub.services.shutdown import Shutdown
 from raghub.services.workers import MemoryQueue, Synchronous, ThreadPool
 
 __all__ = [
+    "RAG_FACADE_AVAILABLE",
     "Documents",
     "Facade",
     "Health",
     "MemoryQueue",
     "Preference",
     "Query",
-    "RAG_FACADE_AVAILABLE",
     "RagContainer",
     "Shutdown",
     "Synchronous",

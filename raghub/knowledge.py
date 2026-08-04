@@ -489,7 +489,7 @@ class Raptor(KnowledgeIndex):
                 break
             summaries: list[Chunk] = []
             for group in clusters:
-                summary_text = summarise(group, self.llm, self.max_summary_chars)
+                summary_text = summarise_sync(group, self.llm, self.max_summary_chars)
                 if not summary_text:
                     continue
                 summary_id = summary_id_for(summary_text)
@@ -569,7 +569,7 @@ async def summarise(
     )
 
 
-def summarise(
+def summarise_sync(
     cluster_items: list[Chunk],
     llm: Any,
     max_chars: int,

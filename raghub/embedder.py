@@ -18,11 +18,11 @@ import os
 from abc import ABC, abstractmethod
 from hashlib import sha256
 from typing import Any
-from raghub.constants import DEFAULT_EMBEDDING_DIM, HASHING_BGE_MODEL
 
 import litellm
 import numpy as np
 
+from raghub.constants import DEFAULT_EMBEDDING_DIM, HASHING_BGE_MODEL
 from raghub.errors import ConfigurationError
 
 __all__ = [

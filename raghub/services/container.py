@@ -14,15 +14,14 @@ from raghub.parsers import Catalog
 from raghub.prompts import Prompt
 from raghub.repos import UnitOfWork
 from raghub.retrieval import Retrieval as RetrievalPipeline
-from raghub.store import Store, build_store
-from raghub.stores import ImageStore, Sessions
-
 from raghub.services.helpers import (
     build_logger,
     build_models,
     seed_blocked,
     seed_demo_users,
 )
+from raghub.store import Store, build_store
+from raghub.stores import ImageStore, Sessions
 
 if TYPE_CHECKING:
     from raghub.auth import Authz, SqliteUsers
@@ -51,8 +50,8 @@ class RagContainer:
     settings: Settings
     logger: object
     metrics: object
-    authorization: "Authz"
-    registry: "SqliteUsers"
+    authorization: Authz
+    registry: SqliteUsers
     conversation: ConversationHistory
     embeddings: Embedder
     llm: Generator
@@ -61,7 +60,7 @@ class RagContainer:
     ingestion: Ingestor
     retrieval: RetrievalPipeline
     image_store: ImageStore
-    user_store: "SqliteUsers"
+    user_store: SqliteUsers
     parser_registry: Catalog
     store: Sessions
     uow: UnitOfWork

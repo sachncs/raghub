@@ -67,6 +67,7 @@ from raghub.models import (
 )
 from raghub.pipeline import Ingest
 from raghub.repos import UnitOfWork
+from raghub.types import JSONValue
 
 __all__ = [
     "Batch",
@@ -141,7 +142,7 @@ def build_chonkie_inner(
     *,
     chunk_size: int,
     chunk_overlap: int,
-    **options: "JSONValue",
+    **options: JSONValue,
 ) -> Any:
     """Build the best available Chonkie chunker for the configuration.
 
@@ -266,7 +267,7 @@ class Chonkie(Chunker):
         *,
         chunk_size: int = 512,
         chunk_overlap: int = 64,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> None:
         """Initialise the Chonkie chunker.
 
@@ -534,7 +535,7 @@ class Words(Chunker):
         return chunk_words(normalize_text(text), self.plan)
 
 
-def build_chonkie_chunker(name: str = "auto", **kwargs: "JSONValue") -> Chunker:
+def build_chonkie_chunker(name: str = "auto", **kwargs: JSONValue) -> Chunker:
     """Pick a chunker by name.
 
     Args:
@@ -605,7 +606,7 @@ def record_from_pipeline(
     mime_type: str,
     owner: User,
     organization: str,
-    **options: "JSONValue",
+    **options: JSONValue,
 ) -> Document:
     """Project a :class:`Pipeline` into a :class:`Document`.
 
@@ -640,13 +641,15 @@ def record_from_pipeline(
         chunks=[c.id for c in chunks],
     )
 
+
 @staticmethod
-def extract_chunks(result: Pipeline) -> list["Chunk"]:
+def extract_chunks(result: Pipeline) -> list[Chunk]:
     """Pull Chunk instances (or dicts) out of the Pipeline output."""
     raw = result.outputs.get("chunks") or []
     if raw and isinstance(raw[0], dict):
         return [Chunk.model_validate(c) for c in raw]
     return list(raw)
+
 
 @staticmethod
 def resolve_document_id(result: Pipeline, chunks: list) -> str:
@@ -679,7 +682,7 @@ class Ingestor:
         embedding_provider: Embedder,
         lifecycle_manager: Lifecycle,
         max_upload_bytes: int,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> None:
         """Initialise the service.
 
@@ -716,7 +719,7 @@ class Ingestor:
         file_bytes: bytes,
         owner: User,
         organization: str,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> str:
         """Submit ``ingest`` to a background thread pool.
 
@@ -747,7 +750,7 @@ class Ingestor:
         file_bytes: bytes,
         owner: User,
         organization: str,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> IngestionResult:
         """Run the canonical ingest pipeline for a single upload.
 
@@ -941,7 +944,7 @@ class Batch:
         self.jobs: dict[str, Job] = {}
         self.closed = False
 
-    def submit(self, fn: Any, *args: Any, **kwargs: "JSONValue") -> str:
+    def submit(self, fn: Any, *args: Any, **kwargs: JSONValue) -> str:
         """Submit a callable for background execution."""
         if self.closed:
             raise RuntimeError("Batch is shut down")
@@ -1076,7 +1079,7 @@ class Resumable(Batch):
                 result=record["result"],
             )
 
-    def submit(self, fn: Any, *args: Any, **kwargs: "JSONValue") -> str:
+    def submit(self, fn: Any, *args: Any, **kwargs: JSONValue) -> str:
         """Submit ``fn`` for background execution."""
         job_id = super().submit(fn, *args, **kwargs)
         self.store.upsert(job_id, "pending")

@@ -32,11 +32,11 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger as loguru_logger
 
-from raghub.ratelimit import Ratelimit
 from raghub.coroutines import capture
 from raghub.ingest import Batch
+from raghub.ratelimit import Ratelimit
 from raghub.routes import Exceptions, RouteGroup
-from raghub.services import Facade as Facade
+from raghub.services import Facade, RagContainer
 
 # ---------------------------------------------------------------------------
 # CORS
@@ -48,12 +48,12 @@ __all__ = [
     "Lifespan",
     "app_singleton",
     "check_size",
+    "content_length",
     "cors_origins",
     "create_app",
     "enforce_limit",
-    "package_metadata",
     "health_route",
-    "content_length",
+    "package_metadata",
     "validate_cors",
 ]
 
@@ -147,7 +147,7 @@ def content_length(request: Request) -> int | None:
 
 def enforce_limit(
     request: Request,
-    container: "RagContainer",
+    container: RagContainer,
     payload: bytes | None = None,
 ) -> None:
     """Raise HTTP 413 when ``request`` (or ``payload``) exceeds the limit.
@@ -227,9 +227,6 @@ class Lifespan:
                     background.shutdown()
                 except (RuntimeError, OSError, ConnectionError) as exc:
                     loguru_logger.warning("background.shutdown.failed", error=str(exc))
-
-
-
 
 
 # ---------------------------------------------------------------------------

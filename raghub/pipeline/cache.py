@@ -13,6 +13,7 @@ from typing import Any
 
 from raghub.models import Pipeline
 from raghub.pipeline.helpers import canonical_filters
+from raghub.types import JSONValue
 
 
 class Cache:
@@ -28,7 +29,7 @@ class Cache:
         question: str,
         user_id: str | None,
         filters: dict[str, Any] | str | None,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> tuple[Any, ...]:
         """Build the cache key for the given query context.
 
@@ -84,7 +85,7 @@ class Cache:
         question: str,
         user_id: str | None = None,
         filters: dict[str, Any] | str | None = None,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> Pipeline | None:
         """Return a cached :class:`Pipeline` or ``None``."""
         key = self.make_key(question, user_id, filters, **options)
@@ -103,7 +104,7 @@ class Cache:
         user_id: str | None,
         filters: dict[str, Any] | str | None,
         result: Pipeline,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> None:
         """Store a :class:`Pipeline` in the cache."""
         key = self.make_key(question, user_id, filters, **options)

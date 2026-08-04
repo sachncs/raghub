@@ -22,8 +22,8 @@ from collections import defaultdict, deque
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
-from raghub.domain import Session as SessionWrap
 from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
+from raghub.domain import Session as SessionWrap
 from raghub.models import Session, Turn
 from raghub.repos import UnitOfWork
 

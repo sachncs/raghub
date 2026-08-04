@@ -28,14 +28,14 @@ from typing import Any
 import typer
 import uvicorn
 import yaml
+
+from raghub.config import Settings
 from raghub.constants import (
-    DEFAULT_CHUNK_SIZE_WORDS,
     DEFAULT_CHUNK_OVERLAP_WORDS,
+    DEFAULT_CHUNK_SIZE_WORDS,
     DEFAULT_EMBEDDING_DIM,
 )
-
 from raghub.coroutines import capture
-from raghub.config import Settings
 from raghub.io import write_json as write_json_impl
 from raghub.rag import RAG
 
@@ -382,7 +382,6 @@ class QueueCommand:
     @staticmethod
     def register(app: typer.Typer) -> None:
         """Attach the ``queue`` sub-commands to ``app``."""
-
         queue_app = typer.Typer(help="Persistent ingestion queue management.")
 
         @queue_app.command(name="list")
@@ -530,7 +529,6 @@ class MigrateCommand:
     @staticmethod
     def register(app: typer.Typer) -> None:
         """Attach the sub-commands to ``app``."""
-
         migrate_app = typer.Typer(help="Migration commands.")
 
         @migrate_app.command(name="pgvector")
@@ -601,7 +599,6 @@ class TenantCommand:
     @staticmethod
     def register(app: typer.Typer) -> None:
         """Attach the sub-commands to ``app``."""
-
         tenant_app = typer.Typer(help="Multi-tenant registry management.")
 
         @tenant_app.command(name="list")
@@ -682,7 +679,6 @@ class BackupCommand:
     @staticmethod
     def register(app: typer.Typer) -> None:
         """Attach the sub-commands to ``app``."""
-
         backup_app = typer.Typer(help="Backup / restore / verify.")
 
         @backup_app.command(name="create")
@@ -802,7 +798,6 @@ class FeedbackCommand:
     @staticmethod
     def register(app: typer.Typer) -> None:
         """Attach the ``feedback`` sub-commands to ``app``."""
-
         feedback_app = typer.Typer(help="Feedback capture and export.")
 
         @feedback_app.command(name="export")
@@ -890,6 +885,8 @@ ToolConfig.register()
 
 
 __all__ = [
+    "DEFAULT_CHUNK_OVERLAP_WORDS",
+    "DEFAULT_CHUNK_SIZE_WORDS",
     "BackupCommand",
     "CliConfig",
     "FeedbackCommand",

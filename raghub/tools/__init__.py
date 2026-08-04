@@ -36,8 +36,9 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 from pydantic import BaseModel, Field
 
 from raghub.errors import ConfigurationError
-from raghub.store import Store
 from raghub.models import User
+from raghub.store import Store
+from raghub.types import JSONValue
 
 # ---------------------------------------------------------------------------
 # Tool contract
@@ -114,7 +115,7 @@ class ToolContext:
 
     """
 
-    user: "User" | None = None
+    user: User | None = None
     session_id: str | None = None
     session_overrides: dict[str, Any] | None = None
     question: str = ""
@@ -140,7 +141,7 @@ class Tool(ToolProtocol, ABC):
     json_schema: ClassVar[dict[str, Any]]
 
     @abstractmethod
-    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: JSONValue) -> ToolResult:
         """Run the tool.
 
         Args:
@@ -151,7 +152,7 @@ class Tool(ToolProtocol, ABC):
         """
 
     @staticmethod
-    def context(**overrides: "JSONValue") -> ToolContext:
+    def context(**overrides: JSONValue) -> ToolContext:
         """Return a fresh :class:`ToolContext` for this tool.
 
         Use this when invoking the tool outside the agent loop. The
@@ -380,7 +381,7 @@ class GraphSearch(Tool):
         """
         self.index = graph_index
 
-    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: JSONValue) -> ToolResult:
         """Run GraphRAG local or global search."""
         if self.index is None:
             return ToolResult(content="(no graph index configured)")
@@ -445,7 +446,7 @@ class HybridSearch(Tool):
         self.pipeline = retrieval_pipeline
         self.vector_store = vector_store
 
-    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: JSONValue) -> ToolResult:
         """Fuse dense + sparse retrieval with reciprocal-rank fusion."""
         from raghub.retrieval import rrf
 
@@ -538,7 +539,7 @@ class Keyword(Tool):
         """
         self.vector_store = vector_store
 
-    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: JSONValue) -> ToolResult:
         """Run the keyword search and return the joined hit list."""
         text = (str(kwargs.get("query", "")) or context.question or "").strip()
         if not text:
@@ -605,7 +606,7 @@ class SummarySearch(Tool):
         """
         self.index = raptor_index
 
-    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: JSONValue) -> ToolResult:
         """Run the RAPTOR summary search."""
         if self.index is None:
             return ToolResult(content="(no summary index configured)")
@@ -660,7 +661,7 @@ class VectorSearch(Tool):
         """
         self.pipeline = retrieval_pipeline
 
-    async def execute(self, context: ToolContext, **kwargs: "JSONValue") -> ToolResult:
+    async def execute(self, context: ToolContext, **kwargs: JSONValue) -> ToolResult:
         """Run the dense vector search and return the joined hit list."""
         text = (str(kwargs.get("query", "")) or context.question or "").strip()
         if not text:
@@ -728,7 +729,7 @@ class WebSearch(Tool):
     async def execute(
         self,
         context: ToolContext,
-        **kwargs: "JSONValue",
+        **kwargs: JSONValue,
     ) -> ToolResult:
         """Run a DuckDuckGo web search."""
         text = (str(kwargs.get("query", "")) or "").strip()

@@ -39,9 +39,9 @@ from typing import Any, Literal, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, Field, SecretStr
 
-from raghub.coroutines import capture
 from raghub.config import LongContextConfig, Settings
 from raghub.core import allowed_company_filter
+from raghub.coroutines import capture
 from raghub.embedder import Embedder
 from raghub.errors import GraphUnavailableError, RerankerError
 from raghub.llm import GenerationRequest
@@ -54,6 +54,7 @@ from raghub.models import (
     User,
 )
 from raghub.telemetry import record_long_context, record_rerank_latency
+from raghub.types import JSONValue
 
 VariantKind = Literal["original", "hyde", "multi_query", "step_back", "sub"]
 
@@ -1252,13 +1253,13 @@ class Retrieval:
             for h in raw_hits
         ]
 
-    def retrieve_hybrid(
+    def merge_hits(
         self,
         query: str,
         vector_results: list[Hit],
         keyword_weight: float = 0.3,
         vector_weight: float = 0.7,
-        **options: "JSONValue",
+        **options: JSONValue,
     ) -> list[Hit]:
         """Combine keyword and vector hits with the configured fusion.
 
@@ -1596,7 +1597,7 @@ async def transform(
     return await impl.transform(question=question, history=list(history))
 
 
-def reranker(method: str) -> Rerank:
+def pick_reranker(method: str) -> Rerank:
     """Construct a reranker by name. Settings-driven factory has its own path."""
     if method == "identity":
         return Identity()
