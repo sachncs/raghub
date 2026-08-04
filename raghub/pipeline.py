@@ -446,12 +446,12 @@ class Ingest(PipelineRunner):
                 ``raptor=``, ``graph=``.
 
         """
-        from raghub.ingest import WordChunker
+        from raghub.ingest import Words
 
         if embedder is None or vector_store is None:
             raise PipelineError("Ingest requires embedder and vector_store")
         self.converter = components.get("converter") or PlainTextConverter()
-        self.chunker = components.get("chunker") or WordChunker()
+        self.chunker = components.get("chunker") or Words()
         self.embedder = embedder
         self.vector_store = vector_store
         self.knowledge_repo = components.get("knowledge_repo") or MemoryRepo()

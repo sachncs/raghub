@@ -21,7 +21,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
 
-from raghub.await_sync import capture
+from raghub.coroutines import capture
 from raghub.embedder import Embedder
 from raghub.errors import KnowledgeError
 from raghub.llm import GenerationRequest, Generator

@@ -39,7 +39,7 @@ from typing import Any, Literal, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, Field, SecretStr
 
-from raghub.await_sync import capture
+from raghub.coroutines import capture
 from raghub.config import LongContextConfig, Settings
 from raghub.core import allowed_company_filter
 from raghub.embedder import Embedder

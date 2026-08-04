@@ -1,7 +1,7 @@
 """Console-script entry point for the ``raghub`` CLI.
 
 Assembles the Typer app from the command classes in
-:mod:`raghub.cli_commands` and the eval sub-app in
+:mod:`raghub.commands` and the eval sub-app in
 :mod:`raghub.evaluation`. ``main`` is the ``raghub`` console script.
 """
 
@@ -11,8 +11,8 @@ import importlib.metadata
 
 import typer
 
-from raghub.await_sync import capture
-from raghub.cli_commands import (
+from raghub.coroutines import capture
+from raghub.commands import (
     BackupCommand,
     CliConfig,
     FeedbackCommand,

@@ -10,9 +10,9 @@ in separate files:
   thread-pool-backed fire-and-forget ingestion with status tracking.
 * :class:`Resumable` — extends the
   background service with a SQLite ledger so jobs survive restarts.
-* :class:`JobStore` — the SQLite-backed job ledger used
+* :class:`Jobs` — the SQLite-backed job ledger used
   by the resumable service.
-* :class:`WordChunker` — the built-in overlap-aware chunker.
+* :class:`Words` — the built-in overlap-aware chunker.
 * :class:`Chonkie` — the Chonkie-backed chunker; supported
   strategies are recursive, token, sentence, semantic, late, table,
   code, slumber, neural.
@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from raghub.await_sync import capture
+from raghub.coroutines import capture
 from raghub.embedder import Embedder
 from raghub.errors import (
     ConfigurationError,
@@ -72,8 +72,9 @@ __all__ = [
     "Batch",
     "Chonkie",
     "Ingestor",
+    "Jobs",
     "Resumable",
-    "WordChunker",
+    "Words",
     "build_chonkie_chunker",
 ]
 
@@ -158,7 +159,7 @@ def build_chonkie_inner(
     genie: Any = options.get("genie")
     if not CHONKIE_AVAILABLE or CHONKIE_MODULE is None:
         raise ConfigurationError(
-            "chonkie is not installed; install it via `pip install chonkie` or use WordChunker."
+            "chonkie is not installed; install it via `pip install chonkie` or use Words."
         )
 
     chunker_builders: dict[str, tuple[str, dict[str, Any]]] = {
@@ -280,7 +281,7 @@ class Chonkie(Chunker):
         """
         if not CHONKIE_AVAILABLE:
             raise ConfigurationError(
-                "chonkie is not installed; install it via `pip install chonkie` or use WordChunker."
+                "chonkie is not installed; install it via `pip install chonkie` or use Words."
             )
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
@@ -421,7 +422,7 @@ class Chonkie(Chunker):
         return chunks
 
 
-class WordChunker(Chunker):
+class Words(Chunker):
     """Overlap-aware word-window chunker."""
 
     chunk_size: int
@@ -570,7 +571,7 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: "JSONValue") -> Chunker:
             if CHONKIE_AVAILABLE:
                 return Chonkie(**kwargs)
             raise ConfigurationError("chonkie is not installed")
-        return WordChunker(**kwargs)
+        return Words(**kwargs)
     raise ConfigurationError(f"Unknown chunker: {name!r}")
 
 
@@ -703,7 +704,7 @@ class Ingestor:
         """Construct the default :class:`Ingest`."""
         return Ingest(
             converter=PlainTextConverter(),
-            chunker=WordChunker(),
+            chunker=Words(),
             embedder=self.embedding_provider,
             vector_store=self.uow.vector_store,
         )
@@ -989,7 +990,7 @@ class Batch:
 # ---------------------------------------------------------------------------
 
 
-class JobStore:
+class Jobs:
     """SQLite-backed job ledger.
 
     Records the lifecycle of every ingestion job so the application
@@ -1063,7 +1064,7 @@ class Resumable(Batch):
     def __init__(self, *, db_path: str | Path, max_workers: int = 2) -> None:
         """Initialise the service."""
         super().__init__(max_workers=max_workers)
-        self.store = JobStore(db_path)
+        self.store = Jobs(db_path)
         self.restore_from_store()
 
     def restore_from_store(self) -> None:

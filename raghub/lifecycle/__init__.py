@@ -43,7 +43,7 @@ from typing import Any
 from raghub.constants import DEFAULT_CHUNK_SIZE_WORDS
 from uuid import uuid4
 
-from raghub.await_sync import capture
+from raghub.coroutines import capture
 from raghub.core import DocumentStateMachine
 from raghub.errors import (
     ConfigurationError,

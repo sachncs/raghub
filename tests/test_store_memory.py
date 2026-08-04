@@ -414,7 +414,7 @@ class TestHybridSearch:
 # ===========================================================================
 
 
-class TestKeywordSearch:
+class TestKeyword:
     """BM25 score semantics verified against realistic text corpora."""
 
     def _store_with_5_docs(self) -> MemoryStore:

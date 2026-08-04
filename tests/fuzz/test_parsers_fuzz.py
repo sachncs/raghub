@@ -38,10 +38,10 @@ def test_plain_text_parser_swallows_garbage(payload: bytes) -> None:
 @given(text=st.text(min_size=0, max_size=2048, alphabet=st.characters(min_codepoint=0, max_codepoint=0x10FFFF)))
 @settings(max_examples=20, deadline=None)
 def test_word_chunker_swallows_unicode(text: str) -> None:
-    """``WordChunker.chunk_text`` returns a list of strings."""
-    from raghub.ingest import WordChunker
+    """``Words.chunk_text`` returns a list of strings."""
+    from raghub.ingest import Words
 
-    chunks = WordChunker(chunk_size=10, chunk_overlap=2).chunk_text(
+    chunks = Words(chunk_size=10, chunk_overlap=2).chunk_text(
         text, document_id="fuzz-doc"
     )
     assert isinstance(chunks, list)

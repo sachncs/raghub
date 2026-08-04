@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from raghub.await_sync import capture, maybe_await, maybe_run
+from raghub.coroutines import capture, maybe_await, maybe_run
 from raghub.io import atomic_write_json, load_json, write_json
 from raghub.retry import aretry, retry
 from raghub.timing import DurationTimer

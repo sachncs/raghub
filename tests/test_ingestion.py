@@ -10,7 +10,7 @@ Covers:
 * :class:`Ingestor` — service construction + ingest() happy path.
 * :class:`IngestionResult` — model fields.
 * :class:`Batch` — background submit.
-* :class:`WordChunker` — deterministic chunker behavior.
+* :class:`Words` — deterministic chunker behavior.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from raghub.ingest import (
     Batch,
     IngestionResult,
     Ingestor,
-    WordChunker,
+    Words,
 )
 from raghub.lifecycle import ChunkingPlan, chunk_words, normalize_text
 
@@ -165,18 +165,18 @@ class TestChunkWords:
 
 
 # =========================================================================
-# WordChunker — deterministic chunker contract
+# Words — deterministic chunker contract
 # =========================================================================
 
 
-class TestWordChunker:
+class TestWords:
     def test_word_chunker_rejects_invalid_overlap(self) -> None:
         with pytest.raises(ValueError, match="chunk_overlap"):
-            WordChunker(chunk_size=4, chunk_overlap=4)
+            Words(chunk_size=4, chunk_overlap=4)
 
     def test_word_chunker_rejects_zero_chunk_size(self) -> None:
         with pytest.raises(ValueError, match="chunk_size"):
-            WordChunker(chunk_size=0, chunk_overlap=0)
+            Words(chunk_size=0, chunk_overlap=0)
 
 
 # =========================================================================

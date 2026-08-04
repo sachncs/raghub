@@ -11,9 +11,9 @@ response installer (:class:`raghub.routes.Exceptions`) live in
 :mod:`raghub.routes`.
 
 Auth-side helpers (``Inject``, ``Auth``, ``Bearer``) live in
-:mod:`raghub.api_auth`; response shaping and rate-limiting live in
-:mod:`raghub.api_response` and :mod:`raghub.api_ratelimit`;
-streaming helpers live in :mod:`raghub.api_sse`.
+:mod:`raghub.authhelpers`; response shaping and rate-limiting live in
+:mod:`raghub.response` and :mod:`raghub.ratelimit`;
+streaming helpers live in :mod:`raghub.sse`.
 """
 
 from __future__ import annotations
@@ -32,8 +32,8 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger as loguru_logger
 
-from raghub.api_ratelimit import RateLimiterMiddleware
-from raghub.await_sync import capture
+from raghub.ratelimit import Ratelimit
+from raghub.coroutines import capture
 from raghub.ingest import Batch
 from raghub.routes import Exceptions, RouteGroup
 from raghub.services import Facade as Facade
@@ -315,7 +315,7 @@ def create_app(application: Facade) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.add_middleware(RateLimiterMiddleware, rate=10.0, burst=20)
+    app.add_middleware(Ratelimit, rate=10.0, burst=20)
 
     Exceptions.install(app)
     RouteGroup().register_all(app, prefix="/v1")

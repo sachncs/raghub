@@ -34,7 +34,7 @@ from raghub.constants import (
     DEFAULT_EMBEDDING_DIM,
 )
 
-from raghub.await_sync import capture
+from raghub.coroutines import capture
 from raghub.config import Settings
 from raghub.io import write_json as write_json_impl
 from raghub.rag import RAG
@@ -885,7 +885,7 @@ class FeedbackCommand:
 
 
 # Bind the tool-settings sub-commands onto the Typer sub-app at import time so
-# ``from raghub.cli_commands import ToolConfig`` always yields a wired app.
+# ``from raghub.commands import ToolConfig`` always yields a wired app.
 ToolConfig.register()
 
 

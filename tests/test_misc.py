@@ -138,22 +138,22 @@ def test_prompt_config_default_values() -> None:
 
 
 def test_plugin_registry_register_converter() -> None:
-    """PluginRegistry.register_converter stores by name."""
+    """Plugins.register_converter stores by name."""
 
-    from raghub.plugins import PluginRegistry
+    from raghub.plugins import Plugins
 
-    registry = PluginRegistry()
+    registry = Plugins()
     plugin = MagicMock()
     registry.register_converter("default", plugin)
     assert registry.converters["default"] is plugin
 
 
 def test_plugin_registry_register_each_type() -> None:
-    """PluginRegistry exposes register_* methods for every plugin family."""
+    """Plugins exposes register_* methods for every plugin family."""
 
-    from raghub.plugins import PluginRegistry
+    from raghub.plugins import Plugins
 
-    registry = PluginRegistry()
+    registry = Plugins()
     for method in (
         "register_converter",
         "register_chunker",

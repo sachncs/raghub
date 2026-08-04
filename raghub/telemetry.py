@@ -41,7 +41,7 @@ from typing import Any, TypeVar
 
 from loguru import logger as loguru_logger
 
-from raghub.await_sync import capture
+from raghub.coroutines import capture
 from raghub.errors import ConfigurationError, MissingDepError
 from raghub.models import Logger, Span, TelemetryProvider
 

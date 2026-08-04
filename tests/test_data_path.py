@@ -40,7 +40,7 @@ from raghub import (
 )
 from raghub.embedder import FeatureHashingEmbedder
 from raghub.gen import DefaultGenerator
-from raghub.ingest import WordChunker
+from raghub.ingest import Words
 from raghub.lifecycle import PlainTextConverter
 from raghub.llm import GenerationRequest, Generator
 
@@ -108,8 +108,8 @@ def test_chunk_checksum_round_trip(rag: RAG) -> None:
 
 
 def test_wordchunker_produces_valid_chunks() -> None:
-    """WordChunker emits chunks whose invariants verify."""
-    wc = WordChunker()
+    """Words emits chunks whose invariants verify."""
+    wc = Words()
     chunks = wc.chunk_text("hello world " * 800, document_id="d1")
     assert chunks
     for c in chunks:

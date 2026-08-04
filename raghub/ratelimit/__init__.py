@@ -1,9 +1,9 @@
 """Token-bucket rate limiter and ASGI middleware.
 
-The :class:`TokenBucket` is a per-key (typically ``(tenant_id,
-route)``) admission control. :class:`RateLimiterMiddleware` wraps
-an ASGI app, short-circuits SSE / lifespan / websocket scopes, and
-returns HTTP 429 with rate-limit headers when the bucket is empty.
+The :class:`Bucket` is a per-key (typically ``(tenant_id,
+route)``) admission control. :class:`Ratelimit` wraps an ASGI app,
+short-circuits SSE / lifespan / websocket scopes, and returns HTTP 429
+with rate-limit headers when the bucket is empty.
 """
 
 from __future__ import annotations
@@ -15,12 +15,12 @@ from typing import Any
 from starlette.responses import JSONResponse
 
 __all__ = [
-    "RateLimiterMiddleware",
-    "TokenBucket",
+    "Bucket",
+    "Ratelimit",
 ]
 
 
-class TokenBucket:
+class Bucket:
     """Per-key token-bucket rate limiter.
 
     The bucket is keyed by an arbitrary string (typically
@@ -75,9 +75,9 @@ class TokenBucket:
             return False, max(retry_after, 0.0)
 
 
-class RateLimiterMiddleware:
+class Ratelimit:
     """ASGI middleware that rate-limits by ``(tenant_id, route)`` via a
-    :class:`TokenBucket`.
+    :class:`Bucket`.
 
     Non-HTTP scopes (``lifespan``, ``websocket``) are forwarded
     unchanged. For HTTP scopes the tenant id is read from the
@@ -98,7 +98,7 @@ class RateLimiterMiddleware:
 
         """
         self.app = app
-        self.bucket = TokenBucket(rate, burst)
+        self.bucket = Bucket(rate, burst)
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
         """Forward or short-circuit an ASGI request."""
