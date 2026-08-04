@@ -407,6 +407,42 @@ class SqliteQueue:
             rows = await cursor.fetchall()
             return [row_to_job(row) for row in rows]
 
+    async def list_for_tenant(
+        self,
+        tenant_id: str | None = None,
+        *,
+        content_hash: str | None = None,
+        status: JobStatus | None = None,
+        limit: int = 100,
+    ) -> list[Job]:
+        """List jobs filtered by tenant and optionally by content hash."""
+        import aiosqlite
+
+        conditions: list[str] = []
+        params: list[Any] = []
+        if tenant_id is not None:
+            conditions.append("tenant_id = ?")
+            params.append(tenant_id)
+        if content_hash is not None:
+            conditions.append("json_extract(payload, '$.content_hash') = ?")
+            params.append(content_hash)
+        if status is not None:
+            conditions.append("status = ?")
+            params.append(status.value)
+
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        params.append(limit)
+
+        async with self.connect() as conn:
+            conn.row_factory = aiosqlite.Row
+            cursor = await conn.execute(
+                f"SELECT * FROM raghub_queue {where} "
+                "ORDER BY created_at DESC LIMIT ?",
+                tuple(params),
+            )
+            rows = await cursor.fetchall()
+            return [row_to_job(row) for row in rows]
+
     async def stats(self) -> dict[str, int]:
         """Return counts per status."""
         counts: dict[str, int] = {s.value: 0 for s in JobStatus}

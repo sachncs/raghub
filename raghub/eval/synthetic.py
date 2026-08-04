@@ -8,10 +8,9 @@ canonical schema.
 
 The generator needs an LLM to produce the questions and answers.
 Any :class:`raghub.llm.Generator` with an ``async_generate``
-method works. The offline ``HeuristicProvider`` is enough to
-exercise the pipeline but cannot produce meaningful synthetic
-data — it returns the most token-overlap sentence from the
-context, which is the context itself.
+method works. Use a real LLM (with a configured API key) for
+meaningful synthetic data — the pipeline will raise
+``ConfigurationError`` if no API key is available.
 
 For real synthesis, set ``RAG_LLM_API_KEY`` (or any provider-specific
 env var) and the generator will use a real LLM.

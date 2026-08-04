@@ -481,7 +481,7 @@ class Metrics:
         relevant_ids: Sequence[str],
         answer: str,
         contexts: Sequence[str],
-        **options: Any,
+        **options: "JSONValue",
     ) -> dict[str, float]:
         """Compute every retrieval and answer metric for a single example.
 

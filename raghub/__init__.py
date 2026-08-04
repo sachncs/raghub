@@ -90,11 +90,6 @@ from raghub.knowledge import (
     MemoryRepo,
 )
 from raghub.llm import (
-    HeuristicProvider as Heuristic,
-)
-
-# Inference providers.
-from raghub.llm import (
     LiteLLM,
 )
 
@@ -181,7 +176,6 @@ __all__ = [
     "Gate",
     "GenerationError",
     "Generator",
-    "Heuristic",
     "Hit",
     "Identity",
     "ImageStore",

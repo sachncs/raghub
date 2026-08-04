@@ -850,19 +850,28 @@ class FeedbackRouter:
         )
         async def handler(
             payload: FeedbackSubmission,
+            token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, str]:
             from raghub.feedback import Feedback, Rating, new_feedback_id, now_utc
+            from raghub.tenants import get_current_tenant
 
             store = self.__feedback_store(app_service)
+            user, _ = await app_service.auth_svc.resolve_user(token)
+            tenant_ctx = get_current_tenant()
+            tenant_id = (
+                tenant_ctx.tenant_id
+                if tenant_ctx is not None
+                else getattr(user, "tenant_id", None) or "default"
+            )
             feedback = Feedback(
                 id=new_feedback_id(),
                 session_id=payload.session_id,
                 query_id=payload.query_id,
                 chunk_id=payload.chunk_id,
                 answer_id=payload.answer_id,
-                user_id="anonymous",
-                tenant_id="default",
+                user_id=user.email,
+                tenant_id=tenant_id,
                 rating=Rating(payload.rating),
                 comment=payload.comment,
                 created_at=now_utc(),

@@ -3,7 +3,6 @@
 This module ships:
 
 * :class:`Generator` — abstract base class.
-* :class:`HeuristicProvider` — offline fallback, no API key needed.
 * :class:`LiteLLM` — production LLM, backed by LiteLLM (any
   provider: OpenAI, NVIDIA, Anthropic, Bedrock, …).
 * :func:`build_llm` — selects an implementation by model
@@ -32,7 +31,6 @@ __all__ = [
     "LLM_API_KEY_ENV_VARS",
     "GenerationRequest",
     "Generator",
-    "HeuristicProvider",
     "LiteLLM",
     "any_llm_api_key_present",
     "build_llm",
@@ -93,10 +91,10 @@ class GenerationRequest:
 class Generator(ABC):
     """Abstract LLM provider.
 
-    All concrete providers (NVIDIA, heuristic, …) implement
-    :meth:`generate`. The interface is intentionally narrow: the
-    caller assembles the prompt and passes the components in. The
-    provider's job is to call its backing SDK and return a string.
+    All concrete providers implement :meth:`generate`. The interface is
+    intentionally narrow: the caller assembles the prompt and passes the
+    components in. The provider's job is to call its backing SDK and
+    return a string.
     """
 
     model_name: str
@@ -139,55 +137,6 @@ class LLMValueErrorBoundary:
         if exception_type is ValueError and exception is not None:
             raise GenerationError(f"{self.message}: {exception}") from exception
         return False
-
-
-class HeuristicProvider(Generator):
-    """Offline LLM provider that answers from context directly.
-
-    Uses a simple heuristic — extracts the most relevant sentence from
-    the context, or returns a canned response when no context is given.
-    No API key or network access required.
-    """
-
-    model_name: str = "heuristic"
-
-    @staticmethod
-    def generate(request: GenerationRequest) -> str:
-        """Generate an answer from context using simple heuristics.
-
-        Args:
-            request: The prompt components; only ``context`` and
-                ``question`` are used by this provider.
-
-        Returns:
-            The first relevant sentence from context, or a default
-            message if no context is available.
-
-        """
-        if not request.context:
-            return "No context was retrieved. Configure an LLM API key for full answer generation."
-        # Normalise: context may be Sequence[str] or Sequence[Hit] (with .chunk.text).
-        texts: list[str] = []
-        for entry in request.context:
-            if isinstance(entry, str):
-                texts.append(entry)
-            else:
-                texts.append(getattr(getattr(entry, "chunk", entry), "text", str(entry)))
-        question_lower = request.question.lower()
-        question_words = set(question_lower.split())
-        scored: list[tuple[int, str]] = []
-        for chunk in texts:
-            for sentence in chunk.split("."):
-                stripped = sentence.strip()
-                if not stripped:
-                    continue
-                lowered = stripped.lower()
-                score = sum(1 for w in question_words if w in lowered)
-                scored.append((score, stripped))
-        scored.sort(key=lambda x: -x[0])
-        if scored:
-            return scored[0][1]
-        return (texts[0] if texts else "")[:500]
 
 
 class LiteLLM(Generator):
@@ -506,7 +455,8 @@ def build_llm(
 
     Selection rules:
 
-    * No API key available → :class:`HeuristicProvider` (offline).
+    * No API key available → :class:`ConfigurationError` is raised; callers
+      must set an LLM API key explicitly.
     * Otherwise → :class:`LiteLLM`.
 
     Pass credentials via the ``RAG_LLM_*`` env vars (``RAG_LLM_API_KEY``,
@@ -520,7 +470,13 @@ def build_llm(
     Returns:
         A ready-to-use provider instance.
 
+    Raises:
+        ConfigurationError: When no LLM API key is configured.
+
     """
     if not any_llm_api_key_present() and not api_key:
-        return HeuristicProvider()
+        raise ConfigurationError(
+            "No LLM API key configured; set one in Settings "
+            "(e.g. RAG_LLM_API_KEY) or pass api_key= explicitly."
+        )
     return LiteLLM(model=model_name, api_key=api_key)

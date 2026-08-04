@@ -207,7 +207,9 @@ class MemoryStore(Store):
         batch insert (the directory ingest path does this for you).
 
         Returns:
-            Number of rows written (equals ``len(chunks)``).
+            Number of chunks the caller submitted (equals ``len(chunks)``).
+            Dedup is silent — a re-inserted ``chunk_id`` overwrites the
+            existing record but is still counted as one submitted chunk.
 
         Raises:
             VectorStoreError: When a vector's dimension does not match
@@ -221,12 +223,10 @@ class MemoryStore(Store):
                 )
         for chunk in chunks:
             chunk.verify()
-        written = 0
         with self.lock:
             for chunk, vector in zip(chunks, vectors, strict=True):
                 self.records[chunk.id] = MemoryVectorRecord(chunk=chunk, vector=vector)
-                written += 1
-        return written
+        return len(chunks)
 
     def rebuild_index(self) -> None:
         """Rebuild the BM25 index over the current record set."""
@@ -323,13 +323,11 @@ class MemoryStore(Store):
             dict_filter = None
             str_filter = metadata_filter
         # Tier 2 Item 9: tenant_id isolation
-        from raghub.tenants import get_current_tenant
+        from raghub.tenants.isolation import RowLevel
 
-        effective_tenant = tenant_id
-        if effective_tenant is None:
-            ctx = get_current_tenant()
-            if ctx is not None:
-                effective_tenant = ctx.tenant_id
+        effective_tenant = RowLevel().apply_to_kwargs(
+            {} if tenant_id is None else {"tenant_id": tenant_id}
+        ).get("tenant_id")
         with self.lock:
             records = [
                 record
@@ -362,13 +360,11 @@ class MemoryStore(Store):
             dict_filter = None
             str_filter = metadata_filter
         # Tier 2 Item 9: tenant_id isolation
-        from raghub.tenants import get_current_tenant
+        from raghub.tenants.isolation import RowLevel
 
-        effective_tenant = tenant_id
-        if effective_tenant is None:
-            ctx = get_current_tenant()
-            if ctx is not None:
-                effective_tenant = ctx.tenant_id
+        effective_tenant = RowLevel().apply_to_kwargs(
+            {} if tenant_id is None else {"tenant_id": tenant_id}
+        ).get("tenant_id")
         with self.lock:
             records = [
                 rec
@@ -490,6 +486,7 @@ class SqliteStore(Store):
                     company TEXT DEFAULT '',
                     owner TEXT DEFAULT '',
                     department TEXT DEFAULT '',
+                    tenant_id TEXT DEFAULT '',
                     vector BLOB NOT NULL
                 )
                 """
@@ -527,11 +524,11 @@ class SqliteStore(Store):
         metadata_filter: str | dict[str, Any] | None = None,
         *,
         tenant_id: str | None = None,
-    ) -> list[tuple[str, str, int, str, str, str, str, str, str, bytes]]:
+    ) -> list[tuple[str, str, int, str, str, str, str, str, str, str, bytes]]:
         """Return raw chunk rows matching ``metadata_filter`` and tenant_id."""
         columns = (
             "chunk_id, document_id, version, classification, "
-            "text, source_location, company, owner, department, vector"
+            "text, source_location, company, owner, department, tenant_id, vector"
         )
         clauses: list[str] = []
         params: list[Any] = []
@@ -542,7 +539,7 @@ class SqliteStore(Store):
             else:
                 clauses.append(metadata_filter)
         if tenant_id is not None:
-            clauses.append("company = ?")
+            clauses.append("tenant_id = ?")
             params.append(tenant_id)
         where = ""
         if clauses:
@@ -558,7 +555,11 @@ class SqliteStore(Store):
         """Insert or overwrite chunks.
 
         Returns:
-            ``cursor.rowcount`` after commit (number of rows written).
+            Number of chunks the caller submitted (equals ``len(chunks)``).
+            Dedup is silent by design — ``INSERT OR IGNORE`` skips rows
+            whose primary key already exists, but the caller still sees
+            the full batch size so re-ingestion does not look like a
+            partial write.
 
         Raises:
             VectorStoreError: When a vector's dimension does not match
@@ -573,13 +574,13 @@ class SqliteStore(Store):
                     f"vector dimension mismatch: expected {self.embedding_dim}, got {len(vector)}"
                 )
         with self.lock:
-            cursor = self.conn.executemany(
+            self.conn.executemany(
                 f"""
                 INSERT OR IGNORE INTO {self.collection}
                     (chunk_id, document_id, version, classification,
                      text, source_location, company, owner,
-                     department, vector)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     department, tenant_id, vector)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
@@ -592,13 +593,14 @@ class SqliteStore(Store):
                         chunk.company,
                         chunk.owner,
                         chunk.department,
+                        chunk.tenant_id or "",
                         self.pack(vector),
                     )
                     for chunk, vector in zip(chunks, vectors, strict=True)
                 ],
             )
             self.conn.commit()
-            return cursor.rowcount
+            return len(chunks)
 
     def upsert(self, chunks: Sequence[Chunk], vectors: Sequence[list[float]]) -> int:
         """Insert-or-update alias. Delegates to :meth:`insert`."""
@@ -660,10 +662,9 @@ class SqliteStore(Store):
         """Resolve ``tenant_id`` against the bound tenant context."""
         if tenant_id is not None:
             return tenant_id
-        from raghub.tenants import get_current_tenant
+        from raghub.tenants.isolation import RowLevel
 
-        ctx = get_current_tenant()
-        return ctx.tenant_id if ctx is not None else None
+        return RowLevel().apply_to_kwargs({}).get("tenant_id")
 
     def __score_rows(
         self,
@@ -697,6 +698,7 @@ class SqliteStore(Store):
             company,
             owner,
             department,
+            tenant_id,
             blob,
         ) = row
         return Chunk(
@@ -709,6 +711,7 @@ class SqliteStore(Store):
             company=company or "",
             owner=owner or "",
             department=department or "",
+            tenant_id=tenant_id or "",
             checksum=hashlib.sha256(
                 text.encode("utf-8", errors="surrogatepass")
             ).hexdigest(),
@@ -767,7 +770,7 @@ class SqliteStore(Store):
             rows = list(
                 self.conn.execute(
                     f"SELECT chunk_id, document_id, version, classification, "
-                    f"text, source_location, company, owner, department, vector "
+                    f"text, source_location, company, owner, department, tenant_id, vector "
                     f"FROM {self.collection} WHERE text LIKE ?",
                     (f"%{query}%",),
                 )
@@ -784,6 +787,7 @@ class SqliteStore(Store):
                     company=co or "",
                     owner=ow or "",
                     department=dp or "",
+                    tenant_id=tn or "",
                     checksum=hashlib.sha256(txt.encode("utf-8", errors="surrogatepass")).hexdigest(),
                 ),
                 "score": 1.0,
@@ -791,7 +795,7 @@ class SqliteStore(Store):
                 "document_id": did,
                 "version": ver,
             }
-            for cid, did, ver, cls, txt, sloc, co, ow, dp, _ in rows[:top_k]
+            for cid, did, ver, cls, txt, sloc, co, ow, dp, tn, _ in rows[:top_k]
         ]
 
     def health(self) -> dict[str, Any]:

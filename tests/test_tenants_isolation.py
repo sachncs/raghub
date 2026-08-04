@@ -327,3 +327,65 @@ class TestDatabasePerTenantLive:
             await conn.close()
         finally:
             reset_current_tenant(token)
+
+
+# ---------------------------------------------------------------------------
+# Tier 2 Item 15: migrate_row_to_schema round-trip
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(
+    not os.environ.get(PG_DSN_ENV),
+    reason=f"{PG_DSN_ENV} not set; skipping live Postgres test",
+)
+class TestMigrateRowToSchema:
+    """Item 15: migrate_row_to_schema round-trip test."""
+
+    @pytest.mark.asyncio
+    async def test_migrate_row_to_schema_round_trip(self) -> None:
+        import asyncpg
+
+        from raghub.tenants.isolation import migrate_row_to_schema
+
+        dsn = os.environ[PG_DSN_ENV]
+        tenant_id = f"migrate_test_{os.getpid()}"
+        src_conn = await asyncpg.connect(dsn)
+        dst_conn = await asyncpg.connect(dsn)
+        try:
+            await src_conn.execute(
+                "CREATE SCHEMA IF NOT EXISTS public"
+            )
+            await src_conn.execute(
+                "CREATE TABLE IF NOT EXISTS public.raghub_chunks ("
+                "  chunk_id TEXT PRIMARY KEY,"
+                "  content TEXT,"
+                "  tenant_id TEXT"
+                ")"
+            )
+            await dst_conn.execute(
+                "CREATE SCHEMA IF NOT EXISTS tenant_" + tenant_id
+            )
+            await dst_conn.execute(
+                "CREATE TABLE IF NOT EXISTS tenant_" + tenant_id + ".raghub_chunks ("
+                "  chunk_id TEXT PRIMARY KEY,"
+                "  content TEXT,"
+                "  tenant_id TEXT"
+                ")"
+            )
+            for i in range(10):
+                await src_conn.execute(
+                    "INSERT INTO public.raghub_chunks (chunk_id, content, tenant_id) "
+                    "VALUES ($1, $2, $3)",
+                    f"chunk_{i}",
+                    f"content_{i}",
+                    tenant_id,
+                )
+            rows_migrated = migrate_row_to_schema(src_conn, dst_conn, tenant_id)
+            assert rows_migrated == 10
+            count = await dst_conn.fetchval(
+                "SELECT COUNT(*) FROM tenant_" + tenant_id + ".raghub_chunks"
+            )
+            assert count == 10
+        finally:
+            await src_conn.close()
+            await dst_conn.close()

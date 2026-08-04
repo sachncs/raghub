@@ -481,6 +481,10 @@ def build_chunk_records(
     embedding_model: str = attributes.get("embedding_model", "")
     mime_type: str = attributes.get("mime_type", "")
     file_name: str = attributes.get("file_name", "")
+    from raghub.tenants import get_current_tenant
+
+    ctx = get_current_tenant()
+    tenant_id = ctx.tenant_id if ctx else ""
     records: list[Chunk] = []
     parsed_sections = extract_text(file_bytes, file_name, mime_type)
 
@@ -502,6 +506,7 @@ def build_chunk_records(
                     department=department,
                     classification=classification,
                     embedding_model=embedding_model,
+                    tenant_id=tenant_id,
                     checksum=sha256(chunk_text.encode("utf-8", errors="surrogatepass")).hexdigest(),
                     text=chunk_text,
                     metadata=metadata,

@@ -1330,6 +1330,10 @@ class EmbeddingProvider(Protocol):
         """Embed a single text string."""
         ...
 
+    async def aembed_text(self, text: str) -> list[float]:
+        """Async variant of :meth:`embed_text`."""
+        ...
+
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Embed multiple text strings."""
         ...
