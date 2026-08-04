@@ -35,7 +35,7 @@ import re
 import time
 from collections.abc import Coroutine, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol, cast, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, Field, SecretStr
 
@@ -55,6 +55,13 @@ from raghub.models import (
 )
 from raghub.telemetry import record_long_context, record_rerank_latency
 from raghub.types import JSONValue
+
+if TYPE_CHECKING:
+    import cohere
+
+    from raghub.config import HybridConfig
+    from raghub.llm import Generator
+    from raghub.models import VectorStore
 
 VariantKind = Literal["original", "hyde", "multi_query", "step_back", "sub"]
 
@@ -165,7 +172,7 @@ class Cohere:
         *,
         model: str = "rerank-english-v3.0",
         top_k: int = 20,
-        client: Any | None = None,
+        client: "cohere.Client | None" = None,
     ) -> None:
         """Initialise the reranker.
 
@@ -190,7 +197,7 @@ class Cohere:
         self.top_k = top_k
         self.client = client
 
-    def ensure_client(self) -> Any:
+    def ensure_client(self) -> "cohere.Client":
         """Return the underlying :class:`cohere.Client`."""
         if self.client is None:
             import cohere
@@ -248,8 +255,8 @@ class Cascade:
 
     def __init__(
         self,
-        cheap: Any,
-        expensive: Any,
+        cheap: "Rerank",
+        expensive: "Rerank",
         *,
         spread_threshold: float = 0.05,
     ) -> None:
@@ -275,7 +282,7 @@ class Cascade:
         return [h.chunk_id for h in input_hits] != [h.chunk_id for h in ranked]
 
     @staticmethod
-    async def call(reranker: Any, question: str, hits: Sequence[Hit]) -> list[Hit]:
+    async def call(reranker: "Rerank", question: str, hits: Sequence[Hit]) -> list[Hit]:
         """Call ``arerank`` when available, else ``rerank`` in a thread."""
         arerank = getattr(reranker, "arerank", None)
         if callable(arerank):
@@ -376,7 +383,7 @@ class LlmJudge:
     def __init__(
         self,
         *,
-        llm: Any,
+        llm: "Generator",
         top_k: int = 20,
     ) -> None:
         """Initialise the reranker.
@@ -543,7 +550,7 @@ class Context:
 
     name = "long_context"
 
-    def __init__(self, llm: Any, settings: LongContextConfig) -> None:
+    def __init__(self, llm: "Generator", settings: LongContextConfig) -> None:
         """Initialise the pass.
 
         Args:
@@ -612,7 +619,7 @@ class Colbert:
 
     name = "colbert"
 
-    def __init__(self, config: Any | None = None) -> None:
+    def __init__(self, config: "HybridConfig | None" = None) -> None:
         """Initialise the adapter.
 
         Args:
@@ -829,7 +836,7 @@ class Hyde:
 
     name = "hyde"
 
-    def __init__(self, llm: Any, *, n: int = 1) -> None:
+    def __init__(self, llm: "Generator", *, n: int = 1) -> None:
         """Initialise the transformer.
 
         Args:
@@ -892,7 +899,7 @@ class MultiQuery:
 
     name = "multi_query"
 
-    def __init__(self, llm: Any, *, n: int = 4) -> None:
+    def __init__(self, llm: "Generator", *, n: int = 4) -> None:
         """Initialise the transformer.
 
         Args:
@@ -950,7 +957,7 @@ class Decompose:
 
     name = "decompose"
 
-    def __init__(self, llm: Any) -> None:
+    def __init__(self, llm: "Generator") -> None:
         """Initialise the transformer.
 
         Args:
@@ -1004,7 +1011,7 @@ class StepBack:
 
     name = "step_back"
 
-    def __init__(self, llm: Any) -> None:
+    def __init__(self, llm: "Generator") -> None:
         """Initialise the transformer.
 
         Args:
@@ -1121,7 +1128,7 @@ def build_filter(filters: SearchFilters | None) -> str:
 class Search:
     """Advanced search with faceted filtering for chunks."""
 
-    def __init__(self, vector_store: Any, embedding_provider: Any) -> None:
+    def __init__(self, vector_store: "VectorStore", embedding_provider: Embedder) -> None:
         """Initialise the search engine.
 
         Args:
@@ -1202,9 +1209,9 @@ class Retrieval:
         self,
         *,
         embedding_provider: Embedder,
-        vector_store: Any,
+        vector_store: "VectorStore",
         rerank: Rerank,
-        hybrid: Any | None = None,
+        hybrid: "HybridConfig | None" = None,
     ) -> None:
         """Wire the pipeline to its collaborators.
 
@@ -1399,7 +1406,7 @@ class Retrieval:
         user: User,
         question: str,
         top_k: int,
-        colbert: Any | None = None,
+        colbert: Colbert | None = None,
     ) -> list[Hit]:
         """Three-channel hybrid retrieval (dense + sparse + optional ColBERT)."""
         dense = self.retrieve(user=user, question=question, top_k=top_k)
@@ -1442,7 +1449,7 @@ class RerankerFactory:
         self,
         settings: Settings,
         *,
-        llm: Any | None = None,
+        llm: "Generator | None" = None,
         cohere_api_key: str | None = None,
     ) -> None:
         """Initialise the factory dependencies."""
@@ -1463,6 +1470,10 @@ class RerankerFactory:
                 top_k=cfg.top_k,
             )
         if provider == "llm":
+            if self.llm is None:
+                raise RerankerError(
+                    "llm reranker requires an LLM via RerankerFactory(llm=...)"
+                )
             return LlmJudge(llm=self.llm, top_k=cfg.top_k)
         if provider == "cascade":
             expensive: Rerank
@@ -1491,7 +1502,7 @@ class RerankerFactory:
 def build_reranker(
     settings: Settings,
     *,
-    llm: Any | None = None,
+    llm: "Generator | None" = None,
     cohere_api_key: str | None = None,
 ) -> Rerank:
     """Build the configured reranker."""
@@ -1519,7 +1530,7 @@ class HybridConfigShim:
     fusion = "rrf"
     rrf_k = 60
     colbert_enabled = False
-    long_context: Any = None
+    long_context: Context | None = None
 
 
 def default_long() -> LongContextConfig:
@@ -1576,7 +1587,7 @@ async def transform(
     history: Sequence[Turn] = (),
     *,
     method: str = "hyde",
-    llm: Any | None = None,
+    llm: "Generator | None" = None,
 ) -> list[Variant]:
     """Asynchronously transform ``question`` using the named ``method``.
 
@@ -1618,7 +1629,7 @@ def pick_reranker(method: str) -> Rerank:
     raise RerankerError(f"Unknown reranker method: {method!r}")
 
 
-def transformer(method: str, llm: Any) -> Transformer:
+def transformer(method: str, llm: "Generator") -> Transformer:
     """Construct a transformer by name."""
     if method == "hyde":
         return Hyde(llm)

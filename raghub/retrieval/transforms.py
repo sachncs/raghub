@@ -9,12 +9,15 @@ toward the user's literal wording.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING
 
 from raghub.llm import GenerationRequest
 from raghub.models import Turn
 from raghub.retrieval.judge import extract_strings
 from raghub.retrieval.types import ORIGINAL_WEIGHT, Transformer, Variant
+
+if TYPE_CHECKING:
+    from raghub.llm import Generator
 
 HYDE = (
     "You generate hypothetical passages for retrieval. Reply with the "
@@ -43,7 +46,7 @@ class Hyde:
 
     name = "hyde"
 
-    def __init__(self, llm: Any, *, n: int = 1) -> None:
+    def __init__(self, llm: "Generator", *, n: int = 1) -> None:
         """Initialise the transformer.
 
         Args:
@@ -106,7 +109,7 @@ class MultiQuery:
 
     name = "multi_query"
 
-    def __init__(self, llm: Any, *, n: int = 4) -> None:
+    def __init__(self, llm: "Generator", *, n: int = 4) -> None:
         """Initialise the transformer.
 
         Args:
@@ -164,7 +167,7 @@ class Decompose:
 
     name = "decompose"
 
-    def __init__(self, llm: Any) -> None:
+    def __init__(self, llm: "Generator") -> None:
         """Initialise the transformer.
 
         Args:
@@ -218,7 +221,7 @@ class StepBack:
 
     name = "step_back"
 
-    def __init__(self, llm: Any) -> None:
+    def __init__(self, llm: "Generator") -> None:
         """Initialise the transformer.
 
         Args:

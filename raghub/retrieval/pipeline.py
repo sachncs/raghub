@@ -6,7 +6,7 @@ hybrid fusion, variant expansion, and a final reranker pass.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from raghub.core import allowed_company_filter
 from raghub.embedder import Embedder
@@ -14,6 +14,12 @@ from raghub.models import Chunk, Hit, User
 from raghub.retrieval.factories import default_hybrid
 from raghub.retrieval.fusion import rrf
 from raghub.retrieval.types import Rerank, Variant
+
+if TYPE_CHECKING:
+    from raghub.config import HybridConfig
+    from raghub.models import VectorStore
+
+    from raghub.retrieval.colbert import Colbert
 
 
 class Retrieval:
@@ -31,9 +37,9 @@ class Retrieval:
         self,
         *,
         embedding_provider: Embedder,
-        vector_store: Any,
+        vector_store: "VectorStore",
         rerank: Rerank,
-        hybrid: Any | None = None,
+        hybrid: "HybridConfig | None" = None,
     ) -> None:
         """Wire the pipeline to its collaborators.
 
@@ -194,7 +200,7 @@ class Retrieval:
         user: User,
         question: str,
         top_k: int,
-        colbert: Any | None = None,
+        colbert: "Colbert | None" = None,
     ) -> list[Hit]:
         """Three-channel hybrid retrieval (dense + sparse + optional ColBERT)."""
         dense = self.retrieve(user=user, question=question, top_k=top_k)

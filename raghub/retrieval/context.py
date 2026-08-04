@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING
 
 from raghub.config import LongContextConfig
 from raghub.llm import GenerationRequest
@@ -22,6 +22,9 @@ from raghub.retrieval.judge import (
     record_latency,
     reorder_candidates,
 )
+
+if TYPE_CHECKING:
+    from raghub.llm import Generator
 
 
 class Context:
@@ -37,7 +40,7 @@ class Context:
 
     name = "long_context"
 
-    def __init__(self, llm: Any, settings: LongContextConfig) -> None:
+    def __init__(self, llm: "Generator", settings: LongContextConfig) -> None:
         """Initialise the pass.
 
         Args:

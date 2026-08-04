@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Coroutine, Sequence
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from raghub.config import LongContextConfig, Settings
 from raghub.errors import RerankerError
@@ -23,6 +23,9 @@ from raghub.retrieval.rerank import Cascade, Cohere, Identity
 from raghub.retrieval.transforms import Decompose, Hyde, MultiQuery, StepBack
 from raghub.retrieval.types import Rerank, Transformer, Variant
 
+if TYPE_CHECKING:
+    from raghub.llm import Generator
+
 
 class RerankerFactory:
     """Build reranker instances from application settings."""
@@ -31,7 +34,7 @@ class RerankerFactory:
         self,
         settings: Settings,
         *,
-        llm: Any | None = None,
+        llm: "Generator | None" = None,
         cohere_api_key: str | None = None,
     ) -> None:
         """Initialise the factory dependencies."""
@@ -52,6 +55,10 @@ class RerankerFactory:
                 top_k=cfg.top_k,
             )
         if provider == "llm":
+            if self.llm is None:
+                raise RerankerError(
+                    "llm reranker requires an LLM via RerankerFactory(llm=...)"
+                )
             return LlmJudge(llm=self.llm, top_k=cfg.top_k)
         if provider == "cascade":
             expensive: Rerank
@@ -80,7 +87,7 @@ class RerankerFactory:
 def build_reranker(
     settings: Settings,
     *,
-    llm: Any | None = None,
+    llm: "Generator | None" = None,
     cohere_api_key: str | None = None,
 ) -> Rerank:
     """Build the configured reranker."""
@@ -103,7 +110,7 @@ class HybridConfigShim:
     fusion = "rrf"
     rrf_k = 60
     colbert_enabled = False
-    long_context: Any = None
+    long_context: Context | None = None
 
 
 def default_long() -> LongContextConfig:
@@ -150,7 +157,7 @@ async def transform(
     history: Sequence[Turn] = (),
     *,
     method: str = "hyde",
-    llm: Any | None = None,
+    llm: "Generator | None" = None,
 ) -> list[Variant]:
     """Asynchronously transform ``question`` using the named ``method``.
 
@@ -192,7 +199,7 @@ def reranker(method: str) -> Rerank:
     raise RerankerError(f"Unknown reranker method: {method!r}")
 
 
-def transformer(method: str, llm: Any) -> Transformer:
+def transformer(method: str, llm: "Generator") -> Transformer:
     """Construct a transformer by name."""
     if method == "hyde":
         return Hyde(llm)
