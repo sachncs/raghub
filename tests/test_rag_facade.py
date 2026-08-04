@@ -329,7 +329,7 @@ def test_rag_ingest_async_with_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
         def submit(*args: object, **kwargs: object) -> str:
             return "mock-job-1"
 
-    monkeypatch.setattr("raghub.rag.Resumable", _MockBgService)
+    monkeypatch.setattr("raghub.rag.facade.Resumable", _MockBgService)
 
     rag = RAG(converter=PlainTextConverter())
     rag.settings.data_dir.mkdir(parents=True, exist_ok=True)
@@ -419,3 +419,120 @@ def test_rag_components_dict_overrides_settings_queue() -> None:
         components={"queue": stub},
     )
     assert rag.queue_ is stub
+
+
+# ---------------------------------------------------------------------------
+# Tier 3 Item 19: FeedbackStore wiring
+# ---------------------------------------------------------------------------
+
+
+def test_rag_constructs_feedback_store_from_settings(tmp_path: Path) -> None:
+    """Item 19: RAG builds a SqliteFeedbackStore when backend == 'sqlite'."""
+    from raghub.config import FeedbackConfig, Settings
+    from raghub.feedback import SqliteFeedbackStore
+
+    settings = Settings(
+        data_dir=tmp_path, feedback=FeedbackConfig(backend="sqlite")
+    )
+    rag = RAG(settings=settings, converter=PlainTextConverter())
+    assert isinstance(rag.feedback_store(), SqliteFeedbackStore)
+
+
+def test_rag_feedback_store_none_when_backend_none() -> None:
+    """Item 19: RAG returns None for feedback_store when backend == 'none'."""
+    rag = RAG(converter=PlainTextConverter())
+    assert rag.feedback_store() is None
+
+
+# ---------------------------------------------------------------------------
+# Tier 4 Items 21-22: Queue path
+# ---------------------------------------------------------------------------
+
+
+def test_ingest_async_submits_to_queue_when_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Item 21: ingest_async submits to SqliteQueue when queue is set."""
+    import asyncio
+
+    from raghub.config import QueueConfig, Settings
+    from raghub.jobs import JobStatus, SqliteQueue
+    from raghub.models import Pipeline
+
+    db_path = str(tmp_path / "queue.db")
+    queue = SqliteQueue(db_path)
+    asyncio.run(queue.initialize())
+
+    settings = Settings(queue=QueueConfig(backend="sqlite"))
+    rag = RAG(settings=settings, converter=PlainTextConverter())
+    rag.queue_ = queue
+
+    async def _mock_run(*args: object, **kwargs: object) -> Pipeline:
+        return Pipeline(pipeline_id="t", pipeline_name="ingest", outputs={})
+
+    monkeypatch.setattr(rag.ingest_pipeline, "run", _mock_run)
+
+    job_id = rag.ingest_async(b"hello", source_uri="mem://test")
+    assert isinstance(job_id, str)
+    assert len(job_id) == 36  # UUID shape
+
+    status = rag.job_status(job_id)
+    assert status is not None
+
+
+def test_ingest_async_idempotent_returns_existing_job_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Item 21: Second call with same bytes returns the same job id."""
+    import asyncio
+
+    from raghub.config import QueueConfig, Settings
+    from raghub.jobs import SqliteQueue
+    from raghub.models import Pipeline
+
+    db_path = str(tmp_path / "queue_idempotent.db")
+    queue = SqliteQueue(db_path)
+    asyncio.run(queue.initialize())
+
+    settings = Settings(queue=QueueConfig(backend="sqlite"))
+    rag = RAG(settings=settings, converter=PlainTextConverter())
+    rag.queue_ = queue
+
+    async def _mock_run(*args: object, **kwargs: object) -> Pipeline:
+        return Pipeline(pipeline_id="t", pipeline_name="ingest", outputs={})
+
+    monkeypatch.setattr(rag.ingest_pipeline, "run", _mock_run)
+
+    first_id = rag.ingest_async(b"same bytes", source_uri="mem://idempotent")
+    second_id = rag.ingest_async(b"same bytes", source_uri="mem://idempotent")
+    assert first_id == second_id
+
+
+def test_job_status_reads_from_queue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Item 22: job_status reads from SqliteQueue when queue is set."""
+    import asyncio
+
+    from raghub.config import QueueConfig, Settings
+    from raghub.jobs import SqliteQueue
+    from raghub.models import Pipeline
+
+    db_path = str(tmp_path / "queue_status.db")
+    queue = SqliteQueue(db_path)
+    asyncio.run(queue.initialize())
+
+    settings = Settings(queue=QueueConfig(backend="sqlite"))
+    rag = RAG(settings=settings, converter=PlainTextConverter())
+    rag.queue_ = queue
+
+    async def _mock_run(*args: object, **kwargs: object) -> Pipeline:
+        return Pipeline(pipeline_id="t", pipeline_name="ingest", outputs={})
+
+    monkeypatch.setattr(rag.ingest_pipeline, "run", _mock_run)
+
+    job_id = rag.ingest_async(b"test", source_uri="mem://status")
+    status = rag.job_status(job_id)
+    assert status == "pending"
+
+    assert rag.job_status("nonexistent-uuid") is None

@@ -10,6 +10,9 @@ This module sets up a stable test environment by:
    that explicitly need wildcard CORS must clear the env var.
 4. Adding the repository root to :data:`sys.path` so absolute imports
    like ``from raghub.…`` resolve from the working tree.
+5. Patching :func:`raghub.rag.facade.default_llm` so that every test that
+   constructs a :class:`RAG` without an explicit LLM or API key gets
+   a deterministic stub instead of raising ``ConfigurationError``.
 """
 
 from __future__ import annotations
@@ -29,6 +32,34 @@ os.environ.setdefault("CORS_ORIGINS", "http://testserver")
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+
+# ---------------------------------------------------------------------------
+# Stub LLM for tests that construct RAG() without a real API key.
+# ---------------------------------------------------------------------------
+
+
+class StubLLM:
+    """Deterministic LLM stub that returns a fixed answer."""
+
+    model_name: str = "test-stub"
+
+    def generate(self, request: object) -> str:
+        return "stub answer"
+
+    async def async_generate(self, request: object) -> str:
+        return "stub answer"
+
+
+def stubbed_default_llm(llm_model: str) -> StubLLM:
+    """Return the stub LLM regardless of configuration."""
+    return StubLLM()
+
+
+@pytest.fixture(autouse=True)
+def stub_default_llm(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch ``raghub.rag.facade.default_llm`` so RAG() works without an API key."""
+    monkeypatch.setattr("raghub.rag.facade.default_llm", stubbed_default_llm)
 
 
 @pytest.fixture
