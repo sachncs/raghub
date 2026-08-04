@@ -13,7 +13,7 @@ import json
 import re
 import time
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from raghub.coroutines import capture
 from raghub.llm import GenerationRequest
@@ -21,6 +21,9 @@ from raghub.models import Hit, RankedList
 from raghub.retrieval.fusion import merge_rrf
 from raghub.retrieval.rerank import rerank_latency
 from raghub.telemetry import record_long_context
+
+if TYPE_CHECKING:
+    from raghub.llm import Generator
 
 LISTWISE_MAX = 10
 
@@ -66,7 +69,7 @@ class LlmJudge:
     def __init__(
         self,
         *,
-        llm: Any,
+        llm: "Generator",
         top_k: int = 20,
     ) -> None:
         """Initialise the reranker.

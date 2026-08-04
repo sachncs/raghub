@@ -10,13 +10,18 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import TYPE_CHECKING, cast
 
 from pydantic import SecretStr
 
 from raghub.errors import RerankerError
 from raghub.models import Hit
 from raghub.telemetry import record_rerank_latency
+
+if TYPE_CHECKING:
+    import cohere
+
+    from raghub.retrieval.types import Rerank
 
 
 class Identity:
@@ -61,7 +66,7 @@ class Cohere:
         *,
         model: str = "rerank-english-v3.0",
         top_k: int = 20,
-        client: Any | None = None,
+        client: "cohere.Client | None" = None,
     ) -> None:
         """Initialise the reranker.
 
@@ -86,7 +91,7 @@ class Cohere:
         self.top_k = top_k
         self.client = client
 
-    def ensure_client(self) -> Any:
+    def ensure_client(self) -> "cohere.Client":
         """Return the underlying :class:`cohere.Client`."""
         if self.client is None:
             import cohere
@@ -144,8 +149,8 @@ class Cascade:
 
     def __init__(
         self,
-        cheap: Any,
-        expensive: Any,
+        cheap: "Rerank",
+        expensive: "Rerank",
         *,
         spread_threshold: float = 0.05,
     ) -> None:
@@ -171,7 +176,7 @@ class Cascade:
         return [h.chunk_id for h in input_hits] != [h.chunk_id for h in ranked]
 
     @staticmethod
-    async def call(reranker: Any, question: str, hits: Sequence[Hit]) -> list[Hit]:
+    async def call(reranker: "Rerank", question: str, hits: Sequence[Hit]) -> list[Hit]:
         """Call ``arerank`` when available, else ``rerank`` in a thread."""
         arerank = getattr(reranker, "arerank", None)
         if callable(arerank):

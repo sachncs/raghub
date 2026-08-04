@@ -7,9 +7,12 @@ hybrid retrieval pipeline.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from raghub.errors import GraphUnavailableError
+
+if TYPE_CHECKING:
+    from raghub.config import HybridConfig
 
 
 class Colbert:
@@ -17,7 +20,7 @@ class Colbert:
 
     name = "colbert"
 
-    def __init__(self, config: Any | None = None) -> None:
+    def __init__(self, config: "HybridConfig | None" = None) -> None:
         """Initialise the adapter.
 
         Args:
