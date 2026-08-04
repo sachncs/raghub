@@ -32,7 +32,7 @@ from typing import Any, Protocol
 
 from raghub.errors import ConfigurationError, MissingDepError
 from raghub.telemetry import RedactingTelemetry
-from raghub.tenants import validate_tenant_id
+from raghub.tenants import validate_tenant
 
 __all__ = [
     "Bm25BoostScorer",
@@ -74,7 +74,7 @@ class Feedback:
 
     def __post_init__(self) -> None:
         """Validate the tenant id."""
-        validate_tenant_id(self.tenant_id)
+        validate_tenant(self.tenant_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,7 +190,7 @@ class SqliteFeedbackStore:
             ).fetchone()
         if row is None:
             return None
-        return row_to_feedback(row)
+        return as_feedback(row)
 
     async def list_for_session(self, session_id: str) -> list[Feedback]:
         """Return every feedback record for the session."""
@@ -201,7 +201,7 @@ class SqliteFeedbackStore:
                 "ORDER BY created_at DESC",
                 (session_id,),
             ).fetchall()
-        return [row_to_feedback(r) for r in rows]
+        return [as_feedback(r) for r in rows]
 
     async def list_for_chunk(self, chunk_id: str) -> list[Feedback]:
         """Return every feedback record for the chunk."""
@@ -212,7 +212,7 @@ class SqliteFeedbackStore:
                 "ORDER BY created_at DESC",
                 (chunk_id,),
             ).fetchall()
-        return [row_to_feedback(r) for r in rows]
+        return [as_feedback(r) for r in rows]
 
     async def list_for_tenant(
         self, tenant_id: str, limit: int = 1000
@@ -225,7 +225,7 @@ class SqliteFeedbackStore:
                 "ORDER BY created_at DESC LIMIT ?",
                 (tenant_id, limit),
             ).fetchall()
-        return [row_to_feedback(r) for r in rows]
+        return [as_feedback(r) for r in rows]
 
     async def delete(self, feedback_id: str) -> None:
         """Delete one feedback record by id."""
@@ -330,7 +330,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return row_to_feedback(row) if row else None
+        return as_feedback(row) if row else None
 
     async def list_for_session(self, session_id: str) -> list[Feedback]:
         """Return every feedback record for the session."""
@@ -349,7 +349,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return [row_to_feedback(r) for r in rows]
+        return [as_feedback(r) for r in rows]
 
     async def list_for_chunk(self, chunk_id: str) -> list[Feedback]:
         """Return every feedback record for the chunk."""
@@ -368,7 +368,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return [row_to_feedback(r) for r in rows]
+        return [as_feedback(r) for r in rows]
 
     async def list_for_tenant(
         self, tenant_id: str, limit: int = 1000
@@ -390,7 +390,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return [row_to_feedback(r) for r in rows]
+        return [as_feedback(r) for r in rows]
 
     async def delete(self, feedback_id: str) -> None:
         """Delete one feedback record by id."""
@@ -447,7 +447,7 @@ class PgFeedbackStore:
         )
 
 
-def row_to_feedback(row: Any) -> Feedback:
+def as_feedback(row: Any) -> Feedback:
     """Convert a SQLite / asyncpg row to a :class:`Feedback`."""
     metadata = json.loads(row["metadata"]) if row["metadata"] else {}
     rating_value = int(row["rating"])
@@ -514,7 +514,7 @@ class Bm25BoostScorer:
         self.tenant_id = tenant_id
         self.alpha = alpha
         self.beta = beta
-        self._counts: dict[str, tuple[int, int]] = {}
+        self.counts: dict[str, tuple[int, int]] = {}
 
     async def refresh(self) -> None:
         """Reload feedback counts from the store into the in-memory cache."""
@@ -529,7 +529,7 @@ class Bm25BoostScorer:
                 1 for f in chunk_feedback if int(f.rating) == int(Rating.NEGATIVE)
             )
             counts[chunk_id] = (positive, negative)
-        self._counts = counts
+        self.counts = counts
 
     async def boost_async(self, chunk_id: str, base_score: float) -> float:
         """Live boost that always reads the feedback store."""
@@ -549,7 +549,7 @@ class Bm25BoostScorer:
         with counts loaded eagerly) before relying on this method.
         For live reads, use :meth:`boost_async`.
         """
-        positive, negative = self._counts.get(chunk_id, (0, 0))
+        positive, negative = self.counts.get(chunk_id, (0, 0))
         return self.apply(chunk_id, base_score, positive, negative)
 
     def apply(
@@ -591,7 +591,7 @@ class VectorDownWeightScorer:
         self.store = store
         self.tenant_id = tenant_id
         self.negative_factor = negative_factor
-        self._has_negative: dict[str, bool] = {}
+        self.has_negative: dict[str, bool] = {}
 
     async def refresh(self) -> None:
         """Reload the ``has_negative`` cache from the store."""
@@ -602,7 +602,7 @@ class VectorDownWeightScorer:
             result[chunk_id] = any(
                 int(f.rating) == int(Rating.NEGATIVE) for f in chunk_feedback
             )
-        self._has_negative = result
+        self.has_negative = result
 
     def boost(self, chunk_id: str, base_score: float) -> float:
         """Synchronous boost using the in-memory cache.
@@ -610,7 +610,7 @@ class VectorDownWeightScorer:
         Populate the cache once via :meth:`refresh` before relying on
         this method. For live reads, use :meth:`boost_async`.
         """
-        if self._has_negative.get(chunk_id, False):
+        if self.has_negative.get(chunk_id, False):
             return base_score * self.negative_factor
         return base_score
 
@@ -623,7 +623,7 @@ class VectorDownWeightScorer:
         return base_score * self.negative_factor if has_negative else base_score
 
 
-def new_feedback_id() -> str:
+def new_id() -> str:
     """Generate a new feedback id."""
     return str(uuid.uuid4())
 

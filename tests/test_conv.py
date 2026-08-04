@@ -68,24 +68,24 @@ def test_tokenizer_load_returns_none_on_init_failure() -> None:
 
 
 # ---------------------------------------------------------------------------
-# SlidingWindowTrimmer.counttokenize
+# SlidingWindowTrimmer.count
 # ---------------------------------------------------------------------------
 
 
-def test_sliding_window_counttokenize_with_tiktoken() -> None:
-    """When the encoder is set, ``counttokenize`` delegates to it."""
+def test_sliding_window_count_with_tiktoken() -> None:
+    """When the encoder is set, ``count`` delegates to it."""
     manager = SlidingWindowTrimmer()
     manager.enc = MagicMock()
     manager.enc.encode.return_value = [1, 2, 3]
-    assert manager.counttokenize("hello") == 3
+    assert manager.count("hello") == 3
 
 
-def test_sliding_window_counttokenize_without_tiktoken() -> None:
-    """Without an encoder, ``counttokenize`` falls back to whitespace."""
+def test_sliding_window_count_without_tiktoken() -> None:
+    """Without an encoder, ``count`` falls back to whitespace."""
     manager = SlidingWindowTrimmer()
     manager.enc = None
-    assert manager.counttokenize("hello world") == 2
-    assert manager.counttokenize("") == 0
+    assert manager.count("hello world") == 2
+    assert manager.count("") == 0
 
 
 # ---------------------------------------------------------------------------

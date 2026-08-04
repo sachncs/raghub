@@ -343,7 +343,7 @@ class Documents:
                 return None
             return max(versions, key=lambda v: v.version)
 
-    def get_specific_version(self, document_id: str, version: int) -> Document | None:
+    def get_version(self, document_id: str, version: int) -> Document | None:
         """Return a specific historical version, or ``None``."""
         with self.lock:
             for item in self.documents.get(document_id, []):
@@ -351,13 +351,13 @@ class Documents:
                     return item
             return None
 
-    def get_by_checksum(self, checksum: str) -> Document | None:
+    def by_checksum(self, checksum: str) -> Document | None:
         """Look up the document owning ``checksum``."""
         with self.lock:
             locator = self.checksum_index.get(checksum)
             if locator is None:
                 return None
-            return self.get_specific_version(locator[0], locator[1])
+            return self.get_version(locator[0], locator[1])
 
     def list_accessible(self, companies: list[str]) -> list[Document]:
         """Return the latest version of every non-archived document."""
@@ -670,7 +670,7 @@ class Sessions:
         await self.maybe_commit_close(conn)
         if row is None:
             return None
-        return self.row_to_session(row)
+        return self.as_session(row)
 
     async def get_by_token(self, token: str) -> Session | None:
         """Look up a session by bearer token, with sliding expiry."""
@@ -680,7 +680,7 @@ class Sessions:
         if row is None:
             await self.maybe_commit_close(conn)
             return None
-        session = self.row_to_session(row)
+        session = self.as_session(row)
         now = datetime.now(UTC)
         if now > session.expires_at:
             await conn.execute(
@@ -818,7 +818,7 @@ class Sessions:
             await self.delete_session(session.id)
 
     @staticmethod
-    def row_to_session(row: Any) -> Session:
+    def as_session(row: Any) -> Session:
         """Hydrate a :class:`Session` from a SQLite row."""
         row_keys = row.keys() if hasattr(row, "keys") else row
         history_raw = row["history"] if "history" in row_keys else "[]"

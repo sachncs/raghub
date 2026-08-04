@@ -243,38 +243,38 @@ class Office(File):
         ext = file_name.lower().rsplit(".", 1)[-1] if "." in file_name else ""
         sections: list[ParsedSection] = []
 
-        if Office.__is_docx(mime_type, ext):
-            sections.append(Office.__parse_docx(file_bytes))
-        elif Office.__is_xlsx(mime_type, ext):
-            sections.extend(Office.__parse_xlsx(file_bytes))
-        elif Office.__is_pptx(mime_type, ext):
-            sections.extend(Office.__parse_pptx(file_bytes))
+        if Office.is_docx(mime_type, ext):
+            sections.append(Office.parse_docx(file_bytes))
+        elif Office.is_xlsx(mime_type, ext):
+            sections.extend(Office.parse_xlsx(file_bytes))
+        elif Office.is_pptx(mime_type, ext):
+            sections.extend(Office.parse_pptx(file_bytes))
 
         return sections
 
     @staticmethod
-    def __is_docx(mime_type: str, ext: str) -> bool:
+    def is_docx(mime_type: str, ext: str) -> bool:
         return mime_type in {
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/msword",
         } or ext in {"docx", "doc"}
 
     @staticmethod
-    def __is_xlsx(mime_type: str, ext: str) -> bool:
+    def is_xlsx(mime_type: str, ext: str) -> bool:
         return mime_type in {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/vnd.ms-excel",
         } or ext in {"xlsx", "xls"}
 
     @staticmethod
-    def __is_pptx(mime_type: str, ext: str) -> bool:
+    def is_pptx(mime_type: str, ext: str) -> bool:
         return mime_type in {
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "application/vnd.ms-powerpoint",
         } or ext in {"pptx", "ppt"}
 
     @staticmethod
-    def __parse_docx(file_bytes: bytes) -> ParsedSection:
+    def parse_docx(file_bytes: bytes) -> ParsedSection:
         try:
             from docx import Document
         except ImportError as exc:
@@ -291,7 +291,7 @@ class Office(File):
         )
 
     @staticmethod
-    def __parse_xlsx(file_bytes: bytes) -> list[ParsedSection]:
+    def parse_xlsx(file_bytes: bytes) -> list[ParsedSection]:
         try:
             from openpyxl import load_workbook
         except ImportError as exc:
@@ -320,7 +320,7 @@ class Office(File):
         return result
 
     @staticmethod
-    def __parse_pptx(file_bytes: bytes) -> list[ParsedSection]:
+    def parse_pptx(file_bytes: bytes) -> list[ParsedSection]:
         try:
             from pptx import Presentation
         except ImportError as exc:

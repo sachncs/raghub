@@ -481,9 +481,9 @@ def build_chunk_records(
     embedding_model: str = attributes.get("embedding_model", "")
     mime_type: str = attributes.get("mime_type", "")
     file_name: str = attributes.get("file_name", "")
-    from raghub.tenants import get_current_tenant
+    from raghub.tenants import current
 
-    ctx = get_current_tenant()
+    ctx = current()
     tenant_id = ctx.tenant_id if ctx else ""
     records: list[Chunk] = []
     parsed_sections = extract_text(file_bytes, file_name, mime_type)

@@ -16,24 +16,24 @@ from raghub.tenants import (
     CompositeTenantResolver,
     HeaderTenantResolver,
     JwtClaimTenantResolver,
-    validate_tenant_id,
+    validate_tenant,
 )
 from raghub.tenants.isolation import (
     DatabasePerTenant,
-    IsolationStrategy,
+    Isolation,
     RowLevel,
     SchemaPerTenant,
     TenantContext,
     TenantRegistry,
-    get_current_tenant,
+    current,
     require_tenant,
-    reset_current_tenant,
-    set_current_tenant,
+    reset,
+    set_current,
 )
 
 
 # ---------------------------------------------------------------------------
-# validate_tenant_id
+# validate_tenant
 # ---------------------------------------------------------------------------
 
 
@@ -43,7 +43,7 @@ class TestValidateTenantId:
         ["abc", "acme", "tenant-1", "tenant_2", "abc-def-ghi"],
     )
     def test_valid_tenant_ids_accepted(self, tenant_id: str) -> None:
-        validate_tenant_id(tenant_id)
+        validate_tenant(tenant_id)
 
     @pytest.mark.parametrize(
         "tenant_id",
@@ -60,7 +60,7 @@ class TestValidateTenantId:
     )
     def test_invalid_tenant_ids_rejected(self, tenant_id: str) -> None:
         with pytest.raises(ValueError, match="invalid tenant id"):
-            validate_tenant_id(tenant_id)
+            validate_tenant(tenant_id)
 
 
 # ---------------------------------------------------------------------------
@@ -69,41 +69,41 @@ class TestValidateTenantId:
 
 
 class TestTenantContext:
-    def test_get_current_tenant_returns_none_by_default(self) -> None:
-        token = set_current_tenant(None)
+    def test_current_returns_none_by_default(self) -> None:
+        token = set_current(None)
         try:
-            assert get_current_tenant() is None
+            assert current() is None
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
     def test_set_and_reset_tenant(self) -> None:
         ctx = TenantContext(tenant_id="acme")
-        token = set_current_tenant(ctx)
+        token = set_current(ctx)
         try:
-            assert get_current_tenant() is ctx
+            assert current() is ctx
         finally:
-            reset_current_tenant(token)
-        assert get_current_tenant() is None
+            reset(token)
+        assert current() is None
 
 
 class TestRequireTenant:
     def test_require_tenant_raises_when_no_context(self) -> None:
         from raghub.errors import AuthorizationError
 
-        token = set_current_tenant(None)
+        token = set_current(None)
         try:
             with pytest.raises(AuthorizationError, match="missing tenant context"):
                 require_tenant()
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
     def test_require_tenant_returns_context_when_bound(self) -> None:
         ctx = TenantContext(tenant_id="acme")
-        token = set_current_tenant(ctx)
+        token = set_current(ctx)
         try:
             assert require_tenant() is ctx
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -113,55 +113,55 @@ class TestRequireTenant:
 
 class TestRowLevelFilterQuery:
     def test_filter_query_returns_empty_when_no_context(self) -> None:
-        token = set_current_tenant(None)
+        token = set_current(None)
         try:
             clause, params = RowLevel().filter_query()
             assert clause == ""
             assert params == {}
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
     def test_filter_query_returns_clause_when_context_bound(self) -> None:
         ctx = TenantContext(tenant_id="acme")
-        token = set_current_tenant(ctx)
+        token = set_current(ctx)
         try:
             clause, params = RowLevel().filter_query()
             assert clause == "tenant_id = :tenant_id"
             assert params == {"tenant_id": "acme"}
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
     def test_filter_query_custom_column(self) -> None:
         ctx = TenantContext(tenant_id="acme")
-        token = set_current_tenant(ctx)
+        token = set_current(ctx)
         try:
             clause, params = RowLevel().filter_query(column="owner")
             assert clause == "owner = :tenant_id"
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
     def test_filter_query_custom_operator(self) -> None:
         ctx = TenantContext(tenant_id="acme")
-        token = set_current_tenant(ctx)
+        token = set_current(ctx)
         try:
             clause, params = RowLevel().filter_query(operator="!=")
             assert clause == "tenant_id != :tenant_id"
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
 
 class TestRowLevelApplyToKwargs:
     def test_apply_to_kwargs_passes_through_when_no_context(self) -> None:
-        token = set_current_tenant(None)
+        token = set_current(None)
         try:
             kwargs = {"foo": "bar"}
             assert RowLevel().apply_to_kwargs(kwargs) is kwargs
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
     def test_apply_to_kwargs_injects_tenant_id(self) -> None:
         ctx = TenantContext(tenant_id="acme")
-        token = set_current_tenant(ctx)
+        token = set_current(ctx)
         try:
             kwargs = {"query_vector": [0.1, 0.2]}
             result = RowLevel().apply_to_kwargs(kwargs)
@@ -169,17 +169,17 @@ class TestRowLevelApplyToKwargs:
             # original is not mutated
             assert "tenant_id" not in kwargs
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
     def test_apply_to_kwargs_does_not_overwrite_explicit_tenant_id(self) -> None:
         ctx = TenantContext(tenant_id="acme")
-        token = set_current_tenant(ctx)
+        token = set_current(ctx)
         try:
             kwargs = {"tenant_id": "explicit"}
             result = RowLevel().apply_to_kwargs(kwargs)
             assert result["tenant_id"] == "explicit"
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -218,12 +218,12 @@ class TestDatabasePerTenantRouting:
     async def test_connection_for_unknown_tenant_raises(self) -> None:
         registry = TenantRegistry()
         dbt = DatabasePerTenant(registry)
-        token = set_current_tenant(TenantContext(tenant_id="missing"))
+        token = set_current(TenantContext(tenant_id="missing"))
         try:
             with pytest.raises(KeyError, match="unknown tenant id"):
                 await dbt.connection_for("missing")
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +234,7 @@ class TestDatabasePerTenantRouting:
 class TestTenantsSettings:
     def test_default_tenants_isolation_is_row_level(self) -> None:
         settings = Settings()
-        assert settings.tenants.isolation == IsolationStrategy.ROW_LEVEL
+        assert settings.tenants.isolation == Isolation.ROW_LEVEL
 
     def test_default_tenants_resolver_is_none(self) -> None:
         settings = Settings()
@@ -306,11 +306,11 @@ class TestSchemaPerTenantLive:
         # Unique tenant id per test run to avoid colliding with prior runs
         tenant_id = f"test_tenant_{os.getpid()}"
         sp = SchemaPerTenant(dsn)
-        token = set_current_tenant(TenantContext(tenant_id=tenant_id))
+        token = set_current(TenantContext(tenant_id=tenant_id))
         try:
             await sp.ensure_schema(tenant_id)
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
 
 @pytest.mark.skipif(
@@ -327,13 +327,13 @@ class TestDatabasePerTenantLive:
         registry = TenantRegistry()
         registry.upsert("acme", dsn=dsn, vector_dim=384)
         dbt = DatabasePerTenant(registry)
-        token = set_current_tenant(TenantContext(tenant_id="acme"))
+        token = set_current(TenantContext(tenant_id="acme"))
         try:
             conn = await dbt.connection_for("acme")
             assert conn is not None
             await conn.close()
         finally:
-            reset_current_tenant(token)
+            reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -448,28 +448,28 @@ class TestRowLevelEndToEnd:
         )
         store.rebuild_index()
 
-        token_a = set_current_tenant(TenantContext(tenant_id="acme"))
+        token_a = set_current(TenantContext(tenant_id="acme"))
         try:
             hits_a = store.search(vector=[0.1, 0.2], top_k=10)
         finally:
-            reset_current_tenant(token_a)
+            reset(token_a)
         ids_a = {h["chunk_id"] for h in hits_a}
         assert ids_a == {"a1"}, f"tenant acme must see only its own chunk; got {ids_a}"
 
-        token_b = set_current_tenant(TenantContext(tenant_id="bobco"))
+        token_b = set_current(TenantContext(tenant_id="bobco"))
         try:
             hits_b = store.search(vector=[0.3, 0.4], top_k=10)
         finally:
-            reset_current_tenant(token_b)
+            reset(token_b)
         ids_b = {h["chunk_id"] for h in hits_b}
         assert ids_b == {"b1"}, f"tenant bobco must see only its own chunk; got {ids_b}"
 
         # Without a tenant context, both chunks are reachable (the
         # admin-style read path). This is the contract that admin
         # users and the anonymous fallback depend on.
-        token_none = set_current_tenant(None)
+        token_none = set_current(None)
         try:
             hits_none = store.search(vector=[0.1, 0.2], top_k=10)
         finally:
-            reset_current_tenant(token_none)
+            reset(token_none)
         assert {h["chunk_id"] for h in hits_none} == {"a1", "b1"}

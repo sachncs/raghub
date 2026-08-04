@@ -598,7 +598,7 @@ class TestLargeCorpus:
 
 
 # ===========================================================================
-# Search — filter + count_by_field behavior
+# Search — filter + count_field behavior
 # ===========================================================================
 
 
@@ -694,7 +694,7 @@ class TestFacetedSearchEngineCountByField:
             vector_store=MemoryStore(embedding_dim=2),
             embedding_provider=FakeEmbeddingProvider(),
         )
-        assert engine.count_by_field("company") == {}
+        assert engine.count_field("company") == {}
 
     def test_counts_scalar_values(self) -> None:
         store = MemoryStore(embedding_dim=2)
@@ -707,7 +707,7 @@ class TestFacetedSearchEngineCountByField:
             [[0.1, 0.2]] * 3,
         )
         engine = Search(vector_store=store, embedding_provider=FakeEmbeddingProvider())
-        assert engine.count_by_field("company") == {"Acme": 2, "Beta": 1}
+        assert engine.count_field("company") == {"Acme": 2, "Beta": 1}
 
     def test_none_values_skipped(self) -> None:
         store = MemoryStore(embedding_dim=2)
@@ -716,7 +716,7 @@ class TestFacetedSearchEngineCountByField:
             [[0.1, 0.2], [0.3, 0.4]],
         )
         engine = Search(vector_store=store, embedding_provider=FakeEmbeddingProvider())
-        assert engine.count_by_field("nonexistent_field") == {}
+        assert engine.count_field("nonexistent_field") == {}
 
 
 class TestBuildFilterString:
@@ -779,18 +779,18 @@ class TestMemoryStoreTenantIdIsolation:
 
     def test_search_filters_by_context_tenant_id(self) -> None:
         """search() honours tenant context when no explicit tenant_id."""
-        from raghub.tenants import TenantContext, set_current_tenant, reset_current_tenant
+        from raghub.tenants import TenantContext, set_current, reset
 
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [_chunk("a", tenant_id="alice"), _chunk("b", tenant_id="bob")],
             [[0.1, 0.2], [0.1, 0.2]],
         )
-        token = set_current_tenant(TenantContext(tenant_id="bob"))
+        token = set_current(TenantContext(tenant_id="bob"))
         try:
             hits = store.search(vector=[0.1, 0.2], top_k=10)
         finally:
-            reset_current_tenant(token)
+            reset(token)
         ids = {h["chunk_id"] for h in hits}
         assert ids == {"b"}
 
@@ -806,35 +806,35 @@ class TestMemoryStoreTenantIdIsolation:
 
     def test_search_explicit_tenant_overrides_context(self) -> None:
         """Explicit tenant_id wins over a bound tenant context."""
-        from raghub.tenants import TenantContext, set_current_tenant, reset_current_tenant
+        from raghub.tenants import TenantContext, set_current, reset
 
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [_chunk("a", tenant_id="alice"), _chunk("b", tenant_id="bob")],
             [[0.1, 0.2], [0.1, 0.2]],
         )
-        token = set_current_tenant(TenantContext(tenant_id="bob"))
+        token = set_current(TenantContext(tenant_id="bob"))
         try:
             hits = store.search(vector=[0.1, 0.2], top_k=10, tenant_id="alice")
         finally:
-            reset_current_tenant(token)
+            reset(token)
         ids = {h["chunk_id"] for h in hits}
         assert ids == {"a"}
 
     def test_search_chunks_with_none_tenant_id_excluded_when_filtering(self) -> None:
         """Chunks with ``tenant_id=None`` are excluded when a tenant is bound."""
-        from raghub.tenants import TenantContext, set_current_tenant, reset_current_tenant
+        from raghub.tenants import TenantContext, set_current, reset
 
         store = MemoryStore(embedding_dim=2)
         store.insert(
             [_chunk("a", tenant_id="alice"), _chunk("legacy")],
             [[0.1, 0.2], [0.1, 0.2]],
         )
-        token = set_current_tenant(TenantContext(tenant_id="alice"))
+        token = set_current(TenantContext(tenant_id="alice"))
         try:
             hits = store.search(vector=[0.1, 0.2], top_k=10)
         finally:
-            reset_current_tenant(token)
+            reset(token)
         ids = {h["chunk_id"] for h in hits}
         assert ids == {"a"}
 

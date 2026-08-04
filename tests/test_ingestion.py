@@ -264,7 +264,7 @@ class TestBatch:
         finally:
             batch.shutdown()
 
-    def test_submit_async_runs_callable(self) -> None:
+    def test_submit_runs_callable(self) -> None:
         batch = Batch(max_workers=1)
         try:
 

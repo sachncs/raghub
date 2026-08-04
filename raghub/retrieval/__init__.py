@@ -318,7 +318,7 @@ class Cascade:
 LISTWISE_MAX = 10
 
 
-def extract_json_array(raw: str) -> list[dict[str, Any]]:
+def extract_array(raw: str) -> list[dict[str, Any]]:
     """Pull the first JSON array of objects out of (possibly fenced) text."""
     if not raw:
         return []
@@ -346,7 +346,7 @@ def extract_json_array(raw: str) -> list[dict[str, Any]]:
     return [item for item in parsed if isinstance(item, dict)]
 
 
-def merge_with_rrf(per_window: list[list[Hit]], rrf_k: int = 60) -> list[Hit]:
+def merge_rrf(per_window: list[list[Hit]], rrf_k: int = 60) -> list[Hit]:
     """Reciprocal-Rank-Fusion merge across ranked windows."""
     scores: dict[str, float] = {}
     order: dict[str, int] = {}
@@ -410,7 +410,7 @@ class LlmJudge:
                 question=prompt,
             )
         )
-        parsed = extract_json_array(raw or "")
+        parsed = extract_array(raw or "")
         ordered: list[Hit] = []
         seen: set[int] = set()
         for item in parsed:
@@ -435,7 +435,7 @@ class LlmJudge:
             return (await self.rank_window(question, hits))[: self.top_k]
         windows = [hits[i : i + LISTWISE_MAX] for i in range(0, len(hits), LISTWISE_MAX)]
         per_window = [await self.rank_window(question, w) for w in windows]
-        merged = merge_with_rrf(per_window)
+        merged = merge_rrf(per_window)
         return merged[: self.top_k]
 
     async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
@@ -478,7 +478,7 @@ def context_prompt(question: str, hits: Sequence[Hit]) -> str:
     return "\n".join(lines)
 
 
-def extract_json_object(raw: str) -> dict[str, Any] | None:
+def extract_object(raw: str) -> dict[str, Any] | None:
     """Pull the first balanced JSON object out of a (possibly fenced) string."""
     if not raw:
         return None
@@ -524,7 +524,7 @@ def reorder_candidates(
     return ordered
 
 
-def record_context_latency(outcome: str, seconds: float) -> None:
+def record_latency(outcome: str, seconds: float) -> None:
     """Push a long-context counter observation when Prometheus is wired."""
     record_long_context(outcome=outcome, seconds=seconds)
 
@@ -586,19 +586,19 @@ class Context:
                     question=context_prompt(question, candidates),
                 )
             )
-            parsed = extract_json_object(raw or "")
+            parsed = extract_object(raw or "")
             if parsed is None:
-                record_context_latency("bad_json", time.perf_counter() - started)
+                record_latency("bad_json", time.perf_counter() - started)
                 return list(hits)
             ranked = RankedList.model_validate(parsed)
             reordered = reorder_candidates(candidates, ranked)
             if reordered is None:
-                record_context_latency("bad_json", time.perf_counter() - started)
+                record_latency("bad_json", time.perf_counter() - started)
                 return list(hits)
-            record_context_latency("ran", time.perf_counter() - started)
+            record_latency("ran", time.perf_counter() - started)
             return reordered
         except Exception:  # pragma: no cover - defensive envelope
-            record_context_latency("error", time.perf_counter() - started)
+            record_latency("error", time.perf_counter() - started)
             return list(hits)
 
     async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
@@ -773,7 +773,7 @@ def linear_combine(
 # ---------------------------------------------------------------------------
 
 
-def extract_string_array(raw: str) -> list[str]:
+def extract_strings(raw: str) -> list[str]:
     """Pull a JSON array of strings out of a (possibly fenced) string."""
     if not raw:
         return []
@@ -871,7 +871,7 @@ MULTI_QUERY = (
 )
 
 
-def multi_query_prompt(question: str, n: int) -> str:
+def query_prompt(question: str, n: int) -> str:
     """Build the multi-query prompt that returns N rephrasings as JSON."""
     return (
         f"Rewrite the following question as {n} distinct search queries. "
@@ -916,10 +916,10 @@ class MultiQuery:
                 system_prompt=MULTI_QUERY,
                 conversation=list(history),
                 context=[],
-                question=multi_query_prompt(question, self.n),
+                question=query_prompt(question, self.n),
             )
         )
-        phrasings = extract_string_array(raw or "")
+        phrasings = extract_strings(raw or "")
         return [Variant(text=phrase, kind="multi_query") for phrase in phrasings[: self.n]]
 
 
@@ -973,7 +973,7 @@ class Decompose:
                 question=decompose_prompt(question),
             )
         )
-        sub_questions = extract_string_array(raw or "")
+        sub_questions = extract_strings(raw or "")
         return [Variant(text=q, kind="sub") for q in sub_questions]
 
 
@@ -983,7 +983,7 @@ STEP_BACK = (
 )
 
 
-def step_back_prompt(question: str) -> str:
+def step_prompt(question: str) -> str:
     """Build the step-back prompt that asks for the principle-level question."""
     return (
         "Given the specific question below, write the more general, "
@@ -1024,7 +1024,7 @@ class StepBack:
                 system_prompt=STEP_BACK,
                 conversation=list(history),
                 context=[],
-                question=step_back_prompt(question),
+                question=step_prompt(question),
             )
         )
         text = (abstract or "").strip()
@@ -1163,7 +1163,7 @@ class Search:
             and chunk.owner in (filters.owners or [chunk.owner])
         )
 
-    def count_by_field(self, field: str) -> dict[str, int]:
+    def count_field(self, field: str) -> dict[str, int]:
         """Return facet counts for a given metadata field."""
         records = getattr(self.vector_store, "records", None)
         if records is None:
@@ -1217,7 +1217,7 @@ class Retrieval:
         self.embedding_provider = embedding_provider
         self.vector_store = vector_store
         self.rerank = rerank
-        self.hybrid = hybrid or default_hybrid_config()
+        self.hybrid = hybrid or default_hybrid()
 
     def retrieve(self, *, user: User, question: str, top_k: int) -> list[Hit]:
         """Retrieve authorised, deduplicated chunks relevant to ``question``."""
@@ -1392,7 +1392,7 @@ class Retrieval:
         )
         return self.rerank.rerank(question=question_for_rerank, hits=fused)
 
-    def retrieve_hybrid_v2(
+    def retrieve_hybrid(
         self,
         *,
         user: User,
@@ -1482,7 +1482,7 @@ class RerankerFactory:
             # reach it through the async path or asyncio.run (see reranker()).
             return cast(
                 Rerank,
-                Context(self.llm, getattr(cfg, "long_context", None) or default_long_context()),
+                Context(self.llm, getattr(cfg, "long_context", None) or default_long()),
             )
         raise RerankerError(f"Unknown reranker provider: {provider!r}")
 
@@ -1502,7 +1502,7 @@ def build_reranker(
 # ---------------------------------------------------------------------------
 
 
-def default_hybrid_config() -> Any:
+def default_hybrid() -> Any:
     """Construct a default ``HybridConfig`` (or duck-typed stand-in)."""
     try:
         from raghub.config import HybridConfig
@@ -1521,7 +1521,7 @@ class HybridConfigShim:
     long_context: Any = None
 
 
-def default_long_context() -> LongContextConfig:
+def default_long() -> LongContextConfig:
     """Return a disabled :class:`LongContextConfig` for fallback construction."""
     return LongContextConfig(enabled=False, candidate_k=5, allowlist_models=[])
 
@@ -1549,7 +1549,7 @@ def reranker(
         The hits reordered by descending relevance.
 
     """
-    impl = reranker_from_method(method)
+    impl = reranker(method)
     out = impl.rerank(question=question, hits=list(hits))
     if __import__("asyncio").iscoroutine(out):
         return cast(
@@ -1566,7 +1566,7 @@ async def areranker(
     method: str = "identity",
 ) -> list[Hit]:
     """Asynchronously rerank ``hits`` using the named ``method``."""
-    impl = reranker_from_method(method)
+    impl = reranker(method)
     return await impl.arerank(question=question, hits=list(hits))
 
 
@@ -1592,11 +1592,11 @@ async def transform(
     """
     if llm is None:
         raise RerankerError("transform(...) requires an LLM via llm=...")
-    impl = transformer_from_method(method, llm)
+    impl = transformer(method, llm)
     return await impl.transform(question=question, history=list(history))
 
 
-def reranker_from_method(method: str) -> Rerank:
+def reranker(method: str) -> Rerank:
     """Construct a reranker by name. Settings-driven factory has its own path."""
     if method == "identity":
         return Identity()
@@ -1613,11 +1613,11 @@ def reranker_from_method(method: str) -> Rerank:
 
         # Async-only (rerank is awaited by the pipeline); Rerank requires
         # a sync rerank, so callers reach it via arerank / asyncio.run.
-        return cast(Rerank, Context(LiteLLM(), default_long_context()))
+        return cast(Rerank, Context(LiteLLM(), default_long()))
     raise RerankerError(f"Unknown reranker method: {method!r}")
 
 
-def transformer_from_method(method: str, llm: Any) -> Transformer:
+def transformer(method: str, llm: Any) -> Transformer:
     """Construct a transformer by name."""
     if method == "hyde":
         return Hyde(llm)
@@ -1655,18 +1655,18 @@ __all__ = [
     "build_reranker",
     "context_prompt",
     "decompose_prompt",
-    "extract_json_array",
-    "extract_json_object",
-    "extract_string_array",
+    "extract_array",
+    "extract_object",
+    "extract_strings",
     "hyde_prompt",
     "linear_combine",
-    "merge_with_rrf",
-    "multi_query_prompt",
-    "record_context_latency",
+    "merge_rrf",
+    "query_prompt",
+    "record_latency",
     "reorder_candidates",
     "rerank_latency",
     "reranker",
     "rrf",
-    "step_back_prompt",
+    "step_prompt",
     "transform",
 ]

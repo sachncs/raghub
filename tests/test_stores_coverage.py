@@ -127,29 +127,29 @@ def test_documents_get_latest_unknown_returns_none(tmp_path: Path) -> None:
     assert store.get_latest("missing") is None
 
 
-def test_documents_get_specific_version(tmp_path: Path) -> None:
-    """``get_specific_version`` returns the requested version."""
+def test_documents_get_version(tmp_path: Path) -> None:
+    """``get_version`` returns the requested version."""
     store = Documents(tmp_path / "registry.json")
     store.save_version(_make_document(id="d1", version=1, checksum="c1"))
     store.save_version(_make_document(id="d1", version=2, checksum="c2"))
-    doc = store.get_specific_version("d1", 1)
+    doc = store.get_version("d1", 1)
     assert doc is not None
     assert doc.version == 1
 
 
-def test_documents_get_by_checksum(tmp_path: Path) -> None:
-    """``get_by_checksum`` returns the document owning the checksum."""
+def test_documents_by_checksum(tmp_path: Path) -> None:
+    """``by_checksum`` returns the document owning the checksum."""
     store = Documents(tmp_path / "registry.json")
     store.save_version(_make_document(id="d1", version=1, checksum="c1"))
-    doc = store.get_by_checksum("c1")
+    doc = store.by_checksum("c1")
     assert doc is not None
     assert doc.id == "d1"
 
 
-def test_documents_get_by_checksum_unknown(tmp_path: Path) -> None:
-    """``get_by_checksum`` returns ``None`` for an unknown checksum."""
+def test_documents_by_checksum_unknown(tmp_path: Path) -> None:
+    """``by_checksum`` returns ``None`` for an unknown checksum."""
     store = Documents(tmp_path / "registry.json")
-    assert store.get_by_checksum("missing") is None
+    assert store.by_checksum("missing") is None
 
 
 def test_documents_list_accessible_filters_by_company(tmp_path: Path) -> None:

@@ -1,9 +1,9 @@
 """Prompt templates and builders.
 
-Exposes :class:`PromptBuilder`, :class:`PromptConfig`,
+Exposes :class:`Prompt`, :class:`PromptConfig`,
 :class:`TokenCounter`, and the canonical :data:`SYSTEM_PROMPT_TEMPLATE`.
 
-The :class:`PromptBuilder` greedily fills a fixed-size token budget with
+The :class:`Prompt` greedily fills a fixed-size token budget with
 four sections in order:
 
 1. **System prompt** — instruction that frames the assistant's behaviour.
@@ -32,7 +32,7 @@ from raghub.models import Turn
 
 __all__ = [
     "SYSTEM_PROMPT_TEMPLATE",
-    "PromptBuilder",
+    "Prompt",
     "PromptConfig",
     "TokenCounter",
 ]
@@ -130,7 +130,7 @@ class TokenCounter:
         return " ".join(words)
 
 
-class PromptBuilder:
+class Prompt:
     """Builds prompt payloads with token-aware truncation.
 
     The builder is stateless across calls (apart from the immutable
@@ -197,9 +197,9 @@ class PromptBuilder:
         available_tokens = (
             self.config.max_tokens - self.config.reserved_output_tokens
         )
-        available_tokens = self.__consume_system(available_tokens)
-        history_messages = self.__consume_history(session_history, available_tokens)
-        context_texts, _ = self.__consume_context(context, available_tokens)
+        available_tokens = self.consume_system(available_tokens)
+        history_messages = self.consume_history(session_history, available_tokens)
+        context_texts, _ = self.consume_context(context, available_tokens)
         return {
             "system": self.config.system_prompt,
             "history": history_messages,
@@ -208,11 +208,11 @@ class PromptBuilder:
             "image_paths": image_paths or [],
         }
 
-    def __consume_system(self, available_tokens: int) -> int:
+    def consume_system(self, available_tokens: int) -> int:
         """Subtract the system prompt's tokens and return the remainder."""
         return available_tokens - self.token_counter.count(self.config.system_prompt)
 
-    def __consume_history(
+    def consume_history(
         self,
         session_history: list[Turn] | None,
         available_tokens: int,
@@ -233,7 +233,7 @@ class PromptBuilder:
             available_tokens -= tokens
         return history_messages
 
-    def __consume_context(
+    def consume_context(
         self,
         context: list[dict[str, Any]] | None,
         available_tokens: int,

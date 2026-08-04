@@ -105,7 +105,7 @@ def test_documents_save_version_archive_predecessor(tmp_path: Path) -> None:
     latest = registry.get_latest("d1")
     assert latest.version == 2
     # The v1 document has been archived by the cascade.
-    v1 = registry.get_specific_version("d1", 1)
+    v1 = registry.get_version("d1", 1)
     assert v1.status == DocumentLifecycleStatus.ARCHIVED
 
 
@@ -135,8 +135,8 @@ def test_documents_get_latest_missing(tmp_path: Path) -> None:
     assert registry.get_latest("missing") is None
 
 
-def test_documents_get_specific_version(tmp_path: Path) -> None:
-    """get_specific_version finds a particular version (or None)."""
+def test_documents_get_version(tmp_path: Path) -> None:
+    """get_version finds a particular version (or None)."""
 
     from raghub.stores import Documents
 
@@ -144,12 +144,12 @@ def test_documents_get_specific_version(tmp_path: Path) -> None:
     registry = Documents(path)
     registry.save_version(_make_document(version=1, checksum="g1"))
     registry.save_version(_make_document(version=2, checksum="g2"))
-    assert registry.get_specific_version("d1", 2).checksum == "g2"
-    assert registry.get_specific_version("d1", 99) is None
+    assert registry.get_version("d1", 2).checksum == "g2"
+    assert registry.get_version("d1", 99) is None
 
 
-def test_documents_get_by_checksum(tmp_path: Path) -> None:
-    """get_by_checksum resolves a checksum to its Document (or None)."""
+def test_documents_by_checksum(tmp_path: Path) -> None:
+    """by_checksum resolves a checksum to its Document (or None)."""
 
     from raghub.stores import Documents
 
@@ -157,10 +157,10 @@ def test_documents_get_by_checksum(tmp_path: Path) -> None:
     registry = Documents(path)
     document = _make_document(checksum="ck1")
     registry.save_version(document)
-    found = registry.get_by_checksum("ck1")
+    found = registry.by_checksum("ck1")
     assert found is not None
     assert found.id == document.id
-    assert registry.get_by_checksum("missing") is None
+    assert registry.by_checksum("missing") is None
 
 
 def test_documents_list_accessible_filters_by_company(tmp_path: Path) -> None:

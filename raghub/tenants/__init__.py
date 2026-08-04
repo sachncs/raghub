@@ -19,27 +19,27 @@ from typing import Any, Protocol
 __all__ = [
     "CompositeTenantResolver",
     "HeaderTenantResolver",
-    "IsolationStrategy",
+    "Isolation",
     "JwtClaimTenantResolver",
     "NoTenantResolver",
     "TenantContext",
     "TenantId",
     "TenantResolver",
-    "get_current_tenant",
-    "reset_current_tenant",
-    "set_current_tenant",
-    "validate_tenant_id",
+    "current",
+    "reset",
+    "set_current",
+    "validate_tenant",
 ]
 
 # Re-export context helpers and the dataclass so callers don't have to
 # reach into ``raghub.tenants.isolation`` for routine use.
 from raghub.tenants.isolation import (  # noqa: E402  (re-export)
-    IsolationStrategy,
+    Isolation,
     TenantContext,
     TenantRegistry,
-    get_current_tenant,
-    reset_current_tenant,
-    set_current_tenant,
+    current,
+    reset,
+    set_current,
 )
 
 TenantId = str
@@ -47,7 +47,7 @@ TenantId = str
 TENANT_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{2,63}$")
 
 
-def validate_tenant_id(tenant_id: str) -> None:
+def validate_tenant(tenant_id: str) -> None:
     """Validate ``tenant_id`` against :data:`TENANT_ID_PATTERN`.
 
     Raises:
@@ -90,7 +90,7 @@ class HeaderTenantResolver:
         if not raw:
             return None
         try:
-            validate_tenant_id(raw)
+            validate_tenant(raw)
         except ValueError:
             return None
         return raw
@@ -110,7 +110,7 @@ class JwtClaimTenantResolver:
         if not raw or not isinstance(raw, str):
             return None
         try:
-            validate_tenant_id(raw)
+            validate_tenant(raw)
         except ValueError:
             return None
         return raw

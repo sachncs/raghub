@@ -32,7 +32,7 @@ __all__ = [
     "GenerationRequest",
     "Generator",
     "LiteLLM",
-    "any_llm_api_key_present",
+    "has_llm_key",
     "build_llm",
 ]
 
@@ -50,7 +50,7 @@ LLM_API_KEY_ENV_VARS: tuple[str, ...] = (
 )
 
 
-def any_llm_api_key_present() -> bool:
+def has_llm_key() -> bool:
     """Return ``True`` when at least one LLM credential env var is set.
 
     Returns:
@@ -474,7 +474,7 @@ def build_llm(
         ConfigurationError: When no LLM API key is configured.
 
     """
-    if not any_llm_api_key_present() and not api_key:
+    if not has_llm_key() and not api_key:
         raise ConfigurationError(
             "No LLM API key configured; set one in Settings "
             "(e.g. RAG_LLM_API_KEY) or pass api_key= explicitly."

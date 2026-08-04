@@ -18,19 +18,17 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 
 from raghub.api import (
-    AppFactory,
-    ExceptionHandlers,
+    App,
     Lifespan,
-    RouteGroup,
-    check_upload_size,
-    cors_origins_from_env,
-    enforce_upload_limit,
+    check_size,
+    cors_origins,
+    enforce_limit,
     package_metadata,
-    root_health_route,
-    upload_content_length,
-    user_store_or_503,
+    health_route,
+    content_length,
     validate_cors,
 )
+from raghub.routes import Exceptions, RouteGroup, user_store_or_raise
 
 # ---------------------------------------------------------------------------
 # CORS helpers
@@ -41,21 +39,21 @@ def test_cors_origins_default_is_wildcard(monkeypatch: pytest.MonkeyPatch) -> No
     """When CORS_ORIGINS is unset, the default is ``['*']``."""
 
     monkeypatch.delenv("CORS_ORIGINS", raising=False)
-    assert cors_origins_from_env() == ["*"]
+    assert cors_origins() == ["*"]
 
 
 def test_cors_origins_empty_string_is_wildcard(monkeypatch: pytest.MonkeyPatch) -> None:
     """An empty CORS_ORIGINS string falls back to ``['*']``."""
 
     monkeypatch.setenv("CORS_ORIGINS", "")
-    assert cors_origins_from_env() == ["*"]
+    assert cors_origins() == ["*"]
 
 
 def test_cors_origins_splits_csv(monkeypatch: pytest.MonkeyPatch) -> None:
     """A comma-separated list is split into clean strings."""
 
     monkeypatch.setenv("CORS_ORIGINS", "https://a.example, https://b.example ,")
-    assert cors_origins_from_env() == ["https://a.example", "https://b.example"]
+    assert cors_origins() == ["https://a.example", "https://b.example"]
 
 
 def test_validate_cors_raises_on_wildcard() -> None:
@@ -87,37 +85,37 @@ def test_validate_cors_passes_explicit_list() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_check_upload_size_none_returns_false() -> None:
+def test_check_size_none_returns_false() -> None:
     """A missing Content-Length returns False (post-read check will run)."""
 
-    assert check_upload_size(None, 1000) is False
+    assert check_size(None, 1000) is False
 
 
-def test_check_upload_size_under_limit_returns_false() -> None:
+def test_check_size_under_limit_returns_false() -> None:
     """An upload under the limit returns False."""
 
-    assert check_upload_size(500, 1000) is False
+    assert check_size(500, 1000) is False
 
 
-def test_check_upload_size_at_limit_returns_false() -> None:
+def test_check_size_at_limit_returns_false() -> None:
     """An upload exactly at the limit returns False."""
 
-    assert check_upload_size(1000, 1000) is False
+    assert check_size(1000, 1000) is False
 
 
-def test_check_upload_size_over_limit_returns_true() -> None:
+def test_check_size_over_limit_returns_true() -> None:
     """An upload over the limit returns True."""
 
-    assert check_upload_size(2000, 1000) is True
+    assert check_size(2000, 1000) is True
 
 
-def test_upload_content_length_returns_int() -> None:
-    """upload_content_length parses an integer header value."""
+def test_content_length_returns_int() -> None:
+    """content_length parses an integer header value."""
 
     captured: dict[str, int | None] = {}
 
     def _route(request: Request) -> dict[str, int | None]:
-        captured["value"] = upload_content_length(request)
+        captured["value"] = content_length(request)
         return {"value": captured["value"]}
 
     app = FastAPI()
@@ -128,13 +126,13 @@ def test_upload_content_length_returns_int() -> None:
     assert captured["value"] == 123
 
 
-def test_upload_content_length_missing_returns_none() -> None:
-    """upload_content_length returns None when the header is absent."""
+def test_content_length_missing_returns_none() -> None:
+    """content_length returns None when the header is absent."""
 
     captured: dict[str, int | None] = {}
 
     def _route(request: Request) -> dict[str, int | None]:
-        captured["value"] = upload_content_length(request)
+        captured["value"] = content_length(request)
         return {"value": captured["value"]}
 
     app = FastAPI()
@@ -145,8 +143,8 @@ def test_upload_content_length_missing_returns_none() -> None:
     assert captured["value"] is None
 
 
-def test_upload_content_length_invalid_returns_none() -> None:
-    """upload_content_length returns None for a non-integer header value."""
+def test_content_length_invalid_returns_none() -> None:
+    """content_length returns None for a non-integer header value."""
 
     # The TestClient will not let us inject a non-numeric Content-Length,
     # but we can verify the branch by invoking the helper directly with a
@@ -157,11 +155,11 @@ def test_upload_content_length_invalid_returns_none() -> None:
     headers = Headers(raw=[(b"content-length", b"not-a-number")])
     scope = {"type": "http", "headers": headers.raw}
     request = Request(scope)
-    assert upload_content_length(request) is None
+    assert content_length(request) is None
 
 
-def test_enforce_upload_limit_no_setting_is_silent() -> None:
-    """When max_upload_bytes is 0, enforce_upload_limit is a no-op."""
+def test_enforce_limit_no_setting_is_silent() -> None:
+    """When max_upload_bytes is 0, enforce_limit is a no-op."""
 
     container = MagicMock()
     container.settings.max_upload_bytes = 0
@@ -169,7 +167,7 @@ def test_enforce_upload_limit_no_setting_is_silent() -> None:
     captured: dict[str, bool] = {}
 
     def _route(request: Request) -> dict[str, bool]:
-        enforce_upload_limit(request, container)
+        enforce_limit(request, container)
         captured["ok"] = True
         return {"ok": True}
 
@@ -181,14 +179,14 @@ def test_enforce_upload_limit_no_setting_is_silent() -> None:
     assert captured["ok"] is True
 
 
-def test_enforce_upload_limit_oversize_raises() -> None:
+def test_enforce_limit_oversize_raises() -> None:
     """An oversize upload raises HTTP 413 (exercised at the helper level)."""
 
     container = MagicMock()
     container.settings.max_upload_bytes = 100
 
     def _route(request: Request) -> dict[str, bool]:
-        enforce_upload_limit(request, container)
+        enforce_limit(request, container)
         return {"ok": True}
 
     app = FastAPI()
@@ -198,7 +196,7 @@ def test_enforce_upload_limit_oversize_raises() -> None:
     assert response.status_code == 413
 
 
-def test_enforce_upload_limit_undersize_is_silent() -> None:
+def test_enforce_limit_undersize_is_silent() -> None:
     """An undersize upload passes silently."""
 
     container = MagicMock()
@@ -207,7 +205,7 @@ def test_enforce_upload_limit_undersize_is_silent() -> None:
     captured: dict[str, bool] = {}
 
     def _route(request: Request) -> dict[str, bool]:
-        enforce_upload_limit(request, container)
+        enforce_limit(request, container)
         captured["ok"] = True
         return {"ok": True}
 
@@ -220,12 +218,12 @@ def test_enforce_upload_limit_undersize_is_silent() -> None:
 
 
 # ---------------------------------------------------------------------------
-# user_store_or_503
+# user_store_or_raise
 # ---------------------------------------------------------------------------
 
 
-def test_user_store_or_503_returns_user_store() -> None:
-    """user_store_or_503 returns the configured user store with prefs API."""
+def test_user_store_or_raise_returns_user_store() -> None:
+    """user_store_or_raise returns the configured user store with prefs API."""
 
     class _FakeStore:
         def get_pref(self, user_id: str, key: str) -> None:
@@ -237,21 +235,21 @@ def test_user_store_or_503_returns_user_store() -> None:
     store = _FakeStore()
     app_service = MagicMock()
     app_service.container.user_store = store
-    assert user_store_or_503(app_service) is store
+    assert user_store_or_raise(app_service) is store
 
 
-def test_user_store_or_503_raises_503_when_missing() -> None:
-    """user_store_or_503 raises HTTPException(503) when user_store is None."""
+def test_user_store_or_raise_raises_503_when_missing() -> None:
+    """user_store_or_raise raises HTTPException(503) when user_store is None."""
 
     app_service = MagicMock()
     app_service.container.user_store = None
     with pytest.raises(HTTPException) as exc_info:
-        user_store_or_503(app_service)
+        user_store_or_raise(app_service)
     assert exc_info.value.status_code == 503
 
 
-def test_user_store_or_503_raises_503_when_missing_prefs_api() -> None:
-    """user_store_or_503 raises when store lacks get_pref/set_pref."""
+def test_user_store_or_raise_raises_503_when_missing_prefs_api() -> None:
+    """user_store_or_raise raises when store lacks get_pref/set_pref."""
 
     class _StubStore:
         pass
@@ -259,7 +257,7 @@ def test_user_store_or_503_raises_503_when_missing_prefs_api() -> None:
     app_service = MagicMock()
     app_service.container.user_store = _StubStore()
     with pytest.raises(HTTPException) as exc_info:
-        user_store_or_503(app_service)
+        user_store_or_raise(app_service)
     assert exc_info.value.status_code == 503
 
 
@@ -279,15 +277,15 @@ def test_package_metadata_returns_three_strings() -> None:
 
 
 # ---------------------------------------------------------------------------
-# root_health_route
+# health_route
 # ---------------------------------------------------------------------------
 
 
-def test_root_health_route_adds_endpoint() -> None:
-    """root_health_route wires GET /health onto the app."""
+def test_health_route_adds_endpoint() -> None:
+    """health_route wires GET /health onto the app."""
 
     app = FastAPI()
-    root_health_route(app)
+    health_route(app)
     client = TestClient(app)
     response = client.get("/health")
     assert response.status_code == 200
@@ -295,17 +293,17 @@ def test_root_health_route_adds_endpoint() -> None:
     assert body["status"] == "ok"
 
 
-def test_root_health_route_adds_at_least_one() -> None:
-    """root_health_route ensures at least one /health route exists."""
+def test_health_route_adds_at_least_one() -> None:
+    """health_route ensures at least one /health route exists."""
 
     app = FastAPI()
-    root_health_route(app)
+    health_route(app)
     paths = [r.path for r in app.router.routes]
     assert "/health" in paths
 
 
 # ---------------------------------------------------------------------------
-# ExceptionHandlers wiring
+# Exceptions wiring
 # ---------------------------------------------------------------------------
 
 
@@ -314,7 +312,7 @@ def exception_handlers_app() -> FastAPI:
     """A tiny FastAPI app with exception handlers wired."""
 
     app = FastAPI()
-    ExceptionHandlers.install(app)
+    Exceptions.install(app)
 
     @app.get("/raise-auth")
     def _raise_auth() -> None:
@@ -417,14 +415,14 @@ def test_lifespan_drives_fastapi(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ---------------------------------------------------------------------------
-# AppFactory wiring
+# App wiring
 # ---------------------------------------------------------------------------
 
 
 def test_app_factory_class_attributes_exist() -> None:
-    """AppFactory exposes a create_app method."""
+    """App exposes a create_app method."""
 
-    assert hasattr(AppFactory, "create_app")
+    assert hasattr(App, "create_app")
 
 
 # ---------------------------------------------------------------------------
@@ -438,18 +436,15 @@ def test_module_all() -> None:
     import raghub.api as api_module
 
     for name in (
-        "AppFactory",
-        "ExceptionHandlers",
+        "App",
         "Lifespan",
-        "RouteGroup",
-        "check_upload_size",
-        "cors_origins_from_env",
+        "check_size",
+        "cors_origins",
         "create_app",
-        "enforce_upload_limit",
+        "enforce_limit",
         "package_metadata",
-        "root_health_route",
-        "upload_content_length",
-        "user_store_or_503",
+        "health_route",
+        "content_length",
         "validate_cors",
     ):
         assert name in api_module.__all__
@@ -461,11 +456,11 @@ def test_module_all() -> None:
 
 
 def test_route_group_class_exists() -> None:
-    """``RouteGroup`` is exported by ``raghub.api``."""
+    """``RouteGroup`` is exported by ``raghub.routes``."""
 
-    import raghub.api as api_module
+    import raghub.routes as routes_module
 
-    assert "RouteGroup" in vars(api_module)
+    assert "RouteGroup" in vars(routes_module)
     assert hasattr(RouteGroup, "__init__")
 
 
@@ -481,7 +476,7 @@ class _FakeApp:
         self.state = SimpleNamespace(application=application)
 
 
-def test_app_get_returns_application() -> None:
+def test_inject_get_returns_application() -> None:
     """App.get reads the application facade off the request app's state."""
 
     from raghub.api_auth import App
@@ -903,7 +898,7 @@ async def test_rate_limiter_middleware_no_client() -> None:
 
 
 # ---------------------------------------------------------------------------
-# v0.9.2 Tier 3 — Item 18: FeedbackRouter
+# v0.9.2 Tier 3 -- Item 18: FeedbackRoute
 # ---------------------------------------------------------------------------
 
 
@@ -919,7 +914,7 @@ def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from raghub.api import FeedbackRouter
+    from raghub.routes import FeedbackRoute
     from raghub.feedback import SqliteFeedbackStore
 
     feedback_db = tmp_path / "feedback.db"
@@ -941,10 +936,10 @@ def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
     class StubFacade:
         def __init__(self):
             self.container = StubContainer()
-            self.auth_svc = _AuthSvc()
+            self.auth = _AuthSvc()
 
     app = FastAPI()
-    app.include_router(FeedbackRouter().router)
+    app.include_router(FeedbackRoute().router)
     app.state.application = StubFacade()
 
     client = TestClient(app)
@@ -999,12 +994,12 @@ def test_feedback_router_aggregate_returns_counts(tmp_path) -> None:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from raghub.api import FeedbackRouter
+    from raghub.routes import FeedbackRoute
     from raghub.feedback import (
         Feedback,
         Rating,
         SqliteFeedbackStore,
-        new_feedback_id,
+        new_id,
         now_utc,
     )
 
@@ -1016,7 +1011,7 @@ def test_feedback_router_aggregate_returns_counts(tmp_path) -> None:
         asyncio.run(
             store.record(
                 Feedback(
-                    id=new_feedback_id(),
+                    id=new_id(),
                     session_id=f"s{i}",
                     query_id="q1",
                     chunk_id="c1",
@@ -1038,7 +1033,7 @@ def test_feedback_router_aggregate_returns_counts(tmp_path) -> None:
             self.container = StubContainer()
 
     app = FastAPI()
-    app.include_router(FeedbackRouter().router)
+    app.include_router(FeedbackRoute().router)
     app.state.application = StubFacade()
 
     client = TestClient(app)
@@ -1062,7 +1057,7 @@ def test_feedback_router_503_when_store_absent() -> None:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from raghub.api import FeedbackRouter
+    from raghub.routes import FeedbackRoute
 
     class _User:
         email = "alice@example.com"
@@ -1078,10 +1073,10 @@ def test_feedback_router_503_when_store_absent() -> None:
     class StubFacade:
         def __init__(self):
             self.container = StubContainer()
-            self.auth_svc = _AuthSvc()
+            self.auth = _AuthSvc()
 
     app = FastAPI()
-    app.include_router(FeedbackRouter().router)
+    app.include_router(FeedbackRoute().router)
     app.state.application = StubFacade()
 
     client = TestClient(app)

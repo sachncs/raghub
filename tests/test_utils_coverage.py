@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from raghub.await_sync import capture, maybe_await, maybe_await_sync
+from raghub.await_sync import capture, maybe_await, maybe_run
 from raghub.io import atomic_write_json, load_json, write_json
 from raghub.retry import aretry, retry
 from raghub.timing import DurationTimer
@@ -163,7 +163,7 @@ async def test_aretry_non_retryable_raises_immediately() -> None:
 
 
 # ---------------------------------------------------------------------------
-# maybe_await / maybe_await_sync
+# maybe_await / maybe_run
 # ---------------------------------------------------------------------------
 
 
@@ -182,17 +182,17 @@ async def test_maybe_await_awaits_coroutine() -> None:
     assert await maybe_await(_coro()) == "from-coroutine"
 
 
-def test_maybe_await_sync_runs_coroutine_when_no_loop() -> None:
-    """``maybe_await_sync`` runs the coroutine when no event loop is running."""
+def test_maybe_run_runs_coroutine_when_no_loop() -> None:
+    """``maybe_run`` runs the coroutine when no event loop is running."""
 
     async def _coro() -> str:
         return "ran-via-asyncio-run"
 
-    assert maybe_await_sync(_coro()) == "ran-via-asyncio-run"
+    assert maybe_run(_coro()) == "ran-via-asyncio-run"
 
 
-def test_maybe_await_sync_returns_coroutine_when_loop_active() -> None:
-    """``maybe_await_sync`` returns the coroutine when a loop is already running."""
+def test_maybe_run_returns_coroutine_when_loop_active() -> None:
+    """``maybe_run`` returns the coroutine when a loop is already running."""
     import asyncio
 
     async def _coro() -> str:
@@ -200,7 +200,7 @@ def test_maybe_await_sync_returns_coroutine_when_loop_active() -> None:
 
     async def _runner() -> Any:
         coro = _coro()
-        result = maybe_await_sync(coro)
+        result = maybe_run(coro)
         assert asyncio.iscoroutine(result)
         return await result
 

@@ -326,7 +326,7 @@ class DocStore(DocumentRepository):
         await self.maybe_commit_close(conn)
         if row is None:
             return None
-        return self.row_to_record(row)
+        return self.as_record(row)
 
     async def list_versions(self, document_id: str) -> list[Document]:
         """Return every historical version of ``document_id``."""
@@ -337,7 +337,7 @@ class DocStore(DocumentRepository):
         )
         rows = await cursor.fetchall()
         await self.maybe_commit_close(conn)
-        return [self.row_to_record(row) for row in rows]
+        return [self.as_record(row) for row in rows]
 
     async def get_by_checksum(self, checksum: str) -> Document | None:
         """Return the latest record matching ``checksum``."""
@@ -350,7 +350,7 @@ class DocStore(DocumentRepository):
         await self.maybe_commit_close(conn)
         if row is None:
             return None
-        return self.row_to_record(row)
+        return self.as_record(row)
 
     async def delete(self, document_id: str) -> None:
         """Delete every version of ``document_id``."""
@@ -387,7 +387,7 @@ class DocStore(DocumentRepository):
         )
         rows = await cursor.fetchall()
         await self.maybe_commit_close(conn)
-        return [self.row_to_record(row) for row in rows]
+        return [self.as_record(row) for row in rows]
 
     async def list_all(self) -> list[Document]:
         """Return the latest version of every document."""
@@ -407,7 +407,7 @@ class DocStore(DocumentRepository):
         )
         rows = await cursor.fetchall()
         await self.maybe_commit_close(conn)
-        return [self.row_to_record(row) for row in rows]
+        return [self.as_record(row) for row in rows]
 
     async def update_status(self, document_id: str, status: DocumentLifecycleStatus) -> None:
         """Update the lifecycle status of the latest version."""
@@ -424,7 +424,7 @@ class DocStore(DocumentRepository):
         await self.maybe_commit_close(conn)
 
     @staticmethod
-    def row_to_record(row: aiosqlite.Row) -> Document:
+    def as_record(row: aiosqlite.Row) -> Document:
         """Convert an aiosqlite row into a :class:`Document`."""
         data: dict[str, Any] = dict(row)
         data["created_at"] = datetime.fromisoformat(data["created_at"])
