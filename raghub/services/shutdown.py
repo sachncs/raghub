@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from raghub.services.container import RagContainer
 
 
 class Shutdown:
@@ -18,7 +21,7 @@ class Shutdown:
         "uow",
     )
 
-    def __init__(self, container: Any) -> None:
+    def __init__(self, container: "RagContainer") -> None:
         """Store the container reference."""
         self.container = container
 

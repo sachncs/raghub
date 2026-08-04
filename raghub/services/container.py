@@ -24,7 +24,11 @@ from raghub.store import Store, build_store
 from raghub.stores import ImageStore, Sessions
 
 if TYPE_CHECKING:
-    from raghub.auth import Authz, SqliteUsers
+    from raghub.auth import AuthService, Authz, SqliteUsers
+    from raghub.rag.facade import RAG
+    from raghub.services.documents import Documents
+    from raghub.services.health import Health
+    from raghub.services.query import Query
 
 
 @dataclass
@@ -64,11 +68,11 @@ class RagContainer:
     parser_registry: Catalog
     store: Sessions
     uow: UnitOfWork
-    auth: object = None
-    documents: object = None
-    query: object = None
-    health: object = None
-    rag_facade: object = None
+    auth: "AuthService" = None
+    documents: "Documents" = None
+    query: "Query" = None
+    health: "Health" = None
+    rag_facade: "RAG | None" = None
 
 
 async def build_container(settings: Settings) -> RagContainer:
@@ -153,8 +157,8 @@ async def build_storage_components(settings: Settings) -> tuple[Any, Any, Store]
 
 async def maybe_seed_demo_users(
     settings: Settings,
-    logger: Any,
-    user_store: Any,
+    logger: object,
+    user_store: "SqliteUsers",
 ) -> None:
     """Seed demo users when the deployment profile allows it."""
     from contextlib import suppress

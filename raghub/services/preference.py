@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from raghub.agent import resolve
+from raghub.agent import ResolvedConfig, resolve
 from raghub.models import QueryResponse, User
 from raghub.types import JSONValue
 
 if TYPE_CHECKING:
+    from raghub.rag.facade import RAG
+    from raghub.services.container import RagContainer
     from raghub.services.facade import Facade
 
 
@@ -45,8 +47,8 @@ class Preference:
         )
 
     def resolve_flags(
-        self, user: Any, flags: dict[str, Any], container: Any
-    ) -> Any:
+        self, user: User, flags: dict[str, Any], container: "RagContainer"
+    ) -> ResolvedConfig:
         prefs = dict(getattr(user, "tool_settings", None) or {})
         return resolve(
             request_overrides={
@@ -71,7 +73,7 @@ class Preference:
         token: str,
         question: str,
         flags: dict[str, Any],
-        resolved: Any,
+        resolved: ResolvedConfig,
     ) -> QueryResponse:
         response = await self.facade.query.query(token=token, question=question)
         response.metadata = dict(response.metadata or {})
@@ -86,9 +88,9 @@ class Preference:
         token: str,
         question: str,
         flags: dict[str, Any],
-        resolved: Any,
-        user: Any,
-        rag: Any,
+        resolved: ResolvedConfig,
+        user: User,
+        rag: "RAG",
     ) -> QueryResponse:
         container = self.facade.container
         session = await container.store.get_by_token(token)

@@ -17,7 +17,7 @@ import json
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from raghub.errors import AuthenticationError, AuthorizationError, MissingDepError
@@ -32,6 +32,9 @@ except ImportError:
 from pydantic import BaseModel, Field
 
 from raghub.models import AuthLoginResponse, Turn, User
+
+if TYPE_CHECKING:
+    from raghub.services.container import RagContainer
 
 __all__ = [
     "AuthService",
@@ -439,7 +442,7 @@ class AuthService:
 
     """
 
-    def __init__(self, container: Any) -> None:
+    def __init__(self, container: "RagContainer") -> None:
         """Store the container reference.
 
         Args:

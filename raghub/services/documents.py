@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from raghub.core import can_access_company
 from raghub.errors import AuthorizationError
@@ -13,6 +13,7 @@ from raghub.services.helpers import emit_log, emit_metric, upload_record
 from raghub.types import JSONValue
 
 if TYPE_CHECKING:
+    from raghub.auth import AuthService
     from raghub.repos import UnitOfWork
     from raghub.services.container import RagContainer
 
@@ -64,7 +65,7 @@ class Documents:
 
         """
         started = time.perf_counter()
-        auth: Any = self.container.auth
+        auth: "AuthService" = self.container.auth
         user, _ = await auth.resolve_user(token)
         target_company = company or filename.split("_", 1)[0]
         if not can_access_company(user, target_company):
@@ -94,7 +95,7 @@ class Documents:
         Admin users see every document; non-admins see only the
         documents whose organization is in their allow-list.
         """
-        auth: Any = self.container.auth
+        auth: "AuthService" = self.container.auth
         user, _ = await auth.resolve_user(token)
         if user.is_admin:
             return await list_records(self.container.uow)
@@ -113,7 +114,7 @@ class Documents:
                 document's organization.
 
         """
-        auth: Any = self.container.auth
+        auth: "AuthService" = self.container.auth
         user, _ = await auth.resolve_user(token)
         document = await get_doc(self.container.uow, document_id)
         if not can_access_company(user, document.organization):
@@ -129,7 +130,7 @@ class Documents:
         (Raptor / Graph). Admin check is preserved here because the
         facade itself does not enforce it.
         """
-        auth: Any = self.container.auth
+        auth: "AuthService" = self.container.auth
         user, _ = await auth.resolve_user(token)
         if not user.is_admin:
             raise AuthorizationError("Admin only")

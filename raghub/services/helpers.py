@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from raghub.config import Settings
 from raghub.embedder import Embedder, build_embedder
@@ -26,8 +26,13 @@ from raghub.stores import ImageStore
 from raghub.telemetry import build_logger
 from raghub.types import JSONValue
 
+if TYPE_CHECKING:
+    from raghub.auth import SqliteUsers
+    from raghub.repos import UnitOfWork
+    from raghub.services.container import RagContainer
 
-def emit_log(container: Any, message: str, **payload: JSONValue) -> None:
+
+def emit_log(container: "RagContainer", message: str, **payload: JSONValue) -> None:
     """Emit a structured log event via the container's logger."""
     logger = getattr(container, "logger", None)
     log_method = getattr(logger, "info", None) if logger else None
@@ -35,7 +40,7 @@ def emit_log(container: Any, message: str, **payload: JSONValue) -> None:
         log_method(message, extra=payload)
 
 
-def emit_metric(container: Any, name: str, started_at: float) -> None:
+def emit_metric(container: "RagContainer", name: str, started_at: float) -> None:
     """Record a latency metric given a ``perf_counter`` start time."""
     metrics = getattr(container, "metrics", None)
     recorder = getattr(metrics, "record_latency", None) if metrics else None
@@ -121,7 +126,7 @@ def parse_users(raw: str) -> Any:
     return json_import.loads(raw)
 
 
-async def seed_demo_users(user_store: Any) -> None:
+async def seed_demo_users(user_store: "SqliteUsers") -> None:
     """Seed demo users from ``RAGHUB_USERS`` or the default list."""
     users_env = os.getenv("RAGHUB_USERS", "").strip()
     if users_env:
@@ -167,7 +172,7 @@ async def seed_demo_users(user_store: Any) -> None:
 def build_models(
     settings: Settings,
     vector_store: Store,
-    uow: Any,
+    uow: "UnitOfWork",
     nvidia_api_key: str,
 ) -> tuple[Any, ...]:
     """Build the LLM, embedding, retrieval, and document collaborators."""
@@ -205,7 +210,7 @@ def build_models(
     )
 
 
-def _build_conversation(uow: Any) -> Any:
+def _build_conversation(uow: "UnitOfWork") -> Any:
     """Construct a :class:`ConversationHistory` bound to ``uow``."""
     from raghub.conv import ConversationHistory
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from raghub.models import AuthLoginResponse, Document, QueryResponse, Turn, User
 from raghub.services.documents import Documents
@@ -12,6 +12,10 @@ from raghub.services.health import Health
 from raghub.services.preference import Preference
 from raghub.services.query import Query
 from raghub.services.shutdown import Shutdown
+
+if TYPE_CHECKING:
+    from raghub.rag.facade import RAG
+    from raghub.services.container import RagContainer
 
 RAG_FACADE_AVAILABLE: bool = importlib.util.find_spec("raghub.rag") is not None
 
@@ -24,7 +28,7 @@ class Facade:
     stays thin.
     """
 
-    def __init__(self, container: Any) -> None:
+    def __init__(self, container: "RagContainer") -> None:
         """Initialise the facade and wire service handles back into the container."""
         from raghub.authhelpers import Auth
 
@@ -41,7 +45,7 @@ class Facade:
         self.preferences = Preference(self)
 
     @staticmethod
-    def build_rag(container: Any) -> Any | None:
+    def build_rag(container: "RagContainer") -> "RAG | None":
         """Construct a :class:`raghub.RAG` from the container's collaborators."""
         if not RAG_FACADE_AVAILABLE:
             return None
@@ -55,7 +59,7 @@ class Facade:
             conversation_store=getattr(container, "conversation_store", None),
         )
 
-    def rag_facade(self) -> Any | None:
+    def rag_facade(self) -> "RAG | None":
         """Return the lazily-built :class:`raghub.RAG` instance."""
         if getattr(self.container, "rag_facade", None) is None:
             self.container.rag_facade = self.build_rag(self.container)
