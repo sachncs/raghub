@@ -15,10 +15,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from raghub.errors import GenerationError
+from raghub.errors import ConfigurationError, GenerationError
 from raghub.llm import (
     GenerationRequest,
-    HeuristicProvider,
     LiteLLM,
     LLMValueErrorBoundary,
     Turn,
@@ -663,8 +662,8 @@ def test_normalise_response_none() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_build_llm_returns_heuristic_when_no_keys(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Without an API key, ``build_llm`` falls back to :class:`HeuristicProvider`."""
+def test_build_llm_raises_configuration_error_when_no_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without an API key, ``build_llm`` raises :class:`ConfigurationError`."""
     for name in (
         "NVIDIA_API_KEY",
         "OPENAI_API_KEY",
@@ -676,9 +675,8 @@ def test_build_llm_returns_heuristic_when_no_keys(monkeypatch: pytest.MonkeyPatc
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.delenv("RAG_LLM_API_KEY", raising=False)
-    provider = build_llm("gpt-4o")
-    assert isinstance(provider, HeuristicProvider)
-    assert provider.model_name == "heuristic"
+    with pytest.raises(ConfigurationError, match="No LLM API key"):
+        build_llm("gpt-4o")
 
 
 def test_build_llm_returns_litellm_with_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -716,70 +714,22 @@ def test_build_llm_returns_litellm_with_env_key(monkeypatch: pytest.MonkeyPatch)
 
 
 # ---------------------------------------------------------------------------
-# HeuristicProvider.generate edge cases
-# ---------------------------------------------------------------------------
-
-
-def test_heuristic_provider_truncates_to_question_relevant_sentence() -> None:
-    """When the question has no overlap, the first sentence is returned."""
-    provider = HeuristicProvider()
-    answer = provider.generate(
-        GenerationRequest(
-            question="zzz-nothing-matches",
-            context=[
-                "First irrelevant sentence here.",
-                "Second irrelevant sentence.",
-                "Third irrelevant sentence.",
-                "Fourth irrelevant sentence.",
-                "Fifth irrelevant sentence.",
-                "Sixth irrelevant sentence.",
-            ],
-        )
-    )
-    assert isinstance(answer, str)
-    assert answer  # non-empty
-
-
-def test_heuristic_provider_returns_text_when_overlap_low() -> None:
-    """Partial overlap with a long list still returns a sentence."""
-    provider = HeuristicProvider()
-    answer = provider.generate(
-        GenerationRequest(
-            question="blue",
-            context=[
-                "the sky is blue and vast",
-                "cars are fast on the road",
-                "books are great for reading",
-            ],
-        )
-    )
-    assert "blue" in answer.lower()
-
-
-def test_heuristic_provider_handles_object_with_chunk_attribute() -> None:
-    """Context items exposing ``.chunk.text`` (full :class:`Hit`) work."""
-    provider = HeuristicProvider()
-
-    class _Chunk:
-        text = "found in object chunk text"
-
-    class _Hit:
-        chunk = _Chunk()
-
-    answer = provider.generate(
-        GenerationRequest(question="found", context=[_Hit()])
-    )
-    assert "found" in answer.lower()
-
-
-# ---------------------------------------------------------------------------
 # Generator base class
 # ---------------------------------------------------------------------------
 
 
 def test_generator_async_generate_delegates_to_thread() -> None:
     """The base class ``async_generate`` runs ``generate`` in a worker thread."""
-    provider = HeuristicProvider()
+    from raghub.llm import Generator
+
+    class SimpleGenerator(Generator):
+        model_name: str = "simple"
+
+        @staticmethod
+        def generate(request: GenerationRequest) -> str:
+            return "base-answer"
+
+    provider = SimpleGenerator()
 
     def _fake(request: GenerationRequest) -> str:
         return "threaded-answer"

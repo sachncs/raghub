@@ -209,11 +209,22 @@ class DocumentService:
         return document
 
     async def delete_document(self, token: str, document_id: str) -> None:
-        """Delete a document and all of its chunks. Admin-only."""
+        """Delete a document and all of its chunks. Admin-only.
+
+        Delegates to the RAG facade so the same deletion path used by
+        the programmatic API also retires the manifest entry, the
+        knowledge repo records, and the structured indexes
+        (Raptor / Graph). Admin check is preserved here because the
+        facade itself does not enforce it.
+        """
         auth: Any = self.container.auth
         user, _ = await auth.resolve_user(token)
         if not user.is_admin:
             raise AuthorizationError("Admin only")
+        rag = getattr(self.container, "rag_facade", None)
+        if rag is not None and hasattr(rag, "delete"):
+            rag.delete(document_id)
+            return
         self.container.vector_store.delete_document(document_id)
         await self.container.uow.document_repo.delete(document_id)
 

@@ -731,15 +731,15 @@ def test_queue_cli_exits_when_queue_absent() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_migrate_pgvector_cli_runs(tmp_path) -> None:
-    """Item 25: `raghub migrate-pgvector` calls PgVectorStore.initialize."""
+def test_migrate_pgvector_runs(tmp_path) -> None:
+    """Item 25: `raghub migrate pgvector` calls PgVectorStore.initialize."""
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from raghub.cli_commands import MigratePgVectorCommand
+    from raghub.cli_commands import MigrateCommand
     from typer.testing import CliRunner
 
     app = typer.Typer()
-    MigratePgVectorCommand.register(app)
+    MigrateCommand.register(app)
     runner = CliRunner()
 
     fake_init = AsyncMock()
@@ -749,7 +749,7 @@ def test_migrate_pgvector_cli_runs(tmp_path) -> None:
     with patch("raghub.stores.pgvector.PgVectorStore", fake_store_cls):
         result = runner.invoke(
             app,
-            ["--dsn", "postgres://x/y", "--vector-dim", "768"],
+            ["migrate", "pgvector", "--dsn", "postgres://x/y", "--vector-dim", "768"],
         )
     assert result.exit_code == 0, result.output
     fake_store_cls.assert_called_once_with(
@@ -792,25 +792,86 @@ def test_tenant_cli_validates_tenant_id_format() -> None:
         validate_tenant_id(good)
 
 
-def test_migrate_tenant_split_cli_runs(tmp_path) -> None:
-    """Item 27: `raghub migrate-tenant-split` calls migrate_tenant_split."""
-    from unittest.mock import AsyncMock, MagicMock, patch
+def test_tenant_list_create_delete_round_trip(tmp_path, monkeypatch) -> None:
+    """Item 26: create → list → delete (with --force) round-trip."""
+    from unittest.mock import MagicMock, patch
 
-    from raghub.cli_commands import MigrateTenantSplitCommand
+    from raghub.cli_commands import CliConfig, TenantCommand
+    from raghub.config import Settings
+    from raghub.tenants.isolation import TenantRegistry
     from typer.testing import CliRunner
 
     app = typer.Typer()
-    MigrateTenantSplitCommand.register(app)
+    TenantCommand.register(app)
+    runner = CliRunner()
+
+    shared_registry = TenantRegistry()
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: MagicMock(  # type: ignore[assignment]
+        settings=Settings(data_dir=tmp_path)
+    )
+    original_load = __import__(
+        "raghub.cli_commands", fromlist=["load_registry_entries"]
+    ).load_registry_entries
+    original_save = __import__(
+        "raghub.cli_commands", fromlist=["save_registry_entries"]
+    ).save_registry_entries
+
+    def mock_load(settings):
+        return dict(shared_registry.entries)
+
+    def mock_save(settings, entries):
+        shared_registry.entries = dict(entries)
+
+    try:
+        with patch("raghub.cli_commands.load_registry_entries", mock_load), \
+             patch("raghub.cli_commands.save_registry_entries", mock_save):
+            result = runner.invoke(
+                app,
+                ["tenant", "create", "acme", "--dsn", "postgres://localhost/acme"],
+            )
+            assert result.exit_code == 0, result.output
+            assert "registered" in result.output
+
+            result = runner.invoke(app, ["tenant", "list"])
+            assert result.exit_code == 0, result.output
+            assert "acme" in result.output
+
+            result = runner.invoke(app, ["tenant", "delete", "acme"])
+            assert result.exit_code == 1
+            assert "--force" in result.output
+
+            result = runner.invoke(app, ["tenant", "delete", "acme", "--force"])
+            assert result.exit_code == 0, result.output
+            assert "removed" in result.output
+
+            result = runner.invoke(app, ["tenant", "list"])
+            assert result.exit_code == 0, result.output
+            assert "acme" not in result.output
+    finally:
+        CliConfig.make_rag = original_make_rag
+
+
+def test_migrate_tenant_split_runs(tmp_path) -> None:
+    """Item 27: `raghub migrate tenant-split` calls migrate_tenant_split."""
+    from unittest.mock import MagicMock, patch
+
+    from raghub.cli_commands import MigrateCommand
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    MigrateCommand.register(app)
     runner = CliRunner()
 
     fake_migrate = MagicMock(return_value=42)
 
-    # The CLI uses asyncio.to_thread; patch the function so the
-    # thread call returns synchronously.
     with patch("raghub.tenants.isolation.migrate_tenant_split", fake_migrate):
         result = runner.invoke(
             app,
             [
+                "migrate",
+                "tenant-split",
                 "--from",
                 "row_level",
                 "--to",
@@ -825,7 +886,7 @@ def test_migrate_tenant_split_cli_runs(tmp_path) -> None:
     assert "migrated 42 rows" in result.output
 
 
-def test_backup_cli_create(tmp_path) -> None:
+def test_backup_creates_archive(tmp_path) -> None:
     """Item 28: `raghub backup create` calls create_snapshot + write_archive."""
     from unittest.mock import MagicMock, patch
 
@@ -857,7 +918,7 @@ def test_backup_cli_create(tmp_path) -> None:
         CliConfig.make_rag = original_make_rag
 
 
-def test_restore_cli_restore(tmp_path) -> None:
+def test_restore_round_trip(tmp_path) -> None:
     """Item 29: `raghub backup restore` calls restore_snapshot."""
     from unittest.mock import MagicMock, patch
 
@@ -883,7 +944,7 @@ def test_restore_cli_restore(tmp_path) -> None:
         CliConfig.make_rag = original_make_rag
 
 
-def test_backup_verify_cli_succeeds_on_valid_archive(tmp_path) -> None:
+def test_backup_verify_succeeds_on_valid_archive(tmp_path) -> None:
     """Item 30: `raghub backup verify` exits 0 on a valid archive."""
     from unittest.mock import MagicMock, patch
 
@@ -902,7 +963,7 @@ def test_backup_verify_cli_succeeds_on_valid_archive(tmp_path) -> None:
     assert "verified" in result.output
 
 
-def test_backup_verify_cli_fails_on_tampered_archive(tmp_path) -> None:
+def test_backup_verify_fails_on_tampered_archive(tmp_path) -> None:
     """Item 30: `raghub backup verify` exits 1 on a tampered archive."""
     from unittest.mock import patch
 
@@ -945,3 +1006,49 @@ def test_backup_round_trip(tmp_path) -> None:
     write_archive(manifest, files, str(archive_path))
     assert archive_path.exists()
     assert archive_path.stat().st_size > 0
+
+
+# ---------------------------------------------------------------------------
+# Tier 4 Item 24: queue run CLI
+# ---------------------------------------------------------------------------
+
+
+def test_queue_run_cli(tmp_path, monkeypatch) -> None:
+    """Item 24: `raghub queue run` starts a worker (verified by mock)."""
+    from unittest.mock import patch, MagicMock, AsyncMock
+
+    from raghub.cli_commands import CliConfig, QueueCommand
+    from raghub.config import Settings
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    QueueCommand.register(app)
+    runner = CliRunner()
+
+    class FakeRAG:
+        def __init__(self) -> None:
+            self.settings = Settings(data_dir=tmp_path)
+
+        def queue(self) -> MagicMock:
+            return MagicMock()
+
+        def feedback_store(self) -> None:
+            return None
+
+        def archive(self) -> MagicMock:
+            return MagicMock()
+
+    original_make_rag = CliConfig.make_rag
+    CliConfig.make_rag = lambda config: FakeRAG()  # type: ignore[assignment]
+    try:
+        with patch("raghub.jobs.Worker") as mock_worker_cls:
+            mock_worker = MagicMock()
+            mock_worker.run = AsyncMock(return_value=None)
+            mock_worker_cls.return_value = mock_worker
+            result = runner.invoke(
+                app,
+                ["queue", "run", "--workers", "2"],
+            )
+        assert result.exit_code == 0, result.output
+    finally:
+        CliConfig.make_rag = original_make_rag

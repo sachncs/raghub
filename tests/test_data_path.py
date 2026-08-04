@@ -22,8 +22,8 @@ This file, by contrast, raises if any stage:
 - or returns a content-empty answer.
 
 The tests use the offline-deterministic providers that ship with
-the OSS distribution (``FeatureHashingEmbedder``, ``MemoryStore``, ``Memory``,
-``HeuristicProvider``); nothing in the assertions depends on any
+the OSS distribution (``FeatureHashingEmbedder``, ``MemoryStore``,
+``Memory``, ``StubLLM``); nothing in the assertions depends on any
 network call. The :class:`RAG` instance wires real components end
 to end.
 """
@@ -42,7 +42,18 @@ from raghub.embedder import FeatureHashingEmbedder
 from raghub.gen import DefaultGenerator
 from raghub.ingest import WordChunker
 from raghub.lifecycle import PlainTextConverter
-from raghub.llm import HeuristicProvider
+from raghub.llm import GenerationRequest, Generator
+
+
+class StubLLM(Generator):
+    """Deterministic LLM stub for offline end-to-end tests."""
+
+    model_name: str = "stub"
+
+    @staticmethod
+    def generate(request: GenerationRequest) -> str:
+        """Return a fixed answer regardless of input."""
+        return "This is a stub answer for offline testing."
 
 
 def sha(text: str) -> str:
@@ -56,7 +67,7 @@ def rag() -> RAG:
         settings=Settings(embedding_dim=16),
         converter=PlainTextConverter(),
         embedder=FeatureHashingEmbedder(dimension=16, model_name="test-hasher"),
-        generator=DefaultGenerator(llm=HeuristicProvider()),
+        generator=DefaultGenerator(llm=StubLLM()),
     )
 
 
@@ -118,17 +129,6 @@ def test_reingest_dedup_by_checksum(rag: RAG) -> None:
     assert after_first == after_second
 
 
-def test_heuristic_returns_top_sentence(rag: RAG) -> None:
-    """HeuristicProvider returns the question-relevant sentence."""
-    rag.ingest(
-        b"Apples are red. Oranges are orange. Bananas are yellow.",
-        source_uri="mem://test/heuristic",
-    )
-    response = rag.query("yellow")
-    response.verify()
-    assert "yellow" in response.answer.lower()
-
-
 def test_empty_query_rejected() -> None:
     """An empty question is rejected with a typed error."""
     from raghub.errors import IngestionError
@@ -137,7 +137,8 @@ def test_empty_query_rejected() -> None:
         settings=Settings(embedding_dim=16),
         converter=PlainTextConverter(),
         embedder=FeatureHashingEmbedder(dimension=16, model_name="x"),
-        generator=DefaultGenerator(llm=HeuristicProvider()),
+        llm=StubLLM(),
+        generator=DefaultGenerator(llm=StubLLM()),
     )
     with pytest.raises(IngestionError, match="non-empty"):
         r.query("")

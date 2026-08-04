@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import logging
 import time
 from collections.abc import AsyncIterator, Sequence
 from contextlib import AbstractContextManager
@@ -66,6 +67,8 @@ from raghub.models import (
 )
 from raghub.retry import retry as retry_sync
 from raghub.telemetry import NoOpTelemetry
+
+_logger = logging.getLogger(__name__)
 
 
 def awaitable(value: Any) -> Any:
@@ -329,8 +332,12 @@ class PipelineBuilder:
 
 def get_chunks(bundle: Bundle, document_id: str, company: str = "") -> list[Chunk]:
     """Materialise the :class:`Chunk` list for a bundle's sections."""
+    from raghub.tenants import get_current_tenant
+
     chunks: list[Chunk] = []
     tenant_company = company or bundle.metadata.get("company", "")
+    ctx = get_current_tenant()
+    tenant_id = ctx.tenant_id if ctx else ""
     for section in bundle.sections:
         for block in section.blocks:
             if block.kind.value != "text":
@@ -356,6 +363,7 @@ def get_chunks(bundle: Bundle, document_id: str, company: str = "") -> list[Chun
                     company=tenant_company,
                     owner=bundle.metadata.get("owner", ""),
                     department=bundle.metadata.get("department", ""),
+                    tenant_id=tenant_id,
                     text=text,
                     checksum=sha256(text.encode("utf-8")).hexdigest(),
                     metadata={
@@ -606,6 +614,10 @@ class Ingest(PipelineRunner):
         resolved: IngestResolvedMetadata,
     ) -> list[Chunk]:
         """Run the chunker and stamp per-chunk identity fields."""
+        from raghub.tenants import get_current_tenant
+
+        ctx = get_current_tenant()
+        tenant_id = ctx.tenant_id if ctx else ""
         with self.telemetry.span("ingest.chunk"):
             raw_chunks = self.chunker.chunk(bundle)
             chunks: list[Chunk] = []
@@ -620,6 +632,7 @@ class Ingest(PipelineRunner):
                 chunk.company = resolved.tenant_company
                 chunk.owner = resolved.owner
                 chunk.classification = resolved.classification
+                chunk.tenant_id = tenant_id
                 chunks.append(chunk)
         return chunks
 
@@ -728,12 +741,23 @@ class QueryPipeline(PipelineRunner):
 
     @staticmethod
     def metadata_filter_for_user(user: Any) -> dict[str, Any] | str:
-        """Derive a metadata filter for the vector store from a user."""
+        """Derive a metadata filter for the vector store from a user.
+
+        Security-sensitive: a non-admin user with an empty
+        ``allowed_companies`` list must not be allowed to see every
+        chunk. We return a filter that matches NOTHING so the
+        downstream search returns an empty hit list instead of
+        silently returning the full corpus. Admin users and the
+        anonymous case keep the prior behaviour of ``""`` (no
+        filter).
+        """
         if user is None:
             return ""
         if getattr(user, "is_admin", False):
             return ""
         companies = list(getattr(user, "allowed_companies", []) or [])
+        if not companies:
+            return {"company": "__no_companies_allowed__"}
         return {"company": companies}
 
     async def run(
@@ -924,7 +948,7 @@ class QueryPipeline(PipelineRunner):
     ) -> tuple[list[Hit], list[str]]:
         """Embed the query and retrieve (and optionally rerank) hits."""
         with self.telemetry.span("query.embed_query"):
-            vector = self.embedder.embed_text(question)
+            vector = await self.embedder.aembed_text(question)
 
         transformed = await self.maybe_transform(question, history, top_k)
         if transformed is not None:
@@ -1075,8 +1099,17 @@ class QueryPipeline(PipelineRunner):
         question: str,
         answer: Any,
     ) -> None:
-        """Append a turn to the conversation store when conditions allow."""
+        """Append a turn to the conversation store when conditions allow.
+
+        Empty answers (the LLM returned ``""``) are still dropped but
+        now logged so the silent-data-loss case is at least
+        observable.
+        """
         if not (record and session_id and answer):
+            if record and session_id and not answer:
+                _logger.warning(
+                    "dropped turn: empty answer, session_id=%s", session_id
+                )
             return
         self.conversation_store.append(
             session_id,
@@ -1149,7 +1182,7 @@ class QueryPipeline(PipelineRunner):
     ) -> list[Hit]:
         """Embed, search, optionally rerank, and return the streaming hits."""
         with self.telemetry.span("query.embed_query"):
-            vector = self.embedder.embed_text(question)
+            vector = await self.embedder.aembed_text(question)
         with self.telemetry.span("query.search"):
             raw = self.vector_store.search(
                 vector=vector,
@@ -1214,8 +1247,17 @@ class QueryPipeline(PipelineRunner):
         question: str,
         collected: list[str],
     ) -> None:
-        """Append the streamed answer to the conversation store."""
+        """Append the streamed answer to the conversation store.
+
+        Empty streamed answers (the LLM yielded nothing) are still
+        dropped but now logged so the silent-data-loss case is
+        at least observable.
+        """
         if not (session_id and collected):
+            if session_id and not collected:
+                _logger.warning(
+                    "dropped turn: empty answer, session_id=%s", session_id
+                )
             return
         self.conversation_store.append(
             session_id,
@@ -1405,6 +1447,7 @@ def hits_from_trace(trace: AgentTrace, top_k: int) -> list[Any]:
                 company="",
                 owner="",
                 department="",
+                tenant_id=hit.get("tenant_id") or "",
                 text=text,
                 checksum=sha256(text.encode("utf-8")).hexdigest(),
                 metadata={"source_tool": name, **hit.get("metadata", {})},

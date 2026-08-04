@@ -151,7 +151,7 @@ class PluginRegistry:
         """Register an evaluator under ``name``."""
         self.register(PluginKind.EVALUATOR, name, evaluator)
 
-    def register_factory(self, name: str, factory: Callable[..., Any]) -> None:
+    def register_factory(self, name: str, factory: Callable[..., "JSONValue"]) -> None:
         """Register a generic factory under ``name``."""
         self.register(PluginKind.FACTORY, name, factory)
 
@@ -234,7 +234,7 @@ class PluginRegistry:
         }
 
     @property
-    def factories(self) -> dict[str, Callable[..., Any]]:
+    def factories(self) -> dict[str, Callable[..., "JSONValue"]]:
         """Return a snapshot of registered factories (legacy accessor)."""
         return {
             name: self.entries[PluginKind.FACTORY, name]

@@ -158,6 +158,8 @@ class RAG:
         )
         self.background_ingestion = components_dict.get("background_service")
         self.queue_ = self.__init_queue(components_dict)
+        self.worker_ = self.__init_worker(components_dict)
+        self.worker_task_: asyncio.Task[None] | None = None
         self.tenant_resolver_ = self.__init_tenant_resolver(components_dict)
         self.feedback_store_ = self.__init_feedback_store(components_dict)
         self.rate_limiter_: Any = None
@@ -326,6 +328,74 @@ class RAG:
             )
             return queue
         return None
+
+    def __init_worker(self, components_dict: dict[str, Any]) -> Any:
+        """Construct a :class:`Worker` when a persistent queue is configured.
+
+        Priority:
+            1. ``components_dict["worker"]`` if explicitly supplied.
+            2. ``self.queue_`` is a :class:`SqliteQueue` (built above when
+               ``Settings.queue.backend == "sqlite"``) -> build a Worker
+               bound to that queue with a default ingest handler.
+            3. Otherwise ``None``.
+        """
+        supplied = components_dict.get("worker")
+        if supplied is not None:
+            return supplied
+        if self.queue_ is None:
+            return None
+        try:
+            from raghub.jobs import SqliteQueue, Worker
+        except ImportError:
+            return None
+        if not isinstance(self.queue_, SqliteQueue):
+            return None
+
+        async def handler(job: Any) -> None:
+            """Drain a queue job by routing it back into the facade's ingest path."""
+            payload = getattr(job, "payload", {}) or {}
+            source_bytes = payload.get("source", "").encode("latin-1")
+            source_uri = payload.get("source_uri", "bytes://memory")
+            mime_type = payload.get("mime_type", "text/plain")
+            metadata = payload.get("metadata") or {}
+            self.ingest(
+                source_bytes,
+                source_uri=source_uri,
+                mime_type=mime_type,
+                metadata=metadata,
+            )
+
+        return Worker(
+            queue=self.queue_,
+            handler=handler,
+            concurrency=int(getattr(self.settings.queue, "concurrency", 4) or 4),
+        )
+
+    async def start_worker(self) -> None:
+        """Run the configured :class:`Worker` until :meth:`stop_worker` is called.
+
+        Only meaningful when ``self.worker_`` is not ``None`` (i.e. a
+        SQLite-backed queue is configured). When the library runs without
+        a persistent queue, the legacy threadpool path is used and this
+        method is a no-op so callers can invoke it unconditionally.
+        """
+        if self.worker_ is None:
+            return
+        if self.worker_task_ is not None and not self.worker_task_.done():
+            return
+        self.worker_task_ = asyncio.create_task(self.worker_.loop("raghub-worker"))
+
+    async def stop_worker(self) -> None:
+        """Cancel :meth:`start_worker` and await its task to drain."""
+        if self.worker_task_ is None:
+            return
+        task = self.worker_task_
+        self.worker_task_ = None
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
 
     def __init_tenant_resolver(self, components_dict: dict[str, Any]) -> Any:
         """Construct the tenant resolver.
@@ -758,6 +828,15 @@ class RAG:
         )
         if getattr(result, "error", None) is not None:
             raise IngestionError(result.error or "ingestion failed")
+        if hasattr(self.manifest, "record") and hasattr(self.manifest, "get"):
+            prior = self.manifest.get(source_uri)
+            if not (isinstance(prior, dict) and prior.get("checksum") == sha256_bytes(file_bytes)):
+                bundle_id = deterministic_id("bundle", source_uri, sha256_bytes(file_bytes))
+                self.manifest.record(
+                    source_uri,
+                    bundle_id=bundle_id,
+                    checksum=sha256_bytes(file_bytes),
+                )
         return result
 
     # ------------------------------------------------------------------
@@ -800,6 +879,17 @@ class RAG:
             for index in (getattr(self, "raptor", None), getattr(self, "graph", None)):
                 if index is not None and hasattr(index, "delete_for_document"):
                     index.delete_for_document(tid)
+        if hasattr(self.manifest, "remove"):
+            if document_id in self.manifest:
+                self.manifest.remove(document_id)
+            sources_method = getattr(self.manifest, "sources", None)
+            if callable(sources_method):
+                for uri in list(sources_method()):
+                    record = self.manifest.get(uri)
+                    if not isinstance(record, dict):
+                        continue
+                    if str(record.get("bundle_id", "")) in target_ids:
+                        self.manifest.remove(uri)
 
     # ------------------------------------------------------------------
     # Querying
@@ -908,6 +998,11 @@ class RAG:
         response_model: type | None = merged.get("response_model")
         if not question or not question.strip():
             raise IngestionError("query() requires a non-empty question")
+        if self.llm is None:
+            raise ConfigurationError(
+                "No LLM API key configured; set RAG_LLM_API_KEY "
+                "(or another provider key) before calling query()."
+            )
         scoped = self.scoped_session_id(user, session_id)
         context = PipelineCtx(
             pipeline_name="query",
@@ -1040,7 +1135,7 @@ class RAG:
         scoped = self.scoped_session_id(user, session_id)
         resolved = self.resolve_agent_config(merged, scoped, user)
         if self.agentic_pipeline is None:
-            async for event in self.fallback_planner_events(question, session_id):
+            async for event in self.fallback_planner_events(question, session_id, user):
                 yield event
             return
         context = PipelineCtx(
@@ -1088,6 +1183,7 @@ class RAG:
         self,
         question: str,
         session_id: str | None,
+        user: Any | None = None,
     ) -> AsyncIterator[Any]:
         """Yield planner events from the non-agentic path.
 
@@ -1097,7 +1193,7 @@ class RAG:
         """
         async for piece in self.astream(
             question,
-            user=None,
+            user=user,
             session_id=session_id,
             top_k=5,
             metadata_filter=None,

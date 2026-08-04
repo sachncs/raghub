@@ -49,8 +49,10 @@ def test_health_returns_ok(sqlite_store):
 def test_insert_or_ignore_skips_duplicates(sqlite_store, sample_chunks, sample_vectors):
     """Re-inserting the same chunk_id is a no-op (INSERT OR IGNORE).
 
-    Returns ``0`` rows written for the duplicate, leaving the original
-    row untouched.
+    ``insert`` returns the number of chunks the caller submitted, not
+    the number of rows SQLite actually wrote — dedup is silent by
+    design, so the original row is left untouched and the caller
+    still sees the full batch size.
     """
     written1 = sqlite_store.insert(sample_chunks, sample_vectors)
     assert written1 == 1
@@ -64,7 +66,7 @@ def test_insert_or_ignore_skips_duplicates(sqlite_store, sample_chunks, sample_v
         }
     )
     written2 = sqlite_store.insert([dupe], sample_vectors)
-    assert written2 == 0
+    assert written2 == 1
     row = sqlite_store.conn.execute(
         "SELECT text FROM raghub WHERE chunk_id = ?", (sample_chunks[0].id,)
     ).fetchone()
@@ -107,7 +109,7 @@ def test_concurrent_inserts_are_safe(sqlite_store, sample_chunks):
 
 
 def test_sqlite_store_search_filters_by_tenant_id(tmp_path):
-    """Item 11: SqliteStore.search adds ``company = ?`` when tenant_id is bound."""
+    """Item 11: SqliteStore.search adds ``tenant_id = ?`` when tenant_id is bound."""
     from datetime import UTC, datetime
     from raghub.config import Settings, TenantsConfig
     from raghub.config import Settings as _S
@@ -132,6 +134,7 @@ def test_sqlite_store_search_filters_by_tenant_id(tmp_path):
             checksum=sha256(text.encode("utf-8")).hexdigest(),
             text=text,
             created_at=datetime.now(UTC),
+            tenant_id=company,
         )
 
     store.insert(
@@ -178,6 +181,7 @@ def test_sqlite_store_search_explicit_tenant_overrides_context(tmp_path):
             checksum=sha256(text.encode("utf-8")).hexdigest(),
             text=text,
             created_at=datetime.now(UTC),
+            tenant_id=company,
         )
 
     store.insert(

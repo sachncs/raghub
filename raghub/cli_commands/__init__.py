@@ -524,17 +524,16 @@ async def ingest_handler(job: Any, rag: Any, archive: Any, store: Any) -> None:
     )
 
 
-class MigratePgVectorCommand:
-    """The ``raghub migrate-pgvector`` command (Tier 5 Item 25).
-
-    Creates the pgvector schema and indexes on the configured DSN.
-    """
+class MigrateCommand:
+    """The ``raghub migrate pgvector | tenant-split`` commands (Tier 5 Items 25, 27)."""
 
     @staticmethod
     def register(app: typer.Typer) -> None:
-        """Attach the command to ``app``."""
+        """Attach the sub-commands to ``app``."""
 
-        @app.command(name="migrate-pgvector")
+        migrate_app = typer.Typer(help="Migration commands.")
+
+        @migrate_app.command(name="pgvector")
         def migrate_pgvector(
             dsn: str = typer.Option(..., "--dsn", help="Postgres connection string."),
             vector_dim: int = typer.Option(
@@ -549,6 +548,48 @@ class MigratePgVectorCommand:
             store = PgVectorStore(dsn=dsn, embedding_dim=vector_dim)
             asyncio.run(store.initialize())
             typer.echo(f"pgvector schema created on {dsn} (dim={vector_dim})")
+
+        @migrate_app.command(name="tenant-split")
+        def migrate_tenant_split(
+            from_strategy: str = typer.Option(
+                ..., "--from", help="Source isolation strategy."
+            ),
+            to_strategy: str = typer.Option(
+                ..., "--to", help="Target isolation strategy."
+            ),
+            source_dsn: str = typer.Option(..., "--source-dsn", help="Source DSN."),
+            target_dsn: str = typer.Option(..., "--target-dsn", help="Target DSN."),
+            tenant_id: str | None = typer.Option(
+                None, "--tenant-id", help="Limit migration to a single tenant."
+            ),
+        ) -> None:
+            """Migrate data between isolation strategies."""
+            import asyncio
+
+            from raghub.tenants.isolation import (
+                IsolationStrategy,
+                migrate_tenant_split,
+            )
+
+            try:
+                src = IsolationStrategy(from_strategy)
+                dst = IsolationStrategy(to_strategy)
+            except ValueError as exc:
+                typer.echo(f"invalid isolation strategy: {exc}", err=True)
+                raise typer.Exit(code=1) from exc
+            rows = asyncio.run(
+                asyncio.to_thread(
+                    migrate_tenant_split,
+                    source_dsn=source_dsn,
+                    target_dsn=target_dsn,
+                    from_strategy=src,
+                    to_strategy=dst,
+                    tenant_id=tenant_id,
+                )
+            )
+            typer.echo(f"migrated {rows} rows from {from_strategy} to {to_strategy}")
+
+        app.add_typer(migrate_app, name="migrate")
 
 
 class TenantCommand:
@@ -606,6 +647,9 @@ class TenantCommand:
         @tenant_app.command(name="delete")
         def delete_cmd(
             tenant_id: str = typer.Argument(..., help="Tenant id to delete."),
+            force: bool = typer.Option(
+                False, "--force", help="Delete even if data exists."
+            ),
             config: str | None = typer.Option(
                 None, "--config", "-c", help="Optional YAML/TOML config path."
             ),
@@ -616,62 +660,20 @@ class TenantCommand:
             settings = CliConfig.make_settings(config)
             entries = load_registry_entries(settings)
             registry = TenantRegistry(entries=entries)
+            if tenant_id not in registry.entries:
+                typer.echo(f"tenant {tenant_id!r} not found", err=True)
+                raise typer.Exit(code=1)
+            if not force and tenant_id in registry.entries:
+                typer.echo(
+                    f"tenant {tenant_id!r} has data; use --force to delete",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
             registry.remove(tenant_id)
             save_registry_entries(settings, registry.entries)
             typer.echo(f"tenant {tenant_id} removed")
 
         app.add_typer(tenant_app, name="tenant")
-
-
-class MigrateTenantSplitCommand:
-    """The ``raghub migrate tenant-split`` command (Tier 5 Item 27).
-
-    Wraps :func:`migrate_tenant_split` from :mod:`raghub.tenants.isolation`.
-    """
-
-    @staticmethod
-    def register(app: typer.Typer) -> None:
-        """Attach the command to ``app``."""
-
-        @app.command(name="migrate-tenant-split")
-        def migrate_tenant_split(
-            from_strategy: str = typer.Option(
-                ..., "--from", help="Source isolation strategy."
-            ),
-            to_strategy: str = typer.Option(
-                ..., "--to", help="Target isolation strategy."
-            ),
-            source_dsn: str = typer.Option(..., "--source-dsn", help="Source DSN."),
-            target_dsn: str = typer.Option(..., "--target-dsn", help="Target DSN."),
-            tenant: str | None = typer.Option(
-                None, "--tenant", help="Limit migration to a single tenant."
-            ),
-        ) -> None:
-            """Migrate data between isolation strategies."""
-            import asyncio
-
-            from raghub.tenants.isolation import (
-                IsolationStrategy,
-                migrate_tenant_split,
-            )
-
-            try:
-                src = IsolationStrategy(from_strategy)
-                dst = IsolationStrategy(to_strategy)
-            except ValueError as exc:
-                typer.echo(f"invalid isolation strategy: {exc}", err=True)
-                raise typer.Exit(code=1) from exc
-            rows = asyncio.run(
-                asyncio.to_thread(
-                    migrate_tenant_split,
-                    source_dsn=source_dsn,
-                    target_dsn=target_dsn,
-                    from_strategy=src,
-                    to_strategy=dst,
-                    tenant_id=tenant,
-                )
-            )
-            typer.echo(f"migrated {rows} rows from {from_strategy} to {to_strategy}")
 
 
 class BackupCommand:
@@ -893,8 +895,7 @@ __all__ = [
     "FeedbackCommand",
     "IngestCommand",
     "InitCommand",
-    "MigratePgVectorCommand",
-    "MigrateTenantSplitCommand",
+    "MigrateCommand",
     "QueryCommand",
     "QueueCommand",
     "ServerCommand",

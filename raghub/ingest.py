@@ -328,6 +328,10 @@ class Chonkie(Chunker):
 
     def chunk(self, bundle: Any) -> list[Chunk]:
         """Chunk a bundle via Chonkie."""
+        from raghub.tenants import get_current_tenant
+
+        ctx = get_current_tenant()
+        tenant_id = ctx.tenant_id if ctx else ""
         chunks: list[Chunk] = []
         for section in bundle.sections:
             for block in section.blocks:
@@ -358,6 +362,7 @@ class Chonkie(Chunker):
                             company="",
                             owner=bundle.metadata.get("owner", ""),
                             department=bundle.metadata.get("department", ""),
+                            tenant_id=tenant_id,
                             text=text,
                             checksum=sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest(),
                             metadata={
@@ -380,6 +385,10 @@ class Chonkie(Chunker):
         owner: str = "",
     ) -> list[Chunk]:
         """Chunk raw ``text`` via Chonkie."""
+        from raghub.tenants import get_current_tenant
+
+        ctx = get_current_tenant()
+        tenant_id = ctx.tenant_id if ctx else ""
         pieces = self.chonkie_text_chunks(text)
         chunks: list[Chunk] = []
         for i, piece in enumerate(pieces):
@@ -400,6 +409,7 @@ class Chonkie(Chunker):
                     version=version,
                     company=company,
                     owner=owner,
+                    tenant_id=tenant_id,
                     text=text_value,
                     checksum=sha256(text_value.encode("utf-8", errors="surrogatepass")).hexdigest(),
                     metadata={
@@ -440,6 +450,10 @@ class WordChunker(Chunker):
 
     def chunk(self, bundle: Any) -> list[Chunk]:
         """Chunk ``bundle`` into overlapping windows."""
+        from raghub.tenants import get_current_tenant
+
+        ctx = get_current_tenant()
+        tenant_id = ctx.tenant_id if ctx else ""
         chunks: list[Chunk] = []
         for section in bundle.sections:
             for block in section.blocks:
@@ -466,6 +480,7 @@ class WordChunker(Chunker):
                             company="",
                             owner=bundle.metadata.get("owner", ""),
                             department=bundle.metadata.get("department", ""),
+                            tenant_id=tenant_id,
                             text=text,
                             checksum=sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest(),
                             metadata={
@@ -487,6 +502,10 @@ class WordChunker(Chunker):
         owner: str = "",
     ) -> list[Chunk]:
         """Chunk raw ``text`` (no bundle)."""
+        from raghub.tenants import get_current_tenant
+
+        ctx = get_current_tenant()
+        tenant_id = ctx.tenant_id if ctx else ""
         result: list[Chunk] = []
         for chunk_text in self.word_window_chunks(text):
             chunk_id = deterministic_id(
@@ -502,6 +521,7 @@ class WordChunker(Chunker):
                     version=version,
                     company=company,
                     owner=owner,
+                    tenant_id=tenant_id,
                     text=chunk_text,
                     checksum=sha256(chunk_text.encode("utf-8", errors="surrogatepass")).hexdigest(),
                 )

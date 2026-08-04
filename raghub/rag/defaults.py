@@ -158,17 +158,14 @@ def default_llm(llm_model: str) -> Any:
 
     Returns:
         :class:`LiteLLM` for the configured model when an API
-        key is available.
-
-    Raises:
-        ConfigurationError: When no LLM API key is configured.
+        key is available, otherwise ``None`` so the facade can be
+        constructed offline. Callers that actually need the LLM
+        (e.g. :meth:`RAG.aquery`) raise :class:`ConfigurationError`
+        at query time with a clear message.
 
     """
     if not has_llm_api_key():
-        raise ConfigurationError(
-            "No LLM API key configured; set RAG_LLM_API_KEY "
-            "(or another provider key) before using the LLM."
-        )
+        return None
     from raghub.llm import LiteLLM
 
     return LiteLLM(model=llm_model)

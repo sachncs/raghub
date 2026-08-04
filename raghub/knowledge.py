@@ -507,6 +507,7 @@ class Raptor(KnowledgeIndex):
                         company=group[0].company,
                         owner=group[0].owner,
                         department="",
+                        tenant_id=group[0].tenant_id or "",
                         text=summary_text,
                         checksum=sha256(summary_text.encode("utf-8")).hexdigest(),
                         metadata={
@@ -627,6 +628,7 @@ def chunk_to_record(chunk: Chunk, vector: list[float], *, level: int) -> Chunk:
         company=chunk.company,
         owner=chunk.owner,
         department=chunk.department,
+        tenant_id=chunk.tenant_id or "",
         text=chunk.text,
         checksum=sha256(chunk.text.encode("utf-8")).hexdigest(),
         metadata={**chunk.metadata, "vector": vector, "raptor_level": level},
@@ -743,6 +745,7 @@ class GraphIndex(KnowledgeIndex):
                 company=chunk.company,
                 owner=chunk.owner,
                 department=chunk.department,
+                tenant_id=chunk.tenant_id or "",
                 text=chunk.text,
                 checksum=sha256(chunk.text.encode("utf-8")).hexdigest(),
                 metadata={**chunk.metadata, "vector": vector},
@@ -825,6 +828,7 @@ class GraphIndex(KnowledgeIndex):
                 company="",
                 owner="",
                 department="",
+                tenant_id="",
                 text=summary,
                 checksum=sha256(summary.encode("utf-8")).hexdigest(),
                 metadata={

@@ -18,8 +18,7 @@ from raghub.cli_commands import (
     FeedbackCommand,
     IngestCommand,
     InitCommand,
-    MigratePgVectorCommand,
-    MigrateTenantSplitCommand,
+    MigrateCommand,
     QueryCommand,
     QueueCommand,
     ServerCommand,
@@ -51,8 +50,7 @@ ServerCommand.register(app)
 FeedbackCommand.register(app)
 QueueCommand.register(app)
 TenantCommand.register(app)
-MigratePgVectorCommand.register(app)
-MigrateTenantSplitCommand.register(app)
+MigrateCommand.register(app)
 BackupCommand.register(app)
 
 

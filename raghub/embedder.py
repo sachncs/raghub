@@ -13,6 +13,7 @@ This module ships:
 
 from __future__ import annotations
 
+import asyncio
 import os
 from abc import ABC, abstractmethod
 from hashlib import sha256
@@ -55,6 +56,15 @@ class Embedder(ABC):
             A list of floats representing the embedding.
 
         """
+
+    async def aembed_text(self, text: str) -> list[float]:
+        """Async wrapper around :meth:`embed_text`.
+
+        Default implementation runs the synchronous call in a worker
+        thread so the event loop is not blocked. Concrete providers
+        with native async backends can override for direct await.
+        """
+        return await asyncio.to_thread(self.embed_text, text)
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Embed many strings.
@@ -116,6 +126,10 @@ class FeatureHashingEmbedder(Embedder):
         if not text:
             return [0.0] * self.dimension
         return self.embed_texts([text])[0]
+
+    async def aembed_text(self, text: str) -> list[float]:
+        """Async variant: hashing is in-process; no I/O to offload."""
+        return self.embed_text(text)
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Hash every input into a deterministic L2-normalised vector.
@@ -187,6 +201,15 @@ class LiteLLMEmbedder(Embedder):
 
         """
         return self.embed_texts([text])[0]
+
+    async def aembed_text(self, text: str) -> list[float]:
+        """Async wrapper: run the LiteLLM call in a worker thread.
+
+        The LiteLLM SDK is sync; calling it directly inside an async
+        coroutine would block the event loop, so we offload to a
+        thread.
+        """
+        return await asyncio.to_thread(self.embed_text, text)
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Embed multiple strings in one LiteLLM call.

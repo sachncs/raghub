@@ -273,15 +273,5 @@ in the same script to fail CI on real metric regressions.
 
 The deterministic `Metrics` (token overlap, BM25) and
 `Judge` (semantic, single-prompt) cover the two extremes. For
-frameworks that combine both (RAGAS, TruLens, DeepEval), use
-`RagasAdapter` from `[ragas]` extra:
-
-```python
-from raghub.eval.ragas import RagasAdapter
-
-adapter = RagasAdapter(metrics=["faithfulness", "answer_relevancy"])
-results = await adapter.evaluate(examples, response_factory=factory)
-```
-
-RAGAS metrics are prefixed with `ragas_` in the results dict
-to avoid colliding with `Metrics` entries.
+third-party evaluation frameworks (TruLens, DeepEval), integrate
+via the `PluginRegistry` or call the framework directly.
