@@ -31,7 +31,6 @@ except ImportError:
 from pydantic import BaseModel, Field
 
 from raghub.models import AuthLoginResponse, Turn, User
-from raghub.services import Mixin as ServiceMixin
 
 __all__ = [
     "AuthService",
@@ -431,7 +430,7 @@ class Authz:
         raise AuthorizationError("Admin access required")
 
 
-class AuthService(ServiceMixin):
+class AuthService:
     """Login, logout, and principal-resolution operations.
 
     Attributes:
@@ -447,6 +446,20 @@ class AuthService(ServiceMixin):
 
         """
         self.container = container
+
+    def log(self, message: str, **payload: Any) -> None:
+        """Emit a structured log event."""
+        logger = getattr(self.container, "logger", None)
+        log_method = getattr(logger, "info", None) if logger else None
+        if callable(log_method):
+            log_method(message, extra=payload)
+
+    def emit_metric(self, name: str, started_at: float) -> None:
+        """Record a latency metric."""
+        metrics = getattr(self.container, "metrics", None)
+        recorder = getattr(metrics, "record_latency", None) if metrics else None
+        if callable(recorder):
+            recorder(name, (time.perf_counter() - started_at) * 1000.0)
 
     async def login(self, email: str, password: str) -> AuthLoginResponse:
         """Verify credentials and create a session.

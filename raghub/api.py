@@ -397,12 +397,12 @@ class AuthRouter:
 
     def __init__(self) -> None:
         self.router = APIRouter()
-        self.__register_login()
-        self.__register_logout()
-        self.__register_session_history()
-        self.__register_clear_history()
+        self._register_login()
+        self._register_logout()
+        self._register_session_history()
+        self._register_clear_history()
 
-    def __register_login(self) -> None:
+    def _register_login(self) -> None:
         @self.router.post("/auth/login", response_model=AuthLoginResponse)
         async def handler(
             payload: AuthLoginRequest,
@@ -410,7 +410,7 @@ class AuthRouter:
         ) -> AuthLoginResponse:
             return await app_service.login(payload.email, payload.password)
 
-    def __register_logout(self) -> None:
+    def _register_logout(self) -> None:
         @self.router.post("/auth/logout")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
@@ -419,7 +419,7 @@ class AuthRouter:
             await app_service.logout(token)
             return {"status": "logged_out"}
 
-    def __register_session_history(self) -> None:
+    def _register_session_history(self) -> None:
         @self.router.get("/session/history")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
@@ -428,7 +428,7 @@ class AuthRouter:
             history = await app_service.history(token)
             return {"history": [turn.model_dump(mode="json") for turn in history]}
 
-    def __register_clear_history(self) -> None:
+    def _register_clear_history(self) -> None:
         @self.router.delete("/session/history", status_code=204, response_class=Response)
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
@@ -445,14 +445,14 @@ class DocumentRouter:
 
     def __init__(self) -> None:
         self.router = APIRouter()
-        self.__register_upload()
-        self.__register_ingest_batch()
-        self.__register_list()
-        self.__register_status()
-        self.__register_delete()
-        self.__register_ingest_async()
+        self._register_upload()
+        self._register_ingest_batch()
+        self._register_list()
+        self._register_status()
+        self._register_delete()
+        self._register_ingest_async()
 
-    def __register_upload(self) -> None:
+    def _register_upload(self) -> None:
         @self.router.post(
             "/documents/upload", status_code=202, response_model=DocumentUploadResponse
         )
@@ -480,7 +480,7 @@ class DocumentRouter:
                 filename=document.filename,
             )
 
-    def __register_ingest_batch(self) -> None:
+    def _register_ingest_batch(self) -> None:
         @self.router.post(
             "/documents/ingest/batch",
             status_code=200,
@@ -536,7 +536,7 @@ class DocumentRouter:
                     )
             return BatchIngestResponse(documents=results)
 
-    def __register_list(self) -> None:
+    def _register_list(self) -> None:
         @self.router.get("/documents")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
@@ -547,7 +547,7 @@ class DocumentRouter:
                 "documents": [document.model_dump(mode="json") for document in documents]
             }
 
-    def __register_status(self) -> None:
+    def _register_status(self) -> None:
         @self.router.get("/documents/{document_id}/status")
         async def handler(
             document_id: str,
@@ -557,7 +557,7 @@ class DocumentRouter:
             document = await app_service.document_status(token, document_id)
             return document.model_dump(mode="json")
 
-    def __register_delete(self) -> None:
+    def _register_delete(self) -> None:
         @self.router.delete(
             "/documents/{document_id}", status_code=204, response_class=Response
         )
@@ -569,7 +569,7 @@ class DocumentRouter:
             await app_service.delete_document(token, document_id)
             return Response(status_code=204)
 
-    def __register_ingest_async(self) -> None:
+    def _register_ingest_async(self) -> None:
         @self.router.post("/ingest/async")
         async def handler(
             request: Request,
@@ -599,11 +599,11 @@ class QueryRouter:
 
     def __init__(self) -> None:
         self.router = APIRouter()
-        self.__register_query()
-        self.__register_stream()
-        self.__register_agent_run()
+        self._register_query()
+        self._register_stream()
+        self._register_agent_run()
 
-    def __register_query(self) -> None:
+    def _register_query(self) -> None:
         @self.router.post("/query", response_model=QueryResponse)
         async def handler(
             payload: QueryRequest,
@@ -627,7 +627,7 @@ class QueryRouter:
                 top_k=payload.top_k,
             )
 
-    def __register_stream(self) -> None:
+    def _register_stream(self) -> None:
         @self.router.post("/query/stream")
         def handler(
             payload: QueryRequest,
@@ -661,7 +661,7 @@ class QueryRouter:
 
             return StreamingResponse(gen(), media_type="text/event-stream")
 
-    def __register_agent_run(self) -> None:
+    def _register_agent_run(self) -> None:
         @self.router.post("/agent/run", response_model=QueryResponse)
         async def handler(
             payload: QueryRequest,
@@ -691,11 +691,11 @@ class AdminRouter:
 
     def __init__(self) -> None:
         self.router = APIRouter(prefix="/admin", tags=["admin"])
-        self.__register_documents()
-        self.__register_users()
-        self.__register_stats()
+        self._register_documents()
+        self._register_users()
+        self._register_stats()
 
-    def __register_documents(self) -> None:
+    def _register_documents(self) -> None:
         @self.router.get("/documents")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
@@ -704,7 +704,7 @@ class AdminRouter:
             docs = await app_service.container.uow.document_repo.list_all()
             return [doc.model_dump(mode="json") for doc in docs]
 
-    def __register_users(self) -> None:
+    def _register_users(self) -> None:
         @self.router.get("/users")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
@@ -713,7 +713,7 @@ class AdminRouter:
             users = await app_service.container.user_store.list_users()
             return [Redaction.user(user.model_dump(mode="json")) for user in users]
 
-    def __register_stats(self) -> None:
+    def _register_stats(self) -> None:
         @self.router.get("/stats")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
@@ -738,11 +738,11 @@ class PreferencesRouter:
 
     def __init__(self) -> None:
         self.router = APIRouter()
-        self.__register_get()
-        self.__register_patch()
-        self.__register_delete()
+        self._register_get()
+        self._register_patch()
+        self._register_delete()
 
-    def __register_get(self) -> None:
+    def _register_get(self) -> None:
         @self.router.get(
             "/users/me/preferences",
             response_model=PreferencesResponse,
@@ -756,7 +756,7 @@ class PreferencesRouter:
             prefs = await store.get_prefs(user_id)
             return PreferencesResponse(prefs=prefs or {})
 
-    def __register_patch(self) -> None:
+    def _register_patch(self) -> None:
         @self.router.patch(
             "/users/me/preferences",
             response_model=PreferencesResponse,
@@ -772,7 +772,7 @@ class PreferencesRouter:
             prefs = await store.get_prefs(user_id)
             return PreferencesResponse(prefs=prefs or {})
 
-    def __register_delete(self) -> None:
+    def _register_delete(self) -> None:
         @self.router.delete(
             "/users/me/preferences/{key}",
             status_code=204,
@@ -826,10 +826,10 @@ class FeedbackRouter:
         # Register aggregate BEFORE the {feedback_id} catch-all so
         # ``/feedback/aggregate`` does not get treated as a lookup for
         # feedback id "aggregate".
-        self.__register_aggregate()
-        self.__register_submit()
-        self.__register_get()
-        self.__register_delete()
+        self._register_aggregate()
+        self._register_submit()
+        self._register_get()
+        self._register_delete()
 
     def __feedback_store(self, app_service: Facade) -> Any:
         """Return the configured FeedbackStore or raise ``503`` if absent."""
@@ -843,7 +843,7 @@ class FeedbackRouter:
             )
         return store
 
-    def __register_submit(self) -> None:
+    def _register_submit(self) -> None:
         @self.router.post(
             "/feedback",
             status_code=201,
@@ -871,7 +871,7 @@ class FeedbackRouter:
             await store.record(feedback)
             return {"id": feedback.id}
 
-    def __register_get(self) -> None:
+    def _register_get(self) -> None:
         @self.router.get("/feedback/{feedback_id}")
         async def handler(
             feedback_id: str,
@@ -887,7 +887,7 @@ class FeedbackRouter:
 
             return asdict(feedback)
 
-    def __register_delete(self) -> None:
+    def _register_delete(self) -> None:
         @self.router.delete("/feedback/{feedback_id}", status_code=204)
         async def handler(
             feedback_id: str,
@@ -897,7 +897,7 @@ class FeedbackRouter:
             await store.delete(feedback_id)
             return Response(status_code=204)
 
-    def __register_aggregate(self) -> None:
+    def _register_aggregate(self) -> None:
         @self.router.get(
             "/feedback/aggregate",
             response_model=FeedbackAggregateResponse,

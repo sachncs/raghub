@@ -32,6 +32,7 @@ the public surface mirrors the rest of the RBAC contract.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import inspect
 import os
 import tomllib
@@ -145,7 +146,13 @@ LLM_API_KEY_ENV_VARS = (
 
 
 def has_llm_api_key() -> bool:
-    """Return ``True`` when any provider API key env var is set."""
+    """Return ``True`` when any provider API key env var is set.
+
+    Returns:
+        True when at least one LLM API key env var is set (or a key is
+        explicitly provided via constructor). When False, callers must
+        configure an LLM API key before invoking the LLM.
+    """
     return any(os.getenv(k) for k in LLM_API_KEY_ENV_VARS)
 
 
@@ -247,14 +254,17 @@ def default_llm(llm_model: str) -> Any:
 
     Returns:
         :class:`LiteLLM` for the configured model when an API
-        key is available; :class:`HeuristicProvider` (offline fallback)
-        otherwise.
+        key is available.
+
+    Raises:
+        ConfigurationError: When no LLM API key is configured.
 
     """
     if not has_llm_api_key():
-        from raghub.llm import HeuristicProvider
-
-        return HeuristicProvider()
+        raise ConfigurationError(
+            "No LLM API key configured; set RAG_LLM_API_KEY "
+            "(or another provider key) before using the LLM."
+        )
     from raghub.llm import LiteLLM
 
     return LiteLLM(model=llm_model)
@@ -434,34 +444,31 @@ class RAG:
         components: RagComponents | None = None,
         **kwargs: "JSONValue",
     ) -> None:
-        """Initialise the facade.
-
-        Args:
-            settings: Configuration; default uses
-                :func:`load_settings`.
-            components: Optional injection of every collaborator
-                (converter, chunker, embedder, llm, vector_store,
-                generator, reranker, knowledge_repo, structured,
-                telemetry, registry, background_service, manifest,
-                transformer). Missing keys default to the standard
-                implementation. Legacy keyword arguments
-                (``converter=``, ``llm=``, etc.) remain supported
-                for backward compatibility; they are merged into
-                ``components`` before resolution.
-            **kwargs: Legacy keyword arguments accepted for
-                backward compatibility. They are merged into
-                ``components`` so older callers keep working.
-
-        """
+        """Initialise the facade."""
         components_dict: dict[str, Any] = dict(components) if components is not None else {}
         components_dict.update(kwargs)
         components_dict.setdefault("settings", settings)
+        self.__wire_components(components_dict)
+        self.__wire_ingest_pipeline()
+        self.__wire_query_pipeline(components_dict)
+        self.manifest: Manifest = (
+            components_dict.get("manifest") or Manifest(self.settings.data_dir / "manifest.json")
+        )
+        self.background_ingestion = components_dict.get("background_service")
+        self.queue_ = self.__init_queue(components_dict)
+        self.tenant_resolver_ = self.__init_tenant_resolver(components_dict)
+        self.feedback_store_ = self.__init_feedback_store(components_dict)
+        self.rate_limiter_: Any = None
+        self.archive_: Any = None
+        self.isolation_strategy_: Any = components_dict.get("isolation_strategy")
+
+    def __wire_components(self, components_dict: dict[str, Any]) -> None:
+        """Resolve core collaborators from ``components_dict`` or defaults."""
         self.settings: Settings = components_dict.get("settings") or Settings.load()
         self.registry: Any = components_dict.get("registry") or PluginRegistry()
-
         self.knowledge_repo: "KnowledgeRepository" = (
-    components_dict.get("knowledge_repo") or MemoryRepo()
-)
+            components_dict.get("knowledge_repo") or MemoryRepo()
+        )
         self.vector_store: Any = (
             components_dict.get("vector_store") or default_vector_store(self.settings.embedding_dim)
         )
@@ -470,8 +477,8 @@ class RAG:
         )
         self.llm: Any = components_dict.get("llm") or default_llm(self.settings.llm_model)
         self.converter: "DocumentConverter" = (
-    components_dict.get("converter") or default_converter()
-)
+            components_dict.get("converter") or default_converter()
+        )
         self.chunker: Any = components_dict.get("chunker") or default_chunker(
             self.settings.chunk_size_words,
             self.settings.chunk_overlap_words,
@@ -494,16 +501,14 @@ class RAG:
             if components_dict.get("structured") is not None
             else default_structured()
         )
-
         if components_dict.get("telemetry") is None:
             inner = default_telemetry()
             self.telemetry: Any = RedactingTelemetry(inner)
         else:
             self.telemetry = components_dict["telemetry"]
-        # Observability is now Langfuse-only; rerankers and other hot
-        # path components call module-level helpers that route through
-        # Langfuse ``score`` when configured.
 
+    def __wire_ingest_pipeline(self) -> None:
+        """Build the ingestion pipeline and conversation store."""
         self.ingest_pipeline = Ingest(
             converter=self.converter,
             chunker=self.chunker,
@@ -516,6 +521,8 @@ class RAG:
         )
         self.conversation_store: Any = Memory()
 
+    def __wire_query_pipeline(self, components_dict: dict[str, Any]) -> None:
+        """Build retrieval, query, and agent pipelines."""
         self.query_cache: Cache | None = (
             Cache(ttl_seconds=self.settings.query_cache_ttl_seconds)
             if self.settings.enable_query_cache
@@ -527,11 +534,6 @@ class RAG:
             hyde_n=self.settings.query_transforms.hyde_n,
             multi_query_n=self.settings.query_transforms.multi_query_n,
         )
-        # Phase 2.8: build a RetrievalPipeline so multi-variant
-        # retrieval can delegate to ``retrieve_variants``. Identity
-        # reranker is fine — the transformer adds variants but
-        # doesn't replace reranking.
-
         self.colbert = ColbertLateInteraction(self.settings.hybrid)
         self.retrieval_pipeline = RetrievalPipeline(
             embedding_provider=self.embedder,
@@ -539,33 +541,15 @@ class RAG:
             rerank=self.reranker,
             hybrid=self.settings.hybrid,
         )
-        # Phase 5.3: build the long-context pass when the config
-        # says so. The pass is a no-op when the configured LLM is
-        # not in the allowlist, so building it eagerly is cheap.
-
         self.long_context_pass = LongContextRerankPass(
             llm=self.llm, settings=self.settings.long_context_pass
         )
-        # Phase 6.6: build the structured knowledge indexes when
-        # the operator opted in. Both default to None so the
-        # fast path stays byte-equivalent (Phase 10.6).
         self.raptor = None
         self.graph = None
         if self.settings.summary_search_enabled:
-            self.raptor = Raptor(
-                llm=self.llm,
-                embedder=self.embedder,
-                depth=2,
-            )
+            self.raptor = Raptor(llm=self.llm, embedder=self.embedder, depth=2)
         if self.settings.graph_search_enabled:
             self.graph = GraphIndex(llm=self.llm, embedder=self.embedder)
-
-        # Phase 7.8 + 7.11: build the agent + tool registry + the
-        # agentic pipeline. The agent is wired only when the
-        # settings say so; the early-exit path is preserved when
-        # ``settings.agent.enabled`` is ``False`` AND no tool is
-        # explicitly requested.
-
         self.tool_registry = build_tool_registry(
             self.settings,
             retrieval_pipeline=self.retrieval_pipeline,
@@ -600,7 +584,6 @@ class RAG:
                 telemetry=self.telemetry,
                 long_context_pass=self.long_context_pass,
             )
-
         self.query_pipeline = QueryPipeline(
             embedder=self.embedder,
             vector_store=self.vector_store,
@@ -615,99 +598,6 @@ class RAG:
             long_context_pass=self.long_context_pass,
             agentic_pipeline=self.agentic_pipeline,
         )
-
-        self.manifest: Manifest = (
-            components_dict.get("manifest") or Manifest(self.settings.data_dir / "manifest.json")
-        )
-        self.background_ingestion = components_dict.get("background_service")
-
-        # v0.9.0 Tier 1: optional collaborators wired through Settings.
-        # Components supplied via ``components=`` win over Settings.
-        self.queue_ = self.__init_queue(components_dict)
-        self.tenant_resolver_ = self.__init_tenant_resolver(components_dict)
-        # Tier 3 Item 19: FeedbackStore wired from Settings.feedback.
-        self.feedback_store_ = self.__init_feedback_store(components_dict)
-        # The rest stay as ``None`` until Tier 1's later items wire them.
-        self.rate_limiter_: Any = None
-        self.archive_: Any = None
-        self.isolation_strategy_: Any = components_dict.get("isolation_strategy")
-
-    def __build_components_dict(
-        self,
-        settings: Settings | None,
-        components: RagComponents | None,
-        kwargs: Any,
-    ) -> dict[str, Any]:
-        """Merge ``kwargs`` into ``components`` (legacy support)."""
-        components_dict: dict[str, Any] = (
-            dict(components) if components is not None else {}
-        )
-        components_dict.update(kwargs)
-        components_dict.setdefault("settings", settings)
-        return components_dict
-
-    def __wire_components(self, components_dict: dict[str, Any]) -> None:
-        """Resolve every collaborator from ``components_dict`` and bind it.
-
-        Each branch picks an explicit injection when the caller
-        supplied one, otherwise falls back to the standard default
-        factory keyed off ``self.settings``.
-        """
-        self.settings: Settings = (
-            components_dict.get("settings") or Settings.load()
-        )
-        self.registry: Any = (
-            components_dict.get("registry") or PluginRegistry()
-        )
-        self.knowledge_repo: "KnowledgeRepository" = (
-            components_dict.get("knowledge_repo") or MemoryRepo()
-        )
-        self.vector_store: Any = (
-            components_dict.get("vector_store")
-            or default_vector_store(self.settings.embedding_dim)
-        )
-        self.embedder: Any = (
-            components_dict.get("embedder")
-            or default_embedder(
-                self.settings.embedding_model, self.settings.embedding_dim
-            )
-        )
-        self.llm: Any = (
-            components_dict.get("llm") or default_llm(self.settings.llm_model)
-        )
-        self.converter: "DocumentConverter" = (
-            components_dict.get("converter") or default_converter()
-        )
-        self.chunker: Any = (
-            components_dict.get("chunker")
-            or default_chunker(
-                self.settings.chunk_size_words,
-                self.settings.chunk_overlap_words,
-                chunker_strategy=self.settings.chunker_strategy,
-                embedding_model_chunker=self.settings.embedding_model_chunker,
-            )
-        )
-        self.reranker: Any = (
-            components_dict.get("reranker")
-            or build_reranker(self.settings, llm=self.llm)
-        )
-        self.generator: Any = cast(
-            Any,
-            components_dict.get("generator")
-            or DefaultGenerator(
-                llm=self.llm,
-                timeout_seconds=components_dict.get("llm_timeout_seconds"),
-            ),
-        )
-        if components_dict.get("structured") is not None:
-            self.structured: Any = components_dict["structured"]
-        else:
-            self.structured: Any = default_structured()
-
-        if components_dict.get("telemetry") is None:
-            self.telemetry: Any = RedactingTelemetry(default_telemetry())
-        else:
-            self.telemetry = components_dict["telemetry"]
 
     def __init_queue(self, components_dict: dict[str, Any]) -> Any:
         """Construct the persistent ingestion queue.
@@ -1777,15 +1667,31 @@ class RAG:
             if ctx is not None:
                 tenant_id = ctx.tenant_id
                 validate_tenant_id(tenant_id)
+
+            content_hash = hashlib.sha256(file_bytes).hexdigest()
             payload = {
                 "source": file_bytes.decode("latin-1"),
                 "source_uri": uri,
                 "mime_type": mime_type,
                 "metadata": metadata or {},
                 "user": getattr(user, "user_id", None) if user else None,
+                "content_hash": content_hash,
             }
 
             async def submit() -> str:
+                existing_jobs = await self.queue_.list_for_tenant(
+                    tenant_id=tenant_id,
+                    content_hash=content_hash,
+                )
+                for job in existing_jobs:
+                    if (
+                        job.payload.get("content_hash") == content_hash
+                        and job.status in (
+                            JobStatus.PENDING,
+                            JobStatus.RUNNING,
+                        )
+                    ):
+                        return job.id
                 return await self.queue_.submit(
                     kind="ingest",
                     payload=payload,
@@ -1879,83 +1785,6 @@ class RAG:
         """
         scoped = self.scoped_session_id(user, session_id) or session_id
         return cast(list[Any], self.conversation_store.load(scoped, limit=limit))
-
-    def __build_components_dict(
-        self,
-        settings: Settings | None,
-        components: RagComponents | None,
-        kwargs: Any,
-    ) -> dict[str, Any]:
-        """Merge kwargs into ``components`` (legacy support)."""
-        components_dict: dict[str, Any] = (
-            dict(components) if components is not None else {}
-        )
-        components_dict.update(kwargs)
-        components_dict.setdefault("settings", settings)
-        return components_dict
-
-    def __wire_components(self, components_dict: dict[str, Any]) -> None:
-        """Resolve every collaborator from ``components_dict`` and bind it.
-
-        Each branch picks an explicit injection when the caller
-        supplied one, otherwise falls back to the standard default
-        factory keyed off ``self.settings``.
-        """
-        self.settings: Settings = (
-            components_dict.get("settings") or Settings.load()
-        )
-        self.registry: Any = (
-            components_dict.get("registry") or PluginRegistry()
-        )
-        self.knowledge_repo: "KnowledgeRepository" = (
-            components_dict.get("knowledge_repo") or MemoryRepo()
-        )
-        self.vector_store: Any = (
-            components_dict.get("vector_store")
-            or default_vector_store(self.settings.embedding_dim)
-        )
-        self.embedder: Any = (
-            components_dict.get("embedder")
-            or default_embedder(
-                self.settings.embedding_model, self.settings.embedding_dim
-            )
-        )
-        self.llm: Any = (
-            components_dict.get("llm") or default_llm(self.settings.llm_model)
-        )
-        self.converter: "DocumentConverter" = (
-            components_dict.get("converter") or default_converter()
-        )
-        self.chunker: Any = (
-            components_dict.get("chunker")
-            or default_chunker(
-                self.settings.chunk_size_words,
-                self.settings.chunk_overlap_words,
-                chunker_strategy=self.settings.chunker_strategy,
-                embedding_model_chunker=self.settings.embedding_model_chunker,
-            )
-        )
-        self.reranker: Any = (
-            components_dict.get("reranker")
-            or build_reranker(self.settings, llm=self.llm)
-        )
-        self.generator: Any = cast(
-            Any,
-            components_dict.get("generator")
-            or DefaultGenerator(
-                llm=self.llm,
-                timeout_seconds=components_dict.get("llm_timeout_seconds"),
-            ),
-        )
-        if components_dict.get("structured") is not None:
-            self.structured: Any = components_dict["structured"]
-        else:
-            self.structured: Any = default_structured()
-
-        if components_dict.get("telemetry") is None:
-            self.telemetry: Any = RedactingTelemetry(default_telemetry())
-        else:
-            self.telemetry = components_dict["telemetry"]
 
     def clear_conversation(
         self,
