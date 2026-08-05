@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="description" content="None" />
+      <link rel="shortcut icon" href="img/favicon.ico" />
+    <title>RAGHub</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Home";
+        var mkdocs_page_input_path = "index.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="." class="icon icon-home"> RAGHub
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Home</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#package-layout">Package layout</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick Start</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#documentation">Documentation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#library-dependencies-defaults">Library dependencies (defaults)</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="guide/getting-started/">Getting started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="migration/">Migration (legacy → facade)</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="architecture/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="architecture/decisions/">Decisions</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="guide/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="guide/deployment/">Deployment</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="guide/evaluation/">Evaluation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="ADVANCED_RAG/">Advanced RAG</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="reference/api/">API</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="reference/configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="plugins/">Plugins</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="operations/monitoring/">Monitoring</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="operations/backup/">Backup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="operations/runbook/">Runbook</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="operations/scaling/">Scaling</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="future/">Future</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href=".">RAGHub</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Home</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="raghub">RAGHub</h1>
+<p>Production-grade multi-user retrieval-augmented generation platform built on
+the spec libraries. The single recommended entry point is
+<a href="https://github.com/sachncs/raghub"><code>raghub.RAG</code></a>; every collaborator
+behind it — Marker, Chonkie, LiteLLM, Qdrant, Langfuse, Instructor — is
+replaceable.</p>
+<h2 id="package-layout">Package layout</h2>
+<pre><code class="language-text">raghub/
+  rag.py              RAG facade, FastAPI server
+  api.py              FastAPI app (AppFactory.create_app)
+  cli.py              Console scripts (``raghub``, ``raghub-financebench``)
+  config.py           Settings dataclass, YAML/TOML loader
+  models.py           Typed Pydantic domain + canonical models
+  errors.py           Typed error hierarchy
+  llm.py              LiteLLM, Heuristic (offline) providers
+  embedder.py         LiteLLM, hashing embedders
+  store.py            Qdrant, SQLite, InMemory vector stores
+  parsers.py          Marker, plain-text converters
+  pipeline.py         Ingest + Query pipelines
+  gen.py              DefaultGenerator (citations, astream, tokens)
+  ingest.py           Chunker, Ingestor, Resumable
+  knowledge.py        Open Knowledge Format (OKF) bundles + repository
+  retrieval/          Rerankers, transformers, fusion
+  stores/             SQLite persistence, image store
+  services/           Facade, container wiring
+  tools/              ToolRegistry + built-in tools
+  lifecycle/          Document lifecycle state machines
+  helper/             Internal collaborators (auth, cli, sse, …)
+  telemetry.py        NoOp, Redacting, Langfuse, Prometheus telemetry
+  evaluation.py       Finance + FRAMES evaluators
+  plugins.py          PluginRegistry + entry-point discovery
+  auth.py             UserStore, AuthService, Authz
+  repos.py            ChunkStore, DocStore, SessionStore
+</code></pre>
+<p>The <code>RAG</code> facade is the recommended entry point; the FastAPI
+surface in <code>api.py</code> is the multi-tenant HTTP wrapper. See
+<a href="migration/">migration.md</a> for the path from the legacy API.</p>
+<h2 id="quick-start">Quick Start</h2>
+<pre><code class="language-python">from raghub import RAG
+
+rag = RAG()
+rag.ingest(b&quot;Revenue grew 12% YoY in Q3 2024.&quot;)
+print(rag.query(&quot;revenue&quot;).answer)
+</code></pre>
+<pre><code class="language-bash">raghub init -o raghub.yaml
+raghub ingest ./documents
+raghub query &quot;What was the revenue guidance?&quot;
+</code></pre>
+<h2 id="documentation">Documentation</h2>
+<ul>
+<li><a href="guide/getting-started/">Getting started</a></li>
+<li><a href="guide/development/">Development guide</a></li>
+<li><a href="guide/deployment/">Deployment guide</a></li>
+<li><a href="reference/api/">API reference</a></li>
+<li><a href="reference/configuration/">Configuration reference</a></li>
+<li><a href="architecture/overview/">Architecture overview</a></li>
+<li><a href="architecture/decisions/">Design decisions</a></li>
+<li><a href="plugins/">Plugin authoring</a></li>
+<li><a href="migration/">Migration guide (legacy → RAG facade)</a></li>
+<li><a href="operations/monitoring/">Monitoring &amp; observability</a></li>
+<li><a href="operations/backup/">Backup &amp; restore</a></li>
+<li><a href="operations/runbook/">Runbook</a></li>
+<li><a href="operations/scaling/">Scaling</a></li>
+<li><a href="troubleshooting/">Troubleshooting</a></li>
+<li><a href="future/">Future extensions</a></li>
+</ul>
+<h2 id="library-dependencies-defaults">Library dependencies (defaults)</h2>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Library</th>
+<th>Default behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Document conversion</td>
+<td>Marker</td>
+<td>Falls back to <code>PlainTextConverter</code> when Marker is missing</td>
+</tr>
+<tr>
+<td>Chunking</td>
+<td>Chonkie</td>
+<td>Falls back to <code>WordChunker</code> when Chonkie is missing</td>
+</tr>
+<tr>
+<td>LLM</td>
+<td>LiteLLM</td>
+<td>Falls back to <code>HeuristicLLMProvider</code> (offline, deterministic)</td>
+</tr>
+<tr>
+<td>Embeddings</td>
+<td>LiteLLM</td>
+<td>Falls back to <code>Hasher</code> (offline)</td>
+</tr>
+<tr>
+<td>Structured output</td>
+<td>Instructor</td>
+<td>Returns <code>None</code> when Instructor is missing or no API key</td>
+</tr>
+<tr>
+<td>Vector store</td>
+<td>Qdrant</td>
+<td>Falls back to <code>MemoryStore</code> when <code>QDRANT_URL</code> is unset</td>
+</tr>
+<tr>
+<td>Telemetry</td>
+<td>Langfuse v3+</td>
+<td>Falls back to <code>NoOpTelemetry</code> when Langfuse is missing or unconfigured</td>
+</tr>
+<tr>
+<td>Knowledge format</td>
+<td>OKF (Open Knowledge Format)</td>
+<td>Canonical persisted representation</td>
+</tr>
+</tbody>
+</table>
+<p>Every default can be replaced through the <code>RAG(...)</code> constructor or via
+the <a href="plugins/">plugin registry</a>.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="guide/getting-started/" class="btn btn-neutral float-right" title="Getting started">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+    
+      <span><a href="guide/getting-started/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = ".";</script>
+    <script src="js/theme_extra.js"></script>
+    <script src="js/theme.js"></script>
+      <script src="search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
+
+<!--
+MkDocs version : 1.6.1
+Build Date UTC : 2026-08-05 08:30:33.790139+00:00
+-->

@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Decisions - RAGHub</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Decisions";
+        var mkdocs_page_input_path = "architecture/decisions.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> RAGHub
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../guide/getting-started/">Getting started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../migration/">Migration (legacy → facade)</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Decisions</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0001-llm-and-embedding-provider-is-litellm">ADR-0001: LLM and embedding provider is LiteLLM</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0002-vector-store-package-is-raghubstore-singular">ADR-0002: Vector store package is raghub.store (singular)</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0003-okf-is-the-canonical-persisted-knowledge-representation">ADR-0003: OKF is the canonical persisted knowledge representation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0004-public-api-is-raghubrag-legacy-services-preserved">ADR-0004: Public API is raghub.RAG; legacy services preserved</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0005-telemetry-scrubbing-is-the-default">ADR-0005: Telemetry scrubbing is the default</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0006-no-raw-dicts-cross-the-public-boundary">ADR-0006: No raw dicts cross the public boundary</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0007-langfuse-v3-uses-get_client-and-spans">ADR-0007: Langfuse v3+ uses get_client() and spans</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0008-instructor-v1-uses-from_providerlitellmmodel">ADR-0008: Instructor v1+ uses from_provider("litellm/&lt;model&gt;")</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0009-configuration-precedence-env-toml-yaml-defaults">ADR-0009: Configuration precedence: env &gt; TOML &gt; YAML &gt; defaults</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0010-incremental-indexing-by-sha-256-content-hash">ADR-0010: Incremental indexing by SHA-256 content hash</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0011-multi-user-rbac-enforced-at-the-retrieval-layer">ADR-0011: Multi-user RBAC enforced at the retrieval layer</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0012-conversation-history-is-namespaced-by-user-session_id">ADR-0012: Conversation history is namespaced by user + session_id</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0013-streaming-goes-end-to-end-through-the-llms-astream">ADR-0013: Streaming goes end-to-end through the LLM's astream</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0014-plugin-registry-is-type-keyed-and-entry-point-discoverable">ADR-0014: Plugin registry is type-keyed and entry-point discoverable</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0015-structured-output-is-delivered-via-instructor-when-available">ADR-0015: Structured output is delivered via Instructor when available</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0016-background-ingestion-is-resumable-through-a-persistent-ledger">ADR-0016: Background ingestion is resumable through a persistent ledger</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#adr-0017-production-forbids-passwordless-login-and-short-jwt-secrets">ADR-0017: Production forbids passwordless login and short JWT secrets</a>
+    </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/deployment/">Deployment</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/evaluation/">Evaluation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../ADVANCED_RAG/">Advanced RAG</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/api/">API</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../plugins/">Plugins</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/monitoring/">Monitoring</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/backup/">Backup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/runbook/">Runbook</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/scaling/">Scaling</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../future/">Future</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">RAGHub</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Architecture</li>
+      <li class="breadcrumb-item active">Decisions</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="architecture-decision-records">Architecture Decision Records</h1>
+<table>
+<thead>
+<tr>
+<th>Number</th>
+<th>Date</th>
+<th>Title</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ADR-0001</td>
+<td>2024-Q4</td>
+<td>LLM and embedding provider is LiteLLM</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0002</td>
+<td>2024-Q4</td>
+<td>Vector store package is <code>raghub.store</code> (singular)</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0003</td>
+<td>2024-Q4</td>
+<td>OKF is the canonical persisted knowledge representation</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0004</td>
+<td>2024-Q4</td>
+<td>Public API is <code>raghub.RAG</code>; legacy services preserved</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0005</td>
+<td>2024-Q4</td>
+<td>Telemetry scrubbing is the default</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0006</td>
+<td>2024-Q4</td>
+<td>No raw dicts cross the public boundary</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0007</td>
+<td>2024-Q4</td>
+<td>Langfuse v3+ uses <code>get_client()</code> and spans</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0008</td>
+<td>2024-Q4</td>
+<td>Instructor v1+ uses <code>from_provider("litellm/&lt;model&gt;")</code></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0009</td>
+<td>2024-Q4</td>
+<td>Configuration precedence: env &gt; TOML &gt; YAML &gt; defaults</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0010</td>
+<td>2024-Q4</td>
+<td>Incremental indexing by SHA-256 content hash</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0011</td>
+<td>2024-Q4</td>
+<td>Multi-user RBAC enforced at the retrieval layer</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0012</td>
+<td>2024-Q4</td>
+<td>Conversation history is namespaced by <code>user + session_id</code></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0013</td>
+<td>2024-Q4</td>
+<td>Streaming goes end-to-end through the LLM's <code>astream</code></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0014</td>
+<td>2024-Q4</td>
+<td>Plugin registry is type-keyed and entry-point discoverable</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0015</td>
+<td>2024-Q4</td>
+<td>Structured output is delivered via Instructor when available</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0016</td>
+<td>2024-Q4</td>
+<td>Background ingestion is resumable through a persistent ledger</td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>ADR-0017</td>
+<td>2024-Q4</td>
+<td>Production forbids passwordless login and short JWT secrets</td>
+<td>Accepted</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="adr-0001-llm-and-embedding-provider-is-litellm">ADR-0001: LLM and embedding provider is LiteLLM</h2>
+<p><strong>Context:</strong> the previous default was <code>langchain-nvidia-ai-endpoints</code>,
+which is a thin wrapper around NVIDIA's hosted models and locks the
+project into a single provider.</p>
+<p><strong>Decision:</strong> the canonical LLM and embedding providers are
+<code>raghub.llm.litellm.LiteLLM</code> and
+<code>raghub.embedder.litellm.LiteLLMEmbedder</code>. Both work with
+any LiteLLM-supported model (OpenAI, Anthropic, NVIDIA, Bedrock,
+Cohere, Voyage, Groq).</p>
+<p><strong>Consequences:</strong> the framework supports multiple providers out of
+the box; the dependency on <code>langchain-nvidia-ai-endpoints</code> was
+removed. When no API key is configured, <code>default_llm</code> /
+<code>default_embedder</code> fall back to the offline
+<code>HeuristicLLMProvider</code> / <code>Hasher</code> so the facade
+runs anywhere.</p>
+<h2 id="adr-0002-vector-store-package-is-raghubstore-singular">ADR-0002: Vector store package is <code>raghub.store</code> (singular)</h2>
+<p><strong>Context:</strong> two parallel packages (<code>raghub.store</code> singular
+and <code>raghub.stores</code> plural) confused importers.</p>
+<p><strong>Decision:</strong> one package: <code>raghub.store</code>. Qdrant lives at
+<code>raghub.store.qdrant</code>; ZVec at <code>raghub.store.zvec</code>;
+InMemory at <code>raghub.store.memory</code>.</p>
+<p><strong>Consequences:</strong> the duplicate plural package was merged; legacy
+imports of <code>raghub.stores.*</code> were redirected.</p>
+<h2 id="adr-0003-okf-is-the-canonical-persisted-knowledge-representation">ADR-0003: OKF is the canonical persisted knowledge representation</h2>
+<p><strong>Context:</strong> the previous pipeline produced <code>Bundle</code> only
+in memory; there was no canonical on-disk schema for hand-off
+between pipelines.</p>
+<p><strong>Decision:</strong> the canonical persisted representation is <strong>OKF
+(Open Knowledge Format)</strong>: a <code>Bundle</code> of
+<code>DocumentSection</code> × <code>DocumentBlock</code>, round-tripped through
+<code>to_okf</code> / <code>from_okf</code>.</p>
+<p><strong>Consequences:</strong> bundles can be cached, replayed, and inspected by
+third-party tools. The <code>MemoryRepo</code> lives at
+<code>raghub.knowledge.repository</code>; a disk-backed variant is an obvious
+extension point.</p>
+<h2 id="adr-0004-public-api-is-raghubrag-legacy-services-preserved">ADR-0004: Public API is <code>raghub.RAG</code>; legacy services preserved</h2>
+<p><strong>Context:</strong> the legacy <code>RagApplication</code>/<code>build_application</code>
+surface tied auth, storage, and pipelines to a single use-case
+facade — too many concerns in one import.</p>
+<p><strong>Decision:</strong> the recommended entry point is <code>raghub.RAG</code>, a small
+DI container that wires pipelines against replaceable adapters.
+The legacy <code>RagApplication</code> and <code>build_application</code> remain
+reachable from <code>raghub.__init__</code> for backward compatibility and
+power the FastAPI app at <code>raghub.api.AppFactory.create_app</code>.</p>
+<p><strong>Consequences:</strong> new code uses <code>RAG(...)</code>. Legacy endpoints, CLI
+shims, and DI containers remain available so existing consumers
+do not break.</p>
+<h2 id="adr-0005-telemetry-scrubbing-is-the-default">ADR-0005: Telemetry scrubbing is the default</h2>
+<p><strong>Context:</strong> every <code>TelemetryProvider</code> typically sees kwargs that
+contain credentials, tokens, and PII; without scrubbing the
+upstream sink (e.g. Langfuse) sees raw passwords in event
+attributes.</p>
+<p><strong>Decision:</strong> the facade wraps its default telemetry in
+<code>RedactingTelemetry</code>, which scrubs any kwarg whose key matches
+<code>password|secret|api_key|token|jwt|authorization</code> (case-insensitive,
+recursive into nested dicts) before forwarding.</p>
+<p><strong>Consequences:</strong> secret leakage to telemetry sinks is blocked at
+the facade boundary. The scrubbing is opt-out (pass your own
+<code>telemetry=</code> to disable).</p>
+<h2 id="adr-0006-no-raw-dicts-cross-the-public-boundary">ADR-0006: No raw dicts cross the public boundary</h2>
+<p><strong>Context:</strong> unrestrained <code>dict[str, Any]</code> return types break
+typed callers, encourage <code>Any</code> annotations, and complicate docs.</p>
+<p><strong>Decision:</strong> every public API in the facade (<code>RAG</code>, the
+<code>IngestPipeline</code>, the <code>QueryPipeline</code>, the CLI, the FastAPI
+schemas) exchanges typed Pydantic models declared in
+<code>raghub.models</code>.</p>
+<p><strong>Consequences:</strong> refactors stay non-breaking; static type
+checking is meaningful; OpenAPI schemas are generated from real
+Pydantic models.</p>
+<h2 id="adr-0007-langfuse-v3-uses-get_client-and-spans">ADR-0007: Langfuse v3+ uses <code>get_client()</code> and spans</h2>
+<p><strong>Context:</strong> the previous <code>LangfuseTelemetryProvider</code> used the
+v2 SDK (<code>Langfuse(...)</code> + <code>langfuse.score(...)</code> for every event)
+and produced no proper spans.</p>
+<p><strong>Decision:</strong> the provider uses langfuse v3+ (<code>get_client()</code> +
+<code>start_as_current_observation(as_type="span"|"generation", ...)</code>).
+The provider degrades to <code>NoOpTelemetry</code> when langfuse is missing
+or unconfigured.</p>
+<p><strong>Consequences:</strong> traces are first-class observations; the
+<code>RAG</code> facade emits per-stage spans, latency, and token usage.
+The dependency on langfuse v2 API patterns was removed.</p>
+<h2 id="adr-0008-instructor-v1-uses-from_providerlitellmmodel">ADR-0008: Instructor v1+ uses <code>from_provider("litellm/&lt;model&gt;")</code></h2>
+<p><strong>Context:</strong> Instructor had two styles of API depending on
+provider; the older <code>instructor.from_litellm(...)</code> wrapper was
+deprecated.</p>
+<p><strong>Decision:</strong> the structured-output provider initialises the
+Instructor client via <code>instructor.from_provider("litellm/&lt;model&gt;")</code>.</p>
+<p><strong>Consequences:</strong> the call shape is uniform across LiteLLM
+providers; Instructor upgrades are absorbed behind the
+<code>StructuredOutputProvider</code> interface.</p>
+<h2 id="adr-0009-configuration-precedence-env-toml-yaml-defaults">ADR-0009: Configuration precedence: env &gt; TOML &gt; YAML &gt; defaults</h2>
+<p><strong>Context:</strong> configuration precedence was implicit (YAML ↦ env
+override), confusing contributors reading <code>load_settings</code>.</p>
+<p><strong>Decision:</strong> the explicit precedence is <strong>env &gt; TOML &gt; YAML &gt;
+defaults</strong>. The facade's <code>RAG.from_config</code> accepts both <code>.yaml</code>
+and <code>.toml</code>; TOML is merged on top of YAML when both exist.</p>
+<p><strong>Consequences:</strong> operators have a deterministic rule for "what
+wins?". Free-form keys are preserved on <code>settings.extra</code> for
+forward compatibility.</p>
+<h2 id="adr-0010-incremental-indexing-by-sha-256-content-hash">ADR-0010: Incremental indexing by SHA-256 content hash</h2>
+<p><strong>Context:</strong> re-ingesting an unchanged document wastes LLM,
+embedder, and vector-store I/O; downstream indexes are not
+idempotent.</p>
+<p><strong>Decision:</strong> <code>IngestPipeline</code> computes <code>sha256(file_bytes)</code> and
+asks <code>KnowledgeRepository.get(bundle_id)</code> for a prior checksum.
+If the prior checksum matches, no re-embedding happens; the
+prior chunks are returned with <code>outputs["incremental"] = True</code>.</p>
+<p><strong>Consequences:</strong> <code>rag.ingest</code> is idempotent on the source.
+<code>rag.sync_index(directory)</code> reconciles an entire directory in one
+call and emits <code>added</code>/<code>modified</code>/<code>unchanged</code>/<code>removed</code> lists.</p>
+<h2 id="adr-0011-multi-user-rbac-enforced-at-the-retrieval-layer">ADR-0011: Multi-user RBAC enforced at the retrieval layer</h2>
+<p><strong>Context:</strong> previous code performed retrieval with <em>no</em> filter
+and attempted to scrub results in post — a leaky abstraction
+that allowed unauthorised context to reach the prompt.</p>
+<p><strong>Decision:</strong> <code>QueryPipeline.metadata_filter_for_user(user)</code>
+derives a metadata filter from <code>user.allowed_companies</code>
+(direct; admins return <code>""</code>; users with empty allow-lists return
+<code>{"company": []}</code> which matches nothing). The filter is forwarded
+to <code>vector_store.search</code>. The LLM only ever sees what the
+filter returned.</p>
+<p><strong>Consequences:</strong> there is no longer a code path by which
+unauthorised content can reach the prompt. Users with empty
+allow-lists receive empty result sets, not 403 errors.</p>
+<h2 id="adr-0012-conversation-history-is-namespaced-by-user-session_id">ADR-0012: Conversation history is namespaced by <code>user + session_id</code></h2>
+<p><strong>Context:</strong> <code>session_id</code> alone could be guessed; two users
+sharing an id would otherwise read each other's history.</p>
+<p><strong>Decision:</strong> <code>RAG.scoped_session_id(user, session_id)</code> returns
+<code>f"{uid}::{session_id}"</code> (or the raw id when no user is set, for
+the in-process anonymous case). <code>conversation_history</code> and
+<code>clear_conversation</code> likewise scope by the combined key.</p>
+<p><strong>Consequences:</strong> conversation history cannot leak across users
+who happen to share a <code>session_id</code>.</p>
+<h2 id="adr-0013-streaming-goes-end-to-end-through-the-llms-astream">ADR-0013: Streaming goes end-to-end through the LLM's <code>astream</code></h2>
+<p><strong>Context:</strong> earlier versions of <code>RAG.astream</code> materialised the
+full answer before yielding chunks.</p>
+<p><strong>Decision:</strong> <code>QueryPipeline.stream</code> calls
+<code>Generator.astream</code> → <code>DefaultGenerator.astream</code> →
+<code>LiteLLM.astream</code>, with
+<code>stream_options={"include_usage": True}</code> so token usage is
+populated as the stream completes.</p>
+<p><strong>Consequences:</strong> time-to-first-byte is dominated by the LLM's
+first token, not by assembling the full answer. The
+<code>record_tokens()</code> hook emits per-stream usage to telemetry.</p>
+<h2 id="adr-0014-plugin-registry-is-type-keyed-and-entry-point-discoverable">ADR-0014: Plugin registry is type-keyed and entry-point discoverable</h2>
+<p><strong>Context:</strong> plugins with a global namespace were ambiguous and
+hard to reason about.</p>
+<p><strong>Decision:</strong> <code>PluginRegistry</code> keeps separate mappings for
+converters, chunkers, embedders, vector stores, knowledge
+repos, generators, structured providers, telemetry, evaluators,
+and generic factories. Plugins may register through
+<code>register_*</code> helpers or via the <code>raghub.plugins</code> entry-point
+group (<code>PluginRegistry.discover_entrypoints()</code> loads them).</p>
+<p><strong>Consequences:</strong> every collaborator behind the facade is
+swappable through the same API. Plugins may add components
+without modifying the framework source.</p>
+<h2 id="adr-0015-structured-output-is-delivered-via-instructor-when-available">ADR-0015: Structured output is delivered via Instructor when available</h2>
+<p><strong>Context:</strong> call sites that wanted a typed answer were rolling
+their own regex extraction.</p>
+<p><strong>Decision:</strong> <code>RAG.query(..., response_model=MyModel)</code> returns
+the typed <code>BaseModel</code> in <code>Response.structured</code>. The structured
+path requires Instructor + an LLM API key; otherwise the field
+is <code>None</code> and the call still returns the free-form answer.</p>
+<p><strong>Consequences:</strong> typed answers are a first-class capability; the
+graceful degradation keeps <code>RAG</code> usable offline.</p>
+<h2 id="adr-0016-background-ingestion-is-resumable-through-a-persistent-ledger">ADR-0016: Background ingestion is resumable through a persistent ledger</h2>
+<p><strong>Context:</strong> in-process background ingestion lost state on
+crash; pending jobs were silently dropped.</p>
+<p><strong>Decision:</strong> <code>ResumableBatch</code> writes every
+status transition to a SQLite ledger via <code>PersistentJobStore</code>.
+On startup, <code>restore_from_store()</code> rehydrates the in-memory map.</p>
+<p><strong>Consequences:</strong> a crash mid-ingestion does not lose queued
+work. <code>rag.ingest_async(...)</code> and <code>rag.job_status(job_id)</code> round-
+trip through the same ledger.</p>
+<h2 id="adr-0017-production-forbids-passwordless-login-and-short-jwt-secrets">ADR-0017: Production forbids passwordless login and short JWT secrets</h2>
+<p><strong>Context:</strong> the legacy <code>allow_passwordless_login: true</code> default
+and PyJWT's <code>InsecureKeyLengthWarning</code> for sub-32-byte secrets
+were footguns.</p>
+<p><strong>Decision:</strong> <code>load_settings</code> enforces, when
+<code>environment == "production"</code>, that <code>JWT_SECRET</code> is set, is at
+least 32 UTF-8 bytes long, and that <code>allow_passwordless_login</code>
+is <code>false</code>. Any violation raises <code>RuntimeError</code> at startup.</p>
+<p><strong>Consequences:</strong> the production profile cannot silently accept
+forged credentials or permit passwordless sessions. CI also
+fails the build when the <code>InsecureKeyLengthWarning</code> fires.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../overview/" class="btn btn-neutral float-left" title="Overview"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../../guide/development/" class="btn btn-neutral float-right" title="Development">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../overview/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../../guide/development/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

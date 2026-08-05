@@ -1,9 +1,12 @@
 # Deployment
 
-RAGHub ships with two Compose files and a single multi-stage
-`Dockerfile`. The production target is
-`docker-compose.yml`; the explicit development override is
-`docker-compose.dev.yml`.
+RAGHub ships as a Python package on PyPI. The deployment model is
+"install the wheel, configure the environment, run the process" —
+no container images, no Compose stack, no orchestration manifests
+are shipped from the RAGHub repository. Operators can run the
+process directly, under `systemd`, inside a virtualenv on a bare
+host, or as a workload in any application platform that can host
+a Python entry point.
 
 ## Quick reference
 
@@ -11,94 +14,92 @@ RAGHub ships with two Compose files and a single multi-stage
 # 1. Configure secrets (REQUIRED before any production run).
 cp .env.example .env
 $EDITOR .env                    # set JWT_SECRET, LLM key, etc.
-openssl rand -base64 48          # generate JWT_SECRET
+openssl rand -base64 48         # generate JWT_SECRET
 
-# 2. Build the images.
-docker compose -f docker-compose.yml build
+# 2. Install the package.
+pip install "raghub[api,structured,langfuse,pdf]"
 
-# 3. Start the production stack (api).
-docker compose -f docker-compose.yml --profile production up -d
+# 3. Initialise the data directory and SQLite stores.
+raghub init -o raghub.yaml
 
-# 4. Verify health.
-docker compose -f docker-compose.yml --profile production ps
-curl -fsS http://127.0.0.1:8000/health
+# 4. Run the FastAPI server.
+raghub run --host 0.0.0.0 --port 8000
+# ...or, equivalently:
+uvicorn raghub.api:app_factory.create_app --factory \
+    --host 0.0.0.0 --port 8000
 ```
 
-For local development, use the explicit dev override:
+Verify with:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml \
-    --profile dev up
+curl -fsS http://127.0.0.1:8000/health
+raghub health
 ```
 
-The Makefile wraps both as `compose-up` / `compose-dev`. The dev
-override mounts the source tree and runs uvicorn with `--reload`;
-the base compose file does neither.
-
-## Why two compose files
-
-`docker-compose.override.yml` is auto-merged by Compose, which
-makes it invisible to anyone reading the production manifest. We
-renamed the override to `docker-compose.dev.yml` so:
-
-* `docker compose -f docker-compose.yml up` always starts the
-  hardened production stack.
-* The dev overrides (source mounts, `--reload`, relaxed security)
-  are an explicit, opt-in decision.
-* The README, runbook, and deployment docs all show the same
-  command.
-
-## Container images
-
-The `Dockerfile` is a multi-stage build:
-
-* **builder** — compiles the wheel and emits a
-  `requirements-runtime.txt` from the project metadata.
-* **runtime** — installs the wheel plus only the runtime
-  dependencies, drops privileges to the unprivileged `raghub`
-  user, and runs as PID 1 under tini (`init: true`).
-
-A `SERVICE` build arg selects the in-image healthcheck
-(`/health`) and the container `CMD`. The image is built from a
-single `Dockerfile`.
-
-The image is `python:3.12-slim-bookworm` with a pinned patch tag
-(no digest). The `PIP_NO_CACHE_DIR=1` and
-`PIP_DISABLE_PIP_VERSION_CHECK=1` env vars are set globally.
+The same process runs both the legacy `RagApplication` surface
+(`/auth/login`, `/documents/upload`, `/query`, etc.) and the new
+`RAG` facade behind the same app factory. Either is reachable from
+the installed `raghub` package — there is no separate "UI" service
+to start.
 
 ## Persistence
 
-Three named volumes are managed by Compose:
+Three files live under `RAG_DATA_DIR` (default `./data`):
 
-| Volume | Service | Backing |
-|---|---|---|
-| `raghub_data`           | api | SQLite registry, sessions, image cache, vector store |
+| File | Purpose |
+|---|---|
+| `registry.db` | Document registry, chunks, embeddings |
+| `sessions.db` | Opaque session tokens (signed with `JWT_SECRET`) |
+| `images/` | Optional content-addressed upload blob cache |
 
-`docker compose down` keeps the volumes; `down -v` removes them.
-See [`operations/backup.md`](../operations/backup.md) for the
-backup / restore procedure.
+Backups are produced with `raghub backup create -o <archive>` and
+restored with `raghub backup restore --input <archive> --target-dir
+<dir>`. See [`operations/backup.md`](../operations/backup.md) for
+the full procedure, retention policy, and cross-region guidance.
+
+For PostgreSQL deployments, run `raghub migrate pgvector --dsn
+<dsn>` once to create the `PgVectorStore` schema and indexes, then
+point the application at the database with `RAG_VECTORSTORE_DSN`.
+The `pg_dump` / `pg_basebackup` job is the canonical PostgreSQL
+backup; the SQLite files continue to be backed up through
+`raghub backup create`.
 
 ## Hardening (production defaults)
 
-* `read_only: true` on the API and UI containers.
-* `tmpfs` mounts for `/tmp` and `/run`.
-* `cap_drop: [ALL]` plus a minimal `cap_add` allow-list.
-* `security_opt: [no-new-privileges:true]`.
-* `init: true` (tini as PID 1).
-* `restart: unless-stopped`.
-* JSON-file log driver with `max-size: 10m`, `max-file: 5`.
-* `deploy.resources` limits on every service.
-* `env_file` is `required: true` — the stack fails closed if
-  `.env` is missing.
+The application is hardened by configuration, not by container
+manifests. The production profile (`config/production.yaml` plus
+`RAG_PROFILE=production`) sets:
+
+* Fail-closed `CORS_ORIGINS` — the server refuses to start with a
+  wildcard origin and `allow_credentials=True`.
+* Non-zero `JWT_SECRET` required — the process aborts at startup
+  if the secret is the placeholder.
+* Oversize uploads rejected at the edge with `413` before the body
+  is buffered.
+* Demo-user seeding suppressed automatically in production (and
+  whenever `CORS_ORIGINS` is the default `*`).
+* `RAG_ALLOW_PASSWORDLESS=false` by default; explicit opt-in is
+  required to skip password hashing.
+
+Process-level isolation (filesystem permissions, capability
+restrictions, read-only root filesystem, `tmpfs` mounts, PID-1
+process supervision) is the responsibility of the surrounding
+platform — `systemd` unit hardening directives, Kubernetes
+`securityContext`, or whatever the operator's environment
+provides. RAGHub ships only a wheel, so the unit of isolation is
+the install path and the surrounding process, not an image.
 
 ## Health and readiness
 
-* `GET /health` (API) — liveness probe, no auth.
-* `GET /v1/health` (API) — service-level health summary.
-* `GET /healthz` (Qdrant) — Qdrant's own probe.
+* `GET /health` — liveness probe, no auth.
+* `GET /v1/health` — service-level health summary.
+* `raghub health` — CLI equivalent.
 
-Every service has a `healthcheck` block in compose, and dependents
-use `condition: service_healthy` to gate startup.
+The application starts up lazily and serves `/health` as soon as
+FastAPI binds the socket, before the document registry is
+populated. Use `/v1/health` (or `raghub health`) as the readiness
+probe instead, because it reports the state of the configured
+vector store, embedder, and LLM provider.
 
 ## Configuration profiles
 
@@ -112,9 +113,8 @@ profiles:
 | `staging`     | `config/staging.yaml`     | Pre-production |
 | `production`  | `config/production.yaml`  | Production (fail-closed) |
 
-The compose file pins `RAG_PROFILE=production` in the API service
-environment. Override per deployment with `RAG_PROFILE=…`
-in `.env`.
+Override per deployment with `RAG_PROFILE=…` in `.env` or the
+process environment.
 
 ## Key environment variables
 
@@ -124,7 +124,10 @@ in `.env`.
 | `RAG_DATA_DIR` | Root for registry, sessions, manifest, ingestion ledger |
 | `RAG_REGISTRY_PATH` | Document registry path |
 | `RAG_SESSIONS_PATH` | Session store path |
-| `RAG_ZVEC_DIR` | Legacy ZVec vector store directory |
+| `RAG_VECTORSTORE_PATH` | SQLite vector store path |
+| `RAG_VECTORSTORE_DSN` | PostgreSQL DSN for the pgvector vector store (when set, overrides the SQLite path) |
+| `RAG_REGISTRY_DSN` | Optional Postgres DSN for the registry store |
+| `RAG_SESSIONS_DSN` | Optional Postgres DSN for the session store |
 | `RAG_CHUNK_SIZE_WORDS` | Override chunk size |
 | `RAG_CHUNK_OVERLAP_WORDS` | Override chunk overlap |
 | `RAG_TOP_K` | Default retrieval top-k |
@@ -160,12 +163,13 @@ in `.env`.
   must set `RAGHUB_USERS` or bootstrap accounts before the first
   start.
 * `RAG_ALLOW_PASSWORDLESS=false` is set in `.env`.
-* `CORS_ORIGINS` is the real frontend origin, not the wildcard.
-* The `raghub_data` volume is on durable storage.
-* `docker compose -f docker-compose.yml --profile production ps`
-  reports every service as `healthy`.
-* The `raghub_data` volume is included in the daily backup (see
-  [`operations/backup.md`](../operations/backup.md)).
+* `RAG_DATA_DIR` lives on durable storage with daily backups
+  (see [`operations/backup.md`](../operations/backup.md)).
+* `/v1/health` (or `raghub health`) reports `status: ok` and a
+  populated `vector_store` entry before the first user request
+  is routed.
+* The process supervisor restarts on exit (`Restart=on-failure`
+  under systemd, `restartPolicy: OnFailure` under Kubernetes).
 
 ## One canonical ingestion path
 
@@ -183,14 +187,35 @@ surface. Anything that mutates the document registry must go
 through `RagApplication.upload_document` (the same entry point the
 API exposes).
 
+## Operational references
+
+The operations handbook covers the day-to-day concerns of running a
+deployed instance:
+
+- [`operations/runbook.md`](../operations/runbook.md) — first-line
+  triage for failing services; covers health, logs, restarts, and
+  the canonical reset path.
+- [`operations/backup.md`](../operations/backup.md) — `raghub
+  backup create` / `raghub backup restore`, retention, and
+  cross-region storage.
+- [`operations/monitoring.md`](../operations/monitoring.md) —
+  Prometheus metrics, Langfuse spans, and structured logging on a
+  long-running process.
+- [`operations/scaling.md`](../operations/scaling.md) —
+  vertical / horizontal scaling, the API and vector store.
+- [`operations/runbook.md`](../operations/runbook.md) — incident
+  triage.
+
 ## Notes
 
 * The `RAG` facade is designed for embedding in your own service.
   Wiring it in FastAPI is a thin shim around its sync and async
   methods; no auth or storage is added by the facade.
-* The FastAPI app at `raghub.api:AppFactory.create_app` (Uvicorn
+* The FastAPI app at `raghub.api.AppFactory.create_app` (Uvicorn
   `--factory`) remains the canonical multi-tenant HTTP surface
   until a v2 is shipped.
-* The Dockerfile builds a wheel and installs it with
-  `--no-deps`; the runtime requirements are pinned in the
-  builder-emitted `requirements-runtime.txt`.
+* `python -m build` produces both an `sdist` and a `wheel`; the
+  wheel is installable with `pip install <wheel>` and pulls its
+  runtime dependencies from the metadata declared in
+  `pyproject.toml`. There is no separate runtime requirements
+  file — the wheel is self-describing.

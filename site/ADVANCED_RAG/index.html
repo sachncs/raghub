@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Advanced RAG - RAGHub</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Advanced RAG";
+        var mkdocs_page_input_path = "ADVANCED_RAG.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> RAGHub
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../guide/getting-started/">Getting started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../migration/">Migration (legacy → facade)</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/decisions/">Decisions</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Guide</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../guide/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../guide/deployment/">Deployment</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../guide/evaluation/">Evaluation</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Advanced RAG</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#table-of-contents">Table of contents</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#query-transforms">Query transforms</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#hyde-hypothetical-document-embeddings">HyDE — Hypothetical Document Embeddings</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#multi-query">Multi-query</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#step-back">Step-back</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#decomposition">Decomposition</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#composition">Composition</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#hybrid-retrieval-dense-sparse-colbert">Hybrid retrieval (dense + sparse + ColBERT)</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#bm25-with-tf-fallback">BM25 with TF fallback</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#colbert-late-interaction">ColBERT late interaction</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#rerankers">Rerankers</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#long-context-second-pass-rerank">Long-context second-pass rerank</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#raptor-recursive-summaries">RAPTOR recursive summaries</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#graphrag-entity-community-graph">GraphRAG entity / community graph</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#agentic-retrieval">Agentic retrieval</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#the-loop">The loop</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#configurable-budgets">Configurable budgets</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#built-in-tools">Built-in tools</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#writing-your-own-tool">Writing your own tool</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#per-user-tool-preferences">Per-user tool preferences</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#streaming-events">Streaming events</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#performance-latency-notes">Performance &amp; latency notes</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#configuration-reference">Configuration reference</a>
+    </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../reference/api/">API</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../reference/configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../plugins/">Plugins</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/monitoring/">Monitoring</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/backup/">Backup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/runbook/">Runbook</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/scaling/">Scaling</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../future/">Future</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">RAGHub</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Guide</li>
+      <li class="breadcrumb-item active">Advanced RAG</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="advanced-rag">Advanced RAG</h1>
+<p>This document covers everything beyond the basic "embed → retrieve → generate" flow. Every feature listed here ships in the standard install; no extra packages are required to use them, though some have optional dependencies for higher quality.</p>
+<hr />
+<h2 id="table-of-contents">Table of contents</h2>
+<ol>
+<li><a href="#query-transforms">Query transforms</a></li>
+<li><a href="#hybrid-retrieval-dense--sparse--colbert">Hybrid retrieval (dense + sparse + ColBERT)</a></li>
+<li><a href="#rerankers">Rerankers</a></li>
+<li><a href="#long-context-second-pass-rerank">Long-context second-pass rerank</a></li>
+<li><a href="#raptor-recursive-summaries">RAPTOR recursive summaries</a></li>
+<li><a href="#graphrag-entity--community-graph">GraphRAG entity / community graph</a></li>
+<li><a href="#agentic-retrieval">Agentic retrieval</a></li>
+<li><a href="#per-user-tool-preferences">Per-user tool preferences</a></li>
+<li><a href="#streaming-events">Streaming events</a></li>
+<li><a href="#performance--latency-notes">Performance &amp; latency notes</a></li>
+<li><a href="#configuration-reference">Configuration reference</a></li>
+</ol>
+<hr />
+<h2 id="query-transforms">Query transforms</h2>
+<p>Pre-retrieval rewrites that improve recall on hard queries. All transforms share one surface: a list of <code>QueryVariant</code> objects (<code>text</code>, <code>kind</code>, <code>weight</code>) that the <code>RetrievalPipeline</code> searches in parallel and fuses by max-normalised linear combination.</p>
+<h3 id="hyde-hypothetical-document-embeddings">HyDE — Hypothetical Document Embeddings</h3>
+<pre><code class="language-python">from raghub.retrieval import Hyde
+
+hyde = Hyde(llm, n=1)
+variants = await hyde.transform(question=&quot;What drove Q3 SaaS bookings?&quot;, history=[])
+</code></pre>
+<p>Generates a short LLM-authored paragraph that <em>would</em> answer the question; embeds that paragraph instead of the question. Literature default is <code>n=1</code>.</p>
+<h3 id="multi-query">Multi-query</h3>
+<pre><code class="language-python">from raghub.retrieval import MultiQuery
+
+mq = MultiQuery(llm, n=4)
+variants = await mq.transform(question=&quot;revenue growth&quot;, history=[])
+</code></pre>
+<p>LLM rewrites the question into four alternative phrasings; each is embedded and searched independently. The original question is added with <code>weight=1.5</code>.</p>
+<h3 id="step-back">Step-back</h3>
+<pre><code class="language-python">from raghub.retrieval import StepBack
+
+sb = StepBack(llm)
+variants = await sb.transform(question=&quot;Why did operating margin expand?&quot;, history=[])
+</code></pre>
+<p>LLM produces the abstract higher-level question (e.g. <em>"What economic forces drive SaaS margin?"</em>) and both are searched.</p>
+<h3 id="decomposition">Decomposition</h3>
+<pre><code class="language-python">from raghub.retrieval import Decompose
+
+dc = Decompose(llm)
+variants = await dc.transform(question=&quot;Compare Acme and Globex Q3 revenue&quot;, history=[])
+</code></pre>
+<p>LLM splits multi-hop questions into independent sub-questions.</p>
+<h3 id="composition">Composition</h3>
+<pre><code class="language-python">from raghub.retrieval import Compose
+
+composer = Compose([hyde, mq, sb, dc])
+variants = await composer.transform(question=&quot;...&quot;, history=[])
+</code></pre>
+<p>The original question (weight 1.5) is always prepended. Each failing transform is silently skipped — the composer never raises.</p>
+<hr />
+<h2 id="hybrid-retrieval-dense-sparse-colbert">Hybrid retrieval (dense + sparse + ColBERT)</h2>
+<p><code>RetrievalPipeline.retrieve_hybrid</code> fuses two channels (dense + BM25 keyword) with <strong>reciprocal rank fusion</strong> (k=60, the literature default). Switch to the legacy linear-combination path with <code>fusion="linear"</code>.</p>
+<h3 id="bm25-with-tf-fallback">BM25 with TF fallback</h3>
+<p><code>MemoryStore.keyword_search</code> uses <code>rank_bm25.BM25Okapi</code> when the optional dependency is installed; otherwise it falls back to a naive TF / chunk-length score.</p>
+<pre><code class="language-python"># Add the optional dependency for production-quality keyword scoring:
+#   pip install rank_bm25
+</code></pre>
+<h3 id="colbert-late-interaction">ColBERT late interaction</h3>
+<pre><code class="language-python"># Optional dependency:
+#   pip install raghub[colbert]
+# (uses the ragatouille package to load the standard 70M ColBERTv2 model)
+</code></pre>
+<p>Set <code>settings.hybrid.colbert_enabled = True</code> and the <code>RetrievalPipeline.retrieve_hybrid_v2</code> path will add ColBERT as a third channel. When ragatouille isn't installed the channel is silently dropped (the operator gets a logged telemetry event, not a crash).</p>
+<hr />
+<h2 id="rerankers">Rerankers</h2>
+<p>Four implementations ship under <code>raghub.retrieval</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Class</th>
+<th>Dependencies</th>
+<th>When to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>none</code></td>
+<td><code>Identity</code></td>
+<td>none</td>
+<td>default; no reranking</td>
+</tr>
+<tr>
+<td><code>cohere</code></td>
+<td><code>Cohere</code></td>
+<td><code>pip install 'raghub[rerank]'</code> (cohere)</td>
+<td>API, needs key</td>
+</tr>
+<tr>
+<td><code>llm</code></td>
+<td><code>LlmJudge</code></td>
+<td>none (uses existing LLM)</td>
+<td>Zero-deps; slow</td>
+</tr>
+<tr>
+<td><code>cascade</code></td>
+<td><code>Cascade</code></td>
+<td>both cohere and an LLM</td>
+<td>Cheap then expensive</td>
+</tr>
+</tbody>
+</table>
+<p>Configure via <code>Settings.reranker.provider</code>. Each reranker reports its wall-clock to Prometheus under <code>raghub_rerank_latency_seconds{provider=...}</code>.</p>
+<hr />
+<h2 id="long-context-second-pass-rerank">Long-context second-pass rerank</h2>
+<p>A second LLM call reranks the top-K candidates from the first-pass retrieval. Only runs when:</p>
+<ul>
+<li><code>LongContextConfig.enabled = True</code>, <strong>and</strong></li>
+<li>the configured LLM's <code>model_name</code> is in <code>LongContextConfig.allowlist_models</code>.</li>
+</ul>
+<p>The default allowlist is:</p>
+<pre><code class="language-python">[
+    &quot;claude-3-5-sonnet&quot;, &quot;claude-3-7-sonnet&quot;,
+    &quot;gemini-1.5-pro&quot;, &quot;gemini-2.0-flash&quot;,
+    &quot;command-r-plus&quot;, &quot;gpt-4.1&quot;,
+]
+</code></pre>
+<p>Operators add their own model names by overriding the field.</p>
+<p>Failure modes degrade silently:</p>
+<ul>
+<li>Unknown model → pass is a no-op (the first-pass order wins).</li>
+<li>LLM raises → original order preserved.</li>
+<li>Unparseable JSON → original order preserved.</li>
+<li>Schema-violating scores → original order preserved.</li>
+</ul>
+<p>Counter: <code>raghub_long_context_pass_used_total{outcome=ran|skipped|bad_json|error}</code>.</p>
+<hr />
+<h2 id="raptor-recursive-summaries">RAPTOR recursive summaries</h2>
+<p>RAPTOR builds a tree of summaries over the chunk embeddings:</p>
+<ol>
+<li>Cluster the leaf chunks (KMeans with the corpus-derived k).</li>
+<li>Summarise each cluster with the LLM.</li>
+<li>Embed the summaries.</li>
+<li>Recurse up to <code>Raptor(depth=...)</code> levels.</li>
+</ol>
+<p><code>RetrievalPipeline.search</code> then matches the query against every level in one flat pass — high-level questions ("what is this corpus about?") retrieve the abstract summaries, specific questions ("what was Q3 revenue?") retrieve the leaf chunks.</p>
+<pre><code class="language-python">from raghub.knowledge.structures.raptor import Raptor
+
+raptor = Raptor(llm=llm, embedder=embedder, depth=2, cluster_size=5)
+raptor.add_chunks(chunks, vectors)  # called per ingest
+hits = raptor.search(&quot;Q3 SaaS bookings&quot;, top_k=5)
+</code></pre>
+<p>If sklearn isn't installed, RAPTOR falls back to a windowed chunk partition — quality degrades gracefully, the index still works.</p>
+<hr />
+<h2 id="graphrag-entity-community-graph">GraphRAG entity / community graph</h2>
+<p>Three-step pipeline built at ingest time:</p>
+<ol>
+<li><strong>Extract</strong> entities and <code>(subject, predicate, object)</code> triples via the LLM.</li>
+<li><strong>Partition</strong> the graph into communities. Uses <code>leidenalg</code> when available (better communities); falls back to networkx-style connected components.</li>
+<li><strong>Summarise</strong> each community with the LLM.</li>
+</ol>
+<p>Two query modes:</p>
+<ul>
+<li><code>search_local(query, top_k)</code> — anchor on entities mentioned in the query, expand to their k-hop neighbourhood.</li>
+<li><code>search_global(query, top_k)</code> — Map-Reduce over community summaries; useful for "what is the corpus about?" questions.</li>
+<li><code>search(query, top_k)</code> — combined, deduplicated.</li>
+</ul>
+<pre><code class="language-python">from raghub.knowledge.structures.graphrag import GraphIndex
+
+graph = GraphIndex(llm=llm, embedder=embedder, hop_limit=2)
+graph.add_chunks(chunks, vectors)
+hits = graph.search_local(&quot;Acme Q3 revenue&quot;, top_k=5)
+</code></pre>
+<p>Optional dependencies (install when you want higher-quality community detection):</p>
+<pre><code class="language-bash">pip install python-igraph leidenalg
+</code></pre>
+<hr />
+<h2 id="agentic-retrieval">Agentic retrieval</h2>
+<p>The ReAct agent loop drives tool selection per query. The agent runs when:</p>
+<ul>
+<li><code>AgentConfig.enabled = True</code>, <strong>or</strong></li>
+<li>any of <code>WebSearchConfig.enabled</code>, <code>summary_search_enabled</code>, <code>graph_search_enabled</code> is on, <strong>or</strong></li>
+<li>the per-request <code>tools_enabled</code> flag is non-empty.</li>
+</ul>
+<h3 id="the-loop">The loop</h3>
+<p>Each turn the agent:</p>
+<ol>
+<li>Renders a ReAct system prompt with the active tool catalog.</li>
+<li>Sends the prompt + running history to the LLM.</li>
+<li>Parses the LLM output as either a tool call or a final answer.</li>
+<li>If a tool: dispatches via <code>BaseTool.run</code>, captures the observation.</li>
+<li>If final: yields an <code>answer_chunk</code> event and returns.</li>
+<li>On budget breach (steps / wall-clock / tool-calls): raises <code>AgentBudgetExceeded</code>.</li>
+</ol>
+<h3 id="configurable-budgets">Configurable budgets</h3>
+<pre><code class="language-python">AgentConfig(
+    max_steps=8,            # hard cap on planner steps
+    max_tool_calls=10,      # hard cap on tool invocations
+    max_wall_seconds=30.0,  # wall-clock ceiling
+    planner_model=None,     # optional LLM override
+)
+</code></pre>
+<h3 id="built-in-tools">Built-in tools</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+<th>Optional dependency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vector_search</code></td>
+<td>top-K dense retrieval</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>keyword_search</code></td>
+<td>BM25 keyword</td>
+<td><code>rank_bm25</code></td>
+</tr>
+<tr>
+<td><code>hybrid_search</code></td>
+<td>RRF fusion of the two</td>
+<td><code>rank_bm25</code></td>
+</tr>
+<tr>
+<td><code>summary_search</code></td>
+<td>RAPTOR summaries</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>graph_search</code></td>
+<td>GraphRAG local / global</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>web_search</code></td>
+<td>DuckDuckGo</td>
+<td><code>pip install 'raghub[agent]'</code></td>
+</tr>
+<tr>
+<td><code>date_today</code></td>
+<td>current UTC date</td>
+<td>none</td>
+</tr>
+</tbody>
+</table>
+<h3 id="writing-your-own-tool">Writing your own tool</h3>
+<p>Subclass <code>BaseTool</code>, declare <code>name</code>, <code>description</code>, <code>json_schema</code>, and override <code>execute(context, **kwargs)</code>. The framework handles error wrapping, timing, and the JSON-Schema prompt — your tool just does the work.</p>
+<pre><code class="language-python">from raghub.agent.tools.base import BaseTool, ToolContext, ToolResult
+
+class MyTool(BaseTool):
+    name = &quot;my_tool&quot;
+    description = &quot;Does a thing.&quot;
+    json_schema = {&quot;type&quot;: &quot;object&quot;, &quot;properties&quot;: {}, &quot;additionalProperties&quot;: False}
+
+    def __init__(self, collaborator):
+        self._collaborator = collaborator
+
+    async def execute(self, context: ToolContext, **_: Any) -&gt; ToolResult:
+        result = await self._collaborator.do_thing()
+        return ToolResult(content=str(result))
+</code></pre>
+<p>Register:</p>
+<pre><code class="language-python">from raghub.agent.tools.registry import ToolRegistry
+registry = ToolRegistry()
+registry.register(MyTool(my_collaborator))
+</code></pre>
+<hr />
+<h2 id="per-user-tool-preferences">Per-user tool preferences</h2>
+<p>Three layers of override:</p>
+<ol>
+<li><strong>Per-request</strong> — <code>await rag.aquery(question, agent=True, tools_enabled=[...])</code>.</li>
+<li><strong>Per-session</strong> — <code>conversation_store.set_overrides(scoped_session_id, {"agent_enabled": True})</code>.</li>
+<li><strong>Per-user</strong> — persisted in the <code>user_preferences</code> table:</li>
+<li>API: <code>PATCH /v1/users/me/preferences</code> with <code>{"prefs": {"tool_settings": {"agent_enabled": true}}}</code>.</li>
+<li>CLI: <code>raghub config tools set --email alice@acme.com --json '{"agent_enabled": true}'</code>.</li>
+<li>Streamlit sidebar: the "Tools" panel.</li>
+</ol>
+<p>Resolution order: <strong>request &gt; session &gt; user &gt; global default</strong>.</p>
+<hr />
+<h2 id="streaming-events">Streaming events</h2>
+<p>The agent and the legacy query path both stream through one shape: <code>PlannerEvent(kind=..., step=..., payload=...)</code>. Five kinds:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Payload</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>thought</code></td>
+<td><code>{thought: str}</code> or <code>{error: str}</code></td>
+<td>LLM reasoning, or a parse failure</td>
+</tr>
+<tr>
+<td><code>tool_call</code></td>
+<td><code>{name: str, args: dict}</code></td>
+<td>Planner invoked a tool</td>
+</tr>
+<tr>
+<td><code>tool_result</code></td>
+<td><code>{name, ok, content, error, latency_ms}</code></td>
+<td>Tool observation</td>
+</tr>
+<tr>
+<td><code>answer_chunk</code></td>
+<td><code>{text: str}</code></td>
+<td>Token from the final answer</td>
+</tr>
+<tr>
+<td><code>final</code></td>
+<td><code>{answer: str}</code></td>
+<td>Loop terminated</td>
+</tr>
+</tbody>
+</table>
+<p>The FastAPI surface wraps these as Server-Sent Events at <code>/v1/query/stream</code>:</p>
+<pre><code>: raghub-query-stream
+event: thought
+data: {&quot;kind&quot;:&quot;thought&quot;,&quot;step&quot;:0,&quot;payload&quot;:{&quot;thought&quot;:&quot;...&quot;}}
+
+event: tool_call
+data: {&quot;kind&quot;:&quot;tool_call&quot;,&quot;step&quot;:0,&quot;payload&quot;:{&quot;name&quot;:&quot;vector_search&quot;,&quot;args&quot;:{&quot;query&quot;:&quot;...&quot;}}}
+
+event: tool_result
+data: {&quot;kind&quot;:&quot;tool_result&quot;,&quot;step&quot;:0,&quot;payload&quot;:{&quot;name&quot;:&quot;vector_search&quot;,&quot;ok&quot;:true,&quot;content&quot;:&quot;...&quot;,&quot;latency_ms&quot;:12.4}}
+
+event: final
+data: {&quot;kind&quot;:&quot;final&quot;,&quot;step&quot;:1,&quot;payload&quot;:{&quot;answer&quot;:&quot;...&quot;}}
+</code></pre>
+<p>Or fetch the full response in one shot via <code>/v1/agent/run</code>.</p>
+<hr />
+<h2 id="performance-latency-notes">Performance &amp; latency notes</h2>
+<p>A few design choices worth knowing:</p>
+<ul>
+<li><strong>Embeddings are computed once per query.</strong> The <code>RAG</code> facade caches the embedder instance; the pipeline never re-embeds the question.</li>
+<li><strong>RAPTOR clustering is eager.</strong> The summary tree is rebuilt on every <code>add_chunks</code> call, but the cached embedding store means each ingest only re-touches the new chunks, not the full corpus.</li>
+<li><strong>Long-context pass is skipped on ineligible models.</strong> Zero LLM calls when the configured model isn't in the allowlist.</li>
+<li><strong>Agent budget is enforced before every LLM call.</strong> An over-eager tool cannot exhaust the wall-clock budget mid-loop.</li>
+<li><strong>Tool errors are isolated.</strong> A tool raising is captured as <code>ToolResult(ok=False, ...)</code>; the agent sees the failure and adapts, never crashes.</li>
+<li><strong>Streaming is end-to-end.</strong> Token-level output via <code>astream</code>, event-level output via <code>astream_agent</code>, SSE framing via <code>/v1/query/stream</code>.</li>
+</ul>
+<p>Benchmarks: a fresh <code>RAG(...)</code> instance on the heuristic LLM answers a single-vector query in under 50 ms on a modern laptop. End-to-end with a real LLM is dominated by model latency; the framework overhead is microseconds.</p>
+<hr />
+<h2 id="configuration-reference">Configuration reference</h2>
+<p>Every advanced-RAG feature is opt-in. The full <code>AppSettings</code> reference:</p>
+<pre><code class="language-python">from raghub.config.settings import (
+    AppSettings, AgentConfig, WebSearchConfig,
+    RerankerConfig, LongContextConfig,
+    HybridConfig, QueryTransformsConfig,
+)
+
+AppSettings(
+    agent=AgentConfig(
+        enabled=False,           # master agent switch
+        max_steps=8,
+        max_tool_calls=10,
+        max_wall_seconds=30.0,
+    ),
+    web_search=WebSearchConfig(
+        enabled=False,
+        max_results=5,
+        timeout_seconds=10.0,
+        safe_search=&quot;moderate&quot;,
+    ),
+    graph_search_enabled=False,
+    summary_search_enabled=False,
+    reranker=RerankerConfig(
+        provider=&quot;none&quot;,         # none|cohere|bge|llm|cascade
+        top_k=20,
+        cascade_threshold=0.05,
+    ),
+    long_context_pass=LongContextConfig(
+        enabled=False,
+        candidate_k=20,
+        allowlist_models=[...],  # see &quot;Long-context second-pass rerank&quot;
+    ),
+    hybrid=HybridConfig(
+        fusion=&quot;rrf&quot;,             # rrf|linear
+        rrf_k=60,
+        keyword_weight=0.3,
+        vector_weight=0.7,
+        colbert_enabled=False,
+    ),
+    query_transforms=QueryTransformsConfig(
+        enabled=[],              # hyde|multi_query|step_back|decompose
+        hyde_n=1,
+        multi_query_n=4,
+    ),
+)
+</code></pre>
+<p>All fields are environment-variable-overridable (see <code>RAG_*</code> names in <code>raghub/config/settings.py</code>).</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../guide/evaluation/" class="btn btn-neutral float-left" title="Evaluation"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../reference/api/" class="btn btn-neutral float-right" title="API">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../guide/evaluation/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../reference/api/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

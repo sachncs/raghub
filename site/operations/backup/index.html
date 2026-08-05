@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Backup - RAGHub</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Backup";
+        var mkdocs_page_input_path = "operations/backup.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> RAGHub
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../guide/getting-started/">Getting started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../migration/">Migration (legacy → facade)</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/decisions/">Decisions</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/deployment/">Deployment</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/evaluation/">Evaluation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../ADVANCED_RAG/">Advanced RAG</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/api/">API</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../plugins/">Plugins</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../monitoring/">Monitoring</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Backup</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#one-shot-backup">One-shot backup</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#restore">Restore</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#retention">Retention</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#cross-region">Cross-region</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../runbook/">Runbook</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../scaling/">Scaling</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../future/">Future</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">RAGHub</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Operations</li>
+      <li class="breadcrumb-item active">Backup</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="backup-restore">Backup &amp; Restore</h1>
+<p>RAGHub production state lives entirely on the local filesystem. The
+<code>raghub backup</code> and <code>raghub backup restore</code> sub-commands capture and
+restore that state from a single HMAC-signed archive — no separate
+database server is involved.</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Location</th>
+<th>Backing store</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SQLite registry (documents, chunks)</td>
+<td><code>RAG_REGISTRY_PATH</code></td>
+<td><code>./data/registry.db</code></td>
+</tr>
+<tr>
+<td>SQLite session store (opaque session tokens)</td>
+<td><code>RAG_SESSIONS_PATH</code></td>
+<td><code>./data/sessions.db</code></td>
+</tr>
+<tr>
+<td>SQLite vector store</td>
+<td><code>RAG_VECTORSTORE_PATH</code> (or <code>data/vecstore.sqlite</code>)</td>
+<td>local SQLite file</td>
+</tr>
+<tr>
+<td>Document upload blob cache</td>
+<td><code>RAG_DATA_DIR/images</code></td>
+<td><code>./data/images</code> (optional)</td>
+</tr>
+</tbody>
+</table>
+<p>For production deployments that move the vector store to PostgreSQL,
+the <code>raghub migrate pgvector --dsn &lt;dsn&gt;</code> command initialises the
+<code>PgVectorStore</code> schema and indexes on the target database; the
+<code>raghub backup</code> archive captures SQLite state and document manifests,
+and the pgvector store is replicated through standard PostgreSQL
+backup tooling (<code>pg_dump</code> / <code>pg_basebackup</code>).</p>
+<p>Skipping any one of these surfaces is a partial backup and will
+fail to restore end-to-end.</p>
+<h2 id="one-shot-backup">One-shot backup</h2>
+<p>The CLI wraps the snapshot writer in <code>raghub.archive</code>:</p>
+<pre><code class="language-bash">raghub backup create -o /var/backups/raghub-$(date -u +%Y%m%dT%H%M%SZ).tar.zst
+</code></pre>
+<p>This writes a single <code>tar.zst</code> archive containing every component
+file plus a signed manifest. The manifest lists each entry with its
+SHA-256 and <code>kind</code>; the manifest itself is signed with the
+configured HMAC key (<code>RAG_TENANT_SIGNING_KEY</code>, or the key auto-loaded
+from the secrets store).</p>
+<p>Inspect an existing archive without restoring:</p>
+<pre><code class="language-bash">raghub backup verify --input /var/backups/raghub-20260805T120000Z.tar.zst
+</code></pre>
+<p><code>verify</code> checks both the HMAC signature and every per-file SHA-256;
+it exits non-zero on the first mismatch.</p>
+<p>Schedule the <code>create</code> command through your orchestrator of choice
+(GitHub Actions schedule, Kubernetes <code>CronJob</code>, plain <code>cron</code>, etc.).
+For PostgreSQL deployments, pair the schedule with a standard
+<code>pg_dump</code> job.</p>
+<h2 id="restore">Restore</h2>
+<pre><code class="language-bash"># 1. Stop any process holding the SQLite files open
+#    (the FastAPI server, a background ingest worker, the CLI).
+raghub run --host 0.0.0.0 --port 8000      # or stop it via systemd / k8s
+
+# 2. Restore the archive into the data directory.
+raghub backup restore \
+    --input /var/backups/raghub-20260805T120000Z.tar.zst \
+    --target-dir /srv/raghub/data
+
+# 3. Restart the API.
+raghub run --host 0.0.0.0 --port 8000
+</code></pre>
+<p><code>restore_snapshot</code> in <code>raghub.archive</code> verifies the manifest
+signature before any file is written, and reconstructs each entry
+from its recorded SHA-256. The vector-store embeddings are restored
+only when <code>--include-embeddings</code> is passed to the underlying
+function; the CLI default omits them so the caller re-derives
+embeddings from the source documents on the next ingest pass.</p>
+<p>For PostgreSQL deployments, restore the <code>pg_dump</code> against the
+target database <em>before</em> running <code>raghub backup restore</code> against
+the SQLite portion, so the document registry and the vector store
+land at the same point in time.</p>
+<h2 id="retention">Retention</h2>
+<p>Keep the last 30 daily backups and the last 12 monthly backups.
+Older archives can be deleted with the standard <code>rm</code> / object-store
+lifecycle rules. The HMAC key used to sign the manifest must be the
+same across <code>create</code> and <code>restore</code>; rotate it through
+<code>RAG_TENANT_SIGNING_KEY</code> and re-issue archives out-of-band so older
+backups remain verifiable under the previous key while new ones
+sign under the new one.</p>
+<h2 id="cross-region">Cross-region</h2>
+<p>Push the <code>tar.zst</code> archive to object storage (S3/GCS/Azure Blob)
+with a server-side encryption key. The <code>.env</code> file is <strong>not</strong>
+included in the archive; secrets are managed out-of-band (see the
+deployment guide).</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../monitoring/" class="btn btn-neutral float-left" title="Monitoring"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../runbook/" class="btn btn-neutral float-right" title="Runbook">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../monitoring/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../runbook/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
