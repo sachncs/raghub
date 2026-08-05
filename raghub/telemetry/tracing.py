@@ -1,60 +1,43 @@
-"""Observability and telemetry surface.
+"""Distributed-tracing primitives: Langfuse and OpenTelemetry.
 
-The framework ships three interoperable telemetry layers in a single
-module:
-
-* :class:`LangfuseTelemetryProvider` — v3 Langfuse adapter (the spec
-  default). When ``langfuse`` is not installed or no credentials are
-  configured, every method silently no-ops so the framework keeps
-  running without telemetry.
-* :class:`LoguruTelemetryProvider` — loguru adapter for users who
-  prefer in-process logging without a remote service.
-* :class:`NoOpTelemetry` — silent default satisfying the
-  :class:`TelemetryProvider` contract with zero I/O.
-* :class:`RedactingTelemetry` — wraps another provider and scrubs
-  kwargs whose keys look like secrets before forwarding.
-
-Spans and tracer primitives also live here:
-
-* :class:`NoopSpan` / :class:`LangfuseSpan` — span implementations.
-* :class:`LoguruSpan` — span that records duration into metrics.
-* :class:`Tracer` — OpenTelemetry tracer with FastAPI auto-instrumentation.
-* :class:`SafeConsoleSpanExporter` — stdout-safe OTel exporter.
-* :func:`build_logger` / :func:`scrub_secrets` / :func:`redact_record` —
-  redacting-logger plumbing.
-
-Public constants:
-
-* :data:`SECRET_KEY_RE` — the regex used by the redacting layer.
+Hosts the Langfuse v3 client wrappers (:class:`LangfuseSpan`,
+:class:`LangfuseTelemetryProvider`), the convenience scorers
+(:func:`record_rerank_latency`, :func:`record_long_context`), the
+:func:`try_import_submodule` helper, and the OpenTelemetry
+:class:`Tracer` with its closed-stdout-safe :class:`SafeConsoleSpanExporter`.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import re
-import sys
-import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from typing import Any, TypeVar
 
-from loguru import logger as loguru_logger
-
 from raghub.coroutines import capture
 from raghub.errors import ConfigurationError, MissingDepError
-from raghub.models import Logger, Span, TelemetryProvider
+from raghub.models import Span, TelemetryProvider
+from raghub.telemetry.metrics import NoopSpan
 from raghub.types import JSONValue
 
 T = TypeVar("T")
 
 __all__ = [
+    "IMPORT_ERROR",
+    "LANGFUSE_AVAILABLE",
+    "Langfuse",
+    "LangfuseSpan",
     "LangfuseTelemetryProvider",
-    "LoguruTelemetryProvider",
-    "NoOpTelemetry",
-    "RedactingTelemetry",
-    "build_logger",
+    "SafeConsoleSpanExporter",
+    "Tracer",
+    "langfuse_client",
+    "langfuse_get_client",
+    "record_long_context",
+    "record_rerank_latency",
+    "try_import_submodule",
 ]
+
 
 langfuse_get_client: Any
 Langfuse: Any
@@ -72,10 +55,6 @@ except ImportError as exc:  # optional dep — propagate when explicitly request
     IMPORT_ERROR = exc
 
 LOGGER = logging.getLogger("raghub.telemetry.langfuse")
-
-SECRET_KEY_RE = re.compile(
-    r"(?i)(password|passwd|secret|api_key|apikey|access_token|refresh_token|jwt|authorization)"
-)
 
 
 def try_import_submodule(module_name: str, target_name: str) -> Any:
@@ -150,244 +129,6 @@ def langfuse_client() -> Any:
         return langfuse_get_client()
     except Exception:
         return None
-
-
-def scrub_secrets(kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of ``kwargs`` with secret-looking values masked."""
-    scrubbed: dict[str, Any] = {}
-    for key, value in kwargs.items():
-        if SECRET_KEY_RE.search(key):
-            scrubbed[key] = "***"
-        elif isinstance(value, dict):
-            scrubbed[key] = scrub_secrets(value)
-        else:
-            scrubbed[key] = value
-    return scrubbed
-
-
-def redact_record(record: dict[str, Any]) -> None:
-    """In-place redact secret-looking values in a loguru record.
-
-    Args:
-        record: The mutable loguru ``record.message`` dictionary; values
-            whose key matches :data:`SECRET_KEY_RE` are replaced by
-            ``"***"``. Nested dicts and lists are scrubbed recursively;
-            keys at every depth are checked against the secret pattern.
-
-    """
-
-    def scrub(value: Any) -> Any:
-        """Recursively mask any dict value whose key matches the secret pattern."""
-        if isinstance(value, dict):
-            scrubbed: dict[str, Any] = {}
-            for key, inner in value.items():
-                if SECRET_KEY_RE.search(str(key)):
-                    scrubbed[key] = "***"
-                else:
-                    scrubbed[key] = scrub(inner)
-            return scrubbed
-        if isinstance(value, list):
-            return [scrub(item) for item in value]
-        return value
-
-    scrubbed = scrub(record)
-    record.clear()
-    record.update(scrubbed)
-
-
-def build_logger(level: str = "INFO") -> LoguruLogger:
-    """Configure the process-wide loguru logger with a pretty console sink.
-
-    Removes any default sinks installed by loguru's ``logger`` module
-    and installs a single sink on stderr that scrubs secret-like keys
-    before formatting. The sink uses loguru's built-in level icons
-    (pencil for trace, bug for debug, info for INFO, check for SUCCESS,
-    warning for WARNING, error for ERROR) plus colour-coded level
-    names and a collapsed frame, so each log line is one readable row.
-
-    Args:
-        level: Minimum log level (e.g. ``"INFO"``, ``"DEBUG"``).
-            Unknown values fall back to ``"INFO"``.
-
-    Returns:
-        A :class:`LoguruLogger` ready for ``info`` / ``warning`` /
-        ``error`` calls.
-
-    """
-    loguru_logger.remove()
-    loguru_logger.add(
-        sys.stderr,
-        level=level.upper(),
-        format=(
-            "<green>{time:HH:mm:ss.SSS}</green> "
-            "<level>{level.icon}</level> "
-            "<level>{level: <7}</level> "
-            "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> "
-            "<level>{message}</level>"
-        ),
-        colorize=True,
-        backtrace=False,
-        diagnose=False,
-    )
-    loguru_logger.configure(extra={"redacted": True})
-    return LoguruLogger()
-
-
-class LoguruLogger(Logger):
-    """Adapter that implements :class:`Logger` against :mod:`loguru`.
-
-    Every method is a thin wrapper that copies structured kwargs into
-    loguru's bound context. The redaction step lives in the sink, so
-    call sites never have to think about it.
-    """
-
-    def __init__(self) -> None:
-        """Bind a private logger for per-instance test output capture.
-
-        Used to isolate loguru state across test cases.
-        """
-        self.logger = loguru_logger.bind(component="raghub")
-
-    def info(self, message: str, **kwargs: JSONValue) -> None:
-        """Emit an ``INFO``-level record with structured ``kwargs``."""
-        self.logger.bind(**kwargs).info(message)
-
-    def warning(self, message: str, **kwargs: JSONValue) -> None:
-        """Emit a ``WARNING``-level record."""
-        self.logger.bind(**kwargs).warning(message)
-
-    def error(self, message: str, **kwargs: JSONValue) -> None:
-        """Emit an ``ERROR``-level record."""
-        self.logger.bind(**kwargs).error(message)
-
-
-class LoguruSpan(Span):
-    """Span whose :meth:`end` logs the duration."""
-
-    def __init__(
-        self,
-        name: str,
-        logger: LoguruLogger,
-        attributes: dict[str, Any],
-    ) -> None:
-        """Store the span's name and timing metadata."""
-        self.name = name
-        self.logger = logger
-        self.attributes = attributes
-        self.started = time.perf_counter()
-
-    def end(self) -> None:
-        """Log the span's duration on completion."""
-        duration_ms = (time.perf_counter() - self.started) * 1000.0
-        self.logger.info(f"span.end.{self.name}", duration_ms=duration_ms, **self.attributes)
-
-    def set_attribute(self, key: str, value: Any) -> None:
-        """Attach an attribute for later emission."""
-        self.attributes[key] = value
-
-
-class LoguruTelemetryProvider(TelemetryProvider):
-    """Telemetry provider that sinks through loguru.
-
-    Metric emission (``record_latency`` / ``increment`` /
-    ``record_tokens``) is a no-op; observability in this codebase is
-    via Langfuse. The provider still implements the full
-    :class:`TelemetryProvider` contract so it can stand in for the
-    Langfuse provider when no credentials are configured.
-    """
-
-    def __init__(self, logger: LoguruLogger | None = None) -> None:
-        """Build the provider with an optional logger override."""
-        self.logger = logger or LoguruLogger()
-
-    def info(self, message: str, **kwargs: JSONValue) -> None:
-        """Emit an ``info``-level record."""
-        self.logger.info(message, **kwargs)
-
-    def warning(self, message: str, **kwargs: JSONValue) -> None:
-        """Emit a ``warning``-level record."""
-        self.logger.warning(message, **kwargs)
-
-    def error(self, message: str, **kwargs: JSONValue) -> None:
-        """Emit an ``error``-level record."""
-        self.logger.error(message, **kwargs)
-
-    def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
-        """No-op; Langfuse absorbs metric emission when configured."""
-        return None
-
-    def increment(self, name: str, value: int = 1, **labels: Any) -> None:
-        """No-op; Langfuse absorbs metric emission when configured."""
-        return None
-
-    def start_span(self, name: str, **attrs: Any) -> Span:
-        """Open a new span.
-
-        Args:
-            name: Span name.
-            **attrs: Attributes attached to the span.
-
-        Returns:
-            A :class:`LoguruSpan`.
-
-        """
-        return LoguruSpan(name, self.logger, attrs)
-
-    @staticmethod
-    def end_span(span: Span) -> None:
-        """Close the supplied span."""
-        span.end()
-
-    def record_tokens(
-        self,
-        name: str,
-        prompt_tokens: int,
-        completion_tokens: int,
-        model: str = "",
-    ) -> None:
-        """Log token usage; metric emission is a no-op."""
-        self.logger.info(
-            "tokens",
-            name=name,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            model=model,
-        )
-
-    @contextmanager
-    def span(self, name: str, **attrs: Any) -> Iterator[Span]:
-        """Context-manager wrapper around :meth:`start_span` / :meth:`end_span`."""
-        opened = self.start_span(name, **attrs)
-        try:
-            yield opened
-        finally:
-            self.end_span(opened)
-
-
-class NoopSpan(Span):
-    """No-op span implementation.
-
-    Used when Langfuse is not installed or no credentials are
-    configured. Implements the :class:`Span` protocol so callers can
-    treat it interchangeably with the live implementation.
-    """
-
-    def __init__(self, name: str) -> None:
-        """Store the span name; no exporter is wired."""
-        self.name = name
-        self.attrs: dict[str, Any] = {}
-
-    def end(self) -> None:
-        """No-op."""
-
-    def set_attribute(self, key: str, value: Any) -> None:
-        """Capture an attribute for any finaliser to read."""
-        self.attrs[key] = value
-
-    @property
-    def attributes(self) -> dict[str, Any]:
-        """Return the attributes attached to this span."""
-        return dict(self.attrs)
 
 
 class LangfuseSpan(Span):
@@ -672,102 +413,6 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             yield s
         finally:
             self.end_span(s)
-
-
-class NoOpTelemetry(TelemetryProvider):
-    """Silent telemetry provider; satisfies the contract."""
-
-    def info(self, message: str, **kwargs: JSONValue) -> None:
-        """No-op."""
-
-    def warning(self, message: str, **kwargs: JSONValue) -> None:
-        """No-op."""
-
-    def error(self, message: str, **kwargs: JSONValue) -> None:
-        """No-op."""
-
-    def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
-        """No-op."""
-
-    def increment(self, name: str, value: int = 1, **labels: Any) -> None:
-        """No-op."""
-
-    @staticmethod
-    def start_span(name: str, **attrs: Any) -> Span:
-        """Return a no-op span.
-
-        Args:
-            name: Span name (recorded for completeness).
-            **attrs: Span attributes (ignored).
-
-        Returns:
-            A :class:`NoopSpan`.
-
-        """
-        return NoopSpan(name)
-
-    def end_span(self, span: Span) -> None:
-        """No-op."""
-
-    def record_tokens(
-        self,
-        name: str,
-        prompt_tokens: int,
-        completion_tokens: int,
-        model: str = "",
-    ) -> None:
-        """No-op."""
-
-
-class RedactingTelemetry(TelemetryProvider):
-    """Telemetry wrapper that redacts secret-looking keys."""
-
-    def __init__(self, inner: TelemetryProvider) -> None:
-        """Wrap ``inner`` with secret-redaction.
-
-        Args:
-            inner: The downstream provider receiving redacted calls.
-
-        """
-        self.inner = inner
-
-    def info(self, message: str, **kwargs: JSONValue) -> None:
-        """Forward ``info`` with redacted kwargs."""
-        self.inner.info(message, **scrub_secrets(kwargs))
-
-    def warning(self, message: str, **kwargs: JSONValue) -> None:
-        """Forward ``warning`` with redacted kwargs."""
-        self.inner.warning(message, **scrub_secrets(kwargs))
-
-    def error(self, message: str, **kwargs: JSONValue) -> None:
-        """Forward ``error`` with redacted kwargs."""
-        self.inner.error(message, **scrub_secrets(kwargs))
-
-    def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
-        """Forward ``record_latency`` with redacted labels."""
-        self.inner.record_latency(name, value_ms, **scrub_secrets(labels))
-
-    def increment(self, name: str, value: int = 1, **labels: Any) -> None:
-        """Forward ``increment`` with redacted labels."""
-        self.inner.increment(name, value, **scrub_secrets(labels))
-
-    def start_span(self, name: str, **attrs: Any) -> Span:
-        """Forward ``start_span`` with redacted attributes."""
-        return self.inner.start_span(name, **scrub_secrets(attrs))
-
-    def end_span(self, span: Span) -> None:
-        """Forward ``end_span``."""
-        self.inner.end_span(span)
-
-    def record_tokens(
-        self,
-        name: str,
-        prompt_tokens: int,
-        completion_tokens: int,
-        model: str = "",
-    ) -> None:
-        """Forward ``record_tokens``."""
-        self.inner.record_tokens(name, prompt_tokens, completion_tokens, model)
 
 
 class SafeConsoleSpanExporter:

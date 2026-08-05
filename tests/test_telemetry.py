@@ -58,7 +58,7 @@ def test_record_rerank_latency_invokes_langfuse_score_when_configured(
 
     fake_client = MagicMock()
     fake_client.score = MagicMock()
-    monkeypatch.setattr("raghub.telemetry.langfuse_get_client", lambda: fake_client)
+    monkeypatch.setattr("raghub.telemetry.tracing.langfuse_get_client", lambda: fake_client)
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
     record_rerank_latency("cohere", 0.1)
@@ -76,7 +76,7 @@ def test_record_long_context_invokes_langfuse_score_when_configured(
 
     fake_client = MagicMock()
     fake_client.score = MagicMock()
-    monkeypatch.setattr("raghub.telemetry.langfuse_get_client", lambda: fake_client)
+    monkeypatch.setattr("raghub.telemetry.tracing.langfuse_get_client", lambda: fake_client)
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
     record_long_context(outcome="ran", seconds=0.05)
