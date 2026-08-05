@@ -7,16 +7,21 @@ This document covers everything beyond the basic "embed → retrieve → generat
 ## Table of contents
 
 1. [Query transforms](#query-transforms)
-2. [Hybrid retrieval (dense + sparse + ColBERT)](#hybrid-retrieval-dense--sparse--colbert)
+2. [Hybrid retrieval (dense + sparse + ColBERT)](#hybrid-retrieval-dense-sparse-colbert)
 3. [Rerankers](#rerankers)
 4. [Long-context second-pass rerank](#long-context-second-pass-rerank)
 5. [RAPTOR recursive summaries](#raptor-recursive-summaries)
-6. [GraphRAG entity / community graph](#graphrag-entity--community-graph)
+6. [GraphRAG entity / community graph](#graphrag-entity-community-graph)
 7. [Agentic retrieval](#agentic-retrieval)
 8. [Per-user tool preferences](#per-user-tool-preferences)
 9. [Streaming events](#streaming-events)
-10. [Performance & latency notes](#performance--latency-notes)
-11. [Configuration reference](#configuration-reference)
+10. [Persistent ingestion queue](#persistent-ingestion-queue)
+11. [Vector store backends](#vector-store-backends)
+12. [Tenant isolation tiers](#tenant-isolation-tiers)
+13. [Feedback store and scorers](#feedback-store-and-scorers)
+14. [Archive store and CLI](#archive-store-and-cli)
+15. [Performance & latency notes](#performance-latency-notes)
+16. [Configuration reference](#configuration-reference)
 
 ---
 
@@ -321,6 +326,151 @@ data: {"kind":"final","step":1,"payload":{"answer":"..."}}
 ```
 
 Or fetch the full response in one shot via `/v1/agent/run`.
+
+---
+
+## Persistent ingestion queue
+
+`RAG.ingest_async` submits work to a durable SQLite-backed queue (`SqliteQueue`) and returns immediately with a job id. The queue survives process restarts and supports exponential-backoff retries with a dead-letter on exhaustion.
+
+```python
+from raghub import RAG
+
+rag = RAG()
+job_id = rag.ingest_async(
+    b"Revenue grew 12% YoY in Q3 2024.",
+    source_uri="memory://q3-report",
+    mime_type="text/plain",
+    metadata={"team": "finance"},
+)
+status = rag.job_status(job_id)  # "pending" | "running" | "succeeded" | "failed" | "dead"
+```
+
+The CLI manages the worker pool:
+
+```bash
+raghub queue run --workers 4
+raghub queue stats --json
+raghub queue purge --status dead
+```
+
+The library also wires a `Worker` automatically when `RAG.ingest_async` is used; call `RAG.start_worker()` to start the background loop and `RAG.stop_worker()` to drain. Idempotency is enforced by content hash — duplicate submissions return the existing job id instead of re-running.
+
+Cross-reference: see [docs/operations/runbook.md](operations/runbook.md) for production guidance.
+
+---
+
+## Vector store backends
+
+RAGHub ships two vector store backends:
+
+### `SqliteStore` (in-process, default)
+
+Embedded SQLite-backed vector store. Best for development, testing, and small deployments (< 100k chunks). No external dependencies.
+
+```python
+from raghub.store import SqliteStore
+
+store = SqliteStore(path="./data/vectors.db", embedding_dim=384)
+```
+
+### `PgVectorStore` (recommended for production)
+
+PostgreSQL + pgvector for production deployments. Supports row-level isolation, HNSW indexes, and scales horizontally.
+
+```bash
+raghub migrate pgvector --dsn "postgresql://user:pass@host:5432/raghub"
+```
+
+```python
+# In your RAG() construction:
+rag = RAG(vector_store=PgVectorStore(dsn="postgresql://..."))
+```
+
+Cross-reference: see [docs/operations/scaling.md](operations/scaling.md) for migration guidance.
+
+---
+
+## Tenant isolation tiers
+
+RAGHub supports three isolation tiers for multi-tenant deployments:
+
+### Row-level (default)
+
+Every store query filters by `tenant_id`. The `RowLevel` strategy binds a `tenant_id` to a `ContextVar` on each request; stores inject a `WHERE tenant_id = ?` clause automatically.
+
+```python
+from raghub.tenants import TenantContext, set_current_tenant
+
+set_current_tenant(TenantContext(tenant_id="acme-corp"))
+# All store queries now filter to acme-corp's data
+```
+
+### Schema-per-tenant
+
+Each tenant gets its own Postgres schema (`tenant_acme_corp`). The `SchemaPerTenant` strategy pins the `search_path` to the tenant's schema per connection.
+
+### Database-per-tenant
+
+Each tenant gets its own Postgres database. The `DatabasePerTenant` strategy routes connections to the tenant's database based on the bound context.
+
+Cross-reference: see [docs/architecture/decisions/](architecture/decisions.md) for the ADRs that chose each tier.
+
+---
+
+## Feedback store and scorers
+
+The `FeedbackStore` captures user feedback (`positive` / `negative` ratings with optional notes) and makes it available to scorers that re-rank results.
+
+```python
+from raghub.feedback import Feedback, SqliteFeedbackStore
+
+store = SqliteFeedbackStore(db_path="./data/feedback.db")
+store.initialize()
+
+# Submit feedback
+await store.submit(
+    user_id="alice@acme.com",
+    chunk_id="chunk-123",
+    rating="positive",
+    note="Highly relevant",
+    tenant_id="acme-corp",
+)
+
+# Aggregate by tenant
+aggregate = await store.aggregate(tenant_id="acme-corp")
+# Aggregate(rating_counts={"positive": 42, "negative": 3}, by_chunk={...})
+```
+
+Two scorers are built-in:
+
+- **`Bm25BoostScorer`** — boosts chunks that have many positive ratings and few negative ratings.
+- **`VectorDownWeightScorer`** — penalizes chunks with negative ratings in the dense retrieval score.
+
+Both scorers consume the `FeedbackAggregate` and integrate with the `RetrievalPipeline` to re-rank results.
+
+Cross-reference: see `docs/architecture/decisions/0007-feedback-scorers.md` (if it exists) for the design rationale.
+
+---
+
+## Archive store and CLI
+
+The `ArchiveStore` captures the full state of a RAGHub deployment (data, vectors, configuration) into a single signed archive that can be restored to a new deployment.
+
+```bash
+# Create an archive
+raghub backup create -o backup-2024-01-01.tar.gz
+
+# Verify the archive signature
+raghub backup verify --input backup-2024-01-01.tar.gz
+
+# Restore to a new deployment
+raghub backup restore --input backup-2024-01-01.tar.gz --target-dir /var/lib/raghub
+```
+
+Archives are signed with a per-tenant cipher key (see `RAGHUB_ARCHIVE_SIGNING_KEY`). The restore command is safe to run while the server is up — it writes to a staging directory, verifies the checksum, then atomically swaps.
+
+Cross-reference: see [docs/operations/backup.md](operations/backup.md) for the full operational workflow.
 
 ---
 

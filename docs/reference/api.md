@@ -201,6 +201,109 @@ storage audit).
 Prometheus scrape endpoint (when the optional
 `prometheus_client` instrumentation is enabled).
 
+### `POST /v1/feedback`
+
+Submit user feedback for a specific chunk. Records a positive or
+negative rating with an optional note.
+
+```json
+{
+  "chunk_id": "chunk-123",
+  "rating": "positive",
+  "note": "Highly relevant"
+}
+```
+
+Returns `201` with the feedback id:
+
+```json
+{
+  "feedback_id": "...",
+  "user_id": "alice@acme.com",
+  "chunk_id": "chunk-123",
+  "rating": "positive",
+  "tenant_id": "acme-corp",
+  "created_at": "2024-01-01T00:00:00Z"
+}
+```
+
+The `user_id` and `tenant_id` are resolved from the bearer token; the
+submitted values are ignored.
+
+### `GET /v1/feedback/{feedback_id}`
+
+Retrieve a single feedback record by id. Returns `404` if not found
+or not visible to the calling tenant.
+
+### `DELETE /v1/feedback/{feedback_id}`
+
+Delete a feedback record. The feedback must be owned by the calling
+tenant. Returns `204`.
+
+### `GET /v1/feedback/aggregate`
+
+Aggregate feedback for the calling tenant. Returns:
+
+```json
+{
+  "tenant_id": "acme-corp",
+  "positives": 42,
+  "negatives": 3,
+  "by_chunk": {
+    "chunk-123": {"positive": 5, "negative": 0},
+    "chunk-456": {"positive": 0, "negative": 2}
+  }
+}
+```
+
+---
+
+## Rate limiting
+
+The HTTP surface applies a token-bucket rate limit per bearer token.
+The limiter is configured via `RAGHUB_RATELIMIT_PER_MINUTE` (default
+120) and `RAGHUB_RATELIMIT_BURST` (default 20).
+
+Every response includes:
+
+| Header | Description |
+|---|---|
+| `X-RateLimit-Limit` | The maximum number of requests permitted per minute. |
+| `X-RateLimit-Remaining` | The number of requests remaining in the current window. |
+| `X-RateLimit-Reset` | Unix timestamp when the window resets. |
+
+When the limit is exceeded, the server returns `429 Too Many Requests`
+with a `Retry-After` header (in seconds) and a JSON body:
+
+```json
+{"error": "rate_limit_exceeded", "retry_after": 5}
+```
+
+---
+
+## Queue CLI sub-commands
+
+The CLI surface (under `raghub` / `python -m raghub.cli`) exposes the
+persistent queue as a standalone sub-app:
+
+```bash
+# Submit a job manually
+raghub queue submit --kind ingest --payload '{"source": "..."}'
+
+# Start workers (foreground)
+raghub queue run --workers 4
+
+# Inspect queue state
+raghub queue stats --json
+raghub queue list --status pending --limit 100
+
+# Drain dead-letter queue
+raghub queue purge --status dead
+```
+
+All sub-commands exit with code 0 on success and a non-zero code on
+failure.
+
 ---
 
 ## Models
