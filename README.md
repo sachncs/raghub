@@ -18,9 +18,16 @@ memory, resumable ingestion, real streaming, and a Finance
 evaluator. Every collaborator (converter, chunker, vector store,
 embedder, retriever, generator, telemetry, evaluator) is replaceable
 through a registry; the default wiring installs all spec libraries
-(Marker, Chonkie, LiteLLM, Instructor, Qdrant, Langfuse) and falls
-back to deterministic in-process providers when no API keys are
-present, so `pip install` and `import` is enough to be productive.
+(Marker, Chonkie, LiteLLM, Instructor, Langfuse) and falls back to
+deterministic in-process providers when no API keys are present, so
+`pip install` and `import` is enough to be productive.
+
+The default vector store is `SqliteStore` (in-process SQLite,
+shipped in `raghub.store`). Production deployments that need to
+scale past a single writer can switch to the PostgreSQL +
+pgvector backend (`PgVectorStore` in `raghub.stores.pgvector`,
+initialised by `raghub migrate pgvector --dsn <dsn>`) and run the
+API behind a load balancer.
 
 The framework is fully typed, fully documented (Google-style
 docstrings on every public function), and ships with a loguru-backed
@@ -38,7 +45,7 @@ indexed every chunk.
 | Chunking | [Chonkie](https://github.com/chonkie-inc/chonkie) |
 | LLM + Embeddings | [LiteLLM](https://github.com/BerriAI/litellm) |
 | Structured Outputs | [Instructor](https://github.com/567-labs/instructor) (optional `[structured]`) |
-| Vector Store | SQLite (in-process) |
+| Vector Store | pgvector (recommended for production) / SQLite (in-process, default) |
 | Observability | Langfuse (optional `[langfuse]`) / Prometheus / OpenTelemetry |
 | Benchmark | Finance |
 
@@ -392,7 +399,7 @@ Reports are written to `devtools/report.json`.
 | Chunking | Chonkie |
 | LLM / embeddings | LiteLLM |
 | Structured output | Instructor (optional `[structured]`) |
-| Vector store | SQLite (in-process) |
+| Vector store | pgvector (recommended for production) / SQLite (in-process, default) |
 | Observability | Langfuse, OpenTelemetry, Prometheus, loguru |
 | Knowledge format | Open Knowledge Format (OKF) |
 | Web framework | FastAPI (optional `[api]`) |

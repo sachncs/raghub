@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Plugins - RAGHub</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Plugins";
+        var mkdocs_page_input_path = "plugins.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> RAGHub
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../guide/getting-started/">Getting started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../migration/">Migration (legacy → facade)</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/decisions/">Decisions</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../guide/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../guide/deployment/">Deployment</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../guide/evaluation/">Evaluation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../ADVANCED_RAG/">Advanced RAG</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../reference/api/">API</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../reference/configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Plugins</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#what-a-plugin-may-register">What a plugin may register</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#authoring-a-plugin">Authoring a plugin</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#registration-via-entry-points">Registration via entry points</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#runtime-registration">Runtime registration</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#wiring-every-spec-component">Wiring every spec component</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#testing-a-plugin">Testing a plugin</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/monitoring/">Monitoring</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/backup/">Backup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/runbook/">Runbook</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/scaling/">Scaling</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../future/">Future</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">RAGHub</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Plugins</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="plugin-development">Plugin Development</h1>
+<p>A <strong>plugin</strong> is a self-describing unit that registers one or more
+RAGHub components on a
+:class:<code>raghub.plugins.registry.PluginRegistry</code>. Plugins are the
+supported way to swap implementations. The
+:class:<code>raghub.RAG</code> facade accepts a <code>registry=</code> argument; the
+default registry can be replaced wholesale or extended.</p>
+<h2 id="what-a-plugin-may-register">What a plugin may register</h2>
+<table>
+<thead>
+<tr>
+<th>Helper</th>
+<th>Type slot</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>register_converter(name, converter)</code></td>
+<td><code>DocumentConverter</code></td>
+</tr>
+<tr>
+<td><code>register_chunker(name, chunker)</code></td>
+<td><code>Chunker</code></td>
+</tr>
+<tr>
+<td><code>register_embedder(name, embedder)</code></td>
+<td><code>EmbeddingProvider</code></td>
+</tr>
+<tr>
+<td><code>register_vector_store(name, store)</code></td>
+<td><code>VectorStore</code></td>
+</tr>
+<tr>
+<td><code>register_knowledge_repo(name, repo)</code></td>
+<td><code>KnowledgeRepository</code></td>
+</tr>
+<tr>
+<td><code>register_generator(name, generator)</code></td>
+<td><code>Generator</code></td>
+</tr>
+<tr>
+<td><code>register_structured(name, provider)</code></td>
+<td><code>StructuredOutputProvider</code></td>
+</tr>
+<tr>
+<td><code>register_telemetry(name, logger, metrics)</code></td>
+<td><code>Logger</code>, <code>Metrics</code> (paired)</td>
+</tr>
+<tr>
+<td><code>register_evaluator(name, evaluator)</code></td>
+<td><code>Evaluator</code></td>
+</tr>
+<tr>
+<td><code>register_factory(name, factory)</code></td>
+<td>Generic callable</td>
+</tr>
+</tbody>
+</table>
+<p>Each type slot has a matching <code>get_*</code> resolver:</p>
+<pre><code class="language-python">registry = PluginRegistry()
+registry.get_converter(&quot;marker&quot;)
+registry.get_embedder(&quot;litellm&quot;)
+registry.get_telemetry(&quot;langfuse&quot;)  # returns (Logger, Metrics)
+</code></pre>
+<h2 id="authoring-a-plugin">Authoring a plugin</h2>
+<p>A plugin is any object that exposes:</p>
+<ul>
+<li><code>name: str</code> — a stable identifier.</li>
+<li><code>version: str</code> — semantic version.</li>
+<li><code>register(registry: PluginRegistry) -&gt; None</code> — called once
+  during registration; the plugin should use <code>registry.register_*</code>
+  helpers.</li>
+</ul>
+<pre><code class="language-python">from raghub.plugins.registry import PluginRegistry
+from raghub.interfaces.structured import StructuredOutputProvider
+
+
+class MyStructuredProvider(StructuredOutputProvider):
+    async def generate(self, *, response_model, question, context):
+        return response_model(answer=42)
+
+
+class MyPlugin:
+    name = &quot;my-plugin&quot;
+    version = &quot;0.6.0&quot;
+
+    def register(self, registry: PluginRegistry) -&gt; None:
+        registry.register_structured(&quot;my-provider&quot;, MyStructuredProvider())
+
+
+def my_plugin_factory():
+    return MyPlugin()
+</code></pre>
+<p>You can swap any collaborator the same way — for example a custom
+Markdown chunker:</p>
+<pre><code class="language-python">from raghub.interfaces.chunker import Chunker
+from raghub.plugins.registry import PluginRegistry
+
+
+class MyMarkdownChunker(Chunker):
+    name = &quot;my-markdown-chunker&quot;
+
+    def split(self, text: str) -&gt; list[str]:
+        return [chunk for chunk in text.split(&quot;\n\n&quot;) if chunk.strip()]
+
+
+registry = PluginRegistry()
+registry.register_chunker(&quot;markdown&quot;, MyMarkdownChunker())
+</code></pre>
+<h2 id="registration-via-entry-points">Registration via entry points</h2>
+<p>Add the plugin to your package's <code>pyproject.toml</code>:</p>
+<pre><code class="language-toml">[project.entry-points.&quot;raghub.plugins&quot;]
+my_plugin = &quot;my_package.module:my_plugin_factory&quot;
+</code></pre>
+<p><code>PluginRegistry.discover_entrypoints()</code> uses
+<code>importlib.metadata.entry_points(group=group)</code> to enumerate every
+installed package's registered entry points under the given group
+name. For each entry point it calls <code>entry.load()</code> (which imports
+and returns the factory callable), invokes the factory, and then
+calls <code>plugin.register(registry)</code>:</p>
+<pre><code class="language-python">entries = importlib.metadata.entry_points(group=&quot;raghub.plugins&quot;)
+for entry in entries:                     # e.g. &quot;my_plugin&quot;
+    factory = entry.load()                # imports my_package.module:my_plugin_factory
+    plugin = factory()                    # returns MyPlugin()
+    plugin.register(registry)             # registers components
+</code></pre>
+<p>Usage from application code:</p>
+<pre><code class="language-python">loaded = PluginRegistry().discover_entrypoints(group=&quot;raghub.plugins&quot;)
+print(f&quot;loaded {loaded} plugins&quot;)
+</code></pre>
+<p>The RAGHub project itself ships with an empty entry-point group
+by default; see <code>pyproject.toml</code>.</p>
+<h2 id="runtime-registration">Runtime registration</h2>
+<pre><code class="language-python">from raghub import RAG
+from raghub.plugins.registry import PluginRegistry
+
+registry = PluginRegistry()
+registry.register_structured(&quot;my-provider&quot;, MyStructuredProvider())
+
+rag = RAG(registry=registry)
+</code></pre>
+<p>Pre-registering on a registry does not, by itself, replace the
+collaborator on an existing facade instance — pass the replacement
+to the constructor (e.g. <code>RAG(structured=registry.get_structured(...))</code>)
+or reconstruct.</p>
+<h2 id="wiring-every-spec-component">Wiring every spec component</h2>
+<p>The full set of extension points mapped to the spec libraries:</p>
+<table>
+<thead>
+<tr>
+<th>Spec component</th>
+<th>Interface</th>
+<th>Default implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Document conversion</td>
+<td><code>DocumentConverter</code></td>
+<td><code>MarkerConverter</code> (Marker) → <code>PlainTextConverter</code> fallback</td>
+</tr>
+<tr>
+<td>Chunking</td>
+<td><code>Chunker</code></td>
+<td><code>Chonkie</code> (Chonkie) → <code>WordChunker</code> fallback</td>
+</tr>
+<tr>
+<td>Embeddings</td>
+<td><code>EmbeddingProvider</code></td>
+<td><code>LiteLLMEmbedder</code> → <code>Hasher</code> fallback</td>
+</tr>
+<tr>
+<td>LLM</td>
+<td><code>LLMProvider</code></td>
+<td><code>LiteLLM</code> → <code>HeuristicLLMProvider</code> fallback</td>
+</tr>
+<tr>
+<td>Vector store</td>
+<td><code>VectorStore</code></td>
+<td><code>SqliteStore</code> (when <code>QDRANT_URL</code> set) → <code>MemoryStore</code> fallback</td>
+</tr>
+<tr>
+<td>Generator</td>
+<td><code>Generator</code></td>
+<td><code>DefaultGenerator</code> wrapping the LLM</td>
+</tr>
+<tr>
+<td>Reranker</td>
+<td><code>Reranker</code></td>
+<td><code>IdentityReranker</code></td>
+</tr>
+<tr>
+<td>Structured output</td>
+<td><code>StructuredOutputProvider</code></td>
+<td><code>Instructor</code>; <code>None</code> when unavailable</td>
+</tr>
+<tr>
+<td>Telemetry</td>
+<td><code>TelemetryProvider</code></td>
+<td><code>LangfuseTelemetryProvider</code> → <code>NoOpTelemetry</code> fallback (wrapped in <code>RedactingTelemetry</code>)</td>
+</tr>
+<tr>
+<td>Conversation store</td>
+<td><code>ConversationStore</code></td>
+<td><code>Memory</code></td>
+</tr>
+<tr>
+<td>Knowledge repo</td>
+<td><code>KnowledgeRepository</code></td>
+<td><code>MemoryRepo</code></td>
+</tr>
+<tr>
+<td>Source manifest</td>
+<td><code>Manifest</code></td>
+<td><code>./data/manifest.json</code></td>
+</tr>
+<tr>
+<td>Background ingestion</td>
+<td><code>Batch</code></td>
+<td><code>ResumableBatch</code> (lazy)</td>
+</tr>
+</tbody>
+</table>
+<p>Every slot has an interface module under <code>raghub.interfaces/</code>. To
+replace a collaborator, write a class implementing the interface
+and pass it to the constructor.</p>
+<h2 id="testing-a-plugin">Testing a plugin</h2>
+<pre><code class="language-python">def test_my_plugin():
+    registry = PluginRegistry()
+    MyPlugin().register(registry)
+    assert &quot;my-provider&quot; in registry.structured
+    assert registry.get_structured(&quot;my-provider&quot;).name == &quot;my-provider&quot;
+</code></pre>
+<p>The plugin system never modifies the default registry — tests are
+free to instantiate fresh registries and register the plugin
+without interfering with other tests.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../reference/configuration/" class="btn btn-neutral float-left" title="Configuration"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../operations/monitoring/" class="btn btn-neutral float-right" title="Monitoring">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../reference/configuration/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../operations/monitoring/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

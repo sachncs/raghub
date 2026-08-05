@@ -1,32 +1,24 @@
 # Scaling
 
-This page covers vertical and horizontal scaling of the production
-Compose stack. The current shape runs one of each service; the
-guidance below covers the next two steps up.
+This page covers vertical and horizontal scaling of the
+RAGHub process. The current default runs one uvicorn worker per
+data directory; the guidance below covers the next two steps up.
 
 ## Vertical scaling
 
-The default resource limits in `docker-compose.yml` are a single
-CPU and 1–2 GiB per service. Increase them with `--scale` is **not**
-appropriate for these resources; edit the `deploy.resources` block or
-override at the command line:
+The single-process ceiling is set by LiteLLM and the embedder at
+query time, and by Marker and the chunker at ingest time. The
+limiting dimensions are:
 
-```bash
-docker compose -f docker-compose.yml --profile production up -d \
-    --scale api=1 \
-    api
-```
+| Resource | Rough budget per API replica |
+|---|---|
+| CPU | 4 cores (dominated by LiteLLM and Marker at ingest time) |
+| Memory | 6 GiB (index memory grows with `RAG_EMBEDDING_DIM × vectors` for the SQLite vector store) |
+| Disk | `RAG_DATA_DIR` must hold the registry, sessions, and vector store; size scales with document volume |
 
-`deploy.resources` accepts a `limits` and `reservations` block. Set
-`cpus` to a fractional value (e.g. `2.5`) and `memory` to a Docker
-size string (`1G`, `2G`, …).
-
-Recommended ceilings for the bundled stack:
-
-| Service | CPU limit | Memory limit | Notes |
-|---|---|---|---|
-| `api` | 4.0 | 6G | Dominated by LiteLLM and Marker at ingest time |
-| `qdrant` | 4.0 | 8G | Index memory grows with `RAG_EMBEDDING_DIM × vectors` |
+These are budgets, not limits; the application does not impose any
+internal cap. Raise them in your orchestrator (Kubernetes
+`resources.requests` / `limits`, systemd `MemoryMax=`, etc.).
 
 ## Horizontal scaling: the API
 
@@ -36,36 +28,44 @@ files (`registry.db`, `sessions.db`).
 
 Two options:
 
-1. **Move persistence to a network database.** Replace the SQLite
-   stores with a Postgres backend and run the API behind a load
-   balancer. This is the supported production path for > 1 replica.
+1. **Move the vector store to PostgreSQL.** Run
+   `raghub migrate pgvector --dsn <dsn>` against the target
+   database, point the API at it through `RAG_VECTORSTORE_DSN`, and
+   run the API behind a load balancer. The document registry and
+   session store still ride on the SQLite files in
+   `RAG_DATA_DIR`; if those need to scale too, point them at the
+   same PostgreSQL with `RAG_REGISTRY_DSN` /
+   `RAG_SESSIONS_DSN` (the same DSN can be reused for both). This
+   is the supported production path for more than one replica.
 
 2. **Keep SQLite, but run a single API replica.** This is the
-   default. If you need additional ingest throughput, scale the
-   background ingestion worker pool (see below) and run the API
-   service with `replicas: 1`.
+   default. If you need additional ingest throughput, raise the
+   `BACKGROUND_INGEST_WORKERS` environment variable (default `2`)
+   and run the API service with `replicas: 1`.
 
-To bump the background ingestion pool, override the
-`Batch` at runtime by setting the env var that
-`create_app` reads (`BACKGROUND_INGEST_WORKERS` is the conventional
-name; the default is `2`).
+To bump the background ingestion pool, set
+`BACKGROUND_INGEST_WORKERS` in the process environment before
+invoking `raghub run`; the value is read once at startup.
 
-## Horizontal scaling: Qdrant
+## Horizontal scaling: the vector store
 
-Qdrant scales independently. For a single node, set
-`QDRANT_URL=http://qdrant:6333` and stay on a single replica. For
-sharded deployments, switch to a managed Qdrant cluster and point
-`QDRANT_URL` at the cluster endpoint.
+The SQLite vector store (`SqliteStore` in `raghub.store`) is a
+single-process database. To scale, switch to the PostgreSQL +
+pgvector backend (`PgVectorStore` in `raghub.stores.pgvector`) and
+back it with a managed PostgreSQL instance — single-node for most
+production deployments, a hot-standby replica for read scaling.
 
-The `qdrant` service in `docker-compose.yml` mounts a single named
-volume (`raghub_qdrant_data`); do not scale it beyond one replica
-without first moving to an external Qdrant cluster.
+For sharded deployments, switch to a managed PostgreSQL cluster
+(Patroni, Aurora, Cloud SQL HA, etc.) and point `RAG_VECTORSTORE_DSN`
+at the cluster endpoint. Provision `vector_dim` matching your
+embedder; `raghub migrate pgvector` creates the schema and indexes
+on first run.
 
 ## Autoscaling signals
 
-The legacy FastAPI surface exposes Prometheus metrics on
-`/metrics` (when the `prometheus_client` instrumentation is enabled
-in `app.state`). Key signals:
+The FastAPI surface exposes Prometheus metrics on `/metrics` when
+the `prometheus_client` instrumentation is enabled in `app.state`.
+Key signals:
 
 | Metric | Use |
 |---|---|
@@ -82,20 +82,24 @@ ingest and query call. Span attributes are documented in
 
 Two pools matter in production:
 
-- **Uvicorn workers.** The default `CMD` runs a single uvicorn
-  process. For higher query concurrency, run with multiple workers
-  by overriding the entry point: `uvicorn raghub.api:get_app
-  --factory --workers 4`. Each worker has its own application
-  instance and SQLite connections.
-- **Qdrant client.** `qdrant-client` keeps an HTTP/2 connection
-  pool; the default limits are fine for one API replica. If you
-  scale the API, increase the pool size via
-  `QDRANT_CLIENT_POOL_SIZE` (the conventional env var).
+- **Uvicorn workers.** The default entry point runs a single
+  uvicorn process. For higher query concurrency, run with multiple
+  workers: `uvicorn raghub.api:app_factory.create_app --factory
+  --workers 4`. Each worker has its own application instance and
+  SQLite connection. Single-replica SQLite deployments should stay
+  at `workers = 1` per process so the file lock isn't contested;
+  PostgreSQL deployments scale linearly with worker count.
+- **PG client.** `asyncpg` keeps a connection pool; the default
+  pool size is fine for a handful of API replicas. Increase it
+  via `PG_POOL_MIN_SIZE` / `PG_POOL_MAX_SIZE` (the conventional
+  env vars) when you scale out.
 
 ## What to monitor first
 
 When in doubt, watch these three in order:
 
-1. The Qdrant segment count (`GET /collections/raghub`).
+1. The SQLite vector-store row count and on-disk size
+   (`SELECT count(*) FROM chunks;` and the size of
+   `RAG_VECTORSTORE_PATH`).
 2. The API p95 query latency (`raghub_query_duration_ms`).
-3. The disk usage of `raghub_qdrant_data`.
+3. The disk usage of `RAG_DATA_DIR`.

@@ -122,17 +122,27 @@ default wrapper that scrubs secret-like kwargs.
 The RAG facade emits loguru records by default; configure
 `LANGFUSE_*` env vars to forward spans through `LoguruTelemetryProvider`.
 
-## Container-level observability
+## Process-level observability
 
-The production compose stack attaches a JSON-file log driver with
-rotation (10 MiB × 5 files) to every service. Tail with
-`docker compose logs -f <service>`; inspect the rotation policy
-with `docker inspect <container>`.
+When RAGHub runs as a long-lived process (e.g. `raghub run`,
+`uvicorn raghub.api:app_factory.create_app --factory`, or a
+Kubernetes deployment), configure your process supervisor to
+capture the loguru records emitted from `raghub.telemetry.logging`
+and the Prometheus metrics served on the standard `/metrics`
+endpoint. Log rotation is the responsibility of the supervisor
+(`logrotate`, the Kubernetes logging agent, `journald`, etc.) —
+nothing in the application manages log files on disk.
 
-Each service has a `healthcheck` block; the API depends on Qdrant
-(`condition: service_healthy`) and the UI depends on the API. The
-`docker compose ps` view reports the live state for every
-container.
+Health checks for the process are exposed at:
+
+* `GET /health` — FastAPI liveness probe (no auth).
+* `GET /v1/health` — service-level health summary, identical to
+  `RagApplication.health()`.
+* `raghub health` — CLI equivalent, prints the same JSON payload.
+
+An orchestrator can poll `/health` at any interval; the body is
+cheap (no database calls, no auth lookup) and the response is
+`200 ok` whenever the app is responsive.
 
 ## Structured logging
 

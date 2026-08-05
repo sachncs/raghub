@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Monitoring - RAGHub</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Monitoring";
+        var mkdocs_page_input_path = "operations/monitoring.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> RAGHub
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../guide/getting-started/">Getting started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../migration/">Migration (legacy → facade)</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/decisions/">Decisions</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/deployment/">Deployment</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/evaluation/">Evaluation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../ADVANCED_RAG/">Advanced RAG</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/api/">API</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../plugins/">Plugins</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Monitoring</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#what-the-facade-emits">What the facade emits</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ingest">Ingest</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#query-and-stream">Query (and Stream)</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#token-usage">Token usage</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#secret-redaction">Secret redaction</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#switching-telemetry-providers">Switching telemetry providers</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#legacy-surface-observability">Legacy surface observability</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#process-level-observability">Process-level observability</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#structured-logging">Structured logging</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#health-check">Health check</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#see-also">See also</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../backup/">Backup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../runbook/">Runbook</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../scaling/">Scaling</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../future/">Future</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">RAGHub</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Operations</li>
+      <li class="breadcrumb-item active">Monitoring</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="monitoring-observability">Monitoring &amp; Observability</h1>
+<p>The <code>RAG</code> facade emits telemetry automatically through its
+default provider chain:</p>
+<pre><code>RAG
+  └─► RedactingTelemetry      # scrubs secrets
+        └─► LangfuseTelemetryProvider      # when langfuse is configured
+              or NoOpTelemetry             # otherwise
+</code></pre>
+<p><code>RAG.telemetry</code> always exposes the protocol defined by
+<code>raghub.telemetry.TelemetryProvider</code>. The default
+constructor wraps the underlying provider in
+<code>RedactingTelemetry</code> so secret-looking kwargs are scrubbed before
+forwarding to the sink.</p>
+<h2 id="what-the-facade-emits">What the facade emits</h2>
+<p><code>IngestPipeline.run</code> and <code>QueryPipeline.run</code> / <code>.stream</code> open
+nested telemetry spans. Each span records its duration in
+milliseconds. When the LLM provider exposes token usage the
+pipeline forwards it through <code>telemetry.record_tokens</code>.</p>
+<h3 id="ingest">Ingest</h3>
+<table>
+<thead>
+<tr>
+<th>Span</th>
+<th>Attributes recorded</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ingest</code></td>
+<td><code>source_uri</code>, <code>bundle_id</code>, <code>checksum</code></td>
+</tr>
+<tr>
+<td><code>ingest.convert</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ingest.chunk</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ingest.embed</code></td>
+<td><code>count</code> (number of texts)</td>
+</tr>
+<tr>
+<td><code>ingest.upsert</code></td>
+<td><code>count</code> (number of chunks)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="query-and-stream">Query (and Stream)</h3>
+<table>
+<thead>
+<tr>
+<th>Span</th>
+<th>Attributes recorded</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>query</code> (or <code>query.stream</code>)</td>
+<td><code>question</code> (truncated to 128 chars), <code>top_k</code>, <code>user_id</code>, <code>session_id</code></td>
+</tr>
+<tr>
+<td><code>query.embed_query</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>query.search</code></td>
+<td><code>top_k</code></td>
+</tr>
+<tr>
+<td><code>query.rerank</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>query.generate</code></td>
+<td>token-usage forwarded on completion</td>
+</tr>
+<tr>
+<td><code>query.structured</code></td>
+<td>— (only when <code>response_model=</code> is used)</td>
+</tr>
+<tr>
+<td><code>query.tokens</code></td>
+<td><code>prompt_tokens</code>, <code>completion_tokens</code> (stream only)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="token-usage">Token usage</h2>
+<p><code>LiteLLM.generate</code> and <code>LiteLLM.astream</code>
+populate <code>self.last_usage</code> (prompt / completion / model).
+<code>DefaultGenerator.record_tokens()</code> exposes that counter;
+<code>QueryPipeline.run</code> and <code>QueryPipeline.stream</code> call it and pipe
+the values to <code>telemetry.record_tokens("query.generate" / "query.stream", ...)</code>.</p>
+<p>In <code>pipeline.run</code>:</p>
+<pre><code class="language-python">self.telemetry.record_tokens(
+    &quot;query.generate&quot;,
+    prompt_tokens=...,
+    completion_tokens=...,
+    model=...,
+)
+</code></pre>
+<p>In <code>pipeline.stream</code>, the same call uses <code>query.stream</code>. The
+generator's <code>last_usage</code> is read once after the stream completes
+so <code>record_tokens</code> doesn't run on every chunk.</p>
+<h2 id="secret-redaction">Secret redaction</h2>
+<p><code>RedactingTelemetry</code> (in <code>raghub.telemetry</code>) walks the
+kwarg dict recursively and replaces any value whose key matches
+the regex
+<code>re.compile(r"(password|secret|api_key|token|jwt|authorization)", re.I)</code>
+with the literal string <code>"***REDACTED***"</code> before forwarding to
+the underlying provider. Nested dicts are scrubbed depth-first.</p>
+<p>To opt out, pass your own <code>telemetry=</code> to the <code>RAG</code> constructor
+and skip the redaction wrapper.</p>
+<h2 id="switching-telemetry-providers">Switching telemetry providers</h2>
+<p>Construct the facade with a custom telemetry provider:</p>
+<pre><code class="language-python">from raghub import RAG
+from raghub.telemetry import NoOpTelemetry
+
+rag = RAG(telemetry=NoOpTelemetry())
+</code></pre>
+<p>…or with the redaction wrapper around any backend:</p>
+<pre><code class="language-python">from raghub.telemetry import RedactingTelemetry
+from raghub.telemetry import LangfuseTelemetryProvider
+
+rag = RAG(telemetry=RedactingTelemetry(LangfuseTelemetryProvider()))
+</code></pre>
+<h2 id="legacy-surface-observability">Legacy surface observability</h2>
+<p>The FastAPI surface (<code>raghub.api.AppFactory.create_app</code>, served via
+Uvicorn's <code>--factory</code>) continues to expose:</p>
+<ul>
+<li><code>raghub_query_duration_ms</code> (Histogram) — query execution duration</li>
+<li><code>raghub_ingestion_duration_ms</code> (Histogram) — ingestion duration</li>
+<li><code>raghub_auth_duration_ms</code> (Histogram) — authentication duration</li>
+<li><code>raghub_auth_total</code> (Counter, label <code>success</code>) — login attempts</li>
+<li><code>raghub_error_total</code> (Counter, label <code>error_type</code>) — error count</li>
+</ul>
+<p>These are wired through
+<code>raghub.telemetry.metrics.PrometheusMetrics</code> (registered via
+<code>metrics.register_app(app)</code> in <code>create_app</code>) and
+<code>raghub.telemetry.tracing.Tracer</code> (constructor takes the OTLP
+endpoint via <code>tracer.add_otlp_exporter(...)</code>).
+<code>raghub.telemetry.logging.LoguruTelemetryProvider</code> provides the
+loguru-backed span/logger surface; <code>RedactingTelemetry</code> is the
+default wrapper that scrubs secret-like kwargs.</p>
+<p>The RAG facade emits loguru records by default; configure
+<code>LANGFUSE_*</code> env vars to forward spans through <code>LoguruTelemetryProvider</code>.</p>
+<h2 id="process-level-observability">Process-level observability</h2>
+<p>When RAGHub runs as a long-lived process (e.g. <code>raghub run</code>,
+<code>uvicorn raghub.api:app_factory.create_app --factory</code>, or a
+Kubernetes deployment), configure your process supervisor to
+capture the loguru records emitted from <code>raghub.telemetry.logging</code>
+and the Prometheus metrics served on the standard <code>/metrics</code>
+endpoint. Log rotation is the responsibility of the supervisor
+(<code>logrotate</code>, the Kubernetes logging agent, <code>journald</code>, etc.) —
+nothing in the application manages log files on disk.</p>
+<p>Health checks for the process are exposed at:</p>
+<ul>
+<li><code>GET /health</code> — FastAPI liveness probe (no auth).</li>
+<li><code>GET /v1/health</code> — service-level health summary, identical to
+  <code>RagApplication.health()</code>.</li>
+<li><code>raghub health</code> — CLI equivalent, prints the same JSON payload.</li>
+</ul>
+<p>An orchestrator can poll <code>/health</code> at any interval; the body is
+cheap (no database calls, no auth lookup) and the response is
+<code>200 ok</code> whenever the app is responsive.</p>
+<h2 id="structured-logging">Structured logging</h2>
+<p><code>build_logger()</code> in <code>raghub.telemetry.logging</code> configures
+<code>loguru</code>. The recommended key log events are <code>ingest.start</code>,
+<code>ingest.stop</code>, <code>query.start</code>, <code>query.stop</code>, <code>cli.ingest.start</code>,
+<code>cli.run.starting</code>, and <code>error</code>-classed events emitted from the
+pipelines. <code>RAG.ingest_directory_*</code> and <code>RAG.sync_index</code> emit
+<code>tqdm.tqdm</code> progress bars to stderr at the configured log level;
+set <code>show_progress=False</code> for non-interactive callers.</p>
+<p>The log level is controlled by <code>RAG_LOG_LEVEL</code> (default <code>INFO</code>).</p>
+<h2 id="health-check">Health check</h2>
+<p>The CLI exposes the facade's health summary:</p>
+<pre><code class="language-bash">raghub health
+</code></pre>
+<p>…equivalent to:</p>
+<pre><code class="language-python">import json
+from raghub import RAG
+
+print(json.dumps(RAG().health(), indent=2))
+</code></pre>
+<pre><code class="language-json">{
+  &quot;status&quot;: &quot;ok&quot;,
+  &quot;vector_store&quot;: &quot;MemoryStore&quot;,
+  &quot;embedder&quot;:     &quot;Hasher&quot;,
+  &quot;llm&quot;:          &quot;HeuristicLLMProvider&quot;,
+  &quot;chunker&quot;:      &quot;WordChunker&quot;,
+  &quot;converter&quot;:    &quot;PlainTextConverter&quot;,
+  &quot;telemetry&quot;:    &quot;RedactingTelemetry&quot;,
+  &quot;structured&quot;:   &quot;NoneType&quot;,
+  &quot;reranker&quot;:     &quot;IdentityReranker&quot;
+}
+</code></pre>
+<p><code>GET /health</code> (FastAPI surface) is the liveness probe and
+returns whatever <code>RagApplication.health()</code> reports.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="../../plugins/"><code>plugins.md</code></a> — register a custom telemetry
+  pair via <code>PluginRegistry.register_telemetry(name, logger, metrics)</code>.</li>
+<li><a href="../../architecture/decisions/#adr-0005-telemetry-scrubbing-is-the-default">ADR-0005: telemetry scrubbing</a>
+  — ADR-0005 (default scrubbing) and ADR-0007 (Langfuse v3+ spans).</li>
+<li><a href="../runbook/"><code>runbook.md</code></a> — first-line triage for failing
+  services; covers health, logs, restarts, and the canonical
+  reset path.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../../plugins/" class="btn btn-neutral float-left" title="Plugins"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../backup/" class="btn btn-neutral float-right" title="Backup">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../../plugins/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../backup/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

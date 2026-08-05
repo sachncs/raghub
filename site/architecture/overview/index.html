@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Overview - RAGHub</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Overview";
+        var mkdocs_page_input_path = "architecture/overview.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> RAGHub
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../guide/getting-started/">Getting started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../migration/">Migration (legacy → facade)</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Overview</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#two-coexisting-surfaces">Two coexisting surfaces</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#the-rag-facade">The RAG facade</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#ingestion">Ingestion</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#query">Query</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#rbac">RBAC</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#knowledge-layer">Knowledge layer</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#vector-stores">Vector stores</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#llm-providers">LLM providers</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#embedding-providers">Embedding providers</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#telemetry">Telemetry</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#security-and-multi-tenancy">Security and multi-tenancy</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#package-layout">Package layout</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../decisions/">Decisions</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/deployment/">Deployment</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/evaluation/">Evaluation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../ADVANCED_RAG/">Advanced RAG</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/api/">API</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../plugins/">Plugins</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/monitoring/">Monitoring</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/backup/">Backup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/runbook/">Runbook</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/scaling/">Scaling</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../future/">Future</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">RAGHub</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Architecture</li>
+      <li class="breadcrumb-item active">Overview</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="architecture-overview">Architecture Overview</h1>
+<p>RAGHub is a layered platform. The spec-mandated entry point is
+<a href="https://github.com/sachncs/raghub/blob/main/raghub/api/rag.py"><code>raghub.RAG</code></a>; below it sit ingestion and
+query pipelines, a knowledge layer in OKF, plugin-replaceable
+adapters, and the legacy multi-tenant service stack retained for
+backward compatibility.</p>
+<h2 id="two-coexisting-surfaces">Two coexisting surfaces</h2>
+<p>The package exposes two parallel APIs:</p>
+<pre><code class="language-text">                      ┌─────────────────────────────────────────────┐
+                      │                  raghub.RAG                │
+                      │  (single entry point, replaceable parts)   │
+                      └────────┬────────────────────────┬──────────┘
+                               │                        │
+                               ▼                        ▼
+                  ┌───────────────────────┐    ┌─────────────────────────┐
+                  │   IngestPipeline      │    │     QueryPipeline       │
+                  │ convert→chunk→embed   │    │ embed→search→rerank→    │
+                  │ →upsert               │    │ generate→stream         │
+                  └────────────┬──────────┘    └────────────┬────────────┘
+                               │                             │
+                               ▼                             ▼
+        ┌──────────────────────────────────────────────────────────────┐
+        │  Knowledge layer (OKF), embedding provider, vector store,    │
+        │  LLM, structured-output provider, telemetry, conversation   │
+        │  store, reranker                                             │
+        └──────────────────────────────────────────────────────────────┘
+</code></pre>
+<p>The second surface is the legacy multi-tenant service, still
+mounted at <code>raghub.api.AppFactory.create_app</code> (the FastAPI routers):</p>
+<pre><code class="language-text">                      ┌─────────────────────────────────────────────┐
+                      │          RagApplication              │
+                      │  (use-case facade: DocumentService,         │
+                      │   QueryService, AuthService, HealthService) │
+                      └────────┬────────────────────────────────────┘
+                               │
+                               ▼
+                  ┌────────────────────────────┐
+                  │   Active-record models     │
+                  │   Document → Chunk → …     │
+                  │   + SQLite repositories    │
+                  └────────────────────────────┘
+</code></pre>
+<p>Both surfaces share <strong>plugin-replaceable adapters</strong> (converters,
+chunkers, embedders, vector stores, LLMs, structured-output
+providers, telemetry providers) wired through the
+<a href="../../plugins/"><code>PluginRegistry</code></a>.</p>
+<h2 id="the-rag-facade">The <code>RAG</code> facade</h2>
+<p><code>raghub.api.rag.RAG</code> is the spec-mandated entry point. It is a thin
+DI container that wires:</p>
+<table>
+<thead>
+<tr>
+<th>Collaborator</th>
+<th>Type</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>settings</code></td>
+<td><code>AppSettings</code></td>
+<td>from <code>load_settings()</code></td>
+</tr>
+<tr>
+<td><code>registry</code></td>
+<td><code>PluginRegistry</code></td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>converter</code></td>
+<td><code>DocumentConverter</code></td>
+<td><code>MarkerConverter</code> → <code>PlainTextConverter</code> fallback</td>
+</tr>
+<tr>
+<td><code>chunker</code></td>
+<td><code>Chunker</code></td>
+<td><code>Chonkie</code> → <code>WordChunker</code> fallback</td>
+</tr>
+<tr>
+<td><code>embedder</code></td>
+<td><code>EmbeddingProvider</code></td>
+<td><code>LiteLLMEmbedder</code> → <code>Hasher</code> fallback</td>
+</tr>
+<tr>
+<td><code>llm</code></td>
+<td><code>LLMProvider</code></td>
+<td><code>LiteLLM</code> → <code>HeuristicLLMProvider</code> fallback</td>
+</tr>
+<tr>
+<td><code>vector_store</code></td>
+<td><code>VectorStore</code></td>
+<td><code>SqliteStore</code> (when <code>QDRANT_URL</code> set) → <code>MemoryStore</code> fallback</td>
+</tr>
+<tr>
+<td><code>generator</code></td>
+<td><code>Generator</code></td>
+<td><code>DefaultGenerator</code> wrapping <code>llm</code></td>
+</tr>
+<tr>
+<td><code>structured</code></td>
+<td><code>StructuredOutputProvider</code></td>
+<td><code>Instructor</code> (when key + Instructor present) else <code>None</code></td>
+</tr>
+<tr>
+<td><code>telemetry</code></td>
+<td><code>TelemetryProvider</code></td>
+<td><code>RedactingTelemetry(LangfuseTelemetryProvider)</code> → <code>RedactingTelemetry(NoOpTelemetry)</code></td>
+</tr>
+<tr>
+<td><code>reranker</code></td>
+<td><code>Reranker</code></td>
+<td><code>IdentityReranker</code></td>
+</tr>
+<tr>
+<td><code>knowledge_repo</code></td>
+<td><code>KnowledgeRepository</code></td>
+<td><code>MemoryRepo</code></td>
+</tr>
+<tr>
+<td><code>conversation_store</code></td>
+<td><code>ConversationStore</code></td>
+<td><code>Memory</code></td>
+</tr>
+<tr>
+<td><code>manifest</code></td>
+<td><code>Manifest</code></td>
+<td><code>data/manifest.json</code></td>
+</tr>
+</tbody>
+</table>
+<p>Replace any of these through the constructor or via the registry.</p>
+<h2 id="ingestion">Ingestion</h2>
+<p><code>IngestPipeline.run</code> performs, in order:</p>
+<pre><code class="language-text">file_bytes
+  └─► converter.convert()      ── creates Bundle (OKF)
+        └─► knowledge_repo.save(bundle)
+              └─► get_chunks()
+                    └─► embedder.embed_texts(texts)
+                          └─► vector_store.upsert(chunks, vectors)
+</code></pre>
+<p>Incremental indexing is on by default: the pipeline computes
+<code>sha256(file_bytes)</code> and asks <code>knowledge_repo.get(bundle_id)</code> for a
+prior checksum. If the prior checksum matches, no re-embedding
+happens — the existing chunks are returned with
+<code>outputs["incremental"] = True</code>.</p>
+<p>Multi-user tenancy: when a <code>User</code> is supplied, the chunk
+<code>owner</code> is set to the user's email and the primary
+<code>allowed_companies</code> entry becomes the document tenant.</p>
+<h2 id="query">Query</h2>
+<p><code>QueryPipeline.run</code> performs, in order:</p>
+<pre><code class="language-text">question
+  └─► embedder.embed_text(question)
+        └─► vector_store.search(top_k=k, metadata_filter=...)
+              └─► metadata_filter_for_user(user)   # RBAC
+                    └─► reranker.rerank() (optional)
+                          └─► conversation_store.load(session_id) (optional)
+                                └─► generator.generate()
+                                      └─► optional structured.generate()
+                                            └─► conversation_store.append()
+</code></pre>
+<p><code>QueryPipeline.stream</code> is the streaming variant. It uses
+<code>Generator.astream</code> when available, falls back to word-by-word
+yields from the synchronous generator otherwise.</p>
+<h2 id="rbac">RBAC</h2>
+<p><code>QueryPipeline.metadata_filter_for_user</code>:</p>
+<ul>
+<li><code>user=None</code> → no filter (returns <code>""</code>).</li>
+<li><code>user.is_admin == True</code> → no filter.</li>
+<li><code>user.allowed_companies == ["Apple"]</code> → <code>{"company": ["Apple"]}</code>
+  (Qdrant / in-memory store) or the equivalent SQL fragment.</li>
+<li><code>user.allowed_companies == []</code> → <code>{"company": []}</code> — matches
+  nothing. The LLM never sees unauthorised context.</li>
+</ul>
+<p>See <a href="../../reference/configuration/"><code>reference/configuration.md</code></a> for
+how tenant companies are attached to chunks during ingestion.</p>
+<h2 id="knowledge-layer">Knowledge layer</h2>
+<p>The canonical persisted representation is <strong>OKF (Open Knowledge
+Format)</strong>, modelled by <code>Bundle</code>. Round-trip:</p>
+<pre><code class="language-python">from raghub.knowledge.okf import to_okf, from_okf
+okf = to_okf(bundle)   # dict[str, Any]
+restored = from_okf(okf)
+</code></pre>
+<p><code>MemoryRepo</code> keeps bundles keyed by
+<code>bundle_id = deterministic_id("bundle", source_uri, checksum)</code>.</p>
+<h2 id="vector-stores">Vector stores</h2>
+<table>
+<thead>
+<tr>
+<th>Store</th>
+<th>Where</th>
+<th>When it is used</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SqliteStore</code></td>
+<td><code>raghub.store.qdrant</code></td>
+<td>When <code>QDRANT_URL</code> is set and <code>qdrant-client</code> is installed</td>
+</tr>
+<tr>
+<td><code>MemoryStore</code></td>
+<td><code>raghub.store.memory</code></td>
+<td>When no <code>QDRANT_URL</code> (test, local dev)</td>
+</tr>
+<tr>
+<td><code>ZVecVectorStore</code></td>
+<td><code>raghub.store.zvec</code></td>
+<td>Retained for the legacy surface when <code>require_zvec</code> is <code>True</code> (production profile)</td>
+</tr>
+</tbody>
+</table>
+<p>All backends share the <code>VectorStore</code> interface defined in
+<a href="https://github.com/sachncs/raghub/blob/main/raghub/interfaces/vectorstore.py"><code>raghub.interfaces.vectorstore</code></a>:
+<code>upsert</code>, <code>search</code>, <code>delete_document</code>, optional <code>create_collection</code>.</p>
+<h2 id="llm-providers">LLM providers</h2>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Where</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LiteLLM</code></td>
+<td><code>raghub.llm.litellm</code></td>
+<td>Any LiteLLM model (OpenAI, Anthropic, NVIDIA, Bedrock, Cohere, Voyage, …)</td>
+</tr>
+<tr>
+<td><code>HeuristicLLMProvider</code></td>
+<td><code>raghub.llm.heuristic</code></td>
+<td>Offline / test; deterministic</td>
+</tr>
+</tbody>
+</table>
+<p>Both expose <code>generate</code>, <code>astream</code>, and <code>last_usage</code>; the
+<code>DefaultGenerator</code> forwards token counters to telemetry.</p>
+<h2 id="embedding-providers">Embedding providers</h2>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LiteLLMEmbedder</code></td>
+<td>API key set (<code>OPENAI_API_KEY</code>, <code>NVIDIA_API_KEY</code>, etc.)</td>
+</tr>
+<tr>
+<td><code>Hasher</code></td>
+<td>No API key (offline; deterministic)</td>
+</tr>
+<tr>
+<td><code>SentenceTransformerEmbeddingProvider</code></td>
+<td>Optional explicit choice</td>
+</tr>
+</tbody>
+</table>
+<h2 id="telemetry">Telemetry</h2>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LangfuseTelemetryProvider</code></td>
+<td><code>LANGFUSE_PUBLIC_KEY</code> + <code>LANGFUSE_SECRET_KEY</code> set, langfuse installed</td>
+</tr>
+<tr>
+<td><code>NoOpTelemetry</code></td>
+<td>otherwise</td>
+</tr>
+<tr>
+<td><code>RedactingTelemetry</code></td>
+<td>wraps <em>any</em> of the above to scrub secret-looking kwargs</td>
+</tr>
+<tr>
+<td><code>StructlogTelemetryProvider</code></td>
+<td>combined logger + Prometheus sink + OTel tracer (legacy surface only)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="security-and-multi-tenancy">Security and multi-tenancy</h2>
+<ul>
+<li><code>User</code> carries <code>allowed_companies</code> and <code>is_admin</code>.</li>
+<li>The retrieval layer enforces RBAC; <code>AuthorizationError</code> is raised
+  only by the legacy FastAPI surface when JWT auth fails.</li>
+<li><code>JWT_SECRET</code> must be ≥ 32 bytes in production (PyJWT's
+  <code>InsecureKeyLengthWarning</code> is treated as fatal in CI).</li>
+<li><code>RedactingTelemetry</code> removes secret kwargs before forwarding to
+  Langfuse.</li>
+<li><code>allow_passwordless_login: true</code> is <strong>forbidden in production</strong>
+  (<code>load_settings</code> raises <code>RuntimeError</code>).</li>
+</ul>
+<h2 id="package-layout">Package layout</h2>
+<p>The new surface lives under:</p>
+<pre><code>raghub/
+  api.py              FastAPI app (AppFactory.create_app)
+  cli.py              Console scripts
+  config.py           AppSettings + load_settings
+  models.py           Pydantic DTOs (User, Chunk, Citation, …)
+  errors.py           Typed error hierarchy
+  rag.py              RAG facade
+  parsers.py          Marker, plaintext converters
+  knowledge.py        OKF bundles, MemoryRepo
+  pipeline.py         IngestPipeline, QueryPipeline
+  embedder.py         LiteLLM, hashing embedders
+  store.py            Qdrant, SQLite, InMemory vector stores
+  llm.py              LiteLLM, Heuristic
+  gen.py              DefaultGenerator
+  retrieval/          Rerankers, transformers, fusion
+  services/           Facade, container wiring
+  stores/             SQLite persistence, JSON registry, image store
+  telemetry.py        NoOp, Redacting, Langfuse, Prometheus providers
+  evaluation.py       Finance + FRAMES evaluators
+  plugins.py          PluginRegistry
+</code></pre>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../../migration/" class="btn btn-neutral float-left" title="Migration (legacy → facade)"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../decisions/" class="btn btn-neutral float-right" title="Decisions">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../../migration/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../decisions/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

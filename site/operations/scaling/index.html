@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Scaling - RAGHub</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Scaling";
+        var mkdocs_page_input_path = "operations/scaling.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> RAGHub
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../guide/getting-started/">Getting started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../migration/">Migration (legacy → facade)</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/decisions/">Decisions</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/deployment/">Deployment</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../guide/evaluation/">Evaluation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../ADVANCED_RAG/">Advanced RAG</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/api/">API</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../plugins/">Plugins</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../monitoring/">Monitoring</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../backup/">Backup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../runbook/">Runbook</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Scaling</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#vertical-scaling">Vertical scaling</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#horizontal-scaling-the-api">Horizontal scaling: the API</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#horizontal-scaling-the-vector-store">Horizontal scaling: the vector store</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#autoscaling-signals">Autoscaling signals</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#connection-pooling">Connection pooling</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#what-to-monitor-first">What to monitor first</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../future/">Future</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">RAGHub</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Operations</li>
+      <li class="breadcrumb-item active">Scaling</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="scaling">Scaling</h1>
+<p>This page covers vertical and horizontal scaling of the
+RAGHub process. The current default runs one uvicorn worker per
+data directory; the guidance below covers the next two steps up.</p>
+<h2 id="vertical-scaling">Vertical scaling</h2>
+<p>The single-process ceiling is set by LiteLLM and the embedder at
+query time, and by Marker and the chunker at ingest time. The
+limiting dimensions are:</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Rough budget per API replica</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CPU</td>
+<td>4 cores (dominated by LiteLLM and Marker at ingest time)</td>
+</tr>
+<tr>
+<td>Memory</td>
+<td>6 GiB (index memory grows with <code>RAG_EMBEDDING_DIM × vectors</code> for the SQLite vector store)</td>
+</tr>
+<tr>
+<td>Disk</td>
+<td><code>RAG_DATA_DIR</code> must hold the registry, sessions, and vector store; size scales with document volume</td>
+</tr>
+</tbody>
+</table>
+<p>These are budgets, not limits; the application does not impose any
+internal cap. Raise them in your orchestrator (Kubernetes
+<code>resources.requests</code> / <code>limits</code>, systemd <code>MemoryMax=</code>, etc.).</p>
+<h2 id="horizontal-scaling-the-api">Horizontal scaling: the API</h2>
+<p>The API is stateless once it has finished loading. You can run more
+than one replica, but they will all attempt to open the same SQLite
+files (<code>registry.db</code>, <code>sessions.db</code>).</p>
+<p>Two options:</p>
+<ol>
+<li>
+<p><strong>Move the vector store to PostgreSQL.</strong> Run
+   <code>raghub migrate pgvector --dsn &lt;dsn&gt;</code> against the target
+   database, point the API at it through <code>RAG_VECTORSTORE_DSN</code>, and
+   run the API behind a load balancer. The document registry and
+   session store still ride on the SQLite files in
+   <code>RAG_DATA_DIR</code>; if those need to scale too, point them at the
+   same PostgreSQL with <code>RAG_REGISTRY_DSN</code> /
+   <code>RAG_SESSIONS_DSN</code> (the same DSN can be reused for both). This
+   is the supported production path for more than one replica.</p>
+</li>
+<li>
+<p><strong>Keep SQLite, but run a single API replica.</strong> This is the
+   default. If you need additional ingest throughput, raise the
+   <code>BACKGROUND_INGEST_WORKERS</code> environment variable (default <code>2</code>)
+   and run the API service with <code>replicas: 1</code>.</p>
+</li>
+</ol>
+<p>To bump the background ingestion pool, set
+<code>BACKGROUND_INGEST_WORKERS</code> in the process environment before
+invoking <code>raghub run</code>; the value is read once at startup.</p>
+<h2 id="horizontal-scaling-the-vector-store">Horizontal scaling: the vector store</h2>
+<p>The SQLite vector store (<code>SqliteStore</code> in <code>raghub.store</code>) is a
+single-process database. To scale, switch to the PostgreSQL +
+pgvector backend (<code>PgVectorStore</code> in <code>raghub.stores.pgvector</code>) and
+back it with a managed PostgreSQL instance — single-node for most
+production deployments, a hot-standby replica for read scaling.</p>
+<p>For sharded deployments, switch to a managed PostgreSQL cluster
+(Patroni, Aurora, Cloud SQL HA, etc.) and point <code>RAG_VECTORSTORE_DSN</code>
+at the cluster endpoint. Provision <code>vector_dim</code> matching your
+embedder; <code>raghub migrate pgvector</code> creates the schema and indexes
+on first run.</p>
+<h2 id="autoscaling-signals">Autoscaling signals</h2>
+<p>The FastAPI surface exposes Prometheus metrics on <code>/metrics</code> when
+the <code>prometheus_client</code> instrumentation is enabled in <code>app.state</code>.
+Key signals:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>raghub_query_duration_ms</code> (Histogram)</td>
+<td>p95 latency, the canonical SLO signal</td>
+</tr>
+<tr>
+<td><code>raghub_ingestion_duration_ms</code> (Histogram)</td>
+<td>Detects ingest contention</td>
+</tr>
+<tr>
+<td><code>raghub_auth_total{success}</code> (Counter)</td>
+<td>Spike in failures ⇒ auth issue</td>
+</tr>
+<tr>
+<td><code>raghub_error_total{error_type}</code> (Counter)</td>
+<td>Tracks exceptions by category</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>RAG</code> facade emits Langfuse spans (when configured) for every
+ingest and query call. Span attributes are documented in
+<code>operations/monitoring.md</code>.</p>
+<h2 id="connection-pooling">Connection pooling</h2>
+<p>Two pools matter in production:</p>
+<ul>
+<li><strong>Uvicorn workers.</strong> The default entry point runs a single
+  uvicorn process. For higher query concurrency, run with multiple
+  workers: <code>uvicorn raghub.api:app_factory.create_app --factory
+  --workers 4</code>. Each worker has its own application instance and
+  SQLite connection. Single-replica SQLite deployments should stay
+  at <code>workers = 1</code> per process so the file lock isn't contested;
+  PostgreSQL deployments scale linearly with worker count.</li>
+<li><strong>PG client.</strong> <code>asyncpg</code> keeps a connection pool; the default
+  pool size is fine for a handful of API replicas. Increase it
+  via <code>PG_POOL_MIN_SIZE</code> / <code>PG_POOL_MAX_SIZE</code> (the conventional
+  env vars) when you scale out.</li>
+</ul>
+<h2 id="what-to-monitor-first">What to monitor first</h2>
+<p>When in doubt, watch these three in order:</p>
+<ol>
+<li>The SQLite vector-store row count and on-disk size
+   (<code>SELECT count(*) FROM chunks;</code> and the size of
+   <code>RAG_VECTORSTORE_PATH</code>).</li>
+<li>The API p95 query latency (<code>raghub_query_duration_ms</code>).</li>
+<li>The disk usage of <code>RAG_DATA_DIR</code>.</li>
+</ol>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../runbook/" class="btn btn-neutral float-left" title="Runbook"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../../troubleshooting/" class="btn btn-neutral float-right" title="Troubleshooting">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../runbook/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../../troubleshooting/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

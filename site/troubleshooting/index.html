@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Troubleshooting - RAGHub</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Troubleshooting";
+        var mkdocs_page_input_path = "troubleshooting.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> RAGHub
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../guide/getting-started/">Getting started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../migration/">Migration (legacy → facade)</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/decisions/">Decisions</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../guide/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../guide/deployment/">Deployment</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../guide/evaluation/">Evaluation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../ADVANCED_RAG/">Advanced RAG</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../reference/api/">API</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../reference/configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../plugins/">Plugins</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/monitoring/">Monitoring</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/backup/">Backup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/runbook/">Runbook</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/scaling/">Scaling</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Troubleshooting</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#importerror-or-configurationerror-litellm-is-not-installed">ImportError or ConfigurationError: litellm is not installed</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#configurationerror-marker-pdf-is-not-installed">ConfigurationError: marker-pdf is not installed</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#configurationerror-chonkie-is-not-installed">ConfigurationError: chonkie is not installed</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#configurationerror-marker-pdf-is-not-installed_1">ConfigurationError: marker-pdf is not installed</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#configurationerror-instructor-is-not-installed">ConfigurationError: instructor is not installed</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#runtimeerror-asynciorun-cannot-be-called-from-a-running-event-loop">RuntimeError: asyncio.run() cannot be called from a running event loop</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#langfuse-traces-do-not-appear">Langfuse traces do not appear</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#qdrant-returns-no-results-on-first-run">Qdrant returns no results on first run</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#incremental-indexing-is-skipping-updates">Incremental indexing is skipping updates</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#ragevaluate-raises-evaluationerror">RAG.evaluate() raises EvaluationError</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#ragquery-returns-no-chunks-for-a-user">RAG.query returns no chunks for a user</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#jwt_secret-rejected-in-production">JWT_SECRET rejected in production</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#fastapi-auth-errors-after-upgrade">FastAPI auth errors after upgrade</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#load_settings-raises-runtimeerror-passwordless-login-is-forbidden-in-production">load_settings raises RuntimeError: Passwordless login is forbidden in production</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#telemetry-attributes-still-contain-secrets">Telemetry attributes still contain secrets</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#streaming-returns-empty">Streaming returns empty</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#performance-regressions-after-a-config-change">Performance regressions after a config change</a>
+    </li>
+    </ul>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../future/">Future</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">RAGHub</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Operations</li>
+      <li class="breadcrumb-item active">Troubleshooting</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="troubleshooting">Troubleshooting</h1>
+<p>Common failure modes, organised by symptom. The framework uses
+graceful degradation for missing optional dependencies — every
+default that depends on an external library falls back to an
+in-process deterministic implementation when the library or key
+is missing.</p>
+<h2 id="importerror-or-configurationerror-litellm-is-not-installed"><code>ImportError</code> or <code>ConfigurationError: litellm is not installed</code></h2>
+<p>The <code>RAG</code> facade tries LiteLLM first; when LiteLLM is missing or
+no LLM API key is configured, it falls back to the offline
+<code>HeuristicLLMProvider</code>. If you explicitly passed
+<code>LiteLLM(...)</code> to the constructor, install it:</p>
+<pre><code class="language-bash">pip install litellm
+</code></pre>
+<h2 id="configurationerror-marker-pdf-is-not-installed"><code>ConfigurationError: marker-pdf is not installed</code></h2>
+<p>The facade tries Marker first; when Marker is missing it falls
+back to <code>PlainTextConverter</code>. Install Marker for PDF support:</p>
+<pre><code class="language-bash">pip install marker-pdf
+</code></pre>
+<h2 id="configurationerror-chonkie-is-not-installed"><code>ConfigurationError: chonkie is not installed</code></h2>
+<p>The default chunker uses Chonkie when available; it falls back to
+<code>WordChunker</code> otherwise. Install Chonkie for token-aware
+chunking:</p>
+<pre><code class="language-bash">pip install chonkie
+</code></pre>
+<p>For semantic or late chunking strategies, install the relevant extra:</p>
+<pre><code class="language-bash">pip install &quot;chonkie[semantic]&quot;   # SemanticChunker
+pip install &quot;chonkie[st]&quot;         # LateChunker (sentence-transformers)
+pip install &quot;chonkie[code]&quot;       # CodeChunker
+</code></pre>
+<p>Set the chunking strategy in your config:</p>
+<pre><code class="language-yaml">chunker_strategy: recursive       # or token, sentence, semantic, late, table, code, slumber, neural
+embedding_model_chunker: minishlab/potion-base-8M  # for semantic/late
+</code></pre>
+<h2 id="configurationerror-marker-pdf-is-not-installed_1"><code>ConfigurationError: marker-pdf is not installed</code></h2>
+<p>PDF parsing is optional. When <code>marker-pdf</code> is missing,
+<code>default_converter()</code> falls back to <code>PlainTextConverter</code> with a
+<code>UserWarning</code>. Install the <code>[pdf]</code> extra for full PDF support:</p>
+<pre><code class="language-bash">pip install 'raghub[pdf]'
+</code></pre>
+<p>The fallback returns plain-text bytes for whatever bytes it gets;
+PDFs ingested this way will not be parsed correctly.</p>
+<h2 id="configurationerror-instructor-is-not-installed"><code>ConfigurationError: instructor is not installed</code></h2>
+<p>Structured output is optional. The <code>RAG.query(..., response_model=...)</code>
+path returns <code>Response.structured = None</code> when Instructor is
+missing or no LLM API key is configured. Install Instructor for
+typed Pydantic outputs:</p>
+<pre><code class="language-bash">pip install instructor
+export OPENAI_API_KEY=...      # Instructor requires an LLM credential
+</code></pre>
+<h2 id="runtimeerror-asynciorun-cannot-be-called-from-a-running-event-loop"><code>RuntimeError: asyncio.run() cannot be called from a running event loop</code></h2>
+<p>You are calling a sync method (<code>RAG.ingest</code>, <code>RAG.query</code>,
+<code>RAG.evaluate</code>, <code>RAG.delete</code>, <code>RAG.health</code>, <code>RAG.sync_index</code>)
+from inside an event loop (e.g. Jupyter, a FastAPI handler,
+<code>asyncio.run</code> already active).</p>
+<p>Use the async variants instead — they are non-blocking and
+cooperate with the running loop:</p>
+<pre><code class="language-python">await rag.aingest(b&quot;...&quot;)
+response = await rag.aquery(&quot;...&quot;, user=alice)
+async for piece in rag.astream(&quot;...&quot;, user=alice):
+    ...
+</code></pre>
+<h2 id="langfuse-traces-do-not-appear">Langfuse traces do not appear</h2>
+<p>Set both <code>LANGFUSE_PUBLIC_KEY</code> and <code>LANGFUSE_SECRET_KEY</code> in the
+environment. When the env vars are missing (or the
+<code>langfuse</code> package is not installed) the facade falls back to
+<code>NoOpTelemetry</code> and every method is a no-op. Verify with:</p>
+<pre><code class="language-python">rag.health()[&quot;telemetry&quot;]
+# 'LangfuseTelemetryProvider' or 'NoOpTelemetry' or 'RedactingTelemetry'
+</code></pre>
+<p>Optional: set <code>LANGFUSE_HOST</code> to a self-hosted endpoint.</p>
+<h2 id="qdrant-returns-no-results-on-first-run">Qdrant returns no results on first run</h2>
+<p>Qdrant requires an explicit collection-create step. Call once:</p>
+<pre><code class="language-python">rag.initialize()
+</code></pre>
+<p>…the facade delegates to <code>vector_store.create_collection()</code>.
+After that, retrieval should return results as expected.</p>
+<h2 id="incremental-indexing-is-skipping-updates">Incremental indexing is skipping updates</h2>
+<p><code>RAG.ingest(...)</code> short-circuits when the source's SHA-256 hasn't
+changed (<code>knowledge_repo.get(bundle_id)</code> returns the prior
+checksum). To force re-embedding:</p>
+<pre><code class="language-python">rag.ingest(b&quot;...&quot;, force=True)
+</code></pre>
+<p>…or reconcile an entire directory in one go:</p>
+<pre><code class="language-python">rag.sync_index(&quot;./documents&quot;, user=alice)
+# {&quot;added&quot;: [...], &quot;modified&quot;: [...], &quot;unchanged&quot;: [...], &quot;removed&quot;: [...]}
+</code></pre>
+<h2 id="ragevaluate-raises-evaluationerror"><code>RAG.evaluate()</code> raises <code>EvaluationError</code></h2>
+<p><code>RAG.evaluate(benchmark="financebench")</code> uses
+<code>FinanceEvaluator</code>, which downloads the dataset from
+HuggingFace when no <code>examples=</code> is supplied. The download may fail
+in restricted environments or where the network is offline.</p>
+<p>Bypass the download by passing explicit examples:</p>
+<pre><code class="language-python">from pathlib import Path
+examples = FinanceEvaluator(dataset_path=Path(&quot;./local.jsonl&quot;))
+rag.evaluate(benchmark=&quot;financebench&quot;, examples=examples)
+</code></pre>
+<p>…or place a JSONL file at
+<code>${RAGHUB_FINANCEBENCH_CACHE:-~/.cache/raghub/financebench}/financebench.jsonl</code>.</p>
+<h2 id="ragquery-returns-no-chunks-for-a-user"><code>RAG.query</code> returns no chunks for a user</h2>
+<p>When the caller supplies a <code>User</code> with an empty
+<code>allowed_companies</code> (and is not admin), the retrieval layer
+filters to <code>{"company": []}</code> which matches nothing. The user
+receives an empty result set, not a 403. Give the user at least
+one company, or set <code>is_admin=True</code>.</p>
+<h2 id="jwt_secret-rejected-in-production"><code>JWT_SECRET</code> rejected in production</h2>
+<p><code>load_settings</code> enforces that <code>JWT_SECRET</code> is set and is at
+least 32 UTF-8 bytes long when <code>environment == "production"</code>.</p>
+<pre><code class="language-bash">export JWT_SECRET=$(python -c &quot;import secrets; print(secrets.token_urlsafe(48))&quot;)
+echo -n &quot;$JWT_SECRET&quot; | wc -c   # must be &gt;= 32
+</code></pre>
+<p>PyJWT's <code>InsecureKeyLengthWarning</code> is treated as fatal in CI.</p>
+<h2 id="fastapi-auth-errors-after-upgrade">FastAPI auth errors after upgrade</h2>
+<p>The legacy <code>RagApplication</code> requires <code>JWT_SECRET</code> when
+<code>allow_passwordless_login=False</code>. Set both before booting the
+service:</p>
+<pre><code class="language-bash">export JWT_SECRET=...
+# Set in config/&lt;profile&gt;.yaml (or via env):
+# allow_passwordless_login: false
+</code></pre>
+<h2 id="load_settings-raises-runtimeerror-passwordless-login-is-forbidden-in-production"><code>load_settings</code> raises <code>RuntimeError: Passwordless login is forbidden in production</code></h2>
+<p>Either flip the profile (<code>environment: staging</code>) or set
+<code>allow_passwordless_login: false</code> in the YAML profile. The loader
+rejects <code>allow_passwordless_login: true</code> in production.</p>
+<h2 id="telemetry-attributes-still-contain-secrets">Telemetry attributes still contain secrets</h2>
+<p>The default <code>RedactingTelemetry</code> scrubs kwarg keys matching
+<code>password|secret|api_key|token|jwt|authorization</code> (case
+insensitive, recursive into nested dicts). If you pass your own
+<code>telemetry=</code> to the facade, you bypass the redaction layer.
+Either re-wrap with <code>RedactingTelemetry(...)</code> or scrub at the
+sink.</p>
+<h2 id="streaming-returns-empty">Streaming returns empty</h2>
+<p><code>RAG.astream</code> requires the underlying LLM to expose an <code>astream</code>
+method. The default <code>HeuristicLLMProvider</code> does not stream by
+default — switch to a real <code>LiteLLM</code> for true streaming:</p>
+<pre><code class="language-python">from raghub.llm.litellm import LiteLLM
+
+rag = RAG()
+rag.llm = LiteLLM(model=&quot;nvidia/llama-3.3-nemotron-super-49b-v1.5&quot;)
+</code></pre>
+<p>The facade's <code>QueryPipeline.stream</code> will then route through
+<code>LiteLLM.astream</code> with
+<code>stream_options={"include_usage": True}</code>.</p>
+<h2 id="performance-regressions-after-a-config-change">Performance regressions after a config change</h2>
+<p>Check that <code>chunk_size_words</code>, <code>top_k</code>, <code>embedding_dim</code>, and the
+embedding model haven't been accidentally overridden. Run the
+benchmark to baseline:</p>
+<pre><code class="language-bash">python -m bench.benchmark --documents 100 --queries 200 --concurrency 8
+</code></pre>
+<p>The report is at <code>bench/report.json</code>. Compare latency p50 / p95
+and queries-per-second across runs.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../operations/scaling/" class="btn btn-neutral float-left" title="Scaling"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../future/" class="btn btn-neutral float-right" title="Future">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../operations/scaling/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../future/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
