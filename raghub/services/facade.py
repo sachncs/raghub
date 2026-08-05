@@ -6,6 +6,7 @@ import importlib
 import importlib.util
 from typing import TYPE_CHECKING, Any, cast
 
+from raghub.auth import AuthService
 from raghub.models import AuthLoginResponse, Document, QueryResponse, Turn, User
 from raghub.services.documents import Documents
 from raghub.services.health import Health
@@ -30,17 +31,15 @@ class Facade:
 
     def __init__(self, container: "RagContainer") -> None:
         """Initialise the facade and wire service handles back into the container."""
-        from raghub.authhelpers import Auth
-
         self.container = container
-        self.auth = Auth(container)
+        self.auth = AuthService(container)
         self.documents = Documents(container)
-        self.query = Query(container)
-        self.health = Health(container)
+        query_service = Query(container)
+        health_service = Health(container)
         container.auth = self.auth
         container.documents = self.documents
-        container.query = self.query
-        container.health = self.health
+        container.query = query_service
+        container.health = health_service
         self.shutdown_coordinator = Shutdown(container)
         self.preferences = Preference(self)
 
@@ -115,11 +114,11 @@ class Facade:
 
     def health(self) -> dict[str, object]:
         """Run liveness checks and return a status dict."""
-        return self.health.health()
+        return self.container.health.health()
 
     async def query(self, *, token: str, question: str) -> QueryResponse:
         """Run a single retrieval-augmented Q/A turn."""
-        return await self.query.query(token=token, question=question)
+        return await self.container.query.query(token=token, question=question)
 
     async def query_with_flags(
         self,
@@ -145,11 +144,11 @@ class Facade:
 
     def log(self, message: str, **payload: object) -> None:
         """Emit a structured log event via the health service."""
-        self.health.log(message, **payload)
+        self.container.health.log(message, **payload)
 
     def emit_metric(self, name: str, started_at: float) -> None:
         """Emit a latency metric given a perf-counter start time."""
-        self.health.emit_metric(name, started_at)
+        self.container.health.emit_metric(name, started_at)
 
     async def shutdown(self) -> None:
         """Release all resources held by the application."""

@@ -534,8 +534,16 @@ class SqliteStore(Store):
         params: list[Any] = []
         if metadata_filter is not None and metadata_filter != "":
             if isinstance(metadata_filter, dict):
-                clauses.extend(f"{k} = ?" for k in metadata_filter)
-                params.extend(metadata_filter.values())
+                for key, expected in metadata_filter.items():
+                    if isinstance(expected, list):
+                        if not expected:
+                            return []
+                        placeholders = ", ".join("?" for _ in expected)
+                        clauses.append(f"{key} IN ({placeholders})")
+                        params.extend(expected)
+                    else:
+                        clauses.append(f"{key} = ?")
+                        params.append(expected)
             else:
                 clauses.append(metadata_filter)
         if tenant_id is not None:
