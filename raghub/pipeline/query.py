@@ -1,8 +1,14 @@
-"""Query pipeline — embed → retrieve → rerank → generate."""
+"""Query pipeline — embed → retrieve → rerank → generate.
+
+The class orchestrates the embed → retrieve → rerank → generate
+flow. The pure helpers (RBAC filtering, scope derivation, citation
+building, token recording, cache I/O, conversation-store writes,
+span annotation) live in :mod:`raghub.pipeline.query_helpers` so
+this module can stay focused on orchestration.
+"""
 
 from __future__ import annotations
 
-import inspect
 import logging
 from collections.abc import AsyncIterator
 from typing import Any, cast
@@ -22,6 +28,21 @@ from raghub.models import (
     VectorStore,
 )
 from raghub.pipeline.helpers import DurationTimer, QueryContext, awaitable
+from raghub.pipeline.query_helpers import (
+    annotate_span,
+    annotate_stream,
+    build_citations,
+    cache_lookup,
+    cache_persist,
+    filter_hits,
+    record_generate_tokens,
+    record_stream_tokens,
+    record_streamed,
+    record_turn,
+    scope_triple,
+    triggers_agent,
+    user_filter,
+)
 from raghub.telemetry import NoOpTelemetry
 
 _logger = logging.getLogger(__name__)
@@ -71,27 +92,6 @@ class QueryPipeline(PipelineRunner):
         self.long_context_pass = components.get("long_context_pass")
         self.agentic_pipeline = components.get("agentic_pipeline")
 
-    @staticmethod
-    def user_filter(user: Any) -> dict[str, Any] | str:
-        """Derive a metadata filter for the vector store from a user.
-
-        Security-sensitive: a non-admin user with an empty
-        ``allowed_companies`` list must not be allowed to see every
-        chunk. We return a filter that matches NOTHING so the
-        downstream search returns an empty hit list instead of
-        silently returning the full corpus. Admin users and the
-        anonymous case keep the prior behaviour of ``""`` (no
-        filter).
-        """
-        if user is None:
-            return ""
-        if getattr(user, "is_admin", False):
-            return ""
-        companies = list(getattr(user, "allowed_companies", []) or [])
-        if not companies:
-            return {"company": "__no_companies_allowed__"}
-        return {"company": companies}
-
     async def run(
         self,
         context: PipelineCtx,
@@ -109,7 +109,7 @@ class QueryPipeline(PipelineRunner):
         """Body of :meth:`run` separated so the timing ``finally`` is obvious."""
         question: str = inputs["question"]
         top_k: int = int(inputs.get("top_k", 5))
-        user_filter: dict[str, Any] | str = inputs.get("metadata_filter") or {}
+        user_filter_value: dict[str, Any] | str = inputs.get("metadata_filter") or {}
         user: Any | None = inputs.get("user")
         session_id: str | None = inputs.get("session_id")
         response_model = inputs.get("response_model")
@@ -120,14 +120,14 @@ class QueryPipeline(PipelineRunner):
         if session_id:
             history = self.conversation_store.load(session_id, limit=20)
 
-        rbac_filter = self.user_filter(user)
+        rbac_filter = user_filter(user)
         user_id = getattr(user, "email", None) or getattr(user, "user_id", None)
-        scope = QueryPipeline.scope_triple(user)
+        scope = scope_triple(user)
 
         query_ctx = QueryContext(
             question=question,
             top_k=top_k,
-            user_filter=user_filter,
+            user_filter=user_filter_value,
             user=user,
             session_id=session_id,
             response_model=response_model,
@@ -138,7 +138,7 @@ class QueryPipeline(PipelineRunner):
             scope=scope,
         )
 
-        cached = self.cache_hit(query_ctx)
+        cached = cache_lookup(self.cache, query_ctx)
         if isinstance(cached, Pipeline):
             return cached
 
@@ -148,31 +148,6 @@ class QueryPipeline(PipelineRunner):
 
         return await self.run_query_leg(context, query_ctx)
 
-    @staticmethod
-    def scope_triple(user: Any) -> tuple[bool, tuple[str, ...], tuple[str, ...]]:
-        """Build the cache scope tuple for ``user``."""
-        return (
-            bool(getattr(user, "is_admin", False)),
-            tuple(sorted(str(value) for value in getattr(user, "allowed_companies", []) or [])),
-            tuple(sorted(str(value) for value in getattr(user, "allowed_groups", []) or [])),
-        )
-
-    def cache_hit(self, ctx: QueryContext) -> Pipeline | None:
-        """Return a cached ``Pipeline`` for the request, or ``None``."""
-        if self.cache is None:
-            return None
-        cached = self.cache.get(
-            ctx.question,
-            ctx.user_id,
-            ctx.user_filter,
-            top_k=ctx.top_k,
-            response_model=ctx.response_model,
-            session_id=ctx.session_id,
-            history=ctx.history,
-            scope=ctx.scope,
-        )
-        return cached if isinstance(cached, Pipeline) else None
-
     async def maybe_dispatch_agentic(
         self,
         context: PipelineCtx,
@@ -181,7 +156,7 @@ class QueryPipeline(PipelineRunner):
         tools_enabled: set[str] | None,
     ) -> Pipeline | None:
         """Forward to the agentic pipeline when tools are enabled."""
-        if self.agentic_pipeline is None or not (tools_enabled or self.triggers_agent(inputs)):
+        if self.agentic_pipeline is None or not (tools_enabled or triggers_agent(inputs)):
             return None
         return cast(
             Pipeline,
@@ -196,26 +171,6 @@ class QueryPipeline(PipelineRunner):
             ),
         )
 
-    @staticmethod
-    def triggers_agent(inputs: dict[str, Any]) -> bool:
-        """Return whether ``resolved_config`` activates the agent loop.
-
-        Args:
-            inputs: The resolved ``inputs`` mapping for the request.
-                Looks for ``resolved_config`` and inspects it for
-                ``agent_enabled`` / ``tools_enabled`` keys.
-
-        Returns:
-            ``True`` when either flag is set in ``resolved_config``;
-            ``False`` otherwise (including when ``resolved_config``
-            is absent or not a dict).
-
-        """
-        record_overrides = inputs.get("resolved_config")
-        if not isinstance(record_overrides, dict):
-            return False
-        return bool(record_overrides.get("agent_enabled") or record_overrides.get("tools_enabled"))
-
     async def run_query_leg(
         self,
         context: PipelineCtx,
@@ -223,7 +178,7 @@ class QueryPipeline(PipelineRunner):
     ) -> Pipeline:
         """Embed → retrieve → rerank → generate → (optional) structured."""
         with self.telemetry.span("query", question=ctx.question[:128], top_k=ctx.top_k) as span:
-            QueryPipeline.annotate_span(span, ctx.user, ctx.session_id)
+            annotate_span(span, ctx.user, ctx.session_id)
 
             hits, transforms_applied = await self.retrieve_hits(
                 ctx.question, ctx.history, ctx.top_k, ctx.rbac_filter, ctx.user_filter
@@ -231,7 +186,7 @@ class QueryPipeline(PipelineRunner):
 
             answer, citations = await self.generate_answer(ctx.question, ctx.history, hits)
             structured_output = await self.maybe_structured(ctx.question, hits, ctx.response_model)
-            self.record_turn(ctx.record, ctx.session_id, ctx.question, answer)
+            record_turn(self.conversation_store, ctx.record, ctx.session_id, ctx.question, answer)
 
         result = Pipeline(
             pipeline_id=context.pipeline_id,
@@ -246,22 +201,8 @@ class QueryPipeline(PipelineRunner):
                 "resolved_config": context.metadata.get("resolved_config"),
             },
         )
-        self.cache_store(result, ctx)
+        cache_persist(self.cache, result, ctx)
         return result
-
-    @staticmethod
-    def annotate_span(
-        span: Any,
-        user: Any | None,
-        session_id: str | None,
-    ) -> None:
-        """Stamp user / session attributes on the active query span."""
-        if user is not None:
-            email = getattr(user, "email", None)
-            if email:
-                span.set_attribute("user_id", email)
-        if session_id:
-            span.set_attribute("session_id", session_id)
 
     async def retrieve_hits(
         self,
@@ -269,7 +210,7 @@ class QueryPipeline(PipelineRunner):
         history: list[Turn],
         top_k: int,
         rbac_filter: dict[str, Any] | str,
-        user_filter: dict[str, Any] | str,
+        user_filter_value: dict[str, Any] | str,
     ) -> tuple[list[Hit], list[str]]:
         """Embed the query and retrieve (and optionally rerank) hits."""
         with self.telemetry.span("query.embed_query"):
@@ -280,7 +221,7 @@ class QueryPipeline(PipelineRunner):
             return transformed
 
         hits = self.vector_search(vector, top_k, rbac_filter)
-        hits = self.filter_hits(hits, user_filter)
+        hits = filter_hits(hits, user_filter_value)
         if self.reranker is not None:
             with self.telemetry.span("query.rerank"):
                 hits = self.reranker.rerank(question=question, hits=hits)
@@ -325,18 +266,6 @@ class QueryPipeline(PipelineRunner):
             )
         return [Hit(score=float(h["score"]), chunk=h["chunk"]) for h in raw]
 
-    @staticmethod
-    def filter_hits(
-        hits: list[Hit],
-        user_filter: dict[str, Any] | str,
-    ) -> list[Hit]:
-        """Drop hits that fail the per-user metadata filter."""
-        if not (isinstance(user_filter, dict) and user_filter):
-            return hits
-        return [
-            h for h in hits if all(getattr(h.chunk, k, None) == v for k, v in user_filter.items())
-        ]
-
     async def generate_answer(
         self,
         question: str,
@@ -344,7 +273,7 @@ class QueryPipeline(PipelineRunner):
         hits: list[Hit],
     ) -> tuple[Any, list[Citation]]:
         """Generate the answer and record token usage on the telemetry span."""
-        citations = self.build_citations(hits)
+        citations = build_citations(hits)
         with self.telemetry.span("query.generate"):
             result = await awaitable(
                 self.generator.generate(
@@ -357,42 +286,8 @@ class QueryPipeline(PipelineRunner):
                 answer, citations = result
             else:
                 answer = result
-            await self.maybe_record_generate_tokens()
+            await record_generate_tokens(self.generator, self.telemetry)
         return answer, citations
-
-    @staticmethod
-    def build_citations(hits: list[Hit]) -> list[Citation]:
-        """Convert ``Hit`` objects into the facade's ``Citation`` shape."""
-        return [
-            Citation(
-                chunk=h.chunk,
-                document_id=h.chunk.document_id,
-                version=h.chunk.version,
-                page=h.chunk.page,
-                section=h.chunk.section,
-                quote=h.chunk.text,
-                score=h.score,
-                source_uri=h.chunk.source_location or h.chunk.document_id,
-            )
-            for h in hits
-        ]
-
-    async def maybe_record_generate_tokens(self) -> None:
-        """Forward LLM token usage to the telemetry provider when available."""
-        record_tokens = getattr(self.generator, "record_tokens", None)
-        if not callable(record_tokens):
-            return
-        tokens = record_tokens()
-        if inspect.isawaitable(tokens):
-            tokens = await tokens
-        if not isinstance(tokens, dict) or not tokens:
-            return
-        self.telemetry.record_tokens(
-            "query.generate",
-            prompt_tokens=int(tokens.get("prompt", 0)),
-            completion_tokens=int(tokens.get("completion", 0)),
-            model=str(tokens.get("model", "")),
-        )
 
     async def maybe_structured(
         self,
@@ -410,44 +305,6 @@ class QueryPipeline(PipelineRunner):
                 context=hits,
             )
 
-    def record_turn(
-        self,
-        record: bool,
-        session_id: str | None,
-        question: str,
-        answer: Any,
-    ) -> None:
-        """Append a turn to the conversation store when conditions allow.
-
-        Empty answers (the LLM returned ``""``) are still dropped but
-        now logged so the silent-data-loss case is at least
-        observable.
-        """
-        if not (record and session_id and answer):
-            if record and session_id and not answer:
-                _logger.warning("dropped turn: empty answer, session_id=%s", session_id)
-            return
-        self.conversation_store.append(
-            session_id,
-            Turn(question=question, answer=str(answer)),
-        )
-
-    def cache_store(self, result: Pipeline, ctx: QueryContext) -> None:
-        """Persist the pipeline result in the cache when configured."""
-        if self.cache is None:
-            return
-        self.cache.set(
-            ctx.question,
-            ctx.user_id,
-            ctx.user_filter,
-            result,
-            top_k=ctx.top_k,
-            response_model=ctx.response_model,
-            session_id=ctx.session_id,
-            history=ctx.history,
-            scope=ctx.scope,
-        )
-
     async def stream(
         self,
         context: PipelineCtx,
@@ -456,14 +313,14 @@ class QueryPipeline(PipelineRunner):
         """Stream the answer token-by-token."""
         question: str = inputs["question"]
         top_k: int = int(inputs.get("top_k", 5))
-        user_filter: dict[str, Any] | str = inputs.get("metadata_filter") or {}
+        user_filter_value: dict[str, Any] | str = inputs.get("metadata_filter") or {}
         user: Any | None = inputs.get("user")
         session_id: str | None = inputs.get("session_id")
-        rbac_filter = self.user_filter(user)
+        rbac_filter = user_filter(user)
 
         with self.telemetry.span("query.stream", question=question[:128], top_k=top_k) as span:
-            self.annotate_stream(span, user, session_id)
-            hits = await self.stream_retrieve_hits(question, top_k, rbac_filter, user_filter)
+            annotate_stream(span, user, session_id)
+            hits = await self.stream_retrieve_hits(question, top_k, rbac_filter, user_filter_value)
             history: list[Turn] = []
             if session_id:
                 history = self.conversation_store.load(session_id, limit=20)
@@ -472,27 +329,15 @@ class QueryPipeline(PipelineRunner):
                 if piece:
                     collected.append(piece)
                     yield piece
-            self.record_tokens()
-            self.record_streamed(session_id, question, collected)
-
-    @staticmethod
-    def annotate_stream(
-        span: Any,
-        user: Any | None,
-        session_id: str | None,
-    ) -> None:
-        """Stamp user / session attributes on the active stream span."""
-        if user is not None and getattr(user, "email", None):
-            span.set_attribute("user_id", user.email)
-        if session_id:
-            span.set_attribute("session_id", session_id)
+            record_stream_tokens(self.generator, self.telemetry)
+            record_streamed(self.conversation_store, session_id, question, collected)
 
     async def stream_retrieve_hits(
         self,
         question: str,
         top_k: int,
         rbac_filter: dict[str, Any] | str,
-        user_filter: dict[str, Any] | str,
+        user_filter_value: dict[str, Any] | str,
     ) -> list[Hit]:
         """Embed, search, optionally rerank, and return the streaming hits."""
         with self.telemetry.span("query.embed_query"):
@@ -504,7 +349,7 @@ class QueryPipeline(PipelineRunner):
                 metadata_filter=rbac_filter,
             )
         hits = [Hit(score=float(h["score"]), chunk=h["chunk"]) for h in raw]
-        hits = QueryPipeline.filter_hits(hits, user_filter)
+        hits = filter_hits(hits, user_filter_value)
         if self.reranker is not None:
             with self.telemetry.span("query.rerank"):
                 hits = self.reranker.rerank(question=question, hits=hits)
@@ -530,49 +375,5 @@ class QueryPipeline(PipelineRunner):
         ):
             yield piece
 
-    def record_tokens(self) -> None:
-        """Forward streaming token usage to the telemetry provider."""
-        record_tokens = getattr(self.generator, "record_tokens", None)
-        if not callable(record_tokens):
-            return
-        tokens = record_tokens()
-        if inspect.isawaitable(tokens):
-            return
-        if not isinstance(tokens, dict) or not tokens:
-            return
-        with self.telemetry.span("query.tokens") as tok_span:
-            tok_span.set_attribute("prompt_tokens", int(tokens.get("prompt", 0)))
-            tok_span.set_attribute("completion_tokens", int(tokens.get("completion", 0)))
-        self.telemetry.record_tokens(
-            "query.stream",
-            prompt_tokens=int(tokens.get("prompt", 0)),
-            completion_tokens=int(tokens.get("completion", 0)),
-            model=str(tokens.get("model", "")),
-        )
 
-    def record_streamed(
-        self,
-        session_id: str | None,
-        question: str,
-        collected: list[str],
-    ) -> None:
-        """Append the streamed answer to the conversation store.
-
-        Empty streamed answers (the LLM yielded nothing) are still
-        dropped but now logged so the silent-data-loss case is at
-        least observable.
-        """
-        if not (session_id and collected):
-            if session_id and not collected:
-                _logger.warning("dropped turn: empty answer, session_id=%s", session_id)
-            return
-        self.conversation_store.append(
-            session_id,
-            Turn(
-                question=question,
-                answer="".join(collected),
-            ),
-        )
-
-
-__all__ = ["QueryContext", "QueryPipeline"]
+__all__ = ["QueryPipeline"]
