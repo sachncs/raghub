@@ -261,34 +261,38 @@ class SqliteQueue:
         return job_id
 
     async def claim(self, worker_id: str, lease_seconds: int = 60) -> Job | None:
-        """Claim the next pending job past ``next_run_at``."""
+        """Claim the next pending job past ``next_run_at``.
+
+        Uses a single atomic UPDATE-with-RETURNING so concurrent workers
+        cannot observe the same PENDING row before the UPDATE commits.
+        """
         import aiosqlite
 
         now = datetime.now(UTC)
+        lease_until = (now + timedelta(seconds=lease_seconds)).isoformat()
         async with self.connect() as conn:
             conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
-                "SELECT * FROM raghub_queue "
-                "WHERE status = ? AND next_run_at <= ? "
-                "ORDER BY next_run_at ASC LIMIT 1",
-                (JobStatus.PENDING.value, now.isoformat()),
-            )
-            row = await cursor.fetchone()
-            if row is None:
-                return None
-            lease_until = (now + timedelta(seconds=lease_seconds)).isoformat()
-            await conn.execute(
                 "UPDATE raghub_queue SET status = ?, worker_id = ?, "
-                "next_run_at = ?, updated_at = ? WHERE id = ?",
+                "next_run_at = ?, updated_at = ? "
+                "WHERE id = ("
+                "  SELECT id FROM raghub_queue "
+                "  WHERE status = ? AND next_run_at <= ? "
+                "  ORDER BY next_run_at ASC LIMIT 1"
+                ") RETURNING *",
                 (
                     JobStatus.RUNNING.value,
                     worker_id,
                     lease_until,
                     now.isoformat(),
-                    row["id"],
+                    JobStatus.PENDING.value,
+                    now.isoformat(),
                 ),
             )
+            row = await cursor.fetchone()
             await conn.commit()
+            if row is None:
+                return None
             return row_to_job(row)
 
     async def ack(self, job_id: str) -> None:

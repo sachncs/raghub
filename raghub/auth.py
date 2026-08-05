@@ -504,7 +504,8 @@ class AuthService:
         """
         session = await self.container.store.get_by_token(token)
         if session is not None:
-            await self.container.store.delete_session(session.session_id)
+            session_id = getattr(session, "session_id", None) or session.id
+            await self.container.store.delete_session(session_id)
 
     async def resolve_user(self, token: str) -> tuple[User, list[Turn]]:
         """Resolve a bearer token to (principal, conversation history).

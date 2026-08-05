@@ -75,7 +75,7 @@ class Preference:
         flags: dict[str, Any],
         resolved: ResolvedConfig,
     ) -> QueryResponse:
-        response = await self.facade.query.query(token=token, question=question)
+        response = await self.facade.container.query.query(token=token, question=question)
         response.metadata = dict(response.metadata or {})
         response.metadata["resolved_config"] = resolved.to_dict()
         if flags.get("top_k") is not None:
