@@ -521,30 +521,94 @@ def test_create_app_runs_without_shadowing() -> None:
 
 
 def test_app_reset_clears_cached_app() -> None:
-    """App.reset() drops the cached FastAPI instance."""
+    """App.reset() drops the cached FastAPI instance and its config."""
+
+    from raghub.config import Settings
 
     previous = App.instance
     try:
-        App.instance = App()
+        App.instance = App(Settings())
         App.instance.cached = MagicMock()  # any sentinel
         App.reset()
-        assert App.instance.cached is None
+        assert App.instance is None
     finally:
         App.instance = previous
 
 
-def test_app_create_app_returns_instance() -> None:
-    """App.create_app is a classmethod that returns a FastAPI instance."""
+def test_app_create_returns_instance() -> None:
+    """App.create(config) is a classmethod that returns a FastAPI instance.
 
-    # Use the cached path: if cached is already populated, we can avoid the
-    # full Settings.load() work. This asserts the cached path (line 354).
+    Cached-path exercise: when cached is already populated, the call
+    returns the sentinel without rebuilding.
+    """
+
+    from raghub.config import Settings
+
     previous = App.instance
     try:
-        App.instance = App()
+        App.instance = App(Settings())
         sentinel = MagicMock()
         App.instance.cached = sentinel
-        result = App.create_app()
+        result = App.create(Settings())
         assert result is sentinel
+    finally:
+        App.instance = previous
+
+
+def test_app_create_rebuilds_on_config_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """App.create returns the cached app for equal configs and rebuilds otherwise.
+
+    The expensive container build is short-circuited by mocking both
+    ``asyncio.run`` (the container build path) and the module-level
+    ``create_app`` factory. Each call returns a distinct sentinel so
+    identity is observable. This test verifies the cache key behaviour,
+    not the container build.
+    """
+
+    from raghub.config import Settings
+
+    previous = App.instance
+    try:
+        App.reset()
+
+        sentinel_a = MagicMock(name="sentinel_a")
+        sentinel_b = MagicMock(name="sentinel_b")
+        call_count = {"n": 0}
+
+        def fake_run(coro: object) -> object:
+            """Drain the coroutine and return a sentinel container."""
+
+            coro.close()  # type: ignore[attr-defined]
+            return MagicMock(name="container_sentinel")
+
+        def fake_create_app(application: object) -> object:
+            """Return a different sentinel on each call."""
+
+            call_count["n"] += 1
+            return sentinel_a if call_count["n"] == 1 else sentinel_b
+
+        monkeypatch.setattr("raghub.api.asyncio.run", fake_run)
+        monkeypatch.setattr("raghub.api.create_app", fake_create_app)
+
+        settings_a = Settings()
+        settings_b = Settings()
+        assert settings_a == settings_b  # pydantic structural equality
+
+        # Two equal configs share the cache: only one build.
+        first = App.create(settings_a)
+        second = App.create(settings_b)
+        assert first is sentinel_a
+        assert second is sentinel_a
+        assert call_count["n"] == 1
+
+        # A mutated config is unequal and triggers a rebuild.
+        settings_c = settings_a.model_copy(update={"top_k": 7})
+        third = App.create(settings_c)
+        assert third is sentinel_b
+        assert third is not first
+        assert call_count["n"] == 2
     finally:
         App.instance = previous
 
@@ -554,10 +618,11 @@ def test_app_create_app_returns_instance() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_app_factory_class_attributes_exist() -> None:
-    """App exposes a create_app method."""
+def test_app_create_method_exists() -> None:
+    """App exposes a ``create`` method and no longer exposes ``create_app``."""
 
-    assert hasattr(App, "create_app")
+    assert hasattr(App, "create")
+    assert not hasattr(App, "create_app")
 
 
 # ---------------------------------------------------------------------------
