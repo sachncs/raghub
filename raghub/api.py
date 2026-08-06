@@ -303,11 +303,11 @@ def create_app(application: Facade) -> FastAPI:
 
     app.state.background_ingestion = Batch(max_workers=2)
 
-    cors_origins = cors_origins()
-    validate_cors(cors_origins)
+    origins = cors_origins()
+    validate_cors(origins)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins,
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
