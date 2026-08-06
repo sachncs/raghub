@@ -11,7 +11,7 @@ replaceable.
 ```text
 raghub/
   rag.py              RAG facade, FastAPI server
-  api.py              FastAPI app (AppFactory.create_app)
+  api.py              FastAPI app (App.create)
   cli.py              Console scripts (``raghub``, ``raghub-financebench``)
   config.py           Settings dataclass, YAML/TOML loader
   models.py           Typed Pydantic domain + canonical models

@@ -32,7 +32,7 @@ The package exposes two parallel APIs:
 ```
 
 The second surface is the legacy multi-tenant service, still
-mounted at `raghub.api.AppFactory.create_app` (the FastAPI routers):
+mounted at `raghub.api.App.create` (the FastAPI routers):
 
 ```text
                       ┌─────────────────────────────────────────────┐
@@ -206,7 +206,7 @@ The new surface lives under:
 
 ```
 raghub/
-  api.py              FastAPI app (AppFactory.create_app)
+  api.py              FastAPI app (App.create)
   cli.py              Console scripts
   config.py           AppSettings + load_settings
   models.py           Pydantic DTOs (User, Chunk, Citation, …)

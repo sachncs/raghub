@@ -101,7 +101,7 @@ rag = RAG(telemetry=RedactingTelemetry(LangfuseTelemetryProvider()))
 
 ## Legacy surface observability
 
-The FastAPI surface (`raghub.api.AppFactory.create_app`, served via
+The FastAPI surface (`raghub.api.App.create`, served via
 Uvicorn's `--factory`) continues to expose:
 
 - `raghub_query_duration_ms` (Histogram) — query execution duration
@@ -125,7 +125,7 @@ The RAG facade emits loguru records by default; configure
 ## Process-level observability
 
 When RAGHub runs as a long-lived process (e.g. `raghub run`,
-`uvicorn raghub.api:app_factory.create_app --factory`, or a
+`uvicorn raghub.api:App.create --factory`, or a
 Kubernetes deployment), configure your process supervisor to
 capture the loguru records emitted from `raghub.telemetry.logging`
 and the Prometheus metrics served on the standard `/metrics`

@@ -4,9 +4,9 @@ RAGHub exposes two parallel surfaces:
 
 1. **`raghub.RAG`** — the recommended Python facade. Typed Pydantic
    models in, typed Pydantic models out.
-2. **FastAPI** (`uvicorn raghub.api:AppFactory.create_app --factory`)
-   — the HTTP surface, bound to the RAG facade, with bearer-token
-   auth.
+2. **FastAPI** (`uvicorn raghub.api:App.create --factory` with a
+   `Settings.load()` closure) — the HTTP surface, bound to the RAG
+   facade, with bearer-token auth.
 
 ---
 
@@ -113,7 +113,7 @@ print(response)
 
 ## FastAPI surface
 
-`uvicorn raghub.api:AppFactory.create_app --factory` mounts the
+`uvicorn raghub.api:App.create --factory` mounts the
 following endpoints. All endpoints except `/health` require
 `Authorization: Bearer <session_token>`.
 

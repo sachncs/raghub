@@ -79,7 +79,7 @@ facade — too many concerns in one import.
 DI container that wires pipelines against replaceable adapters.
 The legacy `RagApplication` and `build_application` remain
 reachable from `raghub.__init__` for backward compatibility and
-power the FastAPI app at `raghub.api.AppFactory.create_app`.
+power the FastAPI app at `raghub.api.App.create`.
 
 **Consequences:** new code uses `RAG(...)`. Legacy endpoints, CLI
 shims, and DI containers remain available so existing consumers
