@@ -29,6 +29,7 @@ import typer
 import uvicorn
 import yaml
 
+from raghub.api import App
 from raghub.config import Settings
 from raghub.constants import (
     DEFAULT_CHUNK_OVERLAP_WORDS,
@@ -357,8 +358,9 @@ class ServerCommand:
             Production deployments should set ``--workers`` > 1;
             ``--reload`` is for development.
             """
+            settings = Settings.load()
             config = uvicorn.Config(
-                "raghub.api:App.create_app",
+                lambda: App.create(settings),
                 factory=True,
                 host=host,
                 port=port,
