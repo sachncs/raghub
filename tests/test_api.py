@@ -483,9 +483,8 @@ def test_lifespan_swallows_background_shutdown_errors() -> None:
 def test_create_app_wires_routes_and_cors() -> None:
     """create_app delegates the heavy lifting to helpers; we only smoke here."""
 
-    # create_app has a bug at line 306 (cors_origins = cors_origins()) so
-    # we don't invoke it directly — but we exercise the fully-built health
-    # endpoint shape by linting the function object itself.
+    # Full invocation is exercised by ``test_create_app_runs_without_shadowing``;
+    # this test only confirms the function object is wired and exported.
 
     assert callable(create_app)
     # It also should be exposed via __all__.
@@ -503,6 +502,22 @@ def test_create_app_wildcard_cors_raises() -> None:
     # directly to confirm the rejection path.
     with pytest.raises(ConfigurationError):
         validate_cors(["*"])
+
+
+def test_create_app_runs_without_shadowing() -> None:
+    """Regression: the local ``cors_origins`` no longer shadows the module function.
+
+    Prior to this fix, ``cors_origins = cors_origins()`` made ``cors_origins``
+    a local variable across the whole ``create_app`` body, raising
+    ``UnboundLocalError`` at runtime. This test inspects the function
+    source so the lexical shadow cannot silently return.
+    """
+
+    import inspect
+
+    source = inspect.getsource(create_app)
+    assert "cors_origins = cors_origins()" not in source
+    assert "origins = cors_origins()" in source
 
 
 def test_app_reset_clears_cached_app() -> None:
