@@ -1,6 +1,7 @@
 """FastAPI surface for the RAGHub framework.
 
-Defines the :func:`create_app` factory, the :class:`Lifespan`
+Defines the :func:`create_app` factory, the :class:`App` singleton
+factory (called as ``App.create(config)``), the :class:`Lifespan`
 coordinator, and the CORS / upload-guard helpers. The focused routes
 (:class:`raghub.routes.HealthRoute`, :class:`raghub.routes.AuthRoute`,
 :class:`raghub.routes.DocumentRoute`, :class:`raghub.routes.QueryRoute`,
@@ -18,6 +19,7 @@ streaming helpers live in :mod:`raghub.sse`.
 
 from __future__ import annotations
 
+import asyncio
 import importlib.metadata
 import os
 from collections.abc import AsyncIterator
@@ -32,6 +34,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger as loguru_logger
 
+from raghub.config import Settings
 from raghub.coroutines import capture
 from raghub.ingest import Batch
 from raghub.ratelimit import Ratelimit
@@ -46,7 +49,6 @@ from raghub.services import Facade, RagContainer
 __all__ = [
     "App",
     "Lifespan",
-    "app_singleton",
     "check_size",
     "content_length",
     "cors_origins",
@@ -321,53 +323,41 @@ def create_app(application: Facade) -> FastAPI:
 
 
 # ---------------------------------------------------------------------------
-# App singleton (replaces module-level global)
+# App factory (singleton cache keyed by Settings)
 # ---------------------------------------------------------------------------
 
 
 class App:
-    """Encapsulates the lazily-built singleton :class:`FastAPI`.
+    """Factory for the lazily-built :class:`FastAPI` bound to a :class:`Settings`.
 
-    Replaces the prior module-level ``app_singleton`` global. The
-    factory holds a single class-level :class:`App` instance
-    whose ``cached`` attribute is populated on the first call to
-    :meth:`create_app`. Tests can reset the cache via
-    :meth:`reset` to force a rebuild.
+    The cache key is the ``Settings`` instance itself; passing a
+    different config triggers a rebuild. Equality is structural
+    via :class:`pydantic.BaseModel`. Use :meth:`reset` to clear.
     """
 
     instance: ClassVar[App | None] = None
 
-    def __init__(self) -> None:
-        """Store an empty cache."""
+    def __init__(self, config: Settings) -> None:
+        """Store the config and an empty FastAPI cache slot."""
+        self.config: Settings = config
         self.cached: FastAPI | None = None
 
     @classmethod
-    def create_app(cls) -> FastAPI:
-        """Build the app via :func:`build_container` if not cached.
+    def create(cls, config: Settings) -> FastAPI:
+        """Return the FastAPI app for ``config``, building it on first use.
 
-        Returns:
-            The cached :class:`FastAPI` instance.
-
+        A different ``config`` rebuilds the cached app.
         """
-        if cls.instance is None:
-            cls.instance = cls()
+        if cls.instance is None or cls.instance.config != config:
+            cls.instance = cls(config)
         if cls.instance.cached is None:
-            import asyncio
-
-            from raghub.config import Settings
             from raghub.services import Facade, build_container
 
-            settings = Settings.load()
-            container = asyncio.run(build_container(settings))
-            application = Facade(container)
-            cls.instance.cached = create_app(application)
+            container = asyncio.run(build_container(config))
+            cls.instance.cached = create_app(Facade(container))
         return cls.instance.cached
 
     @classmethod
     def reset(cls) -> None:
-        """Drop the cached :class:`FastAPI` so the next build is fresh."""
-        if cls.instance is not None:
-            cls.instance.cached = None
-
-
-app_singleton = App()
+        """Drop the cached :class:`FastAPI` and its config."""
+        cls.instance = None
