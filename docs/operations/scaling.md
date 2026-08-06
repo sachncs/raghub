@@ -84,11 +84,11 @@ Two pools matter in production:
 
 - **Uvicorn workers.** The default entry point runs a single
   uvicorn process. For higher query concurrency, run with multiple
-  workers: `uvicorn raghub.api:app_factory.create_app --factory
-  --workers 4`. Each worker has its own application instance and
-  SQLite connection. Single-replica SQLite deployments should stay
-  at `workers = 1` per process so the file lock isn't contested;
-  PostgreSQL deployments scale linearly with worker count.
+  workers via `raghub run --workers 4` (or wrap `App.create` in a
+  uvicorn factory closure). Each worker has its own application
+  instance and SQLite connection. Single-replica SQLite deployments
+  should stay at `workers = 1` per process so the file lock isn't
+  contested; PostgreSQL deployments scale linearly with worker count.
 - **PG client.** `asyncpg` keeps a connection pool; the default
   pool size is fine for a handful of API replicas. Increase it
   via `PG_POOL_MIN_SIZE` / `PG_POOL_MAX_SIZE` (the conventional

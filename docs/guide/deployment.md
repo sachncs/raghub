@@ -25,8 +25,8 @@ raghub init -o raghub.yaml
 # 4. Run the FastAPI server.
 raghub run --host 0.0.0.0 --port 8000
 # ...or, equivalently:
-uvicorn raghub.api:app_factory.create_app --factory \
-    --host 0.0.0.0 --port 8000
+python -c "from raghub.api import App; from raghub.config import Settings; \
+import uvicorn; uvicorn.run(lambda: App.create(Settings.load()), factory=True, host='0.0.0.0', port=8000)"
 ```
 
 Verify with:
@@ -211,7 +211,7 @@ deployed instance:
 * The `RAG` facade is designed for embedding in your own service.
   Wiring it in FastAPI is a thin shim around its sync and async
   methods; no auth or storage is added by the facade.
-* The FastAPI app at `raghub.api.AppFactory.create_app` (Uvicorn
+* The FastAPI app at `raghub.api.App.create(config)` (Uvicorn
   `--factory`) remains the canonical multi-tenant HTTP surface
   until a v2 is shipped.
 * `python -m build` produces both an `sdist` and a `wheel`; the
