@@ -13,13 +13,29 @@ collaborators it needs:
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
+from raghub.conv import ConversationStore
 from raghub.models import Turn
 
 
-class ConversationMixin:
+class ConversationHost(Protocol):
+    """Protocol of the host methods :class:`ConversationMixin` delegates to.
+
+    The composing class (``RAG``) supplies ``scoped`` via
+    :class:`QueryMixin` and ``conversation_store`` via its facade.
+    """
+
+    def scoped(self, user: Any, session_id: str | None) -> str | None:
+        """Compose a namespaced session key from ``user`` and ``session_id``."""
+
+    conversation_store: ConversationStore
+
+
+class ConversationMixin(ConversationHost):
     """Mixin providing conversation-history entry points."""
+
+    pass
 
     def conversation_history(
         self,

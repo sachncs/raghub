@@ -20,19 +20,36 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import AsyncIterator, Callable, Sequence
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from raghub.agent import PlannerEvent, resolve
+from raghub.config import Settings
 from raghub.coroutines import maybe_run as maybe_await
 from raghub.errors import ConfigurationError, IngestionError, RagHubError
 from raghub.eval import Finance
-from raghub.models import PipelineCtx, RagQueryRequest, Response, Result
+from raghub.models import (
+    LLMProvider,
+    PipelineCtx,
+    RagQueryRequest,
+    Response,
+    Result,
+)
 from raghub.response import ResponseBuilder
 from raghub.types import JSONValue
+
+if TYPE_CHECKING:
+    from raghub.conv import ConversationStore
+    from raghub.pipeline import AgentPipeline, QueryPipeline
 
 
 class QueryMixin:
     """Mixin providing query, streaming, agent, and evaluation entry points."""
+
+    settings: Settings
+    llm: LLMProvider | None
+    query_pipeline: QueryPipeline
+    agentic_pipeline: AgentPipeline | None
+    conversation_store: ConversationStore
 
     def query(self, question: str, **kwargs: JSONValue) -> Response:
         """Ask a question and return a typed :class:`Response`."""

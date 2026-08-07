@@ -11,7 +11,7 @@ collaborators it needs:
 - ``self.ingest_pipeline`` :class:`Ingest` instance
 - ``self.manifest`` :class:`Manifest` for incremental indexing
 - ``self.vector_store`` and ``self.knowledge_repo`` for deletion
-- ``self.queue_`` (or ``self.background_ingestion``) for async jobs
+- ``self.persistent_queue`` (or ``self.background_ingestion``) for async jobs
 - ``self.settings`` and ``self.embedder`` for the per-file worker
 """
 
@@ -21,20 +21,41 @@ import asyncio
 import hashlib
 import os
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from tqdm import tqdm
 
+from raghub.config import Settings
+from raghub.embedder import Embedder
 from raghub.errors import IngestionError
 from raghub.ingest import Resumable
-from raghub.knowledge import sha256_bytes
-from raghub.models import Pipeline, PipelineCtx, deterministic_id
+from raghub.jobs import Job, SqliteQueue
+from raghub.knowledge import Manifest, sha256_bytes
+from raghub.models import (
+    KnowledgeRepository,
+    Pipeline,
+    PipelineCtx,
+    VectorStore,
+    deterministic_id,
+)
 from raghub.rag.defaults import ingest_one_worker
 from raghub.types import JSONValue
+
+if TYPE_CHECKING:
+    from raghub.pipeline import Ingest as IngestPipeline
 
 
 class IngestMixin:
     """Mixin providing synchronous, async, and background ingestion."""
+
+    manifest: Manifest
+    settings: Settings
+    vector_store: VectorStore
+    knowledge_repo: KnowledgeRepository
+    embedder: Embedder
+    ingest_pipeline: IngestPipeline
+    persistent_queue: SqliteQueue | None
+    background_ingestion: Resumable | None
 
     def ingest(
         self,
@@ -360,7 +381,7 @@ class IngestMixin:
         """Submit an ingest job to the background service.
 
         Routing:
-            * If ``self.queue_`` is a :class:`SqliteQueue`
+            * If ``self.persistent_queue`` is a :class:`SqliteQueue`
               (constructed in :meth:`__init__` when
               ``Settings.queue.backend == "sqlite"``), the job is
               submitted to that queue and the queue's UUID-shaped
@@ -376,10 +397,11 @@ class IngestMixin:
             file_bytes = bytes(source)
             uri = source_uri or "bytes://memory"
 
-        if self.queue_ is not None:
+        if self.persistent_queue is not None:
             from raghub.jobs import JobStatus
             from raghub.tenants import current, validate_tenant
 
+            queue = self.persistent_queue
             tenant_id: str | None = None
             ctx = current()
             if ctx is not None:
@@ -397,7 +419,7 @@ class IngestMixin:
             }
 
             async def submit() -> str:
-                existing_jobs = await self.queue_.list_for_tenant(
+                existing_jobs: list[Job] = await queue.list_for_tenant(
                     tenant_id=tenant_id,
                     content_hash=content_hash,
                 )
@@ -410,7 +432,7 @@ class IngestMixin:
                         )
                     ):
                         return job.id
-                return await self.queue_.submit(
+                return await queue.submit(
                     kind="ingest",
                     payload=payload,
                     tenant_id=tenant_id,
@@ -444,13 +466,14 @@ class IngestMixin:
 
     def job_status(self, job_id: str) -> str | None:
         """Return the status of a background ingestion job."""
-        if self.queue_ is not None:
+        if self.persistent_queue is not None:
+            queue = self.persistent_queue
 
             async def lookup() -> str | None:
-                stats = await self.queue_.stats()
+                stats = await queue.stats()
                 if sum(stats.values()) == 0:
                     return None
-                jobs = await self.queue_.list(status=None, limit=1000)
+                jobs = await queue.list(status=None, limit=1000)
                 for job in jobs:
                     if job.id == job_id:
                         return str(job.status.value)

@@ -151,7 +151,7 @@ class RAG(
             component_map.get("manifest") or Manifest(self.settings.data_dir / "manifest.json")
         )
         self.background_ingestion = component_map.get("background_service")
-        self.queue_ = self.init_queue(component_map)
+        self.persistent_queue = self.init_queue(component_map)
         self.worker_ = self.init_worker(component_map)
         self.worker_task_: asyncio.Task[None] | None = None
         self.tenant_resolver_ = self.init_tenant(component_map)
@@ -328,7 +328,7 @@ class RAG(
 
         Priority:
             1. ``components["worker"]`` if explicitly supplied.
-            2. ``self.queue_`` is a :class:`SqliteQueue` (built above when
+            2. ``self.persistent_queue`` is a :class:`SqliteQueue` (built above when
                ``Settings.queue.backend == "sqlite"``) -> build a Worker
                bound to that queue with a default ingest handler.
             3. Otherwise ``None``.
@@ -336,13 +336,13 @@ class RAG(
         supplied = components.get("worker")
         if supplied is not None:
             return supplied
-        if self.queue_ is None:
+        if self.persistent_queue is None:
             return None
         try:
             from raghub.jobs import SqliteQueue, Worker
         except ImportError:
             return None
-        if not isinstance(self.queue_, SqliteQueue):
+        if not isinstance(self.persistent_queue, SqliteQueue):
             return None
 
         async def handler(job: Any) -> None:
@@ -360,7 +360,7 @@ class RAG(
             )
 
         return Worker(
-            queue=self.queue_,
+            queue=self.persistent_queue,
             handler=handler,
             concurrency=int(getattr(self.settings.queue, "concurrency", 4) or 4),
         )
@@ -550,7 +550,7 @@ class RAG(
 
     def queue(self) -> Any:
         """Return the persistent queue or ``None`` when not configured."""
-        return self.queue_
+        return self.persistent_queue
 
     def feedback_store(self) -> Any:
         """Return the feedback store or ``None`` when not configured."""
