@@ -56,7 +56,7 @@ from raghub.conv import Memory
 from raghub.errors import RagHubError
 from raghub.gen import DefaultGenerator
 from raghub.knowledge import GraphIndex, Manifest, MemoryRepo, Raptor
-from raghub.models import RagComponents
+from raghub.models import DocumentConverter, KnowledgeRepository, RagComponents
 from raghub.pipeline import AgentPipeline, Cache, Ingest, QueryPipeline
 from raghub.plugins import Plugins
 from raghub.rag.conversation_mixin import ConversationMixin
@@ -164,7 +164,7 @@ class RAG(
         """Resolve core collaborators from ``components`` or defaults."""
         self.settings: Settings = components.get("settings") or Settings.load()
         self.registry: Any = components.get("registry") or Plugins()
-        self.knowledge_repo: "KnowledgeRepository" = (
+        self.knowledge_repo: KnowledgeRepository = (
             components.get("knowledge_repo") or MemoryRepo()
         )
         self.vector_store: Any = (
@@ -174,7 +174,7 @@ class RAG(
             self.settings.embedding_model, self.settings.embedding_dim
         )
         self.llm: Any = components.get("llm") or default_llm(self.settings.llm_model)
-        self.converter: "DocumentConverter" = (
+        self.converter: DocumentConverter = (
             components.get("converter") or default_converter()
         )
         self.chunker: Any = components.get("chunker") or default_chunker(

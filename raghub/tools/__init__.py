@@ -446,7 +446,7 @@ class HybridSearch(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, retrieval_pipeline: "RetrievalPipeline", vector_store: Store) -> None:
+    def __init__(self, retrieval_pipeline: Retrieval, vector_store: Store) -> None:
         """Initialise the tool."""
         self.pipeline = retrieval_pipeline
         self.vector_store = vector_store
