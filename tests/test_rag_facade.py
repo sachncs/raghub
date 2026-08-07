@@ -407,9 +407,9 @@ def test_rag_constructs_sqlite_queue_from_settings() -> None:
     from raghub.jobs import SqliteQueue
 
     rag = RAG(settings=Settings(queue=QueueConfig(backend="sqlite")))
-    assert rag.queue_ is not None
-    assert isinstance(rag.queue_, SqliteQueue)
-    assert rag.queue() is rag.queue_
+    assert rag.persistent_queue is not None
+    assert isinstance(rag.persistent_queue, SqliteQueue)
+    assert rag.queue() is rag.persistent_queue
     assert rag.settings.queue.max_inflight == 256
 
 
@@ -417,7 +417,7 @@ def test_rag_queue_accessor_returns_none_when_memory_backend() -> None:
     """When Settings.queue.backend == 'memory', queue() returns None."""
     rag = RAG(converter=PlainTextConverter())
     assert rag.queue() is None
-    assert rag.queue_ is None
+    assert rag.persistent_queue is None
 
 
 def test_rag_constructs_tenant_resolver_from_settings() -> None:
@@ -468,7 +468,7 @@ def test_rag_components_dict_overrides_settings_queue() -> None:
         settings=Settings(queue=QueueConfig(backend="sqlite")),
         components={"queue": stub},
     )
-    assert rag.queue_ is stub
+    assert rag.persistent_queue is stub
 
 
 # ---------------------------------------------------------------------------
@@ -518,7 +518,7 @@ def test_ingest_async_submits_to_queue_when_configured(
 
     settings = Settings(queue=QueueConfig(backend="sqlite"))
     real_rag = RAG(settings=settings, converter=PlainTextConverter())
-    real_rag.queue_ = queue
+    real_rag.persistent_queue = queue
 
     job_id = real_rag.ingest_async(b"hello", source_uri="mem://test")
     assert isinstance(job_id, str)
@@ -543,7 +543,7 @@ def test_ingest_async_idempotent_returns_existing_job_id(
 
     settings = Settings(queue=QueueConfig(backend="sqlite"))
     real_rag = RAG(settings=settings, converter=PlainTextConverter())
-    real_rag.queue_ = queue
+    real_rag.persistent_queue = queue
 
     first_id = real_rag.ingest_async(b"same bytes", source_uri="mem://idempotent")
     second_id = real_rag.ingest_async(b"same bytes", source_uri="mem://idempotent")
@@ -563,7 +563,7 @@ def test_job_status_reads_from_queue(tmp_path: Path, rag: RAG) -> None:
 
     settings = Settings(queue=QueueConfig(backend="sqlite"))
     real_rag = RAG(settings=settings, converter=PlainTextConverter())
-    real_rag.queue_ = queue
+    real_rag.persistent_queue = queue
 
     job_id = real_rag.ingest_async(b"test", source_uri="mem://status")
     status = real_rag.job_status(job_id)
