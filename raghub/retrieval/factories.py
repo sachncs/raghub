@@ -11,7 +11,7 @@ exposes the by-name dispatchers (``reranker``, ``transformer``,
 from __future__ import annotations
 
 import os
-from collections.abc import Coroutine, Sequence
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from raghub.config import LongContextConfig, Settings
@@ -116,29 +116,6 @@ class HybridConfigShim:
 def default_long() -> LongContextConfig:
     """Return a disabled :class:`LongContextConfig` for fallback construction."""
     return LongContextConfig(enabled=False, candidate_k=5, allowlist_models=[])
-
-
-def reranker(question: str, hits: Sequence[Hit], *, method: str = "identity") -> list[Hit]:
-    """Rerank ``hits`` synchronously using the named ``method``.
-
-    Args:
-        question: The user query.
-        hits: The candidate hits to reorder.
-        method: Reranker name. One of ``identity``, ``cohere``,
-            ``llm``, ``cascade``, ``long_context``.
-
-    Returns:
-        The hits reordered by descending relevance.
-
-    """
-    impl = reranker(method)
-    out = impl.rerank(question=question, hits=list(hits))
-    if __import__("asyncio").iscoroutine(out):
-        return cast(
-            list[Hit],
-            __import__("asyncio").run(cast(Coroutine[Any, Any, list[Hit]], out)),
-        )
-    return out
 
 
 async def areranker(
