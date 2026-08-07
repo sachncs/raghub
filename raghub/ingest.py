@@ -944,7 +944,7 @@ class Batch:
         self.jobs: dict[str, Job] = {}
         self.closed = False
 
-    def submit(self, fn: Any, *args: Any, **kwargs: JSONValue) -> str:
+    def submit(self, fn: Any, *args: Any, **kwargs: Any) -> str:
         """Submit a callable for background execution."""
         if self.closed:
             raise RuntimeError("Batch is shut down")
@@ -1079,7 +1079,7 @@ class Resumable(Batch):
                 result=record["result"],
             )
 
-    def submit(self, fn: Any, *args: Any, **kwargs: JSONValue) -> str:
+    def submit(self, fn: Any, *args: Any, **kwargs: Any) -> str:
         """Submit ``fn`` for background execution."""
         job_id = super().submit(fn, *args, **kwargs)
         self.store.upsert(job_id, "pending")

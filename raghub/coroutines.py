@@ -7,15 +7,22 @@ import inspect
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
-from raghub.types import JSONValue
-
 T = TypeVar("T")
 
 __all__ = ["capture", "maybe_await", "maybe_run"]
 
 
-def capture(call: Callable[..., JSONValue], *args: Any, **kwargs: JSONValue) -> tuple[Any, Exception | None]:
-    """Return a callable result and any raised exception."""
+def capture(
+    call: Callable[..., Any], *args: Any, **kwargs: Any
+) -> tuple[Any, Exception | None]:
+    """Return a callable result and any raised exception.
+
+    The callable's return type is intentionally ``Any`` rather than
+    :data:`JSONValue`: legitimate callers pass functions whose return
+    type is ``Settings``, ``PackageMetadata``, ``Module``, or another
+    non-JSON-serialisable object. The capture itself does not
+    serialise; it only shields the caller from exceptions.
+    """
     try:
         return call(*args, **kwargs), None
     except Exception as error:
