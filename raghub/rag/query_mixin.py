@@ -51,7 +51,7 @@ class QueryMixin:
     agentic_pipeline: AgentPipeline | None
     conversation_store: ConversationStore
 
-    def query(self, question: str, **kwargs: JSONValue) -> Response:
+    def query(self, question: str, **kwargs: Any) -> Response:
         """Ask a question and return a typed :class:`Response`."""
         return cast(
             Response,
@@ -116,7 +116,7 @@ class QueryMixin:
         question: str,
         *,
         request: RagQueryRequest | None = None,
-        **kwargs: JSONValue,
+        **kwargs: Any,
     ) -> Response:
         """Async version of :meth:`query`.
 
@@ -203,7 +203,7 @@ class QueryMixin:
         question: str,
         *,
         request: RagQueryRequest | None = None,
-        **kwargs: JSONValue,
+        **kwargs: Any,
     ) -> AsyncIterator[str]:
         """Stream the answer token-by-token via the LLM's ``astream``.
 
@@ -257,7 +257,7 @@ class QueryMixin:
         question: str,
         *,
         request: RagQueryRequest | None = None,
-        **kwargs: JSONValue,
+        **kwargs: Any,
     ) -> AsyncIterator[Any]:
         """Stream :class:`PlannerEvent` instances from the agent loop.
 
