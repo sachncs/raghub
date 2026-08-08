@@ -451,7 +451,7 @@ class RAG(
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_config(cls, path: str | Path) -> RAG:
+    def from_config(cls: type[RAG], path: str | Path) -> RAG:
         """Build a facade from a YAML or TOML configuration file.
 
         Args:

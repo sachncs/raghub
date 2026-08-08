@@ -544,7 +544,7 @@ class Sessions:
         self.db = db
 
     @classmethod
-    def json(cls, path: Path, timeout_seconds: int = DEFAULT_SESSION_TIMEOUT_SECONDS) -> JsonSessions:
+    def json(cls: type[JsonSessions], path: Path, timeout_seconds: int = DEFAULT_SESSION_TIMEOUT_SECONDS) -> JsonSessions:
         """Construct a JSON-backed session store.
 
         Args:

@@ -139,7 +139,7 @@ class ToolConfig:
         return asyncio.run(coro)
 
     @classmethod
-    def register(cls) -> None:
+    def register(cls: type[Cli]) -> None:
         """Attach every sub-command to ``cls.tools`` and wire ``cls.app``.
 
         Idempotent: subsequent calls are no-ops so :func:`main` can call

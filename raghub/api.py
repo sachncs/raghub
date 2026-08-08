@@ -343,7 +343,7 @@ class App:
         self.cached: FastAPI | None = None
 
     @classmethod
-    def create(cls, config: Settings) -> FastAPI:
+    def create(cls: type[App], config: Settings) -> FastAPI:
         """Return the FastAPI app for ``config``, building it on first use.
 
         A different ``config`` rebuilds the cached app.
@@ -358,6 +358,6 @@ class App:
         return cls.instance.cached
 
     @classmethod
-    def reset(cls) -> None:
+    def reset(cls: type[App]) -> None:
         """Drop the cached :class:`FastAPI` and its config."""
         cls.instance = None
