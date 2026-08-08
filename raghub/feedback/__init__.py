@@ -52,9 +52,9 @@ __all__ = [
 class Rating(IntEnum):
     """Feedback rating."""
 
-    NEGATIVE = -1
-    NEUTRAL = 0
-    POSITIVE = 1
+    Negative = -1
+    Neutral = 0
+    Positive = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -250,9 +250,9 @@ class SqliteFeedbackStore:
         for chunk_id, rating in rows:
             if chunk_id is not None:
                 by_chunk[chunk_id] = by_chunk.get(chunk_id, 0) + 1
-            if int(rating) == int(Rating.POSITIVE):
+            if int(rating) == int(Rating.Positive):
                 positive += 1
-            elif int(rating) == int(Rating.NEGATIVE):
+            elif int(rating) == int(Rating.Negative):
                 negative += 1
             else:
                 neutral += 1
@@ -433,9 +433,9 @@ class PgFeedbackStore:
             if row["chunk_id"] is not None:
                 by_chunk[row["chunk_id"]] = by_chunk.get(row["chunk_id"], 0) + 1
             rating = int(row["rating"])
-            if rating == int(Rating.POSITIVE):
+            if rating == int(Rating.Positive):
                 positive += 1
-            elif rating == int(Rating.NEGATIVE):
+            elif rating == int(Rating.Negative):
                 negative += 1
             else:
                 neutral += 1
@@ -524,10 +524,10 @@ class Bm25BoostScorer:
         for chunk_id in aggregate.by_chunk:
             chunk_feedback = await self.store.list_for_chunk(chunk_id)
             positive = sum(
-                1 for f in chunk_feedback if int(f.rating) == int(Rating.POSITIVE)
+                1 for f in chunk_feedback if int(f.rating) == int(Rating.Positive)
             )
             negative = sum(
-                1 for f in chunk_feedback if int(f.rating) == int(Rating.NEGATIVE)
+                1 for f in chunk_feedback if int(f.rating) == int(Rating.Negative)
             )
             counts[chunk_id] = (positive, negative)
         self.counts = counts
@@ -536,10 +536,10 @@ class Bm25BoostScorer:
         """Live boost that always reads the feedback store."""
         chunk_feedback = await self.store.list_for_chunk(chunk_id)
         positive = sum(
-            1 for f in chunk_feedback if int(f.rating) == int(Rating.POSITIVE)
+            1 for f in chunk_feedback if int(f.rating) == int(Rating.Positive)
         )
         negative = sum(
-            1 for f in chunk_feedback if int(f.rating) == int(Rating.NEGATIVE)
+            1 for f in chunk_feedback if int(f.rating) == int(Rating.Negative)
         )
         return self.apply(chunk_id, base_score, positive, negative)
 
@@ -601,7 +601,7 @@ class VectorDownWeightScorer:
         for chunk_id in aggregate.by_chunk:
             chunk_feedback = await self.store.list_for_chunk(chunk_id)
             result[chunk_id] = any(
-                int(f.rating) == int(Rating.NEGATIVE) for f in chunk_feedback
+                int(f.rating) == int(Rating.Negative) for f in chunk_feedback
             )
         self.has_negative = result
 
@@ -619,7 +619,7 @@ class VectorDownWeightScorer:
         """Live boost that always reads the feedback store."""
         chunk_feedback = await self.store.list_for_chunk(chunk_id)
         has_negative = any(
-            int(f.rating) == int(Rating.NEGATIVE) for f in chunk_feedback
+            int(f.rating) == int(Rating.Negative) for f in chunk_feedback
         )
         return base_score * self.negative_factor if has_negative else base_score
 

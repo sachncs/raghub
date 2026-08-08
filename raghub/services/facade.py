@@ -162,16 +162,16 @@ __all__ = ["ApplicationFacade", "Facade", "RAG_FACADE_AVAILABLE"]
 
 
 # Deprecated alias preserved for one minor version. Use ApplicationFacade in new code.
-import warnings as __warnings
+import warnings
 
-class __FacadeDeprecationMeta(type):
+class FacadeDeprecationMeta(type):
     """Metaclass that emits DeprecationWarning on first instantiation."""
 
     _warned: bool = False
 
     def __call__(cls, *args, **kwargs):  # noqa: D401
         if not cls._warned:
-            __warnings.warn(
+            warnings.warn(
                 "raghub.services.Facade has been renamed to "
                 "raghub.services.ApplicationFacade; import the new name. "
                 "This compatibility alias will be removed in the next minor release.",
@@ -182,5 +182,5 @@ class __FacadeDeprecationMeta(type):
         return super().__call__(*args, **kwargs)
 
 
-class Facade(ApplicationFacade, metaclass=__FacadeDeprecationMeta):
+class Facade(ApplicationFacade, metaclass=FacadeDeprecationMeta):
     """Deprecated alias for :class:`ApplicationFacade`."""

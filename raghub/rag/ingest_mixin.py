@@ -98,11 +98,11 @@ class IngestMixin:
             uri = options.get("source_uri") or "bytes://memory"
         if not file_bytes:
             raise IngestionError(f"ingest({source!r}) received empty bytes; nothing to index.")
-        from raghub.coroutines import maybe_run as maybe_await
+        from raghub.coroutines import await_if_awaitable
 
         result = cast(
             Pipeline,
-            maybe_await(
+            await_if_awaitable(
                 self.ingest_one(
                     file_bytes,
                     uri,
@@ -427,8 +427,8 @@ class IngestMixin:
                     if (
                         job.payload.get("content_hash") == content_hash
                         and job.status in (
-                            JobStatus.PENDING,
-                            JobStatus.RUNNING,
+                            JobStatus.Pending,
+                            JobStatus.Running,
                         )
                     ):
                         return job.id
