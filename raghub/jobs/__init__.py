@@ -20,6 +20,8 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol
 
+from raghub.errors import RagHubError
+
 __all__ = [
     "Job",
     "JobStateError",
@@ -53,7 +55,7 @@ _VALID_TRANSITIONS: dict[JobStatus, frozenset[JobStatus]] = {
 }
 
 
-class JobStateError(RuntimeError):
+class JobStateError(RagHubError, RuntimeError):
     """Raised when an illegal state transition is requested."""
 
 
@@ -105,7 +107,7 @@ class Job:
         )
 
 
-class QueueSaturatedError(RuntimeError):
+class QueueSaturatedError(RagHubError, RuntimeError):
     """Raised when a queue refuses new submissions due to back-pressure."""
 
 

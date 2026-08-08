@@ -26,7 +26,7 @@ from enum import StrEnum
 from typing import Any
 
 from raghub.constants import DEFAULT_EMBEDDING_DIM
-from raghub.errors import AuthorizationError, MissingDepError
+from raghub.errors import AuthorizationError, MissingDepError, RagHubError
 
 __all__ = [
     "DatabasePerTenant",
@@ -324,7 +324,7 @@ class TenantSecretCipher:
         return [row[0] for row in rows]
 
 
-class TenantMigrationError(RuntimeError):
+class TenantMigrationError(RagHubError, RuntimeError):
     """Raised when a tenant-split migration fails."""
 
 

@@ -31,6 +31,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
+from raghub.errors import RagHubError
+
 __all__ = [
     "ArchiveCorruptionError",
     "ArchiveEntry",
@@ -44,7 +46,7 @@ __all__ = [
 MANIFEST_FORMAT_VERSION = 1
 
 
-class ArchiveCorruptionError(RuntimeError):
+class ArchiveCorruptionError(RagHubError, RuntimeError):
     """Raised when an archive's integrity check fails."""
 
 
