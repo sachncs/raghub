@@ -145,7 +145,7 @@ from raghub.stores import (
 
 # Telemetry.
 from raghub.telemetry import (
-    LoguruLoggerAdapter as Logger,
+    Logger,
 )
 from raghub.telemetry import (
     NoOpTelemetry as Noop,

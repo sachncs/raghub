@@ -22,7 +22,7 @@ Public constants:
 from __future__ import annotations
 
 from raghub.telemetry.logger import (
-    LoguruLoggerAdapter,
+    Logger,
     LoguruSpan,
     LoguruTelemetryProvider,
 )
@@ -55,7 +55,6 @@ __all__ = [
     "Langfuse",
     "LangfuseSpan",
     "LangfuseTelemetryProvider",
-    "LoguruLoggerAdapter",
     "LoguruSpan",
     "LoguruTelemetryProvider",
     "NoOpTelemetry",
