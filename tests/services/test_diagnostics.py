@@ -23,13 +23,13 @@ def test_emit_log_routes_to_container_logger() -> None:
 
     captured: list[tuple[str, dict[str, object]]] = []
 
-    class _Logger:
+    class TestLogger:
         def info(self, message: str, **kwargs: object) -> None:
             # emit_log forwards payload as the 'extra' kwarg
             payload = kwargs.pop("extra", {})
             captured.append((message, payload))
 
-    container = type("C", (), {"logger": _Logger()})()
+    container = type("C", (), {"logger": TestLogger()})()
     emit_log(container, "test.event", code=42)
     assert captured == [("test.event", {"code": 42})]
 
@@ -45,11 +45,11 @@ def test_emit_metric_calls_record_latency() -> None:
 
     captured: list[tuple[str, float]] = []
 
-    class _Metrics:
+    class TestMetrics:
         def record_latency(self, name: str, value_ms: float) -> None:
             captured.append((name, value_ms))
 
-    container = type("C", (), {"metrics": _Metrics()})()
+    container = type("C", (), {"metrics": TestMetrics()})()
     import time as _time
 
     started = _time.perf_counter()
@@ -80,11 +80,11 @@ def test_probe_vector_store_returns_unknown_when_no_health() -> None:
 def test_probe_vector_store_passes_through_health_dict() -> None:
     """``probe_vector_store`` echoes a healthy payload."""
 
-    class _Store:
+    class StubStore:
         def health(self) -> dict[str, object]:
             return {"status": "ok", "vector_count": 100}
 
-    assert probe_vector_store(_Store()) == {
+    assert probe_vector_store(StubStore()) == {
         "status": "ok",
         "vector_count": 100,
     }
@@ -93,11 +93,11 @@ def test_probe_vector_store_passes_through_health_dict() -> None:
 def test_probe_vector_store_flags_degraded_status() -> None:
     """``probe_vector_store`` downgrades unknown statuses to 'degraded'."""
 
-    class _Store:
+    class StubStore:
         def health(self) -> dict[str, object]:
             return {"status": "stale"}
 
-    assert probe_vector_store(_Store())["status"] == "degraded"
+    assert probe_vector_store(StubStore())["status"] == "degraded"
 
 
 def test_probe_embedder_reports_unknown_for_none() -> None:
@@ -108,13 +108,13 @@ def test_probe_embedder_reports_unknown_for_none() -> None:
 def test_probe_embedder_reports_ok_when_embed_text_returns_list() -> None:
     """``probe_embedder`` reports 'ok' with the model name and dimension."""
 
-    class _Embedder:
+    class StubEmbedder:
         model_name = "test-model"
 
         def embed_text(self, text: str) -> list[float]:
             return [0.1, 0.2, 0.3]
 
-    payload = probe_embedder(_Embedder())
+    payload = probe_embedder(StubEmbedder())
     assert payload["status"] == "ok"
     assert payload["dimension"] == 3
     assert payload["model"] == "test-model"

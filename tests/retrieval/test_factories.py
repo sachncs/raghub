@@ -20,16 +20,16 @@ from raghub.retrieval.factories import (
 )
 
 
-def _settings() -> Settings:
+def make_settings() -> Settings:
     """Build a Settings instance with default reranker config."""
 
     return Settings(jwt_secret="x" * 32)
 
 
-def _settings_with_provider(provider: str) -> Settings:
+def make_settings_with_provider(provider: str) -> Settings:
     """Build a Settings instance with the given reranker provider."""
 
-    settings = _settings()
+    settings = make_settings()
     # RerankerConfig provider is Literal['none', 'cohere', 'llm', 'cascade']
     # For other strings we patch the field via model_copy.
     if provider not in ("none", "cohere", "llm", "cascade"):
@@ -42,7 +42,7 @@ def _settings_with_provider(provider: str) -> Settings:
 def test_reranker_factory_creates_identity_for_none_provider() -> None:
     """``RerankerFactory.create()`` returns Identity when provider is 'none'."""
 
-    factory = RerankerFactory(_settings_with_provider("none"))
+    factory = RerankerFactory(make_settings_with_provider("none"))
     assert isinstance(factory.create(), Identity)
 
 
@@ -53,7 +53,7 @@ def test_reranker_factory_raises_for_unknown_provider() -> None:
     provider attribute after construction.
     """
 
-    settings = _settings()
+    settings = make_settings()
     factory = RerankerFactory(settings)
     factory.settings.reranker.provider = "mystery"  # type: ignore[assignment]
     with pytest.raises(RerankerError, match="Unknown reranker provider"):
@@ -66,14 +66,14 @@ def test_reranker_factory_creates_llm_reranker_when_llm_provided() -> None:
     from raghub.retrieval import LlmJudge
 
     llm = SimpleNamespace(name="stub")
-    factory = RerankerFactory(_settings_with_provider("llm"), llm=llm)
+    factory = RerankerFactory(make_settings_with_provider("llm"), llm=llm)
     assert isinstance(factory.create(), LlmJudge)
 
 
 def test_reranker_factory_raises_when_llm_required_but_not_provided() -> None:
     """``RerankerFactory.create()`` raises when provider='llm' but llm is None."""
 
-    factory = RerankerFactory(_settings_with_provider("llm"))
+    factory = RerankerFactory(make_settings_with_provider("llm"))
     with pytest.raises(RerankerError, match="requires an LLM"):
         factory.create()
 
@@ -81,7 +81,7 @@ def test_reranker_factory_raises_when_llm_required_but_not_provided() -> None:
 def test_reranker_factory_cascade_falls_back_to_identity_without_cohere_key() -> None:
     """``RerankerFactory.create()`` returns Identity cascade when no cohere key."""
 
-    factory = RerankerFactory(_settings_with_provider("cascade"), cohere_api_key=None)
+    factory = RerankerFactory(make_settings_with_provider("cascade"), cohere_api_key=None)
     with patch.dict("os.environ", {}, clear=True):
         rerank = factory.create()
     assert isinstance(rerank, Identity)
@@ -90,7 +90,7 @@ def test_reranker_factory_cascade_falls_back_to_identity_without_cohere_key() ->
 def test_build_reranker_delegates_to_factory() -> None:
     """``build_reranker(settings)`` returns the same instance as ``RerankerFactory().create()``."""
 
-    settings = _settings_with_provider("none")
+    settings = make_settings_with_provider("none")
     assert isinstance(build_reranker(settings), Identity)
 
 

@@ -7,17 +7,17 @@ from types import SimpleNamespace
 from raghub.services.health import Health
 
 
-class _HealthyVectorStore:
+class HealthyVectorStore:
     def health(self) -> dict[str, object]:
         return {"status": "ok", "vector_count": 10}
 
 
-class _DegradedVectorStore:
+class DegradedVectorStore:
     def health(self) -> dict[str, object]:
         return {"status": "stale"}
 
 
-class _Embedder:
+class StubEmbedder:
     model_name = "test-embedder"
 
     def embed_text(self, text: str) -> list[float]:
@@ -27,7 +27,7 @@ class _Embedder:
 def test_health_reports_ok_when_every_component_healthy() -> None:
     """``Health.health`` returns status='ok' when every probe reports healthy."""
 
-    container = SimpleNamespace(vector_store=_HealthyVectorStore(), embeddings=_Embedder())
+    container = SimpleNamespace(vector_store=HealthyVectorStore(), embeddings=StubEmbedder())
     h = Health(container)
     payload = h.health()
     assert payload["status"] == "ok"
@@ -40,7 +40,7 @@ def test_health_reports_ok_when_every_component_healthy() -> None:
 def test_health_reports_degraded_when_vector_store_stale() -> None:
     """``Health.health`` returns 'degraded' when a vector store probe fails."""
 
-    container = SimpleNamespace(vector_store=_DegradedVectorStore(), embeddings=_Embedder())
+    container = SimpleNamespace(vector_store=DegradedVectorStore(), embeddings=StubEmbedder())
     h = Health(container)
     payload = h.health()
     assert payload["status"] == "degraded"
@@ -50,7 +50,7 @@ def test_health_reports_degraded_when_vector_store_stale() -> None:
 def test_health_skips_embedder_probe_when_missing() -> None:
     """``Health.health`` does not probe a missing embedder."""
 
-    container = SimpleNamespace(vector_store=_HealthyVectorStore())
+    container = SimpleNamespace(vector_store=HealthyVectorStore())
     h = Health(container)
     payload = h.health()
     assert "embedder" not in payload["components"]
@@ -60,10 +60,10 @@ def test_health_skips_embedder_probe_when_missing() -> None:
 def test_health_reports_vector_store_down_when_health_raises() -> None:
     """``Health.health`` propagates 'unknown' from a probe without health() method."""
 
-    class _NoHealth:
+    class NoHealthStore:
         pass
 
-    container = SimpleNamespace(vector_store=_NoHealth(), embeddings=_Embedder())
+    container = SimpleNamespace(vector_store=NoHealthStore(), embeddings=StubEmbedder())
     h = Health(container)
     payload = h.health()
     assert payload["components"]["vectorstore"]["status"] == "unknown"
@@ -76,14 +76,14 @@ def test_health_emits_health_check_log_event() -> None:
 
     captured: list[tuple[str, dict[str, object]]] = []
 
-    class _Logger:
+    class TestLogger:
         def info(self, message: str, **kwargs: object) -> None:
             captured.append((message, kwargs))
 
     container = SimpleNamespace(
-        vector_store=_HealthyVectorStore(),
-        embeddings=_Embedder(),
-        logger=_Logger(),
+        vector_store=HealthyVectorStore(),
+        embeddings=StubEmbedder(),
+        logger=TestLogger(),
     )
     Health(container).health()
     assert any(msg == "health_check" for msg, _ in captured)
@@ -94,11 +94,11 @@ def test_health_log_delegates_to_emit_log() -> None:
 
     captured: list[tuple[str, dict[str, object]]] = []
 
-    class _Logger:
+    class TestLogger:
         def info(self, message: str, **kwargs: object) -> None:
             captured.append((message, kwargs))
 
-    container = SimpleNamespace(logger=_Logger())
+    container = SimpleNamespace(logger=TestLogger())
     Health(container).log("custom.event", user_id="alice", action="ping")
     assert captured == [
         ("custom.event", {"extra": {"user_id": "alice", "action": "ping"}})
@@ -112,11 +112,11 @@ def test_health_emit_metric_delegates_to_emit_metric() -> None:
 
     captured: list[tuple[str, float]] = []
 
-    class _Metrics:
+    class TestMetrics:
         def record_latency(self, name: str, value_ms: float) -> None:
             captured.append((name, value_ms))
 
-    container = SimpleNamespace(metrics=_Metrics())
+    container = SimpleNamespace(metrics=TestMetrics())
     started = _time.perf_counter()
     Health(container).emit_metric("ingest.run", started)
     assert len(captured) == 1

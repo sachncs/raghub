@@ -67,12 +67,12 @@ def test_router_record_turn_persists_non_empty_answer() -> None:
 
     captured: dict[str, object] = {}
 
-    class _Store:
+    class StubStore:
         def append(self, sid: str, turn: Any) -> None:
             captured["sid"] = sid
             captured["turn"] = turn
 
-    router = Router(_Store())
+    router = Router(StubStore())
     turn = SimpleNamespace(question="q", answer="a")
     assert router.record_turn("s1", turn) is True
     assert captured["sid"] == "s1"
@@ -84,12 +84,12 @@ def test_router_record_turn_persists_empty_answer_when_skip_when_empty_false() -
 
     captured: dict[str, object] = {}
 
-    class _Store:
+    class StubStore:
         def append(self, sid: str, turn: Any) -> None:
             captured["sid"] = sid
             captured["turn"] = turn
 
-    router = Router(_Store())
+    router = Router(StubStore())
     turn = SimpleNamespace(question="q", answer="")
     assert router.record_turn("s1", turn, skip_when_empty=False) is True
     assert captured["sid"] == "s1"

@@ -11,7 +11,7 @@ from raghub.config import Settings
 from raghub.services.facade import ApplicationFacade
 
 
-def _make_container() -> SimpleNamespace:
+def make_container() -> SimpleNamespace:
     """Build a minimal container-like SimpleNamespace for facade tests."""
 
     settings = Settings(jwt_secret="x" * 32)
@@ -44,7 +44,7 @@ def test_facade_init_wires_service_handles_back_into_container() -> None:
     from raghub.services.health import Health
     from raghub.services.query import Query
 
-    container = _make_container()
+    container = make_container()
     facade = ApplicationFacade(container)
     assert isinstance(container.auth, AuthService)
     assert isinstance(container.documents, Documents)
@@ -57,7 +57,7 @@ def test_facade_init_wires_service_handles_back_into_container() -> None:
 def test_facade_rag_facade_is_lazy_and_cached() -> None:
     """``rag_facade()`` builds the RAG instance on first call and caches it."""
 
-    container = _make_container()
+    container = make_container()
     facade = ApplicationFacade(container)
 
     with patch("raghub.services.facade.ApplicationFacade.build_rag") as mock_build:
@@ -73,7 +73,7 @@ def test_facade_rag_facade_is_lazy_and_cached() -> None:
 def test_facade_login_delegates_to_auth_service() -> None:
     """``ApplicationFacade.login`` returns ``auth.login``."""
 
-    container = _make_container()
+    container = make_container()
     facade = ApplicationFacade(container)
     expected = SimpleNamespace(token="t", user=SimpleNamespace())
     container.auth.login = AsyncMock(return_value=expected)
@@ -86,7 +86,7 @@ def test_facade_login_delegates_to_auth_service() -> None:
 def test_facade_resolve_user_delegates_to_auth() -> None:
     """``ApplicationFacade.resolve_user`` returns ``auth.resolve_user``."""
 
-    container = _make_container()
+    container = make_container()
     facade = ApplicationFacade(container)
     expected = (SimpleNamespace(), [])
     container.auth.resolve_user = AsyncMock(return_value=expected)
@@ -98,7 +98,7 @@ def test_facade_resolve_user_delegates_to_auth() -> None:
 def test_facade_health_returns_container_health() -> None:
     """``ApplicationFacade.health`` delegates to ``container.health.health``."""
 
-    container = _make_container()
+    container = make_container()
     facade = ApplicationFacade(container)
     expected = {"status": "ok"}
     container.health.health = MagicMock(return_value=expected)
@@ -108,7 +108,7 @@ def test_facade_health_returns_container_health() -> None:
 def test_facade_history_loads_conversation_history() -> None:
     """``ApplicationFacade.history`` returns ``container.conversation.load(token)``."""
 
-    container = _make_container()
+    container = make_container()
     facade = ApplicationFacade(container)
     expected = [SimpleNamespace()]
     container.conversation.load = AsyncMock(return_value=expected)
@@ -120,7 +120,7 @@ def test_facade_history_loads_conversation_history() -> None:
 def test_facade_shutdown_calls_shutdown_coordinator() -> None:
     """``ApplicationFacade.shutdown`` awaits ``shutdown_coordinator.release``."""
 
-    container = _make_container()
+    container = make_container()
     facade = ApplicationFacade(container)
     facade.shutdown_coordinator.release = AsyncMock()
     import asyncio
@@ -132,7 +132,7 @@ def test_facade_shutdown_calls_shutdown_coordinator() -> None:
 def test_facade_log_and_emit_metric_delegate_to_container_health() -> None:
     """``log`` and ``emit_metric`` proxy through to ``container.health``."""
 
-    container = _make_container()
+    container = make_container()
     facade = ApplicationFacade(container)
     captured: list[tuple[str, dict[str, object]]] = []
     container.health.log = lambda message, **kwargs: captured.append((message, kwargs))
@@ -144,7 +144,7 @@ def test_facade_log_and_emit_metric_delegate_to_container_health() -> None:
 def test_facade_query_delegates_to_container_query() -> None:
     """``ApplicationFacade.query`` delegates to ``container.query.query``."""
 
-    container = _make_container()
+    container = make_container()
     facade = ApplicationFacade(container)
     expected = SimpleNamespace(answer="a", citations=[], source_chunks=[])
     container.query.query = AsyncMock(return_value=expected)
@@ -156,7 +156,7 @@ def test_facade_query_delegates_to_container_query() -> None:
 def test_facade_query_with_flags_delegates_to_preferences() -> None:
     """``ApplicationFacade.query_with_flags`` delegates to ``preferences.query_with_flags``."""
 
-    container = _make_container()
+    container = make_container()
     facade = ApplicationFacade(container)
     expected = SimpleNamespace(answer="a", citations=[], source_chunks=[])
     facade.preferences.query_with_flags = AsyncMock(return_value=expected)

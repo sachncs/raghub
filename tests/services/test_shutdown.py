@@ -26,7 +26,7 @@ async def test_release_invokes_close_on_each_collaborator() -> None:
 
     closed: list[str] = []
 
-    class _MockCollab:
+    class MockCollab:
         def __init__(self, name: str) -> None:
             self.name = name
 
@@ -34,12 +34,12 @@ async def test_release_invokes_close_on_each_collaborator() -> None:
             closed.append(self.name)
 
     container = SimpleNamespace(
-        background_ingestion=_MockCollab("bgi"),
-        ingestion=_MockCollab("ing"),
-        image_store=_MockCollab("img"),
-        vector_store=_MockCollab("vec"),
-        store=_MockCollab("store"),
-        uow=_MockCollab("uow"),
+        background_ingestion=MockCollab("bgi"),
+        ingestion=MockCollab("ing"),
+        image_store=MockCollab("img"),
+        vector_store=MockCollab("vec"),
+        store=MockCollab("store"),
+        uow=MockCollab("uow"),
     )
     coordinator = Shutdown(container)
     await coordinator.release()
@@ -52,7 +52,7 @@ async def test_release_falls_back_to_shutdown_method() -> None:
 
     shutdown_calls: list[str] = []
 
-    class _MockCollab:
+    class MockCollab:
         def __init__(self, name: str) -> None:
             self.name = name
 
@@ -65,7 +65,7 @@ async def test_release_falls_back_to_shutdown_method() -> None:
         image_store=None,
         vector_store=None,
         store=None,
-        uow=_MockCollab("uow"),
+        uow=MockCollab("uow"),
     )
     coordinator = Shutdown(container)
     await coordinator.release()
@@ -104,7 +104,7 @@ async def test_release_awaits_async_close() -> None:
 
     closed = False
 
-    class _AsyncCollab:
+    class AsyncCollab:
         async def close(self) -> None:
             nonlocal closed
             closed = True
@@ -115,7 +115,7 @@ async def test_release_awaits_async_close() -> None:
         image_store=None,
         vector_store=None,
         store=None,
-        uow=_AsyncCollab(),
+        uow=AsyncCollab(),
     )
     coordinator = Shutdown(container)
     await coordinator.release()
@@ -128,13 +128,13 @@ async def test_release_propagates_first_failure() -> None:
 
     closed: list[str] = []
 
-    class _FailClose:
+    class FailClose:
         name = "fail"
 
         def close(self) -> None:
             raise RuntimeError("intentional")
 
-    class _OkClose:
+    class OkClose:
         def __init__(self, name: str) -> None:
             self.name = name
 
@@ -142,8 +142,8 @@ async def test_release_propagates_first_failure() -> None:
             closed.append(self.name)
 
     container = SimpleNamespace(
-        background_ingestion=_OkClose("bgi"),
-        ingestion=_FailClose(),
+        background_ingestion=OkClose("bgi"),
+        ingestion=FailClose(),
         image_store=None,
         vector_store=None,
         store=None,
