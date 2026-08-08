@@ -14,7 +14,7 @@ import pytest
 
 from raghub.telemetry import (
     LangfuseTelemetryProvider,
-    LoguruLogger,
+    LoguruLoggerAdapter,
     NoopSpan,
     NoOpTelemetry,
     RedactingTelemetry,
