@@ -18,6 +18,7 @@ collaborators it needs:
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from collections.abc import AsyncIterator, Callable, Sequence
 from typing import TYPE_CHECKING, Any, cast
@@ -53,12 +54,18 @@ class QueryMixin:
 
     def query(self, question: str, **kwargs: Any) -> Response:
         """Ask a question and return a typed :class:`Response`."""
-        return cast(
-            Response,
-            await_if_awaitable(
-                self.aquery(question, **kwargs)
-            ),
-        )
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop is not None:
+            # Caller is already inside an event loop — return a coroutine
+            # they can await themselves, or use :meth:`aquery` directly.
+            return cast(
+                Response,
+                self.aquery(question, **kwargs),
+            )
+        return asyncio.run(self.aquery(question, **kwargs))
 
     @staticmethod
     def scoped(user: Any, session_id: str | None) -> str | None:
@@ -394,7 +401,24 @@ class QueryMixin:
                 return await result
             return result
 
-        return cast(
-            list[Result],
-            await_if_awaitable(evaluator.evaluate(examples, response_factory=coerce_answer)),
-        )
+        return asyncio.run(self._arun_evaluation(
+            evaluator=evaluator,
+            examples=examples,
+            response_factory=coerce_answer,
+        ))
+
+    async def _arun_evaluation(
+        self,
+        *,
+        evaluator: Any,
+        examples: Sequence[dict[str, Any]] | None,
+        response_factory: Callable[[dict[str, Any]], Any],
+    ) -> list[Result]:
+        """Run an evaluator with a normalised ``response_factory``.
+
+        Kept as a helper so :meth:`evaluate` can drive it via
+        :func:`asyncio.run` while callers already in an event loop can
+        await it directly.
+        """
+        examples_list = list(examples or [])
+        return await evaluator.evaluate(examples_list, response_factory=response_factory)
