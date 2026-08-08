@@ -35,7 +35,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from raghub.config import Settings
-from raghub.constants import API_RATE_LIMIT_BURST, API_RATE_LIMIT_RPS
+from raghub.constants import (
+    API_RATE_LIMIT_BURST,
+    API_RATE_LIMIT_RPS,
+    HTTP_413_PAYLOAD_TOO_LARGE,
+)
 from raghub.coroutines import capture
 from raghub.ingest import Batch
 from raghub.ratelimit import Ratelimit
@@ -170,12 +174,12 @@ def enforce_limit(
         return
     if check_size(content_length(request), max_bytes):
         raise HTTPException(
-            status_code=413,
+            status_code=HTTP_413_PAYLOAD_TOO_LARGE,
             detail=f"Upload exceeds maximum size of {max_bytes} bytes",
         )
     if payload is not None and len(payload) > max_bytes:
         raise HTTPException(
-            status_code=413,
+            status_code=HTTP_413_PAYLOAD_TOO_LARGE,
             detail=f"Upload exceeds maximum size of {max_bytes} bytes",
         )
 

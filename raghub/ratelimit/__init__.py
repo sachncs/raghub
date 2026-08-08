@@ -14,6 +14,8 @@ from typing import Any
 
 from starlette.responses import JSONResponse
 
+from raghub.constants import HTTP_429_TOO_MANY_REQUESTS
+
 __all__ = [
     "Bucket",
     "Ratelimit",
@@ -117,7 +119,7 @@ class Ratelimit:
         if not admitted:
             response = JSONResponse(
                 {"error": "rate_limit_exceeded", "message": "Too many requests"},
-                status_code=429,
+                status_code=HTTP_429_TOO_MANY_REQUESTS,
                 headers={
                     "Retry-After": str(int(retry_after) + 1),
                     "X-RateLimit-Remaining": "0",

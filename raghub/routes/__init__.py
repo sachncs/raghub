@@ -41,6 +41,7 @@ from raghub.authhelpers import (
     Auth,
     Bearer,
 )
+from raghub.constants import HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND, HTTP_413_PAYLOAD_TOO_LARGE, HTTP_422_UNPROCESSABLE, HTTP_429_TOO_MANY_REQUESTS, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_503_SERVICE_UNAVAILABLE
 from raghub.errors import (
     AuthenticationError,
     AuthorizationError,
@@ -83,9 +84,9 @@ def user_store_or_raise(app_service: Facade) -> Any:
     """Return the configured user store or raise 503."""
     store = getattr(app_service.container, "user_store", None)
     if store is None:
-        raise HTTPException(status_code=503, detail="user store unavailable")
+        raise HTTPException(status_code=HTTP_503_SERVICE_UNAVAILABLE, detail="user store unavailable")
     if not hasattr(store, "get_pref") or not hasattr(store, "set_pref"):
-        raise HTTPException(status_code=503, detail="user store lacks prefs API")
+        raise HTTPException(status_code=HTTP_503_SERVICE_UNAVAILABLE, detail="user store lacks prefs API")
     return store
 
 
@@ -130,28 +131,28 @@ class Exceptions:
             """Return 401 for any :class:`AuthenticationError`."""
             from fastapi.responses import JSONResponse
 
-            return JSONResponse(status_code=401, content={"detail": str(exc)})
+            return JSONResponse(status_code=HTTP_401_UNAUTHORIZED, content={"detail": str(exc)})
 
         @app.exception_handler(AuthorizationError)
         def authz_error(_: Any, exc: AuthorizationError) -> Any:
             """Return 403 for any :class:`AuthorizationError`."""
             from fastapi.responses import JSONResponse
 
-            return JSONResponse(status_code=403, content={"detail": str(exc)})
+            return JSONResponse(status_code=HTTP_403_FORBIDDEN, content={"detail": str(exc)})
 
         @app.exception_handler(IngestionError)
         def ingestion_error_handler(_: Any, exc: IngestionError) -> Any:
             """Return 400 for any :class:`IngestionError`."""
             from fastapi.responses import JSONResponse
 
-            return JSONResponse(status_code=400, content={"detail": str(exc)})
+            return JSONResponse(status_code=HTTP_400_BAD_REQUEST, content={"detail": str(exc)})
 
         @app.exception_handler(RagHubError)
         def generic_error_handler(_: Any, exc: RagHubError) -> Any:
             """Return 500 for any uncategorised :class:`RagHubError`."""
             from fastapi.responses import JSONResponse
 
-            return JSONResponse(status_code=500, content={"detail": str(exc)})
+            return JSONResponse(status_code=HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": str(exc)})
 
 
 # ---------------------------------------------------------------------------
@@ -660,7 +661,7 @@ class FeedbackRoute:
         store = getattr(app_service.container, "feedback_store", None)
         if store is None:
             raise HTTPException(
-                status_code=503,
+                status_code=HTTP_503_SERVICE_UNAVAILABLE,
                 detail="feedback_store not configured",
             )
         return store
@@ -713,7 +714,7 @@ class FeedbackRoute:
             store = self.feedback_store(app_service)
             feedback = await store.get(feedback_id)
             if feedback is None:
-                raise HTTPException(status_code=404, detail="feedback not found")
+                raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="feedback not found")
             return asdict(feedback)
 
     def register_delete(self) -> None:
