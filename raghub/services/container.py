@@ -15,7 +15,6 @@ from raghub.prompts import Prompt
 from raghub.repos import UnitOfWork
 from raghub.retrieval import Retrieval as RetrievalPipeline
 from raghub.services.diagnostics import (
-    build_logger,
     build_models,
     seed_blocked,
     seed_demo_users,
@@ -127,8 +126,7 @@ async def build_auth_components(
     """Build the logger, ``Authz`` coordinator, and user store."""
     from raghub.auth import Authz, SqliteUsers
 
-    logger = build_logger(settings.log_level)
-    user_store = SqliteUsers(settings.data_dir / "users.db")
+        user_store = SqliteUsers(settings.data_dir / "users.db")
     await user_store.initialize()
     jwt_secret = settings.jwt_secret.get_secret_value()
     if not jwt_secret:
