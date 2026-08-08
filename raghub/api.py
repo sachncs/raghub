@@ -12,7 +12,7 @@ response installer (:class:`raghub.routes.Exceptions`) live in
 :mod:`raghub.routes`.
 
 Auth-side helpers (``Inject``, ``Auth``, ``Bearer``) live in
-:mod:`raghub.authhelpers`; response shaping and rate-limiting live in
+:mod:`raghub.auth_support`; response shaping and rate-limiting live in
 :mod:`raghub.response` and :mod:`raghub.ratelimit`;
 streaming helpers live in :mod:`raghub.sse`.
 """
@@ -70,7 +70,7 @@ def cors_origins() -> list[str]:
     raw = os.getenv("CORS_ORIGINS", "*").strip()
     if not raw:
         return ["*"]
-    return [item.strip() for item in raw.split(",") if item.strip()]
+    return [item.strip() for token in raw.split(",") if item.strip()]
 
 
 def validate_cors(origins: list[str]) -> None:
@@ -272,7 +272,7 @@ def health_route(app: FastAPI) -> None:
     """
 
     @app.get("/health", include_in_schema=False)
-    def handler() -> dict[str, str]:
+    def healthcheck_payload() -> dict[str, str]:
         """Mirror ``GET /v1/health`` so Docker/Kubernetes probes skip the prefix."""
         return {"status": "ok"}
 

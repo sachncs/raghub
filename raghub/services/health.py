@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from raghub.services.helpers import (
+from raghub.services.diagnostics import (
     aggregate_status,
     emit_log,
     emit_metric,

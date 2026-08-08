@@ -21,7 +21,7 @@ from raghub.models import (
     VectorStore,
     deterministic_id,
 )
-from raghub.pipeline.helpers import (
+from raghub.pipeline.span_support import (
     DurationTimer,
     IngestResolvedMetadata,
     get_chunks,
@@ -31,7 +31,7 @@ from raghub.pipeline.helpers import (
 from raghub.retry import retry as retry_sync
 from raghub.telemetry import NoOpTelemetry
 
-_logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 class Ingest(PipelineRunner):
@@ -145,7 +145,7 @@ class Ingest(PipelineRunner):
         classification = Classification(
             inputs.get("classification")
             or metadata.get("classification")
-            or Classification.INTERNAL
+            or Classification.Internal
         )
         return IngestResolvedMetadata(
             normalized_metadata={

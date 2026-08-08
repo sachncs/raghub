@@ -3,14 +3,14 @@
 This package is a structural split of the former monolithic
 ``raghub/pipeline.py``. Each submodule owns one concern:
 
-* :mod:`raghub.pipeline.helpers` — small dependency-light utilities
+* :mod:`raghub.pipeline.span_support` — small dependency-light utilities
   (timer, awaitable bridge, filter canonicalisation, checksum,
   chunk materialiser, per-request metadata dataclasses).
 * :mod:`raghub.pipeline.cache` — :class:`Cache`, the TTL-based
   in-memory query cache.
 * :mod:`raghub.pipeline.router` — :class:`Router`, the conversation
   store facade.
-* :mod:`raghub.pipeline.builder` — :class:`Flow`, the fluent
+* :mod:`raghub.pipeline.pipeline_assembly` — :class:`Flow`, the fluent
   :class:`Pipeline` builder (with the legacy :class:`PipelineBuilder`
   alias).
 * :mod:`raghub.pipeline.ingest` — :class:`Ingest`, the convert →
@@ -27,13 +27,14 @@ The public names are re-exported here so existing imports —
 from __future__ import annotations
 
 from raghub.pipeline.agent import AgentPipeline
-from raghub.pipeline.builder import Flow, PipelineBuilder
+from raghub.pipeline.pipeline_assembly import Flow, PipelineBuilder
 from raghub.pipeline.cache import Cache
-from raghub.pipeline.helpers import (
+from raghub.pipeline.span_support import (
     DurationTimer,
     IngestResolvedMetadata,
     QueryContext,
-    awaitable,
+    coerce_to_awaitable,
+    coerce_to_awaitable as awaitable,  # deprecated alias
     canonical_filters,
     get_chunks,
     primary_company,
@@ -55,6 +56,7 @@ __all__ = [
     "QueryPipeline",
     "Router",
     "awaitable",
+    "coerce_to_awaitable",
     "canonical_filters",
     "get_chunks",
     "primary_company",
