@@ -17,6 +17,7 @@ from typing import Annotated, cast
 
 from fastapi import Depends, Header, HTTPException, Request
 
+from raghub.constants import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
 from raghub.models import User
 from raghub.services import Facade
 
@@ -55,7 +56,7 @@ class Bearer:
 
         """
         if not authorization or not authorization.lower().startswith("bearer "):
-            raise HTTPException(status_code=401, detail="Missing bearer token")
+            raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
         return authorization.split(" ", 1)[1].strip()
 
     @staticmethod
@@ -95,7 +96,7 @@ class Auth:
         token = Bearer.require(authorization)
         user, _ = await application_facade.resolve_user(token)
         if not user.is_admin:
-            raise HTTPException(status_code=403, detail="Admin access required")
+            raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Admin access required")
         return user
 
     @staticmethod
