@@ -42,9 +42,9 @@ __all__ = [
 class Isolation(StrEnum):
     """The three shipped isolation strategies."""
 
-    ROW_LEVEL = "row_level"
-    SCHEMA_PER_TENANT = "schema_per_tenant"
-    DATABASE_PER_TENANT = "database_per_tenant"
+    RowLevel = "row_level"
+    SchemaPerTenant = "schema_per_tenant"
+    DatabasePerTenant = "database_per_tenant"
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,7 +54,7 @@ class TenantContext:
     tenant_id: str
     user_id: str | None = None
     is_admin: bool = False
-    isolation: Isolation = Isolation.ROW_LEVEL
+    isolation: Isolation = Isolation.RowLevel
 
 
 _tenant_context: ContextVar[TenantContext | None] = ContextVar(
@@ -81,8 +81,8 @@ def require_tenant() -> TenantContext:
     """Return the current tenant context or raise
     :class:`AuthorizationError`.
 
-    Under :attr:`Isolation.SCHEMA_PER_TENANT` and
-    :attr:`Isolation.DATABASE_PER_TENANT`, every storage
+    Under :attr:`Isolation.SchemaPerTenant` and
+    :attr:`Isolation.DatabasePerTenant`, every storage
     call must run inside a tenant context; the absence of one is
     an authz failure, not a runtime error.
     """
@@ -90,8 +90,8 @@ def require_tenant() -> TenantContext:
     if context is None:
         raise AuthorizationError(
             "missing tenant context under "
-            f"{Isolation.SCHEMA_PER_TENANT.value} or "
-            f"{Isolation.DATABASE_PER_TENANT.value}"
+            f"{Isolation.SchemaPerTenant.value} or "
+            f"{Isolation.DatabasePerTenant.value}"
         )
     return context
 
@@ -359,18 +359,18 @@ def migrate_tenant_split(
     conn_dst = sync_connect(asyncpg, target_dsn)
     try:
         if (
-            from_strategy == Isolation.ROW_LEVEL
-            and to_strategy == Isolation.SCHEMA_PER_TENANT
+            from_strategy == Isolation.RowLevel
+            and to_strategy == Isolation.SchemaPerTenant
         ):
             return migrate_row_to_schema(conn_src, conn_dst, tenant_id)
         if (
-            from_strategy == Isolation.SCHEMA_PER_TENANT
-            and to_strategy == Isolation.DATABASE_PER_TENANT
+            from_strategy == Isolation.SchemaPerTenant
+            and to_strategy == Isolation.DatabasePerTenant
         ):
             return migrate_schema_to_db(conn_src, conn_dst, tenant_id)
         if (
-            from_strategy == Isolation.ROW_LEVEL
-            and to_strategy == Isolation.DATABASE_PER_TENANT
+            from_strategy == Isolation.RowLevel
+            and to_strategy == Isolation.DatabasePerTenant
         ):
             return migrate_row_to_db(conn_src, conn_dst, tenant_id)
         raise TenantMigrationError(
