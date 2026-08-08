@@ -231,7 +231,7 @@ class LiteLLMEmbedder(Embedder):
         response = litellm.embedding(**kwargs)
         data = response.get("data", []) if isinstance(response, dict) else response.data
         return [
-            list(item["embedding"]) if isinstance(item, dict) else list(item.embedding)
+            list(record["embedding"]) if isinstance(record, dict) else list(record.embedding)
             for record in data
         ]
 

@@ -470,7 +470,7 @@ class HybridSearch(Tool):
         fused = reciprocal_rank_fusion(
             [
                 [h.chunk.id for h in dense],
-                [item["chunk"].chunk_id for search_record in sparse_raw],
+                [search_record["chunk"].chunk_id for search_record in sparse_raw],
             ],
             k=int(kwargs.get("rrf_k", 60)) or 60,
         )
@@ -559,7 +559,7 @@ class Keyword(Tool):
         if not raw:
             return ToolResult(content="(no hits)")
         joined = "\n\n---\n\n".join(
-            item["chunk"].text for search_record in raw if getattr(item.get("chunk"), "text", None)
+            item["chunk"].text for search_record in raw if getattr(search_record.get("chunk"), "text", None)
         )
         return ToolResult(
             content=joined,

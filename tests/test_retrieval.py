@@ -68,7 +68,7 @@ def test_merge_rrf_dedupes() -> None:
 
     hit_a = type("Hit", (), {"chunk_id": "a", "score": 1.0})()
     hit_b = type("Hit", (), {"chunk_id": "b", "score": 0.9})()
-    result = merge_reciprocal_rank_fusion([[hit_a, hit_b], [hit_a, hit_b]])
+    result = merge_rrf([[hit_a, hit_b], [hit_a, hit_b]])
     ids = [h.chunk_id for h in result]
     assert ids == ["a", "b"]
 

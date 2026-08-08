@@ -345,7 +345,7 @@ class RAG(
         if not isinstance(self.persistent_queue, SqliteQueue):
             return None
 
-        async def run_ingest_job(job: Any) -> None:
+        async def ingest(job: Any) -> None:
             """Drain a queue job by routing it back into the facade's ingest path."""
             payload = getattr(job, "payload", {}) or {}
             source_bytes = payload.get("source", "").encode("latin-1")
@@ -361,7 +361,7 @@ class RAG(
 
         return Worker(
             queue=self.persistent_queue,
-            handler=handler,
+            handler=ingest,
             concurrency=int(getattr(self.settings.queue, "concurrency", 4) or 4),
         )
 

@@ -211,7 +211,7 @@ def cluster(items: list[Chunk], cluster_size: int) -> list[list[Chunk]]:
     import numpy as np
     from sklearn.cluster import KMeans
 
-    vectors = [np.asarray(item.metadata.get("vector") or [0.0], dtype=float) for chunk in items]
+    vectors = [np.asarray(chunk.metadata.get("vector") or [0.0], dtype=float) for chunk in items]
     n_clusters = max(1, min(len(items) // cluster_size, len(items)))
     if n_clusters <= 1:
         return [items]

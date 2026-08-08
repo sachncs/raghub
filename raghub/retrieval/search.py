@@ -85,7 +85,7 @@ class Search:
         results: list[Chunk] = []
         seen: set[str] = set()
         for search_record in raw:
-            chunk: Chunk = item["chunk"]
+            chunk: Chunk = search_record["chunk"]
             if chunk.id in seen:
                 continue
             if filters and not self.matches(chunk, filters):
