@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from enum import StrEnum
+from functools import cached_property
 from importlib import metadata
 from typing import Any
 
@@ -170,7 +171,7 @@ class Plugins:
     # Legacy accessors (per-kind dicts)
     # ------------------------------------------------------------------
 
-    @property
+    @cached_property
     def converters(self) -> dict[str, DocumentConverter]:
         """Return a snapshot of registered converters (legacy accessor)."""
         return {
@@ -178,7 +179,7 @@ class Plugins:
             for name in self.names(PluginKind.Converter)
         }
 
-    @property
+    @cached_property
     def chunkers(self) -> dict[str, Chunker]:
         """Return a snapshot of registered chunkers (legacy accessor)."""
         return {
@@ -186,7 +187,7 @@ class Plugins:
             for name in self.names(PluginKind.Chunker)
         }
 
-    @property
+    @cached_property
     def embedders(self) -> dict[str, EmbeddingProvider]:
         """Return a snapshot of registered embedders (legacy accessor)."""
         return {
@@ -194,7 +195,7 @@ class Plugins:
             for name in self.names(PluginKind.Embedder)
         }
 
-    @property
+    @cached_property
     def vector_stores(self) -> dict[str, VectorStore]:
         """Return a snapshot of registered vector stores (legacy accessor)."""
         return {
@@ -202,7 +203,7 @@ class Plugins:
             for name in self.names(PluginKind.VectorStore)
         }
 
-    @property
+    @cached_property
     def knowledge_repos(self) -> dict[str, KnowledgeRepository]:
         """Return a snapshot of registered knowledge repos (legacy accessor)."""
         return {
@@ -210,7 +211,7 @@ class Plugins:
             for name in self.names(PluginKind.KnowledgeRepo)
         }
 
-    @property
+    @cached_property
     def generators(self) -> dict[str, GeneratorProtocol]:
         """Return a snapshot of registered generators (legacy accessor)."""
         return {
@@ -218,7 +219,7 @@ class Plugins:
             for name in self.names(PluginKind.Generator)
         }
 
-    @property
+    @cached_property
     def structured(self) -> dict[str, StructuredOutputProvider]:
         """Return a snapshot of registered structured-output providers."""
         return {
@@ -226,7 +227,7 @@ class Plugins:
             for name in self.names(PluginKind.Structured)
         }
 
-    @property
+    @cached_property
     def evaluators(self) -> dict[str, Evaluator]:
         """Return a snapshot of registered evaluators (legacy accessor)."""
         return {
@@ -234,7 +235,7 @@ class Plugins:
             for name in self.names(PluginKind.Evaluator)
         }
 
-    @property
+    @cached_property
     def factories(self) -> dict[str, Callable[..., JSONValue]]:
         """Return a snapshot of registered factories (legacy accessor)."""
         return {
