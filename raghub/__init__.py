@@ -145,10 +145,7 @@ from raghub.stores import (
 
 # Telemetry.
 from raghub.telemetry import (
-    LangfuseTelemetryProvider as Langfuse,
-)
-from raghub.telemetry import (
-    LoguruTelemetryProvider as Loguru,
+    LoguruLoggerAdapter as Logger,
 )
 from raghub.telemetry import (
     NoOpTelemetry as Noop,
@@ -189,8 +186,7 @@ __all__ = [
     "Langfuse",
     "LiteLLM",
     "LiteLLMEmbedder",
-    "Loguru",
-    "Manifest",
+    "Logger",
     "Memory",
     "MemoryRepo",
     "Metrics",

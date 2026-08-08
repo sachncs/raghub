@@ -8,8 +8,8 @@ this module can stay focused on orchestration.
 """
 
 from __future__ import annotations
+from loguru import logger
 
-import logging
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
@@ -45,7 +45,6 @@ from raghub.pipeline.query_helpers import (
 )
 from raghub.telemetry import NoOpTelemetry
 
-LOGGER = logging.getLogger(__name__)
 
 
 class QueryPipeline(PipelineRunner):

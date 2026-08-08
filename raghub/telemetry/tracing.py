@@ -8,8 +8,8 @@ Hosts the Langfuse v3 client wrappers (:class:`LangfuseSpan`,
 """
 
 from __future__ import annotations
+from loguru import logger
 
-import logging
 import os
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
@@ -54,7 +54,6 @@ except ImportError as exc:  # optional dep — propagate when explicitly request
     LANGFUSE_AVAILABLE = False
     IMPORT_ERROR = exc
 
-LOGGER = logging.getLogger("raghub.telemetry.langfuse")
 
 
 def try_import_submodule(module_name: str, target_name: str) -> Any:
