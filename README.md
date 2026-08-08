@@ -281,7 +281,7 @@ print(result.structured.amount, result.structured.currency)
 raghub/
 ├── raghub/                 # The library
 │   ├── __init__.py         # Public entry: from raghub import RAG
-│   ├── rag.py              # RAG(...) facade
+│   ├── rag/                # RAG(...) facade (facade, ingest_mixin, query_mixin, ...)
 │   ├── config.py           # Settings (env + YAML)
 │   ├── models.py           # Pydantic domain models
 │   ├── errors.py           # Typed error hierarchy
@@ -289,27 +289,27 @@ raghub/
 │   ├── embedder.py         # LiteLLMEmbedder
 │   ├── store.py            # MemoryStore, SqliteStore
 │   ├── parsers.py          # MarkerConverter, PlainTextConverter
-│   ├── pipeline.py         # IngestPipeline, QueryPipeline
 │   ├── ingest.py           # Chunker, Ingestor, Resumable
 │   ├── gen.py              # DefaultGenerator, Instructor
 │   ├── retrieval/          # Rerankers, transformers, fusion
 │   ├── stores/             # Database, Sessions, ImageStore
-│   ├── services/           # Facade, container wiring
+│   ├── services/           # ApplicationFacade, container wiring, diagnostics
 │   ├── tools/              # ToolRegistry + built-in tools
 │   ├── lifecycle/          # Document lifecycle state machines
-│   ├── authhelpers/        # Auth helpers (App, Auth, Bearer)
-│   ├── response/           # ResponseBuilder + Redaction
+│   ├── auth_support/       # FastAPI auth helpers (App, Auth, Bearer)
+│   ├── response/           # Response shaping + Redaction
 │   ├── sse/                # SSE framing
 │   ├── ratelimit/          # Token bucket + ASGI middleware
 │   ├── commands/           # CLI sub-commands
 │   ├── knowledge.py        # RAPTOR, GraphRAG
 │   ├── conv.py             # Conversation memory
-│   ├── telemetry.py        # Telemetry providers, Prometheus metrics
+│   ├── telemetry/          # Telemetry providers, loguru sink
 │   ├── agent.py            # ReAct planner + tools
-│   ├── auth.py             # UserStore, AuthService, Authz
+│   ├── auth.py             # UserStore, UserAuthenticator, Authz
 │   ├── repos.py            # ChunkStore, DocStore, SessionStore
-│   ├── api.py              # FastAPI app
+│   ├── api.py              # FastAPI app (App.create)
 │   ├── cli.py              # raghub CLI entry
+│   ├── constants.py        # Named constants (RRF_K, HTTP_*, MAX_INFLIGHT_DEFAULT, ...)
 │   └── evaluation.py       # Finance / FRAMES eval harnesses
 ├── tests/                  # Test suite
 ├── devtools/               # Bench harness, Finance/FRAMES pipelines
