@@ -3,38 +3,39 @@
 Production-grade multi-user retrieval-augmented generation platform built on
 the spec libraries. The single recommended entry point is
 [`raghub.RAG`](https://github.com/sachncs/raghub); every collaborator
-behind it — Marker, Chonkie, LiteLLM, Qdrant, Langfuse, Instructor — is
+behind it — Marker, Chonkie, LiteLLM, Langfuse, Instructor — is
 replaceable.
 
 ## Package layout
 
 ```text
 raghub/
-  rag.py              RAG facade, FastAPI server
-  api.py              FastAPI app (App.create)
-  cli.py              Console scripts (``raghub``, ``raghub-financebench``)
-  config.py           Settings dataclass, YAML/TOML loader
-  models.py           Typed Pydantic domain + canonical models
-  errors.py           Typed error hierarchy
-  llm.py              LiteLLM, Heuristic (offline) providers
-  embedder.py         LiteLLM, hashing embedders
-  store.py            Qdrant, SQLite, InMemory vector stores
-  parsers.py          Marker, plain-text converters
-  pipeline.py         Ingest + Query pipelines
-  gen.py              DefaultGenerator (citations, astream, tokens)
-  ingest.py           Chunker, Ingestor, Resumable
-  knowledge.py        Open Knowledge Format (OKF) bundles + repository
-  retrieval/          Rerankers, transformers, fusion
-  stores/             SQLite persistence, image store
-  services/           Facade, container wiring
-  tools/              ToolRegistry + built-in tools
-  lifecycle/          Document lifecycle state machines
-  helper/             Internal collaborators (auth, cli, sse, …)
-  telemetry.py        NoOp, Redacting, Langfuse, Prometheus telemetry
-  evaluation.py       Finance + FRAMES evaluators
-  plugins.py          PluginRegistry + entry-point discovery
-  auth.py             UserStore, AuthService, Authz
-  repos.py            ChunkStore, DocStore, SessionStore
+  rag/                 RAG facade, ingest/query/sync mixins
+  api.py               FastAPI app (App.create)
+  cli.py               Console scripts (``raghub``, ``raghub-financebench``)
+  config.py            Settings dataclass, YAML/TOML loader
+  models.py            Typed Pydantic domain + canonical models
+  errors.py            Typed error hierarchy (RagHubError base)
+  llm.py               LiteLLM, Heuristic (offline) providers
+  embedder.py          LiteLLM, hashing embedders
+  store.py             SQLite + InMemory vector stores
+  parsers.py           Marker, plain-text converters
+  ingest.py            Chunker, Ingestor, Resumable
+  pipeline/            Ingest, Query, Agent, Builder, span_support
+  gen.py               DefaultGenerator (citations, astream, tokens)
+  knowledge.py         Open Knowledge Format (OKF) bundles + repository
+  retrieval/           Rerankers, transformers, fusion
+  stores/              SQLite persistence, image store
+  services/            ApplicationFacade, container wiring, diagnostics
+  tools/               ToolRegistry + built-in tools
+  lifecycle/           Document lifecycle state machines
+  auth_support/        FastAPI auth helpers (App, Auth, Bearer)
+  telemetry/           NoOp, Redacting, Langfuse, Prometheus telemetry
+  evaluation.py        Finance + FRAMES evaluators
+  plugins.py           PluginRegistry + entry-point discovery
+  auth.py              UserStore, UserAuthenticator, Authz
+  repos.py             ChunkStore, DocStore, SessionStore
+  constants.py         Named constants (RRF_K, HTTP_413_PAYLOAD_TOO_LARGE, ...)
 ```
 
 The `RAG` facade is the recommended entry point; the FastAPI
@@ -84,8 +85,9 @@ raghub query "What was the revenue guidance?"
 | LLM | LiteLLM | Falls back to `HeuristicLLMProvider` (offline, deterministic) |
 | Embeddings | LiteLLM | Falls back to `Hasher` (offline) |
 | Structured output | Instructor | Returns `None` when Instructor is missing or no API key |
-| Vector store | Qdrant | Falls back to `MemoryStore` when `QDRANT_URL` is unset |
+| Vector store | SQLite + InMemory | `MemoryStore` is the in-memory default; `SqliteStore` is the bundled SQL backend |
 | Telemetry | Langfuse v3+ | Falls back to `NoOpTelemetry` when Langfuse is missing or unconfigured |
+| Logging | loguru | Process-wide stdout sink with structured kwargs binding |
 | Knowledge format | OKF (Open Knowledge Format) | Canonical persisted representation |
 
 Every default can be replaced through the `RAG(...)` constructor or via
