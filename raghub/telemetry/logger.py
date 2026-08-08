@@ -19,13 +19,13 @@ from raghub.types import JSONValue
 
 __all__ = [
     "Logger",
-    "Span",
-    "TelemetryProvider",
+    "LoguruSpan",
+    "LoguruTelemetryProvider",
     "logger",
 ]
 
 
-class LoguruLoggerAdapter(Logger):
+class Logger(Logger):  # type: ignore[no-redef]
     """Adapter that implements :class:`Logger` against :mod:`loguru`.
 
     Each call binds structured kwargs into the loguru record so they
@@ -34,19 +34,19 @@ class LoguruLoggerAdapter(Logger):
 
     def __init__(self) -> None:
         """Bind a logger instance for structured output."""
-        self._logger = logger.bind(component="raghub")
+        self._bound = logger.bind(component="raghub")
 
     def info(self, message: str, **kwargs: JSONValue) -> None:
         """Emit an ``INFO``-level record with structured ``kwargs``."""
-        self._logger.bind(**kwargs).info(message)
+        self._bound.bind(**kwargs).info(message)
 
     def warning(self, message: str, **kwargs: JSONValue) -> None:
         """Emit a ``WARNING``-level record with structured ``kwargs``."""
-        self._logger.bind(**kwargs).warning(message)
+        self._bound.bind(**kwargs).warning(message)
 
     def error(self, message: str, **kwargs: JSONValue) -> None:
         """Emit an ``ERROR``-level record with structured ``kwargs``."""
-        self._logger.bind(**kwargs).error(message)
+        self._bound.bind(**kwargs).error(message)
 
 
 class LoguruSpan(Span):
@@ -55,7 +55,7 @@ class LoguruSpan(Span):
     def __init__(
         self,
         name: str,
-        adapter: LoguruLoggerAdapter,
+        adapter: "Logger",
         attributes: dict[str, Any],
     ) -> None:
         """Store the span's name and timing metadata."""
@@ -77,9 +77,9 @@ class LoguruSpan(Span):
 class LoguruTelemetryProvider(TelemetryProvider):
     """Telemetry provider that sinks through :mod:`loguru`."""
 
-    def __init__(self, adapter: LoguruLoggerAdapter | None = None) -> None:
+    def __init__(self, adapter: "Logger | None" = None) -> None:
         """Build the provider with an optional adapter override."""
-        self.adapter = adapter or LoguruLoggerAdapter()
+        self.adapter = adapter or Logger()
 
     def info(self, message: str, **kwargs: JSONValue) -> None:
         """Emit an ``info``-level record."""

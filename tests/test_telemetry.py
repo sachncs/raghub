@@ -14,7 +14,7 @@ import pytest
 
 from raghub.telemetry import (
     LangfuseTelemetryProvider,
-    LoguruLoggerAdapter,
+    Logger,
     NoopSpan,
     NoOpTelemetry,
     RedactingTelemetry,
@@ -213,14 +213,14 @@ def test_noop_telemetry_record_latency_increment_tokens() -> None:
 
 
 # ---------------------------------------------------------------------------
-# LoguruLoggerAdapter basic path
+# Logger basic path
 # ---------------------------------------------------------------------------
 
 
 def test_loguru_logger_warning_error_calls() -> None:
-    """LoguruLoggerAdapter exposes warning + error methods."""
+    """Logger exposes warning + error methods."""
 
-    logger = LoguruLoggerAdapter()
+    logger = Logger()
     logger.warning("warn message")
     logger.error("error message")
 
