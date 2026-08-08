@@ -59,7 +59,7 @@ def test_original_weight_is_one_point_five() -> None:
 def test_rerank_protocol_has_rerank_and_arerank() -> None:
     """``Rerank`` is a runtime-checkable protocol with rerank + arerank."""
 
-    class _StubRerank:
+    class StubRerank:
         name = "stub"
 
         def rerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
@@ -68,7 +68,7 @@ def test_rerank_protocol_has_rerank_and_arerank() -> None:
         async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
             return list(hits)
 
-    instance = _StubRerank()
+    instance = StubRerank()
     assert isinstance(instance, Rerank)
     assert instance.name == "stub"
 
@@ -76,7 +76,7 @@ def test_rerank_protocol_has_rerank_and_arerank() -> None:
 def test_rerank_protocol_does_not_require_arerank_to_be_async() -> None:
     """A sync-only ``Rerank`` implementation still satisfies the protocol."""
 
-    class _SyncOnly:
+    class SyncOnly:
         name = "sync"
 
         def rerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
@@ -86,17 +86,17 @@ def test_rerank_protocol_does_not_require_arerank_to_be_async() -> None:
             # No-op: actual sync model. Just need the method to exist.
             return list(hits)
 
-    assert isinstance(_SyncOnly(), Rerank)
+    assert isinstance(SyncOnly(), Rerank)
 
 
 def test_transformer_protocol_has_transform() -> None:
     """``Transformer`` is a runtime-checkable protocol with transform()."""
 
-    class _StubTransformer:
+    class StubTransformer:
         name = "stub"
 
         async def transform(self, *, question: str, history: Sequence[Any]) -> list[Variant]:
             return [Variant(text=question, kind="original", weight=1.0)]
 
-    assert isinstance(_StubTransformer(), Transformer)
-    assert _StubTransformer().name == "stub"
+    assert isinstance(StubTransformer(), Transformer)
+    assert StubTransformer().name == "stub"

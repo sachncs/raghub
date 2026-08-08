@@ -12,7 +12,7 @@ from raghub.models import Chunk, Hit, QueryResponse
 from raghub.services.query import Query
 
 
-def _make_chunk(*, chunk_id: str = "c-1", text: str = "Revenue grew 12%.") -> Chunk:
+def make_chunk(*, chunk_id: str = "c-1", text: str = "Revenue grew 12%.") -> Chunk:
     """Build a minimal Chunk for tests."""
     import hashlib
 
@@ -35,40 +35,40 @@ def _make_chunk(*, chunk_id: str = "c-1", text: str = "Revenue grew 12%.") -> Ch
 async def test_query_runs_resolve_retrieve_generate_record() -> None:
     """``Query.query`` runs the four-step pipeline in order."""
 
-    chunk = _make_chunk()
+    chunk = make_chunk()
     user = SimpleNamespace(email="alice@example.com")
     resolved = (user, [])
 
-    class _Auth:
+    class StubAuth:
         async def resolve_user(self, token: str) -> tuple[Any, list]:
             return resolved
 
     recorded: list[tuple[str, str]] = []
 
-    class _Conversation:
+    class StubConversation:
         async def append(self, token: str, q: str, a: str, metadata: dict[str, Any]) -> None:
             recorded.append((token, q))
 
-    class _Retrieval:
+    class StubRetrieval:
         def retrieve(self, *, user: Any, question: str, top_k: int) -> list[Hit]:
             return [Hit(score=0.9, chunk=chunk)]
 
-    class _Prompt:
-        class _Config:
+    class StubPrompt:
+        class StubPromptConfig:
             system_prompt = "You are helpful."
 
-        config = _Config()
+        config = StubPromptConfig()
 
-    class _LLM:
+    class StubLLM:
         def generate(self, request: Any) -> str:
             return "answer"
 
     container = SimpleNamespace(
-        auth=_Auth(),
-        retrieval=_Retrieval(),
-        prompt_builder=_Prompt(),
-        llm=_LLM(),
-        conversation=_Conversation(),
+        auth=StubAuth(),
+        retrieval=StubRetrieval(),
+        prompt_builder=StubPrompt(),
+        llm=StubLLM(),
+        conversation=StubConversation(),
         settings=SimpleNamespace(top_k=5),
     )
     query = Query(container)
@@ -87,44 +87,44 @@ async def test_query_emits_log_and_metric_on_completion() -> None:
     """``Query.query`` emits metric + log on every successful query."""
 
     user = SimpleNamespace(email="alice@example.com")
-    chunk = _make_chunk()
+    chunk = make_chunk()
 
-    class _Auth:
+    class StubAuth:
         async def resolve_user(self, token: str) -> tuple[Any, list]:
             return (user, [])
 
-    class _Retrieval:
+    class StubRetrieval:
         def retrieve(self, *, user: Any, question: str, top_k: int) -> list[Hit]:
             return [Hit(score=0.9, chunk=chunk)]
 
-    class _Prompt:
-        class _Config:
+    class StubPrompt:
+        class StubPromptConfig:
             system_prompt = ""
 
-        config = _Config()
+        config = StubPromptConfig()
 
-    class _LLM:
+    class StubLLM:
         def generate(self, request: Any) -> str:
             return "answer"
 
     captured_logs: list[tuple[str, dict[str, object]]] = []
 
-    class _Logger:
+    class TestLogger:
         def info(self, message: str, **kwargs: object) -> None:
             captured_logs.append((message, kwargs))
 
-    class _Conversation:
+    class StubConversation:
         async def append(self, *args: Any, **kwargs: Any) -> None:
             pass
 
     container = SimpleNamespace(
-        auth=_Auth(),
-        retrieval=_Retrieval(),
-        prompt_builder=_Prompt(),
-        llm=_LLM(),
-        conversation=_Conversation(),
+        auth=StubAuth(),
+        retrieval=StubRetrieval(),
+        prompt_builder=StubPrompt(),
+        llm=StubLLM(),
+        conversation=StubConversation(),
         settings=SimpleNamespace(top_k=5),
-        logger=_Logger(),
+        logger=TestLogger(),
         metrics=SimpleNamespace(record_latency=lambda n, v: None),
     )
     await Query(container).query(token="t", question="revenue?")
@@ -136,11 +136,11 @@ def test_query_log_delegates_to_emit_log() -> None:
 
     captured: list[tuple[str, dict[str, object]]] = []
 
-    class _Logger:
+    class TestLogger:
         def info(self, message: str, **kwargs: object) -> None:
             captured.append((message, kwargs))
 
-    container = SimpleNamespace(logger=_Logger())
+    container = SimpleNamespace(logger=TestLogger())
     Query(container).log("test.event", code=42)
     assert captured == [("test.event", {"extra": {"code": 42}})]
 
@@ -151,18 +151,18 @@ async def test_resolve_user_delegates_to_auth() -> None:
 
     sentinel = ("alice", [])
 
-    class _Auth:
+    class StubAuth:
         async def resolve_user(self, token: str) -> Any:
             return sentinel
 
-    query = Query(SimpleNamespace(auth=_Auth()))
+    query = Query(SimpleNamespace(auth=StubAuth()))
     assert await query.resolve_user("t") is sentinel
 
 
 def test_citation_builds_expected_dict() -> None:
     """``Query.citation`` projects the chunk into the citation shape."""
 
-    chunk = _make_chunk(chunk_id="c-9")
+    chunk = make_chunk(chunk_id="c-9")
     citation = Query(SimpleNamespace()).citation(chunk)
     assert citation == {
         "document_id": "doc-1",
@@ -179,34 +179,34 @@ async def test_query_returns_empty_citations_when_retrieval_returns_nothing() ->
 
     user = SimpleNamespace(email="alice@example.com")
 
-    class _Auth:
+    class StubAuth:
         async def resolve_user(self, token: str) -> tuple[Any, list]:
             return (user, [])
 
-    class _Retrieval:
+    class StubRetrieval:
         def retrieve(self, *, user: Any, question: str, top_k: int) -> list[Hit]:
             return []
 
-    class _Prompt:
-        class _Config:
+    class StubPrompt:
+        class StubPromptConfig:
             system_prompt = ""
 
-        config = _Config()
+        config = StubPromptConfig()
 
-    class _LLM:
+    class StubLLM:
         def generate(self, request: Any) -> str:
             return "no answer"
 
-    class _Conversation:
+    class StubConversation:
         async def append(self, *args: Any, **kwargs: Any) -> None:
             pass
 
     container = SimpleNamespace(
-        auth=_Auth(),
-        retrieval=_Retrieval(),
-        prompt_builder=_Prompt(),
-        llm=_LLM(),
-        conversation=_Conversation(),
+        auth=StubAuth(),
+        retrieval=StubRetrieval(),
+        prompt_builder=StubPrompt(),
+        llm=StubLLM(),
+        conversation=StubConversation(),
         settings=SimpleNamespace(top_k=5),
     )
     response = await Query(container).query(token="t", question="unknown")
@@ -220,14 +220,14 @@ async def test_record_turn_persists_with_top_k_metadata() -> None:
 
     captured: dict[str, Any] = {}
 
-    class _Conversation:
+    class StubConversation:
         async def append(self, token: str, question: str, answer: str, metadata: dict[str, Any]) -> None:
             captured["token"] = token
             captured["question"] = question
             captured["answer"] = answer
             captured["metadata"] = metadata
 
-    container = SimpleNamespace(conversation=_Conversation(), settings=SimpleNamespace(top_k=7))
+    container = SimpleNamespace(conversation=StubConversation(), settings=SimpleNamespace(top_k=7))
     query = Query(container)
     await query.record_turn("t", "q", "a")
     assert captured == {
