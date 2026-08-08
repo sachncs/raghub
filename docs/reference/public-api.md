@@ -1,6 +1,6 @@
 # RAGHub Public API Surface
 
-This document declares every public symbol in `raghub` as of v0.8.0.
+This document declares every public symbol in `raghub` as of v0.9.5.
 Additive changes in later releases extend the list; breaking changes
 require an ADR + SemVer bump.
 
@@ -41,7 +41,7 @@ The single recommended facade.
 |---|---|---|
 | `conversation_history` | 0.6.0 | |
 | `clear_conversation` | 0.6.0 | |
-| `scoped_session_id` | 0.6.0 | internal helper |
+| `scoped` | 0.7.0 | internal helper (renamed from `scoped_session_id`) |
 | `session_overrides` | 0.6.0 | internal helper |
 
 ### Evaluation
@@ -57,7 +57,6 @@ The single recommended facade.
 | `initialize` | 0.6.0 | Opens every held resource |
 | `shutdown` | 0.6.0 | Closes every held resource |
 | `job_status` | 0.7.4 | Inspect a queued job |
-| `resolve_agent_config` | 0.6.0 | internal helper |
 
 ### v0.7.x collaborator accessors
 
@@ -77,7 +76,6 @@ Each returns the configured component or `None` when not configured.
 | Symbol | Version | Notes |
 |---|---|---|
 | `health` | 0.6.0 | Returns a dict |
-| `settings_serialise_path` | 0.6.0 | internal helper |
 
 ### Stable types
 
@@ -85,11 +83,34 @@ Each returns the configured component or `None` when not configured.
 `raghub.Hit`, `raghub.SearchResponse`, `raghub.Response`,
 `raghub.Query`, `raghub.Turn`, `raghub.Session`, `raghub.Citation`,
 `raghub.Citations`, `raghub.Feedback`, `raghub.Job`, `raghub.Pipeline`,
-`raghub.PipelineCtx`, `raghub.Result`, `raghub.ArchiveManifest`.
+`raghub.Result`, `raghub.ArchiveManifest`.
 
 ### Errors
 
-`raghub.RagHubError` and the full hierarchy in `raghub.errors`.
+`raghub.RagHubError` and the full hierarchy in `raghub.errors`. All
+framework-raised exceptions now subclass `RagHubError` (see PR-1
+commit "fix(errors): re-parent 4 framework errors to RagHubError").
+
+### Renamed in 0.9.x
+
+| Old | New | Replaced by |
+|---|---|---|
+| `RAG.scoped_session_id` | `RAG.scoped` | 0.9.0 |
+| `RAG.resolve_agent_config` | (removed) | 0.9.0 |
+| `RAG.settings_serialise_path` | (removed) | 0.9.0 |
+| `app_service` parameter | `application_facade` parameter | 0.9.x |
+| `db_manager` parameter | `database_handle` parameter | 0.9.x |
+| `lifecycle_manager` parameter | `lifecycle_coordinator` parameter | 0.9.x |
+| `helper` module name | `support` module name | 0.9.x |
+| `raghub.authhelpers` package | `raghub.auth_support` package | 0.9.x |
+| `raghub.services.helpers` | `raghub.services.diagnostics` | 0.9.x |
+| `raghub.pipeline.helpers` | `raghub.pipeline.span_support` | 0.9.x |
+| `raghub.pipeline.builder` | `raghub.pipeline.pipeline_assembly` | 0.9.x |
+| `raghub.services.facade.Facade` | `ApplicationFacade` (Facade kept as deprecation alias) | 0.9.x |
+| `raghub.telemetry.LoguruLoggerAdapter` | `Logger` | 0.9.x |
+| `raghub.telemetry.build_logger` | (removed) | 0.9.x |
+| `raghub.Loguru` alias | `raghub.Logger` (LoguruLoggerAdapter) | 0.9.x |
+| Enum members `UPPER_CASE` | PascalCase (e.g. `JobStatus.PENDING` -> `JobStatus.Pending`) | 0.9.x |
 
 ## Stable entry-point groups
 
@@ -104,9 +125,7 @@ Each returns the configured component or `None` when not configured.
 ## Stability levels
 
 * **Stable** — every public symbol listed above.
-* **Evolving** — internal helpers (`scoped_session_id`,
-  `session_overrides`, `resolve_agent_config`,
-  `settings_serialise_path`, `ingest_directory_sync`,
+* **Evolving** — internal helpers (`scoped`, `session_overrides`,
   `ingest_dir`, `sync_one`, `remove_prior`). Subject to change
   between minor versions.
 * **Experimental** — anything in `raghub.archive`,
