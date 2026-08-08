@@ -1,4 +1,4 @@
-.PHONY: help install inventory test coverage lint docstrings naming typecheck format security audit docs bench dev-api clean migrate
+.PHONY: help install inventory test coverage lint docstrings naming typecheck format security audit docs bench dev-api clean migrate all
 
 help:
 	@echo "Common targets:"
@@ -17,6 +17,7 @@ help:
 	@echo "  make bench           - Run the performance benchmark"
 	@echo "  make migrate         - Migrate on-disk storage from v1 to v2"
 	@echo "  make clean           - Remove build artefacts"
+	@echo "  make all             - Run lint + typecheck + coverage + docstrings + naming + security + audit"
 
 install:
 	pip install -e ".[dev]"
@@ -67,3 +68,7 @@ dev-api:
 clean:
 	rm -rf build dist .pytest_cache .mypy_cache .ruff_cache .coverage .coverage.*
 	find . -type d -name __pycache__ -exec rm -rf {} +
+
+# Composite quality gate per AGENTS.md §2491-2531.
+# Runs every check that gates a PR. Use as the pre-merge hook.
+all: lint naming typecheck docstrings coverage security audit
