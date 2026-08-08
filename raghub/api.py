@@ -38,6 +38,7 @@ from raghub.config import Settings
 from raghub.constants import (
     API_RATE_LIMIT_BURST,
     API_RATE_LIMIT_RPS,
+    ENV_CORS_ORIGINS,
     HTTP_413_PAYLOAD_TOO_LARGE,
 )
 from raghub.coroutines import capture
@@ -72,7 +73,7 @@ def cors_origins() -> list[str]:
     default of ``["*"]`` for development convenience; production
     deployments must override the env var.
     """
-    raw = os.getenv("CORS_ORIGINS", "*").strip()
+    raw = os.getenv(ENV_CORS_ORIGINS, "*").strip()
     if not raw:
         return ["*"]
     return [token.strip() for token in raw.split(",") if token.strip()]
