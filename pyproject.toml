@@ -187,3 +187,33 @@ ignore-semiprivate = false
 ignore-private = false
 ignore-module = false
 fail-under = 100
+
+# ---------------------------------------------------------------------------
+# Bandit security linter (AGENTS.md §962-1026)
+# ---------------------------------------------------------------------------
+
+[tool.bandit]
+# Skip hardcoded-password and binding-to-all-interfaces warnings: the
+# framework legitimately reads credential env vars (JWT_SECRET, API keys)
+# and never binds sockets itself (that's uvicorn's job).
+skips = ["B105", "B104"]
+exclude_dirs = ["tests/", "devtools/", "data/"]
+# Tests: medium-and-above severity only.
+level = "MEDIUM"
+confidence = "MEDIUM"
+
+# ---------------------------------------------------------------------------
+# Pyright (AGENTS.md §962-1026 alternative type checker)
+# ---------------------------------------------------------------------------
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingImports = false
+reportOptionalSubscript = false
+reportOptionalMemberAccess = false
+reportOptionalCall = false
+reportOptionalIterable = false
+reportOptionalOperand = false
+reportOptionalContextManager = false
+reportOptionalGenerator = false
