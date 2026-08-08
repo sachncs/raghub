@@ -98,11 +98,18 @@ class IngestMixin:
             uri = options.get("source_uri") or "bytes://memory"
         if not file_bytes:
             raise IngestionError(f"ingest({source!r}) received empty bytes; nothing to index.")
-        from raghub.coroutines import await_if_awaitable
+
+        def _run_sync(coro: Any) -> Any:
+            """Drive ``coro`` via asyncio.run when no event loop is running."""
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                return asyncio.run(coro)
+            return coro
 
         result = cast(
             Pipeline,
-            await_if_awaitable(
+            _run_sync(
                 self.ingest_one(
                     file_bytes,
                     uri,

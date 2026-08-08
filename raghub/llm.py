@@ -240,12 +240,12 @@ class LiteLLM(Generator):
         if request.session_history:
             for session_item in request.session_history:
                 role = session_item.get("role", "user")
-                if role not in {"user", "assistant", "system"}:
+                if role not in {"user", "assistant"}:
                     role = "user"
                 messages.append({"role": role, "content": session_item.get("content", "")})
 
         if request.context:
-            formatted_context = "\n\n---\n\n".join(str(item) for turn in request.context)
+            formatted_context = "\n\n---\n\n".join(str(turn) for turn in request.context)
             messages.append({"role": "system", "content": f"Context:\n{formatted_context}"})
 
         if request.image_paths:

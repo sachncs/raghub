@@ -454,7 +454,7 @@ class HybridSearch(Tool):
 
     async def execute(self, context: ToolContext, **kwargs: JSONValue) -> ToolResult:
         """Fuse dense + sparse retrieval with reciprocal-rank fusion."""
-        from raghub.retrieval import rrf
+        from raghub.retrieval import reciprocal_rank_fusion
 
         text = (str(kwargs.get("query", "")) or context.question or "").strip()
         if not text:
@@ -477,9 +477,9 @@ class HybridSearch(Tool):
         )
         id_to_hit: dict[str, Any] = {h.chunk.id: h for h in dense}
         for search_record in sparse_raw:
-            cid = item["chunk"].chunk_id
+            cid = search_record["chunk"].chunk_id
             if cid not in id_to_hit:
-                id_to_hit[cid] = item
+                id_to_hit[cid] = search_record
         if not fused:
             return ToolResult(content="(no hits)")
         joined = "\n\n---\n\n".join(
