@@ -23,6 +23,7 @@ import numpy as np
 from rank_bm25 import BM25Okapi
 
 from raghub.config import Settings
+from raghub.constants import RRF_K
 from raghub.errors import VectorStoreError
 from raghub.models import Chunk, Classification
 
@@ -386,7 +387,7 @@ class MemoryStore(Store):
                 bm25_scores = np.zeros_like(dense_scores)
             dense_ranks = (-dense_scores).argsort().argsort()
             bm25_ranks = (-bm25_scores).argsort().argsort()
-            rrf = 1.0 / (60.0 + dense_ranks) + 1.0 / (60.0 + bm25_ranks)
+            rrf = 1.0 / (RRF_K + dense_ranks) + 1.0 / (RRF_K + bm25_ranks)
             order = np.argsort(-rrf)[:top_k]
         return self.materialize([(records[i], float(rrf[i])) for i in order])
 

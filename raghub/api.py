@@ -35,6 +35,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from raghub.config import Settings
+from raghub.constants import API_RATE_LIMIT_BURST, API_RATE_LIMIT_RPS
 from raghub.coroutines import capture
 from raghub.ingest import Batch
 from raghub.ratelimit import Ratelimit
@@ -314,7 +315,7 @@ def create_app(application: Facade) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.add_middleware(Ratelimit, rate=10.0, burst=20)
+    app.add_middleware(Ratelimit, rate=API_RATE_LIMIT_RPS, burst=API_RATE_LIMIT_BURST)
 
     Exceptions.install(app)
     RouteGroup().register_all(app, prefix="/v1")
