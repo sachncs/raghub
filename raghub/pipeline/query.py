@@ -27,7 +27,7 @@ from raghub.models import (
     Turn,
     VectorStore,
 )
-from raghub.pipeline.helpers import DurationTimer, QueryContext, awaitable
+from raghub.pipeline.span_support import DurationTimer, QueryContext, coerce_to_awaitable
 from raghub.pipeline.query_helpers import (
     annotate_span,
     annotate_stream,
@@ -45,7 +45,7 @@ from raghub.pipeline.query_helpers import (
 )
 from raghub.telemetry import NoOpTelemetry
 
-_logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 class QueryPipeline(PipelineRunner):
@@ -275,7 +275,7 @@ class QueryPipeline(PipelineRunner):
         """Generate the answer and record token usage on the telemetry span."""
         citations = build_citations(hits)
         with self.telemetry.span("query.generate"):
-            result = await awaitable(
+            result = await coerce_to_awaitable(
                 self.generator.generate(
                     question=question,
                     context=hits,

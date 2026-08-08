@@ -19,7 +19,7 @@ from raghub.models import (
     User,
     VectorStore,
 )
-from raghub.pipeline.helpers import DurationTimer, awaitable
+from raghub.pipeline.span_support import DurationTimer, coerce_to_awaitable
 from raghub.telemetry import NoOpTelemetry
 
 
@@ -102,7 +102,7 @@ class AgentPipeline(PipelineRunner):
                         hits = await self.long_context_pass.rerank(question=question, hits=hits)
 
                 agent_answer = trace.final_answer
-                generator_result = await awaitable(
+                generator_result = await coerce_to_awaitable(
                     self.generator.generate(
                         question=question,
                         context=hits,

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 # Sub-modules surfaced as `raghub.X` namespaces for convenience.
 from raghub import (
+    auth_support,
     authhelpers,
     commands,
     evaluation,
@@ -220,6 +221,7 @@ __all__ = [
     "VectorStoreError",
     "VerificationError",
     "Words",
+    "auth_support",
     "authhelpers",
     "commands",
     "evaluation",

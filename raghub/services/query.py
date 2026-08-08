@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from raghub.llm import GenerationRequest
 from raghub.models import Chunk, QueryResponse, User
-from raghub.services.helpers import emit_log, emit_metric
+from raghub.services.diagnostics import emit_log, emit_metric
 from raghub.types import JSONValue
 
 if TYPE_CHECKING:

@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from raghub.models import Pipeline
-from raghub.pipeline.helpers import canonical_filters
+from raghub.pipeline.span_support import canonical_filters
 from raghub.types import JSONValue
 
 

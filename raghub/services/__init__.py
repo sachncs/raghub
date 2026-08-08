@@ -24,7 +24,7 @@ from raghub.services.container import RagContainer, build_container
 from raghub.services.documents import Documents, get_doc, list_records
 from raghub.services.facade import RAG_FACADE_AVAILABLE, Facade
 from raghub.services.health import Health
-from raghub.services.helpers import (
+from raghub.services.diagnostics import (
     aggregate_status,
     build_models,
     emit_log,

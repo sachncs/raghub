@@ -9,7 +9,7 @@ from raghub.core import can_access_company
 from raghub.errors import AuthorizationError
 from raghub.lifecycle import detect_mime_type
 from raghub.models import Document
-from raghub.services.helpers import emit_log, emit_metric, upload_record
+from raghub.services.diagnostics import emit_log, emit_metric, upload_record
 from raghub.types import JSONValue
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ async def get_doc(uow: UnitOfWork, document_id: str) -> Document:
     """Return a single document by id or raise :class:`IngestionError`."""
     record = await uow.document_repo.get(document_id)
     if record is None:
-        from raghub.services.helpers import missing_doc
+        from raghub.services.diagnostics import missing_doc
 
         missing_doc(document_id)
     return cast(Document, record)

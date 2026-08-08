@@ -14,7 +14,7 @@ from raghub.parsers import Catalog
 from raghub.prompts import Prompt
 from raghub.repos import UnitOfWork
 from raghub.retrieval import Retrieval as RetrievalPipeline
-from raghub.services.helpers import (
+from raghub.services.diagnostics import (
     build_logger,
     build_models,
     seed_blocked,
