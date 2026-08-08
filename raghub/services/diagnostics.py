@@ -23,7 +23,6 @@ from raghub.retrieval import (
 )
 from raghub.store import Store
 from raghub.stores import ImageStore
-from raghub.telemetry import build_logger
 from raghub.types import JSONValue
 
 if TYPE_CHECKING:
@@ -219,7 +218,6 @@ def __build_conversation(uow: "UnitOfWork") -> Any:
 
 __all__ = [
     "aggregate_status",
-    "build_logger",
     "build_models",
     "emit_log",
     "emit_metric",
