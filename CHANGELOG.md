@@ -21,11 +21,7 @@ oldest.
 
 - Removed the redundant `.dockerignore` file.
 
-## [0.9.5] - 2026-08-30
-
-### Changed
-
-### Added
+## [0.9.5] - 2026-08-08
 
 ### Changed
 
