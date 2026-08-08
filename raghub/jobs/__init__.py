@@ -34,22 +34,22 @@ __all__ = [
 class JobStatus(StrEnum):
     """Lifecycle states for one queued job."""
 
-    PENDING = "pending"
-    RUNNING = "running"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-    DEAD = "dead"
+    Pending = "pending"
+    Running = "running"
+    Succeeded = "succeeded"
+    Failed = "failed"
+    Dead = "dead"
 
 
 # Allowed transitions per the state machine in todo/v0.7.4.
 _VALID_TRANSITIONS: dict[JobStatus, frozenset[JobStatus]] = {
-    JobStatus.PENDING: frozenset({JobStatus.RUNNING, JobStatus.DEAD}),
-    JobStatus.RUNNING: frozenset(
-        {JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.DEAD}
+    JobStatus.Pending: frozenset({JobStatus.Running, JobStatus.Dead}),
+    JobStatus.Running: frozenset(
+        {JobStatus.Succeeded, JobStatus.Failed, JobStatus.Dead}
     ),
-    JobStatus.FAILED: frozenset({JobStatus.PENDING}),
-    JobStatus.SUCCEEDED: frozenset(),
-    JobStatus.DEAD: frozenset(),
+    JobStatus.Failed: frozenset({JobStatus.Pending}),
+    JobStatus.Succeeded: frozenset(),
+    JobStatus.Dead: frozenset(),
 }
 
 
@@ -64,7 +64,7 @@ class Job:
     id: str
     kind: str
     payload: dict[str, Any]
-    status: JobStatus = JobStatus.PENDING
+    status: JobStatus = JobStatus.Pending
     attempts: int = 0
     max_attempts: int = 3
     last_error: str | None = None
@@ -216,7 +216,7 @@ class SqliteQueue:
         cursor = await conn.execute(
             "SELECT COUNT(*) FROM raghub_queue "
             "WHERE status IN (?, ?)",
-            (JobStatus.PENDING.value, JobStatus.RUNNING.value),
+            (JobStatus.Pending.value, JobStatus.Running.value),
         )
         row = await cursor.fetchone()
         return int(row[0]) if row else 0
@@ -249,7 +249,7 @@ class SqliteQueue:
                     job_id,
                     kind,
                     json.dumps(payload),
-                    JobStatus.PENDING.value,
+                    JobStatus.Pending.value,
                     max_attempts,
                     now,
                     tenant_id,
@@ -281,11 +281,11 @@ class SqliteQueue:
                 "  ORDER BY next_run_at ASC LIMIT 1"
                 ") RETURNING *",
                 (
-                    JobStatus.RUNNING.value,
+                    JobStatus.Running.value,
                     worker_id,
                     lease_until,
                     now.isoformat(),
-                    JobStatus.PENDING.value,
+                    JobStatus.Pending.value,
                     now.isoformat(),
                 ),
             )
@@ -301,7 +301,7 @@ class SqliteQueue:
         async with self.connect() as conn:
             await conn.execute(
                 "UPDATE raghub_queue SET status = ?, updated_at = ? WHERE id = ?",
-                (JobStatus.SUCCEEDED.value, now, job_id),
+                (JobStatus.Succeeded.value, now, job_id),
             )
             await conn.commit()
 
@@ -321,11 +321,11 @@ class SqliteQueue:
             attempts = int(row["attempts"]) + 1
             max_attempts = int(row["max_attempts"])
             next_status = (
-                JobStatus.DEAD.value
+                JobStatus.Dead.value
                 if attempts >= max_attempts
-                else JobStatus.PENDING.value
+                else JobStatus.Pending.value
             )
-            backoff = 0 if next_status == JobStatus.DEAD.value else int(
+            backoff = 0 if next_status == JobStatus.Dead.value else int(
                 2 ** (attempts - 1)
             )
             await conn.execute(
@@ -338,7 +338,7 @@ class SqliteQueue:
                     error,
                     (
                         now
-                        if next_status == JobStatus.DEAD.value
+                        if next_status == JobStatus.Dead.value
                         else (
                             datetime.now(UTC)
                             + timedelta(seconds=backoff)
@@ -356,7 +356,7 @@ class SqliteQueue:
         async with self.connect() as conn:
             await conn.execute(
                 "UPDATE raghub_queue SET status = ?, updated_at = ? WHERE id = ?",
-                (JobStatus.DEAD.value, now, job_id),
+                (JobStatus.Dead.value, now, job_id),
             )
             await conn.commit()
 
@@ -370,7 +370,7 @@ class SqliteQueue:
             await conn.execute(
                 "UPDATE raghub_queue SET status = ?, next_run_at = ?, "
                 "worker_id = NULL, updated_at = ? WHERE id = ?",
-                (JobStatus.PENDING.value, next_run_at, now, job_id),
+                (JobStatus.Pending.value, next_run_at, now, job_id),
             )
             await conn.commit()
 

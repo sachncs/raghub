@@ -85,7 +85,7 @@ def reciprocal_rank_fusion(rankings: Sequence[Sequence[str]], *, k: int = 60) ->
     """
     rows: list[list[dict[str, Any]]] = []
     for ranking in rankings:
-        rows.append([{"chunk_id": item} for scored_record in ranking])
+        rows.append([{"chunk_id": scored_record} for scored_record in ranking])
     fused = Fusion(k=k).fuse(rows)
     return [(row["chunk_id"], float(row["score"])) for row in fused]
 

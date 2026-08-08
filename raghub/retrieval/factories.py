@@ -125,7 +125,7 @@ async def areranker(
     method: str = "identity",
 ) -> list[Hit]:
     """Asynchronously rerank ``hits`` using the named ``method``."""
-    impl = build_reranker(method)
+    impl = build_reranker_by_name(method)
     return await impl.arerank(question=question, hits=list(hits))
 
 
@@ -155,7 +155,7 @@ async def transform(
     return await impl.transform(question=question, history=list(history))
 
 
-def build_reranker(method: str) -> Rerank:
+def build_reranker_by_name(method: str) -> Rerank:
     """Construct a reranker by name. Settings-driven factory has its own path."""
     if method == "identity":
         return Identity()

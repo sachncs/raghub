@@ -23,7 +23,7 @@ from raghub.retrieval import (
     merge_rrf,
     query_prompt,
     reorder_candidates,
-    rrf,
+    reciprocal_rank_fusion,
     step_prompt,
 )
 
@@ -46,7 +46,7 @@ def test_fusion_fuses_multiple_rankings() -> None:
     assert set(ids) == {"a", "b", "c"}
 
 
-def test_rrf_returns_sorted_scores() -> None:
+def test_reciprocal_rank_fusion_returns_sorted_scores() -> None:
     """reciprocal_rank_fusion() returns sorted (chunk_id, score) tuples."""
 
     out = reciprocal_rank_fusion([["a", "b"], ["b", "c"]])
@@ -56,7 +56,7 @@ def test_rrf_returns_sorted_scores() -> None:
     assert scores == sorted(scores, reverse=True)
 
 
-def test_rrf_rejects_non_strings() -> None:
+def test_reciprocal_rank_fusion_rejects_non_strings() -> None:
     """reciprocal_rank_fusion() raises ValueError when a chunk_id is not a string."""
 
     with pytest.raises(ValueError):

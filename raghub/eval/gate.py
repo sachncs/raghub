@@ -198,7 +198,7 @@ async def compare(
     }
 
 
-def average(results: list[Any]) -> dict[str, float]:
+def compute_average(results: list[Any]) -> dict[str, float]:
     """Average every metric across all results."""
     if not results:
         return {}
@@ -206,4 +206,4 @@ def average(results: list[Any]) -> dict[str, float]:
     return {k: sum(r.metrics.get(k, 0.0) for r in results) / len(results) for k in keys}
 
 
-__all__ = ["Gate", "average", "compare"]
+__all__ = ["Gate", "compute_average", "compare"]
