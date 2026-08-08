@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import re
 import time
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Any, Literal, cast
@@ -112,16 +112,16 @@ Decide your next turn. JSON only.
 """
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class PlannerAction:
     """A tool call parsed from an LLM turn."""
 
     thought: str
     name: str
-    args: dict[str, Any]
+    args: Mapping[str, Any]
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class PlannerFinal:
     """A final answer parsed from an LLM turn."""
 
@@ -129,7 +129,7 @@ class PlannerFinal:
     answer: str
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class PlannerParseError:
     """A turn that could not be parsed as an action or final."""
 
@@ -232,7 +232,7 @@ ALLOWED_RERANKERS = frozenset({"none", "cohere", "llm", "cascade"})
 ALLOWED_TRANSFORMS = frozenset({"hyde", "multi_query", "step_back", "decompose"})
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ResolvedConfig:
     """Effective settings after precedence resolution."""
 
@@ -255,7 +255,7 @@ class ResolvedConfig:
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class AgentRequest:
     """Inputs for the agent loop entry points.
 

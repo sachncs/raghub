@@ -684,11 +684,11 @@ class SqliteStore(Store):
         denom = float(np.linalg.norm(query)) or 1.0
         scored: list[tuple[Any, float]] = []
         for row in rows:
-            score = self.cosine(query, row[-1], denom)
+            score = self.cosine_similarity(query, row[-1], denom)
             scored.append((self.row_to_chunk(row), score))
         return scored
 
-    def cosine(self, query: Any, blob: Any, denom: float) -> float:
+    def cosine_similarity(self, query: Any, blob: Any, denom: float) -> float:
         """Cosine similarity between the query vector and a stored blob."""
         v = np.frombuffer(blob, dtype=np.float32)
         d = float(np.linalg.norm(v)) or 1.0

@@ -84,7 +84,7 @@ class Search:
         raw = self.vector_store.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
         results: list[Chunk] = []
         seen: set[str] = set()
-        for item in raw:
+        for search_record in raw:
             chunk: Chunk = item["chunk"]
             if chunk.id in seen:
                 continue

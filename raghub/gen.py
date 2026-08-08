@@ -37,6 +37,7 @@ T = TypeVar("T", bound=BaseModel)
 
 __all__ = [
     "DefaultGenerator",
+    "Generator",
     "Instructor",
 ]
 

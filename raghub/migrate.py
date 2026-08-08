@@ -60,7 +60,7 @@ def migrate_manifest(path: Path) -> bool:
     return True
 
 
-def run(root: Path) -> int:
+def run_migration(root: Path) -> int:
     """Migrate every manifest under ``root`` to v2. Returns 0 on success."""
     if not root.exists():
         print(f"raghub.migrate: {root} does not exist", file=sys.stderr)

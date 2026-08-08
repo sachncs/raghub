@@ -22,7 +22,7 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DocumentState:
     """A document's current lifecycle status.
 
@@ -74,46 +74,46 @@ class DocumentStateMachine:
     def __init__(self) -> None:
         """Initialise the immutable allowed-transition table."""
         self.allowed: dict[DocumentLifecycleStatus, set[DocumentLifecycleStatus]] = {
-            DocumentLifecycleStatus.NEW: {
-                DocumentLifecycleStatus.VALIDATING,
-                DocumentLifecycleStatus.FAILED,
+            DocumentLifecycleStatus.New: {
+                DocumentLifecycleStatus.Validating,
+                DocumentLifecycleStatus.Failed,
             },
-            DocumentLifecycleStatus.VALIDATING: {
-                DocumentLifecycleStatus.PROCESSING,
-                DocumentLifecycleStatus.FAILED,
+            DocumentLifecycleStatus.Validating: {
+                DocumentLifecycleStatus.Processing,
+                DocumentLifecycleStatus.Failed,
             },
-            DocumentLifecycleStatus.PROCESSING: {
-                DocumentLifecycleStatus.CHUNKING,
-                DocumentLifecycleStatus.FAILED,
+            DocumentLifecycleStatus.Processing: {
+                DocumentLifecycleStatus.Chunking,
+                DocumentLifecycleStatus.Failed,
             },
-            DocumentLifecycleStatus.CHUNKING: {
-                DocumentLifecycleStatus.EMBEDDING,
-                DocumentLifecycleStatus.FAILED,
+            DocumentLifecycleStatus.Chunking: {
+                DocumentLifecycleStatus.Embedding,
+                DocumentLifecycleStatus.Failed,
             },
-            DocumentLifecycleStatus.EMBEDDING: {
-                DocumentLifecycleStatus.INDEXING,
-                DocumentLifecycleStatus.FAILED,
+            DocumentLifecycleStatus.Embedding: {
+                DocumentLifecycleStatus.Indexing,
+                DocumentLifecycleStatus.Failed,
             },
-            DocumentLifecycleStatus.INDEXING: {
-                DocumentLifecycleStatus.READY,
-                DocumentLifecycleStatus.UPDATING,
-                DocumentLifecycleStatus.FAILED,
+            DocumentLifecycleStatus.Indexing: {
+                DocumentLifecycleStatus.Ready,
+                DocumentLifecycleStatus.Updating,
+                DocumentLifecycleStatus.Failed,
             },
-            DocumentLifecycleStatus.READY: {
-                DocumentLifecycleStatus.UPDATING,
-                DocumentLifecycleStatus.DELETING,
-                DocumentLifecycleStatus.ARCHIVED,
+            DocumentLifecycleStatus.Ready: {
+                DocumentLifecycleStatus.Updating,
+                DocumentLifecycleStatus.Deleting,
+                DocumentLifecycleStatus.Archived,
             },
-            DocumentLifecycleStatus.UPDATING: {
-                DocumentLifecycleStatus.INDEXING,
-                DocumentLifecycleStatus.FAILED,
+            DocumentLifecycleStatus.Updating: {
+                DocumentLifecycleStatus.Indexing,
+                DocumentLifecycleStatus.Failed,
             },
-            DocumentLifecycleStatus.DELETING: {
-                DocumentLifecycleStatus.ARCHIVED,
-                DocumentLifecycleStatus.FAILED,
+            DocumentLifecycleStatus.Deleting: {
+                DocumentLifecycleStatus.Archived,
+                DocumentLifecycleStatus.Failed,
             },
-            DocumentLifecycleStatus.ARCHIVED: set(),
-            DocumentLifecycleStatus.FAILED: set(),
+            DocumentLifecycleStatus.Archived: set(),
+            DocumentLifecycleStatus.Failed: set(),
         }
 
     def can_transition(

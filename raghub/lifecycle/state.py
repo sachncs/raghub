@@ -112,7 +112,7 @@ def new_version(previous: Document | None, **overrides: Any) -> Document:
     payload = previous.model_dump() if previous else {}
     payload.update(overrides)
     payload["version"] = version_number
-    payload["status"] = DocumentLifecycleStatus.NEW
+    payload["status"] = DocumentLifecycleStatus.New
     payload["updated_at"] = datetime_now_utc()
     if previous is not None:
         payload.setdefault("document_id", previous.id)
@@ -125,7 +125,7 @@ def new_version(previous: Document | None, **overrides: Any) -> Document:
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ChunkingPlan:
     """Configuration for the word-window chunker.
 
@@ -199,14 +199,14 @@ class Section:
 
             if TABLE_LINE_RE.match(raw_line):
                 self.flush_text_buffer()
-                self.blocks.append(DocumentBlock(kind=BlockKind.TABLE, content=raw_line.strip()))
+                self.blocks.append(DocumentBlock(kind=BlockKind.Table, content=raw_line.strip()))
                 continue
 
             equation_match = EQUATION_RE.match(raw_line.strip())
             if equation_match:
                 self.flush_text_buffer()
                 self.blocks.append(
-                    DocumentBlock(kind=BlockKind.EQUATION, content=equation_match.group(1).strip())
+                    DocumentBlock(kind=BlockKind.Equation, content=equation_match.group(1).strip())
                 )
                 continue
 
@@ -223,7 +223,7 @@ class Section:
         if not self.text_buf:
             return
         self.blocks.append(
-            DocumentBlock(kind=BlockKind.TEXT, content="\n".join(self.text_buf).rstrip("\n"))
+            DocumentBlock(kind=BlockKind.Text, content="\n".join(self.text_buf).rstrip("\n"))
         )
         self.text_buf.clear()
 
@@ -232,7 +232,7 @@ class Section:
         if raw_line.strip() == self.fence_marker:
             self.blocks.append(
                 DocumentBlock(
-                    kind=BlockKind.CODE,
+                    kind=BlockKind.Code,
                     content="\n".join(self.text_buf).rstrip("\n"),
                     metadata={"language": self.fence_lang},
                 )
@@ -253,7 +253,7 @@ class Section:
             caption, uri = raw_image.group(1), raw_image.group(2)
             self.blocks.append(
                 DocumentBlock(
-                    kind=BlockKind.IMAGE,
+                    kind=BlockKind.Image,
                     content=uri,
                     metadata={"caption": caption, "source": uri},
                 )
@@ -262,7 +262,7 @@ class Section:
         if trailing.strip():
             self.blocks.append(
                 DocumentBlock(
-                    kind=BlockKind.TEXT,
+                    kind=BlockKind.Text,
                     content=INLINE_EQUATION_RE.sub(lambda m: f"\\({m.group(1)}\\)", trailing),
                 )
             )
@@ -304,7 +304,7 @@ def normalise_markdown(
     blocks, flat = md_to_blocks(markdown)
 
     if not blocks and flat:
-        blocks = [DocumentBlock(kind=BlockKind.TEXT, content=flat)]
+        blocks = [DocumentBlock(kind=BlockKind.Text, content=flat)]
 
     section = DocumentSection(
         section_id=deterministic_id("section", source_uri, "auto"),

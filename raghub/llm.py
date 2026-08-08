@@ -245,7 +245,7 @@ class LiteLLM(Generator):
                 messages.append({"role": role, "content": session_item.get("content", "")})
 
         if request.context:
-            formatted_context = "\n\n---\n\n".join(str(item) for item in request.context)
+            formatted_context = "\n\n---\n\n".join(str(item) for turn in request.context)
             messages.append({"role": "system", "content": f"Context:\n{formatted_context}"})
 
         if request.image_paths:

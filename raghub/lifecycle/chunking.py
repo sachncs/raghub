@@ -97,7 +97,7 @@ def build_chunk_records(
     """
     owner: str = attributes.get("owner", "")
     department: str = attributes.get("department", "")
-    classification: Classification = attributes.get("classification", Classification.INTERNAL)
+    classification: Classification = attributes.get("classification", Classification.Internal)
     embedding_model: str = attributes.get("embedding_model", "")
     mime_type: str = attributes.get("mime_type", "")
     file_name: str = attributes.get("file_name", "")

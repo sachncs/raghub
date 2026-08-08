@@ -12,7 +12,7 @@ from raghub.core import allowed_company_filter
 from raghub.embedder import Embedder
 from raghub.models import Chunk, Hit, User
 from raghub.retrieval.factories import default_hybrid
-from raghub.retrieval.fusion import rrf
+from raghub.retrieval.fusion import reciprocal_rank_fusion
 from raghub.retrieval.types import Rerank, Variant
 
 if TYPE_CHECKING:
@@ -99,7 +99,7 @@ class Retrieval:
         keyword_hits = self.retrieve_keyword(query, top_k=len(vector_results) * 2 or 1)
         dense_ranks = [h.chunk_id for h in vector_results]
         sparse_ranks = [h.chunk_id for h in keyword_hits]
-        fused = rrf([dense_ranks, sparse_ranks], k=rrf_k)
+        fused = reciprocal_rank_fusion([dense_ranks, sparse_ranks], k=rrf_k)
         chunk_map: dict[str, Chunk] = {h.chunk_id: h.chunk for h in keyword_hits}
         chunk_map.update({h.chunk_id: h.chunk for h in vector_results})
         out: list[Hit] = []
@@ -224,7 +224,7 @@ class Retrieval:
         rankings = [r for r in rankings if r]
         if not rankings:
             return []
-        fused_scores = rrf(rankings, k=getattr(self.hybrid, "rrf_k", 60))
+        fused_scores = reciprocal_rank_fusion(rankings, k=getattr(self.hybrid, "rrf_k", 60))
         chunk_map: dict[str, Chunk] = {h.chunk_id: h.chunk for h in sparse}
         chunk_map.update({h.chunk_id: h.chunk for h in colbert_hits})
         chunk_map.update({h.chunk_id: h.chunk for h in dense})

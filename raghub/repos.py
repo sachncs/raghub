@@ -151,15 +151,15 @@ class DocStore(DocumentRepository):
         :meth:`initialize`.
     """
 
-    def __init__(self, db_path: str | Path, db_manager: Database | None = None) -> None:
+    def __init__(self, db_path: str | Path, database_handle: Database | None = None) -> None:
         """Store ``db_path`` for the SQLite database."""
         self.db_path = str(db_path)
-        self.db_manager = db_manager
+        self.database_handle = database_handle
 
     async def conn(self) -> aiosqlite.Connection:
         """Return a configured aiosqlite connection."""
-        if self.db_manager is not None:
-            return self.db_manager.connection
+        if self.database_handle is not None:
+            return self.database_handle.connection
         conn = await aiosqlite.connect(self.db_path)
         conn.row_factory = aiosqlite.Row
         await conn.execute("PRAGMA journal_mode=WAL")
@@ -167,8 +167,8 @@ class DocStore(DocumentRepository):
         return conn
 
     async def maybe_commit_close(self, conn: aiosqlite.Connection) -> None:
-        """Commit and close ``conn`` when not managed by ``db_manager``."""
-        if self.db_manager is None:
+        """Commit and close ``conn`` when not managed by ``database_handle``."""
+        if self.database_handle is None:
             await conn.commit()
             await conn.close()
 
@@ -444,11 +444,11 @@ class SessionStore(SessionRepository):
         self,
         db_path: str | Path,
         timeout_seconds: int = DEFAULT_SESSION_TIMEOUT_SECONDS,
-        db_manager: Database | None = None,
+        database_handle: Database | None = None,
     ) -> None:
         """Wrap a Sessions-backed SQLite store in the repository protocol."""
-        self.inner = Sessions(db_path, timeout_seconds, db=db_manager)
-        self.db_manager = db_manager
+        self.inner = Sessions(db_path, timeout_seconds, db=database_handle)
+        self.database_handle = database_handle
 
     async def initialize(self) -> None:
         """Initialise the underlying session store."""
@@ -474,7 +474,7 @@ class SessionStore(SessionRepository):
                 "[]",
             ),
         )
-        if self.db_manager is None:
+        if self.database_handle is None:
             await conn.commit()
             await conn.close()
 
@@ -507,7 +507,7 @@ class SessionStore(SessionRepository):
                 json.dumps(record.overrides or {}),
             ),
         )
-        if self.db_manager is None:
+        if self.database_handle is None:
             await conn.commit()
             await conn.close()
 
@@ -529,8 +529,8 @@ class SessionStore(SessionRepository):
 
     async def conn(self) -> aiosqlite.Connection:
         """Return a configured aiosqlite connection for sessions."""
-        if self.db_manager is not None:
-            return self.db_manager.connection
+        if self.database_handle is not None:
+            return self.database_handle.connection
         conn = await aiosqlite.connect(self.inner.db_path)
         conn.row_factory = aiosqlite.Row
         return conn
@@ -545,24 +545,24 @@ class UnitOfWork(BaseUnitOfWork):
         self.vector_store = vector_store
         self.session_timeout = session_timeout
         self.initialized = False
-        self.db_manager = Database(db_path)
+        self.database_handle = Database(db_path)
 
-        doc_repo = DocStore(db_path, db_manager=self.db_manager)
+        doc_repo = DocStore(db_path, database_handle=self.database_handle)
         chunk_repo = ChunkStore(vector_store)
-        sess_repo = SessionStore(db_path, session_timeout, db_manager=self.db_manager)
+        sess_repo = SessionStore(db_path, session_timeout, database_handle=self.database_handle)
         super().__init__(
             document_repo=doc_repo,
             chunk_repo=chunk_repo,
             session_repo=sess_repo,
-            db_manager=self.db_manager,
+            database_handle=self.database_handle,
         )
 
     async def initialize(self) -> None:
         """Open the database connection and initialise all repositories."""
         if not self.initialized:
-            if self.db_manager is None:
-                raise TypeError("UnitOfWork.db_manager must be set before initialize()")
-            await self.db_manager.connect()
+            if self.database_handle is None:
+                raise TypeError("UnitOfWork.database_handle must be set before initialize()")
+            await self.database_handle.connect()
             await self.document_repo.initialize()
             await self.chunk_repo.initialize()
             await self.session_repo.initialize()
@@ -575,9 +575,9 @@ class UnitOfWork(BaseUnitOfWork):
         """
         if not self.initialized:
             return
-        db_manager = self.db_manager
-        if db_manager is not None:
-            await db_manager.close()
+        database_handle = self.database_handle
+        if database_handle is not None:
+            await database_handle.close()
         self.initialized = False
 
     async def __aenter__(self) -> UnitOfWork:

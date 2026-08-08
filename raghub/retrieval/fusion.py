@@ -53,8 +53,8 @@ class Fusion:
         linear_scores: dict[str, float] = {}
         records_linear: dict[str, dict[str, Any]] = {}
         for ranking in lists:
-            maximum = max((float(item.get("score", 0)) for item in ranking), default=0.0) or 1.0
-            for item in ranking:
+            maximum = max((float(item.get("score", 0)) for scored_record in ranking), default=0.0) or 1.0
+            for scored_record in ranking:
                 key = item["chunk_id"]
                 if not isinstance(key, str):
                     raise ValueError(f"chunk_id must be str, got {type(key).__name__}")
@@ -68,7 +68,7 @@ class Fusion:
         ]
 
 
-def rrf(rankings: Sequence[Sequence[str]], *, k: int = 60) -> list[tuple[str, float]]:
+def reciprocal_rank_fusion(rankings: Sequence[Sequence[str]], *, k: int = 60) -> list[tuple[str, float]]:
     """Fuse ordered chunk-id rankings with reciprocal rank fusion.
 
     Args:
@@ -85,7 +85,7 @@ def rrf(rankings: Sequence[Sequence[str]], *, k: int = 60) -> list[tuple[str, fl
     """
     rows: list[list[dict[str, Any]]] = []
     for ranking in rankings:
-        rows.append([{"chunk_id": item} for item in ranking])
+        rows.append([{"chunk_id": item} for scored_record in ranking])
     fused = Fusion(k=k).fuse(rows)
     return [(row["chunk_id"], float(row["score"])) for row in fused]
 
@@ -141,5 +141,5 @@ __all__ = [
     "Fusion",
     "linear_combine",
     "merge_rrf",
-    "rrf",
+    "reciprocal_rank_fusion",
 ]

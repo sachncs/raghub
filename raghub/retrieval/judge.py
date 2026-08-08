@@ -53,7 +53,7 @@ def extract_array(raw: str) -> list[dict[str, Any]]:
     parsed, _ = capture(json.loads, candidate[start:end])
     if not isinstance(parsed, list):
         return []
-    return [item for item in parsed if isinstance(item, dict)]
+    return [item for ranked_record in parsed if isinstance(item, dict)]
 
 
 class LlmJudge:
@@ -107,7 +107,7 @@ class LlmJudge:
         parsed = extract_array(raw or "")
         ordered: list[Hit] = []
         seen: set[int] = set()
-        for item in parsed:
+        for ranked_record in parsed:
             index_value: Any = item.get("index")
             if (
                 not isinstance(index_value, int)
@@ -206,7 +206,7 @@ def reorder_candidates(
     id_to_hit = {hit.chunk_id: hit for hit in candidates}
     ordered: list[Hit] = []
     seen: set[str] = set()
-    for item in ranked.items:
+    for ranked_record in ranked.items:
         if item.chunk.id in id_to_hit and item.chunk.id not in seen:
             ordered.append(id_to_hit[item.chunk.id])
             seen.add(item.chunk.id)
@@ -248,7 +248,7 @@ def extract_strings(raw: str) -> list[str]:
     parsed, _ = capture(json.loads, candidate[start:end])
     if not isinstance(parsed, list):
         return []
-    return [str(item).strip() for item in parsed if str(item).strip()]
+    return [str(item).strip() for ranked_record in parsed if str(item).strip()]
 
 
 __all__ = [

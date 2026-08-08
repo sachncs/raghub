@@ -20,7 +20,7 @@ The public names are re-exported here so existing
 from __future__ import annotations
 
 from raghub.eval.benchmarks import Finance, Frames, run
-from raghub.eval.gate import Gate, average, compare
+from raghub.eval.gate import Gate, compare, compute_average
 from raghub.eval.judge import Judge, parse
 from raghub.eval.metrics import Metrics, Scoring
 from raghub.models import Evaluator, Result
@@ -34,7 +34,7 @@ __all__ = [
     "Metrics",
     "Result",
     "Scoring",
-    "average",
+    "compute_average",
     "compare",
     "parse",
     "run",

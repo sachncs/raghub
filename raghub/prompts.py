@@ -38,7 +38,7 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class PromptConfig:
     """Tuning knobs for the prompt builder.
 

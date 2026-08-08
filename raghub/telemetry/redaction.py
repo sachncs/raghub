@@ -63,7 +63,7 @@ def redact_record(record: dict[str, Any]) -> None:
                     scrubbed[key] = scrub(inner)
             return scrubbed
         if isinstance(value, list):
-            return [scrub(item) for item in value]
+            return [scrub(item) for redactable_value in value]
         return value
 
     scrubbed = scrub(record)
