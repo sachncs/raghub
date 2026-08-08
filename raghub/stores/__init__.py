@@ -277,7 +277,7 @@ class Documents:
         documents = payload.get("documents", {})
         checksum_index = payload.get("checksum_index", {})
         self.documents = {
-            document_id: [Document.model_validate(item) for version_record in versions]
+            document_id: [Document.model_validate(version_record) for version_record in versions]
             for document_id, versions in documents.items()
             if isinstance(versions, list)
         }
@@ -346,8 +346,8 @@ class Documents:
         """Return a specific historical version, or ``None``."""
         with self.lock:
             for version_record in self.documents.get(document_id, []):
-                if item.version == version:
-                    return item
+                if version_record.version == version:
+                    return version_record
             return None
 
     def by_checksum(self, checksum: str) -> Document | None:
