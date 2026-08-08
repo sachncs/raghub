@@ -153,7 +153,7 @@ class DocumentRef:
             ``self`` for chaining.
 
         """
-        self.record.status = self.record.status.__class__.FAILED
+        self.record.status = self.record.status.__class__.Failed
         self.record.error = error
         self.record.updated_at = datetime.now(UTC)
         return self

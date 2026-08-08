@@ -22,8 +22,8 @@ from raghub.models import DocumentLifecycleStatus as Status
 
 def test_document_state_transition_returns_new_state() -> None:
     """``DocumentState.transition`` builds a new state with the target status."""
-    state = DocumentState.transition(Status.PROCESSING)
-    assert state.status == Status.PROCESSING
+    state = DocumentState.transition(Status.Processing)
+    assert state.status == Status.Processing
 
 
 # ---------------------------------------------------------------------------
@@ -39,31 +39,31 @@ def machine() -> DocumentStateMachine:
 
 def test_state_machine_can_transition_legal(machine: DocumentStateMachine) -> None:
     """Legal transitions return ``True``."""
-    assert machine.can_transition(Status.NEW, Status.VALIDATING) is True
-    assert machine.can_transition(Status.INDEXING, Status.READY) is True
+    assert machine.can_transition(Status.New, Status.Validating) is True
+    assert machine.can_transition(Status.Indexing, Status.Ready) is True
 
 
 def test_state_machine_cannot_transition_illegal(machine: DocumentStateMachine) -> None:
     """Illegal transitions return ``False``."""
-    assert machine.can_transition(Status.NEW, Status.READY) is False
-    assert machine.can_transition(Status.ARCHIVED, Status.NEW) is False
+    assert machine.can_transition(Status.New, Status.Ready) is False
+    assert machine.can_transition(Status.Archived, Status.New) is False
 
 
 def test_state_machine_archived_is_terminal(machine: DocumentStateMachine) -> None:
     """``ARCHIVED`` allows no transitions."""
     for target in Status:
-        assert machine.can_transition(Status.ARCHIVED, target) is False
+        assert machine.can_transition(Status.Archived, target) is False
 
 
 def test_state_machine_failed_is_terminal(machine: DocumentStateMachine) -> None:
     """``FAILED`` allows no transitions."""
     for target in Status:
-        assert machine.can_transition(Status.FAILED, target) is False
+        assert machine.can_transition(Status.Failed, target) is False
 
 
 def test_state_machine_unknown_current_returns_false(machine: DocumentStateMachine) -> None:
     """An unknown current status returns ``False`` rather than raising."""
-    assert machine.can_transition("not-a-status", Status.READY) is False  # type: ignore[arg-type]
+    assert machine.can_transition("not-a-status", Status.Ready) is False  # type: ignore[arg-type]
 
 
 def test_state_machine_allowed_table_covers_all_statuses(machine: DocumentStateMachine) -> None:
