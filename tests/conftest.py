@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable, Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -32,6 +34,53 @@ os.environ.setdefault("CORS_ORIGINS", "http://testserver")
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+
+# ---------------------------------------------------------------------------
+# Deterministic clock
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def fixed_clock() -> Callable[[], datetime]:
+    """Return a callable that always returns a fixed instant.
+
+    Use this fixture in place of ``datetime.now(UTC)`` so that tests
+    asserting timestamp equality do not flake across runs.
+
+    Returns:
+        A no-argument callable yielding ``datetime(2026, 1, 1, tzinfo=UTC)``.
+
+    """
+    instant = datetime(2026, 1, 1, tzinfo=UTC)
+
+    def now() -> datetime:
+        """Return the fixed instant."""
+        return instant
+
+    return now
+
+
+@pytest.fixture
+def monotonic_clock() -> Iterator[Callable[[], datetime]]:
+    """Return a callable that advances by 1 second on each call.
+
+    Useful for tests that simulate time-based transitions (e.g. session
+    expiry sweeps) without sleeping.
+
+    Yields:
+        A no-argument callable that returns successive 1-second-apart
+        :class:`datetime` values starting at ``datetime(2026, 1, 1, UTC)``.
+
+    """
+    counter = {"n": 0}
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+
+    def now() -> datetime:
+        counter["n"] += 1
+        return base + timedelta(seconds=counter["n"])
+
+    yield now
 
 
 # ---------------------------------------------------------------------------
