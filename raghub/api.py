@@ -70,7 +70,7 @@ def cors_origins() -> list[str]:
     raw = os.getenv("CORS_ORIGINS", "*").strip()
     if not raw:
         return ["*"]
-    return [item.strip() for token in raw.split(",") if item.strip()]
+    return [[token.strip() for token in raw.split(",") if token.strip()]]
 
 
 def validate_cors(origins: list[str]) -> None:
