@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from raghub.agent import PlannerEvent, resolve
 from raghub.config import Settings
-from raghub.coroutines import maybe_run as maybe_await
+from raghub.coroutines import await_if_awaitable
 from raghub.errors import ConfigurationError, IngestionError, RagHubError
 from raghub.eval import Finance
 from raghub.models import (
@@ -55,7 +55,7 @@ class QueryMixin:
         """Ask a question and return a typed :class:`Response`."""
         return cast(
             Response,
-            maybe_await(
+            await_if_awaitable(
                 self.aquery(question, **kwargs)
             ),
         )
@@ -396,5 +396,5 @@ class QueryMixin:
 
         return cast(
             list[Result],
-            maybe_await(evaluator.evaluate(examples, response_factory=coerce_answer)),
+            await_if_awaitable(evaluator.evaluate(examples, response_factory=coerce_answer)),
         )

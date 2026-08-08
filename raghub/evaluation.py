@@ -22,7 +22,7 @@ app = typer.Typer(help="Evaluation harnesses.", no_args_is_help=True)
 
 
 @app.command(name="financebench")
-def financebench(
+def run_financebench(
     examples: int = typer.Option(10, "--examples", "-n", help="Number of examples (0 = all)."),
 ) -> None:
     """Run the Finance evaluator and print a JSON summary."""
@@ -65,7 +65,7 @@ def financebench(
 
 
 @app.command(name="frames")
-def frames(
+def run_frames(
     examples: int = typer.Option(
         0, "--examples", "-n", help="Number of FRAMES examples (0 = all 824)."
     ),

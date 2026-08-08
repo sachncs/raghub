@@ -9,7 +9,7 @@ from typing import Any, TypeVar
 
 T = TypeVar("T")
 
-__all__ = ["capture", "maybe_await", "maybe_run"]
+__all__ = ["capture", "await_if_awaitable", "run_synchronously"]
 
 
 def capture(
@@ -29,7 +29,7 @@ def capture(
         return None, error
 
 
-async def maybe_await[T](value: T | Awaitable[T]) -> T:
+async def await_if_awaitable[T](value: T | Awaitable[T]) -> T:
     """Await ``value`` if it is awaitable; otherwise return it as-is.
 
     Bridges sync and async callables at API boundaries so a single
@@ -49,10 +49,10 @@ async def maybe_await[T](value: T | Awaitable[T]) -> T:
     return value
 
 
-def maybe_run(awaitable: Any) -> Any:
+def run_synchronously(awaitable: Any) -> Any:
     """Run ``awaitable`` whether or not a loop is already running.
 
-    Sync counterpart to :func:`maybe_await`. If a loop is running,
+    Sync counterpart to :func:`await_if_awaitable`. If a loop is running,
     returns the coroutine so the caller can ``await`` it. Otherwise
     wraps ``awaitable`` in :func:`asyncio.run` so the sync facade
     still works.

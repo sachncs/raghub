@@ -232,7 +232,7 @@ class LiteLLMEmbedder(Embedder):
         data = response.get("data", []) if isinstance(response, dict) else response.data
         return [
             list(item["embedding"]) if isinstance(item, dict) else list(item.embedding)
-            for item in data
+            for record in data
         ]
 
 

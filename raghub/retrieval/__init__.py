@@ -33,10 +33,15 @@ from raghub.retrieval.factories import (
     RerankerFactory,
     areranker,
     build_reranker,
-    reranker,
+    build_transformer,
     transform,
 )
-from raghub.retrieval.fusion import Fusion, linear_combine, merge_rrf, rrf
+from raghub.retrieval.fusion import (
+    Fusion,
+    linear_combine,
+    merge_rrf,
+    reciprocal_rank_fusion,
+)
 from raghub.retrieval.judge import (
     LlmJudge,
     context_prompt,
@@ -85,6 +90,7 @@ __all__ = [
     "areranker",
     "build_filter",
     "build_reranker",
+    "build_transformer",
     "context_prompt",
     "decompose_prompt",
     "extract_array",
@@ -96,9 +102,11 @@ __all__ = [
     "query_prompt",
     "record_latency",
     "reorder_candidates",
+    "build_transformer",
     "rerank_latency",
+    "reciprocal_rank_fusion",
+    "build_transformer",
     "reranker",
-    "rrf",
     "step_prompt",
     "transform",
 ]

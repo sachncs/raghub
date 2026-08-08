@@ -45,31 +45,31 @@ class PluginKind(StrEnum):
     in :mod:`raghub.models`.
     """
 
-    CONVERTER = "converter"
-    CHUNKER = "chunker"
-    EMBEDDER = "embedder"
-    VECTOR_STORE = "vector_store"
-    KNOWLEDGE_REPO = "knowledge_repo"
-    GENERATOR = "generator"
-    STRUCTURED = "structured"
-    TELEMETRY_LOGGER = "telemetry_logger"
-    TELEMETRY_METRICS = "telemetry_metrics"
-    EVALUATOR = "evaluator"
-    FACTORY = "factory"
+    Converter = "converter"
+    Chunker = "chunker"
+    Embedder = "embedder"
+    VectorStore = "vector_store"
+    KnowledgeRepo = "knowledge_repo"
+    Generator = "generator"
+    Structured = "structured"
+    TelemetryLogger = "telemetry_logger"
+    TelemetryMetrics = "telemetry_metrics"
+    Evaluator = "evaluator"
+    Factory = "factory"
 
 
-_PLUGIN_KIND_TYPE_MAP: dict[PluginKind, str] = {
-    PluginKind.CONVERTER: "converters",
-    PluginKind.CHUNKER: "chunkers",
-    PluginKind.EMBEDDER: "embedders",
-    PluginKind.VECTOR_STORE: "vector_stores",
-    PluginKind.KNOWLEDGE_REPO: "knowledge_repos",
-    PluginKind.GENERATOR: "generators",
-    PluginKind.STRUCTURED: "structured",
-    PluginKind.TELEMETRY_LOGGER: "telemetry_loggers",
-    PluginKind.TELEMETRY_METRICS: "telemetry_metrics",
-    PluginKind.EVALUATOR: "evaluators",
-    PluginKind.FACTORY: "factories",
+PLUGIN_KIND_TYPE_MAP: dict[PluginKind, str] = {
+    PluginKind.Converter: "converters",
+    PluginKind.Chunker: "chunkers",
+    PluginKind.Embedder: "embedders",
+    PluginKind.VectorStore: "vector_stores",
+    PluginKind.KnowledgeRepo: "knowledge_repos",
+    PluginKind.Generator: "generators",
+    PluginKind.Structured: "structured",
+    PluginKind.TelemetryLogger: "telemetry_loggers",
+    PluginKind.TelemetryMetrics: "telemetry_metrics",
+    PluginKind.Evaluator: "evaluators",
+    PluginKind.Factory: "factories",
 }
 
 
@@ -122,39 +122,39 @@ class Plugins:
 
     def register_converter(self, name: str, converter: DocumentConverter) -> None:
         """Register a converter under ``name``."""
-        self.register(PluginKind.CONVERTER, name, converter)
+        self.register(PluginKind.Converter, name, converter)
 
     def register_chunker(self, name: str, chunker: Chunker) -> None:
         """Register a chunker under ``name``."""
-        self.register(PluginKind.CHUNKER, name, chunker)
+        self.register(PluginKind.Chunker, name, chunker)
 
     def register_embedder(self, name: str, embedder: EmbeddingProvider) -> None:
         """Register an embedder under ``name``."""
-        self.register(PluginKind.EMBEDDER, name, embedder)
+        self.register(PluginKind.Embedder, name, embedder)
 
     def register_vector_store(self, name: str, store: VectorStore) -> None:
         """Register a vector store under ``name``."""
-        self.register(PluginKind.VECTOR_STORE, name, store)
+        self.register(PluginKind.VectorStore, name, store)
 
     def register_knowledge_repo(self, name: str, repo: KnowledgeRepository) -> None:
         """Register a knowledge repository under ``name``."""
-        self.register(PluginKind.KNOWLEDGE_REPO, name, repo)
+        self.register(PluginKind.KnowledgeRepo, name, repo)
 
     def register_generator(self, name: str, generator: GeneratorProtocol) -> None:
         """Register a generator under ``name``."""
-        self.register(PluginKind.GENERATOR, name, generator)
+        self.register(PluginKind.Generator, name, generator)
 
     def register_structured(self, name: str, provider: StructuredOutputProvider) -> None:
         """Register a structured-output provider under ``name``."""
-        self.register(PluginKind.STRUCTURED, name, provider)
+        self.register(PluginKind.Structured, name, provider)
 
     def register_evaluator(self, name: str, evaluator: Evaluator) -> None:
         """Register an evaluator under ``name``."""
-        self.register(PluginKind.EVALUATOR, name, evaluator)
+        self.register(PluginKind.Evaluator, name, evaluator)
 
     def register_factory(self, name: str, factory: Callable[..., JSONValue]) -> None:
         """Register a generic factory under ``name``."""
-        self.register(PluginKind.FACTORY, name, factory)
+        self.register(PluginKind.Factory, name, factory)
 
     def register_telemetry(self, name: str, logger: Logger, metrics: Metrics) -> None:
         """Register a telemetry pair under ``name``.
@@ -163,8 +163,8 @@ class Plugins:
         ``(TELEMETRY_LOGGER, name)`` and
         ``(TELEMETRY_METRICS, name)`` respectively.
         """
-        self.register(PluginKind.TELEMETRY_LOGGER, name, logger)
-        self.register(PluginKind.TELEMETRY_METRICS, name, metrics)
+        self.register(PluginKind.TelemetryLogger, name, logger)
+        self.register(PluginKind.TelemetryMetrics, name, metrics)
 
     # ------------------------------------------------------------------
     # Legacy accessors (per-kind dicts)
@@ -174,72 +174,72 @@ class Plugins:
     def converters(self) -> dict[str, DocumentConverter]:
         """Return a snapshot of registered converters (legacy accessor)."""
         return {
-            name: self.entries[PluginKind.CONVERTER, name]
-            for name in self.names(PluginKind.CONVERTER)
+            name: self.entries[PluginKind.Converter, name]
+            for name in self.names(PluginKind.Converter)
         }
 
     @property
     def chunkers(self) -> dict[str, Chunker]:
         """Return a snapshot of registered chunkers (legacy accessor)."""
         return {
-            name: self.entries[PluginKind.CHUNKER, name]
-            for name in self.names(PluginKind.CHUNKER)
+            name: self.entries[PluginKind.Chunker, name]
+            for name in self.names(PluginKind.Chunker)
         }
 
     @property
     def embedders(self) -> dict[str, EmbeddingProvider]:
         """Return a snapshot of registered embedders (legacy accessor)."""
         return {
-            name: self.entries[PluginKind.EMBEDDER, name]
-            for name in self.names(PluginKind.EMBEDDER)
+            name: self.entries[PluginKind.Embedder, name]
+            for name in self.names(PluginKind.Embedder)
         }
 
     @property
     def vector_stores(self) -> dict[str, VectorStore]:
         """Return a snapshot of registered vector stores (legacy accessor)."""
         return {
-            name: self.entries[PluginKind.VECTOR_STORE, name]
-            for name in self.names(PluginKind.VECTOR_STORE)
+            name: self.entries[PluginKind.VectorStore, name]
+            for name in self.names(PluginKind.VectorStore)
         }
 
     @property
     def knowledge_repos(self) -> dict[str, KnowledgeRepository]:
         """Return a snapshot of registered knowledge repos (legacy accessor)."""
         return {
-            name: self.entries[PluginKind.KNOWLEDGE_REPO, name]
-            for name in self.names(PluginKind.KNOWLEDGE_REPO)
+            name: self.entries[PluginKind.KnowledgeRepo, name]
+            for name in self.names(PluginKind.KnowledgeRepo)
         }
 
     @property
     def generators(self) -> dict[str, GeneratorProtocol]:
         """Return a snapshot of registered generators (legacy accessor)."""
         return {
-            name: self.entries[PluginKind.GENERATOR, name]
-            for name in self.names(PluginKind.GENERATOR)
+            name: self.entries[PluginKind.Generator, name]
+            for name in self.names(PluginKind.Generator)
         }
 
     @property
     def structured(self) -> dict[str, StructuredOutputProvider]:
         """Return a snapshot of registered structured-output providers."""
         return {
-            name: self.entries[PluginKind.STRUCTURED, name]
-            for name in self.names(PluginKind.STRUCTURED)
+            name: self.entries[PluginKind.Structured, name]
+            for name in self.names(PluginKind.Structured)
         }
 
     @property
     def evaluators(self) -> dict[str, Evaluator]:
         """Return a snapshot of registered evaluators (legacy accessor)."""
         return {
-            name: self.entries[PluginKind.EVALUATOR, name]
-            for name in self.names(PluginKind.EVALUATOR)
+            name: self.entries[PluginKind.Evaluator, name]
+            for name in self.names(PluginKind.Evaluator)
         }
 
     @property
     def factories(self) -> dict[str, Callable[..., JSONValue]]:
         """Return a snapshot of registered factories (legacy accessor)."""
         return {
-            name: self.entries[PluginKind.FACTORY, name]
-            for name in self.names(PluginKind.FACTORY)
+            name: self.entries[PluginKind.Factory, name]
+            for name in self.names(PluginKind.Factory)
         }
 
     # ------------------------------------------------------------------

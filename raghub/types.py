@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Union
-
-JSONValue = Union[
-    str,
-    int,
-    float,
-    bool,
-    None,
-    list["JSONValue"],
-    dict[str, "JSONValue"],
-]
+JSONValue = (
+    str
+    | int
+    | float
+    | bool
+    | None
+    | list["JSONValue"]
+    | dict[str, "JSONValue"]
+)
 
 __all__ = ["JSONValue"]

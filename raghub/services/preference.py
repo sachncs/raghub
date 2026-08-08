@@ -49,6 +49,7 @@ class Preference:
     def resolve_flags(
         self, user: User, flags: dict[str, Any], container: "RagContainer"
     ) -> ResolvedConfig:
+        """Resolve per-request, session, and user-prefs into a single :class:`ResolvedConfig`."""
         prefs = dict(getattr(user, "tool_settings", None) or {})
         return resolve(
             request_overrides={
@@ -75,6 +76,7 @@ class Preference:
         flags: dict[str, Any],
         resolved: ResolvedConfig,
     ) -> QueryResponse:
+        """Run a basic RAG query without the agent loop, attaching resolved config metadata."""
         response = await self.facade.container.query.query(token=token, question=question)
         response.metadata = dict(response.metadata or {})
         response.metadata["resolved_config"] = resolved.to_dict()
@@ -92,6 +94,7 @@ class Preference:
         user: User,
         rag: "RAG",
     ) -> QueryResponse:
+        """Run the full agent loop with the resolved RAG instance, returning a structured response."""
         container = self.facade.container
         session = await container.store.get_by_token(token)
         principal = User(

@@ -620,7 +620,7 @@ def record_from_pipeline(
             ``checksum=``, ``tags=`` overrides.
 
     """
-    classification: Classification = options.get("classification", Classification.INTERNAL)
+    classification: Classification = options.get("classification", Classification.Internal)
     checksum: str = options.get("checksum", "")
     tags: list[str] | None = options.get("tags")
     chunks = extract_chunks(result)
@@ -633,7 +633,7 @@ def record_from_pipeline(
         organization=organization,
         tags=tags or [],
         classification=classification,
-        status=DocumentLifecycleStatus.READY,
+        status=DocumentLifecycleStatus.Ready,
         filename=file_name,
         file_type=file_name.rsplit(".", 1)[-1].lower() if "." in file_name else "",
         mime_type=mime_type,
@@ -680,7 +680,7 @@ class Ingestor:
         *,
         uow: UnitOfWork,
         embedding_provider: Embedder,
-        lifecycle_manager: Lifecycle,
+        lifecycle_coordinator: Lifecycle,
         max_upload_bytes: int,
         **options: JSONValue,
     ) -> None:
@@ -689,7 +689,7 @@ class Ingestor:
         Args:
             uow: Unit of work for repos / stores.
             embedding_provider: Embedding provider.
-            lifecycle_manager: Lifecycle hook manager.
+            lifecycle_coordinator: Lifecycle hook manager.
             max_upload_bytes: Maximum upload size in bytes.
             **options: Optional overrides — ``virus_scan_hook=``,
                 ``pipeline=``, ``plan=``.
@@ -697,7 +697,7 @@ class Ingestor:
         """
         self.uow = uow
         self.embedding_provider = embedding_provider
-        self.lifecycle_manager = lifecycle_manager
+        self.lifecycle_coordinator = lifecycle_coordinator
         self.max_upload_bytes = max_upload_bytes
         self.virus_scan_hook = options.get("virus_scan_hook") or (lambda _: None)
         self.plan = options.get("plan")
@@ -817,12 +817,12 @@ class Ingestor:
         return (
             options.get("department", ""),
             options.get("tags"),
-            options.get("classification", Classification.INTERNAL),
+            options.get("classification", Classification.Internal),
         )
 
     def cached_result(self, previous: Any) -> IngestionResult | None:
         """Return the cached IngestionResult when the prior doc is READY."""
-        if previous is not None and previous.status == DocumentLifecycleStatus.READY:
+        if previous is not None and previous.status == DocumentLifecycleStatus.Ready:
             return IngestionResult(document=previous, chunks=list(previous.chunks))
         return None
 
@@ -865,7 +865,7 @@ class Ingestor:
         error_message = (
             result.error.message if result.error else None
         ) or "ingestion failed"
-        previous.status = DocumentLifecycleStatus.FAILED
+        previous.status = DocumentLifecycleStatus.Failed
         previous.error = (
             error_message if isinstance(error_message, str) else error_message.message
         )

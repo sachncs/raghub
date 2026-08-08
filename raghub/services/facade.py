@@ -21,8 +21,11 @@ if TYPE_CHECKING:
 RAG_FACADE_AVAILABLE: bool = importlib.util.find_spec("raghub.rag") is not None
 
 
-class Facade:
-    """High-level facade exposing every public action.
+class ApplicationFacade:
+    """High-level application facade exposing every public action.
+
+Renamed from :class:`Facade` (the bare name violated AGENTS.md §602-630 
+as a forbidden class name; see :class:`Facade` for the deprecation alias).
 
     The application holds the container and four service handles. Each
     public method delegates to the appropriate service so the facade
@@ -155,4 +158,29 @@ class Facade:
         await self.shutdown_coordinator.release()
 
 
-__all__ = ["RAG_FACADE_AVAILABLE", "Facade"]
+__all__ = ["ApplicationFacade", "Facade", "RAG_FACADE_AVAILABLE"]
+
+
+# Deprecated alias preserved for one minor version. Use ApplicationFacade in new code.
+import warnings as __warnings
+
+class __FacadeDeprecationMeta(type):
+    """Metaclass that emits DeprecationWarning on first instantiation."""
+
+    _warned: bool = False
+
+    def __call__(cls, *args, **kwargs):  # noqa: D401
+        if not cls._warned:
+            __warnings.warn(
+                "raghub.services.Facade has been renamed to "
+                "raghub.services.ApplicationFacade; import the new name. "
+                "This compatibility alias will be removed in the next minor release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            cls._warned = True
+        return super().__call__(*args, **kwargs)
+
+
+class Facade(ApplicationFacade, metaclass=__FacadeDeprecationMeta):
+    """Deprecated alias for :class:`ApplicationFacade`."""

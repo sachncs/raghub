@@ -277,7 +277,7 @@ class Documents:
         documents = payload.get("documents", {})
         checksum_index = payload.get("checksum_index", {})
         self.documents = {
-            document_id: [Document.model_validate(item) for item in versions]
+            document_id: [Document.model_validate(item) for version_record in versions]
             for document_id, versions in documents.items()
             if isinstance(versions, list)
         }
@@ -324,7 +324,7 @@ class Documents:
                 # ``for/else`` runs when the loop completes without a
                 # ``break`` — a brand-new version number.
                 if versions and document.version > versions[-1].version:
-                    versions[-1].status = DocumentLifecycleStatus.ARCHIVED
+                    versions[-1].status = DocumentLifecycleStatus.Archived
                     versions[-1].updated_at = datetime.now(UTC)
                 versions.append(document)
             self.checksum_index[document.checksum] = (
@@ -345,7 +345,7 @@ class Documents:
     def get_version(self, document_id: str, version: int) -> Document | None:
         """Return a specific historical version, or ``None``."""
         with self.lock:
-            for item in self.documents.get(document_id, []):
+            for version_record in self.documents.get(document_id, []):
                 if item.version == version:
                     return item
             return None
@@ -366,7 +366,7 @@ class Documents:
                 latest = versions[-1]
                 if (
                     latest.organization in companies
-                    and latest.status != DocumentLifecycleStatus.ARCHIVED
+                    and latest.status != DocumentLifecycleStatus.Archived
                 ):
                     result.append(latest)
             return result
@@ -377,7 +377,7 @@ class Documents:
             latest = self.get_latest(document_id)
             if latest is None:
                 return
-            latest.status = DocumentLifecycleStatus.ARCHIVED
+            latest.status = DocumentLifecycleStatus.Archived
             latest.updated_at = datetime.now(UTC)
             self.save()
 

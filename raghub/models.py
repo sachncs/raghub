@@ -113,17 +113,17 @@ class DocumentLifecycleStatus(StrEnum):
     ``FAILED`` are terminal.
     """
 
-    NEW = "NEW"
-    VALIDATING = "VALIDATING"
-    PROCESSING = "PROCESSING"
-    CHUNKING = "CHUNKING"
-    EMBEDDING = "EMBEDDING"
-    INDEXING = "INDEXING"
-    READY = "READY"
-    UPDATING = "UPDATING"
-    DELETING = "DELETING"
-    ARCHIVED = "ARCHIVED"
-    FAILED = "FAILED"
+    New = "NEW"
+    Validating = "VALIDATING"
+    Processing = "PROCESSING"
+    Chunking = "CHUNKING"
+    Embedding = "EMBEDDING"
+    Indexing = "INDEXING"
+    Ready = "READY"
+    Updating = "UPDATING"
+    Deleting = "DELETING"
+    Archived = "ARCHIVED"
+    Failed = "FAILED"
 
 
 class Visibility(StrEnum):
@@ -134,9 +134,9 @@ class Visibility(StrEnum):
     * ``PUBLIC``: any authenticated user, regardless of tenant.
     """
 
-    PRIVATE = "private"
-    ORGANIZATION = "organization"
-    PUBLIC = "public"
+    Private = "private"
+    Organization = "organization"
+    Public = "public"
 
 
 class Classification(StrEnum):
@@ -146,9 +146,9 @@ class Classification(StrEnum):
     content from users without the appropriate clearance.
     """
 
-    INTERNAL = "internal"
-    CONFIDENTIAL = "confidential"
-    RESTRICTED = "restricted"
+    Internal = "internal"
+    Confidential = "confidential"
+    Restricted = "restricted"
 
 
 # ---------------------------------------------------------------------------
@@ -164,155 +164,155 @@ class Classification(StrEnum):
 class SessionKind(StrEnum):
     """Discriminator for :class:`Session` types."""
 
-    STANDARD = "standard"
-    EPHEMERAL = "ephemeral"
-    REFRESH = "refresh"
+    Standard = "standard"
+    Ephemeral = "ephemeral"
+    Refresh = "refresh"
 
 
 class DocType(StrEnum):
     """Discriminator for :class:`Document` types."""
 
-    PDF = "pdf"
-    MARKDOWN = "markdown"
-    HTML = "html"
-    TEXT = "text"
-    CSV = "csv"
-    JSON = "json"
-    UNKNOWN = "unknown"
+    Pdf = "pdf"
+    Markdown = "markdown"
+    Html = "html"
+    Text = "text"
+    Csv = "csv"
+    Json = "json"
+    Unknown = "unknown"
 
 
 class ChunkType(StrEnum):
     """Discriminator for :class:`Chunk` types."""
 
-    TEXT = "text"
-    CODE = "code"
-    TABLE = "table"
-    HEADER = "header"
-    IMAGE_CAPTION = "image_caption"
-    LIST_ITEM = "list_item"
+    Text = "text"
+    Code = "code"
+    Table = "table"
+    Header = "header"
+    ImageCaption = "image_caption"
+    ListItem = "list_item"
 
 
 class SectionType(StrEnum):
     """Discriminator for :class:`Section` types."""
 
-    TEXT = "text"
-    TABLE = "table"
-    FIGURE = "figure"
-    CODE = "code"
-    REFERENCE = "reference"
+    Text = "text"
+    Table = "table"
+    Figure = "figure"
+    Code = "code"
+    Reference = "reference"
 
 
 class BlockType(StrEnum):
     """Discriminator for :class:`Block` types."""
 
-    TEXT = "text"
-    TABLE = "table"
-    FIGURE = "figure"
-    CODE = "code"
-    LIST = "list"
-    HEADING = "heading"
+    Text = "text"
+    Table = "table"
+    Figure = "figure"
+    Code = "code"
+    List = "list"
+    Heading = "heading"
 
 
 class CitationType(StrEnum):
     """Discriminator for :class:`Citation` types."""
 
-    DIRECT = "direct"
-    PARAPHRASE = "paraphrase"
-    INFERENCE = "inference"
+    Direct = "direct"
+    Paraphrase = "paraphrase"
+    Inference = "inference"
 
 
 class HitType(StrEnum):
     """Discriminator for :class:`Hit` types."""
 
-    DENSE = "dense"
-    SPARSE = "sparse"
-    HYBRID = "hybrid"
-    KEYWORD = "keyword"
+    Dense = "dense"
+    Sparse = "sparse"
+    Hybrid = "hybrid"
+    Keyword = "keyword"
 
 
 class ResponseType(StrEnum):
     """Discriminator for :class:`Response` types."""
 
-    ANSWER = "answer"
-    CLARIFICATION = "clarification"
-    REFUSAL = "refusal"
-    ERROR = "error"
+    Answer = "answer"
+    Clarification = "clarification"
+    Refusal = "refusal"
+    Error = "error"
 
 
 class BundleType(StrEnum):
     """Discriminator for :class:`Bundle` types."""
 
-    OKF = "okf"
-    MARKDOWN = "markdown"
-    HTML = "html"
-    PDF = "pdf"
+    Okf = "okf"
+    Markdown = "markdown"
+    Html = "html"
+    Pdf = "pdf"
 
 
 class PipelineType(StrEnum):
     """Discriminator for :class:`Pipeline` types."""
 
-    INGEST = "ingest"
-    QUERY = "query"
-    AGENT = "agent"
-    EVAL = "eval"
+    Ingest = "ingest"
+    Query = "query"
+    Agent = "agent"
+    Eval = "eval"
 
 
 class JobType(StrEnum):
     """Discriminator for :class:`Job` types."""
 
-    INGEST = "ingest"
-    EVAL = "eval"
-    REINDEX = "reindex"
-    EXPORT = "export"
+    Ingest = "ingest"
+    Eval = "eval"
+    Reindex = "reindex"
+    Export = "export"
 
 
 class EventType(StrEnum):
     """Discriminator for :class:`Event` types."""
 
-    THOUGHT = "thought"
-    TOOL_CALL = "tool_call"
-    TOOL_RESULT = "tool_result"
-    ANSWER_CHUNK = "answer_chunk"
-    FINAL = "final"
+    Thought = "thought"
+    ToolCall = "tool_call"
+    ToolResult = "tool_result"
+    AnswerChunk = "answer_chunk"
+    Final = "final"
 
 
 class UserKind(StrEnum):
     """Discriminator for :class:`User` types."""
 
-    STANDARD = "standard"
-    ADMIN = "admin"
-    SERVICE = "service"
+    Standard = "standard"
+    Admin = "admin"
+    Service = "service"
 
 
 class ManifestType(StrEnum):
     """Discriminator for :class:`Manifest` types."""
 
-    INCREMENTAL = "incremental"
-    SNAPSHOT = "snapshot"
+    Incremental = "incremental"
+    Snapshot = "snapshot"
 
 
 class EmbeddingType(StrEnum):
     """Discriminator for :class:`Embedding` types."""
 
-    DENSE = "dense"
-    SPARSE = "sparse"
-    COLBERT = "colbert"
+    Dense = "dense"
+    Sparse = "sparse"
+    Colbert = "colbert"
 
 
 class RankType(StrEnum):
     """Discriminator for :class:`RankedList` types."""
 
-    RRF = "rrf"
-    CROSS_ENCODER = "cross_encoder"
-    COHERE = "cohere"
+    Rrf = "rrf"
+    CrossEncoder = "cross_encoder"
+    Cohere = "cohere"
 
 
 class ResultType(StrEnum):
     """Discriminator for :class:`Result` (eval)."""
 
-    PASSED = "passed"
-    FAILED = "failed"
-    ERRORED = "errored"
+    Passed = "passed"
+    Failed = "failed"
+    Errored = "errored"
 
 
 # -----------------------------------------------------------------------------
@@ -323,28 +323,28 @@ class ResultType(StrEnum):
 class State(StrEnum):
     """Lifecycle state shared across entities with a state machine."""
 
-    NEW = "new"
-    RUNNING = "running"
-    READY = "ready"
-    FAILED = "failed"
-    ARCHIVED = "archived"
+    New = "new"
+    Running = "running"
+    Ready = "ready"
+    Failed = "failed"
+    Archived = "archived"
 
 
 class Class(StrEnum):
     """Security classification shared across entities."""
 
-    PUBLIC = "public"
-    INTERNAL = "internal"
-    RESTRICTED = "restricted"
-    CONFIDENTIAL = "confidential"
+    Public = "public"
+    Internal = "internal"
+    Restricted = "restricted"
+    Confidential = "confidential"
 
 
 class Access(StrEnum):
     """Visibility scope shared across entities."""
 
-    PUBLIC = "public"
-    ORG = "org"
-    PRIVATE = "private"
+    Public = "public"
+    Org = "org"
+    Private = "private"
 
 
 # -----------------------------------------------------------------------------
@@ -400,7 +400,7 @@ class User(BaseModel):
     allowed_groups: list[str] = Field(default_factory=list)
     is_admin: bool = False
     tool_settings: dict[str, Any] = Field(default_factory=dict)
-    type: UserKind = UserKind.STANDARD
+    type: UserKind = UserKind.Standard
 
     def verify(self) -> None:
         """Assert the user's invariant contract.
@@ -465,7 +465,7 @@ class Session(BaseModel):
     last_seen_at: datetime
     history: list[Turn] = Field(default_factory=list)
     overrides: dict[str, Any] = Field(default_factory=dict)
-    type: SessionKind = SessionKind.STANDARD
+    type: SessionKind = SessionKind.Standard
 
     def verify(self) -> None:
         """Assert the session's invariant contract.
@@ -517,24 +517,24 @@ class Document(BaseModel):
     organization: str
     department: str = ""
     tags: list[str] = Field(default_factory=list)
-    classification: Classification = Classification.INTERNAL
-    visibility: Visibility = Visibility.ORGANIZATION
-    status: DocumentLifecycleStatus = DocumentLifecycleStatus.NEW
+    classification: Classification = Classification.Internal
+    visibility: Visibility = Visibility.Organization
+    status: DocumentLifecycleStatus = DocumentLifecycleStatus.New
     filename: str = ""
     file_type: str = ""
     mime_type: str = ""
     chunk_count: int = 0
     chunks: list[str] = Field(default_factory=list)
     error: str | None = None
-    type: DocType = DocType.UNKNOWN
-    state: State = State.READY
+    type: DocType = DocType.Unknown
+    state: State = State.Ready
 
     def verify(self) -> None:
         """Assert the document's invariant contract.
 
         Checks that ``id`` is non-empty and that ``chunks`` is a list of
         :class:`Chunk` (each verified recursively). When ``state`` is
-        :attr:`State.FAILED`, ``error`` must be non-empty.
+        :attr:`State.Failed`, ``error`` must be non-empty.
 
         Raises:
             VerificationError: When any invariant is broken.
@@ -542,9 +542,9 @@ class Document(BaseModel):
         """
         if not self.id:
             raise VerificationError("Document: empty id")
-        if self.state == State.FAILED and not self.error:
+        if self.state == State.Failed and not self.error:
             raise VerificationError("Document: error required when state=FAILED")
-        if self.state in {State.READY, State.ARCHIVED} and not self.chunks:
+        if self.state in {State.Ready, State.Archived} and not self.chunks:
             raise VerificationError("Document: chunks empty for non-FAILED state")
 
 
@@ -579,13 +579,13 @@ class Chunk(BaseModel):
     company: str
     owner: str
     department: str = ""
-    classification: Classification = Classification.INTERNAL
+    classification: Classification = Classification.Internal
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     embedding_model: str = ""
     checksum: str
     text: str
     metadata: dict[str, Any] = Field(default_factory=dict)
-    type: ChunkType = ChunkType.TEXT
+    type: ChunkType = ChunkType.Text
     tenant_id: str | None = None
 
     def verify(self) -> None:
@@ -622,7 +622,7 @@ class Hit(BaseModel):
 
     score: float
     chunk: Chunk
-    type: HitType = HitType.DENSE
+    type: HitType = HitType.Dense
 
     @property
     def chunk_id(self) -> str:
@@ -706,12 +706,12 @@ class BlockKind(StrEnum):
     * ``CODE`` — source code.
     """
 
-    TEXT = "text"
-    TABLE = "table"
-    EQUATION = "equation"
-    IMAGE = "image"
-    CODE = "code"
-    METADATA = "metadata"
+    Text = "text"
+    Table = "table"
+    Equation = "equation"
+    Image = "image"
+    Code = "code"
+    Metadata = "metadata"
 
 
 class DocumentBlock(BaseModel):
@@ -726,7 +726,7 @@ class DocumentBlock(BaseModel):
     """
 
     block_id: str = Field(default_factory=lambda: deterministic_id("block", str(uuid4())))
-    kind: BlockKind = BlockKind.TEXT
+    kind: BlockKind = BlockKind.Text
     content: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -792,7 +792,7 @@ class Embedding(BaseModel):
     dim: int
     vector: list[float]
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    type: EmbeddingType = EmbeddingType.DENSE
+    type: EmbeddingType = EmbeddingType.Dense
 
     def verify(self) -> None:
         """Assert the embedding's invariant contract.
@@ -832,7 +832,7 @@ class Citation(BaseModel):
     quote: str = ""
     score: float = 0.0
     source_uri: str = ""
-    type: CitationType = CitationType.DIRECT
+    type: CitationType = CitationType.Direct
 
     def verify(self) -> None:
         """Assert the citation's contract.
@@ -932,7 +932,7 @@ class Response(BaseModel):
     transforms_applied: list[str] = Field(default_factory=list)
     planner_trace: list[dict[str, Any]] | None = None
     tools_invoked: list[str] = Field(default_factory=list)
-    type: ResponseType = ResponseType.ANSWER
+    type: ResponseType = ResponseType.Answer
 
     def verify(self) -> None:
         """Assert the response's contract.
@@ -1027,7 +1027,7 @@ class Pipeline(BaseModel):
 
     pipeline_id: str
     pipeline_name: str
-    type: PipelineType = PipelineType.INGEST  # populated by the pipeline
+    type: PipelineType = PipelineType.Ingest  # populated by the pipeline
     outputs: dict[str, Any] = Field(default_factory=dict)
     error: ErrorInfo | None = None
     finished_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

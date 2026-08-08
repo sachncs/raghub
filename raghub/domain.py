@@ -352,41 +352,41 @@ class UnitOfWork:
         document_repo: DocumentRepository,
         chunk_repo: ChunkRepository,
         session_repo: SessionRepository,
-        db_manager: Database | None = None,
+        database_handle: Database | None = None,
     ) -> None:
         """Store the per-repository handles and optional DB manager."""
         self.document_repo = document_repo
         self.chunk_repo = chunk_repo
         self.session_repo = session_repo
-        self.db_manager = db_manager
+        self.database_handle = database_handle
         self.in_transaction = False
 
     async def initialize(self) -> None:
         """Connect the DB manager (when present) and initialise every repo."""
-        if self.db_manager is not None:
-            await self.db_manager.connect()
+        if self.database_handle is not None:
+            await self.database_handle.connect()
         await self.document_repo.initialize()
         await self.chunk_repo.initialize()
         await self.session_repo.initialize()
 
     async def commit(self) -> None:
         """Commit the active transaction when one is in flight."""
-        if self.in_transaction and self.db_manager is not None:
-            conn = self.db_manager.connection
+        if self.in_transaction and self.database_handle is not None:
+            conn = self.database_handle.connection
             await conn.commit()
             self.in_transaction = False
 
     async def rollback(self) -> None:
         """Rollback the active transaction when one is in flight."""
-        if self.in_transaction and self.db_manager is not None:
-            conn = self.db_manager.connection
+        if self.in_transaction and self.database_handle is not None:
+            conn = self.database_handle.connection
             await conn.rollback()
             self.in_transaction = False
 
     async def __aenter__(self) -> UnitOfWork:
         """Open a transaction when a DB manager is wired in."""
-        if self.db_manager is not None:
-            conn = self.db_manager.connection
+        if self.database_handle is not None:
+            conn = self.database_handle.connection
             await conn.execute("BEGIN")
             self.in_transaction = True
         return self
@@ -401,8 +401,8 @@ class UnitOfWork:
 
     async def close(self) -> None:
         """Close the shared DB manager (if any)."""
-        if self.db_manager is not None:
-            await self.db_manager.close()
+        if self.database_handle is not None:
+            await self.database_handle.close()
 
 
 class Database(Protocol):

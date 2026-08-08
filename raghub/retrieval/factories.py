@@ -76,7 +76,7 @@ class RerankerFactory:
                     "long_context reranker requires an LLM via RerankerFactory(llm=...)"
                 )
             # Context is async-only; Rerank requires sync rerank, so callers
-            # reach it through the async path or asyncio.run (see reranker()).
+            # reach it through the async path or asyncio.run (see build_reranker()).
             return cast(
                 Rerank,
                 Context(self.llm, getattr(cfg, "long_context", None) or default_long()),
@@ -125,7 +125,7 @@ async def areranker(
     method: str = "identity",
 ) -> list[Hit]:
     """Asynchronously rerank ``hits`` using the named ``method``."""
-    impl = reranker(method)
+    impl = build_reranker(method)
     return await impl.arerank(question=question, hits=list(hits))
 
 
@@ -151,11 +151,11 @@ async def transform(
     """
     if llm is None:
         raise RerankerError("transform(...) requires an LLM via llm=...")
-    impl = transformer(method, llm)
+    impl = build_transformer(method, llm)
     return await impl.transform(question=question, history=list(history))
 
 
-def reranker(method: str) -> Rerank:
+def build_reranker(method: str) -> Rerank:
     """Construct a reranker by name. Settings-driven factory has its own path."""
     if method == "identity":
         return Identity()
@@ -176,7 +176,7 @@ def reranker(method: str) -> Rerank:
     raise RerankerError(f"Unknown reranker method: {method!r}")
 
 
-def transformer(method: str, llm: "Generator") -> Transformer:
+def build_transformer(method: str, llm: "Generator") -> Transformer:
     """Construct a transformer by name."""
     if method == "hyde":
         return Hyde(llm)

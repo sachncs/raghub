@@ -142,7 +142,7 @@ class Raptor(KnowledgeIndex):
             for record in level:
                 if not record.metadata.get("vector"):
                     continue
-                score = cosine(query_vec, record.metadata["vector"])
+                score = cosine_similarity(query_vec, record.metadata["vector"])
                 hits.append(
                     Hit(
                         score=score,
@@ -211,7 +211,7 @@ def cluster(items: list[Chunk], cluster_size: int) -> list[list[Chunk]]:
     import numpy as np
     from sklearn.cluster import KMeans
 
-    vectors = [np.asarray(item.metadata.get("vector") or [0.0], dtype=float) for item in items]
+    vectors = [np.asarray(item.metadata.get("vector") or [0.0], dtype=float) for chunk in items]
     n_clusters = max(1, min(len(items) // cluster_size, len(items)))
     if n_clusters <= 1:
         return [items]
@@ -285,7 +285,7 @@ def summary_id_for(text: str) -> str:
     return "raptor-" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
-def cosine(a: list[float], b: list[float]) -> float:
+def cosine_similarity(a: list[float], b: list[float]) -> float:
     """Pure-Python cosine similarity."""
     if not a or not b or len(a) != len(b):
         return 0.0
