@@ -32,7 +32,7 @@ from fastapi import (
     Request,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from loguru import logger as loguru_logger
+from loguru import logger
 
 from raghub.config import Settings
 from raghub.coroutines import capture
@@ -222,13 +222,13 @@ class Lifespan:
                 try:
                     await shutdown_app()
                 except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
-                    loguru_logger.warning("api.shutdown.failed", error=str(exc))
+                    logger.warning("api.shutdown.failed", error=str(exc))
             background = getattr(app.state, "background_ingestion", None)
             if background is not None and hasattr(background, "shutdown"):
                 try:
                     background.shutdown()
                 except (RuntimeError, OSError, ConnectionError) as exc:
-                    loguru_logger.warning("background.shutdown.failed", error=str(exc))
+                    logger.warning("background.shutdown.failed", error=str(exc))
 
 
 # ---------------------------------------------------------------------------

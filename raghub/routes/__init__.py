@@ -33,7 +33,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import StreamingResponse
-from loguru import logger as loguru_logger
+from loguru import logger
 from pydantic import BaseModel, Field
 
 from raghub.authhelpers import (
@@ -368,7 +368,7 @@ class DocumentRoute:
                         )
                     )
                 except (IngestionError, RagHubError, ValueError, TypeError, OSError) as exc:
-                    loguru_logger.warning(
+                    logger.warning(
                         "api.batch_upload.item_failed", file=file.filename, error=str(exc)
                     )
                     results.append(

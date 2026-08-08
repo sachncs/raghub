@@ -81,7 +81,7 @@ async def build_container(settings: Settings) -> RagContainer:
         RuntimeError: When ``JWT_SECRET`` is missing.
 
     """
-    logger, authorization, user_store = await build_auth_components(settings)
+    authorization, user_store = await build_auth_components(settings)
     raw_session_store, uow, vector_store = await build_storage_components(settings)
     nvidia_api_key = settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
     model_components = build_models(
@@ -98,10 +98,10 @@ async def build_container(settings: Settings) -> RagContainer:
         parser_registry,
     ) = model_components
     del model_components
-    await maybe_seed_demo_users(settings, logger, user_store)
+    await maybe_seed_demo_users(settings, user_store)
     return RagContainer(
         settings=settings,
-        logger=logger,
+        logger=None,
         metrics=None,
         authorization=authorization,
         registry=user_store,
@@ -122,17 +122,17 @@ async def build_container(settings: Settings) -> RagContainer:
 
 async def build_auth_components(
     settings: Settings,
-) -> tuple[Any, Any, Any]:
-    """Build the logger, ``Authz`` coordinator, and user store."""
+) -> tuple[Any, Any]:
+    """Build the ``Authz`` coordinator and user store."""
     from raghub.auth import Authz, SqliteUsers
 
-        user_store = SqliteUsers(settings.data_dir / "users.db")
+    user_store = SqliteUsers(settings.data_dir / "users.db")
     await user_store.initialize()
     jwt_secret = settings.jwt_secret.get_secret_value()
     if not jwt_secret:
         raise RuntimeError("JWT_SECRET must be configured")
-    authorization = Authz(user_store, logger=logger)
-    return logger, authorization, user_store
+    authorization = Authz(user_store)
+    return authorization, user_store
 
 
 async def build_storage_components(settings: Settings) -> tuple[Any, Any, Store]:
@@ -155,17 +155,13 @@ async def build_storage_components(settings: Settings) -> tuple[Any, Any, Store]
 
 async def maybe_seed_demo_users(
     settings: Settings,
-    logger: object,
     user_store: "SqliteUsers",
 ) -> None:
     """Seed demo users when the deployment profile allows it."""
-    from contextlib import suppress
+    from loguru import logger
 
     if seed_blocked(settings):
-        info = getattr(logger, "warning", None) or getattr(logger, "info", None)
-        if callable(info):
-            with suppress(Exception):
-                info("seed.skipped", reason="production_or_wildcard_cors")
+        logger.info("seed.skipped", reason="production_or_wildcard_cors")
         return
     await seed_demo_users(user_store)
 

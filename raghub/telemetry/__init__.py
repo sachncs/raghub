@@ -22,10 +22,9 @@ Public constants:
 from __future__ import annotations
 
 from raghub.telemetry.logger import (
-    LoguruLogger,
+    LoguruLoggerAdapter,
     LoguruSpan,
     LoguruTelemetryProvider,
-    build_logger,
 )
 from raghub.telemetry.metrics import (
     NoOpTelemetry,
@@ -56,7 +55,7 @@ __all__ = [
     "Langfuse",
     "LangfuseSpan",
     "LangfuseTelemetryProvider",
-    "LoguruLogger",
+    "LoguruLoggerAdapter",
     "LoguruSpan",
     "LoguruTelemetryProvider",
     "NoOpTelemetry",
@@ -65,7 +64,6 @@ __all__ = [
     "SECRET_KEY_RE",
     "SafeConsoleSpanExporter",
     "Tracer",
-    "build_logger",
     "langfuse_client",
     "langfuse_get_client",
     "record_long_context",

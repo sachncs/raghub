@@ -1,8 +1,8 @@
 """Ingest pipeline — convert → chunk → embed → index."""
 
 from __future__ import annotations
+from loguru import logger
 
-import logging
 from typing import Any
 
 from tqdm import tqdm
@@ -31,7 +31,6 @@ from raghub.pipeline.span_support import (
 from raghub.retry import retry as retry_sync
 from raghub.telemetry import NoOpTelemetry
 
-LOGGER = logging.getLogger(__name__)
 
 
 class Ingest(PipelineRunner):

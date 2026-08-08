@@ -35,14 +35,13 @@ The functions exposed here cover:
 """
 
 from __future__ import annotations
+from loguru import logger
 
 import inspect
-import logging
 from typing import Any
 
 from raghub.models import Citation, Hit, Pipeline, Turn
 
-LOGGER = logging.getLogger(__name__)
 
 
 def user_filter(user: Any) -> dict[str, Any] | str:
@@ -164,7 +163,7 @@ def record_turn(
     """
     if not (record and session_id and answer):
         if record and session_id and not answer:
-            LOGGER.warning("dropped turn: empty answer, session_id=%s", session_id)
+            logger.warning(f"dropped turn: empty answer, session_id={session_id}")
         return
     conversation_store.append(
         session_id,
@@ -186,7 +185,7 @@ def record_streamed(
     """
     if not (session_id and collected):
         if session_id and not collected:
-            LOGGER.warning("dropped turn: empty answer, session_id=%s", session_id)
+            logger.warning(f"dropped turn: empty answer, session_id={session_id}")
         return
     conversation_store.append(
         session_id,

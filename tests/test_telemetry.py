@@ -213,14 +213,14 @@ def test_noop_telemetry_record_latency_increment_tokens() -> None:
 
 
 # ---------------------------------------------------------------------------
-# LoguruLogger basic path
+# LoguruLoggerAdapter basic path
 # ---------------------------------------------------------------------------
 
 
 def test_loguru_logger_warning_error_calls() -> None:
-    """LoguruLogger exposes warning + error methods."""
+    """LoguruLoggerAdapter exposes warning + error methods."""
 
-    logger = LoguruLogger()
+    logger = LoguruLoggerAdapter()
     logger.warning("warn message")
     logger.error("error message")
 
