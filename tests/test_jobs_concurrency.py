@@ -68,11 +68,11 @@ class TestSqliteQueueConcurrency:
 
         processed: list[int] = []
 
-        async def run_ingest_job(job: Job) -> None:
+        async def ingest(job: Job) -> None:
             processed.append(int(job.payload["index"]))
 
         workers = [
-            Worker(queue=queue, dispatcher=run_ingest_job, concurrency=1)
+            Worker(queue=queue, handler=ingest, concurrency=1)
             for _ in range(worker_count)
         ]
         tasks = [

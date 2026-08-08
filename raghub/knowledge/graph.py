@@ -195,7 +195,7 @@ class GraphIndex(KnowledgeIndex):
         for idx, summary in self.community_summaries.items():
             overlap = float(len(query_tokens & tokenise(summary)))
             scored.append((idx, summary, overlap))
-        scored.sort(key=lambda item: item[2], reverse=True)
+        scored.sort(key=lambda record: item[2], reverse=True)
         out: list[Hit] = []
         for _rank, (idx, summary, score) in enumerate(scored[: int(top_k)]):
             if score <= 0:
@@ -408,7 +408,7 @@ class GraphIndex(KnowledgeIndex):
                 continue
             score = float(len(tokens & tokenise(record.text)))
             scored.append((cid, score))
-        scored.sort(key=lambda item: (-item[1], item[0]))
+        scored.sort(key=lambda record: (-item[1], item[0]))
         return [cid for cid, _score in scored]
 
     def to_hits(self, chunk_ids: list[str], top_k: int) -> list[Hit]:
