@@ -75,7 +75,7 @@ def test_migrate_migrate_manifest_non_dict_returns_false(tmp_path: Path) -> None
 def test_migrate_run_no_manifests_under_root(tmp_path: Path) -> None:
     """run() reports no work needed when nothing matches."""
 
-    from raghub.migrate import run
+    from raghub.migrate import run_migration
 
     # Run on a directory that exists but has no manifests.
     out_dir = tmp_path / "data"
@@ -87,7 +87,7 @@ def test_migrate_run_no_manifests_under_root(tmp_path: Path) -> None:
 def test_migrate_run_missing_root(tmp_path: Path) -> None:
     """run() returns code 2 when the root doesn't exist."""
 
-    from raghub.migrate import run
+    from raghub.migrate import run_migration
 
     exit_code = run(tmp_path / "nope")
     assert exit_code == 2
@@ -96,7 +96,7 @@ def test_migrate_run_missing_root(tmp_path: Path) -> None:
 def test_migrate_run_walks_and_rewrites(tmp_path: Path) -> None:
     """run() discovers nested manifests and rewrites them."""
 
-    from raghub.migrate import run
+    from raghub.migrate import run_migration
 
     nested = tmp_path / "data" / "sub"
     nested.mkdir(parents=True)

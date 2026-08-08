@@ -246,7 +246,7 @@ def test_record_from_pipeline_projects_chunks() -> None:
         mime_type="text/plain",
         owner=user,
         organization="acme",
-        classification=Classification.INTERNAL,
+        classification=Classification.Internal,
         checksum="h",
         tags=["t1"],
     )
@@ -255,8 +255,8 @@ def test_record_from_pipeline_projects_chunks() -> None:
     assert document.chunk_count == 2
     assert document.owner == "alice@x.com"
     assert document.organization == "acme"
-    assert document.classification == Classification.INTERNAL
-    assert document.status == DocumentLifecycleStatus.READY
+    assert document.classification == Classification.Internal
+    assert document.status == DocumentLifecycleStatus.Ready
     assert document.mime_type == "text/plain"
 
 
@@ -273,7 +273,7 @@ def test_record_from_pipeline_no_chunks() -> None:
         mime_type="text/plain",
         owner=user,
         organization="co",
-        classification=Classification.INTERNAL,
+        classification=Classification.Internal,
         checksum="h",
         tags=None,
     )

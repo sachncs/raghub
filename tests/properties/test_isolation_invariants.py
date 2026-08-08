@@ -32,7 +32,7 @@ def chunks(draw: st.DrawFn, tenant_id: str) -> Chunk:
         version=1,
         company=draw(st.text(min_size=1, max_size=10)),
         owner="alice@x",
-        classification=Classification.INTERNAL,
+        classification=Classification.Internal,
         checksum=checksum,
         text=text,
         tenant_id=tenant_id,

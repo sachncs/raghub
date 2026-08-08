@@ -64,9 +64,9 @@ class InMemoryFeedbackStore:
                 continue
             if r.chunk_id is not None:
                 by_chunk[r.chunk_id] = by_chunk.get(r.chunk_id, 0) + 1
-            if int(r.rating) == int(Rating.POSITIVE):
+            if int(r.rating) == int(Rating.Positive):
                 positive += 1
-            elif int(r.rating) == int(Rating.NEGATIVE):
+            elif int(r.rating) == int(Rating.Negative):
                 negative += 1
             else:
                 neutral += 1
@@ -117,7 +117,7 @@ class TestBm25BoostScorerBoost:
         """3 positive feedback rows boost score above 1.0."""
         store = InMemoryFeedbackStore(
             records=[
-                _feedback("chunk_a", Rating.POSITIVE, feedback_id=f"fb{i}")
+                _feedback("chunk_a", Rating.Positive, feedback_id=f"fb{i}")
                 for i in range(3)
             ]
         )
@@ -129,7 +129,7 @@ class TestBm25BoostScorerBoost:
         """2 negative feedback rows lower score below 1.0."""
         store = InMemoryFeedbackStore(
             records=[
-                _feedback("chunk_b", Rating.NEGATIVE, feedback_id=f"fb{i}")
+                _feedback("chunk_b", Rating.Negative, feedback_id=f"fb{i}")
                 for i in range(2)
             ]
         )
@@ -149,7 +149,7 @@ class TestBm25BoostScorerBoost:
     def test_boost_async_reads_live_store(self) -> None:
         """boost_async always reads the live store (no cache)."""
         store = InMemoryFeedbackStore(
-            records=[_feedback("c", Rating.POSITIVE, feedback_id="live")]
+            records=[_feedback("c", Rating.Positive, feedback_id="live")]
         )
         scorer = Bm25BoostScorer(store, tenant_id="acme")
         # No refresh() called; boost_async still sees the positive
@@ -173,7 +173,7 @@ class TestVectorDownWeightScorerBoost:
     def test_boost_with_negative_feedback_multiplies_score(self) -> None:
         """Negative feedback multiplies score by negative_factor (default 0.5)."""
         store = InMemoryFeedbackStore(
-            records=[_feedback("c", Rating.NEGATIVE, feedback_id="n")]
+            records=[_feedback("c", Rating.Negative, feedback_id="n")]
         )
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
@@ -182,7 +182,7 @@ class TestVectorDownWeightScorerBoost:
     def test_boost_positive_feedback_does_not_multiply(self) -> None:
         """Positive feedback alone does not multiply score (algorithm design)."""
         store = InMemoryFeedbackStore(
-            records=[_feedback("c", Rating.POSITIVE, feedback_id="p")]
+            records=[_feedback("c", Rating.Positive, feedback_id="p")]
         )
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
@@ -191,7 +191,7 @@ class TestVectorDownWeightScorerBoost:
     def test_boost_custom_factor(self) -> None:
         """Custom negative_factor is honoured."""
         store = InMemoryFeedbackStore(
-            records=[_feedback("c", Rating.NEGATIVE, feedback_id="n")]
+            records=[_feedback("c", Rating.Negative, feedback_id="n")]
         )
         scorer = VectorDownWeightScorer(store, tenant_id="acme", negative_factor=0.25)
         asyncio.run(scorer.refresh())
@@ -199,7 +199,7 @@ class TestVectorDownWeightScorerBoost:
 
     def test_boost_async_reads_live_store(self) -> None:
         store = InMemoryFeedbackStore(
-            records=[_feedback("c", Rating.NEGATIVE, feedback_id="n")]
+            records=[_feedback("c", Rating.Negative, feedback_id="n")]
         )
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         result = asyncio.run(scorer.boost_async("c", 1.0))

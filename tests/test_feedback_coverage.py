@@ -39,7 +39,7 @@ from raghub.feedback import (
 
 def _make_feedback(
     chunk_id: str | None = "c1",
-    rating: Rating = Rating.POSITIVE,
+    rating: Rating = Rating.Positive,
     tenant_id: str = "acme",
     user_id: str = "alice@example.com",
     comment: str | None = None,
@@ -95,7 +95,7 @@ class TestSqliteFeedbackStore:
             answer_id=None,
             user_id="alice@example.com",
             tenant_id="acme",
-            rating=Rating.POSITIVE,
+            rating=Rating.Positive,
             comment=None,
             created_at=now_utc(),
         )
@@ -107,7 +107,7 @@ class TestSqliteFeedbackStore:
             answer_id=None,
             user_id="bob@example.com",
             tenant_id="acme",
-            rating=Rating.NEGATIVE,
+            rating=Rating.Negative,
             comment=None,
             created_at=now_utc(),
         )
@@ -140,7 +140,7 @@ class TestSqliteFeedbackStore:
                 answer_id=None,
                 user_id=f"alice-{i}@example.com",
                 tenant_id="acme",
-                rating=Rating.POSITIVE,
+                rating=Rating.Positive,
                 comment=None,
                 created_at=now_utc(),
             )
@@ -165,9 +165,9 @@ class TestSqliteFeedbackStore:
     def test_aggregate_no_filter(self, tmp_path: Any) -> None:
         store = SqliteFeedbackStore(str(tmp_path / "f.db"))
         store.initialize()
-        asyncio.run(store.record(_make_feedback(chunk_id="c1", rating=Rating.POSITIVE)))
-        asyncio.run(store.record(_make_feedback(chunk_id="c2", rating=Rating.NEGATIVE)))
-        asyncio.run(store.record(_make_feedback(chunk_id=None, rating=Rating.NEUTRAL)))
+        asyncio.run(store.record(_make_feedback(chunk_id="c1", rating=Rating.Positive)))
+        asyncio.run(store.record(_make_feedback(chunk_id="c2", rating=Rating.Negative)))
+        asyncio.run(store.record(_make_feedback(chunk_id=None, rating=Rating.Neutral)))
         agg = asyncio.run(store.aggregate())
         assert isinstance(agg, FeedbackAggregate)
         assert agg.positive == 1
@@ -188,7 +188,7 @@ class TestSqliteFeedbackStore:
                     answer_id=None,
                     user_id="alice@example.com",
                     tenant_id="acme",
-                    rating=Rating.POSITIVE,
+                    rating=Rating.Positive,
                     comment=None,
                     created_at=now_utc(),
                 )
@@ -204,7 +204,7 @@ class TestSqliteFeedbackStore:
                     answer_id=None,
                     user_id="bob@example.com",
                     tenant_id="globex",
-                    rating=Rating.POSITIVE,
+                    rating=Rating.Positive,
                     comment=None,
                     created_at=now_utc(),
                 )
@@ -256,7 +256,7 @@ class TestAsFeedback:
         }
         feedback = as_feedback(row)
         assert feedback.id == "fb1"
-        assert feedback.rating == Rating.POSITIVE
+        assert feedback.rating == Rating.Positive
         assert feedback.metadata == {"k": "v"}
 
 
@@ -312,9 +312,9 @@ class _InMemoryStore:
                 continue
             if r.chunk_id is not None:
                 by_chunk[r.chunk_id] = by_chunk.get(r.chunk_id, 0) + 1
-            if int(r.rating) == int(Rating.POSITIVE):
+            if int(r.rating) == int(Rating.Positive):
                 positive += 1
-            elif int(r.rating) == int(Rating.NEGATIVE):
+            elif int(r.rating) == int(Rating.Negative):
                 negative += 1
             else:
                 neutral += 1
@@ -331,9 +331,9 @@ class TestBm25BoostScorerRefresh:
     def test_refresh_populates_cache(self) -> None:
         store = _InMemoryStore(
             records=[
-                _make_feedback(chunk_id="c1", rating=Rating.POSITIVE),
-                _make_feedback(chunk_id="c1", rating=Rating.POSITIVE),
-                _make_feedback(chunk_id="c2", rating=Rating.NEGATIVE),
+                _make_feedback(chunk_id="c1", rating=Rating.Positive),
+                _make_feedback(chunk_id="c1", rating=Rating.Positive),
+                _make_feedback(chunk_id="c2", rating=Rating.Negative),
             ]
         )
         scorer = Bm25BoostScorer(store, tenant_id="acme")
@@ -342,7 +342,7 @@ class TestBm25BoostScorerRefresh:
         assert scorer.counts.get("c2") == (0, 1)
 
     def test_refresh_ignores_neutral(self) -> None:
-        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.NEUTRAL)])
+        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Neutral)])
         scorer = Bm25BoostScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
         assert scorer.counts.get("c1") == (0, 0)
@@ -355,19 +355,19 @@ class TestBm25BoostScorerRefresh:
 
 class TestVectorDownWeightScorerRefresh:
     def test_refresh_populates_negative_flags(self) -> None:
-        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.NEGATIVE)])
+        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Negative)])
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
         assert scorer.has_negative.get("c1") is True
 
     def test_refresh_ignores_positive(self) -> None:
-        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.POSITIVE)])
+        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Positive)])
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
         assert scorer.has_negative.get("c1", False) is False
 
     def test_boost_async_uses_live_store(self) -> None:
-        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.NEGATIVE)])
+        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Negative)])
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         result = asyncio.run(scorer.boost_async("c1", 1.0))
         assert result == 0.5  # default negative_factor is 0.5
@@ -395,7 +395,7 @@ class TestFeedbackValidation:
                 answer_id=None,
                 user_id="alice",
                 tenant_id="",
-                rating=Rating.POSITIVE,
+                rating=Rating.Positive,
                 comment=None,
                 created_at=now_utc(),
             )

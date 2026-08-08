@@ -234,7 +234,7 @@ class TestDatabasePerTenantRouting:
 class TestTenantsSettings:
     def test_default_tenants_isolation_is_row_level(self) -> None:
         settings = Settings()
-        assert settings.tenants.isolation == Isolation.ROW_LEVEL
+        assert settings.tenants.isolation == Isolation.RowLevel
 
     def test_default_tenants_resolver_is_none(self) -> None:
         settings = Settings()
@@ -427,7 +427,7 @@ class TestRowLevelEndToEnd:
             version=1,
             company="acme",
             owner="alice@example.com",
-            classification=Classification.INTERNAL,
+            classification=Classification.Internal,
             checksum=sha256(text.encode("utf-8")).hexdigest(),
             text=text,
             created_at=datetime.now(UTC),

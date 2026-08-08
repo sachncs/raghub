@@ -233,7 +233,7 @@ class TestIngestorInit:
         ingestor = Ingestor(
             uow=mock_uow,
             embedding_provider=embedder,
-            lifecycle_manager=MagicMock(),
+            lifecycle_coordinator=MagicMock(),
             max_upload_bytes=10_000,
         )
         pipeline = ingestor.build_pipeline()

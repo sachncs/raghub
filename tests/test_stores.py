@@ -106,7 +106,7 @@ def test_documents_save_version_archive_predecessor(tmp_path: Path) -> None:
     assert latest.version == 2
     # The v1 document has been archived by the cascade.
     v1 = registry.get_version("d1", 1)
-    assert v1.status == DocumentLifecycleStatus.ARCHIVED
+    assert v1.status == DocumentLifecycleStatus.Archived
 
 
 def test_documents_save_version_replace_in_place(tmp_path: Path) -> None:
@@ -187,7 +187,7 @@ def test_documents_archive_sets_status(tmp_path: Path) -> None:
     registry.save_version(_make_document())
     registry.archive("d1")
     latest = registry.get_latest("d1")
-    assert latest.status == DocumentLifecycleStatus.ARCHIVED
+    assert latest.status == DocumentLifecycleStatus.Archived
 
 
 def test_documents_archive_unknown_is_noop(tmp_path: Path) -> None:

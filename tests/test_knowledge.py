@@ -1,7 +1,7 @@
 """Knowledge representation coverage tests.
 
 Exercises the OKF serialisation helpers, the in-memory knowledge
-repository, the source manifest, the pure helpers (cosine, sha256,
+repository, the source manifest, the pure helpers (cosine_similarity, sha256,
 extract_json_object, tokenise), and the public surface of the two
 structured-retrieval indexes (Raptor, GraphIndex).
 """
@@ -21,7 +21,7 @@ from raghub.knowledge import (
     Raptor,
     chunk_to_record,
     cluster,
-    cosine,
+    cosine_similarity,
     dumps,
     extract_json_object,
     from_okf,
@@ -57,7 +57,7 @@ def _make_bundle(bundle_id: str = "b1") -> Bundle:
                 blocks=[
                     DocumentBlock(
                         block_id="blk1",
-                        kind=BlockKind.TEXT,
+                        kind=BlockKind.Text,
                         content="hello",
                         metadata={"tag": "greeting"},
                     ),
@@ -329,27 +329,27 @@ def test_sha256_bytes_is_hex_string() -> None:
 
 
 def test_cosine_identical_vectors() -> None:
-    """cosine of identical non-zero vectors is 1.0."""
+    """cosine_similarity of identical non-zero vectors is 1.0."""
 
-    assert cosine([1.0, 0.0, 1.0], [1.0, 0.0, 1.0]) == pytest.approx(1.0, abs=1e-9)
+    assert cosine_similarity([1.0, 0.0, 1.0], [1.0, 0.0, 1.0]) == pytest.approx(1.0, abs=1e-9)
 
 
 def test_cosine_orthogonal_vectors() -> None:
-    """cosine of orthogonal vectors is 0."""
+    """cosine_similarity of orthogonal vectors is 0."""
 
-    assert cosine([1.0, 0.0], [0.0, 1.0]) == pytest.approx(0.0, abs=1e-9)
+    assert cosine_similarity([1.0, 0.0], [0.0, 1.0]) == pytest.approx(0.0, abs=1e-9)
 
 
 def test_cosine_opposite_vectors() -> None:
-    """cosine of opposite vectors is -1."""
+    """cosine_similarity of opposite vectors is -1."""
 
-    assert cosine([1.0, 0.0], [-1.0, 0.0]) == pytest.approx(-1.0, abs=1e-9)
+    assert cosine_similarity([1.0, 0.0], [-1.0, 0.0]) == pytest.approx(-1.0, abs=1e-9)
 
 
 def test_cosine_zero_vector_returns_zero() -> None:
-    """cosine of a zero vector is 0 (avoids division by zero)."""
+    """cosine_similarity of a zero vector is 0 (avoids division by zero)."""
 
-    assert cosine([0.0, 0.0], [1.0, 0.0]) == 0.0
+    assert cosine_similarity([0.0, 0.0], [1.0, 0.0]) == 0.0
 
 
 def test_extract_json_object_from_codeblock() -> None:

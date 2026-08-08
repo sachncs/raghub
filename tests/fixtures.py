@@ -15,7 +15,7 @@ def sample_chunk() -> Chunk:
         document_id="doc-1",
         version=1,
         text="Revenue grew 12 percent in Q3 2024.",
-        classification=Classification.INTERNAL,
+        classification=Classification.Internal,
         company="acme",
         owner="alice@example.com",
         department="finance",

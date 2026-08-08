@@ -30,7 +30,7 @@ def _make_document(**overrides: Any) -> Document:
         "updated_at": now,
         "owner": "alice@example.com",
         "organization": "acme",
-        "classification": Classification.INTERNAL,
+        "classification": Classification.Internal,
     }
     defaults.update(overrides)
     return Document(**defaults)
@@ -108,7 +108,7 @@ def test_documents_save_version_archives_previous(tmp_path: Path) -> None:
     store = Documents(tmp_path / "registry.json")
     store.save_version(_make_document(id="d1", version=1, checksum="c1"))
     store.save_version(_make_document(id="d1", version=5, checksum="c5"))
-    assert store.documents["d1"][0].status == DocumentLifecycleStatus.ARCHIVED
+    assert store.documents["d1"][0].status == DocumentLifecycleStatus.Archived
 
 
 def test_documents_get_latest_returns_highest_version(tmp_path: Path) -> None:
@@ -179,7 +179,7 @@ def test_documents_archive_marks_status(tmp_path: Path) -> None:
     store.archive("d1")
     doc = store.get_latest("d1")
     assert doc is not None
-    assert doc.status == DocumentLifecycleStatus.ARCHIVED
+    assert doc.status == DocumentLifecycleStatus.Archived
 
 
 def test_documents_archive_unknown_is_noop(tmp_path: Path) -> None:

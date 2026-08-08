@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from raghub.coroutines import capture, maybe_await, maybe_run
+from raghub.coroutines import capture, await_if_awaitable, run_synchronously
 from raghub.io import atomic_write_json, load_json, write_json
 from raghub.retry import aretry, retry
 from raghub.timing import DurationTimer
@@ -163,14 +163,14 @@ async def test_aretry_non_retryable_raises_immediately() -> None:
 
 
 # ---------------------------------------------------------------------------
-# maybe_await / maybe_run
+# await_if_awaitable / run_synchronously
 # ---------------------------------------------------------------------------
 
 
 async def test_maybe_await_returns_value_unchanged() -> None:
     """A plain value is returned as-is."""
-    assert await maybe_await("hello") == "hello"
-    assert await maybe_await(42) == 42
+    assert await await_if_awaitable("hello") == "hello"
+    assert await await_if_awaitable(42) == 42
 
 
 async def test_maybe_await_awaits_coroutine() -> None:
@@ -179,20 +179,20 @@ async def test_maybe_await_awaits_coroutine() -> None:
     async def _coro() -> str:
         return "from-coroutine"
 
-    assert await maybe_await(_coro()) == "from-coroutine"
+    assert await await_if_awaitable(_coro()) == "from-coroutine"
 
 
 def test_maybe_run_runs_coroutine_when_no_loop() -> None:
-    """``maybe_run`` runs the coroutine when no event loop is running."""
+    """``run_synchronously`` runs the coroutine when no event loop is running."""
 
     async def _coro() -> str:
         return "ran-via-asyncio-run"
 
-    assert maybe_run(_coro()) == "ran-via-asyncio-run"
+    assert run_synchronously(_coro()) == "ran-via-asyncio-run"
 
 
 def test_maybe_run_returns_coroutine_when_loop_active() -> None:
-    """``maybe_run`` returns the coroutine when a loop is already running."""
+    """``run_synchronously`` returns the coroutine when a loop is already running."""
     import asyncio
 
     async def _coro() -> str:
@@ -200,7 +200,7 @@ def test_maybe_run_returns_coroutine_when_loop_active() -> None:
 
     async def _runner() -> Any:
         coro = _coro()
-        result = maybe_run(coro)
+        result = run_synchronously(coro)
         assert asyncio.iscoroutine(result)
         return await result
 

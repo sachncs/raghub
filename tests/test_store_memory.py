@@ -649,9 +649,9 @@ class TestFacetedSearchEngineMatchesFilters:
             vector_store=MemoryStore(embedding_dim=2),
             embedding_provider=FakeEmbeddingProvider(),
         )
-        chunk = make_chunk(classification=Classification.RESTRICTED)
+        chunk = make_chunk(classification=Classification.Restricted)
         assert (
-            Search.matches(chunk, SearchFilters(classifications=[Classification.RESTRICTED]))
+            Search.matches(chunk, SearchFilters(classifications=[Classification.Restricted]))
             is True
         )
 
@@ -660,9 +660,9 @@ class TestFacetedSearchEngineMatchesFilters:
             vector_store=MemoryStore(embedding_dim=2),
             embedding_provider=FakeEmbeddingProvider(),
         )
-        chunk = make_chunk(classification=Classification.INTERNAL)
+        chunk = make_chunk(classification=Classification.Internal)
         assert (
-            Search.matches(chunk, SearchFilters(classifications=[Classification.RESTRICTED]))
+            Search.matches(chunk, SearchFilters(classifications=[Classification.Restricted]))
             is False
         )
 
@@ -758,7 +758,7 @@ def _chunk(  # type: ignore[no-untyped-def]
         version=1,
         company="acme",
         owner="alice@x",
-        classification=Classification.INTERNAL,
+        classification=Classification.Internal,
         checksum=_sha256(text.encode("utf-8")).hexdigest(),
         text=text,
         created_at=datetime.now(UTC),

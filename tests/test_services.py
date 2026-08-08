@@ -506,7 +506,7 @@ async def test_shutdown_releases_resources(
     await facade.shutdown()
 
     assert container.uow.initialized is False
-    assert container.uow.db_manager.conn is None
+    assert container.uow.database_handle.conn is None
 
 
 async def test_shutdown_is_idempotent(

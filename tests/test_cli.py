@@ -477,7 +477,7 @@ def test_feedback_cli_export_writes_jsonl(tmp_path) -> None:
                 answer_id=None,
                 user_id="alice",
                 tenant_id="acme",
-                rating=Rating.POSITIVE,
+                rating=Rating.Positive,
                 comment="great",
                 created_at=datetime.now(UTC),
             )
@@ -530,7 +530,7 @@ def test_feedback_cli_stats_prints_counts(tmp_path) -> None:
     store = SqliteFeedbackStore(db_path=str(feedback_db))
     store.initialize()
     for i, rating in enumerate(
-        (Rating.POSITIVE, Rating.POSITIVE, Rating.NEGATIVE)
+        (Rating.Positive, Rating.Positive, Rating.Negative)
     ):
         asyncio.run(
             store.record(
@@ -610,7 +610,7 @@ def test_queue_cli_list_runs(tmp_path) -> None:
                 id="abc-123",
                 kind="ingest",
                 payload={"source": "hi"},
-                status=JobStatus.PENDING,
+                status=JobStatus.Pending,
                 tenant_id="acme",
                 next_run_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
             )

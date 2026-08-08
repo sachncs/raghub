@@ -32,8 +32,8 @@ def _make_document(**overrides: Any) -> Document:
         "organization": "acme",
         "department": "finance",
         "tags": ["q3-2024"],
-        "classification": Classification.INTERNAL,
-        "status": DocumentLifecycleStatus.READY,
+        "classification": Classification.Internal,
+        "status": DocumentLifecycleStatus.Ready,
         "filename": "doc.txt",
         "file_type": "txt",
         "mime_type": "text/plain",
@@ -68,7 +68,7 @@ async def test_doc_store_initialize_creates_schema() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         cursor = await mgr.connection.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='documents'"
@@ -85,7 +85,7 @@ async def test_doc_store_save_inserts_and_replaces() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(_make_document(id="d1", version=1, checksum="c1"))
         fetched = await store.get("d1")
@@ -101,7 +101,7 @@ async def test_doc_store_save_replaces_existing() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(_make_document(id="d1", version=1, owner="old@x", checksum="c1"))
         await store.save(_make_document(id="d1", version=1, owner="new@x", checksum="c1"))
@@ -116,7 +116,7 @@ async def test_doc_store_try_insert_returns_true() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         assert await store.try_insert(_make_document(id="d1", checksum="c1")) is True
         assert (await store.get("d1")) is not None
@@ -129,7 +129,7 @@ async def test_doc_store_get_version_returns_specific() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(_make_document(id="d1", version=1, owner="v1@x", checksum="c1"))
         await store.save(_make_document(id="d1", version=2, owner="v2@x", checksum="c2"))
@@ -145,7 +145,7 @@ async def test_doc_store_get_returns_latest_version() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(_make_document(id="d1", version=1, owner="v1@x", checksum="c1"))
         await store.save(_make_document(id="d1", version=2, owner="v2@x", checksum="c2"))
@@ -161,7 +161,7 @@ async def test_doc_store_get_returns_none_for_unknown() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         assert await store.get("missing") is None
     finally:
@@ -173,7 +173,7 @@ async def test_doc_store_list_versions_returns_all() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(_make_document(id="d1", version=2, owner="v2@x", checksum="c2"))
         await store.save(_make_document(id="d1", version=1, owner="v1@x", checksum="c1"))
@@ -188,7 +188,7 @@ async def test_doc_store_list_versions_empty_for_unknown() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         assert await store.list_versions("missing") == []
     finally:
@@ -200,7 +200,7 @@ async def test_doc_store_get_by_checksum() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(_make_document(id="d1", version=1, checksum="c1"))
         await store.save(_make_document(id="d1", version=2, checksum="c1"))
@@ -216,7 +216,7 @@ async def test_doc_store_get_by_checksum_unknown() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         assert await store.get_by_checksum("missing") is None
     finally:
@@ -228,7 +228,7 @@ async def test_doc_store_delete_removes_all_versions() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(_make_document(id="d1", version=1, checksum="c1"))
         await store.save(_make_document(id="d1", version=2, checksum="c2"))
@@ -244,7 +244,7 @@ async def test_doc_store_delete_version_only_removes_one() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(_make_document(id="d1", version=1, owner="v1@x", checksum="c1"))
         await store.save(_make_document(id="d1", version=2, owner="v2@x", checksum="c2"))
@@ -260,7 +260,7 @@ async def test_doc_store_list_by_organization() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(_make_document(id="d1", organization="acme", version=1, checksum="c1"))
         await store.save(_make_document(id="d2", organization="acme", version=1, checksum="c2"))
@@ -276,7 +276,7 @@ async def test_doc_store_list_by_organization_returns_latest() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(
             _make_document(id="d1", organization="acme", version=1, owner="v1@x", checksum="c1")
@@ -297,7 +297,7 @@ async def test_doc_store_list_all() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(_make_document(id="d1", organization="acme", version=1, checksum="c1"))
         await store.save(_make_document(id="d2", organization="other", version=1, checksum="c2"))
@@ -312,13 +312,13 @@ async def test_doc_store_update_status() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         await store.save(_make_document(id="d1", version=1, checksum="c1"))
-        await store.update_status("d1", DocumentLifecycleStatus.FAILED)
+        await store.update_status("d1", DocumentLifecycleStatus.Failed)
         doc = await store.get("d1")
         assert doc is not None
-        assert doc.status == DocumentLifecycleStatus.FAILED
+        assert doc.status == DocumentLifecycleStatus.Failed
     finally:
         await mgr.close()
 
@@ -328,7 +328,7 @@ async def test_doc_store_as_record_round_trip() -> None:
     mgr = Database(":memory:")
     await mgr.connect()
     try:
-        store = DocStore(":memory:", db_manager=mgr)
+        store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
         doc = _make_document(
             id="d1", tags=["a", "b"], chunks=["c1", "c2"], checksum="c1"
@@ -342,7 +342,7 @@ async def test_doc_store_as_record_round_trip() -> None:
         assert reconstructed.id == "d1"
         assert reconstructed.tags == ["a", "b"]
         assert reconstructed.chunks == ["c1", "c2"]
-        assert reconstructed.classification == Classification.INTERNAL
+        assert reconstructed.classification == Classification.Internal
     finally:
         await mgr.close()
 
@@ -409,11 +409,11 @@ def test_session_store_constructs_with_custom_timeout(tmp_path: Path) -> None:
 
 
 async def test_session_store_inherits_db_manager(tmp_path: Path) -> None:
-    """A supplied ``db_manager`` is exposed as an attribute."""
+    """A supplied ``database_handle`` is exposed as an attribute."""
     mgr = Database(str(tmp_path / "shared.db"))
     await mgr.connect()
     try:
-        store = SessionStore(tmp_path / "ignored.db", db_manager=mgr)
-        assert store.db_manager is mgr
+        store = SessionStore(tmp_path / "ignored.db", database_handle=mgr)
+        assert store.database_handle is mgr
     finally:
         await mgr.close()

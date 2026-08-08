@@ -42,7 +42,7 @@ def make_bundle(sections: list[DocumentSection] | None = None) -> Bundle:
 def make_section(texts: list[str], index: int = 0) -> DocumentSection:
     return DocumentSection(
         index=index,
-        blocks=[DocumentBlock(kind=BlockKind.TEXT, content=t) for t in texts],
+        blocks=[DocumentBlock(kind=BlockKind.Text, content=t) for t in texts],
     )
 
 
@@ -73,7 +73,7 @@ class _StubChunker:
         chunks: list[Chunk] = []
         for section in bundle.sections:
             for block in section.blocks:
-                if block.kind != BlockKind.TEXT:
+                if block.kind != BlockKind.Text:
                     continue
                 chunks.extend(
                     self.chunk_text(
