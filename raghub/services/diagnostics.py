@@ -183,12 +183,12 @@ def build_models(
     )
     llm: Generator = build_llm(settings.llm_model, nvidia_api_key)
     prompt_builder = Prompt()
-    conversation = _build_conversation(uow)
+    conversation = __build_conversation(uow)
     lifecycle = Lifecycle()
     ingestion = Ingestor(
         uow=uow,
         embedding_provider=embeddings,
-        lifecycle_manager=lifecycle,
+        lifecycle_coordinator=lifecycle,
         max_upload_bytes=settings.max_upload_bytes,
     )
     retrieval = RetrievalPipeline(
@@ -210,7 +210,7 @@ def build_models(
     )
 
 
-def _build_conversation(uow: "UnitOfWork") -> Any:
+def __build_conversation(uow: "UnitOfWork") -> Any:
     """Construct a :class:`ConversationHistory` bound to ``uow``."""
     from raghub.conv import ConversationHistory
 

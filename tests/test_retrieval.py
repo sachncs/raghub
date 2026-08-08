@@ -47,9 +47,9 @@ def test_fusion_fuses_multiple_rankings() -> None:
 
 
 def test_rrf_returns_sorted_scores() -> None:
-    """rrf() returns sorted (chunk_id, score) tuples."""
+    """reciprocal_rank_fusion() returns sorted (chunk_id, score) tuples."""
 
-    out = rrf([["a", "b"], ["b", "c"]])
+    out = reciprocal_rank_fusion([["a", "b"], ["b", "c"]])
     assert isinstance(out, list)
     assert all(isinstance(item, tuple) and len(item) == 2 for item in out)
     scores = [score for _, score in out]
@@ -57,10 +57,10 @@ def test_rrf_returns_sorted_scores() -> None:
 
 
 def test_rrf_rejects_non_strings() -> None:
-    """rrf() raises ValueError when a chunk_id is not a string."""
+    """reciprocal_rank_fusion() raises ValueError when a chunk_id is not a string."""
 
     with pytest.raises(ValueError):
-        rrf([[1, 2]])  # type: ignore[list-item]
+        reciprocal_rank_fusion([[1, 2]])  # type: ignore[list-item]
 
 
 def test_merge_rrf_dedupes() -> None:
@@ -68,7 +68,7 @@ def test_merge_rrf_dedupes() -> None:
 
     hit_a = type("Hit", (), {"chunk_id": "a", "score": 1.0})()
     hit_b = type("Hit", (), {"chunk_id": "b", "score": 0.9})()
-    result = merge_rrf([[hit_a, hit_b], [hit_a, hit_b]])
+    result = merge_reciprocal_rank_fusion([[hit_a, hit_b], [hit_a, hit_b]])
     ids = [h.chunk_id for h in result]
     assert ids == ["a", "b"]
 

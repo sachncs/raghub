@@ -21,7 +21,7 @@ from typing import Any
 from raghub.models import Bundle, Chunk, Classification, deterministic_id
 
 
-def awaitable(value: Any) -> Any:
+def coerce_to_awaitable(value: Any) -> Any:
     """Make ``await`` work for either sync return values or coroutines.
 
     Lifts a sync result into an inline coroutine so the query

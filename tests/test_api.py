@@ -253,18 +253,18 @@ def test_user_store_or_raise_returns_user_store() -> None:
             return None
 
     store = _FakeStore()
-    app_service = MagicMock()
-    app_service.container.user_store = store
-    assert user_store_or_raise(app_service) is store
+    application_facade = MagicMock()
+    application_facade.container.user_store = store
+    assert user_store_or_raise(application_facade) is store
 
 
 def test_user_store_or_raise_raises_503_when_missing() -> None:
     """user_store_or_raise raises HTTPException(503) when user_store is None."""
 
-    app_service = MagicMock()
-    app_service.container.user_store = None
+    application_facade = MagicMock()
+    application_facade.container.user_store = None
     with pytest.raises(HTTPException) as exc_info:
-        user_store_or_raise(app_service)
+        user_store_or_raise(application_facade)
     assert exc_info.value.status_code == 503
 
 
@@ -274,10 +274,10 @@ def test_user_store_or_raise_raises_503_when_missing_prefs_api() -> None:
     class _StubStore:
         pass
 
-    app_service = MagicMock()
-    app_service.container.user_store = _StubStore()
+    application_facade = MagicMock()
+    application_facade.container.user_store = _StubStore()
     with pytest.raises(HTTPException) as exc_info:
-        user_store_or_raise(app_service)
+        user_store_or_raise(application_facade)
     assert exc_info.value.status_code == 503
 
 
@@ -418,13 +418,13 @@ def test_lifespan_drives_fastapi(monkeypatch: pytest.MonkeyPatch) -> None:
     """Lifespan __call__ shuts down the application facade on exit."""
 
     calls: list[str] = []
-    app_service = MagicMock()
+    application_facade = MagicMock()
 
     async def _shutdown() -> None:
         calls.append("down")
 
-    app_service.shutdown = _shutdown
-    lifespan = Lifespan(app_service)
+    application_facade.shutdown = _shutdown
+    lifespan = Lifespan(application_facade)
 
     async def _drive() -> None:
         async with lifespan(MagicMock()):
@@ -437,13 +437,13 @@ def test_lifespan_drives_fastapi(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_lifespan_swallows_shutdown_errors() -> None:
     """Lifespan logs and continues when shutdown raises."""
 
-    app_service = MagicMock()
+    application_facade = MagicMock()
 
     async def _shutdown() -> None:
         raise RuntimeError("boom")
 
-    app_service.shutdown = _shutdown
-    lifespan = Lifespan(app_service)
+    application_facade.shutdown = _shutdown
+    lifespan = Lifespan(application_facade)
 
     async def _drive() -> None:
         async with lifespan(MagicMock()):
@@ -460,9 +460,9 @@ def test_lifespan_swallows_background_shutdown_errors() -> None:
         def shutdown(self) -> None:
             raise ConnectionError("boom")
 
-    app_service = MagicMock()
-    app_service.shutdown = None
-    lifespan = Lifespan(app_service)
+    application_facade = MagicMock()
+    application_facade.shutdown = None
+    lifespan = Lifespan(application_facade)
 
     state = MagicMock()
     state.background_ingestion = _BadBackground()
@@ -679,7 +679,7 @@ class _FakeApp:
 def test_inject_get_returns_application() -> None:
     """App.get reads the application facade off the request app's state."""
 
-    from raghub.authhelpers import App
+    from raghub.auth_support import App
 
     application = MagicMock()
     request = MagicMock()
@@ -690,7 +690,7 @@ def test_inject_get_returns_application() -> None:
 def test_bearer_require_strips_token() -> None:
     """Bearer.require returns the trailing token, trimmed."""
 
-    from raghub.authhelpers import Bearer
+    from raghub.auth_support import Bearer
 
     assert Bearer.require("Bearer my-token  ") == "my-token"
 
@@ -698,7 +698,7 @@ def test_bearer_require_strips_token() -> None:
 def test_bearer_require_lowercase() -> None:
     """Bearer.require is case-insensitive on the scheme."""
 
-    from raghub.authhelpers import Bearer
+    from raghub.auth_support import Bearer
 
     assert Bearer.require("bearer t") == "t"
 
@@ -706,7 +706,7 @@ def test_bearer_require_lowercase() -> None:
 def test_bearer_require_missing_raises() -> None:
     """Bearer.require raises HTTPException(401) when header is missing."""
 
-    from raghub.authhelpers import Bearer
+    from raghub.auth_support import Bearer
 
     with pytest.raises(HTTPException) as exc_info:
         Bearer.require(None)
@@ -716,7 +716,7 @@ def test_bearer_require_missing_raises() -> None:
 def test_bearer_require_wrong_scheme_raises() -> None:
     """Bearer.require rejects non-Bearer schemes."""
 
-    from raghub.authhelpers import Bearer
+    from raghub.auth_support import Bearer
 
     with pytest.raises(HTTPException) as exc_info:
         Bearer.require("Basic xyz")
@@ -726,7 +726,7 @@ def test_bearer_require_wrong_scheme_raises() -> None:
 def test_auth_admin_resolves_admin() -> None:
     """Auth.admin returns the user when is_admin is True."""
 
-    from raghub.authhelpers import Auth
+    from raghub.auth_support import Auth
 
     admin = MagicMock()
     admin.is_admin = True
@@ -734,11 +734,11 @@ def test_auth_admin_resolves_admin() -> None:
     async def _resolve(_token: str) -> tuple[Any, list[Any]]:
         return admin, []
 
-    app_service = MagicMock()
-    app_service.resolve_user = _resolve
+    application_facade = MagicMock()
+    application_facade.resolve_user = _resolve
 
     async def _drive() -> Any:
-        return await Auth.admin(authorization="Bearer t", app_service=app_service)
+        return await Auth.admin(authorization="Bearer t", application_facade=application_facade)
 
     assert asyncio.run(_drive()) is admin
 
@@ -746,7 +746,7 @@ def test_auth_admin_resolves_admin() -> None:
 def test_auth_admin_403_for_non_admin() -> None:
     """Auth.admin raises 403 for non-admin users."""
 
-    from raghub.authhelpers import Auth
+    from raghub.auth_support import Auth
 
     user = MagicMock()
     user.is_admin = False
@@ -754,11 +754,11 @@ def test_auth_admin_403_for_non_admin() -> None:
     async def _resolve(_token: str) -> tuple[Any, list[Any]]:
         return user, []
 
-    app_service = MagicMock()
-    app_service.resolve_user = _resolve
+    application_facade = MagicMock()
+    application_facade.resolve_user = _resolve
 
     async def _drive() -> None:
-        await Auth.admin(authorization="Bearer t", app_service=app_service)
+        await Auth.admin(authorization="Bearer t", application_facade=application_facade)
 
     with pytest.raises(HTTPException) as exc_info:
         asyncio.run(_drive())
@@ -768,7 +768,7 @@ def test_auth_admin_403_for_non_admin() -> None:
 def test_auth_user_id_helper() -> None:
     """Auth.user_id returns user.id from the inner auth service."""
 
-    from raghub.authhelpers import Auth
+    from raghub.auth_support import Auth
 
     user = MagicMock()
     user.id = "u-1"
@@ -778,11 +778,11 @@ def test_auth_user_id_helper() -> None:
         return user, []
 
     inner.resolve_user = _resolve
-    app_service = MagicMock()
-    app_service.auth = inner
+    application_facade = MagicMock()
+    application_facade.auth = inner
 
     async def _drive() -> str:
-        return await Auth.user_id(app_service, "t")
+        return await Auth.user_id(application_facade, "t")
 
     assert asyncio.run(_drive()) == "u-1"
 
@@ -1205,7 +1205,7 @@ def test_feedback_router_aggregate_returns_counts(tmp_path) -> None:
 
     store = SqliteFeedbackStore(db_path=str(tmp_path / "feedback.db"))
     store.initialize()
-    for i, rating in enumerate((Rating.POSITIVE, Rating.POSITIVE, Rating.NEGATIVE, Rating.NEUTRAL)):
+    for i, rating in enumerate((Rating.Positive, Rating.Positive, Rating.Negative, Rating.Neutral)):
         asyncio.run(
             store.record(
                 Feedback(

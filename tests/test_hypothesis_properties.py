@@ -132,7 +132,7 @@ def test_okf_round_trip(source_uri: str, content: str) -> None:
         sections=[
             DocumentSection(
                 index=0,
-                blocks=[DocumentBlock(kind=BlockKind.TEXT, content=content)],
+                blocks=[DocumentBlock(kind=BlockKind.Text, content=content)],
             )
         ],
     )

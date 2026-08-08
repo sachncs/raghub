@@ -73,7 +73,7 @@ def sample_chunk() -> Chunk:
         document_id="doc-1",
         version=1,
         text=text,
-        classification=Classification.INTERNAL,
+        classification=Classification.Internal,
         company="acme",
         owner="alice@example.com",
         department="finance",

@@ -27,7 +27,7 @@ def _make_chunk(**overrides: Any) -> Chunk:
         "document_id": "d1",
         "version": 1,
         "text": "Revenue grew.",
-        "classification": Classification.INTERNAL,
+        "classification": Classification.Internal,
         "company": "acme",
         "owner": "alice@example.com",
         "checksum": "0" * 64,
@@ -47,7 +47,7 @@ def _make_document(**overrides: Any) -> Document:
         "updated_at": now,
         "owner": "alice@example.com",
         "organization": "acme",
-        "classification": Classification.INTERNAL,
+        "classification": Classification.Internal,
     }
     defaults.update(overrides)
     return Document(**defaults)
@@ -131,17 +131,17 @@ def test_document_ref_document_id_delegates() -> None:
 def test_document_ref_status_getter() -> None:
     """``DocumentRef.status`` reads the wrapped document's status."""
     ref = DocumentRef(
-        _make_document(status=DocumentLifecycleStatus.READY)
+        _make_document(status=DocumentLifecycleStatus.Ready)
     )
-    assert ref.status == DocumentLifecycleStatus.READY
+    assert ref.status == DocumentLifecycleStatus.Ready
 
 
 def test_document_ref_status_setter() -> None:
     """``DocumentRef.status`` setter mutates the wrapped document."""
-    doc = _make_document(status=DocumentLifecycleStatus.NEW)
+    doc = _make_document(status=DocumentLifecycleStatus.New)
     ref = DocumentRef(doc)
-    ref.status = DocumentLifecycleStatus.READY
-    assert doc.status == DocumentLifecycleStatus.READY
+    ref.status = DocumentLifecycleStatus.Ready
+    assert doc.status == DocumentLifecycleStatus.Ready
 
 
 def test_document_ref_getattr_delegates() -> None:
@@ -164,7 +164,7 @@ def test_document_ref_mark_failed() -> None:
     doc = _make_document()
     ref = DocumentRef(doc)
     ref.mark_failed("boom")
-    assert ref.status == DocumentLifecycleStatus.FAILED
+    assert ref.status == DocumentLifecycleStatus.Failed
     assert doc.error == "boom"
 
 

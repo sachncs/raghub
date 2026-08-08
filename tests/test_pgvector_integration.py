@@ -41,7 +41,7 @@ class TestPgVectorStoreLive:
                 version=1,
                 company="acme",
                 owner="alice@x",
-                classification=Classification.INTERNAL,
+                classification=Classification.Internal,
                 checksum=f"checksum-{tenant_id}",
                 text=f"text for {tenant_id}",
                 created_at=datetime.now(UTC),
