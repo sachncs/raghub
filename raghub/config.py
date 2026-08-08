@@ -171,7 +171,7 @@ class Settings(BaseModel):
         return Settings(**merged)
 
     @classmethod
-    def load(cls, profile: str | None = None) -> Settings:
+    def load(cls: type[Settings], profile: str | None = None) -> Settings:
         """Load from ``config/<profile>.yaml`` and environment variables.
 
         Args:

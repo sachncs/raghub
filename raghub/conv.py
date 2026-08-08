@@ -45,7 +45,7 @@ class Tokenizer:
     DEFAULT_MODEL = "Qwen/Qwen3-8B"
 
     @classmethod
-    def load(cls, model: str = DEFAULT_MODEL) -> Any:
+    def load(cls: type[Tokenizer], model: str = DEFAULT_MODEL) -> Any:
         """Load the configured tokenizer.
 
         Args:

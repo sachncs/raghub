@@ -18,7 +18,7 @@ class Redaction:
     SENSITIVE: frozenset[str] = frozenset({"password_hash", "password", "token", "secret"})
 
     @classmethod
-    def user(cls, payload: dict[str, Any]) -> dict[str, Any]:
+    def user(cls: type[Redaction], payload: dict[str, Any]) -> dict[str, Any]:
         """Return a shallow copy of ``payload`` with sensitive fields replaced.
 
         Args:
