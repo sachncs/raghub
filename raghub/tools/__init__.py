@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
+from raghub.constants import RRF_K
 from raghub.errors import ConfigurationError
 from raghub.models import User
 from raghub.store import Store
@@ -440,7 +441,7 @@ class HybridSearch(Tool):
         "properties": {
             "query": {"type": "string"},
             "top_k": {"type": "integer", "default": 5, "minimum": 1, "maximum": 50},
-            "rrf_k": {"type": "integer", "default": 60, "minimum": 1},
+            "rrf_k": {"type": "integer", "default": RRF_K, "minimum": 1},
         },
         "required": ["query"],
         "additionalProperties": False,
@@ -472,7 +473,7 @@ class HybridSearch(Tool):
                 [h.chunk.id for h in dense],
                 [search_record["chunk"].chunk_id for search_record in sparse_raw],
             ],
-            k=int(kwargs.get("rrf_k", 60)) or 60,
+            k=int(kwargs.get("rrf_k", RRF_K)) or RRF_K,
         )
         id_to_hit: dict[str, Any] = {h.chunk.id: h for h in dense}
         for search_record in sparse_raw:
