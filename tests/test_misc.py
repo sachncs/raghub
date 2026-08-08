@@ -80,7 +80,7 @@ def test_migrate_run_no_manifests_under_root(tmp_path: Path) -> None:
     # Run on a directory that exists but has no manifests.
     out_dir = tmp_path / "data"
     out_dir.mkdir()
-    exit_code = run(out_dir)
+    exit_code = run_migration(out_dir)
     assert exit_code == 0
 
 
@@ -89,7 +89,7 @@ def test_migrate_run_missing_root(tmp_path: Path) -> None:
 
     from raghub.migrate import run_migration
 
-    exit_code = run(tmp_path / "nope")
+    exit_code = run_migration(tmp_path / "nope")
     assert exit_code == 2
 
 
@@ -102,7 +102,7 @@ def test_migrate_run_walks_and_rewrites(tmp_path: Path) -> None:
     nested.mkdir(parents=True)
     legacy = nested / "manifest.json"
     legacy.write_text(json.dumps({"rec1": {}}), encoding="utf-8")
-    exit_code = run(tmp_path / "data")
+    exit_code = run_migration(tmp_path / "data")
     assert exit_code == 0
     payload = json.loads(legacy.read_text(encoding="utf-8"))
     assert payload["version"] == 2

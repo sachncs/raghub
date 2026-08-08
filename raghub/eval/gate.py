@@ -166,8 +166,8 @@ async def compare(
     results_a = await run(evaluator, examples, response_factory=factory_a)
     results_b = await run(evaluator, examples, response_factory=factory_b)
 
-    metrics_a = average(results_a)
-    metrics_b = average(results_b)
+    metrics_a = compute_average(results_a)
+    metrics_b = compute_average(results_b)
 
     if gate is not None:
         gate.check(metrics_a)
