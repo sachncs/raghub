@@ -419,7 +419,7 @@ def test_instructor_generate_async_uses_async_client(monkeypatch: pytest.MonkeyP
     fake_instructor.from_provider.return_value = fake_client
     monkeypatch.setitem(__import__("sys").modules, "instructor", fake_instructor)
 
-    class _ResponseModel:
+    class ResponseModel:
         def __init__(self, answer: str) -> None:
             self.answer = answer
 
@@ -427,7 +427,7 @@ def test_instructor_generate_async_uses_async_client(monkeypatch: pytest.MonkeyP
     provider.client_async = fake_client
     result = asyncio.run(
         provider.generate(
-            response_model=_ResponseModel,
+            response_model=ResponseModel,
             question="q",
             context=[_hit("ctx")],
         )
@@ -447,7 +447,7 @@ def test_instructor_generate_sync_uses_thread(monkeypatch: pytest.MonkeyPatch) -
     fake_instructor.from_provider.return_value = fake_client
     monkeypatch.setitem(__import__("sys").modules, "instructor", fake_instructor)
 
-    class _ResponseModel:
+    class ResponseModel:
         def __init__(self, answer: str) -> None:
             self.answer = answer
 
@@ -455,7 +455,7 @@ def test_instructor_generate_sync_uses_thread(monkeypatch: pytest.MonkeyPatch) -
     provider.client = fake_client
     result = asyncio.run(
         provider.generate(
-            response_model=_ResponseModel,
+            response_model=ResponseModel,
             question="q",
             context=[_hit("ctx")],
         )
@@ -475,7 +475,7 @@ def test_instructor_astream_yields_once(monkeypatch: pytest.MonkeyPatch) -> None
     fake_instructor.from_provider.return_value = fake_client
     monkeypatch.setitem(__import__("sys").modules, "instructor", fake_instructor)
 
-    class _ResponseModel:
+    class ResponseModel:
         def __init__(self, answer: str) -> None:
             self.answer = answer
 
@@ -485,7 +485,7 @@ def test_instructor_astream_yields_once(monkeypatch: pytest.MonkeyPatch) -> None
     async def _run() -> list[Any]:
         out: list[Any] = []
         async for result in await provider.astream(
-            response_model=_ResponseModel,
+            response_model=ResponseModel,
             question="q",
             context=[_hit("ctx")],
         ):

@@ -246,15 +246,15 @@ def test_litellm_generate_handles_pydantic_response() -> None:
     """A response exposing ``.choices`` (pydantic-style) is supported."""
     provider = LiteLLM(model="gpt-4o")
 
-    class _Choice:
+    class Choice:
         def __init__(self, content: str) -> None:
             self.message = MagicMock(content=content)
 
-    class _Response:
+    class Response:
         def __init__(self, content: str) -> None:
-            self.choices = [_Choice(content)]
+            self.choices = [Choice(content)]
 
-    with patch("raghub.llm.litellm.completion", return_value=_Response("pydantic-ok")):
+    with patch("raghub.llm.litellm.completion", return_value=Response("pydantic-ok")):
         assert provider.generate(GenerationRequest(question="hi", context=[])) == "pydantic-ok"
 
 
@@ -314,18 +314,18 @@ def test_litellm_generate_handles_pydantic_usage() -> None:
     """The sync ``generate`` ignores pydantic-style ``usage``."""
     provider = LiteLLM(model="gpt-4o")
 
-    class _Usage:
+    class Usage:
         prompt_tokens = 9
         completion_tokens = 11
 
-    class _Choice:
+    class Choice:
         message = MagicMock(content="x")
 
-    class _Response:
-        choices = [_Choice()]
-        usage = _Usage()
+    class Response:
+        choices = [Choice()]
+        usage = Usage()
 
-    with patch("raghub.llm.litellm.completion", return_value=_Response()):
+    with patch("raghub.llm.litellm.completion", return_value=Response()):
         provider.generate(GenerationRequest(question="hi", context=[]))
     assert provider.last_usage is None
 
@@ -416,19 +416,19 @@ def test_litellm_async_generate_handles_pydantic_response() -> None:
     """A pydantic-style response is read via attribute access."""
     provider = LiteLLM(model="gpt-4o")
 
-    class _Choice:
+    class Choice:
         message = MagicMock(content="pydantic-async")
 
-    class _Response:
-        choices = [_Choice()]
+    class Response:
+        choices = [Choice()]
 
-    _Response.model_dump = MagicMock(  # type: ignore[attr-defined]
+    Response.model_dump = MagicMock(  # type: ignore[attr-defined]
         return_value={
             "choices": [{"message": {"role": "assistant", "content": "pydantic-async"}}]
         }
     )
 
-    with patch("raghub.llm.litellm.acompletion", return_value=_Response()):
+    with patch("raghub.llm.litellm.acompletion", return_value=Response()):
         answer = asyncio.run(provider.async_generate(GenerationRequest(question="hi", context=[])))
     assert answer == "pydantic-async"
 
@@ -646,10 +646,10 @@ def test_normalise_response_object_with_model_dump() -> None:
 
 def test_normalise_response_mapping_object() -> None:
     """A plain object supporting ``dict()`` is normalised."""
-    class _Resp(dict):
+    class Resp(dict):
         pass
 
-    assert LiteLLM.normalise_response(_Resp({"a": 1})) == {"a": 1}
+    assert LiteLLM.normalise_response(Resp({"a": 1})) == {"a": 1}
 
 
 def test_normalise_response_none() -> None:

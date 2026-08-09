@@ -13,7 +13,7 @@ import pytest
 from raghub.parsers import Catalog, ParsedSection, parse
 
 
-class _StubParser:
+class StubParser:
     """Parser stub that records the args and returns a stub section."""
 
     def __init__(self, sections: list[ParsedSection]) -> None:
@@ -54,7 +54,7 @@ def test_catalog_register_overrides_existing() -> None:
     """Re-registering a key replaces the prior parser."""
 
     catalog = Catalog()
-    new_parser = _StubParser([ParsedSection(0, "loc", "x", {})])
+    new_parser = StubParser([ParsedSection(0, "loc", "x", {})])
     catalog.register("text/plain", new_parser)
     assert catalog.entries["text/plain"] is new_parser
 
@@ -98,7 +98,7 @@ def test_catalog_parse_dispatches_to_registered_parser() -> None:
     """catalog.parse routes the call to the matched parser."""
 
     catalog = Catalog()
-    parser = _StubParser([ParsedSection(0, "loc", "text", {})])
+    parser = StubParser([ParsedSection(0, "loc", "text", {})])
     catalog.register("text/plain", parser)
     sections = catalog.parse(b"hello", "x.txt", "text/plain")
     assert len(sections) == 1
@@ -139,12 +139,12 @@ def test_module_level_parse_uses_fresh_catalog() -> None:
     # Mutate a global catalog instance and confirm parse() is not
     # affected: subsequent calls must build their own catalog and
     # ignore the global state.
-    class _NoiseParser(File):
+    class NoiseParser(File):
         @staticmethod
         def parse(file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
             return [ParsedSection(0, file_name, "NOISE", {})]
 
-    Catalog().register("application/octet-stream", _NoiseParser())
+    Catalog().register("application/octet-stream", NoiseParser())
     fresh = parse(b"still hello", "x.bin", "application/octet-stream")
     assert fresh[0].text == "still hello", (
         "Module-level parse() must not consult a leaked catalog"

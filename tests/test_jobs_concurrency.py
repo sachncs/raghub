@@ -16,7 +16,7 @@ from pathlib import Path
 
 from raghub.jobs import Job, JobStatus, SqliteQueue, Worker
 
-_TERMINAL_STATUSES: frozenset[str] = frozenset(
+TERMINAL_STATUSES: frozenset[str] = frozenset(
     {JobStatus.Succeeded.value, JobStatus.Failed.value, JobStatus.Dead.value}
 )
 
@@ -35,7 +35,7 @@ async def _wait_for_terminal(
     while True:
         counts = await queue.stats()
         in_flight = counts[JobStatus.Pending.value] + counts[JobStatus.Running.value]
-        terminal_total = sum(counts[status] for status in _TERMINAL_STATUSES)
+        terminal_total = sum(counts[status] for status in TERMINAL_STATUSES)
         if in_flight == 0 and terminal_total == expected_count:
             return
         await asyncio.sleep(poll_seconds)
@@ -93,7 +93,7 @@ class TestSqliteQueueConcurrency:
         final_counts = await queue.stats()
         assert final_counts[JobStatus.Pending.value] == 0
         assert final_counts[JobStatus.Running.value] == 0
-        terminal_total = sum(final_counts[status] for status in _TERMINAL_STATUSES)
+        terminal_total = sum(final_counts[status] for status in TERMINAL_STATUSES)
         assert terminal_total == expected_count
 
         assert len(processed) == expected_count

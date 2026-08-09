@@ -59,7 +59,7 @@ probe_vector_store = services.probe_vector_store
 # ---------------------------------------------------------------------------
 
 
-class _VectorStoreStub:
+class VectorStoreStub:
     """Vector-store stub that supports delete and health."""
 
     def __init__(self) -> None:
@@ -72,7 +72,7 @@ class _VectorStoreStub:
         return {"status": "ok", "chunks": 0}
 
 
-class _EmbedderStub:
+class EmbedderStub:
     """Embedder stub returning a non-zero vector on demand."""
 
     model_name: str = "stub-embedder"
@@ -81,7 +81,7 @@ class _EmbedderStub:
         return [float(len(text)), 0.0, 0.0, 0.0]
 
 
-class _EmbedderBroken:
+class EmbedderBroken:
     """Embedder stub that raises on every call."""
 
     model_name: str = "broken-embedder"
@@ -162,32 +162,32 @@ class TestBatchShutdown:
 
 class TestHealthProbes:
     def test_probe_vector_store_reports_ok(self) -> None:
-        result = probe_vector_store(_VectorStoreStub())
+        result = probe_vector_store(VectorStoreStub())
         assert result["status"] == "ok"
 
     def test_probe_vector_store_translates_unknown_status(self) -> None:
         """An unrecognized status becomes ``degraded`` at the probe layer."""
 
-        class _WeirdStore:
+        class WeirdStore:
             def health(self) -> dict[str, object]:
                 return {"status": "weird"}
 
-        result = probe_vector_store(_WeirdStore())
+        result = probe_vector_store(WeirdStore())
         assert result["status"] == "degraded"
 
     def test_probe_embedder_reports_ok(self) -> None:
-        result = probe_embedder(_EmbedderStub())
+        result = probe_embedder(EmbedderStub())
         assert result["status"] == "ok"
         assert result["dimension"] == 4
 
     def test_probe_embedder_reports_down_on_empty_vector(self) -> None:
-        class _EmptyEmbedder:
+        class EmptyEmbedder:
             model_name = "empty"
 
             def embed_text(self, text: str) -> list[float]:
                 return []
 
-        result = probe_embedder(_EmptyEmbedder())
+        result = probe_embedder(EmptyEmbedder())
         assert result["status"] == "down"
 
     def test_aggregate_status_ok_when_all_healthy(self) -> None:
@@ -295,14 +295,14 @@ class TestQueryPipelineHistoryPropagation:
         from raghub.pipeline import QueryPipeline
 
         embedder = FeatureHashingEmbedder(dimension=4, model_name="test")
-        vector_store = _VectorStoreStub()
+        vector_store = VectorStoreStub()
         # Seed the store with one chunk so the query returns a hit.
         from raghub.models import Chunk
 
         vector_store.delete_document = MagicMock()
         captured: dict[str, object] = {}
 
-        class _FakeGenerator:
+        class FakeGenerator:
             async def generate(self, **kwargs: object) -> str:
                 captured.update(kwargs)
                 return "ok"
@@ -310,7 +310,7 @@ class TestQueryPipelineHistoryPropagation:
             def record_tokens(self) -> None:
                 return None
 
-        generator = _FakeGenerator()
+        generator = FakeGenerator()
         history = [
             Turn(question="earlier?", answer="earlier answer"),
             Turn(question="follow-up?", answer="follow-up answer"),

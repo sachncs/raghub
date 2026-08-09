@@ -278,7 +278,7 @@ class TestRedactComment:
 
 
 @dataclass
-class _InMemoryStore:
+class InMemoryStore:
     """Tiny in-memory feedback store for the scorer cache tests."""
 
     records: list[Feedback] = field(default_factory=list)
@@ -329,7 +329,7 @@ class _InMemoryStore:
 
 class TestBm25BoostScorerRefresh:
     def test_refresh_populates_cache(self) -> None:
-        store = _InMemoryStore(
+        store = InMemoryStore(
             records=[
                 _make_feedback(chunk_id="c1", rating=Rating.Positive),
                 _make_feedback(chunk_id="c1", rating=Rating.Positive),
@@ -342,38 +342,38 @@ class TestBm25BoostScorerRefresh:
         assert scorer.counts.get("c2") == (0, 1)
 
     def test_refresh_ignores_neutral(self) -> None:
-        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Neutral)])
+        store = InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Neutral)])
         scorer = Bm25BoostScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
         assert scorer.counts.get("c1") == (0, 0)
 
     def test_refresh_empty_store_yields_empty_cache(self) -> None:
-        scorer = Bm25BoostScorer(_InMemoryStore(), tenant_id="acme")
+        scorer = Bm25BoostScorer(InMemoryStore(), tenant_id="acme")
         asyncio.run(scorer.refresh())
         assert scorer.counts == {}
 
 
 class TestVectorDownWeightScorerRefresh:
     def test_refresh_populates_negative_flags(self) -> None:
-        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Negative)])
+        store = InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Negative)])
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
         assert scorer.has_negative.get("c1") is True
 
     def test_refresh_ignores_positive(self) -> None:
-        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Positive)])
+        store = InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Positive)])
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
         assert scorer.has_negative.get("c1", False) is False
 
     def test_boost_async_uses_live_store(self) -> None:
-        store = _InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Negative)])
+        store = InMemoryStore(records=[_make_feedback(chunk_id="c1", rating=Rating.Negative)])
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         result = asyncio.run(scorer.boost_async("c1", 1.0))
         assert result == 0.5  # default negative_factor is 0.5
 
     def test_boost_async_no_negative_returns_full_score(self) -> None:
-        scorer = VectorDownWeightScorer(_InMemoryStore(), tenant_id="acme")
+        scorer = VectorDownWeightScorer(InMemoryStore(), tenant_id="acme")
         result = asyncio.run(scorer.boost_async("unknown", 1.0))
         assert result == 1.0
 

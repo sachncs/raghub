@@ -647,7 +647,7 @@ class TestAgentTrace:
 
 
 @dataclass
-class _StubTool:
+class StubTool:
     """A minimal tool that records invocations."""
 
     name: str = "vector_search"
@@ -666,7 +666,7 @@ class _StubTool:
         return ToolResult(ok=True, content="ok", data={"hits": []})
 
 
-class _StubGenerator:
+class StubGenerator:
     """Captures prompts and returns canned responses."""
 
     def __init__(self, responses: Sequence[str]) -> None:
@@ -683,11 +683,11 @@ class _StubGenerator:
 def _agent(
     *,
     responses: Sequence[str] = (),
-    tool: _StubTool | None = None,
+    tool: StubTool | None = None,
     max_steps: int = 8,
     max_tool_calls: int = 10,
     max_wall_seconds: float = 30.0,
-) -> tuple[Agent, _StubGenerator, _StubTool]:
+) -> tuple[Agent, StubGenerator, StubTool]:
     settings = AgentConfig(
         max_steps=max_steps,
         max_tool_calls=max_tool_calls,
@@ -695,9 +695,9 @@ def _agent(
     )
     registry = ToolRegistry()
     if tool is None:
-        tool = _StubTool()
+        tool = StubTool()
     registry.register(tool)
-    generator = _StubGenerator(responses)
+    generator = StubGenerator(responses)
     return Agent(llm=generator, tool_registry=registry, settings=settings), generator, tool
 
 
@@ -722,7 +722,7 @@ class TestAgentRun:
         assert trace.final_answer == "done"
 
     def test_run_handles_tool_exception(self) -> None:
-        tool = _StubTool(raise_exc=ValueError("boom"))
+        tool = StubTool(raise_exc=ValueError("boom"))
         agent, _, _ = _agent(
             responses=[
                 '{"action": {"name": "vector_search", "args": {}}}',
@@ -776,14 +776,14 @@ class TestAgentRun:
             asyncio.run(agent.run(AgentRequest(question="q")))
 
     def test_run_generator_error_raises_generation_error(self) -> None:
-        class _BoomGen:
+        class BoomGen:
             async def async_generate(self, request: Any) -> str:
                 raise TimeoutError("network")
 
         registry = ToolRegistry()
-        registry.register(_StubTool())
+        registry.register(StubTool())
         agent = Agent(
-            llm=_BoomGen(),
+            llm=BoomGen(),
             tool_registry=registry,
             settings=AgentConfig(),
         )

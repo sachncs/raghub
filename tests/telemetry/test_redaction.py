@@ -108,11 +108,11 @@ def test_redacting_telemetry_scrubs_before_forwarding_info() -> None:
 
     captured: list[dict[str, Any]] = []
 
-    class _Capture:
+    class Capture:
         def info(self, message: str, **kwargs: Any) -> None:
             captured.append(kwargs)
 
-    rt = RedactingTelemetry(_Capture())
+    rt = RedactingTelemetry(Capture())
     rt.info("test.event", password="secret", email="alice@example.com")
     assert captured == [{"password": "***", "email": "alice@example.com"}]
 
@@ -122,11 +122,11 @@ def test_redacting_telemetry_scrubs_before_forwarding_warning() -> None:
 
     captured: list[dict[str, Any]] = []
 
-    class _Capture:
+    class Capture:
         def warning(self, message: str, **kwargs: Any) -> None:
             captured.append(kwargs)
 
-    rt = RedactingTelemetry(_Capture())
+    rt = RedactingTelemetry(Capture())
     rt.warning("auth.failed", authorization="Bearer xyz", user_id="alice")
     assert captured == [{"authorization": "***", "user_id": "alice"}]
 
@@ -136,11 +136,11 @@ def test_redacting_telemetry_scrubs_record_latency_labels() -> None:
 
     captured: list[dict[str, Any]] = []
 
-    class _Capture:
+    class Capture:
         def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
             captured.append(labels)
 
-    rt = RedactingTelemetry(_Capture())
+    rt = RedactingTelemetry(Capture())
     rt.record_latency("ingest", 12.5, jwt="abc", route="/v1")
     assert captured == [{"jwt": "***", "route": "/v1"}]
 
@@ -150,14 +150,14 @@ def test_redacting_telemetry_scrubs_span_attributes() -> None:
 
     received: dict[str, Any] = {}
 
-    class _StubSpan:
+    class StubSpan:
         def __init__(self, attrs: dict[str, Any]) -> None:
             received.update(attrs)
 
-    class _StubProvider:
+    class StubProvider:
         def start_span(self, name: str, **attrs: Any) -> Any:
-            return _StubSpan(attrs)
+            return StubSpan(attrs)
 
-    rt = RedactingTelemetry(_StubProvider())
+    rt = RedactingTelemetry(StubProvider())
     rt.start_span("x", secret="shh", user="alice")
     assert received == {"secret": "***", "user": "alice"}

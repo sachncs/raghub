@@ -45,41 +45,41 @@ from raghub.services import (
 def test_probe_vector_store_no_health_method() -> None:
     """A store without health() returns status='unknown'."""
 
-    class _Stub:
+    class Stub:
         pass
 
-    result = probe_vector_store(_Stub())
+    result = probe_vector_store(Stub())
     assert result["status"] == "unknown"
 
 
 def test_probe_vector_store_healthy_dict() -> None:
     """probe_vector_store returns ok for {status: 'healthy'}."""
 
-    class _Stub:
+    class Stub:
         def health(self) -> dict[str, str]:
             return {"status": "healthy"}
 
-    assert probe_vector_store(_Stub())["status"] == "ok"
+    assert probe_vector_store(Stub())["status"] == "ok"
 
 
 def test_probe_vector_store_degraded_normalised() -> None:
     """Any non-ok status is normalised to 'degraded'."""
 
-    class _Stub:
+    class Stub:
         def health(self) -> dict[str, str]:
             return {"status": "weird"}
 
-    assert probe_vector_store(_Stub())["status"] == "degraded"
+    assert probe_vector_store(Stub())["status"] == "degraded"
 
 
 def test_probe_vector_store_non_dict_payload() -> None:
     """Non-dict payloads are wrapped with status: 'ok'."""
 
-    class _Stub:
+    class Stub:
         def health(self) -> str:
             return "fine"
 
-    result = probe_vector_store(_Stub())
+    result = probe_vector_store(Stub())
     assert result["status"] == "ok"
 
 
@@ -97,22 +97,22 @@ def test_probe_embedder_none_returns_unknown() -> None:
 def test_probe_embedder_no_method_returns_unknown() -> None:
     """A embedder without embed_text() returns 'unknown'."""
 
-    class _Stub:
+    class Stub:
         pass
 
-    assert probe_embedder(_Stub())["status"] == "unknown"
+    assert probe_embedder(Stub())["status"] == "unknown"
 
 
 def test_probe_embedder_returns_ok_with_dim() -> None:
     """A working embedder returns status='ok' and the dimension."""
 
-    class _Stub:
+    class Stub:
         model_name = "test-model"
 
         def embed_text(self, text: str) -> list[float]:
             return [0.1, 0.2, 0.3]
 
-    result = probe_embedder(_Stub())
+    result = probe_embedder(Stub())
     assert result["status"] == "ok"
     assert result["dimension"] == 3
     assert result["model"] == "test-model"
@@ -121,18 +121,18 @@ def test_probe_embedder_returns_ok_with_dim() -> None:
 def test_probe_embedder_empty_vector_returns_down() -> None:
     """A zero-length embedding vector returns 'down'."""
 
-    class _Stub:
+    class Stub:
         def embed_text(self, text: str) -> list[float]:
             return []
 
-    result = probe_embedder(_Stub())
+    result = probe_embedder(Stub())
     assert result["status"] == "down"
 
 
 def test_probe_embedder_async_iterable_returns_unknown_dim() -> None:
     """An async iterator from embed_text is wrapped as ok with no dim."""
 
-    class _Stub:
+    class Stub:
         model_name = "test"
 
         def embed_text(self, text: str) -> object:
@@ -142,7 +142,7 @@ def test_probe_embedder_async_iterable_returns_unknown_dim() -> None:
 
             return _aiter()
 
-    result = probe_embedder(_Stub())
+    result = probe_embedder(Stub())
     assert result["status"] == "ok"
 
 
@@ -278,14 +278,14 @@ def test_seed_blocked_false_when_safe(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_upload_record_returns_document() -> None:
     """upload_record extracts a Document from an IngestionResult-like input."""
 
-    class _StubResult:
+    class StubResult:
         document: ClassVar[dict[str, object]] = {"id": "d1", "version": 1}
 
-    result = upload_record(_StubResult())  # type: ignore[arg-type]
+    result = upload_record(StubResult())  # type: ignore[arg-type]
     assert result["id"] == "d1"
 
 
-class _DeterministicGenerator(Generator):
+class DeterministicGenerator(Generator):
     """Generate stable answers without network access."""
 
     model_name = "service-test"
@@ -295,7 +295,7 @@ class _DeterministicGenerator(Generator):
         return f"answer:{request.question}"
 
 
-class _StubRag:
+class StubRag:
     """Return a canonical response for advanced preference routing."""
 
     async def aquery(self, question: str, **flags: object) -> QueryResponse:
@@ -319,7 +319,7 @@ async def rag_container(
     )
     settings.ensure_dirs()
     container = await build_container(settings)
-    container.llm = _DeterministicGenerator()
+    container.llm = DeterministicGenerator()
     facade = Facade(container)
     try:
         yield container, facade
@@ -441,7 +441,7 @@ async def test_preference_query_with_flags_with_rag(
     """The advanced preference path identifies the selected query pipeline."""
     container, facade = rag_container
     token = await _session_token(container, facade, email="advanced@example.com")
-    container.rag_facade = _StubRag()
+    container.rag_facade = StubRag()
 
     response = await facade.query_with_flags(token=token, question="Use the agent", agent=True)
 
