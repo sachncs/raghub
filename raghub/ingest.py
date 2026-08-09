@@ -785,8 +785,8 @@ class Ingestor:
             return cached
 
         result = await self.run_pipeline(
-            file_bytes=file_bytes,
             file_name=file_name,
+            file_bytes=file_bytes,
             mime_type=mime_type,
             owner=owner,
             organization=organization,
@@ -799,6 +799,30 @@ class Ingestor:
             raise IngestionError(
                 result.error.message if result.error else "ingestion failed"
             )
+        return self._finalize_successful_record(
+            result=result,
+            file_name=file_name,
+            mime_type=mime_type,
+            owner=owner,
+            organization=organization,
+            classification=classification,
+            checksum=checksum,
+            tags=tags,
+        )
+
+    async def _finalize_successful_record(
+        self,
+        *,
+        result: Any,
+        file_name: str,
+        mime_type: str,
+        owner: User,
+        organization: str,
+        classification: Any,
+        checksum: str,
+        tags: list[str],
+    ) -> IngestionResult:
+        """Build the Document record from a successful Pipeline and persist it."""
         record = record_from_pipeline(
             result,
             file_name=file_name,
