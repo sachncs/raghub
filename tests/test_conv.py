@@ -12,17 +12,17 @@ from raghub.models import Session, Turn
 from raghub.repos import UnitOfWork
 
 
-def _make_uow_with_session(record: Session | None) -> UnitOfWork:
+def make_uow_with_session(record: Session | None) -> UnitOfWork:
     """Build a minimal UnitOfWork stub that returns ``record`` for session lookups."""
     uow = MagicMock(spec=UnitOfWork)
     uow.session_repo = MagicMock()
-    uow.session_repo.save = AsyncMock()
+    uow.session_repo.upsert = AsyncMock()
     uow.session_repo.get = AsyncMock(return_value=record)
     uow.session_repo.get_by_token = AsyncMock(return_value=record)
     return uow
 
 
-def _make_session(**overrides: Any) -> Session:
+def make_session(**overrides: Any) -> Session:
     """Build a :class:`Session` with sensible defaults for tests."""
     now = datetime(2026, 1, 1, tzinfo=UTC)
     defaults: dict[str, Any] = {
@@ -160,12 +160,11 @@ def test_conversation_manager_build_creates_session() -> None:
     BaseModel bug in :mod:`raghub.conv`; we mock ``SessionWrap`` to
     sidestep it and validate the persistence side.
     """
-    uow = _make_uow_with_session(None)
+    uow = make_uow_with_session(None)
     manager = ConversationHistory(uow=uow)
-    with patch("raghub.conv.SessionWrap", lambda rec: rec):
-        session = asyncio.run(manager.build("user-1"))
+    session = asyncio.run(manager.build("user-1"))
     assert session.user_id == "user-1"
-    uow.session_repo.save.assert_awaited()
+    uow.session_repo.upsert.assert_awaited()
 
 
 def test_conversation_manager_resolve_returns_session() -> None:
@@ -178,33 +177,32 @@ def test_conversation_manager_resolve_returns_session() -> None:
     therefore mock the :meth:`Session.__init__` to keep the test
     decoupled from that latent bug.
     """
-    record = _make_session()
-    uow = _make_uow_with_session(record)
+    record = make_session()
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
-    with patch("raghub.conv.SessionWrap", lambda rec: rec):
-        session = asyncio.run(manager.resolve("t1"))
+    session = asyncio.run(manager.resolve("t1"))
     assert session is record
 
 
 def test_conversation_manager_resolve_returns_none_for_unknown_token() -> None:
     """``resolve`` returns ``None`` when the token is unknown."""
-    uow = _make_uow_with_session(None)
+    uow = make_uow_with_session(None)
     manager = ConversationHistory(uow=uow)
     assert asyncio.run(manager.resolve("missing")) is None
 
 
 def test_conversation_manager_append_noop_for_unknown_token() -> None:
     """``append`` is a no-op when the token is unknown."""
-    uow = _make_uow_with_session(None)
+    uow = make_uow_with_session(None)
     manager = ConversationHistory(uow=uow)
     asyncio.run(manager.append("missing", "q", "a"))
-    uow.session_repo.save.assert_not_called()
+    uow.session_repo.upsert.assert_not_called()
 
 
 def test_conversation_manager_append_persists_turn() -> None:
     """``append`` adds the turn to the session record and persists it."""
-    record = _make_session()
-    uow = _make_uow_with_session(record)
+    record = make_session()
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     before = datetime(2026, 1, 1, tzinfo=UTC)
     asyncio.run(manager.append("t1", "hello", "world", metadata={"k": "v"}))
@@ -214,13 +212,13 @@ def test_conversation_manager_append_persists_turn() -> None:
     assert turn.answer == "world"
     assert turn.metadata == {"k": "v"}
     assert record.last_seen_at >= before
-    uow.session_repo.save.assert_awaited()
+    uow.session_repo.upsert.assert_awaited()
 
 
 def test_conversation_manager_append_default_metadata_is_empty_dict() -> None:
     """When no metadata is supplied, the turn's metadata is ``{}``."""
-    record = _make_session()
-    uow = _make_uow_with_session(record)
+    record = make_session()
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     asyncio.run(manager.append("t1", "q", "a"))
     assert record.history[0].metadata == {}
@@ -228,9 +226,9 @@ def test_conversation_manager_append_default_metadata_is_empty_dict() -> None:
 
 def test_conversation_manager_load_returns_history() -> None:
     """``load`` returns the session's history."""
-    record = _make_session(token="t1", history=[Turn(question="q1", answer="a1")]
+    record = make_session(token="t1", history=[Turn(question="q1", answer="a1")]
     )
-    uow = _make_uow_with_session(record)
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     history = asyncio.run(manager.load("t1"))
     assert len(history) == 1
@@ -239,34 +237,34 @@ def test_conversation_manager_load_returns_history() -> None:
 
 def test_conversation_manager_load_returns_empty_for_unknown() -> None:
     """``load`` returns ``[]`` when the token is unknown."""
-    uow = _make_uow_with_session(None)
+    uow = make_uow_with_session(None)
     manager = ConversationHistory(uow=uow)
     assert asyncio.run(manager.load("missing")) == []
 
 
 def test_conversation_manager_clear_noop_for_unknown() -> None:
     """``clear`` is a no-op when the token is unknown."""
-    uow = _make_uow_with_session(None)
+    uow = make_uow_with_session(None)
     manager = ConversationHistory(uow=uow)
     asyncio.run(manager.clear("missing"))
-    uow.session_repo.save.assert_not_called()
+    uow.session_repo.upsert.assert_not_called()
 
 
 def test_conversation_manager_clear_empties_history() -> None:
     """``clear`` empties the session's history and persists it."""
-    record = _make_session(token="t1", history=[Turn(question="q", answer="a")]
+    record = make_session(token="t1", history=[Turn(question="q", answer="a")]
     )
-    uow = _make_uow_with_session(record)
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     asyncio.run(manager.clear("t1"))
     assert record.history == []
-    uow.session_repo.save.assert_awaited()
+    uow.session_repo.upsert.assert_awaited()
 
 
 def test_conversation_manager_add_turn_trims() -> None:
     """``add_turn`` appends the turn then trims to the configured budget."""
-    record = _make_session(session_id="sess-1", history=[])
-    uow = _make_uow_with_session(record)
+    record = make_session(session_id="sess-1", history=[])
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow, max_tokens=10000)
     asyncio.run(manager.add_turn("sess-1", Turn(question="q", answer="a")))
     assert len(record.history) == 1
@@ -274,19 +272,19 @@ def test_conversation_manager_add_turn_trims() -> None:
 
 def test_conversation_manager_add_turn_noop_for_unknown_session() -> None:
     """``add_turn`` is a no-op when the session id is unknown."""
-    uow = _make_uow_with_session(None)
+    uow = make_uow_with_session(None)
     manager = ConversationHistory(uow=uow)
     asyncio.run(manager.add_turn("missing", Turn(question="q", answer="a")))
-    uow.session_repo.save.assert_not_called()
+    uow.session_repo.upsert.assert_not_called()
 
 
 def test_conversation_manager_trim_history_with_explicit_budget() -> None:
     """An explicit ``max_tokens`` overrides the configured budget."""
-    record = _make_session(session_id="sess-1", history=[
+    record = make_session(session_id="sess-1", history=[
             Turn(question=f"q{i}", answer=f"a{i}") for i in range(10)
         ]
     )
-    uow = _make_uow_with_session(record)
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow, max_tokens=10000)
     trimmed = asyncio.run(manager.trim_history("sess-1", max_tokens=10))
     assert len(trimmed) <= 2
@@ -294,8 +292,8 @@ def test_conversation_manager_trim_history_with_explicit_budget() -> None:
 
 def test_conversation_manager_trim_history_uses_default_budget() -> None:
     """Without an override, the configured ``sliding_window`` is used."""
-    record = _make_session(session_id="sess-1", history=[Turn(question="q", answer="a")])
-    uow = _make_uow_with_session(record)
+    record = make_session(session_id="sess-1", history=[Turn(question="q", answer="a")])
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow, max_tokens=10000)
     trimmed = asyncio.run(manager.trim_history("sess-1"))
     assert len(trimmed) == 1
@@ -305,15 +303,15 @@ def test_conversation_manager_trim_history_uses_default_budget() -> None:
 
 def test_conversation_manager_trim_history_noop_for_unknown() -> None:
     """``trim_history`` returns ``[]`` when the session is unknown."""
-    uow = _make_uow_with_session(None)
+    uow = make_uow_with_session(None)
     manager = ConversationHistory(uow=uow)
     assert asyncio.run(manager.trim_history("missing")) == []
 
 
 def test_conversation_manager_get_overrides_returns_dict() -> None:
     """``get_overrides`` returns a shallow copy of the overrides."""
-    record = _make_session(overrides={"a": 1})
-    uow = _make_uow_with_session(record)
+    record = make_session(overrides={"a": 1})
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     overrides = asyncio.run(manager.get_overrides("sess-1"))
     assert overrides == {"a": 1}
@@ -323,23 +321,23 @@ def test_conversation_manager_get_overrides_returns_dict() -> None:
 
 def test_conversation_manager_get_overrides_returns_empty_for_unknown() -> None:
     """``get_overrides`` returns ``{}`` when the session is unknown."""
-    uow = _make_uow_with_session(None)
+    uow = make_uow_with_session(None)
     manager = ConversationHistory(uow=uow)
     assert asyncio.run(manager.get_overrides("missing")) == {}
 
 
 def test_conversation_manager_get_overrides_returns_empty_when_unset() -> None:
     """``get_overrides`` returns ``{}`` when the session has no overrides."""
-    record = _make_session(overrides={})
-    uow = _make_uow_with_session(record)
+    record = make_session(overrides={})
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     assert asyncio.run(manager.get_overrides("sess-1")) == {}
 
 
 def test_conversation_manager_set_overrides_replaces() -> None:
     """``set_overrides`` replaces the session's overrides mapping."""
-    record = _make_session(overrides={"old": True})
-    uow = _make_uow_with_session(record)
+    record = make_session(overrides={"old": True})
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     asyncio.run(manager.set_overrides("sess-1", {"new": True}))
     assert record.overrides == {"new": True}
@@ -347,8 +345,8 @@ def test_conversation_manager_set_overrides_replaces() -> None:
 
 def test_conversation_manager_set_overrides_clears_with_empty() -> None:
     """An empty / ``None`` overrides mapping resets to an empty dict."""
-    record = _make_session(session_id="sess-1", overrides={"a": 1})
-    uow = _make_uow_with_session(record)
+    record = make_session(session_id="sess-1", overrides={"a": 1})
+    uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     asyncio.run(manager.set_overrides("sess-1", {}))
     assert record.overrides == {}
@@ -356,10 +354,10 @@ def test_conversation_manager_set_overrides_clears_with_empty() -> None:
 
 def test_conversation_manager_set_overrides_noop_for_unknown() -> None:
     """``set_overrides`` is a no-op when the session is unknown."""
-    uow = _make_uow_with_session(None)
+    uow = make_uow_with_session(None)
     manager = ConversationHistory(uow=uow)
     asyncio.run(manager.set_overrides("missing", {"a": 1}))
-    uow.session_repo.save.assert_not_called()
+    uow.session_repo.upsert.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

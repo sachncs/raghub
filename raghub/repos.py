@@ -628,6 +628,9 @@ class UnitOfWork(BaseUnitOfWork):
             session_repo=sess_repo,
             database_handle=self.database_handle,
         )
+        self.document_repo = doc_repo
+        self.chunk_repo = chunk_repo
+        self.session_repo = sess_repo
 
     async def initialize(self) -> None:
         """Open the database connection and initialise all repositories."""

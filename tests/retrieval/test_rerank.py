@@ -12,7 +12,7 @@ from raghub.models import Chunk, Hit
 from raghub.retrieval.rerank import Cascade, Cohere, Identity, rerank_latency
 
 
-def make_hit(chunk_id: str, score: float = 0.5) -> Hit:
+def makemake_hit(chunk_id: str, score: float = 0.5) -> Hit:
     """Build a minimal Hit for tests."""
 
     import hashlib
@@ -37,14 +37,14 @@ def make_hit(chunk_id: str, score: float = 0.5) -> Hit:
 def test_identity_rerank_returns_hits_unchanged() -> None:
     """``Identity.rerank`` returns the hits as-is."""
 
-    hits = [make_hit("c1"), make_hit("c2"), make_hit("c3")]
+    hits = [makemake_hit("c1"), makemake_hit("c2"), makemake_hit("c3")]
     assert Identity.rerank(question="q", hits=hits) == hits
 
 
 def test_identity_rerank_returns_new_list_instance() -> None:
     """``Identity.rerank`` returns a fresh list (not the input list)."""
 
-    hits = [make_hit("c1")]
+    hits = [makemake_hit("c1")]
     result = Identity.rerank(question="q", hits=hits)
     assert result is not hits
     assert result == hits
@@ -55,7 +55,7 @@ def test_identity_arerank_returns_hits_async() -> None:
 
     import asyncio
 
-    hits = [make_hit("c1"), make_hit("c2")]
+    hits = [makemake_hit("c1"), makemake_hit("c2")]
     result = asyncio.run(Identity.arerank(question="q", hits=hits))
     assert result == hits
 
@@ -93,7 +93,7 @@ def test_cohere_rerank_returns_empty_for_empty_hits() -> None:
 def test_cohere_rerank_reorders_by_client_result(monkeypatch: pytest.MonkeyPatch) -> None:
     """``Cohere.rerank`` reorders hits based on the client's results."""
 
-    hits = [make_hit("c1"), make_hit("c2"), make_hit("c3")]
+    hits = [makemake_hit("c1"), makemake_hit("c2"), makemake_hit("c3")]
 
     class StubCohereResult:
         def __init__(self, index: int) -> None:
@@ -111,7 +111,7 @@ def test_cohere_rerank_reorders_by_client_result(monkeypatch: pytest.MonkeyPatch
 def test_cohere_score_skips_out_of_range_indices(monkeypatch: pytest.MonkeyPatch) -> None:
     """``Cohere.score`` drops out-of-range indices returned by the client."""
 
-    hits = [make_hit("c1"), make_hit("c2")]
+    hits = [makemake_hit("c1"), makemake_hit("c2")]
 
     class StubCohereResult:
         def __init__(self, index: int) -> None:
@@ -132,8 +132,8 @@ def test_cohere_arerank_delegates_to_sync_via_asyncio_to_thread() -> None:
     import asyncio
 
     cohere = Cohere(api_key="sk-test", client=MagicMock())
-    cohere.rerank = MagicMock(return_value=[make_hit("c1")])
-    result = asyncio.run(cohere.arerank(question="q", hits=[make_hit("c1")]))
+    cohere.rerank = MagicMock(return_value=[makemake_hit("c1")])
+    result = asyncio.run(cohere.arerank(question="q", hits=[makemake_hit("c1")]))
     cohere.rerank.assert_called_once()
     assert result[0].chunk.id == "c1"
 
@@ -141,7 +141,7 @@ def test_cohere_arerank_delegates_to_sync_via_asyncio_to_thread() -> None:
 def test_cascade_runs_expensive_when_cheap_did_not_reorder() -> None:
     """``Cascade.rerank`` invokes expensive when cheap returned input unchanged."""
 
-    hits = [make_hit("c1"), make_hit("c2"), make_hit("c3")]
+    hits = [makemake_hit("c1"), makemake_hit("c2"), makemake_hit("c3")]
 
     cheap = Identity()  # always returns input unchanged
 
@@ -167,7 +167,7 @@ def test_cascade_runs_expensive_when_cheap_did_not_reorder() -> None:
 def test_cascade_returns_cheap_result_when_cheap_reorders() -> None:
     """``Cascade.rerank`` returns cheap's reordered output when cheap reordered."""
 
-    hits = [make_hit("c1"), make_hit("c2"), make_hit("c3")]
+    hits = [makemake_hit("c1"), makemake_hit("c2"), makemake_hit("c3")]
     reordered = [hits[2], hits[0], hits[1]]  # cheap's reorder
 
     expensive_calls: list[list[Hit]] = []
@@ -205,7 +205,7 @@ def test_cascade_runs_expensive_when_cheap_reorders() -> None:
     invoked and its result is returned.
     """
 
-    hits = [make_hit("c1"), make_hit("c2"), make_hit("c3")]
+    hits = [makemake_hit("c1"), makemake_hit("c2"), makemake_hit("c3")]
 
     cheap = Identity()  # always returns input unchanged
 
@@ -234,7 +234,7 @@ def test_cascade_arerank_delegates_to_cheap_arerank() -> None:
 
     import asyncio
 
-    hits = [make_hit("c1"), make_hit("c2")]
+    hits = [makemake_hit("c1"), makemake_hit("c2")]
 
     async def cheap_async(*, question: str, hits):
         return list(hits)  # identity

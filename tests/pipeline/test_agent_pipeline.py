@@ -12,7 +12,7 @@ from raghub.models import PipelineCtx, PipelineType, Turn, User
 from raghub.pipeline.agent import AgentPipeline
 
 
-def _ctx() -> PipelineCtx:
+def make_ctx() -> PipelineCtx:
     """Build a minimal PipelineCtx for tests."""
 
     return PipelineCtx(
@@ -22,7 +22,7 @@ def _ctx() -> PipelineCtx:
     )
 
 
-def _user() -> User:
+def make_user() -> User:
     """Build a minimal User for tests."""
 
     return User(id="u-1", email="alice@example.com")
@@ -102,10 +102,10 @@ async def test_run_calls_agent_with_agent_request() -> None:
     )
     pipeline.generator.generate = MagicMock(return_value="Paris.")
 
-    user = _user()
+    user = make_user()
     history = [Turn(question="earlier", answer="earlier answer")]
     await pipeline.run(
-        _ctx(),
+        make_ctx(),
         question="What is the capital of France?",
         user=user,
         session_id="s1",
@@ -149,7 +149,7 @@ async def test_run_returns_pipeline_with_answer_and_citations() -> None:
     )
     pipeline.generator.generate = MagicMock(return_value="Paris.")
 
-    result = await pipeline.run(_ctx(), question="q", user=_user(), history=[])
+    result = await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
     assert result.pipeline_name == "query_agent"
     assert result.outputs["answer"] == "Paris."
     assert result.outputs["citations"] == [citation]
@@ -181,7 +181,7 @@ async def test_run_prefers_generator_citations_when_returned_as_tuple() -> None:
     )
     pipeline.generator.generate = MagicMock(return_value=("generator answer", [generator_citation]))
 
-    result = await pipeline.run(_ctx(), question="q", user=_user(), history=[])
+    result = await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
     assert result.outputs["answer"] == "agent answer"  # agent's final_answer wins
     assert result.outputs["citations"] == [generator_citation]  # generator's citations win
 
@@ -210,7 +210,7 @@ async def test_run_falls_back_to_agent_citations_when_generator_has_none() -> No
     )
     pipeline.generator.generate = MagicMock(return_value=("answer", []))
 
-    result = await pipeline.run(_ctx(), question="q", user=_user(), history=[])
+    result = await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
     assert result.outputs["answer"] == "agent answer"  # agent's final_answer wins
     assert result.outputs["citations"] == [agent_citation]  # falls back to agent
 
@@ -250,7 +250,7 @@ async def test_run_applies_long_context_pass_when_eligible() -> None:
     )
     pipeline.generator.generate = MagicMock(return_value="answer")
 
-    result = await pipeline.run(_ctx(), question="q", user=_user(), history=[])
+    result = await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
     assert result.outputs["hits"] == [hit_after]
     long_context.is_eligible.assert_called_once()
 
@@ -285,7 +285,7 @@ async def test_run_skips_long_context_pass_when_ineligible() -> None:
     )
     pipeline.generator.generate = MagicMock(return_value="answer")
 
-    await pipeline.run(_ctx(), question="q", user=_user(), history=[])
+    await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
     long_context.rerank.assert_not_called()
 
 
@@ -317,5 +317,5 @@ async def test_run_skips_long_context_pass_when_no_hits() -> None:
     )
     pipeline.generator.generate = MagicMock(return_value="answer")
 
-    await pipeline.run(_ctx(), question="q", user=_user(), history=[])
+    await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
     long_context.rerank.assert_not_called()

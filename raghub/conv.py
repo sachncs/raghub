@@ -23,7 +23,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
-from raghub.domain import Session as SessionWrap
+from raghub.models import Session
 from raghub.models import Session, Turn
 from raghub.repos import UnitOfWork
 
@@ -195,8 +195,8 @@ class ConversationHistory:
                 "last_seen_at": datetime.now(UTC).isoformat(),
             }
         )
-        await self.uow.session_repo.save(record)
-        return SessionWrap(record)
+        await self.uow.session_repo.upsert(record)
+        return record
 
     async def resolve(self, token: str) -> Session | None:
         """Resolve a session token to a :class:`Session`.
@@ -211,7 +211,7 @@ class ConversationHistory:
         record = await self.uow.session_repo.get_by_token(token)
         if record is None:
             return None
-        return SessionWrap(record)
+        return record
 
     async def append(
         self,
@@ -241,7 +241,7 @@ class ConversationHistory:
         # Update the session's last-seen timestamp on every append so
         # expiry sweeps can identify idle sessions.
         record.last_seen_at = datetime.now(UTC)
-        await self.uow.session_repo.save(record)
+        await self.uow.session_repo.upsert(record)
 
     async def load(self, session_token: str) -> list[Turn]:
         """Load the full history for ``session_token``.
@@ -271,7 +271,7 @@ class ConversationHistory:
             return
         record.history.clear()
         record.last_seen_at = datetime.now(UTC)
-        await self.uow.session_repo.save(record)
+        await self.uow.session_repo.upsert(record)
 
     async def add_turn(self, session_id: str, turn: Turn) -> None:
         """Append ``turn`` and immediately re-trim the history.
@@ -290,7 +290,7 @@ class ConversationHistory:
             return
         record.history.append(turn)
         record.last_seen_at = datetime.now(UTC)
-        await self.uow.session_repo.save(record)
+        await self.uow.session_repo.upsert(record)
         await self.trim_history(session_id)
 
     async def trim_history(
@@ -322,7 +322,7 @@ class ConversationHistory:
         record.history.clear()
         record.history.extend(trimmed)
         record.last_seen_at = datetime.now(UTC)
-        await self.uow.session_repo.save(record)
+        await self.uow.session_repo.upsert(record)
         return trimmed
 
     async def get_overrides(self, session_id: str) -> dict[str, Any]:
@@ -358,7 +358,7 @@ class ConversationHistory:
             return
         record.overrides = dict(overrides or {})
         record.last_seen_at = datetime.now(UTC)
-        await self.uow.session_repo.save(record)
+        await self.uow.session_repo.upsert(record)
 
 
 class ConversationStore(Protocol):
