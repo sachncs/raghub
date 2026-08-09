@@ -559,6 +559,16 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
     literal for int()``.
     """
     return {
+        **load_path_settings(selected_profile, payload),
+        **load_int_settings(payload),
+        **load_string_settings(payload),
+        **load_security_settings(payload),
+    }
+
+
+def load_path_settings(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Build path-typed Settings (environment, data_dir, registry, sessions)."""
+    return {
         "environment": os.getenv("RAG_ENV", selected_profile),
         "data_dir": Path(os.getenv("RAG_DATA_DIR", payload.get("data_dir", "./data"))),
         "registry_path": Path(
@@ -567,16 +577,15 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
         "sessions_path": Path(
             os.getenv("RAG_SESSIONS_PATH", payload.get("sessions_path", "./data/sessions.json"))
         ),
+    }
+
+
+def load_int_settings(payload: dict[str, Any]) -> dict[str, Any]:
+    """Build int-typed Settings (chunk sizes, top_k, embedding_dim, etc)."""
+    return {
         "chunk_size_words": __int("RAG_CHUNK_SIZE_WORDS", payload.get("chunk_size_words", DEFAULT_CHUNK_SIZE_WORDS)),
         "chunk_overlap_words": __int(
             "RAG_CHUNK_OVERLAP_WORDS", payload.get("chunk_overlap_words", DEFAULT_CHUNK_OVERLAP_WORDS)
-        ),
-        "chunker_strategy": os.getenv(
-            "RAG_CHUNKER_STRATEGY", payload.get("chunker_strategy", "recursive")
-        ),
-        "embedding_model_chunker": os.getenv(
-            "RAG_EMBEDDING_MODEL_CHUNKER",
-            payload.get("embedding_model_chunker", "minishlab/potion-base-8M"),
         ),
         "top_k": __int("RAG_TOP_K", payload.get("top_k", DEFAULT_TOP_K)),
         "embedding_dim": __int("RAG_EMBEDDING_DIM", payload.get("embedding_dim", DEFAULT_EMBEDDING_DIM)),
@@ -585,6 +594,19 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
         ),
         "max_upload_bytes": __int(
             "RAG_MAX_UPLOAD_BYTES", payload.get("max_upload_bytes", DEFAULT_MAX_UPLOAD_BYTES)
+        ),
+    }
+
+
+def load_string_settings(payload: dict[str, Any]) -> dict[str, Any]:
+    """Build string-typed Settings (chunkers, models, log level)."""
+    return {
+        "chunker_strategy": os.getenv(
+            "RAG_CHUNKER_STRATEGY", payload.get("chunker_strategy", "recursive")
+        ),
+        "embedding_model_chunker": os.getenv(
+            "RAG_EMBEDDING_MODEL_CHUNKER",
+            payload.get("embedding_model_chunker", "minishlab/potion-base-8M"),
         ),
         "embedding_model": os.getenv(
             "RAG_EMBEDDING_MODEL", payload.get("embedding_model", HASHING_BGE_MODEL)
@@ -595,6 +617,12 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
         "worker_backend": os.getenv(
             "RAG_WORKER_BACKEND", payload.get("worker_backend", "threadpool")
         ),
+    }
+
+
+def load_security_settings(payload: dict[str, Any]) -> dict[str, Any]:
+    """Build security-typed Settings (jwt_secret, nvidia_api_key, allow_passwordless)."""
+    return {
         "jwt_secret": SecretStr(os.getenv(ENV_JWT_SECRET, "")),
         "nvidia_api_key": os.getenv(ENV_NVIDIA_API_KEY, payload.get("nvidia_api_key", "")),
         "allow_passwordless_login": env_bool(
