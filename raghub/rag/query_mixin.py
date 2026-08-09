@@ -152,13 +152,33 @@ class QueryMixin:
             IngestionError: When ``question`` is empty or whitespace-only.
 
         """
+        merged = self._merge_query_kwargs(request, kwargs)
+        self._validate_query_inputs(question, merged)
+        scoped = self.scoped(merged.get("user"), merged.get("session_id"))
+        context = PipelineCtx(
+            pipeline_name="query",
+            metadata={"session_id": scoped} if scoped else {},
+        )
+        resolved = self._resolve_query_flags(merged, scoped)
+        context.metadata["resolved_config"] = resolved.to_dict()
+        return await self._execute_query_pipeline(
+            question=question,
+            merged=merged,
+            scoped=scoped,
+            context=context,
+            resolved=resolved,
+        )
+
+    def _merge_query_kwargs(
+        self, request: RagQueryRequest | None, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Merge the optional ``RagQueryRequest`` and the loose kwargs into one dict."""
         merged: dict[str, Any] = dict(request) if request is not None else {}
         merged.update(kwargs)
-        user: Any | None = merged.get("user")
-        session_id: str | None = merged.get("session_id")
-        top_k: int = merged.get("top_k", 5)
-        metadata_filter: dict[str, Any] | None = merged.get("metadata_filter")
-        response_model: type | None = merged.get("response_model")
+        return merged
+
+    def _validate_query_inputs(self, question: str, merged: dict[str, Any]) -> None:
+        """Validate that ``question`` is non-empty and the LLM is configured."""
         if not question or not question.strip():
             raise IngestionError("query() requires a non-empty question")
         if self.llm is None:
@@ -166,13 +186,13 @@ class QueryMixin:
                 "No LLM API key configured; set RAG_LLM_API_KEY "
                 "(or another provider key) before calling query()."
             )
-        scoped = self.scoped(user, session_id)
-        context = PipelineCtx(
-            pipeline_name="query",
-            metadata={"session_id": scoped} if scoped else {},
-        )
 
-        resolved = resolve(
+    def _resolve_query_flags(
+        self, merged: dict[str, Any], scoped: str | None
+    ) -> Any:
+        """Resolve advanced-RAG flags via ``raghub.agent.resolve``."""
+        user: Any | None = merged.get("user")
+        return resolve(
             request_overrides={
                 "tools_enabled": merged.get("tools_enabled"),
                 "agent": merged.get("agent"),
@@ -188,8 +208,23 @@ class QueryMixin:
             user_prefs=getattr(user, "tool_settings", None) if user else None,
             settings=self.settings,
         )
-        context.metadata["resolved_config"] = resolved.to_dict()
+
+    async def _execute_query_pipeline(
+        self,
+        *,
+        question: str,
+        merged: dict[str, Any],
+        scoped: str | None,
+        context: PipelineCtx,
+        resolved: Any,
+    ) -> Response:
+        """Run the query pipeline and translate the result into a Response."""
+        user: Any | None = merged.get("user")
+        top_k: int = merged.get("top_k", 5)
+        metadata_filter: dict[str, Any] | None = merged.get("metadata_filter")
+        response_model: type | None = merged.get("response_model")
         resolved_tools = set(resolved.tools_enabled) if resolved.tools_enabled else None
+
         result = await self.query_pipeline.run(
             context,
             question=question,
