@@ -129,5 +129,5 @@ def test_default_long_returns_long_context_config() -> None:
     """``default_long()`` returns a LongContextConfig with sensible defaults."""
 
     config = default_long()
-    assert config is not None
+    assert config is not None, f"config should be set by test setup"
     assert hasattr(config, "model_dump")
