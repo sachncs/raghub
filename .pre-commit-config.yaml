@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: raghub-make-all
+        name: raghub make all
+        entry: make all
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        types: [python]
