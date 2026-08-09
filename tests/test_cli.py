@@ -442,8 +442,8 @@ def test_server_command_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None
     """``raghub run`` constructs an uvicorn.Server and calls .run()."""
     fake_server = MagicMock()
     fake_config = MagicMock()
-    monkeypatch.setattr("raghub.commands.uvicorn.Config", lambda *args, **kwargs: fake_config)
-    monkeypatch.setattr("raghub.commands.uvicorn.Server", lambda config: fake_server)
+    monkeypatch.setattr("raghub.commands.cli_config.uvicorn.Config", lambda *args, **kwargs: fake_config)
+    monkeypatch.setattr("raghub.commands.cli_config.uvicorn.Server", lambda config: fake_server)
     result = runner.invoke(app, ["run"])
     assert result.exit_code == 0
     fake_server.run.assert_called_once()
@@ -825,8 +825,8 @@ def test_tenant_list_create_delete_round_trip(tmp_path, monkeypatch) -> None:
         shared_registry.entries = dict(entries)
 
     try:
-        with patch("raghub.commands.load_registry_entries", mock_load), \
-             patch("raghub.commands.save_registry_entries", mock_save):
+        with patch("raghub.commands.cli_config.load_registry_entries", mock_load), \
+             patch("raghub.commands.cli_config.save_registry_entries", mock_save):
             result = runner.invoke(
                 app,
                 ["tenant", "create", "acme", "--dsn", "postgres://localhost/acme"],
