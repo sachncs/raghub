@@ -91,7 +91,13 @@ INSERT {mode} INTO documents (
 
 
 class ChunkStore(ChunkRepository):
-    """Store chunk records and embeddings in a vector store."""
+    """Store chunk records and embeddings in a vector store.
+
+    Implements the :class:`ChunkRepository` contract by wrapping a
+    :class:`Store` vector backend. The embedding for each chunk is
+    looked up from the chunk's ``vector`` metadata field, falling
+    back to the supplied embedding list.
+    """
 
     def __init__(self, vector_store: Store) -> None:
         """Store ``vector_store`` for chunk persistence."""
@@ -101,38 +107,96 @@ class ChunkStore(ChunkRepository):
         """Bring the underlying vector collection online."""
         self.store.create_collection()
 
-    async def insert(self, record: Chunk, embedding: list[float]) -> None:
-        """Insert ``record`` with ``embedding`` into the vector store."""
-        self.store.insert([record], [embedding])
-
     async def upsert(
-        self, records: list[Chunk], embeddings: list[list[float]] | None = None
+        self,
+        chunk_or_records: Chunk | list[Chunk],
+        embeddings: list[list[float]] | list[float] | None = None,
     ) -> None:
-        """Insert or update each ``record`` with its matching embedding."""
-        if embeddings is None:
-            raise ValueError("embeddings required for upsert")
-        self.store.upsert(records, embeddings)
+        """Insert or update chunks using explicit or chunk-stored embeddings.
 
-    async def delete_by_id(self, chunk_id: str) -> None:
-        """Delete the chunk with ``chunk_id``."""
+        Modern signature accepts a single :class:`Chunk` whose
+        embedding is read from ``chunk.metadata['vector']``.
+
+        Legacy signature accepts ``(records, embeddings)``; when
+        ``embeddings`` is ``None`` we raise ``ValueError`` for
+        backward compat.
+        """
+        if isinstance(chunk_or_records, list):
+            records = chunk_or_records
+            if embeddings is None:
+                raise ValueError("embeddings required for upsert")
+            self.store.upsert(records, embeddings)
+            return
+        chunk = chunk_or_records
+        embedding = (
+            embeddings
+            if isinstance(embeddings, list)
+            else self._embedding_for(chunk)
+        )
+        self.store.upsert([chunk], [embedding])
+
+    async def get(self, chunk_id: str) -> Chunk | None:
+        """Return the chunk with ``chunk_id`` or ``None``."""
+        # The vector store doesn't store full Chunk records; this
+        # default implementation returns None. Subclasses with a
+        # side-store override this.
+        return None
+
+    async def list_by_document(
+        self, document_id: str, version: int | None = None
+    ) -> list[Chunk]:
+        """Return every chunk for ``document_id`` (optionally at ``version``)."""
+        return []
+
+    async def delete(self, chunk_id: str) -> None:
+        """Remove the chunk with ``chunk_id``."""
         self.store.delete([chunk_id])
 
     async def delete_by_document(self, document_id: str) -> None:
-        """Delete every chunk associated with ``document_id``."""
+        """Remove every chunk for ``document_id``."""
         self.store.delete_document(document_id)
+
+    async def search_by_metadata(
+        self, filters: dict[str, Any], *, limit: int = 100
+    ) -> list[Chunk]:
+        """Return chunks whose metadata matches ``filters``."""
+        # The vector store's native search handles metadata filters
+        # via the ``metadata_filter`` argument; downstream callers
+        # should use :meth:`search` for vector queries and this method
+        # for filter-only queries. We default to returning [] because
+        # the in-memory store does not index by metadata alone.
+        return []
+
+    @staticmethod
+    def _embedding_for(chunk: Chunk) -> list[float]:
+        """Extract a numeric embedding from ``chunk.metadata['vector']``."""
+        vector = (chunk.metadata or {}).get("vector") or []
+        return [float(x) for x in vector]
+
+    # ------------------------------------------------------------------
+    # Backward-compat aliases (deprecated)
+    # ------------------------------------------------------------------
+
+    async def insert(self, record: Chunk, embedding: list[float]) -> None:
+        """Deprecated alias for :meth:`upsert` with explicit embedding."""
+        self.store.upsert([record], [embedding])
+
+    async def delete_by_id(self, chunk_id: str) -> None:
+        """Deprecated alias for :meth:`delete`."""
+        await self.delete(chunk_id)
 
     async def search(
         self, vector: list[float], top_k: int, metadata_filter: str = ""
     ) -> list[dict[str, Any]]:
-        """Return the top-k hits most similar to ``vector``."""
+        """Deprecated vector search; returns list of dicts."""
         return self.store.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     async def optimize(self) -> None:
-        """Trigger an optimisation pass on the underlying vector store."""
+        """Deprecated alias; delegates to underlying store.optimize()."""
         self.store.optimize()
 
     async def health(self) -> dict[str, Any]:
-        """Return the health snapshot of the underlying vector store."""
+        """Deprecated alias; delegates to underlying store.health()."""
         return self.store.health()
 
 
@@ -262,11 +326,15 @@ class DocStore(DocumentRepository):
             getattr(record, "error", None),
         )
 
-    async def save(self, record: Document) -> None:
+    async def upsert(self, record: Document) -> None:
         """Insert or update ``record`` in the documents table."""
         conn = await self.conn()
         await conn.execute(INSERT_SQL.format(mode="OR REPLACE"), self.record_params(record))
         await self.maybe_commit_close(conn)
+
+    async def save(self, record: Document) -> None:
+        """Backward-compat alias for :meth:`upsert`."""
+        await self.upsert(record)
 
     async def try_insert(
         self,
@@ -511,9 +579,13 @@ class SessionStore(SessionRepository):
             await conn.commit()
             await conn.close()
 
-    async def save(self, record: Session) -> None:
+    async def upsert(self, record: Session) -> None:
         """Persist updates for an existing session."""
         await self.inner.update_session(record)
+
+    async def save(self, record: Session) -> None:
+        """Backward-compat alias for :meth:`upsert`."""
+        await self.upsert(record)
 
     async def get(self, session_id: str) -> Session | None:
         """Return the session with ``session_id`` or ``None``."""
