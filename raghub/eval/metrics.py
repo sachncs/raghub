@@ -34,6 +34,42 @@ class Metrics:
     primitives and to expose the one-stop :meth:`evaluate` bundle.
     """
 
+    STOPWORDS = frozenset(
+        {
+            "a",
+            "an",
+            "and",
+            "are",
+            "as",
+            "at",
+            "be",
+            "by",
+            "for",
+            "from",
+            "how",
+            "i",
+            "in",
+            "is",
+            "it",
+            "of",
+            "on",
+            "or",
+            "that",
+            "the",
+            "this",
+            "to",
+            "was",
+            "what",
+            "when",
+            "where",
+            "which",
+            "who",
+            "why",
+            "with",
+        }
+    )
+    CLAIM_SPLITTER = re.compile(r"(?<=[.!?])\s+")
+
     @staticmethod
     def tokenize(text: str) -> set[str]:
         """Lower-case word tokens for set-based overlap metrics."""
@@ -195,47 +231,15 @@ class Metrics:
             ``0.0`` if the sets are disjoint.
 
         """
-        stopwords = frozenset(
-            {
-                "a",
-                "an",
-                "and",
-                "are",
-                "as",
-                "at",
-                "be",
-                "by",
-                "for",
-                "from",
-                "how",
-                "i",
-                "in",
-                "is",
-                "it",
-                "of",
-                "on",
-                "or",
-                "that",
-                "the",
-                "this",
-                "to",
-                "was",
-                "what",
-                "when",
-                "where",
-                "which",
-                "who",
-                "why",
-                "with",
-            }
-        )
-        pred = {t for t in Metrics.tokenize(predicted) if t not in stopwords}
-        q = {t for t in Metrics.tokenize(question) if t not in stopwords}
+        pred = {t for t in Metrics.tokenize(predicted) if t not in Metrics.STOPWORDS}
+        q = {t for t in Metrics.tokenize(question) if t not in Metrics.STOPWORDS}
         if not pred or not q:
             return 0.0
         return len(pred & q) / len(pred | q)
 
-    @staticmethod
+
+    CLAIM_SPLITTER = re.compile(r"(?<=[.!?])\s+")
+
     def faithfulness_claims(answer: str, contexts: Sequence[str]) -> float:
         """Deterministic faithfulness via claim-substring check.
 
@@ -255,54 +259,44 @@ class Metrics:
             supported; ``0.0`` when no claim is supported.
 
         """
-        stopwords = frozenset(
-            {
-                "a",
-                "an",
-                "and",
-                "are",
-                "as",
-                "at",
-                "be",
-                "by",
-                "for",
-                "from",
-                "how",
-                "i",
-                "in",
-                "is",
-                "it",
-                "of",
-                "on",
-                "or",
-                "that",
-                "the",
-                "this",
-                "to",
-                "was",
-                "what",
-                "when",
-                "where",
-                "which",
-                "who",
-                "why",
-                "with",
-            }
-        )
         text = (answer or "").strip()
         if not text:
             return 1.0
         if not contexts:
             return 0.0
-        ctx_tokens = set()
-        for c in contexts:
-            ctx_tokens |= Metrics.tokenize(c or "")
-        # Naive sentence splitter on .!? followed by whitespace.
-        claims = [c.strip() for c in re.split(r"(?<=[.!?])\s+", text) if c.strip()]
+        ctx_tokens = Metrics._context_token_union(contexts)
+        claims = Metrics._split_claims(text)
+        supported, considered = Metrics._count_supported(claims, ctx_tokens)
+        if considered == 0:
+            return 1.0
+        return supported / considered
+
+    @staticmethod
+    def _context_token_union(contexts: Sequence[str]) -> set[str]:
+        """Return the union of tokens across ``contexts``."""
+        tokens: set[str] = set()
+        for context in contexts:
+            tokens |= Metrics.tokenize(context or "")
+        return tokens
+
+    @staticmethod
+    def _split_claims(text: str) -> list[str]:
+        """Split ``text`` into sentence-level claim strings."""
+        return [
+            claim.strip()
+            for claim in Metrics.CLAIM_SPLITTER.split(text)
+            if claim.strip()
+        ]
+
+    @staticmethod
+    def _count_supported(claims: Sequence[str], ctx_tokens: set[str]) -> tuple[int, int]:
+        """Count (supported, considered) claims against ``ctx_tokens``."""
         supported = 0
         considered = 0
         for claim in claims:
-            tokens = {t for t in Metrics.tokenize(claim) if t not in stopwords}
+            tokens = {
+                t for t in Metrics.tokenize(claim) if t not in Metrics.STOPWORDS
+            }
             if not tokens:
                 continue
             considered += 1
@@ -311,9 +305,7 @@ class Metrics:
             # brittle "all tokens must be present" check.
             if tokens & ctx_tokens:
                 supported += 1
-        if considered == 0:
-            return 1.0
-        return supported / considered
+        return supported, considered
 
     @staticmethod
     def context_recall(answer: str, contexts: Sequence[str]) -> float:
