@@ -13,7 +13,7 @@ from raghub.retrieval.pipeline import Retrieval
 from raghub.retrieval.types import Variant
 
 
-def _make_chunk(chunk_id: str, text: str = "chunk text") -> Chunk:
+def make_chunk(chunk_id: str, text: str = "chunk text") -> Chunk:
     """Build a minimal Chunk for tests."""
 
     import hashlib
@@ -82,8 +82,8 @@ def test_retrieval_init_accepts_explicit_hybrid_config() -> None:
 def test_retrieve_embeds_then_searches_then_reranks() -> None:
     """``retrieve`` follows embed -> search -> dedupe -> rerank pipeline."""
 
-    chunk_a = _make_chunk("a")
-    chunk_b = _make_chunk("b")
+    chunk_a = make_chunk("a")
+    chunk_b = make_chunk("b")
     raw_hits = [
         {"score": 0.9, "chunk": chunk_a},
         {"score": 0.7, "chunk": chunk_b},
@@ -111,11 +111,11 @@ def test_retrieve_embeds_then_searches_then_reranks() -> None:
 def test_retrieve_deduplicates_by_chunk_id() -> None:
     """``retrieve`` drops duplicate chunk ids from the search results."""
 
-    chunk_a = _make_chunk("a")
+    chunk_a = make_chunk("a")
     raw_hits = [
         {"score": 0.9, "chunk": chunk_a},
         {"score": 0.8, "chunk": chunk_a},  # duplicate
-        {"score": 0.7, "chunk": _make_chunk("b")},
+        {"score": 0.7, "chunk": make_chunk("b")},
     ]
 
     embedder = MagicMock()
@@ -188,7 +188,7 @@ def test_retrieve_passes_user_company_filter_for_non_admin() -> None:
 def test_retrieve_keyword_returns_hit_list() -> None:
     """``retrieve_keyword`` wraps the vector_store.keyword_search results."""
 
-    chunk = _make_chunk("a")
+    chunk = make_chunk("a")
     raw = [{"score": 0.8, "chunk": chunk}]
 
     vector_store = MagicMock()
@@ -207,9 +207,9 @@ def test_retrieve_keyword_returns_hit_list() -> None:
 def test_fused_combines_dense_and_keyword_via_rrf() -> None:
     """``fused`` combines dense and keyword paths via reciprocal-rank fusion."""
 
-    chunk_a = _make_chunk("a")
-    chunk_b = _make_chunk("b")
-    chunk_c = _make_chunk("c")
+    chunk_a = make_chunk("a")
+    chunk_b = make_chunk("b")
+    chunk_c = make_chunk("c")
 
     vector_results = [Hit(score=0.9, chunk=chunk_a), Hit(score=0.8, chunk=chunk_b)]
     keyword_results_raw = [
