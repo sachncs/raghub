@@ -78,51 +78,11 @@ def from_okf(payload: dict[str, Any] | str) -> Bundle:
         KnowledgeError: When the payload is structurally invalid.
 
     """
-    if isinstance(payload, str):
-        parsed, _ = capture(json.loads, payload)
-        if not isinstance(parsed, dict):
-            raise KnowledgeError(f"Invalid OKF JSON: expected dict, got {type(parsed).__name__}")
-        payload = parsed
-    if not isinstance(payload, dict):
-        raise KnowledgeError("OKF payload must be a dict")
-
-    sections: list[DocumentSection] = []
-    for raw_section in payload.get("sections", []) or []:
-        if not isinstance(raw_section, dict):
-            raise KnowledgeError("OKF sections must be dicts")
-        blocks: list[DocumentBlock] = []
-        for raw_block in raw_section.get("blocks", []) or []:
-            if not isinstance(raw_block, dict):
-                raise KnowledgeError("OKF blocks must be dicts")
-            kind_raw = raw_block.get("kind", "text")
-            kind, kind_error = capture(BlockKind, kind_raw)
-            if kind_error is not None:
-                raise KnowledgeError(f"Unknown OKF block kind: {kind_raw!r}") from kind_error
-            blocks.append(
-                DocumentBlock(
-                    block_id=raw_block.get("block_id", ""),
-                    kind=kind,
-                    content=raw_block.get("content", "") or "",
-                    metadata=raw_block.get("metadata", {}) or {},
-                )
-            )
-        sections.append(
-            DocumentSection(
-                section_id=raw_section.get("section_id", ""),
-                index=int(raw_section.get("index", 0)),
-                heading=raw_section.get("heading", "") or "",
-                blocks=blocks,
-                page_numbers=list(raw_section.get("page_numbers", []) or []),
-                source_location=raw_section.get("source_location", "") or "",
-            )
-        )
-
-    schema = payload.get("$schema", f"okf/{OKF_SCHEMA_VERSION}")
-    version = schema.split("/", 1)[-1] if isinstance(schema, str) else OKF_SCHEMA_VERSION
-
+    payload = parse_okf_payload(payload)
+    sections = [parse_okf_section(raw) for raw in payload.get("sections", []) or []]
     return Bundle(
         bundle_id=payload.get("bundle_id", ""),
-        schema_version=str(version),
+        schema_version=extract_okf_schema_version(payload),
         source_uri=payload.get("source_uri", ""),
         checksum=payload.get("checksum", "") or "",
         language=payload.get("language", "") or "",
@@ -130,6 +90,57 @@ def from_okf(payload: dict[str, Any] | str) -> Bundle:
         metadata=payload.get("metadata", {}) or {},
         sections=sections,
     )
+
+
+def parse_okf_payload(payload: dict[str, Any] | str) -> dict[str, Any]:
+    """Coerce ``payload`` from a JSON string or pass through; raise on bad type."""
+    if isinstance(payload, str):
+        parsed, _ = capture(json.loads, payload)
+        if not isinstance(parsed, dict):
+            raise KnowledgeError(
+                f"Invalid OKF JSON: expected dict, got {type(parsed).__name__}"
+            )
+        payload = parsed
+    if not isinstance(payload, dict):
+        raise KnowledgeError("OKF payload must be a dict")
+    return payload
+
+
+def parse_okf_section(raw_section: Any) -> DocumentSection:
+    """Parse one OKF section dict into a :class:`DocumentSection`."""
+    if not isinstance(raw_section, dict):
+        raise KnowledgeError("OKF sections must be dicts")
+    blocks = [parse_okf_block(raw) for raw in raw_section.get("blocks", []) or []]
+    return DocumentSection(
+        section_id=raw_section.get("section_id", ""),
+        index=int(raw_section.get("index", 0)),
+        heading=raw_section.get("heading", "") or "",
+        blocks=blocks,
+        page_numbers=list(raw_section.get("page_numbers", []) or []),
+        source_location=raw_section.get("source_location", "") or "",
+    )
+
+
+def parse_okf_block(raw_block: Any) -> DocumentBlock:
+    """Parse one OKF block dict into a :class:`DocumentBlock`."""
+    if not isinstance(raw_block, dict):
+        raise KnowledgeError("OKF blocks must be dicts")
+    kind_raw = raw_block.get("kind", "text")
+    kind, kind_error = capture(BlockKind, kind_raw)
+    if kind_error is not None:
+        raise KnowledgeError(f"Unknown OKF block kind: {kind_raw!r}") from kind_error
+    return DocumentBlock(
+        block_id=raw_block.get("block_id", ""),
+        kind=kind,
+        content=raw_block.get("content", "") or "",
+        metadata=raw_block.get("metadata", {}) or {},
+    )
+
+
+def extract_okf_schema_version(payload: dict[str, Any]) -> str:
+    """Extract the schema version string from the payload ``$schema`` field."""
+    schema = payload.get("$schema", f"okf/{OKF_SCHEMA_VERSION}")
+    return str(schema.split("/", 1)[-1] if isinstance(schema, str) else OKF_SCHEMA_VERSION)
 
 
 def dumps(bundle: Bundle, *, indent: int | None = 2) -> str:
