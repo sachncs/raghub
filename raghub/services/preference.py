@@ -77,7 +77,7 @@ class Preference:
         resolved: ResolvedConfig,
     ) -> QueryResponse:
         """Run a basic RAG query without the agent loop, attaching resolved config metadata."""
-        response = await self.facade.container.query.query(token=token, question=question)
+        response = await self.facade.query(token=token, question=question)
         response.metadata = dict(response.metadata or {})
         response.metadata["resolved_config"] = resolved.to_dict()
         if flags.get("top_k") is not None:
