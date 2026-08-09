@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, cast
 from pydantic import SecretStr
 
 from raghub.errors import RerankerError
+from raghub.constants import ENV_COHERE_API_KEY
 from raghub.models import Hit
 from raghub.telemetry import record_rerank_latency
 
@@ -82,7 +83,7 @@ class Cohere:
         """
         resolved = api_key
         if resolved is None:
-            env = os.getenv("COHERE_API_KEY")
+            env = os.getenv(ENV_COHERE_API_KEY)
             if not env:
                 raise RerankerError("Cohere requires COHERE_API_KEY or an explicit api_key")
             resolved = env

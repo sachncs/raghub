@@ -35,6 +35,7 @@ from raghub.constants import (
     DEFAULT_CHUNK_OVERLAP_WORDS,
     DEFAULT_CHUNK_SIZE_WORDS,
     DEFAULT_EMBEDDING_DIM,
+    ENV_RAG_TENANT_DSNS,
 )
 from raghub.coroutines import capture
 from raghub.io import write_json as write_json_impl
@@ -751,7 +752,7 @@ def load_registry_entries(settings: Any) -> dict[str, dict[str, Any]]:
     """
     import os
 
-    raw = os.getenv("RAG_TENANT_DSNS", "")
+    raw = os.getenv(ENV_RAG_TENANT_DSNS, "")
     if not raw:
         return {}
     out: dict[str, dict[str, Any]] = {}

@@ -26,6 +26,7 @@ from typing import Any, TypeVar, cast
 from pydantic import BaseModel
 
 from raghub.errors import MissingDepError
+from raghub.constants import ENV_RAG_LLM_TIMEOUT_SECONDS
 from raghub.llm import GenerationRequest, Generator
 from raghub.models import (
     Hit,
@@ -76,7 +77,7 @@ class DefaultGenerator:
                 ``RAG_LLM_TIMEOUT_SECONDS`` environment variable when set.
 
         """
-        configured_timeout = os.getenv("RAG_LLM_TIMEOUT_SECONDS")
+        configured_timeout = os.getenv(ENV_RAG_LLM_TIMEOUT_SECONDS)
         if timeout_seconds is None and configured_timeout:
             timeout_seconds = float(configured_timeout)
         if timeout_seconds is not None and timeout_seconds <= 0:

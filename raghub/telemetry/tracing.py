@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from typing import Any, TypeVar
 
 from raghub.coroutines import capture
+from raghub.constants import ENV_LANGFUSE_PUBLIC_KEY, ENV_LANGFUSE_SECRET_KEY
 from raghub.errors import ConfigurationError, MissingDepError
 from raghub.models import Span, TelemetryProvider
 from raghub.telemetry.metrics import NoopSpan
@@ -120,8 +121,8 @@ def langfuse_client() -> Any:
     """Return the active Langfuse client or ``None`` when not configured."""
     if langfuse_get_client is None:
         return None
-    public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
-    secret_key = os.getenv("LANGFUSE_SECRET_KEY")
+    public_key = os.getenv(ENV_LANGFUSE_PUBLIC_KEY)
+    secret_key = os.getenv(ENV_LANGFUSE_SECRET_KEY)
     if not public_key or not secret_key:
         return None
     try:
@@ -191,8 +192,8 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             flush_interval: Seconds between background flushes.
 
         """
-        public_key = public_key or os.getenv("LANGFUSE_PUBLIC_KEY")
-        secret_key = secret_key or os.getenv("LANGFUSE_SECRET_KEY")
+        public_key = public_key or os.getenv(ENV_LANGFUSE_PUBLIC_KEY)
+        secret_key = secret_key or os.getenv(ENV_LANGFUSE_SECRET_KEY)
         self.public_key = public_key
         self.secret_key = secret_key
         self.host = host
@@ -213,8 +214,8 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         """
         return bool(
             LANGFUSE_AVAILABLE
-            and os.getenv("LANGFUSE_PUBLIC_KEY")
-            and os.getenv("LANGFUSE_SECRET_KEY")
+            and os.getenv(ENV_LANGFUSE_PUBLIC_KEY)
+            and os.getenv(ENV_LANGFUSE_SECRET_KEY)
         )
 
     @staticmethod

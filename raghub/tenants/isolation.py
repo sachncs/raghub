@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from raghub.constants import DEFAULT_EMBEDDING_DIM
+from raghub.constants import DEFAULT_EMBEDDING_DIM, ENV_RAGHUB_TENANT_SECRETS_KEY
 from raghub.errors import AuthorizationError, MissingDepError, RagHubError
 
 __all__ = [
@@ -260,10 +260,10 @@ class TenantSecretCipher:
                 "cryptography",
                 "pip install raghub[auth]",
             ) from exc
-        key = os.getenv("RAGHUB_TENANT_SECRETS_KEY")
+        key = os.getenv(ENV_RAGHUB_TENANT_SECRETS_KEY)
         if not key:
             raise MissingDepError(
-                "RAGHUB_TENANT_SECRETS_KEY",
+                ENV_RAGHUB_TENANT_SECRETS_KEY,
                 "set RAGHUB_TENANT_SECRETS_KEY to a Fernet key "
                 "(Fernet.generate_key()).",
             )

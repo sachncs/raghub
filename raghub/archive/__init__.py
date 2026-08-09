@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from raghub.errors import RagHubError
+from raghub.constants import ENV_RAGHUB_ARCHIVE_SIGNING_KEY
 
 __all__ = [
     "ArchiveCorruptionError",
@@ -117,10 +118,10 @@ def signing_key() -> bytes:
     """Return the HMAC key from env or raise :class:`MissingDepError`."""
     from raghub.errors import MissingDepError
 
-    raw = os.getenv("RAGHUB_ARCHIVE_SIGNING_KEY")
+    raw = os.getenv(ENV_RAGHUB_ARCHIVE_SIGNING_KEY)
     if not raw:
         raise MissingDepError(
-            "RAGHUB_ARCHIVE_SIGNING_KEY",
+            ENV_RAGHUB_ARCHIVE_SIGNING_KEY,
             "set RAGHUB_ARCHIVE_SIGNING_KEY to a 32+ byte secret.",
         )
     return raw.encode("utf-8")
