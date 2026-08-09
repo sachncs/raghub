@@ -96,6 +96,38 @@ as a forbidden class name; see :class:`Facade` for the deprecation alias).
         """List the documents visible to the caller."""
         return await self.documents.list_documents(token)
 
+    # ------------------------------------------------------------------
+    # Demeter-chain-breaking pass-through methods (routes/admin only)
+    # ------------------------------------------------------------------
+
+    async def list_all_documents(self) -> list[Document]:
+        """List every document in the repository (admin only).
+
+        Breaks the ``app_service.container.uow.document_repo.list_all()``
+        Demeter chain by giving routes a single named entry point.
+        """
+        return cast(list[Document], await self.container.uow.document_repo.list_all())
+
+    async def list_all_users(self) -> list[User]:
+        """List every user (admin only)."""
+        return cast(list[User], await self.container.user_store.list_users())
+
+    async def vector_store_health(self) -> dict[str, Any]:
+        """Return the vector store health snapshot."""
+        return cast(dict[str, Any], self.container.vector_store.health())
+
+    def get_max_upload_bytes(self) -> int:
+        """Return the configured upload-byte limit (0 = unlimited)."""
+        return int(getattr(self.container.settings, "max_upload_bytes", 0) or 0)
+
+    def get_rag_facade(self) -> "Any | None":
+        """Return the cached RAG facade, or None if not yet built."""
+        return getattr(self.container, "rag_facade", None)
+
+    def get_vector_chunk_count(self) -> int:
+        """Return the vector store's chunk count from the health snapshot."""
+        return self.vector_store_health().get("chunks", 0)
+
     async def document_status(self, token: str, document_id: str) -> Document:
         """Return the status of a single document."""
         return await self.documents.document_status(token, document_id)

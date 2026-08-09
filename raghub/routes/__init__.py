@@ -343,9 +343,7 @@ class DocumentRoute:
             for file in files:
                 try:
                     content = await file.read()
-                    max_bytes = int(
-                        getattr(app_service.container.settings, "max_upload_bytes", 0) or 0
-                    )
+                    max_bytes = app_service.get_max_upload_bytes()
                     if max_bytes > 0 and len(content) > max_bytes:
                         results.append(
                             BatchIngestItem(
@@ -486,7 +484,7 @@ class QueryRoute:
             async def gen() -> AsyncIterator[bytes]:
                 yield Sse.comment("raghub-query-stream")
                 user, _ = await app_service.auth.resolve_user(token)
-                rag = app_service.container.rag_facade
+                rag = app_service.get_rag_facade()
                 if rag is None:
                     yield Sse.format("error", {"message": "RAG facade unavailable"})
                     return
@@ -548,7 +546,7 @@ class AdminRoute:
             admin_user: Annotated[User, Depends(Auth.admin)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> list[dict[str, Any]]:
-            docs = await app_service.container.uow.document_repo.list_all()
+            docs = await app_service.list_all_documents()
             return [doc.model_dump(mode="json") for doc in docs]
 
     def register_users(self) -> None:
@@ -557,7 +555,7 @@ class AdminRoute:
             admin_user: Annotated[User, Depends(Auth.admin)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> list[dict[str, Any]]:
-            users = await app_service.container.user_store.list_users()
+            users = await app_service.list_all_users()
             return [Redaction.user(user.model_dump(mode="json")) for user in users]
 
     def register_stats(self) -> None:
@@ -566,9 +564,9 @@ class AdminRoute:
             admin_user: Annotated[User, Depends(Auth.admin)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, Any]:
-            docs = await app_service.container.uow.document_repo.list_all()
-            users = await app_service.container.user_store.list_users()
-            vector_health = app_service.container.vector_store.health()
+            docs = await app_service.list_all_documents()
+            users = await app_service.list_all_users()
+            vector_health = app_service.vector_store_health()
             chunk_count = vector_health.get("chunks", 0)
             return {
                 "document_count": len(docs),
