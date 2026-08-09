@@ -221,25 +221,25 @@ class RAG(
 
     def wire_query(self, components: dict[str, Any]) -> None:
         """Build retrieval, query, and agent pipelines."""
-        self.query_cache = self._build_query_cache()
-        self.transformer = self._build_query_transformer(components)
+        self.query_cache = self.build_query_cache()
+        self.transformer = self.build_query_transformer(components)
         self.colbert = ColbertLateInteraction(self.settings.hybrid)
-        self.retrieval_pipeline = self._build_retrieval_pipeline()
+        self.retrieval_pipeline = self.build_retrieval_pipeline()
         self.long_context_pass = LongContextRerankPass(
             llm=self.llm, settings=self.settings.long_context_pass
         )
-        self.raptor, self.graph = self._build_optional_indexes()
-        self.tool_registry = self._build_tool_registry()
-        self.agent, self.agentic_pipeline = self._build_agent_components()
-        self.query_pipeline = self._build_query_pipeline()
+        self.raptor, self.graph = self.build_optional_indexes()
+        self.tool_registry = self.build_tool_registry()
+        self.agent, self.agentic_pipeline = self.build_agent_components()
+        self.query_pipeline = self.build_query_pipeline()
 
-    def _build_query_cache(self) -> "Cache | None":
+    def build_query_cache(self) -> "Cache | None":
         """Build the query result cache (None when disabled)."""
         if not self.settings.enable_query_cache:
             return None
         return Cache(ttl_seconds=self.settings.query_cache_ttl_seconds)
 
-    def _build_query_transformer(self, components: dict[str, Any]) -> Any:
+    def build_query_transformer(self, components: dict[str, Any]) -> Any:
         """Build the query transformer (HyDE / MultiQuery / etc.)."""
         if components.get("transformer") is not None:
             return components["transformer"]
@@ -250,7 +250,7 @@ class RAG(
             multi_query_n=self.settings.query_transforms.multi_query_n,
         )
 
-    def _build_retrieval_pipeline(self) -> "RetrievalPipeline":
+    def build_retrieval_pipeline(self) -> "RetrievalPipeline":
         """Build the main retrieval pipeline."""
         return RetrievalPipeline(
             embedding_provider=self.embedder,
@@ -259,7 +259,7 @@ class RAG(
             hybrid=self.settings.hybrid,
         )
 
-    def _build_optional_indexes(self) -> tuple[Any, Any]:
+    def build_optional_indexes(self) -> tuple[Any, Any]:
         """Build Raptor / Graph indexes if their respective flags are enabled."""
         raptor: Any = None
         graph: Any = None
@@ -269,7 +269,7 @@ class RAG(
             graph = GraphIndex(llm=self.llm, embedder=self.embedder)
         return raptor, graph
 
-    def _build_tool_registry(self) -> Any:
+    def build_tool_registry(self) -> Any:
         """Build the tool registry from the configured indexes."""
         return build_tools(
             self.settings,
@@ -279,7 +279,7 @@ class RAG(
             graph=self.graph,
         )
 
-    def _build_agent_components(self) -> tuple[Any, Any]:
+    def build_agent_components(self) -> tuple[Any, Any]:
         """Build the ReAct agent and agentic pipeline if any agent path is enabled.
 
         Returns ``(None, None)`` when no agent path is active.
@@ -311,7 +311,7 @@ class RAG(
         )
         return agent, agentic_pipeline
 
-    def _build_query_pipeline(self) -> Any:
+    def build_query_pipeline(self) -> Any:
         """Build the main :class:`QueryPipeline` orchestrator."""
         return QueryPipeline(
             embedder=self.embedder,

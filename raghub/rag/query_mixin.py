@@ -152,16 +152,16 @@ class QueryMixin:
             IngestionError: When ``question`` is empty or whitespace-only.
 
         """
-        merged = self._merge_query_kwargs(request, kwargs)
-        self._validate_query_inputs(question, merged)
+        merged = self.merge_query_kwargs(request, kwargs)
+        self.validate_query_inputs(question, merged)
         scoped = self.scoped(merged.get("user"), merged.get("session_id"))
         context = PipelineCtx(
             pipeline_name="query",
             metadata={"session_id": scoped} if scoped else {},
         )
-        resolved = self._resolve_query_flags(merged, scoped)
+        resolved = self.resolve_query_flags(merged, scoped)
         context.metadata["resolved_config"] = resolved.to_dict()
-        return await self._execute_query_pipeline(
+        return await self.execute_query_pipeline(
             question=question,
             merged=merged,
             scoped=scoped,
@@ -169,7 +169,7 @@ class QueryMixin:
             resolved=resolved,
         )
 
-    def _merge_query_kwargs(
+    def merge_query_kwargs(
         self, request: RagQueryRequest | None, kwargs: dict[str, Any]
     ) -> dict[str, Any]:
         """Merge the optional ``RagQueryRequest`` and the loose kwargs into one dict."""
@@ -177,7 +177,7 @@ class QueryMixin:
         merged.update(kwargs)
         return merged
 
-    def _validate_query_inputs(self, question: str, merged: dict[str, Any]) -> None:
+    def validate_query_inputs(self, question: str, merged: dict[str, Any]) -> None:
         """Validate that ``question`` is non-empty and the LLM is configured."""
         if not question or not question.strip():
             raise IngestionError("query() requires a non-empty question")
@@ -187,7 +187,7 @@ class QueryMixin:
                 "(or another provider key) before calling query()."
             )
 
-    def _resolve_query_flags(
+    def resolve_query_flags(
         self, merged: dict[str, Any], scoped: str | None
     ) -> Any:
         """Resolve advanced-RAG flags via ``raghub.agent.resolve``."""
@@ -209,7 +209,7 @@ class QueryMixin:
             settings=self.settings,
         )
 
-    async def _execute_query_pipeline(
+    async def execute_query_pipeline(
         self,
         *,
         question: str,

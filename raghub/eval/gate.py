@@ -155,8 +155,8 @@ async def compare(
 
     """
 
-    factory_a = _make_answer_factory(rag_a)
-    factory_b = _make_answer_factory(rag_b)
+    factory_a = make_answer_factory(rag_a)
+    factory_b = make_answer_factory(rag_b)
 
     results_a = await run(evaluator, examples, response_factory=factory_a)
     results_b = await run(evaluator, examples, response_factory=factory_b)
@@ -168,8 +168,8 @@ async def compare(
         gate.check(metrics_a)
         gate.check(metrics_b)
 
-    diffs = _compute_metric_diffs(metrics_a, metrics_b)
-    winner = _determine_winner(diffs)
+    diffs = compute_metric_diffs(metrics_a, metrics_b)
+    winner = determine_winner(diffs)
 
     return {
         "a_metrics": metrics_a,
@@ -180,7 +180,7 @@ async def compare(
     }
 
 
-def _make_answer_factory(rag: Any) -> Any:
+def make_answer_factory(rag: Any) -> Any:
     """Build an async factory that calls ``rag.aquery`` and returns the answer.
 
     Defined as a module-level helper so the inner closures created
@@ -203,7 +203,7 @@ def _make_answer_factory(rag: Any) -> Any:
     return factory
 
 
-def _compute_metric_diffs(metrics_a: dict[str, float], metrics_b: dict[str, float]) -> dict[str, float]:
+def compute_metric_diffs(metrics_a: dict[str, float], metrics_b: dict[str, float]) -> dict[str, float]:
     """Return ``b - a`` for every key in the union of ``metrics_a`` and ``metrics_b``."""
     return {
         name: metrics_b.get(name, 0.0) - metrics_a.get(name, 0.0)
@@ -211,7 +211,7 @@ def _compute_metric_diffs(metrics_a: dict[str, float], metrics_b: dict[str, floa
     }
 
 
-def _determine_winner(diffs: dict[str, float]) -> str:
+def determine_winner(diffs: dict[str, float]) -> str:
     """Return ``\"a\"``, ``\"b\"``, or ``\"tie\"`` based on which side has more wins."""
     wins_b = sum(1 for d in diffs.values() if d > 0.0)
     wins_a = sum(1 for d in diffs.values() if d < 0.0)

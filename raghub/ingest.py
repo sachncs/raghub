@@ -799,7 +799,7 @@ class Ingestor:
             raise IngestionError(
                 result.error.message if result.error else "ingestion failed"
             )
-        return self._finalize_successful_record(
+        return self.finalize_successful_record(
             result=result,
             file_name=file_name,
             mime_type=mime_type,
@@ -810,7 +810,7 @@ class Ingestor:
             tags=tags,
         )
 
-    async def _finalize_successful_record(
+    async def finalize_successful_record(
         self,
         *,
         result: Any,
