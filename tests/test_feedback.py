@@ -96,7 +96,7 @@ def _feedback(
         tenant_id=tenant_id,
         rating=rating,
         comment=None,
-        created_at=datetime.now(UTC),
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
         metadata={},
     )
 

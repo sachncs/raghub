@@ -133,7 +133,7 @@ def test_sqlite_store_search_filters_by_tenant_id(tmp_path):
             classification=Classification.Internal,
             checksum=sha256(text.encode("utf-8")).hexdigest(),
             text=text,
-            created_at=datetime.now(UTC),
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
             tenant_id=company,
         )
 
@@ -180,7 +180,7 @@ def test_sqlite_store_search_explicit_tenant_overrides_context(tmp_path):
             classification=Classification.Internal,
             checksum=sha256(text.encode("utf-8")).hexdigest(),
             text=text,
-            created_at=datetime.now(UTC),
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
             tenant_id=company,
         )
 

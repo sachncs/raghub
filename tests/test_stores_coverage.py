@@ -21,7 +21,7 @@ from raghub.stores import (
 
 def _make_document(**overrides: Any) -> Document:
     """Build a Document fixture."""
-    now = datetime.now(UTC)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
     defaults: dict[str, Any] = {
         "id": "d1",
         "version": 1,

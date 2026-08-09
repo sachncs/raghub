@@ -300,7 +300,7 @@ def test_ingestion_result_attributes() -> None:
         owner="alice@example.com",
         organization="acme",
         checksum="h",
-        created_at=datetime.now(UTC),
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
     result = IngestionResult(document=document, chunks=["c1"])
     assert result.document.id == "d1"

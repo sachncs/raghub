@@ -479,7 +479,7 @@ def test_feedback_cli_export_writes_jsonl(tmp_path) -> None:
                 tenant_id="acme",
                 rating=Rating.Positive,
                 comment="great",
-                created_at=datetime.now(UTC),
+                created_at=datetime(2026, 1, 1, tzinfo=UTC),
             )
         )
     )
@@ -544,7 +544,7 @@ def test_feedback_cli_stats_prints_counts(tmp_path) -> None:
                     tenant_id="acme",
                     rating=rating,
                     comment=None,
-                    created_at=datetime.now(UTC),
+                    created_at=datetime(2026, 1, 1, tzinfo=UTC),
                 )
             )
         )
