@@ -41,7 +41,7 @@ from raghub.authhelpers import (
     Auth,
     Bearer,
 )
-from raghub.constants import HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND, HTTP_413_PAYLOAD_TOO_LARGE, HTTP_422_UNPROCESSABLE, HTTP_429_TOO_MANY_REQUESTS, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_503_SERVICE_UNAVAILABLE
+from raghub.constants import HTTP_200_OK, HTTP_201_CREATED, HTTP_202_ACCEPTED, HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND, HTTP_413_PAYLOAD_TOO_LARGE, HTTP_422_UNPROCESSABLE, HTTP_429_TOO_MANY_REQUESTS, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_503_SERVICE_UNAVAILABLE
 from raghub.errors import (
     AuthenticationError,
     AuthorizationError,
@@ -270,13 +270,13 @@ class AuthRoute:
             return {"history": [turn.model_dump(mode="json") for turn in history]}
 
     def register_clear_history(self) -> None:
-        @self.router.delete("/session/history", status_code=204, response_class=Response)
+        @self.router.delete("/session/history", status_code=HTTP_204_NO_CONTENT, response_class=Response)
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> Response:
             await app_service.clear_history(token)
-            return Response(status_code=204)
+            return Response(status_code=HTTP_204_NO_CONTENT)
 
 
 class DocumentRoute:
@@ -295,7 +295,7 @@ class DocumentRoute:
 
     def register_upload(self, *, enforce_limit: Any | None = None) -> None:
         @self.router.post(
-            "/documents/upload", status_code=202, response_model=DocumentUploadResponse
+            "/documents/upload", status_code=HTTP_202_ACCEPTED, response_model=DocumentUploadResponse
         )
         async def handler(
             request: Request,
@@ -326,7 +326,7 @@ class DocumentRoute:
     def register_ingest_batch(self) -> None:
         @self.router.post(
             "/documents/ingest/batch",
-            status_code=200,
+            status_code=HTTP_200_OK,
             response_model=BatchIngestResponse,
         )
         async def handler(
@@ -404,7 +404,7 @@ class DocumentRoute:
 
     def register_delete(self) -> None:
         @self.router.delete(
-            "/documents/{document_id}", status_code=204, response_class=Response
+            "/documents/{document_id}", status_code=HTTP_204_NO_CONTENT, response_class=Response
         )
         async def handler(
             document_id: str,
@@ -412,7 +412,7 @@ class DocumentRoute:
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> Response:
             await app_service.delete_document(token, document_id)
-            return Response(status_code=204)
+            return Response(status_code=HTTP_204_NO_CONTENT)
 
     def register_ingest_async(self) -> None:
         @self.router.post("/ingest/async")
@@ -622,7 +622,7 @@ class PreferenceRoute:
     def register_delete(self) -> None:
         @self.router.delete(
             "/users/me/preferences/{key}",
-            status_code=204,
+            status_code=HTTP_204_NO_CONTENT,
         )
         async def handler(
             key: str,
@@ -669,7 +669,7 @@ class FeedbackRoute:
     def register_submit(self) -> None:
         @self.router.post(
             "/feedback",
-            status_code=201,
+            status_code=HTTP_201_CREATED,
         )
         async def handler(
             payload: FeedbackSubmission,
@@ -718,14 +718,14 @@ class FeedbackRoute:
             return asdict(feedback)
 
     def register_delete(self) -> None:
-        @self.router.delete("/feedback/{feedback_id}", status_code=204)
+        @self.router.delete("/feedback/{feedback_id}", status_code=HTTP_204_NO_CONTENT)
         async def handler(
             feedback_id: str,
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> Response:
             store = self.feedback_store(app_service)
             await store.delete(feedback_id)
-            return Response(status_code=204)
+            return Response(status_code=HTTP_204_NO_CONTENT)
 
     def register_aggregate(self) -> None:
         @self.router.get(
