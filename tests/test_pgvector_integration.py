@@ -44,7 +44,7 @@ class TestPgVectorStoreLive:
                 classification=Classification.Internal,
                 checksum=f"checksum-{tenant_id}",
                 text=f"text for {tenant_id}",
-                created_at=datetime.now(UTC),
+                created_at=datetime(2026, 1, 1, tzinfo=UTC),
                 tenant_id=tenant_id,
             )
             await store.insert([chunk], [[0.1, 0.2]])

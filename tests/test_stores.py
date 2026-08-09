@@ -33,7 +33,7 @@ def _make_document(
         organization=company,
         owner="alice@example.com",
         checksum=checksum,
-        created_at=datetime.now(UTC),
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
 
 
@@ -313,7 +313,7 @@ def test_json_sessions_expired_session_is_purged(tmp_path: Path) -> None:
     store = JsonSessions(tmp_path / "exp.json", timeout_seconds=3600)
     session = store.create(user_id="u1")
     # Force the expiry into the past.
-    session.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    session.expires_at = datetime(2026, 1, 1, tzinfo=UTC) - timedelta(seconds=1)
     store.save()
     assert store.resolve(session.token) is None
 

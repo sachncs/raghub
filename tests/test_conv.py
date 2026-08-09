@@ -24,7 +24,7 @@ def _make_uow_with_session(record: Session | None) -> UnitOfWork:
 
 def _make_session(**overrides: Any) -> Session:
     """Build a :class:`Session` with sensible defaults for tests."""
-    now = datetime.now(UTC)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
     defaults: dict[str, Any] = {
         "user_id": "u",
         "token": "t1",
@@ -206,7 +206,7 @@ def test_conversation_manager_append_persists_turn() -> None:
     record = _make_session()
     uow = _make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
-    before = datetime.now(UTC)
+    before = datetime(2026, 1, 1, tzinfo=UTC)
     asyncio.run(manager.append("t1", "hello", "world", metadata={"k": "v"}))
     assert len(record.history) == 1
     turn = record.history[0]

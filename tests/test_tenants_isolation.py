@@ -430,7 +430,7 @@ class TestRowLevelEndToEnd:
             classification=Classification.Internal,
             checksum=sha256(text.encode("utf-8")).hexdigest(),
             text=text,
-            created_at=datetime.now(UTC),
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
             tenant_id=tenant_id,
         )
 

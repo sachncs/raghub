@@ -244,7 +244,7 @@ class TestSnapshotRoundTrip:
         manifest = ArchiveManifest(
             format_version=99,
             app_version="0.9.5",
-            created_at=datetime.now(UTC),
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
             tenant_ids=[],
             entries=[],
             signature="deadbeef",

@@ -38,7 +38,7 @@ def _make_chunk(**overrides: Any) -> Chunk:
 
 def _make_document(**overrides: Any) -> Document:
     """Build a Document fixture."""
-    now = datetime.now(UTC)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
     defaults: dict[str, Any] = {
         "id": "d1",
         "version": 1,
@@ -55,7 +55,7 @@ def _make_document(**overrides: Any) -> Document:
 
 def _make_session(**overrides: Any) -> Session:
     """Build a Session fixture."""
-    now = datetime.now(UTC)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
     defaults: dict[str, Any] = {
         "user_id": "alice",
         "token": "t1",

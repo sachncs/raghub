@@ -761,7 +761,7 @@ def _chunk(  # type: ignore[no-untyped-def]
         classification=Classification.Internal,
         checksum=_sha256(text.encode("utf-8")).hexdigest(),
         text=text,
-        created_at=datetime.now(UTC),
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
         tenant_id=tenant_id,
     )
 
