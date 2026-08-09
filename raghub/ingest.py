@@ -153,13 +153,13 @@ def build_chonkie_inner(
             ``embedding_model=``, ``language=``, ``genie=``.
 
     """
-    tokenizer, chunker_name, embedding_model, language, genie = _chonkie_options(options)
+    tokenizer, chunker_name, embedding_model, language, genie = chonkie_options(options)
     if not CHONKIE_AVAILABLE or CHONKIE_MODULE is None:
         raise ConfigurationError(
             "chonkie is not installed; install it via `pip install chonkie` or use Words."
         )
 
-    chunker_builders = _chonkie_chunk_builders(
+    chunker_builders = chonkie_chunk_builders(
         tokenizer, embedding_model, language, chunk_size, chunk_overlap, genie
     )
 
@@ -171,7 +171,7 @@ def build_chonkie_inner(
             tokenizer=tokenizer,
         )
 
-    return _instantiate_chonkie_chunker(chunker_name, chunker_builders, chunk_size, chunk_overlap)
+    return instantiate_chonkie_chunker(chunker_name, chunker_builders, chunk_size, chunk_overlap)
 
 
 def chonkie_options(options: dict[str, JSONValue]) -> tuple[str, str, str, str, Any]:
