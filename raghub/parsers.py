@@ -421,55 +421,69 @@ class Catalog:
         the registry compact and lets the same object back several
         lookups.
         """
-        pdf = Pdf()
-        html = HTML()
-        image = Image()
-        office = Office()
-        csv = Csv()
-        txt = Txt()
+        parsers = self._build_default_parsers()
+        for mime, parser in parsers:
+            self.register(mime, parser)
+        for ext, parser in self._build_default_extensions(parsers):
+            self.register(ext, parser)
 
-        self.register("application/pdf", pdf)
-        self.register("text/html", html)
-        self.register("text/plain", txt)
-        self.register("text/csv", csv)
-        self.register("image/png", image)
-        self.register("image/jpeg", image)
-        self.register("image/jpg", image)
-        self.register("image/gif", image)
-        self.register("image/webp", image)
-        self.register("image/tiff", image)
-        self.register(
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document", office
-        )
-        self.register("application/msword", office)
-        self.register("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", office)
-        self.register("application/vnd.ms-excel", office)
-        self.register(
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation", office
-        )
-        self.register("application/vnd.ms-powerpoint", office)
+    @staticmethod
+    def _build_default_parsers() -> list[tuple[str, File]]:
+        """Return ``(mime, File)`` pairs for every built-in parser type."""
+        return [
+            ("application/pdf", Pdf()),
+            ("text/html", HTML()),
+            ("text/plain", Txt()),
+            ("text/csv", Csv()),
+            ("image/png", Image()),
+            ("image/jpeg", Image()),
+            ("image/jpg", Image()),
+            ("image/gif", Image()),
+            ("image/webp", Image()),
+            ("image/tiff", Image()),
+            (
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                Office(),
+            ),
+            ("application/msword", Office()),
+            (
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                Office(),
+            ),
+            ("application/vnd.ms-excel", Office()),
+            (
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                Office(),
+            ),
+            ("application/vnd.ms-powerpoint", Office()),
+        ]
 
-        # Same parsers, addressed by file extension. The leading dot
-        # is included so lookups are unambiguous (``".pdf"`` vs
-        # ``"pdf"``).
-        self.register(".pdf", pdf)
-        self.register(".html", html)
-        self.register(".htm", html)
-        self.register(".txt", txt)
-        self.register(".csv", csv)
-        self.register(".png", image)
-        self.register(".jpg", image)
-        self.register(".jpeg", image)
-        self.register(".gif", image)
-        self.register(".webp", image)
-        self.register(".tiff", image)
-        self.register(".tif", image)
-        self.register(".docx", office)
-        self.register(".doc", office)
-        self.register(".xlsx", office)
-        self.register(".xls", office)
-        self.register(".pptx", office)
-        self.register(".ppt", office)
+    @staticmethod
+    def _build_default_extensions(
+        parsers: list[tuple[str, File]]
+    ) -> list[tuple[str, File]]:
+        """Return ``(extension, File)`` pairs (with leading dot) for built-in parsers."""
+        extension_map: dict[str, File] = {
+            ".pdf": parsers[0][1],
+            ".html": parsers[1][1],
+            ".htm": parsers[1][1],
+            ".txt": parsers[2][1],
+            ".csv": parsers[3][1],
+            ".png": parsers[4][1],
+            ".jpg": parsers[5][1],
+            ".jpeg": parsers[6][1],
+            ".gif": parsers[7][1],
+            ".webp": parsers[8][1],
+            ".tiff": parsers[9][1],
+            ".tif": parsers[9][1],
+            ".docx": parsers[10][1],
+            ".doc": parsers[11][1],
+            ".xlsx": parsers[12][1],
+            ".xls": parsers[13][1],
+            ".pptx": parsers[14][1],
+            ".ppt": parsers[15][1],
+        }
+        return list(extension_map.items())
 
     def register(self, key: str, parser: File) -> None:
         """Register ``parser`` under ``key``.
