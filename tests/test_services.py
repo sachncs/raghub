@@ -193,7 +193,7 @@ def test_thread_pool_worker_returns_real_result() -> None:
 
     worker = ThreadPool()
     future = worker.submit(lambda: "expected-result")
-    assert future is not None
+    assert future is not None, f"future should be set by test setup"
     # Block until the worker thread finishes and confirm the real
     # value propagated. A regression that dropped the callable or
     # returned ``None`` would fail this assertion.
@@ -205,7 +205,7 @@ def test_memory_queue_enqueue_round_trip() -> None:
 
     queue = MemoryQueue()
     rid = queue.enqueue("op", {"a": 1})
-    assert rid is not None
+    assert rid is not None, f"rid should be set by test setup"
     assert rid == "op"  # MemoryQueue returns the op name as the id
 
     # Confirm the (name, payload) tuple reaches the underlying queue
@@ -375,7 +375,7 @@ async def test_auth_service_login_success(
     assert response.session_token
     assert response.user_email == record.email
     assert response.allowed_companies == ["acme", "globex"]
-    assert session is not None
+    assert session is not None, f"session should be set by test setup"
     assert session.user_id == record.user_id
 
 
@@ -539,8 +539,7 @@ async def test_facade_ingest_async_with_background(
     """The real RAG facade submits bytes to its background ingestion service."""
     _, facade = rag_container
     application = facade.rag_facade()
-    assert application is not None
-
+    assert application is not None, f"application should be set by test setup"
     job_id = application.ingest_async(b"background document", source_uri="bytes://background")
     background = application.background_ingestion
     status = background.get_status(job_id) if background is not None else None

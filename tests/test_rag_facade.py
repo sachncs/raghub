@@ -525,9 +525,7 @@ def test_ingest_async_submits_to_queue_when_configured(
     assert len(job_id) == 36  # UUID shape
 
     status = real_rag.job_status(job_id)
-    assert status is not None
-
-
+    assert status is not None, f"status should be set by test setup"
 def test_ingest_async_idempotent_returns_existing_job_id(
     tmp_path: Path, rag: RAG
 ) -> None:
