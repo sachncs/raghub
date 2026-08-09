@@ -391,9 +391,49 @@ class LiteLLM(Generator):
         The streaming loop honours :pyattr:`timeout_seconds` with
         :func:`asyncio.timeout` so a slow LLM does not block indefinitely.
         """
+        options = self._build_stream_options(request)
+        with LLMValueErrorBoundary("LiteLLM streaming failed"):
+            response = await litellm.acompletion(**options)
+        async for content in self._consume_stream(response):
+            yield content
+        # After consumption, last_usage is set in _consume_stream.
+
+    async def _consume_stream(
+        self, response: Any
+    ) -> AsyncIterator[str]:
+        """Yield content chunks while tracking token usage; set last_usage on exit."""
+        prompt_tokens = 0
+        completion_tokens = 0
+        try:
+            async with asyncio.timeout(self.timeout_seconds):
+                async for chunk in response:
+                    usage = (
+                        chunk.get("usage")
+                        if isinstance(chunk, dict)
+                        else getattr(chunk, "usage", None)
+                    )
+                    prompt_tokens, completion_tokens = self._accumulate_usage(
+                        usage, prompt_tokens, completion_tokens
+                    )
+                    content = self._extract_chunk_content(chunk)
+                    if content:
+                        yield content
+        except TimeoutError as exc:
+            raise GenerationError(
+                f"LiteLLM stream exceeded timeout_seconds={self.timeout_seconds}"
+            ) from exc
+        if prompt_tokens or completion_tokens:
+            self.last_usage = {
+                "prompt": int(prompt_tokens),
+                "completion": int(completion_tokens),
+                "model": self.model_name,
+            }
+
+    def _build_stream_options(self, request: GenerationRequest) -> dict[str, Any]:
+        """Build the LiteLLM completion options dict for streaming."""
         messages = self.build_messages(request)
         self.require_litellm()
-        options = {
+        options: dict[str, Any] = {
             "model": self.model_name,
             "messages": messages,
             "temperature": self.temperature,
@@ -406,33 +446,36 @@ class LiteLLM(Generator):
             options["custom_llm_provider"] = "minimax"
         if self.timeout_seconds is not None:
             options["timeout"] = self.timeout_seconds
-        with LLMValueErrorBoundary("LiteLLM streaming failed"):
-            response = await litellm.acompletion(**options)
+        return options
 
+    async def _iter_stream_chunks(
+        self, response: Any
+    ) -> AsyncIterator[str]:
+        """Yield content chunks while tracking token usage.
+
+        Returns an async iterator of content deltas; the final token
+        counts are exposed via the ``last_usage`` attribute set on
+        :pyattr:`self` after the iterator is exhausted.
+
+        Raises:
+            GenerationError: When the underlying stream exceeds
+                :pyattr:`timeout_seconds`.
+
+        """
         prompt_tokens = 0
         completion_tokens = 0
         try:
             async with asyncio.timeout(self.timeout_seconds):
                 async for chunk in response:
                     usage = (
-                        chunk.get("usage") if isinstance(chunk, dict) else getattr(chunk, "usage", None)
+                        chunk.get("usage")
+                        if isinstance(chunk, dict)
+                        else getattr(chunk, "usage", None)
                     )
-                    if usage:
-                        if isinstance(usage, dict):
-                            prompt_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
-                            completion_tokens = (
-                                usage.get("completion_tokens") or usage.get("output_tokens") or 0
-                            )
-                        else:
-                            prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
-                            completion_tokens = getattr(usage, "completion_tokens", 0) or 0
-                    if not isinstance(chunk, dict):
-                        continue
-                    choices = chunk.get("choices") or []
-                    if not choices:
-                        continue
-                    delta = choices[0].get("delta") or {}
-                    content = delta.get("content")
+                    prompt_tokens, completion_tokens = self._accumulate_usage(
+                        usage, prompt_tokens, completion_tokens
+                    )
+                    content = self._extract_chunk_content(chunk)
                     if content:
                         yield content
         except TimeoutError as exc:
@@ -440,12 +483,35 @@ class LiteLLM(Generator):
                 f"LiteLLM stream exceeded timeout_seconds={self.timeout_seconds}"
             ) from exc
 
-        if prompt_tokens or completion_tokens:
-            self.last_usage = {
-                "prompt": int(prompt_tokens),
-                "completion": int(completion_tokens),
-                "model": self.model_name,
-            }
+    @staticmethod
+    def _accumulate_usage(
+        usage: Any, prompt_tokens: int, completion_tokens: int
+    ) -> tuple[int, int]:
+        """Update running usage counters from a chunk's ``usage`` field."""
+        if not usage:
+            return prompt_tokens, completion_tokens
+        if isinstance(usage, dict):
+            return (
+                usage.get("prompt_tokens") or usage.get("input_tokens") or prompt_tokens,
+                usage.get("completion_tokens")
+                or usage.get("output_tokens")
+                or completion_tokens,
+            )
+        return (
+            getattr(usage, "prompt_tokens", 0) or prompt_tokens,
+            getattr(usage, "completion_tokens", 0) or completion_tokens,
+        )
+
+    @staticmethod
+    def _extract_chunk_content(chunk: Any) -> str | None:
+        """Return the assistant text delta from one LiteLLM streaming chunk."""
+        if not isinstance(chunk, dict):
+            return None
+        choices = chunk.get("choices") or []
+        if not choices:
+            return None
+        delta = choices[0].get("delta") or {}
+        return delta.get("content")
 
 
 def build_llm(
