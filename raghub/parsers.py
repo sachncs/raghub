@@ -15,7 +15,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.errors import MissingDepError
 from raghub.lifecycle import (
     ChunkingPlan,

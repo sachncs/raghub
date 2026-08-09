@@ -16,7 +16,7 @@ from collections import defaultdict
 from hashlib import sha256
 from typing import Any
 
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.embedder import Embedder
 from raghub.knowledge.raptor import KnowledgeIndex
 from raghub.llm import GenerationRequest, Generator

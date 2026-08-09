@@ -13,7 +13,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from raghub.coroutines import capture
+from raghub.runtime import capture
 
 
 class Manifest:

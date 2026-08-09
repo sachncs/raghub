@@ -29,7 +29,7 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel, Field
 
 from raghub.config import AgentConfig, Settings
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.errors import AgentBudgetError, GenerationError, ToolError
 from raghub.llm import GenerationRequest, Generator
 from raghub.models import Chunk, Hit, Turn, User

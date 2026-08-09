@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from raghub.agent import PlannerEvent, resolve
 from raghub.config import Settings
-from raghub.coroutines import await_if_awaitable
+from raghub.runtime import await_if_awaitable
 from raghub.errors import ConfigurationError, IngestionError, RagHubError
 from raghub.eval import Finance
 from raghub.models import (

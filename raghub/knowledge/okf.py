@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.errors import KnowledgeError
 from raghub.models import (
     BlockKind,

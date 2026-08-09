@@ -40,7 +40,7 @@ from raghub.constants import (
 # FeedbackCommand is re-exported from raghub.commands.__init__ but its
 # implementation lives in raghub.commands.feedback to avoid bloating this
 # module. No direct import needed here.
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.io import write_json as write_json_impl
 from raghub.rag import RAG
 
