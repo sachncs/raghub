@@ -396,6 +396,19 @@ class IngestMixin:
             * Otherwise, falls back to the legacy ``Resumable``
               threadpool path.
         """
+        file_bytes, uri = self._resolve_ingest_source(source, source_uri)
+        if self.persistent_queue is not None:
+            return self._submit_to_persistent_queue(
+                file_bytes, uri, mime_type, metadata, user
+            )
+        return self._submit_to_resumable(
+            file_bytes, uri, mime_type, metadata, user
+        )
+
+    def _resolve_ingest_source(
+        self, source: str | Path | bytes, source_uri: str | None
+    ) -> tuple[bytes, str]:
+        """Return ``(file_bytes, uri)`` for an ingest source (path or bytes)."""
         if isinstance(source, (str, Path)):
             p = Path(source)
             file_bytes = p.read_bytes()
@@ -403,57 +416,75 @@ class IngestMixin:
         else:
             file_bytes = bytes(source)
             uri = source_uri or "bytes://memory"
+        return file_bytes, uri
 
-        if self.persistent_queue is not None:
-            from raghub.jobs import JobStatus
-            from raghub.tenants import current, validate_tenant
+    def _submit_to_persistent_queue(
+        self,
+        file_bytes: bytes,
+        uri: str,
+        mime_type: str,
+        metadata: dict[str, Any] | None,
+        user: Any | None,
+    ) -> str:
+        """Submit to the SQLite-backed persistent queue, deduplicating by content_hash."""
+        from raghub.jobs import JobStatus
+        from raghub.tenants import current, validate_tenant
 
-            queue = self.persistent_queue
-            tenant_id: str | None = None
-            ctx = current()
-            if ctx is not None:
-                tenant_id = ctx.tenant_id
-                validate_tenant(tenant_id)
+        queue = self.persistent_queue
+        tenant_id: str | None = None
+        ctx = current()
+        if ctx is not None:
+            tenant_id = ctx.tenant_id
+            validate_tenant(tenant_id)
 
-            content_hash = hashlib.sha256(file_bytes).hexdigest()
-            payload = {
-                "source": file_bytes.decode("latin-1"),
-                "source_uri": uri,
-                "mime_type": mime_type,
-                "metadata": metadata or {},
-                "user": getattr(user, "user_id", None) if user else None,
-                "content_hash": content_hash,
-            }
+        content_hash = hashlib.sha256(file_bytes).hexdigest()
+        payload = {
+            "source": file_bytes.decode("latin-1"),
+            "source_uri": uri,
+            "mime_type": mime_type,
+            "metadata": metadata or {},
+            "user": getattr(user, "user_id", None) if user else None,
+            "content_hash": content_hash,
+        }
 
-            async def submit() -> str:
-                existing_jobs: list[Job] = await queue.list_for_tenant(
-                    tenant_id=tenant_id,
-                    content_hash=content_hash,
-                )
-                for job in existing_jobs:
-                    if (
-                        job.payload.get("content_hash") == content_hash
-                        and job.status in (
-                            JobStatus.Pending,
-                            JobStatus.Running,
-                        )
-                    ):
-                        return job.id
-                return await queue.submit(
-                    kind="ingest",
-                    payload=payload,
-                    tenant_id=tenant_id,
-                )
+        async def submit() -> str:
+            existing_jobs: list[Job] = await queue.list_for_tenant(
+                tenant_id=tenant_id,
+                content_hash=content_hash,
+            )
+            for job in existing_jobs:
+                if (
+                    job.payload.get("content_hash") == content_hash
+                    and job.status in (
+                        JobStatus.Pending,
+                        JobStatus.Running,
+                    )
+                ):
+                    return job.id
+            return await queue.submit(
+                kind="ingest",
+                payload=payload,
+                tenant_id=tenant_id,
+            )
 
-            try:
-                asyncio.get_running_loop()
-                import concurrent.futures
+        try:
+            asyncio.get_running_loop()
+            import concurrent.futures
 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                    return ex.submit(lambda: asyncio.run(submit())).result()
-            except RuntimeError:
-                return asyncio.run(submit())
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                return ex.submit(lambda: asyncio.run(submit())).result()
+        except RuntimeError:
+            return asyncio.run(submit())
 
+    def _submit_to_resumable(
+        self,
+        file_bytes: bytes,
+        uri: str,
+        mime_type: str,
+        metadata: dict[str, Any] | None,
+        user: Any | None,
+    ) -> str:
+        """Submit to the legacy Resumable threadpool, lazily creating it if needed."""
         if self.background_ingestion is None:
             self.background_ingestion = Resumable(
                 db_path=self.settings.data_dir / "ingestion_jobs.db"

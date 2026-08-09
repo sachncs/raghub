@@ -155,13 +155,8 @@ async def compare(
 
     """
 
-    async def factory_a(ex: dict[str, Any]) -> Any:
-        response = await rag_a.aquery(ex["question"])
-        return response.answer
-
-    async def factory_b(ex: dict[str, Any]) -> Any:
-        response = await rag_b.aquery(ex["question"])
-        return response.answer
+    factory_a = _make_answer_factory(rag_a)
+    factory_b = _make_answer_factory(rag_b)
 
     results_a = await run(evaluator, examples, response_factory=factory_a)
     results_b = await run(evaluator, examples, response_factory=factory_b)
@@ -173,29 +168,58 @@ async def compare(
         gate.check(metrics_a)
         gate.check(metrics_b)
 
-    diffs = {
-        name: metrics_b.get(name, 0.0) - metrics_a.get(name, 0.0)
-        for name in set(metrics_a) | set(metrics_b)
-    }
-
-    # diffs[name] > 0  means B is better on that metric
-    # diffs[name] < 0  means A is better on that metric
-    wins_b = sum(1 for d in diffs.values() if d > 0.0)
-    wins_a = sum(1 for d in diffs.values() if d < 0.0)
-    if wins_b > wins_a:
-        winner = "b"
-    elif wins_a > wins_b:
-        winner = "a"
-    else:
-        winner = "tie"
+    diffs = _compute_metric_diffs(metrics_a, metrics_b)
+    winner = _determine_winner(diffs)
 
     return {
         "a_metrics": metrics_a,
         "b_metrics": metrics_b,
         "metric_diffs": diffs,
         "winner": winner,
-        "gate_passed": True,  # gate.check() runs above; if it passed, we're here
+        "gate_passed": True,
     }
+
+
+def _make_answer_factory(rag: Any) -> Any:
+    """Build an async factory that calls ``rag.aquery`` and returns the answer.
+
+    Defined as a module-level helper so the inner closures created
+    by :func:`compare` are simple async functions rather than nested
+    definitions that hide the orchestration logic.
+
+    Args:
+        rag: The RAG instance to query.
+
+    Returns:
+        An async callable ``(example) -> answer_text`` accepted by
+        :func:`raghub.eval.benchmarks.run`.
+
+    """
+
+    async def factory(ex: dict[str, Any]) -> Any:
+        response = await rag.aquery(ex["question"])
+        return response.answer
+
+    return factory
+
+
+def _compute_metric_diffs(metrics_a: dict[str, float], metrics_b: dict[str, float]) -> dict[str, float]:
+    """Return ``b - a`` for every key in the union of ``metrics_a`` and ``metrics_b``."""
+    return {
+        name: metrics_b.get(name, 0.0) - metrics_a.get(name, 0.0)
+        for name in set(metrics_a) | set(metrics_b)
+    }
+
+
+def _determine_winner(diffs: dict[str, float]) -> str:
+    """Return ``\"a\"``, ``\"b\"``, or ``\"tie\"`` based on which side has more wins."""
+    wins_b = sum(1 for d in diffs.values() if d > 0.0)
+    wins_a = sum(1 for d in diffs.values() if d < 0.0)
+    if wins_b > wins_a:
+        return "b"
+    if wins_a > wins_b:
+        return "a"
+    return "tie"
 
 
 def compute_average(results: list[Any]) -> dict[str, float]:
