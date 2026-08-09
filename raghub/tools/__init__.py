@@ -464,24 +464,56 @@ class HybridSearch(Tool):
             question=text,
             top_k=int(kwargs.get("top_k", 0)),
         )
-        sparse_raw: list[dict[str, Any]] = []
+        sparse_raw = self.fetch_sparse_results(text, kwargs)
+        fused = self.fuse_results(dense, sparse_raw, kwargs)
+        id_to_hit = self.merge_into_hit_map(dense, sparse_raw)
+        if not fused:
+            return ToolResult(content="(no hits)")
+        return self.build_fused_tool_result(id_to_hit, fused)
+
+    def fetch_sparse_results(
+        self, text: str, kwargs: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Return keyword-search hits if the vector store supports it."""
         keyword_search = getattr(self.vector_store, "keyword_search", None)
-        if callable(keyword_search):
-            sparse_raw = keyword_search(text, int(kwargs.get("top_k", 0)) * 2)
-        fused = reciprocal_rank_fusion(
+        if not callable(keyword_search):
+            return []
+        return keyword_search(text, int(kwargs.get("top_k", 0)) * 2)
+
+    def fuse_results(
+        self,
+        dense: list[Any],
+        sparse_raw: list[dict[str, Any]],
+        kwargs: dict[str, Any],
+    ) -> list[tuple[str, float]]:
+        """Combine dense hits with sparse hits via reciprocal-rank fusion."""
+        from raghub.retrieval import reciprocal_rank_fusion
+
+        return reciprocal_rank_fusion(
             [
                 [h.chunk.id for h in dense],
                 [search_record["chunk"].chunk_id for search_record in sparse_raw],
             ],
             k=int(kwargs.get("rrf_k", RRF_K)) or RRF_K,
         )
+
+    @staticmethod
+    def merge_into_hit_map(
+        dense: list[Any], sparse_raw: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Build a chunk-id -> hit dict, deduplicating across dense/sparse."""
         id_to_hit: dict[str, Any] = {h.chunk.id: h for h in dense}
         for search_record in sparse_raw:
             cid = search_record["chunk"].chunk_id
             if cid not in id_to_hit:
                 id_to_hit[cid] = search_record
-        if not fused:
-            return ToolResult(content="(no hits)")
+        return id_to_hit
+
+    @staticmethod
+    def build_fused_tool_result(
+        id_to_hit: dict[str, Any], fused: list[tuple[str, float]]
+    ) -> ToolResult:
+        """Build the ToolResult from a fused id-to-hit mapping and final ranking."""
         joined = "\n\n---\n\n".join(
             (getattr(id_to_hit[cid], "chunk", None) and id_to_hit[cid].chunk.text)
             or id_to_hit[cid]["chunk"].text
@@ -493,12 +525,10 @@ class HybridSearch(Tool):
                 "hits": [
                     {
                         "chunk_id": cid,
-                        "document_id": getattr(
-                            getattr(id_to_hit[cid], "chunk", None),
-                            "document_id",
-                            None,
-                        )
-                        or id_to_hit[cid]["chunk"].document_id,
+                        "document_id": (
+                            getattr(getattr(id_to_hit[cid], "chunk", None), "document_id", None)
+                            or id_to_hit[cid]["chunk"].document_id
+                        ),
                         "score": float(score),
                         "text": (
                             id_to_hit[cid].chunk.text
