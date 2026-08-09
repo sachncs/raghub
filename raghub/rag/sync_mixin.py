@@ -99,20 +99,40 @@ class SyncMixin(SyncHost):
             "removed": [],
         }
 
+        self._walk_files(directory, seen, summary, metadata, user, show_progress)
+        self._retire_orphans(directory, seen, summary)
+        self.manifest.save()
+        return summary
+
+    def _walk_files(
+        self,
+        directory: Path,
+        seen: set[str],
+        summary: dict[str, list[str]],
+        metadata: dict[str, Any] | None,
+        user: Any | None,
+        show_progress: bool,
+    ) -> None:
+        """Walk every file under ``directory`` and call ``sync_one`` for each."""
         files = sorted(p for p in directory.rglob("*") if p.is_file())
         iterator = tqdm(files, desc="Syncing index", disable=not show_progress, unit="file")
         for child in iterator:
             self.sync_one(child, metadata, user, seen, summary)
 
+    def _retire_orphans(
+        self,
+        directory: Path,
+        seen: set[str],
+        summary: dict[str, list[str]],
+    ) -> None:
+        """Retire manifest entries that no longer correspond to a file in ``directory``."""
+        directory_resolved = str(directory.resolve())
         for prior_uri in self.manifest.sources():
             if prior_uri in seen:
                 continue
-            if not prior_uri.startswith(str(directory.resolve())):
+            if not prior_uri.startswith(directory_resolved):
                 continue
             self.remove_prior(prior_uri, summary)
-
-        self.manifest.save()
-        return summary
 
     def sync_one(
         self,
