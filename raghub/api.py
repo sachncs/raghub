@@ -45,6 +45,7 @@ from raghub.runtime import capture
 from raghub.ingest import Batch
 from raghub.ratelimit import Ratelimit
 from raghub.routes import Exceptions, RouteGroup
+from raghub.routes._limits import check_size, content_length, enforce_limit
 from raghub.services import Facade, RagContainer
 
 # ---------------------------------------------------------------------------
@@ -105,84 +106,8 @@ def validate_cors(origins: list[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Upload guards
-# ---------------------------------------------------------------------------
-
-
-def check_size(content_length: int | None, max_bytes: int) -> bool:
-    """Pre-flight guard for upload size.
-
-    Called by upload endpoints with the value of the ``Content-Length``
-    request header before the multipart body is read into memory.
-    Returning ``True`` causes the caller to raise HTTP 413; returning
-    ``False`` allows the upload to proceed (a second check after
-    reading catches chunked-transfer uploads that omit the header).
-
-    Args:
-        content_length: The value of the request's ``Content-Length``
-            header. ``None`` when the client did not send the header
-            (chunked transfer encoding); in that case the function
-            returns ``False`` so the post-read check fires.
-        max_bytes: The configured maximum accepted upload size.
-
-    Returns:
-        ``True`` when the declared upload is over the limit; ``False``
-        otherwise.
-
-    """
-    if content_length is None:
-        return False
-    return content_length > max_bytes
-
-
-def content_length(request: Request) -> int | None:
-    """Return the parsed ``Content-Length`` header or ``None``.
-
-    Args:
-        request: The incoming request.
-
-    Returns:
-        The integer value, or ``None`` when the header is missing or
-        cannot be parsed as an integer.
-
-    """
-    declared = request.headers.get("content-length")
-    if declared is None:
-        return None
-    value, _ = capture(int, declared)
-    return value if isinstance(value, int) else None
-
-
-def enforce_limit(
-    request: Request,
-    container: RagContainer,
-    payload: bytes | None = None,
-) -> None:
-    """Raise HTTP 413 when ``request`` (or ``payload``) exceeds the limit.
-
-    Args:
-        request: The incoming request (used to read ``Content-Length``).
-        container: The application container holding ``settings``.
-        payload: Optional in-memory payload. When provided, the
-            post-read check runs against the actual bytes.
-
-    Raises:
-        HTTPException: 413 when the upload exceeds ``max_upload_bytes``.
-
-    """
-    max_bytes = int(getattr(container.settings, "max_upload_bytes", 0) or 0)
-    if max_bytes <= 0:
-        return
-    if check_size(content_length(request), max_bytes):
-        raise HTTPException(
-            status_code=HTTP_413_PAYLOAD_TOO_LARGE,
-            detail=f"Upload exceeds maximum size of {max_bytes} bytes",
-        )
-    if payload is not None and len(payload) > max_bytes:
-        raise HTTPException(
-            status_code=HTTP_413_PAYLOAD_TOO_LARGE,
-            detail=f"Upload exceeds maximum size of {max_bytes} bytes",
-        )
+# Upload guards (enforce_limit, check_size, content_length) moved to
+# raghub.routes._limits to break the api <-> routes circular import.
 
 
 # ---------------------------------------------------------------------------
