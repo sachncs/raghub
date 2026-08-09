@@ -95,44 +95,99 @@ def build_chunk_records(
         and embedded.
 
     """
-    owner: str = attributes.get("owner", "")
-    department: str = attributes.get("department", "")
-    classification: Classification = attributes.get("classification", Classification.Internal)
-    embedding_model: str = attributes.get("embedding_model", "")
-    mime_type: str = attributes.get("mime_type", "")
-    file_name: str = attributes.get("file_name", "")
+    owner, department, classification, embedding_model, mime_type, file_name = (
+        chunk_record_attributes(attributes)
+    )
+    tenant_id = active_tenant_id()
+    metadata = chunk_section_metadata(file_bytes, mime_type)
+    parsed_sections = extract_text(file_bytes, file_name, mime_type)
+
+    records: list[Chunk] = []
+    for section_index, source_location, text in parsed_sections:
+        records.extend(
+            build_chunks_for_section(
+                text=text,
+                section_index=section_index,
+                source_location=source_location,
+                document_id=document_id,
+                version=version,
+                company=company,
+                owner=owner,
+                department=department,
+                classification=classification,
+                embedding_model=embedding_model,
+                tenant_id=tenant_id,
+                metadata=metadata,
+                plan=plan,
+            )
+        )
+    return records
+
+
+def chunk_record_attributes(attributes: dict[str, Any]) -> tuple:
+    """Return (owner, department, classification, embedding_model, mime_type, file_name)."""
+    return (
+        attributes.get("owner", ""),
+        attributes.get("department", ""),
+        attributes.get("classification", Classification.Internal),
+        attributes.get("embedding_model", ""),
+        attributes.get("mime_type", ""),
+        attributes.get("file_name", ""),
+    )
+
+
+def active_tenant_id() -> str:
+    """Return the current tenant id, or empty string when no tenant context."""
     from raghub.tenants import current
 
     ctx = current()
-    tenant_id = ctx.tenant_id if ctx else ""
-    records: list[Chunk] = []
-    parsed_sections = extract_text(file_bytes, file_name, mime_type)
+    return ctx.tenant_id if ctx else ""
 
+
+def chunk_section_metadata(file_bytes: bytes, mime_type: str) -> dict[str, Any]:
+    """Return per-section metadata: PDF metadata when applicable, else empty."""
     metadata: dict[str, Any] = {}
     if mime_type == "application/pdf":
         metadata.update(extract_pdf_metadata(file_bytes))
+    return metadata
 
-    for section_index, source_location, text in parsed_sections:
-        for chunk_text in chunk_words(text, plan):
-            records.append(
-                Chunk(
-                    id=str(uuid4()),
-                    document_id=document_id,
-                    version=version,
-                    page=section_index,
-                    source_location=source_location,
-                    company=company,
-                    owner=owner,
-                    department=department,
-                    classification=classification,
-                    embedding_model=embedding_model,
-                    tenant_id=tenant_id,
-                    checksum=sha256(chunk_text.encode("utf-8", errors="surrogatepass")).hexdigest(),
-                    text=chunk_text,
-                    metadata=metadata,
-                )
-            )
-    return records
+
+def build_chunks_for_section(
+    *,
+    text: str,
+    section_index: int,
+    source_location: str,
+    document_id: str,
+    version: int,
+    company: str,
+    owner: str,
+    department: str,
+    classification: Classification,
+    embedding_model: str,
+    tenant_id: str,
+    metadata: dict[str, Any],
+    plan: ChunkingPlan,
+) -> list[Chunk]:
+    """Build Chunk records for one parsed section by chunking its text."""
+    return [
+        Chunk(
+            id=str(uuid4()),
+            document_id=document_id,
+            version=version,
+            page=section_index,
+            source_location=source_location,
+            company=company,
+            owner=owner,
+            department=department,
+            classification=classification,
+            embedding_model=embedding_model,
+            tenant_id=tenant_id,
+            checksum=sha256(chunk_text.encode("utf-8", errors="surrogatepass")).hexdigest(),
+            text=chunk_text,
+            metadata=metadata,
+        )
+        for chunk_text in chunk_words(text, plan)
+    ]
 
 
 __all__ = [
