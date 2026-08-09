@@ -389,6 +389,15 @@ class QueueCommand:
     def register(app: typer.Typer) -> None:
         """Attach the ``queue`` sub-commands to ``app``."""
         queue_app = typer.Typer(help="Persistent ingestion queue management.")
+        QueueCommand.register_list(queue_app)
+        QueueCommand.register_run(queue_app)
+        QueueCommand.register_retry(queue_app)
+        QueueCommand.register_purge(queue_app)
+        app.add_typer(queue_app, name="queue")
+
+    @staticmethod
+    def register_list(queue_app: typer.Typer) -> None:
+        """Attach the ``raghub queue list`` sub-command."""
 
         @queue_app.command(name="list")
         def list_cmd(
@@ -428,6 +437,10 @@ class QueueCommand:
                     f"{(job.tenant_id or '-'):<16} {job.kind}"
                 )
 
+    @staticmethod
+    def register_run(queue_app: typer.Typer) -> None:
+        """Attach the ``raghub queue run`` sub-command (drains queue)."""
+
         @queue_app.command(name="run")
         def run_cmd(
             config: str | None = typer.Option(
@@ -464,6 +477,10 @@ class QueueCommand:
             except KeyboardInterrupt:
                 typer.echo("worker stopped")
 
+    @staticmethod
+    def register_retry(queue_app: typer.Typer) -> None:
+        """Attach the ``raghub queue retry`` sub-command."""
+
         @queue_app.command(name="retry")
         def retry_cmd(
             job_id: str = typer.Argument(..., help="Job id to retry."),
@@ -484,6 +501,10 @@ class QueueCommand:
                 raise typer.Exit(code=1)
             asyncio.run(queue.retry(job_id, delay_seconds=delay_seconds))
             typer.echo(f"job {job_id} moved back to pending")
+
+    @staticmethod
+    def register_purge(queue_app: typer.Typer) -> None:
+        """Attach the ``raghub queue purge`` sub-command."""
 
         @queue_app.command(name="purge")
         def purge_cmd(
@@ -507,8 +528,6 @@ class QueueCommand:
             status_filter = JobStatus(status) if status else None
             removed = asyncio.run(queue.purge(status=status_filter))
             typer.echo(f"removed {removed} job(s)")
-
-        app.add_typer(queue_app, name="queue")
 
 
 async def ingest_handler(job: Any, rag: Any, archive: Any, store: Any) -> None:
