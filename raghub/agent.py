@@ -337,14 +337,45 @@ def resolve(
     user = user_prefs or {}
     layers = (request, session, user)
 
+    agent_enabled = resolve_agent_enabled(request, session, user, settings)
+    tools = resolve_tools(request, session, user, settings)
+    reranker = resolve_reranker_choice(layers, settings)
+    long_context_pass = resolve_long_context_flag(layers, settings)
+    transforms = resolve_transforms(request, session, user, settings)
+    max_steps = resolve_max_steps(layers, settings)
+
+    return ResolvedConfig(
+        agent_enabled=agent_enabled,
+        tools_enabled=frozenset(tools),
+        reranker=reranker,
+        long_context_pass=long_context_pass,
+        query_transforms=transforms,
+        max_steps=max_steps,
+    )
+
+
+def resolve_agent_enabled(
+    request: dict[str, Any],
+    session: dict[str, Any],
+    user: dict[str, Any],
+    settings: Settings,
+) -> bool:
+    """Return ``agent_enabled`` from request > session > user > settings."""
     req_agent = request.get("agent")
     if req_agent is not None:
-        agent_enabled = bool(req_agent)
-    elif "agent_enabled" in session:
-        agent_enabled = bool(session["agent_enabled"])
-    else:
-        agent_enabled = bool(user.get("agent_enabled", settings.agent.enabled))
+        return bool(req_agent)
+    if "agent_enabled" in session:
+        return bool(session["agent_enabled"])
+    return bool(user.get("agent_enabled", settings.agent.enabled))
 
+
+def resolve_tools(
+    request: dict[str, Any],
+    session: dict[str, Any],
+    user: dict[str, Any],
+    settings: Settings,
+) -> set[str]:
+    """Return the merged tool set, layering request/session/user + add-on toggles."""
     tools = coerce_tools(request.get("tools_enabled"))
     if not tools:
         tools = coerce_tools(session.get("tools_enabled"))
@@ -356,17 +387,30 @@ def resolve(
         tools |= {"graph_search"}
     if request.get("summaries") is True:
         tools |= {"summary_search"}
+    return tools
 
-    requested_reranker = pick_value(layers, "reranker")
-    reranker = coerce_reranker(
-        requested_reranker if requested_reranker is not None else settings.reranker.provider
+
+def resolve_reranker_choice(layers: tuple[dict, ...], settings: Settings) -> str:
+    """Return the effective reranker choice (request > settings default)."""
+    requested = pick_value(layers, "reranker")
+    return coerce_reranker(
+        requested if requested is not None else settings.reranker.provider
     )
 
-    requested_lcp = pick_value(layers, "long_context_pass")
-    long_context_pass = bool(
-        requested_lcp if requested_lcp is not None else settings.long_context_pass.enabled
-    )
 
+def resolve_long_context_flag(layers: tuple[dict, ...], settings: Settings) -> bool:
+    """Return whether the long-context rerank pass is enabled."""
+    requested = pick_value(layers, "long_context_pass")
+    return bool(requested if requested is not None else settings.long_context_pass.enabled)
+
+
+def resolve_transforms(
+    request: dict[str, Any],
+    session: dict[str, Any],
+    user: dict[str, Any],
+    settings: Settings,
+) -> tuple[str, ...]:
+    """Return the effective query-transform tuple (request > session > user > settings)."""
     transforms = coerce_transforms(request.get("query_transforms"))
     if not transforms:
         transforms = coerce_transforms(session.get("query_transforms"))
@@ -374,20 +418,15 @@ def resolve(
         transforms = coerce_transforms(user.get("query_transforms"))
     if not transforms:
         transforms = tuple(settings.query_transforms.enabled)
+    return transforms
 
-    raw_steps = pick_value(layers, "max_steps")
-    if raw_steps is None:
-        raw_steps = settings.agent.max_steps
-    max_steps = coerce_steps(raw_steps, settings.agent.max_steps)
 
-    return ResolvedConfig(
-        agent_enabled=agent_enabled,
-        tools_enabled=frozenset(tools),
-        reranker=reranker,
-        long_context_pass=long_context_pass,
-        query_transforms=transforms,
-        max_steps=max_steps,
-    )
+def resolve_max_steps(layers: tuple[dict, ...], settings: Settings) -> int:
+    """Return the effective ``max_steps`` (request > settings default)."""
+    raw = pick_value(layers, "max_steps")
+    if raw is None:
+        raw = settings.agent.max_steps
+    return coerce_steps(raw, settings.agent.max_steps)
 
 
 # ---------------------------------------------------------------------------

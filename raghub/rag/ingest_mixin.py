@@ -222,9 +222,6 @@ class IngestMixin:
         into the local store. The main process inserts them into the
         shared vector store and rebuilds BM25 once at the end.
         """
-        import multiprocessing as mp
-        from concurrent.futures import ProcessPoolExecutor
-
         files = sorted(p for p in directory.rglob("*") if p.is_file())
         if not files:
             return Pipeline(
@@ -232,37 +229,45 @@ class IngestMixin:
                 pipeline_name="ingest",
                 outputs={"batch": []},
             )
+        worker_outputs = self.run_workers_in_pool(directory, files, metadata, max_workers)
+        return self.collect_worker_results(files, worker_outputs)
+
+    def run_workers_in_pool(
+        self,
+        directory: Path,
+        files: list[Path],
+        metadata: dict[str, Any] | None,
+        max_workers: int | None,
+    ) -> list[Any]:
+        """Run ``ingest_one_worker`` in a ProcessPoolExecutor for each file."""
+        import multiprocessing as mp
+        from concurrent.futures import ProcessPoolExecutor
 
         n_workers = max(1, min(max_workers or os.cpu_count() or 4, len(files)))
         settings_path = self.settings_path()
         embedder_signature = (self.embedder.model_name, self.embedder.dimension)
-
         with ProcessPoolExecutor(
-            max_workers=n_workers,
-            mp_context=mp.get_context("spawn"),
+            max_workers=n_workers, mp_context=mp.get_context("spawn")
         ) as pool:
             futures = [
                 pool.submit(
-                    ingest_one_worker,
-                    settings_path,
-                    str(p),
-                    metadata,
-                    embedder_signature,
+                    ingest_one_worker, settings_path, str(p), metadata, embedder_signature
                 )
                 for p in files
             ]
-            worker_outputs = [f.result() for f in futures]
+            return [f.result() for f in futures]
 
+    def collect_worker_results(
+        self, files: list[Path], worker_outputs: list[Any]
+    ) -> Pipeline:
+        """Insert each worker's chunks into the shared store and return a Pipeline."""
         vector_store = getattr(self, "vector_store", None)
-        n_inserted = 0
         for chunks, vectors in worker_outputs:
             if chunks and vector_store is not None:
-                written = vector_store.insert(chunks, vectors)
-                n_inserted += written
+                vector_store.insert(chunks, vectors)
         rebuild = getattr(vector_store, "rebuild_index", None)
         if callable(rebuild):
             rebuild()
-
         return Pipeline(
             pipeline_id="batch",
             pipeline_name="ingest",
