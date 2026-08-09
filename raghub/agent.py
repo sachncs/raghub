@@ -723,35 +723,63 @@ class Agent:
         state: AgentBudgetState,
     ) -> AsyncIterator[PlannerEvent]:
         """Apply a parsed tool action; yield events to the caller."""
-        yield PlannerEvent(
+        yield self.emit_thought(parsed, step)
+        if parsed.name not in enabled:
+            yield self.record_unknown_tool(parsed, step, messages, enabled)
+            return
+        yield self.record_tool_call(parsed, step, state)
+        observation = await self.run_tool(parsed, enabled, ctx)
+        yield self.record_tool_result(parsed, step, observation)
+        self.record_observation_message(parsed, observation, messages)
+
+    @staticmethod
+    def emit_thought(parsed: PlannerAction, step: int) -> PlannerEvent:
+        """Build the opening 'thought' event for a planner action."""
+        return PlannerEvent(
+            kind="thought", step=step, payload={"thought": parsed.thought}
+        )
+
+    @staticmethod
+    def record_unknown_tool(
+        parsed: PlannerAction,
+        step: int,
+        messages: list[dict[str, str]],
+        enabled: dict[str, Any],
+    ) -> PlannerEvent:
+        """Append an 'unknown tool' thought event and return it."""
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    f"Tool {parsed.name!r} is not available. "
+                    f"Try one of: {sorted(enabled)}."
+                ),
+            }
+        )
+        return PlannerEvent(
             kind="thought",
             step=step,
-            payload={"thought": parsed.thought},
+            payload={"error": f"unknown or disabled tool: {parsed.name!r}"},
         )
-        if parsed.name not in enabled:
-            yield PlannerEvent(
-                kind="thought",
-                step=step,
-                payload={"error": f"unknown or disabled tool: {parsed.name!r}"},
-            )
-            messages.append(
-                {
-                    "role": "user",
-                    "content": (
-                        f"Tool {parsed.name!r} is not available. "
-                        f"Try one of: {sorted(enabled)}."
-                    ),
-                }
-            )
-            return
+
+    @staticmethod
+    def record_tool_call(
+        parsed: PlannerAction, step: int, state: AgentBudgetState
+    ) -> PlannerEvent:
+        """Bump the budget and return the 'tool_call' event."""
         state.tool_calls += 1
-        yield PlannerEvent(
+        return PlannerEvent(
             kind="tool_call",
             step=step,
             payload={"name": parsed.name, "args": parsed.args},
         )
-        observation = await self.run_tool(parsed, enabled, ctx)
-        yield PlannerEvent(
+
+    @staticmethod
+    def record_tool_result(
+        parsed: PlannerAction, step: int, observation: Any
+    ) -> PlannerEvent:
+        """Return the 'tool_result' event summarising ``observation``."""
+        return PlannerEvent(
             kind="tool_result",
             step=step,
             payload={
@@ -762,6 +790,14 @@ class Agent:
                 "latency_ms": observation.latency_ms,
             },
         )
+
+    @staticmethod
+    def record_observation_message(
+        parsed: PlannerAction,
+        observation: Any,
+        messages: list[dict[str, str]],
+    ) -> None:
+        """Append the user-role observation message after a successful tool call."""
         messages.append(
             {
                 "role": "user",
