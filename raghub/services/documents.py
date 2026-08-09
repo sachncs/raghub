@@ -30,7 +30,7 @@ async def get_doc(uow: UnitOfWork, document_id: str) -> Document:
         from raghub.services.diagnostics import missing_doc
 
         missing_doc(document_id)
-    return cast(Document, record)
+    return record
 
 
 class Documents:
