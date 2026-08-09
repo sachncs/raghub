@@ -31,3 +31,10 @@ interrogate-output.txt
 # Phase 0.1: untracked local tooling + generated reports
 lint/
 reports/
+
+# Editor backup files
+*.save
+*.save.*
+*.swp
+*.swo
+*~
