@@ -821,6 +821,32 @@ class Ingestor:
             tags=tags,
             classification=classification,
         )
+        return await self.handle_pipeline_result(
+            result=result,
+            previous=previous,
+            file_name=file_name,
+            mime_type=mime_type,
+            owner=owner,
+            organization=organization,
+            classification=classification,
+            checksum=checksum,
+            tags=tags,
+        )
+
+    async def handle_pipeline_result(
+        self,
+        *,
+        result: Any,
+        previous: Any,
+        file_name: str,
+        mime_type: str,
+        owner: User,
+        organization: str,
+        classification: Any,
+        checksum: str,
+        tags: list[str],
+    ) -> IngestionResult:
+        """Either raise IngestionError (failure path) or persist the successful record."""
         if result.error is not None:
             await self.mark_failed(previous, result)
             raise IngestionError(
