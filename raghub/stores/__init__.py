@@ -39,7 +39,7 @@ from uuid import uuid4
 from tqdm import tqdm
 
 from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.errors import AuthenticationError, MissingDepError, RagHubError
 from raghub.io import atomic_write_json, load_json
 from raghub.models import (

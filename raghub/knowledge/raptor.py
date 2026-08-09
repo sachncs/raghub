@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from hashlib import sha256
 from typing import Any, cast
 
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.embedder import Embedder
 from raghub.llm import GenerationRequest, Generator
 from raghub.models import Chunk, Hit

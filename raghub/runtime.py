@@ -1,15 +1,38 @@
-"""Sync/async boundary helpers and exception-aware callable execution."""
+"""Runtime utilities: sync/async boundary helpers and a wall-clock timer.
+
+Two small, single-purpose helper modules are merged here:
+
+- :func:`capture` — return ``(result, exception_or_none)`` from a
+  callable, useful for bridging exceptions across sync/async.
+- :func:`await_if_awaitable` — bridge sync and async callables at
+  API boundaries.
+- :func:`run_synchronously` — run a coroutine in a fresh event loop
+  when no loop is already running, otherwise surface the coroutine
+  for the caller to await.
+- :class:`DurationTimer` — record a start instant; ``elapsed_ms``
+  returns milliseconds since start.
+
+This module is a leaf of the import graph (no other raghub module
+imports it transitively into a cycle). Multiple other modules depend
+on these primitives, so it is kept intentionally tiny.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import inspect
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
 T = TypeVar("T")
 
-__all__ = ["capture", "await_if_awaitable", "run_synchronously"]
+__all__ = [
+    "DurationTimer",
+    "await_if_awaitable",
+    "capture",
+    "run_synchronously",
+]
 
 
 def capture(
@@ -70,3 +93,30 @@ def run_synchronously(awaitable: Any) -> Any:
     except RuntimeError:
         return asyncio.run(awaitable)
     return awaitable
+
+
+class DurationTimer:
+    """Wall-clock timer used by orchestration pipelines.
+
+    Records the start instant on construction; :meth:`elapsed_ms`
+    returns milliseconds since the start. Used by ingest/query
+    pipelines to publish latency metrics without depending on
+    third-party timing libraries.
+
+    The timer is **not** thread-safe; pipelines that fan out to
+    threads should construct a fresh :class:`DurationTimer` per
+    coroutine.
+    """
+
+    def __init__(self) -> None:
+        """Record the current ``time.perf_counter`` as the start."""
+        self.start = time.perf_counter()
+
+    def elapsed_ms(self) -> float:
+        """Return the elapsed time in milliseconds since construction.
+
+        Returns:
+            Elapsed time in milliseconds (float).
+
+        """
+        return (time.perf_counter() - self.start) * 1000.0

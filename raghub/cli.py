@@ -24,7 +24,7 @@ from raghub.commands import (
     TenantCommand,
     ToolConfig,
 )
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.evaluation import app as eval_app
 
 __all__ = ["health", "main", "version"]

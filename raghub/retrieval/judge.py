@@ -15,7 +15,7 @@ import time
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.llm import GenerationRequest
 from raghub.models import Hit, RankedList
 from raghub.retrieval.fusion import merge_rrf

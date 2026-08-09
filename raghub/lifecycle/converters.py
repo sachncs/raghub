@@ -26,7 +26,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.errors import ConfigurationError, ConversionError
 from raghub.lifecycle.scanner import looks_like_pdf
 from raghub.lifecycle.state import normalise_markdown

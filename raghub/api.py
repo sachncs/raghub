@@ -41,7 +41,7 @@ from raghub.constants import (
     ENV_CORS_ORIGINS,
     HTTP_413_PAYLOAD_TOO_LARGE,
 )
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.ingest import Batch
 from raghub.ratelimit import Ratelimit
 from raghub.routes import Exceptions, RouteGroup

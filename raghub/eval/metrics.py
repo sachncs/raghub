@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Sequence
 
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.types import JSONValue
 
 TOKEN_RE = re.compile(r"\w+")

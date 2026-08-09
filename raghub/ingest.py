@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.embedder import Embedder
 from raghub.errors import (
     ConfigurationError,

@@ -15,7 +15,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from typing import Any, TypeVar
 
-from raghub.coroutines import capture
+from raghub.runtime import capture
 from raghub.constants import ENV_LANGFUSE_PUBLIC_KEY, ENV_LANGFUSE_SECRET_KEY
 from raghub.errors import ConfigurationError, MissingDepError
 from raghub.models import Span, TelemetryProvider
