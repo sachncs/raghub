@@ -42,33 +42,12 @@ class Cache:
                 ``scope=``).
 
         """
-        top_k: int = options.get("top_k", 5)
-        response_model: Any | None = options.get("response_model")
-        session_id: str | None = options.get("session_id")
-        history: Sequence[Any] = options.get("history", ())
-        scope: Any = options.get("scope")
-        model_key = ""
-        if response_model is not None:
-            model_key = (
-                f"{response_model.__module__}.{response_model.__qualname__}"
-                if isinstance(response_model, type)
-                else str(response_model)
-            )
-        history_key = tuple(
-            (
-                turn.get("question", "")
-                if isinstance(turn, dict)
-                else getattr(turn, "question", ""),
-                turn.get("answer", "") if isinstance(turn, dict) else getattr(turn, "answer", ""),
-            )
-            for turn in history
+        top_k, response_model, session_id, history, scope = (
+            Cache._make_key_extract_options(options)
         )
-        if isinstance(scope, dict):
-            scope_key = canonical_filters(scope)
-        elif isinstance(scope, list):
-            scope_key = tuple(scope)
-        else:
-            scope_key = scope
+        model_key = Cache._make_model_key(response_model)
+        history_key = Cache._make_history_key(history)
+        scope_key = Cache._make_scope_key(scope)
         return (
             question,
             user_id or "",
@@ -79,6 +58,48 @@ class Cache:
             history_key,
             scope_key,
         )
+
+    @staticmethod
+    def _make_key_extract_options(options: dict[str, Any]) -> tuple:
+        """Return (top_k, response_model, session_id, history, scope) from options."""
+        return (
+            options.get("top_k", 5),
+            options.get("response_model"),
+            options.get("session_id"),
+            options.get("history", ()),
+            options.get("scope"),
+        )
+
+    @staticmethod
+    def _make_model_key(response_model: Any) -> str:
+        """Build a stable string key for ``response_model`` (class, instance, or None)."""
+        if response_model is None:
+            return ""
+        if isinstance(response_model, type):
+            return f"{response_model.__module__}.{response_model.__qualname__}"
+        return str(response_model)
+
+    @staticmethod
+    def _make_history_key(history: Sequence[Any]) -> tuple:
+        """Build a stable tuple key from a sequence of Turn-like or dict records."""
+        return tuple(
+            (
+                turn.get("question", "")
+                if isinstance(turn, dict)
+                else getattr(turn, "question", ""),
+                turn.get("answer", "") if isinstance(turn, dict) else getattr(turn, "answer", ""),
+            )
+            for turn in history
+        )
+
+    @staticmethod
+    def _make_scope_key(scope: Any) -> Any:
+        """Canonicalise scope: dict -> sorted tuple, list -> tuple, else passthrough."""
+        if isinstance(scope, dict):
+            return canonical_filters(scope)
+        if isinstance(scope, list):
+            return tuple(scope)
+        return scope
 
     def get(
         self,
