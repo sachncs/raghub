@@ -396,16 +396,16 @@ class IngestMixin:
             * Otherwise, falls back to the legacy ``Resumable``
               threadpool path.
         """
-        file_bytes, uri = self._resolve_ingest_source(source, source_uri)
+        file_bytes, uri = self.resolve_ingest_source(source, source_uri)
         if self.persistent_queue is not None:
-            return self._submit_to_persistent_queue(
+            return self.submit_to_persistent_queue(
                 file_bytes, uri, mime_type, metadata, user
             )
-        return self._submit_to_resumable(
+        return self.submit_to_resumable(
             file_bytes, uri, mime_type, metadata, user
         )
 
-    def _resolve_ingest_source(
+    def resolve_ingest_source(
         self, source: str | Path | bytes, source_uri: str | None
     ) -> tuple[bytes, str]:
         """Return ``(file_bytes, uri)`` for an ingest source (path or bytes)."""
@@ -418,7 +418,7 @@ class IngestMixin:
             uri = source_uri or "bytes://memory"
         return file_bytes, uri
 
-    def _submit_to_persistent_queue(
+    def submit_to_persistent_queue(
         self,
         file_bytes: bytes,
         uri: str,
@@ -476,7 +476,7 @@ class IngestMixin:
         except RuntimeError:
             return asyncio.run(submit())
 
-    def _submit_to_resumable(
+    def submit_to_resumable(
         self,
         file_bytes: bytes,
         uri: str,

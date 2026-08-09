@@ -264,15 +264,15 @@ class Metrics:
             return 1.0
         if not contexts:
             return 0.0
-        ctx_tokens = Metrics._context_token_union(contexts)
-        claims = Metrics._split_claims(text)
-        supported, considered = Metrics._count_supported(claims, ctx_tokens)
+        ctx_tokens = Metrics.context_token_union(contexts)
+        claims = Metrics.split_claims(text)
+        supported, considered = Metrics.count_supported(claims, ctx_tokens)
         if considered == 0:
             return 1.0
         return supported / considered
 
     @staticmethod
-    def _context_token_union(contexts: Sequence[str]) -> set[str]:
+    def context_token_union(contexts: Sequence[str]) -> set[str]:
         """Return the union of tokens across ``contexts``."""
         tokens: set[str] = set()
         for context in contexts:
@@ -280,7 +280,7 @@ class Metrics:
         return tokens
 
     @staticmethod
-    def _split_claims(text: str) -> list[str]:
+    def split_claims(text: str) -> list[str]:
         """Split ``text`` into sentence-level claim strings."""
         return [
             claim.strip()
@@ -289,7 +289,7 @@ class Metrics:
         ]
 
     @staticmethod
-    def _count_supported(claims: Sequence[str], ctx_tokens: set[str]) -> tuple[int, int]:
+    def count_supported(claims: Sequence[str], ctx_tokens: set[str]) -> tuple[int, int]:
         """Count (supported, considered) claims against ``ctx_tokens``."""
         supported = 0
         considered = 0
