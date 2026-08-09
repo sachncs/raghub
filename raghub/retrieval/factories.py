@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from raghub.config import LongContextConfig, Settings
+from raghub.constants import ENV_COHERE_API_KEY
 from raghub.errors import RerankerError
 from raghub.models import Hit, Turn
 from raghub.retrieval.context import Context
@@ -62,7 +63,7 @@ class RerankerFactory:
             return LlmJudge(llm=self.llm, top_k=cfg.top_k)
         if provider == "cascade":
             expensive: Rerank
-            if self.cohere_api_key is None and not os.getenv("COHERE_API_KEY"):
+            if self.cohere_api_key is None and not os.getenv(ENV_COHERE_API_KEY):
                 return Identity()
             expensive = Cohere(api_key=self.cohere_api_key, top_k=cfg.top_k)
             return Cascade(

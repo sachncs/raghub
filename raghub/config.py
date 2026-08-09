@@ -27,6 +27,11 @@ from raghub.constants import (
     DEFAULT_MAX_UPLOAD_BYTES,
     DEFAULT_SESSION_TIMEOUT_SECONDS,
     DEFAULT_TOP_K,
+    ENV_JWT_SECRET,
+    ENV_NVIDIA_API_KEY,
+    ENV_RAG_ALLOW_PASSWORDLESS,
+    ENV_RAG_PROFILE,
+    ENV_RAG_RERANKER_TOP_K,
     GPT4O_MINI_MODEL,
     HASHING_BGE_MODEL,
     MINISHLAB_POTION_MODEL,
@@ -499,7 +504,7 @@ def load_profile(profile: str | None) -> tuple[str | None, Path, dict[str, Any]]
 
     """
     base_dir = __resolve()
-    selected_profile = profile or os.getenv("RAG_PROFILE", "development")
+    selected_profile = profile or os.getenv(ENV_RAG_PROFILE, "development")
     profile_path = base_dir / f"{selected_profile}.yaml"
     toml_path = base_dir / f"{selected_profile}.toml"
     payload: dict[str, Any] = {}
@@ -590,10 +595,10 @@ def load_env(selected_profile: str, payload: dict[str, Any]) -> dict[str, Any]:
         "worker_backend": os.getenv(
             "RAG_WORKER_BACKEND", payload.get("worker_backend", "threadpool")
         ),
-        "jwt_secret": SecretStr(os.getenv("JWT_SECRET", "")),
-        "nvidia_api_key": os.getenv("NVIDIA_API_KEY", payload.get("nvidia_api_key", "")),
+        "jwt_secret": SecretStr(os.getenv(ENV_JWT_SECRET, "")),
+        "nvidia_api_key": os.getenv(ENV_NVIDIA_API_KEY, payload.get("nvidia_api_key", "")),
         "allow_passwordless_login": env_bool(
-            "RAG_ALLOW_PASSWORDLESS",
+            ENV_RAG_ALLOW_PASSWORDLESS,
             payload.get("allow_passwordless_login", False),
         ),
     }
@@ -710,7 +715,7 @@ def load_reranker(payload: dict[str, Any]) -> RerankerConfig:
             ),
         ),
         top_k=int(
-            os.getenv("RAG_RERANKER_TOP_K", str(payload.get("reranker", {}).get("top_k", 20)))
+            os.getenv(ENV_RAG_RERANKER_TOP_K, str(payload.get("reranker", {}).get("top_k", 20)))
         ),
         cascade_threshold=float(
             os.getenv(

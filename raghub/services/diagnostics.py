@@ -7,6 +7,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from raghub.config import Settings
+from raghub.constants import ENV_CORS_ORIGINS, ENV_RAGHUB_USERS
 from raghub.embedder import Embedder, build_embedder
 from raghub.errors import IngestionError
 from raghub.ingest import IngestionResult, Ingestor
@@ -115,7 +116,7 @@ def seed_blocked(settings: Settings) -> bool:
     """Return ``True`` when the demo-user seed must be skipped."""
     if settings.environment == "production":
         return True
-    return os.getenv("CORS_ORIGINS", "").strip() == "*"
+    return os.getenv(ENV_CORS_ORIGINS, "").strip() == "*"
 
 
 def parse_users(raw: str) -> Any:
@@ -127,7 +128,7 @@ def parse_users(raw: str) -> Any:
 
 async def seed_demo_users(user_store: "SqliteUsers") -> None:
     """Seed demo users from ``RAGHUB_USERS`` or the default list."""
-    users_env = os.getenv("RAGHUB_USERS", "").strip()
+    users_env = os.getenv(ENV_RAGHUB_USERS, "").strip()
     if users_env:
         seed_users = parse_users(users_env)
         if isinstance(seed_users, dict):

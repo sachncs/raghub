@@ -22,7 +22,7 @@ from typing import Any
 import litellm
 import numpy as np
 
-from raghub.constants import DEFAULT_EMBEDDING_DIM, HASHING_BGE_MODEL
+from raghub.constants import DEFAULT_EMBEDDING_DIM, ENV_ANTHROPIC_API_KEY, ENV_AZURE_API_KEY, ENV_COHERE_API_KEY, ENV_LITELLM_API_KEY, ENV_NVIDIA_API_KEY, ENV_OPENAI_API_KEY, ENV_VOYAGE_API_KEY, HASHING_BGE_MODEL
 from raghub.errors import ConfigurationError
 
 __all__ = [
@@ -275,13 +275,13 @@ def build_embedder(
         creds_present = bool(api_key) or any(
             os.getenv(k)
             for k in (
-                "OPENAI_API_KEY",
-                "ANTHROPIC_API_KEY",
-                "NVIDIA_API_KEY",
-                "LITELLM_API_KEY",
-                "COHERE_API_KEY",
-                "VOYAGE_API_KEY",
-                "AZURE_API_KEY",
+                ENV_OPENAI_API_KEY,
+                ENV_ANTHROPIC_API_KEY,
+                ENV_NVIDIA_API_KEY,
+                ENV_LITELLM_API_KEY,
+                ENV_COHERE_API_KEY,
+                ENV_VOYAGE_API_KEY,
+                ENV_AZURE_API_KEY,
             )
         )
         if creds_present:

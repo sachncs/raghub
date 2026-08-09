@@ -24,6 +24,7 @@ from typing import Any, Literal, Self
 import litellm
 
 from raghub.errors import ConfigurationError, GenerationError
+from raghub.constants import ENV_ANTHROPIC_API_KEY, ENV_AZURE_API_KEY, ENV_COHERE_API_KEY, ENV_LITELLM_API_KEY, ENV_NVIDIA_API_KEY, ENV_OPENAI_API_KEY, ENV_VOYAGE_API_KEY
 from raghub.models import Turn
 from raghub.retry import aretry, retry
 
@@ -38,14 +39,14 @@ __all__ = [
 
 
 LLM_API_KEY_ENV_VARS: tuple[str, ...] = (
-    "OPENAI_API_KEY",
-    "ANTHROPIC_API_KEY",
-    "NVIDIA_API_KEY",
+    ENV_OPENAI_API_KEY,
+    ENV_ANTHROPIC_API_KEY,
+    ENV_NVIDIA_API_KEY,
     "GROQ_API_KEY",
-    "LITELLM_API_KEY",
-    "COHERE_API_KEY",
-    "VOYAGE_API_KEY",
-    "AZURE_API_KEY",
+    ENV_LITELLM_API_KEY,
+    ENV_COHERE_API_KEY,
+    ENV_VOYAGE_API_KEY,
+    ENV_AZURE_API_KEY,
     "AWS_ACCESS_KEY_ID",
 )
 

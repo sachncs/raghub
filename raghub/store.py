@@ -23,7 +23,7 @@ import numpy as np
 from rank_bm25 import BM25Okapi
 
 from raghub.config import Settings
-from raghub.constants import RRF_K
+from raghub.constants import ENV_RAG_VECTORSTORE_PATH, RRF_K
 from raghub.errors import VectorStoreError
 from raghub.models import Chunk, Classification
 
@@ -842,6 +842,6 @@ def build_store(
     if not isinstance(settings, Settings):
         raise TypeError(f"build_store: expected Settings, got {type(settings).__name__}")
     dim = embedding_dim if embedding_dim is not None else settings.embedding_dim
-    override = os.environ.get("RAG_VECTORSTORE_PATH")
+    override = os.environ.get(ENV_RAG_VECTORSTORE_PATH)
     path = override or str(settings.data_dir / "vectorstore.sqlite")
     return SqliteStore(path=path, embedding_dim=dim)
