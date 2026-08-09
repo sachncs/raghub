@@ -153,17 +153,48 @@ def build_chonkie_inner(
             ``embedding_model=``, ``language=``, ``genie=``.
 
     """
-    tokenizer: str = options.get("tokenizer", "character")
-    chunker_name: str = options.get("chunker_name", "recursive")
-    embedding_model: str = options.get("embedding_model", "minishlab/potion-base-8M")
-    language: str = options.get("language", "auto")
-    genie: Any = options.get("genie")
+    tokenizer, chunker_name, embedding_model, language, genie = _chonkie_options(options)
     if not CHONKIE_AVAILABLE or CHONKIE_MODULE is None:
         raise ConfigurationError(
             "chonkie is not installed; install it via `pip install chonkie` or use Words."
         )
 
-    chunker_builders: dict[str, tuple[str, dict[str, Any]]] = {
+    chunker_builders = _chonkie_chunk_builders(
+        tokenizer, embedding_model, language, chunk_size, chunk_overlap, genie
+    )
+
+    if chunker_name == "auto":
+        return auto_select_chunker(
+            auto_probe=("RecursiveChunker", "TokenChunker", "SentenceChunker"),
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            tokenizer=tokenizer,
+        )
+
+    return _instantiate_chonkie_chunker(chunker_name, chunker_builders, chunk_size, chunk_overlap)
+
+
+def chonkie_options(options: dict[str, JSONValue]) -> tuple[str, str, str, str, Any]:
+    """Return (tokenizer, chunker_name, embedding_model, language, genie) from options."""
+    return (
+        options.get("tokenizer", "character"),
+        options.get("chunker_name", "recursive"),
+        options.get("embedding_model", "minishlab/potion-base-8M"),
+        options.get("language", "auto"),
+        options.get("genie"),
+    )
+
+
+def chonkie_chunk_builders(
+    tokenizer: str,
+    embedding_model: str,
+    language: str,
+    chunk_size: int,
+    chunk_overlap: int,
+    genie: Any,
+) -> dict[str, tuple[str, dict[str, Any]]]:
+    """Return the mapping from chunker-name -> (Chonkie class, kwargs)."""
+    return {
         "token": (
             "TokenChunker",
             {"tokenizer": tokenizer, "chunk_size": chunk_size, "chunk_overlap": chunk_overlap},
@@ -187,22 +218,18 @@ def build_chonkie_inner(
         ),
     }
 
-    auto_probe = ("RecursiveChunker", "TokenChunker", "SentenceChunker")
 
-    if chunker_name == "auto":
-        return auto_select_chunker(
-            auto_probe=auto_probe,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            tokenizer=tokenizer,
-        )
-
+def instantiate_chonkie_chunker(
+    chunker_name: str,
+    chunker_builders: dict[str, tuple[str, dict[str, Any]]],
+    chunk_size: int,
+    chunk_overlap: int,
+) -> Any:
+    """Instantiate the requested Chonkie chunker by name, raising on missing deps."""
     if chunker_name not in chunker_builders:
         raise ConfigurationError(f"Unknown chonkie chunker strategy: {chunker_name!r}")
-
     cls_name, kwargs = chunker_builders[chunker_name]
     cls = getattr(CHONKIE_MODULE, cls_name, None)
-
     if cls is None:
         raise ConfigurationError(
             f"chonkie chunker {cls_name!r} not available; "
