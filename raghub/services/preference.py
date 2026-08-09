@@ -82,7 +82,7 @@ class Preference:
         response.metadata["resolved_config"] = resolved.to_dict()
         if flags.get("top_k") is not None:
             response.metadata["requested_top_k"] = flags["top_k"]
-        return cast(QueryResponse, response)
+        return response
 
     async def query_advanced(
         self,

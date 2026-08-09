@@ -44,7 +44,7 @@ def chunk_text(chunk: Any) -> str:
     text = getattr(chunk, "text", None)
     if text is None:
         raise ValueError(f"corpus item has no .text attribute: {chunk!r}")
-    return cast(str, text)
+    return text
 
 
 def chunk_id(chunk: Any) -> str:
