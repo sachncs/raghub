@@ -589,12 +589,12 @@ def test_financebench_cli_empty_examples(monkeypatch: pytest.MonkeyPatch) -> Non
     import raghub.evaluation as ev_module
     from raghub.eval import Finance
 
-    class _EmptyFinance(Finance):
+    class EmptyFinance(Finance):
         def ensure_examples(self) -> list[dict[str, Any]]:
             return []
 
     runner = CliRunner()
-    monkeypatch.setattr(ev_module, "Finance", _EmptyFinance)
+    monkeypatch.setattr(ev_module, "Finance", EmptyFinance)
     result = runner.invoke(ev_module.app, ["financebench", "--examples", "0"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
@@ -611,7 +611,7 @@ def test_financebench_cli_with_examples(monkeypatch: pytest.MonkeyPatch) -> None
     import raghub.evaluation as ev_module
     from raghub.eval import Finance
 
-    class _StubFinance(Finance):
+    class StubFinance(Finance):
         def ensure_examples(self) -> list[dict[str, Any]]:
             return [
                 {"question": "q1", "answer": "a1", "contexts": ["c1"]},
@@ -620,7 +620,7 @@ def test_financebench_cli_with_examples(monkeypatch: pytest.MonkeyPatch) -> None
             ]
 
     runner = CliRunner()
-    monkeypatch.setattr(ev_module, "Finance", _StubFinance)
+    monkeypatch.setattr(ev_module, "Finance", StubFinance)
     result = runner.invoke(ev_module.app, ["financebench", "--examples", "3"])
     assert result.exit_code == 0
     payload = json.loads(result.output)
@@ -634,7 +634,7 @@ def test_frames_cli_with_examples(monkeypatch: pytest.MonkeyPatch) -> None:
     import raghub.evaluation as ev_module
     from raghub.eval import Frames
 
-    class _StubFrames(Frames):
+    class StubFrames(Frames):
         def ensure_examples(self) -> list[dict[str, Any]]:
             return [
                 {"question": "q1", "answer": "a1", "contexts": ["c1"]},
@@ -642,7 +642,7 @@ def test_frames_cli_with_examples(monkeypatch: pytest.MonkeyPatch) -> None:
             ]
 
     runner = CliRunner()
-    monkeypatch.setattr(ev_module, "Frames", _StubFrames)
+    monkeypatch.setattr(ev_module, "Frames", StubFrames)
     result = runner.invoke(ev_module.app, ["frames", "--examples", "2"])
     assert result.exit_code == 0
     payload = json.loads(result.output)
@@ -659,12 +659,12 @@ def test_frames_cli_zero_examples_means_all(monkeypatch: pytest.MonkeyPatch) -> 
 
     examples = [{"question": f"q{i}", "answer": "a", "contexts": ["c"]} for i in range(5)]
 
-    class _StubFrames(Frames):
+    class StubFrames(Frames):
         def ensure_examples(self) -> list[dict[str, Any]]:
             return examples
 
     runner = CliRunner()
-    monkeypatch.setattr(ev_module, "Frames", _StubFrames)
+    monkeypatch.setattr(ev_module, "Frames", StubFrames)
     result = runner.invoke(ev_module.app, ["frames", "--examples", "0"])
     assert result.exit_code == 0
     payload = json.loads(result.output)

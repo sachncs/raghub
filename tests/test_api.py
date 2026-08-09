@@ -245,14 +245,14 @@ def test_enforce_limit_oversize_payload_raises() -> None:
 def test_user_store_or_raise_returns_user_store() -> None:
     """user_store_or_raise returns the configured user store with prefs API."""
 
-    class _FakeStore:
+    class FakeStore:
         def get_pref(self, user_id: str, key: str) -> None:
             return None
 
         def set_pref(self, user_id: str, key: str, value: object) -> None:
             return None
 
-    store = _FakeStore()
+    store = FakeStore()
     application_facade = MagicMock()
     application_facade.container.user_store = store
     assert user_store_or_raise(application_facade) is store
@@ -271,11 +271,11 @@ def test_user_store_or_raise_raises_503_when_missing() -> None:
 def test_user_store_or_raise_raises_503_when_missing_prefs_api() -> None:
     """user_store_or_raise raises when store lacks get_pref/set_pref."""
 
-    class _StubStore:
+    class StubStore:
         pass
 
     application_facade = MagicMock()
-    application_facade.container.user_store = _StubStore()
+    application_facade.container.user_store = StubStore()
     with pytest.raises(HTTPException) as exc_info:
         user_store_or_raise(application_facade)
     assert exc_info.value.status_code == 503
@@ -456,7 +456,7 @@ def test_lifespan_swallows_shutdown_errors() -> None:
 def test_lifespan_swallows_background_shutdown_errors() -> None:
     """Lifespan logs and continues when background.shutdown raises."""
 
-    class _BadBackground:
+    class BadBackground:
         def shutdown(self) -> None:
             raise ConnectionError("boom")
 
@@ -465,7 +465,7 @@ def test_lifespan_swallows_background_shutdown_errors() -> None:
     lifespan = Lifespan(application_facade)
 
     state = MagicMock()
-    state.background_ingestion = _BadBackground()
+    state.background_ingestion = BadBackground()
 
     async def _drive() -> None:
         async with lifespan(state):
@@ -669,7 +669,7 @@ def test_route_group_class_exists() -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakeApp:
+class FakeApp:
     """Test client carrying an application facade on its state."""
 
     def __init__(self, application: Any) -> None:
@@ -683,7 +683,7 @@ def test_inject_get_returns_application() -> None:
 
     application = MagicMock()
     request = MagicMock()
-    request.app = _FakeApp(application)
+    request.app = FakeApp(application)
     assert App.get(request) is application
 
 
@@ -1121,14 +1121,14 @@ def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
     store = SqliteFeedbackStore(db_path=str(feedback_db))
     store.initialize()
 
-    class _User:
+    class User:
         email = "alice@example.com"
         tenant_id = "acme"
 
-    class _AuthSvc:
-        async def resolve_user(self, token: str) -> tuple[_User, list[Any]]:
+    class AuthSvc:
+        async def resolve_user(self, token: str) -> tuple[User, list[Any]]:
             assert token == "alice-token", f"Expected alice-token; got {token!r}"
-            return _User(), []
+            return User(), []
 
     class StubContainer:
         feedback_store = store
@@ -1136,7 +1136,7 @@ def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
     class StubFacade:
         def __init__(self):
             self.container = StubContainer()
-            self.auth = _AuthSvc()
+            self.auth = AuthSvc()
 
     app = FastAPI()
     app.include_router(FeedbackRoute().router)
@@ -1257,13 +1257,13 @@ def test_feedback_router_503_when_store_absent() -> None:
 
     from raghub.routes import FeedbackRoute
 
-    class _User:
+    class User:
         email = "alice@example.com"
         tenant_id = "acme"
 
-    class _AuthSvc:
-        async def resolve_user(self, token: str) -> tuple[_User, list[Any]]:
-            return _User(), []
+    class AuthSvc:
+        async def resolve_user(self, token: str) -> tuple[User, list[Any]]:
+            return User(), []
 
     class StubContainer:
         feedback_store = None
@@ -1271,7 +1271,7 @@ def test_feedback_router_503_when_store_absent() -> None:
     class StubFacade:
         def __init__(self):
             self.container = StubContainer()
-            self.auth = _AuthSvc()
+            self.auth = AuthSvc()
 
     app = FastAPI()
     app.include_router(FeedbackRoute().router)

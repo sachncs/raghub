@@ -45,16 +45,16 @@ def test_health_command_invokes_make_rag(monkeypatch: pytest.MonkeyPatch) -> Non
     """``raghub health`` calls CliConfig.make_rag(None).health() and writes JSON."""
     calls: list[tuple[str, object]] = []
 
-    class _FakeRAG:
+    class FakeRAG:
         def health(self) -> dict[str, object]:
             return {"status": "ok", "chunks": 7}
 
         @classmethod
-        def from_config(cls, config: str | None) -> _FakeRAG:
+        def from_config(cls, config: str | None) -> FakeRAG:
             calls.append(("from_config", config))
             return cls()
 
-    fake_make_rag = MagicMock(return_value=_FakeRAG())
+    fake_make_rag = MagicMock(return_value=FakeRAG())
     monkeypatch.setattr(
         cli_module, "CliConfig", MagicMock(write_json=CliConfig.write_json, make_rag=fake_make_rag)
     )

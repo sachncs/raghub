@@ -122,7 +122,7 @@ def test_rag_evaluate_calls_evaluator() -> None:
 
     rag = RAG(converter=PlainTextConverter())
 
-    class _FakeEvaluator:
+    class FakeEvaluator:
         def __init__(self) -> None:
             self.called_with: tuple | None = None
 
@@ -130,7 +130,7 @@ def test_rag_evaluate_calls_evaluator() -> None:
             self.called_with = (tuple(examples), response_factory)
             return [Result(benchmark="financebench", example_id="0", predicted="y")]
 
-    fake_evaluator = _FakeEvaluator()
+    fake_evaluator = FakeEvaluator()
     results = rag.evaluate(
         benchmark="financebench",
         examples=[{"id": "0", "question": "x", "answer": "y"}],
@@ -200,12 +200,12 @@ def test_rag_shutdown_telemetry_error() -> None:
     """shutdown() surfaces telemetry.end_trace() failures (no swallowing)."""
     rag = RAG(converter=PlainTextConverter())
 
-    class _BadTelemetry:
+    class BadTelemetry:
         @staticmethod
         def end_trace() -> None:
             raise RuntimeError("telemetry crashed")
 
-    rag.telemetry = _BadTelemetry()
+    rag.telemetry = BadTelemetry()
     with pytest.raises(RuntimeError, match="telemetry crashed"):
         rag.shutdown()
 
@@ -219,11 +219,11 @@ def test_rag_shutdown_async_close(rag: RAG) -> None:
     """
     closed: list[bool] = []
 
-    class _AsyncCloser:
+    class AsyncCloser:
         async def close(self) -> None:
             closed.append(True)
 
-    rag.vector_store = _AsyncCloser()
+    rag.vector_store = AsyncCloser()
     rag.knowledge_repo = None
     rag.shutdown()
     assert closed == [True]
@@ -273,15 +273,15 @@ def test_rag_aquery_failure_propagates_real_llm_error(
     """
     import asyncio
 
-    class _BrokenLLM(Generator):
+    class BrokenLLM(Generator):
         model_name = "broken"
 
         @staticmethod
         def generate(_request: GenerationRequest) -> str:
             raise RuntimeError("LLM timeout")
 
-    monkeypatch.setattr(rag, "llm", _BrokenLLM())
-    monkeypatch.setattr(rag.generator, "llm", _BrokenLLM())
+    monkeypatch.setattr(rag, "llm", BrokenLLM())
+    monkeypatch.setattr(rag.generator, "llm", BrokenLLM())
 
     with pytest.raises(RuntimeError, match="LLM timeout"):
         asyncio.run(rag.aquery("test question"))
@@ -298,13 +298,13 @@ def test_rag_evaluate_without_factory(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(rag, "aquery", _mock_aquery)
 
-    class _FakeEvaluator:
+    class FakeEvaluator:
         async def evaluate(self, examples, *, response_factory):
             for ex in examples:
                 await response_factory(ex)
             return [Result(benchmark="financebench", example_id="0", predicted="y")]
 
-    fake_evaluator = _FakeEvaluator()
+    fake_evaluator = FakeEvaluator()
     results = rag.evaluate(
         benchmark="financebench",
         examples=[{"id": "0", "question": "x", "answer": "y"}],
@@ -318,13 +318,13 @@ def test_rag_evaluate_with_sync_factory() -> None:
     """evaluate() with a sync factory skips await."""
     rag = RAG(converter=PlainTextConverter())
 
-    class _FakeEvaluator:
+    class FakeEvaluator:
         async def evaluate(self, examples, *, response_factory):
             for ex in examples:
                 response_factory(ex)
             return []
 
-    fake_evaluator = _FakeEvaluator()
+    fake_evaluator = FakeEvaluator()
 
     def _factory(example: dict) -> str:
         return example.get("answer", "")
@@ -371,7 +371,7 @@ def test_sync_index_does_not_record_failed_ingest(
 def test_rag_ingest_async_with_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
     """ingest_async() works with raw bytes and creates background service on demand."""
 
-    class _MockBgService:
+    class MockBgService:
         def __init__(self, **kwargs: object) -> None:
             pass
 
@@ -379,7 +379,7 @@ def test_rag_ingest_async_with_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
         def submit(*args: object, **kwargs: object) -> str:
             return "mock-job-1"
 
-    monkeypatch.setattr("raghub.rag.ingest_mixin.Resumable", _MockBgService)
+    monkeypatch.setattr("raghub.rag.ingest_mixin.Resumable", MockBgService)
 
     rag = RAG(converter=PlainTextConverter())
     rag.settings.data_dir.mkdir(parents=True, exist_ok=True)

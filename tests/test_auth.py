@@ -268,14 +268,14 @@ async def test_authz_check_access_allow_list_miss(users: SqliteUsers) -> None:
 async def test_authz_check_access_logs_on_denial(caplog: pytest.LogCaptureFixture) -> None:
     """When a logger is provided, denial is logged at info level."""
 
-    class _Logger:
+    class Logger:
         def __init__(self) -> None:
             self.events: list[tuple[str, dict[str, object]]] = []
 
         def info(self, event: str, **kw: object) -> None:
             self.events.append((event, kw))
 
-    log = _Logger()
+    log = Logger()
     authz = Authz(user_store=None, logger=log)  # type: ignore[arg-type]
     user = _user(allowed_companies=["acme"])
     assert await authz.check_access(user, "globex") is False
@@ -320,7 +320,7 @@ async def test_authz_require_admin_raises() -> None:
 # ---------------------------------------------------------------------------
 
 
-class _StubContainer:
+class StubContainer:
     """Minimal container exposing the surface AuthService requires."""
 
     def __init__(self, users: SqliteUsers, session_token: str | None = "tok") -> None:
@@ -334,13 +334,13 @@ class _StubContainer:
 
     async def create_session(self, user_id: str) -> object:
         self.created_sessions.append(user_id)
-        return _StubSession(user_id=user_id, token=self._session_token or "tok")
+        return StubSession(user_id=user_id, token=self._session_token or "tok")
 
     async def get_by_token(self, token: str) -> object | None:
         self.bearer_log.append((token, "lookup"))
         if token == "absent":
             return None
-        return _StubSession(user_id=self._session_user_id, token=token)
+        return StubSession(user_id=self._session_user_id, token=token)
 
     async def delete_session(self, session_id: str) -> None:
         self.deleted_sessions.append(session_id)
@@ -352,12 +352,12 @@ def _build_get_by_token(user_id: str, valid_token: str) -> object:
     async def _get_by_token(token: str) -> object | None:
         if token == "absent":
             return None
-        return _StubSession(user_id=user_id, token=token)
+        return StubSession(user_id=user_id, token=token)
 
     return _get_by_token
 
 
-class _StubSession:
+class StubSession:
     def __init__(self, user_id: str, token: str) -> None:
         self.user_id = user_id
         self.token = token
@@ -369,7 +369,7 @@ class _StubSession:
 async def test_auth_service_login_success(users: SqliteUsers) -> None:
     """A successful login returns an AuthLoginResponse."""
     created = await users.create_user(email="login@x.com", password="pw", companies=["acme"])
-    container = _StubContainer(users)
+    container = StubContainer(users)
     svc = AuthService(container)
     response: AuthLoginResponse = await svc.login("login@x.com", "pw")
     assert response.user_email == "login@x.com"
@@ -382,7 +382,7 @@ async def test_auth_service_login_success(users: SqliteUsers) -> None:
 async def test_auth_service_login_bad_credentials(users: SqliteUsers) -> None:
     """Bad credentials raise AuthenticationError; no session is created."""
     await users.create_user(email="login@x.com", password="pw")
-    container = _StubContainer(users)
+    container = StubContainer(users)
     svc = AuthService(container)
     with pytest.raises(AuthenticationError, match="Invalid email or password"):
         await svc.login("login@x.com", "wrong-password")
@@ -392,7 +392,7 @@ async def test_auth_service_login_bad_credentials(users: SqliteUsers) -> None:
 @pytest.mark.asyncio
 async def test_auth_service_logout_invalidates_token(users: SqliteUsers) -> None:
     """logout() calls delete_session when the token resolves."""
-    container = _StubContainer(users, session_token="good")
+    container = StubContainer(users, session_token="good")
     svc = AuthService(container)
     await svc.logout("good")
     assert container.deleted_sessions == ["s1"]
@@ -401,7 +401,7 @@ async def test_auth_service_logout_invalidates_token(users: SqliteUsers) -> None
 @pytest.mark.asyncio
 async def test_auth_service_logout_unknown_token_is_silent(users: SqliteUsers) -> None:
     """logout() of an unknown token is a no-op (no raise)."""
-    container = _StubContainer(users)
+    container = StubContainer(users)
     svc = AuthService(container)
     await svc.logout("absent")
     assert container.deleted_sessions == []
@@ -411,7 +411,7 @@ async def test_auth_service_logout_unknown_token_is_silent(users: SqliteUsers) -
 async def test_auth_service_resolve_user_round_trip(users: SqliteUsers) -> None:
     """resolve_user returns (User, history) for a valid token."""
     created = await users.create_user(email="rt@x.com", password="pw", companies=["acme"])
-    container = _StubContainer(users, session_token="t")
+    container = StubContainer(users, session_token="t")
     # The stub creates sessions with user_id="u1"; align the stub to the real UUID.
     container.get_by_token = _build_get_by_token(  # type: ignore[method-assign]
         created.user_id, "t"
@@ -425,7 +425,7 @@ async def test_auth_service_resolve_user_round_trip(users: SqliteUsers) -> None:
 @pytest.mark.asyncio
 async def test_auth_service_resolve_user_unknown_token(users: SqliteUsers) -> None:
     """resolve_user raises AuthenticationError for an unknown token."""
-    svc = AuthService(_StubContainer(users))
+    svc = AuthService(StubContainer(users))
     with pytest.raises(AuthenticationError, match="Invalid or expired session"):
         await svc.resolve_user("absent")
 
@@ -436,7 +436,7 @@ async def test_auth_service_resolve_user_session_but_user_deleted(
 ) -> None:
     """resolve_user raises when the user behind the session is gone."""
 
-    class _Container:
+    class Container:
         user_store = users
         store = None
 
@@ -444,9 +444,9 @@ async def test_auth_service_resolve_user_session_but_user_deleted(
             self.store = self
 
         async def get_by_token(self, token: str) -> object:
-            return _StubSession(user_id="missing-uid", token=token)
+            return StubSession(user_id="missing-uid", token=token)
 
-    container = _Container()
+    container = Container()
     svc = AuthService(container)  # type: ignore[arg-type]
     with pytest.raises(AuthenticationError, match="User not found"):
         await svc.resolve_user("t")
@@ -456,10 +456,10 @@ async def test_auth_service_resolve_user_session_but_user_deleted(
 async def test_auth_service_load_tool_settings_no_user_store() -> None:
     """When the container has no user_store, load_tool_settings returns {}."""
 
-    class _Empty:
+    class Empty:
         pass
 
-    svc = AuthService(_Empty())  # type: ignore[arg-type]
+    svc = AuthService(Empty())  # type: ignore[arg-type]
     assert await svc.load_tool_settings("any") == {}
 
 
@@ -472,7 +472,7 @@ async def test_auth_service_load_tool_settings_from_user_store(
     record = await users.get_by_email("ts@x.com")
     assert record is not None
     await users.set_pref(record.user_id, "tool_settings", {"max_steps": 7})
-    container = _StubContainer(users)
+    container = StubContainer(users)
     svc = AuthService(container)
     assert await svc.load_tool_settings(record.user_id) == {"max_steps": 7}
 

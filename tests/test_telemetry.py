@@ -265,11 +265,11 @@ def test_redacting_telemetry_info_scrubs_secret_keys() -> None:
 
     captured: list[tuple[str, dict[str, object]]] = []
 
-    class _CapturingTelemetry:
+    class CapturingTelemetry:
         def info(self, name: str, **kwargs: object) -> None:
             captured.append((name, dict(kwargs)))
 
-    inner = _CapturingTelemetry()
+    inner = CapturingTelemetry()
     rt = RedactingTelemetry(inner)
     rt.info(
         "user login",
@@ -294,11 +294,11 @@ def test_redacting_telemetry_record_latency_scrubs_labels() -> None:
 
     captured: list[tuple[str, float, dict[str, object]]] = []
 
-    class _CapturingTelemetry:
+    class CapturingTelemetry:
         def record_latency(self, name: str, value_ms: float, **labels: object) -> None:
             captured.append((name, value_ms, dict(labels)))
 
-    rt = RedactingTelemetry(_CapturingTelemetry())
+    rt = RedactingTelemetry(CapturingTelemetry())
     rt.record_latency("op", 1.5, secret="raw", route="/v1")
 
     assert captured, "Inner provider never received the call"
@@ -314,7 +314,7 @@ def test_redacting_telemetry_record_tokens_passes_through() -> None:
 
     captured: list[tuple[str, int, int, str]] = []
 
-    class _CapturingTelemetry:
+    class CapturingTelemetry:
         def record_tokens(
             self,
             name: str,
@@ -324,7 +324,7 @@ def test_redacting_telemetry_record_tokens_passes_through() -> None:
         ) -> None:
             captured.append((name, prompt_tokens, completion_tokens, model))
 
-    rt = RedactingTelemetry(_CapturingTelemetry())
+    rt = RedactingTelemetry(CapturingTelemetry())
     rt.record_tokens("x", 1, 2, model="m")
     assert captured == [("x", 1, 2, "m")]
 

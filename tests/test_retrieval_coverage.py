@@ -66,7 +66,7 @@ def _make_hit(text: str = "text", chunk_id: str = "c1", score: float = 0.5) -> H
 # ---------------------------------------------------------------------------
 
 
-class _StubLLM:
+class StubLLM:
     """Minimal async generator stub."""
 
     def __init__(self, response: str) -> None:
@@ -80,7 +80,7 @@ class _StubLLM:
 
 class TestLlmJudgeRankWindow:
     def test_rank_window_uses_llm_ordering(self) -> None:
-        llm = _StubLLM('[{"index": 1, "score": 0.9}, {"index": 0, "score": 0.5}]')
+        llm = StubLLM('[{"index": 1, "score": 0.9}, {"index": 0, "score": 0.5}]')
         judge = LlmJudge(llm=llm, top_k=2)
         hits = [_make_hit("first", "c0", 0.1), _make_hit("second", "c1", 0.2)]
         ordered = asyncio.run(judge.rank_window("q?", hits))
@@ -88,14 +88,14 @@ class TestLlmJudgeRankWindow:
         assert [h.chunk_id for h in ordered] == ["c1", "c0"]
 
     def test_rank_window_falls_back_to_input_order_on_unparseable(self) -> None:
-        llm = _StubLLM("not json")
+        llm = StubLLM("not json")
         judge = LlmJudge(llm=llm, top_k=2)
         hits = [_make_hit("a", "c0"), _make_hit("b", "c1")]
         ordered = asyncio.run(judge.rank_window("q", hits))
         assert [h.chunk_id for h in ordered] == ["c0", "c1"]
 
     def test_rank_window_drops_invalid_indices(self) -> None:
-        llm = _StubLLM('[{"index": 99, "score": 0.9}, {"index": 0, "score": 0.5}]')
+        llm = StubLLM('[{"index": 99, "score": 0.9}, {"index": 0, "score": 0.5}]')
         judge = LlmJudge(llm=llm, top_k=2)
         hits = [_make_hit("a", "c0"), _make_hit("b", "c1")]
         ordered = asyncio.run(judge.rank_window("q", hits))
@@ -105,7 +105,7 @@ class TestLlmJudgeRankWindow:
 
 class TestLlmJudgeDoRerank:
     def test_short_input_uses_listwise_path(self) -> None:
-        llm = _StubLLM('[{"index": 0, "score": 0.9}]')
+        llm = StubLLM('[{"index": 0, "score": 0.9}]')
         judge = LlmJudge(llm=llm, top_k=3)
         hits = [_make_hit("a", "c0"), _make_hit("b", "c1")]
         ordered = asyncio.run(judge.do_rerank("q", hits))
@@ -114,7 +114,7 @@ class TestLlmJudgeDoRerank:
         assert len(llm.calls) == 1
 
     def test_long_input_uses_windowed_rrf(self) -> None:
-        llm = _StubLLM('[{"index": 0, "score": 0.9}]')
+        llm = StubLLM('[{"index": 0, "score": 0.9}]')
         judge = LlmJudge(llm=llm, top_k=3)
         # 12 hits = 2 windows of LISTWISE_MAX.
         hits = [_make_hit(f"text-{i}", f"c{i}", 0.1 * i) for i in range(12)]
@@ -127,11 +127,11 @@ class TestLlmJudgeDoRerank:
 
 class TestLlmJudgeArerank:
     def test_arerank_empty_hits_returns_empty(self) -> None:
-        judge = LlmJudge(llm=_StubLLM(""), top_k=5)
+        judge = LlmJudge(llm=StubLLM(""), top_k=5)
         assert asyncio.run(judge.arerank(question="q", hits=[])) == []
 
     def test_arerank_invokes_llm_and_returns_top_k(self) -> None:
-        llm = _StubLLM('[{"index": 0, "score": 0.9}, {"index": 1, "score": 0.8}]')
+        llm = StubLLM('[{"index": 0, "score": 0.9}, {"index": 1, "score": 0.8}]')
         judge = LlmJudge(llm=llm, top_k=2)
         hits = [_make_hit("a", "c0"), _make_hit("b", "c1")]
         result = asyncio.run(judge.arerank(question="q", hits=hits))
@@ -139,7 +139,7 @@ class TestLlmJudgeArerank:
         assert [h.chunk_id for h in result] == ["c0", "c1"]
 
     def test_rerank_sync_wrapper_returns_top_k(self) -> None:
-        llm = _StubLLM('[{"index": 0, "score": 0.9}, {"index": 1, "score": 0.8}]')
+        llm = StubLLM('[{"index": 0, "score": 0.9}, {"index": 1, "score": 0.8}]')
         judge = LlmJudge(llm=llm, top_k=2)
         hits = [_make_hit("a", "c0"), _make_hit("b", "c1")]
         result = judge.rerank(question="q", hits=hits)
@@ -260,7 +260,7 @@ class TestExtractStringsFromJudge:
 # ---------------------------------------------------------------------------
 
 
-class _RecordingLLM:
+class RecordingLLM:
     """Stub LLM that records calls and returns a canned response."""
 
     def __init__(self, response: str = "") -> None:
@@ -274,24 +274,24 @@ class _RecordingLLM:
 
 class TestContextEligibility:
     def test_disabled_returns_false(self) -> None:
-        llm = _RecordingLLM()
+        llm = RecordingLLM()
         llm.model_name = "claude-3-5-sonnet"  # type: ignore[attr-defined]
         ctx = Context(llm, LongContextConfig(enabled=False, allowlist_models=[]))
         assert ctx.is_eligible() is False
 
     def test_no_model_name_returns_false(self) -> None:
-        llm = _RecordingLLM()  # no model_name attribute
+        llm = RecordingLLM()  # no model_name attribute
         ctx = Context(llm, LongContextConfig(enabled=True, allowlist_models=["gpt-4o"]))
         assert ctx.is_eligible() is False
 
     def test_model_not_in_allowlist_returns_false(self) -> None:
-        llm = _RecordingLLM()
+        llm = RecordingLLM()
         llm.model_name = "unsupported-model"  # type: ignore[attr-defined]
         ctx = Context(llm, LongContextConfig(enabled=True, allowlist_models=["gpt-4o"]))
         assert ctx.is_eligible() is False
 
     def test_model_in_allowlist_returns_true(self) -> None:
-        llm = _RecordingLLM()
+        llm = RecordingLLM()
         llm.model_name = "claude-3-5-sonnet"  # type: ignore[attr-defined]
         ctx = Context(llm, LongContextConfig(enabled=True, allowlist_models=["claude-3-5-sonnet"]))
         assert ctx.is_eligible() is True
@@ -299,7 +299,7 @@ class TestContextEligibility:
 
 class TestContextRerank:
     def test_not_eligible_returns_input_unchanged(self) -> None:
-        llm = _RecordingLLM()
+        llm = RecordingLLM()
         ctx = Context(llm, LongContextConfig(enabled=False))
         hits = [_make_hit("a", "c0"), _make_hit("b", "c1")]
         result = asyncio.run(ctx.rerank(question="q", hits=hits))
@@ -308,13 +308,13 @@ class TestContextRerank:
         assert llm.calls == []
 
     def test_empty_hits_returns_empty(self) -> None:
-        llm = _RecordingLLM()
+        llm = RecordingLLM()
         llm.model_name = "claude-3-5-sonnet"  # type: ignore[attr-defined]
         ctx = Context(llm, LongContextConfig(enabled=True, allowlist_models=["claude-3-5-sonnet"]))
         assert asyncio.run(ctx.rerank(question="q", hits=[])) == []
 
     def test_unparseable_response_returns_input_unchanged(self) -> None:
-        llm = _RecordingLLM(response="not json at all")
+        llm = RecordingLLM(response="not json at all")
         llm.model_name = "claude-3-5-sonnet"  # type: ignore[attr-defined]
         ctx = Context(llm, LongContextConfig(enabled=True, allowlist_models=["claude-3-5-sonnet"]))
         hits = [_make_hit("a", "c0"), _make_hit("b", "c1")]
@@ -336,7 +336,7 @@ class TestContextRerank:
             '{"chunk_id": "c0", "score": 0.5, "rationale": "worse"}'
             "]}"
         )
-        llm = _RecordingLLM(response=response)
+        llm = RecordingLLM(response=response)
         llm.model_name = "claude-3-5-sonnet"  # type: ignore[attr-defined]
         ctx = Context(llm, LongContextConfig(enabled=True, allowlist_models=["claude-3-5-sonnet"]))
         hits = [_make_hit("a", "c0"), _make_hit("b", "c1")]
@@ -345,7 +345,7 @@ class TestContextRerank:
         assert [h.chunk_id for h in result] == ["c0", "c1"]
 
     def test_arerank_alias(self) -> None:
-        llm = _RecordingLLM()
+        llm = RecordingLLM()
         llm.model_name = "claude-3-5-sonnet"  # type: ignore[attr-defined]
         ctx = Context(llm, LongContextConfig(enabled=False))
         hits = [_make_hit("a", "c0")]
@@ -406,17 +406,17 @@ class TestColbert:
 
         # Inject a fake ragatouille module with a proper spec so
         # ``importlib.util.find_spec`` accepts it.
-        class _FakeModel:
+        class FakeModel:
             @staticmethod
             def from_pretrained(name: str) -> Any:
-                return _FakeModel()
+                return FakeModel()
 
             @staticmethod
             def rerank(query: str, documents: list[str]) -> list[float]:
                 return [0.9 - 0.1 * i for i in range(len(documents))]
 
         fake_module = types.ModuleType("ragatouille")
-        fake_module.RAGPretrainedModel = _FakeModel  # type: ignore[attr-defined]
+        fake_module.RAGPretrainedModel = FakeModel  # type: ignore[attr-defined]
         fake_module.__spec__ = importlib.machinery.ModuleSpec(  # type: ignore[attr-defined]
             name="ragatouille", loader=None
         )

@@ -58,7 +58,7 @@ def build_generator(answer: str = "the answer") -> MagicMock:
     return g
 
 
-class _StubChunker:
+class StubChunker:
     """A Chunker that splits each text block into a single Chunk with checksum set.
 
     Used in pipeline tests to avoid the default Words (which currently
@@ -118,7 +118,7 @@ class TestIngestThenQuery:
         bundle = make_bundle([make_section(["hello world from raghub"])])
         ingest = Ingest(
             converter=MagicMock(convert=MagicMock(return_value=bundle)),
-            chunker=_StubChunker(),
+            chunker=StubChunker(),
             embedder=embedder,
             vector_store=vector_store,
         )
@@ -154,7 +154,7 @@ class TestRbacEndToEnd:
         for tenant in ("acme", "globex"):
             bundle = make_bundle([make_section([f"document for {tenant}"])])
             bundle.metadata = {"company": tenant}
-            chunks.extend(_StubChunker().chunk(bundle))
+            chunks.extend(StubChunker().chunk(bundle))
         store.upsert(
             chunks,
             [embedder.embed_text(c.text) for c in chunks],
@@ -187,7 +187,7 @@ class TestRbacEndToEnd:
         for tenant in ("acme", "globex"):
             bundle = make_bundle([make_section([f"document for {tenant}"])])
             bundle.metadata = {"company": tenant}
-            chunks.extend(_StubChunker().chunk(bundle))
+            chunks.extend(StubChunker().chunk(bundle))
         store.upsert(
             chunks,
             [embedder.embed_text(c.text) for c in chunks],
@@ -264,7 +264,7 @@ class TestIncrementalIngest:
         converter.convert.return_value = bundle
         ingest = Ingest(
             converter=converter,
-            chunker=_StubChunker(),
+            chunker=StubChunker(),
             embedder=embedder,
             vector_store=store,
             knowledge_repo=knowledge_repo,
@@ -298,7 +298,7 @@ class TestErrorPropagation:
         embedder = build_embedding_provider()
         store = MemoryStore(embedding_dim=16)
         ingest = Ingest(
-            chunker=_StubChunker(),
+            chunker=StubChunker(),
             embedder=embedder,
             vector_store=store,
         )
