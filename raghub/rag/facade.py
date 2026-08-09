@@ -221,68 +221,99 @@ class RAG(
 
     def wire_query(self, components: dict[str, Any]) -> None:
         """Build retrieval, query, and agent pipelines."""
-        self.query_cache: Cache | None = (
-            Cache(ttl_seconds=self.settings.query_cache_ttl_seconds)
-            if self.settings.enable_query_cache
-            else None
+        self.query_cache = self._build_query_cache()
+        self.transformer = self._build_query_transformer(components)
+        self.colbert = ColbertLateInteraction(self.settings.hybrid)
+        self.retrieval_pipeline = self._build_retrieval_pipeline()
+        self.long_context_pass = LongContextRerankPass(
+            llm=self.llm, settings=self.settings.long_context_pass
         )
-        self.transformer: Any = components.get("transformer") or default_transforms(
+        self.raptor, self.graph = self._build_optional_indexes()
+        self.tool_registry = self._build_tool_registry()
+        self.agent, self.agentic_pipeline = self._build_agent_components()
+        self.query_pipeline = self._build_query_pipeline()
+
+    def _build_query_cache(self) -> "Cache | None":
+        """Build the query result cache (None when disabled)."""
+        if not self.settings.enable_query_cache:
+            return None
+        return Cache(ttl_seconds=self.settings.query_cache_ttl_seconds)
+
+    def _build_query_transformer(self, components: dict[str, Any]) -> Any:
+        """Build the query transformer (HyDE / MultiQuery / etc.)."""
+        if components.get("transformer") is not None:
+            return components["transformer"]
+        return default_transforms(
             self.llm,
             enabled=list(self.settings.query_transforms.enabled),
             hyde_n=self.settings.query_transforms.hyde_n,
             multi_query_n=self.settings.query_transforms.multi_query_n,
         )
-        self.colbert = ColbertLateInteraction(self.settings.hybrid)
-        self.retrieval_pipeline = RetrievalPipeline(
+
+    def _build_retrieval_pipeline(self) -> "RetrievalPipeline":
+        """Build the main retrieval pipeline."""
+        return RetrievalPipeline(
             embedding_provider=self.embedder,
             vector_store=self.vector_store,
             rerank=self.reranker,
             hybrid=self.settings.hybrid,
         )
-        self.long_context_pass = LongContextRerankPass(
-            llm=self.llm, settings=self.settings.long_context_pass
-        )
-        self.raptor = None
-        self.graph = None
+
+    def _build_optional_indexes(self) -> tuple[Any, Any]:
+        """Build Raptor / Graph indexes if their respective flags are enabled."""
+        raptor: Any = None
+        graph: Any = None
         if self.settings.summary_search_enabled:
-            self.raptor = Raptor(llm=self.llm, embedder=self.embedder, depth=2)
+            raptor = Raptor(llm=self.llm, embedder=self.embedder, depth=2)
         if self.settings.graph_search_enabled:
-            self.graph = GraphIndex(llm=self.llm, embedder=self.embedder)
-        self.tool_registry = build_tools(
+            graph = GraphIndex(llm=self.llm, embedder=self.embedder)
+        return raptor, graph
+
+    def _build_tool_registry(self) -> Any:
+        """Build the tool registry from the configured indexes."""
+        return build_tools(
             self.settings,
             retrieval_pipeline=self.retrieval_pipeline,
             vector_store=self.vector_store,
             raptor=self.raptor,
             graph=self.graph,
         )
-        self.agent: Any | None = None
-        self.agentic_pipeline: Any | None = None
-        if agent_required(
-            {
-                "agent_enabled": self.settings.agent.enabled,
-                "web_enabled": self.settings.web_search.enabled,
-                "summary_enabled": self.settings.summary_search_enabled,
-                "raptor": self.raptor,
-                "graph_enabled": self.settings.graph_search_enabled,
-                "graph": self.graph,
-            }
-        ):
-            self.agent = Agent(
-                llm=self.llm,
-                tool_registry=self.tool_registry,
-                settings=self.settings.agent,
-                telemetry=self.telemetry,
-            )
-            self.agentic_pipeline = AgentPipeline(
-                agent=self.agent,
-                embedder=self.embedder,
-                vector_store=self.vector_store,
-                generator=self.generator,
-                llm=self.llm,
-                telemetry=self.telemetry,
-                long_context_pass=self.long_context_pass,
-            )
-        self.query_pipeline = QueryPipeline(
+
+    def _build_agent_components(self) -> tuple[Any, Any]:
+        """Build the ReAct agent and agentic pipeline if any agent path is enabled.
+
+        Returns ``(None, None)`` when no agent path is active.
+        """
+        flags = {
+            "agent_enabled": self.settings.agent.enabled,
+            "web_enabled": self.settings.web_search.enabled,
+            "summary_enabled": self.settings.summary_search_enabled,
+            "raptor": self.raptor,
+            "graph_enabled": self.settings.graph_search_enabled,
+            "graph": self.graph,
+        }
+        if not agent_required(flags):
+            return None, None
+        agent = Agent(
+            llm=self.llm,
+            tool_registry=self.tool_registry,
+            settings=self.settings.agent,
+            telemetry=self.telemetry,
+        )
+        agentic_pipeline = AgentPipeline(
+            agent=agent,
+            embedder=self.embedder,
+            vector_store=self.vector_store,
+            generator=self.generator,
+            llm=self.llm,
+            telemetry=self.telemetry,
+            long_context_pass=self.long_context_pass,
+        )
+        return agent, agentic_pipeline
+
+    def _build_query_pipeline(self) -> Any:
+        """Build the main :class:`QueryPipeline` orchestrator."""
+        return QueryPipeline(
             embedder=self.embedder,
             vector_store=self.vector_store,
             generator=self.generator,
