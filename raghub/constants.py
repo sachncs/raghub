@@ -56,6 +56,10 @@ DEFAULT_ARCHIVE_DIR = "./data/archives"
 SQLITE_BUSY_TIMEOUT_MS: int = 5000
 
 # HTTP status codes (centralised so routing handlers stay declarative)
+HTTP_200_OK: int = 200
+HTTP_201_CREATED: int = 201
+HTTP_202_ACCEPTED: int = 202
+HTTP_204_NO_CONTENT: int = 204
 HTTP_400_BAD_REQUEST: int = 400
 HTTP_401_UNAUTHORIZED: int = 401
 HTTP_403_FORBIDDEN: int = 403
