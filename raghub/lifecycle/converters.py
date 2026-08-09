@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from importlib import import_module
 from pathlib import Path
 from typing import Any
@@ -130,14 +132,75 @@ class Marker(DocumentConverter):
         if not file_bytes:
             raise ConfigurationError("Marker.convert received empty bytes; nothing to convert.")
         if not looks_like_pdf(file_bytes):
-            return PlainTextConverter().convert(
+            return self.convert_as_plain_text(
                 source_uri=source_uri,
                 file_bytes=file_bytes,
-                mime_type=mime_type or "text/plain",
+                mime_type=mime_type,
                 language=language,
-                metadata=metadata or {},
+                metadata=metadata,
             )
+        return self.convert_with_marker(
+            source_uri=source_uri,
+            file_bytes=file_bytes,
+            mime_type=mime_type,
+            language=language,
+            metadata=metadata,
+        )
 
+    def convert_as_plain_text(
+        self,
+        *,
+        source_uri: str,
+        file_bytes: bytes,
+        mime_type: str,
+        language: str,
+        metadata: dict[str, Any] | None,
+    ) -> Bundle:
+        """Fall back to PlainTextConverter when input is not a PDF."""
+        return PlainTextConverter().convert(
+            source_uri=source_uri,
+            file_bytes=file_bytes,
+            mime_type=mime_type or "text/plain",
+            language=language,
+            metadata=metadata or {},
+        )
+
+    def convert_with_marker(
+        self,
+        *,
+        source_uri: str,
+        file_bytes: bytes,
+        mime_type: str,
+        language: str,
+        metadata: dict[str, Any] | None,
+    ) -> Bundle:
+        """Run Marker on a PDF and normalise the rendered markdown."""
+        with self.temporary_pdf(source_uri, file_bytes) as pdf_path:
+            rendered, conversion_error = capture(self.get_marker(), pdf_path)
+        if conversion_error is not None:
+            if isinstance(conversion_error, ConfigurationError):
+                raise conversion_error
+            raise ConversionError(
+                f"Marker conversion failed: {conversion_error}"
+            ) from conversion_error
+        text_content, images = self.extract_marker_content(rendered)
+        merged_metadata = dict(metadata or {})
+        if images:
+            merged_metadata["marker_images"] = {
+                name: getattr(image, "size", None) for name, image in images.items()
+            }
+        return normalise_markdown(
+            text_content,
+            source_uri=source_uri,
+            mime_type=mime_type or "application/pdf",
+            language=language,
+            metadata=merged_metadata,
+        )
+
+    @staticmethod
+    @contextmanager
+    def temporary_pdf(source_uri: str, file_bytes: bytes) -> Iterator[str]:
+        """Write ``file_bytes`` to a temp PDF and remove it on exit."""
         temporary, temporary_error = capture(
             tempfile.NamedTemporaryFile,
             suffix=os.path.splitext(source_uri)[1] or ".pdf",
@@ -147,17 +210,16 @@ class Marker(DocumentConverter):
             raise ConversionError(
                 f"Marker conversion failed: {temporary_error}"
             ) from temporary_error
-        temporary.write(file_bytes)
-        temporary.close()
-        rendered, conversion_error = capture(self.get_marker(), temporary.name)
-        capture(os.unlink, temporary.name)
-        if conversion_error is not None:
-            if isinstance(conversion_error, ConfigurationError):
-                raise conversion_error
-            raise ConversionError(
-                f"Marker conversion failed: {conversion_error}"
-            ) from conversion_error
+        try:
+            temporary.write(file_bytes)
+            temporary.close()
+            yield temporary.name
+        finally:
+            capture(os.unlink, temporary.name)
 
+    @staticmethod
+    def extract_marker_content(rendered: Any) -> tuple[str, dict[str, Any]]:
+        """Return (text_content, images_dict) from a Marker render."""
         text_content = getattr(rendered, "markdown", None) or str(rendered)
         images: dict[str, Any] = {}
         if rendered_text is not None:
@@ -170,20 +232,7 @@ class Marker(DocumentConverter):
                     or getattr(rendered, "html", None)
                     or str(rendered)
                 )
-
-        merged_metadata = dict(metadata or {})
-        if images:
-            merged_metadata["marker_images"] = {
-                name: getattr(image, "size", None) for name, image in images.items()
-            }
-
-        return normalise_markdown(
-            text_content,
-            source_uri=source_uri,
-            mime_type=mime_type or "application/pdf",
-            language=language,
-            metadata=merged_metadata,
-        )
+        return text_content, images
 
 
 def pick_converter(path: Path) -> DocumentConverter:
