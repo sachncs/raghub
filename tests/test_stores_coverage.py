@@ -117,7 +117,7 @@ def test_documents_get_latest_returns_highest_version(tmp_path: Path) -> None:
     store.save_version(_make_document(id="d1", version=1, checksum="c1"))
     store.save_version(_make_document(id="d1", version=3, checksum="c3"))
     doc = store.get_latest("d1")
-    assert doc is not None
+    assert doc is not None, f"doc should be set by test setup"
     assert doc.version == 3
 
 
@@ -133,7 +133,7 @@ def test_documents_get_version(tmp_path: Path) -> None:
     store.save_version(_make_document(id="d1", version=1, checksum="c1"))
     store.save_version(_make_document(id="d1", version=2, checksum="c2"))
     doc = store.get_version("d1", 1)
-    assert doc is not None
+    assert doc is not None, f"doc should be set by test setup"
     assert doc.version == 1
 
 
@@ -142,7 +142,7 @@ def test_documents_by_checksum(tmp_path: Path) -> None:
     store = Documents(tmp_path / "registry.json")
     store.save_version(_make_document(id="d1", version=1, checksum="c1"))
     doc = store.by_checksum("c1")
-    assert doc is not None
+    assert doc is not None, f"doc should be set by test setup"
     assert doc.id == "d1"
 
 
@@ -178,7 +178,7 @@ def test_documents_archive_marks_status(tmp_path: Path) -> None:
     store.save_version(_make_document(id="d1", version=1))
     store.archive("d1")
     doc = store.get_latest("d1")
-    assert doc is not None
+    assert doc is not None, f"doc should be set by test setup"
     assert doc.status == DocumentLifecycleStatus.Archived
 
 
@@ -222,7 +222,7 @@ def test_image_store_get_path_returns_existing(tmp_path: Path) -> None:
     store = ImageStore(base_path=tmp_path / "images")
     hash_id = store.save(b"bytes", extension=".png")
     path = store.get_path(hash_id, extension=".png")
-    assert path is not None
+    assert path is not None, f"path should be set by test setup"
     assert path.exists()
 
 

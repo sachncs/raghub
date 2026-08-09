@@ -377,7 +377,7 @@ async def test_session_store_create_and_load_round_trip(tmp_path: Path) -> None:
     sessions = Sessions(tmp_path / "sess.db", 3600)
     await sessions.initialize()
     loaded = await sessions.get_by_token("tok-x")
-    assert loaded is not None
+    assert loaded is not None, f"loaded should be set by test setup"
     assert loaded.user_id == "alice"
 
 
@@ -391,7 +391,7 @@ async def test_session_store_create_from_record_preserves_history(tmp_path: Path
     sessions = Sessions(tmp_path / "sess.db", 3600)
     await sessions.initialize()
     loaded = await sessions.get_by_token("tok-y")
-    assert loaded is not None
+    assert loaded is not None, f"loaded should be set by test setup"
     assert len(loaded.history) == 2
     assert loaded.history[0].question == "q1"
 

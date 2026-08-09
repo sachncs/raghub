@@ -64,17 +64,13 @@ def test_catalog_lookup_by_mime() -> None:
 
     catalog = Catalog()
     parser = catalog.lookup("text/plain", "x.txt")
-    assert parser is not None
-
-
+    assert parser is not None, f"parser should be set by test setup"
 def test_catalog_lookup_by_extension_fallback() -> None:
     """lookup falls back to extension when MIME is missing."""
 
     catalog = Catalog()
     parser = catalog.lookup("application/octet-stream", "notes.txt")
-    assert parser is not None
-
-
+    assert parser is not None, f"parser should be set by test setup"
 def test_catalog_lookup_returns_none_when_neither_matches() -> None:
     """lookup returns None when neither the MIME nor the extension match."""
 

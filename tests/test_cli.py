@@ -121,9 +121,7 @@ def test_cli_config_read_settings_toml(tmp_path: Path) -> None:
 def test_cli_config_read_settings_no_path_returns_defaults() -> None:
     """read_settings(None) loads the active profile."""
     settings = CliConfig.read_settings(None)
-    assert settings is not None
-
-
+    assert settings is not None, f"settings should be set by test setup"
 def test_cli_config_make_rag_no_config() -> None:
     """make_rag(None) returns a default RAG instance."""
     from raghub.rag import RAG
