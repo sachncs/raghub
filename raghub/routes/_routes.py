@@ -36,7 +36,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from raghub.authhelpers import (
+from raghub.auth_support import (
     App,
     Auth,
     Bearer,
