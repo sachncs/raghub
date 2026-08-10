@@ -46,7 +46,7 @@ class Hyde:
 
     name = "hyde"
 
-    def __init__(self, llm: "Generator", *, n: int = 1) -> None:
+    def __init__(self, llm: Generator, *, n: int = 1) -> None:
         """Initialise the transformer.
 
         Args:
@@ -109,7 +109,7 @@ class MultiQuery:
 
     name = "multi_query"
 
-    def __init__(self, llm: "Generator", *, n: int = 4) -> None:
+    def __init__(self, llm: Generator, *, n: int = 4) -> None:
         """Initialise the transformer.
 
         Args:
@@ -167,7 +167,7 @@ class Decompose:
 
     name = "decompose"
 
-    def __init__(self, llm: "Generator") -> None:
+    def __init__(self, llm: Generator) -> None:
         """Initialise the transformer.
 
         Args:
@@ -221,7 +221,7 @@ class StepBack:
 
     name = "step_back"
 
-    def __init__(self, llm: "Generator") -> None:
+    def __init__(self, llm: Generator) -> None:
         """Initialise the transformer.
 
         Args:
