@@ -61,7 +61,7 @@ def build_filter(filters: SearchFilters | None) -> str:
 class Search:
     """Advanced search with faceted filtering for chunks."""
 
-    def __init__(self, vector_store: "VectorStore", embedding_provider: "Embedder") -> None:
+    def __init__(self, vector_store: VectorStore, embedding_provider: Embedder) -> None:
         """Initialise the search engine.
 
         Args:
