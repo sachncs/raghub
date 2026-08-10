@@ -104,7 +104,7 @@ class SyncMixin(SyncHost):
         self.manifest.save()
         return summary
 
-    def _walk_files(
+    def _walk_files(  # ruff: ignore[too-many-arguments, too-many-positional-arguments] -- private walker threading per-file state
         self,
         directory: Path,
         seen: set[str],
