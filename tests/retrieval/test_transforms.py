@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -19,7 +18,6 @@ from raghub.retrieval.transforms import (
     query_prompt,
     step_prompt,
 )
-from raghub.retrieval.types import Variant
 
 
 class FakeGenerator:
@@ -78,11 +76,9 @@ def test_hyde_transform_returns_one_variant_per_passage() -> None:
 
     llm = CountingLLM()
     transformer = Hyde(llm=llm, n=2)
-    import asyncio
     variants = asyncio.run(transformer.transform(question="What is revenue?"))
     assert llm.calls == 2
     assert len(variants) == 2
-
 
 
 @pytest.mark.asyncio
