@@ -42,9 +42,7 @@ class Cache:
                 ``scope=``).
 
         """
-        top_k, response_model, session_id, history, scope = (
-            Cache._make_key_extract_options(options)
-        )
+        top_k, response_model, session_id, history, scope = Cache._make_key_extract_options(options)
         model_key = Cache._make_model_key(response_model)
         history_key = Cache._make_history_key(history)
         scope_key = Cache._make_scope_key(scope)
