@@ -75,6 +75,7 @@ def test_litellm_embedder_embed_text_calls_litellm(monkeypatch: pytest.MonkeyPat
     fake_response.data = [{"embedding": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]}]
     fake_litellm.embedding.return_value = fake_response
     from raghub import embedder as embedder_module
+
     monkeypatch.setattr(embedder_module, "litellm", fake_litellm)
     vector = embedder.embed_text("hello")
     assert vector == [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
@@ -92,6 +93,7 @@ def test_litellm_embedder_embed_texts_returns_list(monkeypatch: pytest.MonkeyPat
     ]
     fake_litellm.embedding.return_value = fake_response
     from raghub import embedder as embedder_module
+
     monkeypatch.setattr(embedder_module, "litellm", fake_litellm)
     results = embedder.embed_texts(["a", "b"])
     assert results == [[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]]
@@ -102,6 +104,7 @@ def test_litellm_embedder_embed_texts_empty_returns_empty(monkeypatch: pytest.Mo
     embedder = LiteLLMEmbedder(model="text-embedding-3-small")
     fake_litellm = MagicMock()
     from raghub import embedder as embedder_module
+
     monkeypatch.setattr(embedder_module, "litellm", fake_litellm)
     assert embedder.embed_texts([]) == []
     fake_litellm.embedding.assert_not_called()
