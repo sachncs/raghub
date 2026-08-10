@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-
 # ---------------------------------------------------------------------------
 # Domain enums
 # ---------------------------------------------------------------------------
@@ -253,9 +252,6 @@ class Access(StrEnum):
     Private = "private"
 
 
-
-
-
 class BlockKind(StrEnum):
     """Coarse kinds of :class:`DocumentBlock`.
 
@@ -279,8 +275,8 @@ __all__ = [
     "BlockKind",
     "BlockType",
     "BundleType",
-    "CitationType",
     "ChunkType",
+    "CitationType",
     "Class",
     "Classification",
     "DocType",
