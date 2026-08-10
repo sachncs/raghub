@@ -36,6 +36,7 @@ def check_size(content_length: int | None, max_bytes: int) -> bool:
 
     Returns:
         Whether the declared upload is too large.
+
     """
     if content_length is None:
         return False
@@ -51,6 +52,7 @@ def content_length(request: Request) -> int | None:
     Returns:
         The integer value, or ``None`` when the header is missing or
         cannot be parsed as an integer.
+
     """
     declared = request.headers.get("content-length")
     if declared is None:
