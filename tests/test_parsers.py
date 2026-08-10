@@ -64,13 +64,17 @@ def test_catalog_lookup_by_mime() -> None:
 
     catalog = Catalog()
     parser = catalog.lookup("text/plain", "x.txt")
-    assert parser is not None, f"parser should be set by test setup"
+    assert parser is not None, "parser should be set by test setup"
+
+
 def test_catalog_lookup_by_extension_fallback() -> None:
     """lookup falls back to extension when MIME is missing."""
 
     catalog = Catalog()
     parser = catalog.lookup("application/octet-stream", "notes.txt")
-    assert parser is not None, f"parser should be set by test setup"
+    assert parser is not None, "parser should be set by test setup"
+
+
 def test_catalog_lookup_returns_none_when_neither_matches() -> None:
     """lookup returns None when neither the MIME nor the extension match."""
 
@@ -142,9 +146,7 @@ def test_module_level_parse_uses_fresh_catalog() -> None:
 
     Catalog().register("application/octet-stream", NoiseParser())
     fresh = parse(b"still hello", "x.bin", "application/octet-stream")
-    assert fresh[0].text == "still hello", (
-        "Module-level parse() must not consult a leaked catalog"
-    )
+    assert fresh[0].text == "still hello", "Module-level parse() must not consult a leaked catalog"
 
 
 def test_module_level_parse_dispatches_text() -> None:
