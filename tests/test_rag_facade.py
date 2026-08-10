@@ -24,7 +24,6 @@ from raghub.embedder import FeatureHashingEmbedder
 from raghub.gen import DefaultGenerator
 from raghub.lifecycle import PlainTextConverter
 from raghub.llm import GenerationRequest, Generator
-from raghub.rag import RAG as RAGFromModule  # for "import path" sanity
 
 
 class StubLLM(Generator):
@@ -481,9 +480,7 @@ def test_rag_constructs_feedback_store_from_settings(tmp_path: Path) -> None:
     from raghub.config import FeedbackConfig, Settings
     from raghub.feedback import SqliteFeedbackStore
 
-    settings = Settings(
-        data_dir=tmp_path, feedback=FeedbackConfig(backend="sqlite")
-    )
+    settings = Settings(data_dir=tmp_path, feedback=FeedbackConfig(backend="sqlite"))
     rag = RAG(settings=settings, converter=PlainTextConverter())
     assert isinstance(rag.feedback_store(), SqliteFeedbackStore)
 
@@ -499,9 +496,7 @@ def test_rag_feedback_store_none_when_backend_none() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_ingest_async_submits_to_queue_when_configured(
-    tmp_path: Path, rag: RAG
-) -> None:
+def test_ingest_async_submits_to_queue_when_configured(tmp_path: Path, rag: RAG) -> None:
     """Item 21: ingest_async submits to SqliteQueue when queue is set.
 
     The real ingest pipeline is run (no monkeypatching); the queue
@@ -525,10 +520,10 @@ def test_ingest_async_submits_to_queue_when_configured(
     assert len(job_id) == 36  # UUID shape
 
     status = real_rag.job_status(job_id)
-    assert status is not None, f"status should be set by test setup"
-def test_ingest_async_idempotent_returns_existing_job_id(
-    tmp_path: Path, rag: RAG
-) -> None:
+    assert status is not None, "status should be set by test setup"
+
+
+def test_ingest_async_idempotent_returns_existing_job_id(tmp_path: Path, rag: RAG) -> None:
     """Item 21: Second call with same bytes returns the same job id."""
     import asyncio
 
