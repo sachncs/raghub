@@ -68,8 +68,10 @@ def test_colbert_score_raises_graph_unavailable_when_enabled_but_dependency_miss
 
     config = type("Config", (), {"colbert_enabled": True})()
     adapter = Colbert(config=config)
-    with patch("importlib.util.find_spec", return_value=None), \
-         pytest.raises(GraphUnavailableError, match="ragatouille is not installed"):
+    with (
+        patch("importlib.util.find_spec", return_value=None),
+        pytest.raises(GraphUnavailableError, match="ragatouille is not installed"),
+    ):
         adapter.score("q", ["doc"])
 
 
@@ -82,7 +84,7 @@ def test_colbert_score_delegates_to_ragatouille_when_available() -> None:
 
     class FakeModel:
         @classmethod
-        def from_pretrained(cls, name: str) -> "FakeModel":
+        def from_pretrained(cls, name: str) -> FakeModel:
             return cls()
 
         def rerank(self, query: str, documents: list[str]) -> list[float]:
@@ -93,7 +95,9 @@ def test_colbert_score_delegates_to_ragatouille_when_available() -> None:
     fake_ragatouille = type(_sys)("ragatouille")
     fake_ragatouille.RAGPretrainedModel = FakeModel
 
-    with patch("importlib.util.find_spec", return_value=object()), \
-         patch.dict(_sys.modules, {"ragatouille": fake_ragatouille}):
+    with (
+        patch("importlib.util.find_spec", return_value=object()),
+        patch.dict(_sys.modules, {"ragatouille": fake_ragatouille}),
+    ):
         result = adapter.score("q", ["d1", "d2", "d3"])
     assert result == fake_scores
