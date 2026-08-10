@@ -25,7 +25,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 from raghub.agent import PlannerEvent, resolve
 from raghub.config import Settings
-from raghub.runtime import await_if_awaitable
 from raghub.errors import ConfigurationError, IngestionError, RagHubError
 from raghub.eval import Finance
 from raghub.models import (
@@ -36,7 +35,6 @@ from raghub.models import (
     Result,
 )
 from raghub.response import ResponseBuilder
-from raghub.types import JSONValue
 
 if TYPE_CHECKING:
     from raghub.conv import ConversationStore
@@ -169,8 +167,9 @@ class QueryMixin:
             resolved=resolved,
         )
 
+    @staticmethod
     def merge_query_kwargs(
-        self, request: RagQueryRequest | None, kwargs: dict[str, Any]
+        request: RagQueryRequest | None, kwargs: dict[str, Any]
     ) -> dict[str, Any]:
         """Merge the optional ``RagQueryRequest`` and the loose kwargs into one dict."""
         merged: dict[str, Any] = dict(request) if request is not None else {}
@@ -187,9 +186,7 @@ class QueryMixin:
                 "(or another provider key) before calling query()."
             )
 
-    def resolve_query_flags(
-        self, merged: dict[str, Any], scoped: str | None
-    ) -> Any:
+    def resolve_query_flags(self, merged: dict[str, Any], scoped: str | None) -> Any:
         """Resolve advanced-RAG flags via ``raghub.agent.resolve``."""
         user: Any | None = merged.get("user")
         return resolve(
@@ -436,14 +433,16 @@ class QueryMixin:
                 return await result
             return result
 
-        return asyncio.run(self._arun_evaluation(
-            evaluator=evaluator,
-            examples=examples,
-            response_factory=coerce_answer,
-        ))
+        return asyncio.run(
+            self._arun_evaluation(
+                evaluator=evaluator,
+                examples=examples,
+                response_factory=coerce_answer,
+            )
+        )
 
+    @staticmethod
     async def _arun_evaluation(
-        self,
         *,
         evaluator: Any,
         examples: Sequence[dict[str, Any]] | None,
