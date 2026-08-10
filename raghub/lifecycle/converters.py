@@ -26,12 +26,11 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from raghub.runtime import capture
 from raghub.errors import ConfigurationError, ConversionError
 from raghub.lifecycle.scanner import looks_like_pdf
 from raghub.lifecycle.state import normalise_markdown
 from raghub.models import Bundle, DocumentConverter
-
+from raghub.runtime import capture
 
 # ---------------------------------------------------------------------------
 # Converters
@@ -147,8 +146,8 @@ class Marker(DocumentConverter):
             metadata=metadata,
         )
 
+    @staticmethod
     def convert_as_plain_text(
-        self,
         *,
         source_uri: str,
         file_bytes: bytes,
