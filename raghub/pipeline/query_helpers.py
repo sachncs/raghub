@@ -35,13 +35,13 @@ The functions exposed here cover:
 """
 
 from __future__ import annotations
-from loguru import logger
 
 import inspect
 from typing import Any
 
-from raghub.models import Citation, Hit, Pipeline, Turn
+from loguru import logger
 
+from raghub.models import Citation, Hit, Pipeline, Turn
 
 
 def user_filter(user: Any) -> dict[str, Any] | str:
@@ -127,9 +127,7 @@ def filter_hits(
     """Drop hits that fail the per-user metadata filter."""
     if not (isinstance(user_filter, dict) and user_filter):
         return hits
-    return [
-        h for h in hits if all(getattr(h.chunk, k, None) == v for k, v in user_filter.items())
-    ]
+    return [h for h in hits if all(getattr(h.chunk, k, None) == v for k, v in user_filter.items())]
 
 
 def build_citations(hits: list[Hit]) -> list[Citation]:
