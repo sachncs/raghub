@@ -13,8 +13,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from raghub.lifecycle.state import ChunkingPlan
-from raghub.pipeline.span_support import sha256_checksum, canonical_filters
-
+from raghub.pipeline.span_support import canonical_filters, sha256_checksum
 
 # Invariant: chunk_words with overlap=0 produces non-overlapping windows.
 
