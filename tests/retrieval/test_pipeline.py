@@ -5,12 +5,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import pytest
-
 from raghub.models import Chunk, Hit, User
 from raghub.retrieval.factories import HybridConfigShim
 from raghub.retrieval.pipeline import Retrieval
-from raghub.retrieval.types import Variant
 
 
 def make_chunk(chunk_id: str, text: str = "chunk text") -> Chunk:
@@ -50,9 +47,7 @@ def test_retrieval_init_stores_components() -> None:
     embedder = MagicMock()
     vector_store = MagicMock()
     rerank = MagicMock()
-    retrieval = Retrieval(
-        embedding_provider=embedder, vector_store=vector_store, rerank=rerank
-    )
+    retrieval = Retrieval(embedding_provider=embedder, vector_store=vector_store, rerank=rerank)
     assert retrieval.embedding_provider is embedder
     assert retrieval.vector_store is vector_store
     assert retrieval.rerank is rerank
@@ -96,9 +91,7 @@ def test_retrieve_embeds_then_searches_then_reranks() -> None:
     rerank = MagicMock()
     rerank.rerank = MagicMock(side_effect=lambda *, question, hits: hits)
 
-    retrieval = Retrieval(
-        embedding_provider=embedder, vector_store=vector_store, rerank=rerank
-    )
+    retrieval = Retrieval(embedding_provider=embedder, vector_store=vector_store, rerank=rerank)
     result = retrieval.retrieve(user=_user_with_companies(["acme"]), question="q", top_k=5)
 
     embedder.embed_text.assert_called_once_with("q")
@@ -125,9 +118,7 @@ def test_retrieve_deduplicates_by_chunk_id() -> None:
     rerank = MagicMock()
     rerank.rerank = MagicMock(side_effect=lambda *, question, hits: hits)
 
-    retrieval = Retrieval(
-        embedding_provider=embedder, vector_store=vector_store, rerank=rerank
-    )
+    retrieval = Retrieval(embedding_provider=embedder, vector_store=vector_store, rerank=rerank)
     result = retrieval.retrieve(user=_user_with_companies(["acme"]), question="q", top_k=5)
     assert len(result) == 2
     chunk_ids = [h.chunk.id for h in result]
@@ -144,9 +135,7 @@ def test_retrieve_handles_empty_search_results() -> None:
     rerank = MagicMock()
     rerank.rerank = MagicMock(return_value=[])  # identity pass-through on empty
 
-    retrieval = Retrieval(
-        embedding_provider=embedder, vector_store=vector_store, rerank=rerank
-    )
+    retrieval = Retrieval(embedding_provider=embedder, vector_store=vector_store, rerank=rerank)
     assert retrieval.retrieve(user=_user_with_companies(["acme"]), question="q", top_k=5) == []
 
 
@@ -160,9 +149,7 @@ def test_retrieve_passes_admin_users_no_filter() -> None:
     vector_store.search = MagicMock(return_value=[])
     rerank = MagicMock()
 
-    retrieval = Retrieval(
-        embedding_provider=embedder, vector_store=vector_store, rerank=rerank
-    )
+    retrieval = Retrieval(embedding_provider=embedder, vector_store=vector_store, rerank=rerank)
     retrieval.retrieve(user=admin, question="q", top_k=5)
     call_kwargs = vector_store.search.call_args.kwargs
     assert call_kwargs["metadata_filter"] == {}
@@ -177,9 +164,7 @@ def test_retrieve_passes_user_company_filter_for_non_admin() -> None:
     vector_store.search = MagicMock(return_value=[])
     rerank = MagicMock()
 
-    retrieval = Retrieval(
-        embedding_provider=embedder, vector_store=vector_store, rerank=rerank
-    )
+    retrieval = Retrieval(embedding_provider=embedder, vector_store=vector_store, rerank=rerank)
     retrieval.retrieve(user=_user_with_companies(["acme", "globex"]), question="q", top_k=5)
     call_kwargs = vector_store.search.call_args.kwargs
     assert call_kwargs["metadata_filter"] == {"company": ["acme", "globex"]}
@@ -226,7 +211,6 @@ def test_fused_combines_dense_and_keyword_via_rrf() -> None:
     result = retrieval.fused(query="q", vector_results=vector_results, rrf_k=60)
     assert isinstance(result, list)
     assert len(result) >= 2
-
 
 
 def test_retrieval_init_via_components_kwarg_works() -> None:
