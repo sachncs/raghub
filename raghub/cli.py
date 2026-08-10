@@ -24,8 +24,8 @@ from raghub.commands import (
     TenantCommand,
     ToolConfig,
 )
-from raghub.runtime import capture
 from raghub.evaluation import app as eval_app
+from raghub.runtime import capture
 
 __all__ = ["health", "main", "version"]
 
@@ -60,11 +60,17 @@ def print_health() -> None:
     CliConfig.write_json(CliConfig.make_rag(None).health())
 
 
+health = print_health
+
+
 @app.command(name="version")
 def print_version() -> None:
     """Print the installed ``raghub`` package version."""
     version_str, error = capture(importlib.metadata.version, "raghub")
     typer.echo(version_str if error is None else "unknown")
+
+
+version = print_version
 
 
 def main() -> None:
