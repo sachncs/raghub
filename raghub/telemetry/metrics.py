@@ -41,7 +41,7 @@ class NoopSpan(Span):
 
     @property
     def attributes(self) -> dict[str, Any]:
-        """Return the attributes attached to this span."""
+        """The attributes attached to this span."""
         return dict(self.attrs)
 
 
