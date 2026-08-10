@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from uuid import uuid4
 
 from raghub.runtime import capture
@@ -44,7 +44,12 @@ class Job:
 
     """
 
-    VALID_STATUSES = ("pending", "processing", "completed", "failed")
+    VALID_STATUSES: ClassVar[tuple[str, ...]] = (
+        "pending",
+        "processing",
+        "completed",
+        "failed",
+    )
 
     job_id: str
     status: str = "pending"
@@ -54,9 +59,7 @@ class Job:
     def __post_init__(self) -> None:
         """Validate the Job's lifecycle status against :attr:`VALID_STATUSES`."""
         if self.status not in self.VALID_STATUSES:
-            raise ValueError(
-                f"Job: status {self.status!r} not in {self.VALID_STATUSES}"
-            )
+            raise ValueError(f"Job: status {self.status!r} not in {self.VALID_STATUSES}")
 
     def verify(self) -> None:
         """Assert the Job's invariant contract.
