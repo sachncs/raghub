@@ -22,8 +22,8 @@ from raghub.retrieval import (
     linear_combine,
     merge_rrf,
     query_prompt,
-    reorder_candidates,
     reciprocal_rank_fusion,
+    reorder_candidates,
     step_prompt,
 )
 
