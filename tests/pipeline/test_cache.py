@@ -53,8 +53,18 @@ def test_cache_invalidate_by_question() -> None:
     """``Cache.invalidate(question=...)`` evicts only matching entries."""
 
     cache = Cache()
-    cache.set("q1", user_id=None, filters=None, result=Pipeline(pipeline_id="a", pipeline_name="test", metadata={}))
-    cache.set("q2", user_id=None, filters=None, result=Pipeline(pipeline_id="b", pipeline_name="test", metadata={}))
+    cache.set(
+        "q1",
+        user_id=None,
+        filters=None,
+        result=Pipeline(pipeline_id="a", pipeline_name="test", metadata={}),
+    )
+    cache.set(
+        "q2",
+        user_id=None,
+        filters=None,
+        result=Pipeline(pipeline_id="b", pipeline_name="test", metadata={}),
+    )
     cache.invalidate(question="q1")
     assert list(cache.store.keys()) == [Cache.make_key("q2", None, None)]
 
@@ -76,7 +86,12 @@ def test_cache_invalidate_all_when_no_filters() -> None:
     """``Cache.invalidate()`` with no args is equivalent to ``clear``."""
 
     cache = Cache()
-    cache.set("q1", user_id=None, filters=None, result=Pipeline(pipeline_id="a", pipeline_name="test", metadata={}))
+    cache.set(
+        "q1",
+        user_id=None,
+        filters=None,
+        result=Pipeline(pipeline_id="a", pipeline_name="test", metadata={}),
+    )
     cache.invalidate()
     assert cache.store == {}
 
@@ -108,6 +123,8 @@ def test_cache_key_distinguishes_top_k() -> None:
 def test_cache_key_distinguishes_history() -> None:
     """``Cache.make_key`` differentiates by history turns."""
 
-    k1 = Cache.make_key("q", user_id=None, filters=None, history=[SimpleNamespace(question="a", answer="b")])
+    k1 = Cache.make_key(
+        "q", user_id=None, filters=None, history=[SimpleNamespace(question="a", answer="b")]
+    )
     k2 = Cache.make_key("q", user_id=None, filters=None, history=[])
     assert k1 != k2
