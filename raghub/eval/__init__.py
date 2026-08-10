@@ -34,8 +34,8 @@ __all__ = [
     "Metrics",
     "Result",
     "Scoring",
-    "compute_average",
     "compare",
+    "compute_average",
     "parse",
     "run",
 ]
