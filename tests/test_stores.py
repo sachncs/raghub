@@ -158,7 +158,7 @@ def test_documents_by_checksum(tmp_path: Path) -> None:
     document = _make_document(checksum="ck1")
     registry.save_version(document)
     found = registry.by_checksum("ck1")
-    assert found is not None, f"found should be set by test setup"
+    assert found is not None, "found should be set by test setup"
     assert found.id == document.id
     assert registry.by_checksum("missing") is None
 
@@ -247,7 +247,7 @@ def test_json_sessions_create_and_get(tmp_path: Path) -> None:
     session = store.create(user_id="u1")
     assert session.user_id == "u1"
     found = store.resolve(session.token)
-    assert found is not None, f"found should be set by test setup"
+    assert found is not None, "found should be set by test setup"
     assert found.user_id == "u1"
 
 
@@ -364,7 +364,7 @@ def test_image_store_get_path(tmp_path: Path) -> None:
     store = ImageStore(base_path=tmp_path)
     h = store.save(b"data", extension=".jpg")
     path = store.get_path(h, extension=".jpg")
-    assert path is not None, f"path should be set by test setup"
+    assert path is not None, "path should be set by test setup"
     assert path.exists()
 
 
