@@ -34,14 +34,14 @@ def test_build_refinery_returns_none_when_chonkie_unavailable() -> None:
     """build_refinery returns None when chonkie is not installed."""
 
     # Patch the module-level constant to simulate the missing dep.
-    import raghub.ingest as ingest_module
+    from raghub.ingest import chunker
 
-    saved = ingest_module.CHONKIE_MODULE
-    ingest_module.CHONKIE_MODULE = None
+    saved = chunker.CHONKIE_MODULE
+    chunker.CHONKIE_MODULE = None
     try:
         assert build_refinery() is None
     finally:
-        ingest_module.CHONKIE_MODULE = saved
+        chunker.CHONKIE_MODULE = saved
 
 
 def test_apply_refinery_noop_when_none() -> None:
