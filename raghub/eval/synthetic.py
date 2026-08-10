@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any
 
 from raghub.llm import GenerationRequest, Generator
 
