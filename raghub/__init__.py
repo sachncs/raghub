@@ -145,6 +145,7 @@ from raghub.stores import (
 
 # Telemetry.
 from raghub.telemetry import (
+    Langfuse,
     Logger,
 )
 from raghub.telemetry import (
@@ -187,6 +188,7 @@ __all__ = [
     "LiteLLM",
     "LiteLLMEmbedder",
     "Logger",
+    "Manifest",
     "Memory",
     "MemoryRepo",
     "Metrics",
