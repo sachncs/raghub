@@ -29,10 +29,10 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel, Field
 
 from raghub.config import AgentConfig, Settings
-from raghub.runtime import capture
 from raghub.errors import AgentBudgetError, GenerationError, ToolError
 from raghub.llm import GenerationRequest, Generator
 from raghub.models import Chunk, Hit, Turn, User
+from raghub.runtime import capture
 from raghub.telemetry import NoOpTelemetry
 from raghub.tools import (
     GraphSearch,
@@ -393,9 +393,7 @@ def resolve_tools(
 def resolve_reranker_choice(layers: tuple[dict, ...], settings: Settings) -> str:
     """Return the effective reranker choice (request > settings default)."""
     requested = pick_value(layers, "reranker")
-    return coerce_reranker(
-        requested if requested is not None else settings.reranker.provider
-    )
+    return coerce_reranker(requested if requested is not None else settings.reranker.provider)
 
 
 def resolve_long_context_flag(layers: tuple[dict, ...], settings: Settings) -> bool:
@@ -598,7 +596,7 @@ class Agent:
         """Yield events for the agent loop shared by ``run`` and ``astream``."""
         enabled, messages, ctx = self.build_state(request)
         state = self.budget_state()
-        for step in range(self.settings.max_steps):
+        for _step in range(self.settings.max_steps):
             state.steps += 1
             budget_event = self.check_budget(state)
             if budget_event is not None:
@@ -621,7 +619,7 @@ class Agent:
                 async for event in self.dispatch_final(parsed, state.steps):
                     yield event
                 return
-            self.emit_parse_failure(parsed, state, messages)
+            self.emit_parse_failure(messages)
         self.raise_budget_error(state)
 
     def build_state(
@@ -648,13 +646,9 @@ class Agent:
         )
         return enabled, messages, ctx
 
-    def emit_parse_failure(
-        self,
-        parsed: Any,
-        state: AgentBudgetState,
-        messages: list[dict[str, str]],
-    ) -> None:
-        """Emit a parse-failure event and append the retry prompt."""
+    @staticmethod
+    def emit_parse_failure(messages: list[dict[str, str]]) -> None:
+        """Append the parse-failure retry prompt to the message history."""
         messages.append(
             {
                 "role": "user",
@@ -665,7 +659,8 @@ class Agent:
             }
         )
 
-    def budget_state(self) -> AgentBudgetState:
+    @staticmethod
+    def budget_state() -> AgentBudgetState:
         """Initialise a fresh :class:`AgentBudgetState` for one iterate call."""
         return AgentBudgetState(
             started=time.perf_counter(),
@@ -708,11 +703,9 @@ class Agent:
             raise AgentBudgetError(
                 f"agent exceeded wall-clock budget ({self.settings.max_wall_seconds}s)"
             )
-        raise AgentBudgetError(
-            f"agent exceeded step budget ({self.settings.max_steps})"
-        )
+        raise AgentBudgetError(f"agent exceeded step budget ({self.settings.max_steps})")
 
-    async def dispatch_action(
+    async def dispatch_action(  # ruff: ignore[too-many-arguments] -- six step-local values; grouping would couple it to build_state
         self,
         *,
         parsed: PlannerAction,
@@ -735,9 +728,7 @@ class Agent:
     @staticmethod
     def emit_thought(parsed: PlannerAction, step: int) -> PlannerEvent:
         """Build the opening 'thought' event for a planner action."""
-        return PlannerEvent(
-            kind="thought", step=step, payload={"thought": parsed.thought}
-        )
+        return PlannerEvent(kind="thought", step=step, payload={"thought": parsed.thought})
 
     @staticmethod
     def record_unknown_tool(
@@ -751,8 +742,7 @@ class Agent:
             {
                 "role": "user",
                 "content": (
-                    f"Tool {parsed.name!r} is not available. "
-                    f"Try one of: {sorted(enabled)}."
+                    f"Tool {parsed.name!r} is not available. Try one of: {sorted(enabled)}."
                 ),
             }
         )
@@ -763,9 +753,7 @@ class Agent:
         )
 
     @staticmethod
-    def record_tool_call(
-        parsed: PlannerAction, step: int, state: AgentBudgetState
-    ) -> PlannerEvent:
+    def record_tool_call(parsed: PlannerAction, step: int, state: AgentBudgetState) -> PlannerEvent:
         """Bump the budget and return the 'tool_call' event."""
         state.tool_calls += 1
         return PlannerEvent(
@@ -775,9 +763,7 @@ class Agent:
         )
 
     @staticmethod
-    def record_tool_result(
-        parsed: PlannerAction, step: int, observation: Any
-    ) -> PlannerEvent:
+    def record_tool_result(parsed: PlannerAction, step: int, observation: Any) -> PlannerEvent:
         """Return the 'tool_result' event summarising ``observation``."""
         return PlannerEvent(
             kind="tool_result",
@@ -807,8 +793,8 @@ class Agent:
             }
         )
 
+    @staticmethod
     async def dispatch_final(
-        self,
         parsed: PlannerFinal,
         step: int,
     ) -> AsyncIterator[PlannerEvent]:
