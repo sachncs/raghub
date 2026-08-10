@@ -45,7 +45,7 @@ async def test_sessions_create_and_get_by_token(sqlite_sessions: Sessions) -> No
 
     session = await sqlite_sessions.create_session("u1")
     found = await sqlite_sessions.get_by_token(session.token)
-    assert found is not None, f"found should be set by test setup"
+    assert found is not None, "found should be set by test setup"
     assert found.user_id == "u1"
 
 
@@ -92,18 +92,20 @@ async def test_sessions_load_after_close_round_trip(tmp_path) -> None:
     await first.initialize()
     session = await first.create_session("u1")
     found = await first.get_by_token(session.token)
-    assert found is not None, f"found should be set by test setup"
+    assert found is not None, "found should be set by test setup"
     second = Sessions(path, timeout_seconds=3600)
     await second.initialize()
     loaded = await second.get_by_token(session.token)
-    assert loaded is not None, f"loaded should be set by test setup"
+    assert loaded is not None, "loaded should be set by test setup"
+
+
 @pytest.mark.asyncio
 async def test_sessions_get_session_by_id(sqlite_sessions: Sessions) -> None:
     """get_session finds the session by its session_id."""
 
     session = await sqlite_sessions.create_session("u1")
     found = await sqlite_sessions.get_session(session.id)
-    assert found is not None, f"found should be set by test setup"
+    assert found is not None, "found should be set by test setup"
     assert found.id == session.id
 
 
@@ -128,7 +130,7 @@ async def test_sessions_create_session_record(sqlite_sessions: Sessions) -> None
     )
     await sqlite_sessions.create_session_record(session)
     found = await sqlite_sessions.get_by_token("manual-token")
-    assert found is not None, f"found should be set by test setup"
+    assert found is not None, "found should be set by test setup"
     assert found.id == "manual-id"
 
 
