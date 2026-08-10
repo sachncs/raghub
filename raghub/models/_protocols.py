@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Sequence
 from typing import Any, Protocol, TypedDict, runtime_checkable
 
-from raghub.models._api import Pipeline, Result
+from raghub.models._api import Pipeline, PipelineCtx, Result
 from raghub.models._document import Bundle, Chunk, Citation, Hit
 from raghub.models._identity import Turn
 from raghub.types import JSONValue
@@ -180,9 +180,7 @@ class KnowledgeRepository(Protocol):
         """Look up a Bundle by id."""
         ...
 
-    async def list_for_tenant(
-        self, tenant_id: str | None, limit: int = 100
-    ) -> list[Bundle]:
+    async def list_for_tenant(self, tenant_id: str | None, limit: int = 100) -> list[Bundle]:
         """Return Bundles for one tenant, newest first."""
         ...
 
@@ -190,24 +188,19 @@ class KnowledgeRepository(Protocol):
 class Logger(Protocol):
     """Logs structured messages with attribute kwarg binding."""
 
-    def info(self, message: str, **kwargs: JSONValue) -> None:
-        ...
+    def info(self, message: str, **kwargs: JSONValue) -> None: ...
 
-    def warning(self, message: str, **kwargs: JSONValue) -> None:
-        ...
+    def warning(self, message: str, **kwargs: JSONValue) -> None: ...
 
-    def error(self, message: str, **kwargs: JSONValue) -> None:
-        ...
+    def error(self, message: str, **kwargs: JSONValue) -> None: ...
 
 
 class Metrics(Protocol):
     """Counter + histogram + gauge surface for telemetry."""
 
-    def increment(self, name: str, value: int = 1) -> None:
-        ...
+    def increment(self, name: str, value: int = 1) -> None: ...
 
-    def record_latency(self, name: str, value_ms: float) -> None:
-        ...
+    def record_latency(self, name: str, value_ms: float) -> None: ...
 
 
 @runtime_checkable
@@ -217,11 +210,9 @@ class Span(Protocol):
     name: str
     attrs: dict[str, JSONValue]
 
-    def set_attribute(self, key: str, value: JSONValue) -> None:
-        ...
+    def set_attribute(self, key: str, value: JSONValue) -> None: ...
 
-    def end(self) -> None:
-        ...
+    def end(self) -> None: ...
 
 
 class TelemetryProvider(Logger, Metrics, Protocol):
@@ -235,11 +226,9 @@ class TelemetryProvider(Logger, Metrics, Protocol):
         """Open a sub-operation span. Returned span ends on context exit."""
         ...
 
-
     def record_tokens(
         self, name: str, prompt_tokens: int, completion_tokens: int, model: str = ""
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 class StructuredOutputResult(TypedDict, total=False):
@@ -315,9 +304,7 @@ class VectorStore(Protocol):
         """Return backend-specific health snapshot."""
         ...
 
-    def keyword_search(
-        self, query: str, top_k: int = 5
-    ) -> list[Hit]:
+    def keyword_search(self, query: str, top_k: int = 5) -> list[Hit]:
         """Return keyword-only search hits (BM25 / FTS)."""
         ...
 
@@ -362,9 +349,7 @@ class Reranker(Protocol):
 class Prompt(Protocol):
     """Builds the prompt payload for the LLM provider."""
 
-    def build_messages(
-        self, request: Any
-    ) -> dict[str, Any]:
+    def build_messages(self, request: Any) -> dict[str, Any]:
         """Build a structured message payload."""
         ...
 
@@ -374,9 +359,7 @@ class LLMProvider(Protocol):
 
     model_name: str
 
-    async def generate(
-        self, request: Any
-    ) -> tuple[str, dict[str, Any]]:
+    async def generate(self, request: Any) -> tuple[str, dict[str, Any]]:
         """Generate the answer and return (text, usage)."""
         ...
 
