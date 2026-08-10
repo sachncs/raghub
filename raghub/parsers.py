@@ -15,7 +15,6 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from raghub.runtime import capture
 from raghub.errors import MissingDepError
 from raghub.lifecycle import (
     ChunkingPlan,
@@ -25,6 +24,7 @@ from raghub.lifecycle import (
     normalize_text,
     validate_upload,
 )
+from raghub.runtime import capture
 
 __all__ = [
     "HTML",
@@ -254,6 +254,7 @@ class Office(File):
 
     @staticmethod
     def is_docx(mime_type: str, ext: str) -> bool:
+        """Return ``True`` when ``mime_type``/``ext`` denote a Word document."""
         return mime_type in {
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/msword",
@@ -261,6 +262,7 @@ class Office(File):
 
     @staticmethod
     def is_xlsx(mime_type: str, ext: str) -> bool:
+        """Return ``True`` when ``mime_type``/``ext`` denote an Excel workbook."""
         return mime_type in {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/vnd.ms-excel",
@@ -268,6 +270,7 @@ class Office(File):
 
     @staticmethod
     def is_pptx(mime_type: str, ext: str) -> bool:
+        """Return ``True`` when ``mime_type``/``ext`` denote a PowerPoint deck."""
         return mime_type in {
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "application/vnd.ms-powerpoint",
@@ -275,12 +278,11 @@ class Office(File):
 
     @staticmethod
     def parse_docx(file_bytes: bytes) -> ParsedSection:
+        """Parse a Word document into a single text section."""
         try:
             from docx import Document
         except ImportError as exc:
-            raise MissingDepError(
-                "python-docx", "pip install raghub[docs]"
-            ) from exc
+            raise MissingDepError("python-docx", "pip install raghub[docs]") from exc
         doc = Document(io.BytesIO(file_bytes))
         text_parts = [para.text for para in doc.paragraphs]
         return ParsedSection(
@@ -292,21 +294,18 @@ class Office(File):
 
     @staticmethod
     def parse_xlsx(file_bytes: bytes) -> list[ParsedSection]:
+        """Parse an Excel workbook into one section per worksheet."""
         try:
             from openpyxl import load_workbook
         except ImportError as exc:
-            raise MissingDepError(
-                "openpyxl", "pip install raghub[docs]"
-            ) from exc
+            raise MissingDepError("openpyxl", "pip install raghub[docs]") from exc
         wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
         result: list[ParsedSection] = []
         for i, ws_name in enumerate(wb.sheetnames, start=1):
             ws = wb[ws_name]
             rows: list[str] = []
             for row in ws.iter_rows(values_only=True):
-                row_text = " | ".join(
-                    str(c) if c is not None else "" for c in row
-                )
+                row_text = " | ".join(str(c) if c is not None else "" for c in row)
                 rows.append(row_text)
             result.append(
                 ParsedSection(
@@ -321,20 +320,15 @@ class Office(File):
 
     @staticmethod
     def parse_pptx(file_bytes: bytes) -> list[ParsedSection]:
+        """Parse a PowerPoint deck into one section per slide."""
         try:
             from pptx import Presentation
         except ImportError as exc:
-            raise MissingDepError(
-                "python-pptx", "pip install raghub[docs]"
-            ) from exc
+            raise MissingDepError("python-pptx", "pip install raghub[docs]") from exc
         prs = Presentation(io.BytesIO(file_bytes))
         result: list[ParsedSection] = []
         for i, slide in enumerate(prs.slides, start=1):
-            texts = [
-                shape.text
-                for shape in slide.shapes
-                if hasattr(shape, "text")
-            ]
+            texts = [shape.text for shape in slide.shapes if hasattr(shape, "text")]
             result.append(
                 ParsedSection(
                     section_index=i,
@@ -459,9 +453,7 @@ class Catalog:
         ]
 
     @staticmethod
-    def _build_default_extensions(
-        parsers: list[tuple[str, File]]
-    ) -> list[tuple[str, File]]:
+    def _build_default_extensions(parsers: list[tuple[str, File]]) -> list[tuple[str, File]]:
         """Return ``(extension, File)`` pairs (with leading dot) for built-in parsers."""
         extension_map: dict[str, File] = {
             ".pdf": parsers[0][1],
