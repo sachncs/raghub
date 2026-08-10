@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -221,7 +220,9 @@ async def test_record_turn_persists_with_top_k_metadata() -> None:
     captured: dict[str, Any] = {}
 
     class StubConversation:
-        async def append(self, token: str, question: str, answer: str, metadata: dict[str, Any]) -> None:
+        async def append(
+            self, token: str, question: str, answer: str, metadata: dict[str, Any]
+        ) -> None:
             captured["token"] = token
             captured["question"] = question
             captured["answer"] = answer
