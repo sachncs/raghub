@@ -74,7 +74,7 @@ PLUGIN_KIND_TYPE_MAP: dict[PluginKind, str] = {
 }
 
 
-class Plugins:
+class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surface is intentionally broad
     """Catalog of pluggable components keyed by ``(kind, name)``."""
 
     def __init__(self) -> None:
@@ -111,11 +111,11 @@ class Plugins:
 
     def kinds(self) -> list[PluginKind]:
         """Return the distinct kinds that have at least one registered plugin."""
-        return sorted({kind for kind, _ in self.entries.keys()}, key=lambda k: k.value)
+        return sorted({kind for kind, _ in self.entries}, key=lambda k: k.value)
 
     def names(self, kind: PluginKind) -> list[str]:
         """Return the names registered under ``kind``."""
-        return sorted(name for k, name in self.entries.keys() if k == kind)
+        return sorted(name for k, name in self.entries if k == kind)
 
     # ------------------------------------------------------------------
     # Convenience accessors (kept for backward-compat ergonomics)
@@ -173,7 +173,7 @@ class Plugins:
 
     @cached_property
     def converters(self) -> dict[str, DocumentConverter]:
-        """Return a snapshot of registered converters (legacy accessor)."""
+        """A snapshot of registered converters (legacy accessor)."""
         return {
             name: self.entries[PluginKind.Converter, name]
             for name in self.names(PluginKind.Converter)
@@ -181,15 +181,14 @@ class Plugins:
 
     @cached_property
     def chunkers(self) -> dict[str, Chunker]:
-        """Return a snapshot of registered chunkers (legacy accessor)."""
+        """A snapshot of registered chunkers (legacy accessor)."""
         return {
-            name: self.entries[PluginKind.Chunker, name]
-            for name in self.names(PluginKind.Chunker)
+            name: self.entries[PluginKind.Chunker, name] for name in self.names(PluginKind.Chunker)
         }
 
     @cached_property
     def embedders(self) -> dict[str, EmbeddingProvider]:
-        """Return a snapshot of registered embedders (legacy accessor)."""
+        """A snapshot of registered embedders (legacy accessor)."""
         return {
             name: self.entries[PluginKind.Embedder, name]
             for name in self.names(PluginKind.Embedder)
@@ -197,7 +196,7 @@ class Plugins:
 
     @cached_property
     def vector_stores(self) -> dict[str, VectorStore]:
-        """Return a snapshot of registered vector stores (legacy accessor)."""
+        """A snapshot of registered vector stores (legacy accessor)."""
         return {
             name: self.entries[PluginKind.VectorStore, name]
             for name in self.names(PluginKind.VectorStore)
@@ -205,7 +204,7 @@ class Plugins:
 
     @cached_property
     def knowledge_repos(self) -> dict[str, KnowledgeRepository]:
-        """Return a snapshot of registered knowledge repos (legacy accessor)."""
+        """A snapshot of registered knowledge repos (legacy accessor)."""
         return {
             name: self.entries[PluginKind.KnowledgeRepo, name]
             for name in self.names(PluginKind.KnowledgeRepo)
@@ -213,7 +212,7 @@ class Plugins:
 
     @cached_property
     def generators(self) -> dict[str, GeneratorProtocol]:
-        """Return a snapshot of registered generators (legacy accessor)."""
+        """A snapshot of registered generators (legacy accessor)."""
         return {
             name: self.entries[PluginKind.Generator, name]
             for name in self.names(PluginKind.Generator)
@@ -221,7 +220,7 @@ class Plugins:
 
     @cached_property
     def structured(self) -> dict[str, StructuredOutputProvider]:
-        """Return a snapshot of registered structured-output providers."""
+        """A snapshot of registered structured-output providers."""
         return {
             name: self.entries[PluginKind.Structured, name]
             for name in self.names(PluginKind.Structured)
@@ -229,7 +228,7 @@ class Plugins:
 
     @cached_property
     def evaluators(self) -> dict[str, Evaluator]:
-        """Return a snapshot of registered evaluators (legacy accessor)."""
+        """A snapshot of registered evaluators (legacy accessor)."""
         return {
             name: self.entries[PluginKind.Evaluator, name]
             for name in self.names(PluginKind.Evaluator)
@@ -237,10 +236,9 @@ class Plugins:
 
     @cached_property
     def factories(self) -> dict[str, Callable[..., JSONValue]]:
-        """Return a snapshot of registered factories (legacy accessor)."""
+        """A snapshot of registered factories (legacy accessor)."""
         return {
-            name: self.entries[PluginKind.Factory, name]
-            for name in self.names(PluginKind.Factory)
+            name: self.entries[PluginKind.Factory, name] for name in self.names(PluginKind.Factory)
         }
 
     # ------------------------------------------------------------------
