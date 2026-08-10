@@ -16,11 +16,11 @@ from collections import defaultdict
 from hashlib import sha256
 from typing import Any
 
-from raghub.runtime import capture
 from raghub.embedder import Embedder
 from raghub.knowledge.raptor import KnowledgeIndex
 from raghub.llm import GenerationRequest, Generator
 from raghub.models import Chunk, Hit
+from raghub.runtime import capture
 
 MIN_TOKEN_LENGTH = 2
 
@@ -72,9 +72,7 @@ def extract_json_object(raw: str) -> dict[str, Any] | None:
 
 def tokenise(text: str) -> set[str]:
     """Lower-case word tokens, dropping words of length ≤ 2."""
-    return {
-        token for token in re.findall(r"\w+", text.lower()) if len(token) > MIN_TOKEN_LENGTH
-    }
+    return {token for token in re.findall(r"\w+", text.lower()) if len(token) > MIN_TOKEN_LENGTH}
 
 
 class GraphIndex(KnowledgeIndex):
@@ -195,7 +193,7 @@ class GraphIndex(KnowledgeIndex):
         for idx, summary in self.community_summaries.items():
             overlap = float(len(query_tokens & tokenise(summary)))
             scored.append((idx, summary, overlap))
-        scored.sort(key=lambda record: item[2], reverse=True)
+        scored.sort(key=lambda record: record[2], reverse=True)
         out: list[Hit] = []
         for _rank, (idx, summary, score) in enumerate(scored[: int(top_k)]):
             if score <= 0:
@@ -408,7 +406,7 @@ class GraphIndex(KnowledgeIndex):
                 continue
             score = float(len(tokens & tokenise(record.text)))
             scored.append((cid, score))
-        scored.sort(key=lambda record: (-item[1], item[0]))
+        scored.sort(key=lambda record: (-record[1], record[0]))
         return [cid for cid, _score in scored]
 
     def to_hits(self, chunk_ids: list[str], top_k: int) -> list[Hit]:
