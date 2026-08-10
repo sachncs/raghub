@@ -25,8 +25,8 @@ from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
 
-from raghub.errors import MissingDepError
 from raghub.constants import ENV_RAG_LLM_TIMEOUT_SECONDS
+from raghub.errors import MissingDepError
 from raghub.llm import GenerationRequest, Generator
 from raghub.models import (
     Hit,
