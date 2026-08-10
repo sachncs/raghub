@@ -82,7 +82,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Migrate raghub storage")
     parser.add_argument("--root", type=Path, required=True, help="Root data directory")
     args = parser.parse_args()
-    return run(args.root)
+    return run_migration(args.root)
 
 
 if __name__ == "__main__":  # pragma: no cover
