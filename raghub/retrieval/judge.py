@@ -15,11 +15,11 @@ import time
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
-from raghub.runtime import capture
 from raghub.llm import GenerationRequest
 from raghub.models import Hit, RankedList
 from raghub.retrieval.fusion import merge_rrf
 from raghub.retrieval.rerank import rerank_latency
+from raghub.runtime import capture
 from raghub.telemetry import record_long_context
 
 if TYPE_CHECKING:
@@ -69,7 +69,7 @@ class LlmJudge:
     def __init__(
         self,
         *,
-        llm: "Generator",
+        llm: Generator,
         top_k: int = 20,
     ) -> None:
         """Initialise the reranker.
