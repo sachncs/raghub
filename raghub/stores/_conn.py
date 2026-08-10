@@ -81,7 +81,7 @@ class Database:
 
     @property
     def connection(self) -> Any:
-        """Return the live connection or raise if not yet connected."""
+        """The live connection; raises if not yet connected."""
         if self.conn is None:
             raise RuntimeError("Database not connected. Call connect() first.")
         return self.conn
@@ -434,9 +434,7 @@ class Sessions:
     async def set_overrides(self, session_id: str, overrides: dict[str, Any]) -> None:
         """Replace the session's ``overrides`` mapping. No-op if unknown."""
         conn = await self.conn()
-        cursor = await conn.execute(
-            "SELECT 1 FROM sessions WHERE session_id = ?", (session_id,)
-        )
+        cursor = await conn.execute("SELECT 1 FROM sessions WHERE session_id = ?", (session_id,))
         row = await cursor.fetchone()
         if row is None:
             await self.maybe_commit_close(conn)
