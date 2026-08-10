@@ -98,7 +98,8 @@ class PgVectorStore:
         finally:
             await conn.close()
 
-    async def set_session(self, conn: Any, *, user_id: str = "", tenant_id: str = "") -> None:
+    @staticmethod
+    async def set_session(conn: Any, *, user_id: str = "", tenant_id: str = "") -> None:
         """Propagate the per-request identity into the session."""
         try:
             await conn.execute(
@@ -192,9 +193,7 @@ class PgVectorStore:
         asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
-            await conn.execute(
-                "DELETE FROM raghub_chunks WHERE id = $1", chunk_id
-            )
+            await conn.execute("DELETE FROM raghub_chunks WHERE id = $1", chunk_id)
         finally:
             await conn.close()
 
@@ -221,8 +220,7 @@ class PgVectorStore:
         """Dense-similarity search."""
         if len(query_vector) != self.embedding_dim:
             raise ConfigurationError(
-                f"vector dimension mismatch: expected {self.embedding_dim}, "
-                f"got {len(query_vector)}"
+                f"vector dimension mismatch: expected {self.embedding_dim}, got {len(query_vector)}"
             )
         asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
@@ -242,9 +240,7 @@ class PgVectorStore:
                 f"LIMIT ${len(params)}"
             )
             rows = await conn.fetch(sql, *params)
-            return [
-                Hit(score=float(row["score"]), chunk_id=row["id"]) for row in rows
-            ]
+            return [Hit(score=float(row["score"]), chunk_id=row["id"]) for row in rows]
         finally:
             await conn.close()
 
@@ -286,8 +282,7 @@ class PgVectorStore:
             fused[row["id"]] = fused.get(row["id"], 0.0) + 1.0 / (k + rank)
         sorted_hits = sorted(fused.items(), key=lambda kv: kv[1], reverse=True)
         return [
-            Hit(score=score, chunk_id=chunk_id)
-            for chunk_id, score in sorted_hits[: int(top_k)]
+            Hit(score=score, chunk_id=chunk_id) for chunk_id, score in sorted_hits[: int(top_k)]
         ]
 
     async def keyword_search(
@@ -308,9 +303,7 @@ class PgVectorStore:
             )
         finally:
             await conn.close()
-        return [
-            Hit(score=float(row["score"]), chunk_id=row["id"]) for row in rows
-        ]
+        return [Hit(score=float(row["score"]), chunk_id=row["id"]) for row in rows]
 
     async def optimize(self) -> None:
         """VACUUM ANALYZE; rebuilds HNSW if drift is high."""
@@ -318,9 +311,7 @@ class PgVectorStore:
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute("VACUUM ANALYZE raghub_chunks")
-            await conn.execute(
-                "REINDEX INDEX CONCURRENTLY raghub_chunks_embedding_hnsw"
-            )
+            await conn.execute("REINDEX INDEX CONCURRENTLY raghub_chunks_embedding_hnsw")
         finally:
             await conn.close()
 
