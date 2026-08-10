@@ -107,6 +107,6 @@ async def test_build_storage_components_returns_three_collaborators(tmp_path) ->
         embedding_dim=16,
     )
     sessions, uow, vector_store = await build_storage_components(settings)
-    assert sessions is not None, f"sessions should be set by test setup"
-    assert uow is not None, f"uow should be set by test setup"
-    assert vector_store is not None, f"vector_store should be set by test setup"
+    assert sessions is not None, "sessions should be set by test setup"
+    assert uow is not None, "uow should be set by test setup"
+    assert vector_store is not None, "vector_store should be set by test setup"
