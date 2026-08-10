@@ -80,9 +80,7 @@ def test_pii_does_not_leak_verbatim_into_answer(rag_with_plain_text) -> None:
     result = rag_with_plain_text.query("What is in the document?")
     assert isinstance(result.answer, str)
     assert MARKER in result.answer, "Generator did not run"
-    assert secret not in result.answer, (
-        f"Secret leaked into answer: {result.answer!r}"
-    )
+    assert secret not in result.answer, f"Secret leaked into answer: {result.answer!r}"
 
 
 def test_pii_email_does_not_leak(rag_with_plain_text) -> None:
@@ -95,9 +93,7 @@ def test_pii_email_does_not_leak(rag_with_plain_text) -> None:
     result = rag_with_plain_text.query("contact")
     assert isinstance(result.answer, str)
     assert MARKER in result.answer, "Generator did not run"
-    assert email not in result.answer, (
-        f"Email leaked into answer: {result.answer!r}"
-    )
+    assert email not in result.answer, f"Email leaked into answer: {result.answer!r}"
 
 
 def test_pii_ssn_does_not_leak(rag_with_plain_text) -> None:
@@ -110,9 +106,7 @@ def test_pii_ssn_does_not_leak(rag_with_plain_text) -> None:
     result = rag_with_plain_text.query("patient")
     assert isinstance(result.answer, str)
     assert MARKER in result.answer, "Generator did not run"
-    assert ssn not in result.answer, (
-        f"SSN leaked into answer: {result.answer!r}"
-    )
+    assert ssn not in result.answer, f"SSN leaked into answer: {result.answer!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -185,9 +179,7 @@ def test_knowledge_base_poisoning_adversarial_doc(rag_with_plain_text) -> None:
     result = rag_with_plain_text.query("What is the capital of France?")
     assert isinstance(result.answer, str)
     assert MARKER in result.answer, "Generator did not run"
-    flat_text = " ".join(
-        cit.chunk.text for cit in result.citations if cit.chunk is not None
-    )
+    flat_text = " ".join(cit.chunk.text for cit in result.citations if cit.chunk is not None)
     assert "Paris" in flat_text and "Berlin" in flat_text, (
         f"Expected both contradicting facts in retrieved citations; got {flat_text!r}"
     )
