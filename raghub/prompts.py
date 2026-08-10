@@ -98,9 +98,7 @@ class TokenCounter:
     def decode_tokens(self, tokens: list[int]) -> str:
         """Decode tiktoken token IDs into text."""
         if self.enc is None:
-            raise RuntimeError(
-                "TokenCounter.decode_tokens requires the tiktoken backend"
-            )
+            raise RuntimeError("TokenCounter.decode_tokens requires the tiktoken backend")
         return str(self.enc.decode(tokens))
 
     def truncate(self, text: str, max_tokens: int) -> str:
@@ -194,9 +192,7 @@ class Prompt:
         # the input budget. Negative budgets are clamped to zero by the
         # ``-=`` updates below; we never go negative because each section
         # is gated by ``available_tokens - tokens < 0``.
-        available_tokens = (
-            self.config.max_tokens - self.config.reserved_output_tokens
-        )
+        available_tokens = self.config.max_tokens - self.config.reserved_output_tokens
         available_tokens = self.consume_system(available_tokens)
         history_messages = self.consume_history(session_history, available_tokens)
         context_texts, _ = self.consume_context(context, available_tokens)
