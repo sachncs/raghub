@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import asyncio
 import tomllib
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, cast
 
@@ -98,7 +99,7 @@ __all__ = [
 ]
 
 
-class RAG(
+class RAG(  # ruff: ignore[too-many-public-methods] -- facade aggregating mixin surface
     IngestMixin,
     QueryMixin,
     SyncMixin,
@@ -147,8 +148,8 @@ class RAG(
         self.wire_components(component_map)
         self.wire_ingest()
         self.wire_query(component_map)
-        self.manifest: Manifest = (
-            component_map.get("manifest") or Manifest(self.settings.data_dir / "manifest.json")
+        self.manifest: Manifest = component_map.get("manifest") or Manifest(
+            self.settings.data_dir / "manifest.json"
         )
         self.background_ingestion = component_map.get("background_service")
         self.persistent_queue = self.init_queue(component_map)
@@ -164,19 +165,15 @@ class RAG(
         """Resolve core collaborators from ``components`` or defaults."""
         self.settings: Settings = components.get("settings") or Settings.load()
         self.registry: Any = components.get("registry") or Plugins()
-        self.knowledge_repo: KnowledgeRepository = (
-            components.get("knowledge_repo") or MemoryRepo()
-        )
-        self.vector_store: Any = (
-            components.get("vector_store") or default_vector_store(self.settings.embedding_dim)
+        self.knowledge_repo: KnowledgeRepository = components.get("knowledge_repo") or MemoryRepo()
+        self.vector_store: Any = components.get("vector_store") or default_vector_store(
+            self.settings.embedding_dim
         )
         self.embedder: Any = components.get("embedder") or default_embedder(
             self.settings.embedding_model, self.settings.embedding_dim
         )
         self.llm: Any = components.get("llm") or default_llm(self.settings.llm_model)
-        self.converter: DocumentConverter = (
-            components.get("converter") or default_converter()
-        )
+        self.converter: DocumentConverter = components.get("converter") or default_converter()
         self.chunker: Any = components.get("chunker") or default_chunker(
             self.settings.chunk_size_words,
             self.settings.chunk_overlap_words,
@@ -233,7 +230,7 @@ class RAG(
         self.agent, self.agentic_pipeline = self.build_agent_components()
         self.query_pipeline = self.build_query_pipeline()
 
-    def build_query_cache(self) -> "Cache | None":
+    def build_query_cache(self) -> Cache | None:
         """Build the query result cache (None when disabled)."""
         if not self.settings.enable_query_cache:
             return None
@@ -250,7 +247,7 @@ class RAG(
             multi_query_n=self.settings.query_transforms.multi_query_n,
         )
 
-    def build_retrieval_pipeline(self) -> "RetrievalPipeline":
+    def build_retrieval_pipeline(self) -> RetrievalPipeline:
         """Build the main retrieval pipeline."""
         return RetrievalPipeline(
             embedding_provider=self.embedder,
@@ -343,10 +340,7 @@ class RAG(
         if backend == "sqlite":
             from raghub.jobs import SqliteQueue
 
-            db_path = (
-                self.settings.queue.db_path
-                or self.settings.data_dir / "queue.db"
-            )
+            db_path = self.settings.queue.db_path or self.settings.data_dir / "queue.db"
             queue = SqliteQueue(
                 db_path=str(db_path),
                 max_inflight=self.settings.queue.max_inflight,
@@ -376,7 +370,7 @@ class RAG(
         if not isinstance(self.persistent_queue, SqliteQueue):
             return None
 
-        async def ingest(job: Any) -> None:
+        async def ingest(job: Any) -> None:  # ruff: ignore[unused-async] -- Worker awaits its handlers
             """Drain a queue job by routing it back into the facade's ingest path."""
             payload = getattr(job, "payload", {}) or {}
             source_bytes = payload.get("source", "").encode("latin-1")
@@ -417,10 +411,8 @@ class RAG(
         task = self.worker_task_
         self.worker_task_ = None
         task.cancel()
-        try:
+        with suppress(asyncio.CancelledError, Exception):
             await task
-        except (asyncio.CancelledError, Exception):
-            pass
 
     def init_tenant(self, components: dict[str, Any]) -> Any:
         """Construct the tenant resolver.
@@ -467,10 +459,7 @@ class RAG(
         if backend == "sqlite":
             from raghub.feedback import SqliteFeedbackStore
 
-            db_path = (
-                self.settings.feedback.db_path
-                or self.settings.data_dir / "feedback.db"
-            )
+            db_path = self.settings.feedback.db_path or self.settings.data_dir / "feedback.db"
             store = SqliteFeedbackStore(db_path=str(db_path))
             store.initialize()
             return store
