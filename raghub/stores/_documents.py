@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
-from typing import Any
 
 from raghub.io import atomic_write_json, load_json
 from raghub.models import Document, DocumentLifecycleStatus
