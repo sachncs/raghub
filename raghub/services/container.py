@@ -67,11 +67,11 @@ class RagContainer:
     parser_registry: Catalog
     store: Sessions
     uow: UnitOfWork
-    auth: "AuthService" = None
-    documents: "Documents" = None
-    query: "Query" = None
-    health: "Health" = None
-    rag_facade: "RAG | None" = None
+    auth: AuthService = None
+    documents: Documents = None
+    query: Query = None
+    health: Health = None
+    rag_facade: RAG | None = None
 
 
 async def build_container(settings: Settings) -> RagContainer:
@@ -84,9 +84,7 @@ async def build_container(settings: Settings) -> RagContainer:
     authorization, user_store = await build_auth_components(settings)
     raw_session_store, uow, vector_store = await build_storage_components(settings)
     nvidia_api_key = settings.nvidia_api_key or settings.extra.get("nvidia_api_key", "")
-    model_components = build_models(
-        settings, vector_store, uow, nvidia_api_key
-    )
+    model_components = build_models(settings, vector_store, uow, nvidia_api_key)
     (
         embeddings,
         llm,
@@ -155,7 +153,7 @@ async def build_storage_components(settings: Settings) -> tuple[Any, Any, Store]
 
 async def maybe_seed_demo_users(
     settings: Settings,
-    user_store: "SqliteUsers",
+    user_store: SqliteUsers,
 ) -> None:
     """Seed demo users when the deployment profile allows it."""
     from loguru import logger
