@@ -65,7 +65,7 @@ class Documents:
 
         """
         started = time.perf_counter()
-        auth: "AuthService" = self.container.auth
+        auth: AuthService = self.container.auth
         user, _ = await auth.resolve_user(token)
         target_company = company or filename.split("_", 1)[0]
         if not can_access_company(user, target_company):
@@ -95,7 +95,7 @@ class Documents:
         Admin users see every document; non-admins see only the
         documents whose organization is in their allow-list.
         """
-        auth: "AuthService" = self.container.auth
+        auth: AuthService = self.container.auth
         user, _ = await auth.resolve_user(token)
         if user.is_admin:
             return await list_records(self.container.uow)
@@ -114,7 +114,7 @@ class Documents:
                 document's organization.
 
         """
-        auth: "AuthService" = self.container.auth
+        auth: AuthService = self.container.auth
         user, _ = await auth.resolve_user(token)
         document = await get_doc(self.container.uow, document_id)
         if not can_access_company(user, document.organization):
@@ -130,7 +130,7 @@ class Documents:
         (Raptor / Graph). Admin check is preserved here because the
         facade itself does not enforce it.
         """
-        auth: "AuthService" = self.container.auth
+        auth: AuthService = self.container.auth
         user, _ = await auth.resolve_user(token)
         if not user.is_admin:
             raise AuthorizationError("Admin only")
