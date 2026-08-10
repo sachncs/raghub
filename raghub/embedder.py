@@ -22,7 +22,17 @@ from typing import Any
 import litellm
 import numpy as np
 
-from raghub.constants import DEFAULT_EMBEDDING_DIM, ENV_ANTHROPIC_API_KEY, ENV_AZURE_API_KEY, ENV_COHERE_API_KEY, ENV_LITELLM_API_KEY, ENV_NVIDIA_API_KEY, ENV_OPENAI_API_KEY, ENV_VOYAGE_API_KEY, HASHING_BGE_MODEL
+from raghub.constants import (
+    DEFAULT_EMBEDDING_DIM,
+    ENV_ANTHROPIC_API_KEY,
+    ENV_AZURE_API_KEY,
+    ENV_COHERE_API_KEY,
+    ENV_LITELLM_API_KEY,
+    ENV_NVIDIA_API_KEY,
+    ENV_OPENAI_API_KEY,
+    ENV_VOYAGE_API_KEY,
+    HASHING_BGE_MODEL,
+)
 from raghub.errors import ConfigurationError
 
 __all__ = [
@@ -99,7 +109,9 @@ class FeatureHashingEmbedder(Embedder):
 
     """
 
-    def __init__(self, dimension: int = DEFAULT_EMBEDDING_DIM, model_name: str = HASHING_BGE_MODEL) -> None:
+    def __init__(
+        self, dimension: int = DEFAULT_EMBEDDING_DIM, model_name: str = HASHING_BGE_MODEL
+    ) -> None:
         """Initialise the embedder.
 
         Args:
