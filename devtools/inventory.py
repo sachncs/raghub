@@ -26,6 +26,7 @@ Usage:
 Both outputs land in ``reports/`` (gitignored). To compare
 snapshots, copy the JSON out of the workspace before regen.
 """
+
 from __future__ import annotations
 
 import ast
@@ -65,7 +66,8 @@ def _module_all(tree: ast.Module) -> list[str]:
                     and isinstance(node.value, (ast.List, ast.Tuple))
                 ):
                     return [
-                        elt.value for elt in node.value.elts  # type: ignore[attr-defined]
+                        elt.value
+                        for elt in node.value.elts  # type: ignore[attr-defined]
                         if isinstance(elt, ast.Constant)
                     ]
     return []
@@ -89,12 +91,32 @@ def _defined_public_symbols(tree: ast.Module) -> list[dict[str, str | int]]:
 def _underscore_candidates(tree: ast.Module, file: Path) -> list[dict[str, str | int]]:
     """List every `_`-prefixed def that is *not* a real dunder."""
     allowed_dunders = {
-        "__init__", "__repr__", "__str__", "__eq__", "__hash__",
-        "__getattr__", "__setattr__", "__delattr__", "__contains__",
-        "__getitem__", "__setitem__", "__delitem__", "__len__",
-        "__iter__", "__next__", "__call__", "__enter__", "__exit__",
-        "__aenter__", "__aexit__", "__aiter__", "__anext__",
-        "__post_init__", "__class_getitem__", "__new__", "__init_subclass__",
+        "__init__",
+        "__repr__",
+        "__str__",
+        "__eq__",
+        "__hash__",
+        "__getattr__",
+        "__setattr__",
+        "__delattr__",
+        "__contains__",
+        "__getitem__",
+        "__setitem__",
+        "__delitem__",
+        "__len__",
+        "__iter__",
+        "__next__",
+        "__call__",
+        "__enter__",
+        "__exit__",
+        "__aenter__",
+        "__aexit__",
+        "__aiter__",
+        "__anext__",
+        "__post_init__",
+        "__class_getitem__",
+        "__new__",
+        "__init_subclass__",
     }
     out: list[dict[str, str | int]] = []
     for node in tree.body:
@@ -149,9 +171,7 @@ def main() -> int:
             )
 
     # Collisions: classes defined in more than one file.
-    collisions = {
-        name: locs for name, locs in classes.items() if len(locs) > 1
-    }
+    collisions = {name: locs for name, locs in classes.items() if len(locs) > 1}
 
     inventory = {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -174,9 +194,7 @@ def main() -> int:
     (REPORTS_ROOT / "inventory.json").write_text(
         json.dumps(inventory, indent=2, sort_keys=True), encoding="utf-8"
     )
-    (REPORTS_ROOT / "inventory.md").write_text(
-        _to_markdown(inventory), encoding="utf-8"
-    )
+    (REPORTS_ROOT / "inventory.md").write_text(_to_markdown(inventory), encoding="utf-8")
     print(f"wrote reports/inventory.json ({inventory['summary']['files_scanned']} files)")
     print("wrote reports/inventory.md")
     return 0
