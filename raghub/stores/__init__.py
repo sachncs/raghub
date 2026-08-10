@@ -32,12 +32,14 @@ from raghub.stores._migrate import migrate_from_json
 from raghub.stores._schema import SQLITE_SCHEMA
 
 __all__ = [
+    "SQLITE_SCHEMA",
     "Database",
     "Documents",
     "ImageStore",
     "JsonSessions",
     "Sessions",
     "Snapshot",
+    "__keyed",
     "migrate_from_json",
-    "SQLITE_SCHEMA",
+    "serialize_overrides",
 ]
