@@ -43,8 +43,7 @@ class Genie:
             self.llm.generate(
                 GenerationRequest(
                     system_prompt=(
-                        "You are a text chunking assistant. "
-                        "Split the text at natural boundaries."
+                        "You are a text chunking assistant. Split the text at natural boundaries."
                     ),
                     conversation=[],
                     context=[],
@@ -126,7 +125,7 @@ def chonkie_options(options: dict[str, JSONValue]) -> tuple[str, str, str, str, 
     )
 
 
-def chonkie_chunk_builders(
+def chonkie_chunk_builders(  # ruff: ignore[too-many-arguments, too-many-positional-arguments] -- five chonkie knobs, all consumed by dict
     tokenizer: str,
     embedding_model: str,
     language: str,
@@ -334,7 +333,9 @@ class Chonkie(Chunker):
                             department=bundle.metadata.get("department", ""),
                             tenant_id=tenant_id,
                             text=text,
-                            checksum=sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest(),
+                            checksum=sha256(
+                                text.encode("utf-8", errors="surrogatepass")
+                            ).hexdigest(),
                             metadata={
                                 "chunker": "chonkie",
                                 "strategy": getattr(self.inner, "__class__", type(None)).__name__,
@@ -452,7 +453,9 @@ class Words(Chunker):
                             department=bundle.metadata.get("department", ""),
                             tenant_id=tenant_id,
                             text=text,
-                            checksum=sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest(),
+                            checksum=sha256(
+                                text.encode("utf-8", errors="surrogatepass")
+                            ).hexdigest(),
                             metadata={
                                 "block_kind": "text",
                                 "block_id": block.block_id,
