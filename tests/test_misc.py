@@ -183,9 +183,6 @@ def test_conv_module_exports() -> None:
         assert hasattr(conv_module, name) or name in conv_module.__dict__
 
 
-
-
-
 def test_tokenizer_default_model_constant() -> None:
     """Tokenizer.DEFAULT_MODEL is a non-empty string."""
 
