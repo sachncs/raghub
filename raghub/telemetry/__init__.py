@@ -27,12 +27,12 @@ from raghub.telemetry.logger import (
     LoguruTelemetryProvider,
 )
 from raghub.telemetry.metrics import (
-    NoOpTelemetry,
     NoopSpan,
+    NoOpTelemetry,
 )
 from raghub.telemetry.redaction import (
-    RedactingTelemetry,
     SECRET_KEY_RE,
+    RedactingTelemetry,
     redact_record,
     scrub_secrets,
 )
@@ -52,15 +52,16 @@ from raghub.telemetry.tracing import (
 
 __all__ = [
     "LANGFUSE_AVAILABLE",
+    "SECRET_KEY_RE",
     "Langfuse",
     "LangfuseSpan",
     "LangfuseTelemetryProvider",
+    "Logger",
     "LoguruSpan",
     "LoguruTelemetryProvider",
     "NoOpTelemetry",
     "NoopSpan",
     "RedactingTelemetry",
-    "SECRET_KEY_RE",
     "SafeConsoleSpanExporter",
     "Tracer",
     "langfuse_client",
