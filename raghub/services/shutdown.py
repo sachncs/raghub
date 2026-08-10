@@ -21,7 +21,7 @@ class Shutdown:
         "uow",
     )
 
-    def __init__(self, container: "RagContainer") -> None:
+    def __init__(self, container: RagContainer) -> None:
         """Store the container reference."""
         self.container = container
 
