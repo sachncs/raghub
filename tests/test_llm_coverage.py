@@ -221,9 +221,7 @@ def test_litellm_generate_returns_string_content(monkeypatch: pytest.MonkeyPatch
     """``generate`` returns ``choice.message.content`` as a string."""
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     provider = LiteLLM(model="gpt-4o")
-    fake_response = {
-        "choices": [{"message": {"role": "assistant", "content": "hello there"}}]
-    }
+    fake_response = {"choices": [{"message": {"role": "assistant", "content": "hello there"}}]}
     with patch("raghub.llm.litellm.completion", return_value=fake_response) as mock_completion:
         answer = provider.generate(GenerationRequest(question="hi", context=[]))
     assert answer == "hello there"
@@ -235,9 +233,7 @@ def test_litellm_generate_coerces_non_string_content() -> None:
     """Non-string content is coerced via ``str(content or "")``."""
     provider = LiteLLM(model="gpt-4o")
     provider.require_litellm = lambda: None  # type: ignore[method-assign]
-    fake_response = {
-        "choices": [{"message": {"role": "assistant", "content": None}}]
-    }
+    fake_response = {"choices": [{"message": {"role": "assistant", "content": None}}]}
     with patch("raghub.llm.litellm.completion", return_value=fake_response):
         assert provider.generate(GenerationRequest(question="hi", context=[])) == ""
 
@@ -269,20 +265,26 @@ def test_litellm_generate_wraps_unexpected_shape() -> None:
 def test_litellm_generate_wraps_underlying_exception() -> None:
     """``litellm.completion`` raising is converted to :class:`GenerationError`."""
     provider = LiteLLM(model="gpt-4o")
-    with patch(
-        "raghub.llm.litellm.completion",
-        side_effect=RuntimeError("upstream boom"),
-    ), pytest.raises(GenerationError, match="upstream boom"):
+    with (
+        patch(
+            "raghub.llm.litellm.completion",
+            side_effect=RuntimeError("upstream boom"),
+        ),
+        pytest.raises(GenerationError, match="upstream boom"),
+    ):
         provider.generate(GenerationRequest(question="hi", context=[]))
 
 
 def test_litellm_generate_propagates_generation_error_from_retry() -> None:
     """A :class:`GenerationError` raised inside the retry is re-raised as-is."""
     provider = LiteLLM(model="gpt-4o")
-    with patch(
-        "raghub.llm.litellm.completion",
-        side_effect=GenerationError("retried-and-failed"),
-    ), pytest.raises(GenerationError, match="retried-and-failed"):
+    with (
+        patch(
+            "raghub.llm.litellm.completion",
+            side_effect=GenerationError("retried-and-failed"),
+        ),
+        pytest.raises(GenerationError, match="retried-and-failed"),
+    ):
         provider.generate(GenerationRequest(question="hi", context=[]))
 
 
@@ -333,9 +335,7 @@ def test_litellm_generate_handles_pydantic_usage() -> None:
 def test_litellm_generate_with_timeout_option() -> None:
     """``timeout_seconds`` is forwarded to litellm when set."""
     provider = LiteLLM(model="gpt-4o", timeout_seconds=12.0)
-    fake_response = {
-        "choices": [{"message": {"role": "assistant", "content": "x"}}]
-    }
+    fake_response = {"choices": [{"message": {"role": "assistant", "content": "x"}}]}
     with patch("raghub.llm.litellm.completion", return_value=fake_response) as mock_completion:
         provider.generate(GenerationRequest(question="hi", context=[]))
     assert mock_completion.call_args.kwargs["timeout"] == 12.0
@@ -344,9 +344,7 @@ def test_litellm_generate_with_timeout_option() -> None:
 def test_litellm_generate_without_timeout_omits_option() -> None:
     """When ``timeout_seconds`` is ``None``, the option is not forwarded."""
     provider = LiteLLM(model="gpt-4o")
-    fake_response = {
-        "choices": [{"message": {"role": "assistant", "content": "x"}}]
-    }
+    fake_response = {"choices": [{"message": {"role": "assistant", "content": "x"}}]}
     with patch("raghub.llm.litellm.completion", return_value=fake_response) as mock_completion:
         provider.generate(GenerationRequest(question="hi", context=[]))
     assert "timeout" not in mock_completion.call_args.kwargs
@@ -362,9 +360,7 @@ def test_litellm_async_generate_uses_litellm_when_no_direct_client() -> None:
     provider = LiteLLM(model="gpt-4o", api_base="https://example.com/v1")
     provider.direct_client = None
     provider.direct_url = None
-    fake_response = {
-        "choices": [{"message": {"role": "assistant", "content": "async-ok"}}]
-    }
+    fake_response = {"choices": [{"message": {"role": "assistant", "content": "async-ok"}}]}
     with patch("raghub.llm.litellm.acompletion", return_value=fake_response) as mock_acompletion:
         answer = asyncio.run(provider.async_generate(GenerationRequest(question="hi", context=[])))
     assert answer == "async-ok"
@@ -374,9 +370,7 @@ def test_litellm_async_generate_uses_litellm_when_no_direct_client() -> None:
 def test_litellm_async_generate_uses_direct_client_when_configured() -> None:
     """When ``direct_client`` and ``direct_url`` are set, the direct path runs."""
     provider = LiteLLM(model="gpt-4o", api_base="https://example.com/v1")
-    fake_response = {
-        "choices": [{"message": {"role": "assistant", "content": "direct-ok"}}]
-    }
+    fake_response = {"choices": [{"message": {"role": "assistant", "content": "direct-ok"}}]}
     with patch.object(LiteLLM, "direct_chat", return_value=fake_response) as mock_direct:
         answer = asyncio.run(provider.async_generate(GenerationRequest(question="hi", context=[])))
     assert answer == "direct-ok"
@@ -386,9 +380,7 @@ def test_litellm_async_generate_uses_direct_client_when_configured() -> None:
 def test_litellm_async_generate_with_timeout_option() -> None:
     """``timeout_seconds`` is forwarded to ``litellm.acompletion``."""
     provider = LiteLLM(model="gpt-4o", timeout_seconds=7.0)
-    fake_response = {
-        "choices": [{"message": {"role": "assistant", "content": "x"}}]
-    }
+    fake_response = {"choices": [{"message": {"role": "assistant", "content": "x"}}]}
     with patch("raghub.llm.litellm.acompletion", return_value=fake_response) as mock_acompletion:
         asyncio.run(provider.async_generate(GenerationRequest(question="hi", context=[])))
     assert mock_acompletion.call_args.kwargs["timeout"] == 7.0
@@ -397,10 +389,13 @@ def test_litellm_async_generate_with_timeout_option() -> None:
 def test_litellm_async_generate_wraps_upstream_exception() -> None:
     """An underlying exception is wrapped in :class:`GenerationError`."""
     provider = LiteLLM(model="gpt-4o")
-    with patch(
-        "raghub.llm.litellm.acompletion",
-        side_effect=RuntimeError("upstream-async"),
-    ), pytest.raises(GenerationError, match="upstream-async"):
+    with (
+        patch(
+            "raghub.llm.litellm.acompletion",
+            side_effect=RuntimeError("upstream-async"),
+        ),
+        pytest.raises(GenerationError, match="upstream-async"),
+    ):
         asyncio.run(provider.async_generate(GenerationRequest(question="hi", context=[])))
 
 
@@ -423,9 +418,7 @@ def test_litellm_async_generate_handles_pydantic_response() -> None:
         choices = [Choice()]
 
     Response.model_dump = MagicMock(  # type: ignore[attr-defined]
-        return_value={
-            "choices": [{"message": {"role": "assistant", "content": "pydantic-async"}}]
-        }
+        return_value={"choices": [{"message": {"role": "assistant", "content": "pydantic-async"}}]}
     )
 
     with patch("raghub.llm.litellm.acompletion", return_value=Response()):
@@ -436,10 +429,13 @@ def test_litellm_async_generate_handles_pydantic_response() -> None:
 def test_litellm_async_generate_propagates_generation_error() -> None:
     """A :class:`GenerationError` raised by the retry is re-raised."""
     provider = LiteLLM(model="gpt-4o")
-    with patch(
-        "raghub.llm.litellm.acompletion",
-        side_effect=GenerationError("already-wrapped"),
-    ), pytest.raises(GenerationError, match="already-wrapped"):
+    with (
+        patch(
+            "raghub.llm.litellm.acompletion",
+            side_effect=GenerationError("already-wrapped"),
+        ),
+        pytest.raises(GenerationError, match="already-wrapped"),
+    ):
         asyncio.run(provider.async_generate(GenerationRequest(question="hi", context=[])))
 
 
@@ -471,9 +467,7 @@ def test_litellm_astream_yields_content_chunks() -> None:
         async def _collect() -> list[str]:
             return [
                 piece
-                async for piece in provider.astream(
-                    GenerationRequest(question="hi", context=[])
-                )
+                async for piece in provider.astream(GenerationRequest(question="hi", context=[]))
             ]
 
         collected = asyncio.run(_collect())
@@ -522,9 +516,7 @@ def test_litellm_astream_handles_object_chunks() -> None:
         async def _collect() -> list[str]:
             return [
                 piece
-                async for piece in provider.astream(
-                    GenerationRequest(question="hi", context=[])
-                )
+                async for piece in provider.astream(GenerationRequest(question="hi", context=[]))
             ]
 
         collected = asyncio.run(_collect())
@@ -556,18 +548,18 @@ def test_litellm_astream_with_timeout() -> None:
 def test_litellm_astream_wraps_upstream_exception() -> None:
     """An exception in the streaming source propagates through the boundary."""
     provider = LiteLLM(model="gpt-4o")
-    with patch(
-        "raghub.llm.litellm.acompletion",
-        side_effect=RuntimeError("stream-boom"),
-    ), pytest.raises(RuntimeError, match="stream-boom"):
+    with (
+        patch(
+            "raghub.llm.litellm.acompletion",
+            side_effect=RuntimeError("stream-boom"),
+        ),
+        pytest.raises(RuntimeError, match="stream-boom"),
+    ):
         asyncio.run(_collect_stream(provider))
 
 
 async def _collect_stream(provider: LiteLLM) -> list[str]:
-    return [
-        piece
-        async for piece in provider.astream(GenerationRequest(question="hi", context=[]))
-    ]
+    return [piece async for piece in provider.astream(GenerationRequest(question="hi", context=[]))]
 
 
 # ---------------------------------------------------------------------------
@@ -589,14 +581,10 @@ def test_direct_chat_posts_to_configured_url() -> None:
         provider.direct_client, "post", AsyncMock(return_value=fake_response)
     ) as mock_post:
         result = asyncio.run(provider.direct_chat([{"role": "user", "content": "hi"}]))
-    assert result == {
-        "choices": [{"message": {"role": "assistant", "content": "x"}}]
-    }
+    assert result == {"choices": [{"message": {"role": "assistant", "content": "x"}}]}
     assert mock_post.call_args.args == ("https://override.example/v2/chat",)
     assert mock_post.call_args.kwargs["json"]["model"] == "gpt-4o"
-    assert mock_post.call_args.kwargs["json"]["messages"] == [
-        {"role": "user", "content": "hi"}
-    ]
+    assert mock_post.call_args.kwargs["json"]["messages"] == [{"role": "user", "content": "hi"}]
     fake_response.raise_for_status.assert_called_once()
 
 
@@ -620,9 +608,12 @@ def test_direct_chat_wraps_http_error() -> None:
     provider = LiteLLM(model="gpt-4o", api_base="https://example.com/v1")
     provider.direct_client = MagicMock()
     provider.direct_url = "https://override.example/v2/chat"
-    with patch.object(
-        provider.direct_client, "post", AsyncMock(side_effect=RuntimeError("http-boom"))
-    ), pytest.raises(RuntimeError, match="http-boom"):
+    with (
+        patch.object(
+            provider.direct_client, "post", AsyncMock(side_effect=RuntimeError("http-boom"))
+        ),
+        pytest.raises(RuntimeError, match="http-boom"),
+    ):
         asyncio.run(provider.direct_chat([{"role": "user", "content": "hi"}]))
 
 
@@ -646,6 +637,7 @@ def test_normalise_response_object_with_model_dump() -> None:
 
 def test_normalise_response_mapping_object() -> None:
     """A plain object supporting ``dict()`` is normalised."""
+
     class Resp(dict):
         pass
 
