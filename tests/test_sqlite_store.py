@@ -111,11 +111,10 @@ def test_concurrent_inserts_are_safe(sqlite_store, sample_chunks):
 def test_sqlite_store_search_filters_by_tenant_id(tmp_path):
     """Item 11: SqliteStore.search adds ``tenant_id = ?`` when tenant_id is bound."""
     from datetime import UTC, datetime
-    from raghub.config import Settings, TenantsConfig
-    from raghub.config import Settings as _S
+
     from raghub.models import Chunk, Classification
     from raghub.store import SqliteStore
-    from raghub.tenants import TenantContext, set_current, reset
+    from raghub.tenants import TenantContext, reset, set_current
 
     db = tmp_path / "vecstore.db"
     store = SqliteStore(path=str(db), embedding_dim=2)
@@ -160,9 +159,10 @@ def test_sqlite_store_search_filters_by_tenant_id(tmp_path):
 def test_sqlite_store_search_explicit_tenant_overrides_context(tmp_path):
     """Explicit tenant_id wins over the bound tenant context."""
     from datetime import UTC, datetime
+
     from raghub.models import Chunk, Classification
     from raghub.store import SqliteStore
-    from raghub.tenants import TenantContext, set_current, reset
+    from raghub.tenants import TenantContext, reset, set_current
 
     db = tmp_path / "vecstore.db"
     store = SqliteStore(path=str(db), embedding_dim=2)
