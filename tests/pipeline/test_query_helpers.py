@@ -92,7 +92,10 @@ def test_triggers_agent_returns_true_when_tools_enabled() -> None:
 def test_triggers_agent_returns_false_when_both_disabled() -> None:
     """``triggers_agent`` returns False when both flags are off."""
 
-    assert triggers_agent({"resolved_config": {"agent_enabled": False, "tools_enabled": False}}) is False
+    assert (
+        triggers_agent({"resolved_config": {"agent_enabled": False, "tools_enabled": False}})
+        is False
+    )
 
 
 def test_triggers_agent_rejects_non_dict_resolved_config() -> None:
