@@ -100,7 +100,8 @@ class Query:
             metadata={"top_k": self.container.settings.top_k},
         )
 
-    def citation(self, chunk: Chunk) -> dict[str, Any]:
+    @staticmethod
+    def citation(chunk: Chunk) -> dict[str, Any]:
         """Build the citation dict for a single chunk."""
         return {
             "document_id": chunk.document_id,
