@@ -104,3 +104,7 @@ def run_frames(
         )
 
     asyncio.run(runner())
+
+
+financebench = run_financebench
+frames = run_frames
