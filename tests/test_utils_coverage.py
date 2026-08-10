@@ -9,10 +9,9 @@ from typing import Any
 
 import pytest
 
-from raghub.runtime import capture, await_if_awaitable, run_synchronously
 from raghub.io import atomic_write_json, load_json, write_json
 from raghub.retry import aretry, retry
-from raghub.runtime import DurationTimer
+from raghub.runtime import DurationTimer, await_if_awaitable, capture, run_synchronously
 
 # ---------------------------------------------------------------------------
 # load_json
