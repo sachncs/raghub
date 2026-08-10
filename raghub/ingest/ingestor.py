@@ -115,11 +115,7 @@ def extract_chunks(result: Pipeline) -> list[Chunk]:
 def resolve_document_id(result: Pipeline, chunks: list) -> str:
     """Compute the document_id, threading it onto chunks that lack one."""
     bundle = result.outputs.get("bundle")
-    document_id = str(
-        result.outputs.get("document_id")
-        or getattr(bundle, "bundle_id", "")
-        or ""
-    )
+    document_id = str(result.outputs.get("document_id") or getattr(bundle, "bundle_id", "") or "")
     for chunk in chunks:
         if not chunk.document_id:
             chunk.document_id = document_id
@@ -266,7 +262,7 @@ class Ingestor:
             tags=tags,
         )
 
-    async def handle_pipeline_result(
+    async def handle_pipeline_result(  # ruff: ignore[too-many-arguments] -- mirrors record_from_pipeline keyword surface
         self,
         *,
         result: Any,
@@ -282,9 +278,7 @@ class Ingestor:
         """Either raise IngestionError (failure path) or persist the successful record."""
         if result.error is not None:
             await self.mark_failed(previous, result)
-            raise IngestionError(
-                result.error.message if result.error else "ingestion failed"
-            )
+            raise IngestionError(result.error.message if result.error else "ingestion failed")
         return self.finalize_successful_record(
             result=result,
             file_name=file_name,
@@ -296,7 +290,7 @@ class Ingestor:
             tags=tags,
         )
 
-    async def finalize_successful_record(
+    async def finalize_successful_record(  # ruff: ignore[too-many-arguments] -- mirrors record_from_pipeline keyword surface
         self,
         *,
         result: Any,
@@ -322,7 +316,8 @@ class Ingestor:
         await self.uow.document_repo.save(record)
         return IngestionResult(document=record, chunks=list(record.chunks))
 
-    def extract_options(self, options: Any) -> tuple[str, list[str] | None, Classification]:
+    @staticmethod
+    def extract_options(options: Any) -> tuple[str, list[str] | None, Classification]:
         """Pull typed fields from the kwargs blob."""
         return (
             options.get("department", ""),
@@ -330,13 +325,14 @@ class Ingestor:
             options.get("classification", Classification.Internal),
         )
 
-    def cached_result(self, previous: Any) -> IngestionResult | None:
+    @staticmethod
+    def cached_result(previous: Any) -> IngestionResult | None:
         """Return the cached IngestionResult when the prior doc is READY."""
         if previous is not None and previous.status == DocumentLifecycleStatus.Ready:
             return IngestionResult(document=previous, chunks=list(previous.chunks))
         return None
 
-    async def run_pipeline(
+    async def run_pipeline(  # ruff: ignore[too-many-arguments] -- mirrors record_from_pipeline keyword surface
         self,
         *,
         file_bytes: bytes,
@@ -349,9 +345,7 @@ class Ingestor:
         classification: Classification,
     ) -> Any:
         """Run the configured Ingest pipeline and return the result."""
-        context = PipelineCtx(
-            pipeline_name="ingest", metadata={"user_id": owner.email}
-        )
+        context = PipelineCtx(pipeline_name="ingest", metadata={"user_id": owner.email})
         if self.make_pipeline is None:
             self.make_pipeline = self.build_pipeline()
         return await self.make_pipeline.run(
@@ -372,11 +366,7 @@ class Ingestor:
         """Persist the failed status on the previous document, if any."""
         if previous is None:
             return
-        error_message = (
-            result.error.message if result.error else None
-        ) or "ingestion failed"
+        error_message = (result.error.message if result.error else None) or "ingestion failed"
         previous.status = DocumentLifecycleStatus.Failed
-        previous.error = (
-            error_message if isinstance(error_message, str) else error_message.message
-        )
+        previous.error = error_message if isinstance(error_message, str) else error_message.message
         await self.uow.document_repo.save(previous)
