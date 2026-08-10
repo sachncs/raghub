@@ -28,8 +28,6 @@ from typing import ClassVar
 
 from fastapi import (
     FastAPI,
-    HTTPException,
-    Request,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
@@ -39,14 +37,13 @@ from raghub.constants import (
     API_RATE_LIMIT_BURST,
     API_RATE_LIMIT_RPS,
     ENV_CORS_ORIGINS,
-    HTTP_413_PAYLOAD_TOO_LARGE,
 )
-from raghub.runtime import capture
 from raghub.ingest import Batch
 from raghub.ratelimit import Ratelimit
 from raghub.routes import Exceptions, RouteGroup
 from raghub.routes._limits import check_size, content_length, enforce_limit
-from raghub.services import Facade, RagContainer
+from raghub.runtime import capture
+from raghub.services import Facade
 
 # ---------------------------------------------------------------------------
 # CORS
