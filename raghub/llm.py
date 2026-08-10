@@ -23,8 +23,16 @@ from typing import Any, Literal, Self
 
 import litellm
 
+from raghub.constants import (
+    ENV_ANTHROPIC_API_KEY,
+    ENV_AZURE_API_KEY,
+    ENV_COHERE_API_KEY,
+    ENV_LITELLM_API_KEY,
+    ENV_NVIDIA_API_KEY,
+    ENV_OPENAI_API_KEY,
+    ENV_VOYAGE_API_KEY,
+)
 from raghub.errors import ConfigurationError, GenerationError
-from raghub.constants import ENV_ANTHROPIC_API_KEY, ENV_AZURE_API_KEY, ENV_COHERE_API_KEY, ENV_LITELLM_API_KEY, ENV_NVIDIA_API_KEY, ENV_OPENAI_API_KEY, ENV_VOYAGE_API_KEY
 from raghub.models import Turn
 from raghub.retry import aretry, retry
 
@@ -217,7 +225,7 @@ class LiteLLM(Generator):
         downstream consumer manages to import this module without
         ``litellm`` installed.
         """
-        import litellm  # noqa: F401  # presence check
+        import litellm  # ruff: ignore[unused-import]  # presence check
 
     @staticmethod
     def build_messages(request: GenerationRequest) -> list[dict[str, Any]]:
@@ -250,9 +258,7 @@ class LiteLLM(Generator):
             messages.append({"role": "system", "content": f"Context:\n{formatted_context}"})
 
         if request.image_paths:
-            human_content: list[dict[str, Any]] = [
-                {"type": "text", "text": request.question}
-            ]
+            human_content: list[dict[str, Any]] = [{"type": "text", "text": request.question}]
             for path in request.image_paths:
                 with open(path, "rb") as f:
                     encoded = base64.b64encode(f.read()).decode("utf-8")
@@ -398,9 +404,7 @@ class LiteLLM(Generator):
             yield content
         # After consumption, last_usage is set in _consume_stream.
 
-    async def _consume_stream(
-        self, response: Any
-    ) -> AsyncIterator[str]:
+    async def _consume_stream(self, response: Any) -> AsyncIterator[str]:
         """Yield content chunks while tracking token usage; set last_usage on exit."""
         prompt_tokens = 0
         completion_tokens = 0
@@ -448,9 +452,7 @@ class LiteLLM(Generator):
             options["timeout"] = self.timeout_seconds
         return options
 
-    async def _iter_stream_chunks(
-        self, response: Any
-    ) -> AsyncIterator[str]:
+    async def _iter_stream_chunks(self, response: Any) -> AsyncIterator[str]:
         """Yield content chunks while tracking token usage.
 
         Returns an async iterator of content deltas; the final token
@@ -493,9 +495,7 @@ class LiteLLM(Generator):
         if isinstance(usage, dict):
             return (
                 usage.get("prompt_tokens") or usage.get("input_tokens") or prompt_tokens,
-                usage.get("completion_tokens")
-                or usage.get("output_tokens")
-                or completion_tokens,
+                usage.get("completion_tokens") or usage.get("output_tokens") or completion_tokens,
             )
         return (
             getattr(usage, "prompt_tokens", 0) or prompt_tokens,
