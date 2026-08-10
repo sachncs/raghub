@@ -152,7 +152,7 @@ def chunk_section_metadata(file_bytes: bytes, mime_type: str) -> dict[str, Any]:
     return metadata
 
 
-def build_chunks_for_section(
+def build_chunks_for_section(  # ruff: ignore[too-many-arguments] -- flattens per-section Chunk fields; already keyword-only
     *,
     text: str,
     section_index: int,
