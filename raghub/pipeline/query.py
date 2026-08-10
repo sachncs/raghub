@@ -8,7 +8,6 @@ this module can stay focused on orchestration.
 """
 
 from __future__ import annotations
-from loguru import logger
 
 from collections.abc import AsyncIterator
 from typing import Any, cast
@@ -27,7 +26,6 @@ from raghub.models import (
     Turn,
     VectorStore,
 )
-from raghub.pipeline.span_support import DurationTimer, QueryContext, coerce_to_awaitable
 from raghub.pipeline.query_helpers import (
     annotate_span,
     annotate_stream,
@@ -43,8 +41,8 @@ from raghub.pipeline.query_helpers import (
     triggers_agent,
     user_filter,
 )
+from raghub.pipeline.span_support import DurationTimer, QueryContext, coerce_to_awaitable
 from raghub.telemetry import NoOpTelemetry
-
 
 
 class QueryPipeline(PipelineRunner):
