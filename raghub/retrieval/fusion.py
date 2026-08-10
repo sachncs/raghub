@@ -53,22 +53,27 @@ class Fusion:
         linear_scores: dict[str, float] = {}
         records_linear: dict[str, dict[str, Any]] = {}
         for ranking in lists:
-            maximum = max((float(item.get("score", 0)) for scored_record in ranking), default=0.0) or 1.0
+            maximum = max(
+                (float(scored_record.get("score", 0)) for scored_record in ranking),
+                default=0.0,
+            ) or 1.0
             for scored_record in ranking:
-                key = item["chunk_id"]
+                key = scored_record["chunk_id"]
                 if not isinstance(key, str):
                     raise ValueError(f"chunk_id must be str, got {type(key).__name__}")
                 linear_scores[key] = (
-                    linear_scores.get(key, 0.0) + float(item.get("score", 0)) / maximum
+                    linear_scores.get(key, 0.0) + float(scored_record.get("score", 0)) / maximum
                 )
-                records_linear.setdefault(key, item)
+                records_linear.setdefault(key, scored_record)
         return [
             records_linear[key] | {"score": score}
             for key, score in sorted(linear_scores.items(), key=lambda x: x[1], reverse=True)
         ]
 
 
-def reciprocal_rank_fusion(rankings: Sequence[Sequence[str]], *, k: int = 60) -> list[tuple[str, float]]:
+def reciprocal_rank_fusion(
+    rankings: Sequence[Sequence[str]], *, k: int = 60
+) -> list[tuple[str, float]]:
     """Fuse ordered chunk-id rankings with reciprocal rank fusion.
 
     Args:
