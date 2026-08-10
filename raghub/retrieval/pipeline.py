@@ -18,7 +18,6 @@ from raghub.retrieval.types import Rerank, Variant
 if TYPE_CHECKING:
     from raghub.config import HybridConfig
     from raghub.models import VectorStore
-
     from raghub.retrieval.colbert import Colbert
 
 
@@ -37,9 +36,9 @@ class Retrieval:
         self,
         *,
         embedding_provider: Embedder,
-        vector_store: "VectorStore",
+        vector_store: VectorStore,
         rerank: Rerank,
-        hybrid: "HybridConfig | None" = None,
+        hybrid: HybridConfig | None = None,
     ) -> None:
         """Wire the pipeline to its collaborators.
 
@@ -200,7 +199,7 @@ class Retrieval:
         user: User,
         question: str,
         top_k: int,
-        colbert: "Colbert | None" = None,
+        colbert: Colbert | None = None,
     ) -> list[Hit]:
         """Three-channel hybrid retrieval (dense + sparse + optional ColBERT)."""
         dense = self.retrieve(user=user, question=question, top_k=top_k)
