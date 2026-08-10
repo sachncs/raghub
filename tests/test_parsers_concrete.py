@@ -290,6 +290,7 @@ def test_image_parse_raises_missing_dep_when_pil_missing() -> None:
 
 def test_office_docx_returns_single_section() -> None:
     """DOCX files produce one section with paragraphs joined by newlines."""
+
     class _Para:
         text = "Hello"
 
@@ -317,6 +318,7 @@ def test_office_docx_returns_single_section() -> None:
 
 def test_office_xlsx_returns_one_section_per_worksheet() -> None:
     """XLSX files produce one section per worksheet with rows joined by ' | '."""
+
     class _Row:
         def __init__(self, values: tuple[Any, ...]) -> None:
             self._values = values
@@ -358,6 +360,7 @@ def test_office_xlsx_returns_one_section_per_worksheet() -> None:
 
 def test_office_pptx_returns_one_section_per_slide() -> None:
     """PPTX files produce one section per slide."""
+
     class _Shape:
         text = "Slide text"
 
