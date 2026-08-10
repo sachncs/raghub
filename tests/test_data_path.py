@@ -81,7 +81,7 @@ def test_bytes_round_trip_to_answer(rag: RAG) -> None:
     rag.ingest(text, source_uri="mem://test/round-trip")
 
     store = rag.vector_store
-    assert store is not None, f"store should be set by test setup"
+    assert store is not None, "store should be set by test setup"
     assert store.health()["chunks"] >= 1
 
     response = rag.query("revenue")
@@ -100,7 +100,7 @@ def test_chunk_checksum_round_trip(rag: RAG) -> None:
     rag.ingest(body, source_uri="mem://test/checksum")
 
     store = rag.vector_store
-    assert store is not None, f"store should be set by test setup"
+    assert store is not None, "store should be set by test setup"
     chunks = list(store.records.values())
     assert chunks
     for record in chunks:
@@ -119,7 +119,7 @@ def test_wordchunker_produces_valid_chunks() -> None:
 def test_reingest_dedup_by_checksum(rag: RAG) -> None:
     """Ingesting the same payload twice produces one canonical chunk."""
     store = rag.vector_store
-    assert store is not None, f"store should be set by test setup"
+    assert store is not None, "store should be set by test setup"
     payload = b"abc-def-ghi-jkl" * 40
     rag.ingest(payload, source_uri="mem://dup")
     after_first = store.health()["chunks"]
