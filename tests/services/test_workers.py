@@ -54,6 +54,7 @@ def test_thread_pool_runs_concurrently() -> None:
 
     pool = ThreadPool(max_workers=4)
     try:
+
         def sleep_then_double(x: int) -> int:
             time.sleep(0.05)
             return x * 2
