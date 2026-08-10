@@ -18,15 +18,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Protocol
 
-import aiosqlite
-
 from raghub.models import (
     Chunk,
     Document,
     Session,
-    Turn,
 )
-from raghub.types import JSONValue
 
 __all__ = [
     "ChunkRepository",
@@ -73,9 +69,7 @@ class ChunkRepository(ABC):
         """Return the chunk with ``chunk_id`` or ``None``."""
 
     @abstractmethod
-    async def list_by_document(
-        self, document_id: str, version: int | None = None
-    ) -> list[Chunk]:
+    async def list_by_document(self, document_id: str, version: int | None = None) -> list[Chunk]:
         """Return every chunk for ``document_id`` (optionally at ``version``)."""
 
     @abstractmethod
@@ -91,9 +85,7 @@ class ChunkRepository(ABC):
         """Remove every chunk for ``document_id``."""
 
     @abstractmethod
-    async def search_by_metadata(
-        self, filters: dict[str, Any], *, limit: int = 100
-    ) -> list[Chunk]:
+    async def search_by_metadata(self, filters: dict[str, Any], *, limit: int = 100) -> list[Chunk]:
         """Return chunks whose metadata matches ``filters``."""
 
 
