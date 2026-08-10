@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from raghub.services.container import RagContainer
 
 
-def emit_log(container: "RagContainer", message: str, **payload: JSONValue) -> None:
+def emit_log(container: RagContainer, message: str, **payload: JSONValue) -> None:
     """Emit a structured log event via the container's logger."""
     logger = getattr(container, "logger", None)
     log_method = getattr(logger, "info", None) if logger else None
@@ -40,7 +40,7 @@ def emit_log(container: "RagContainer", message: str, **payload: JSONValue) -> N
         log_method(message, extra=payload)
 
 
-def emit_metric(container: "RagContainer", name: str, started_at: float) -> None:
+def emit_metric(container: RagContainer, name: str, started_at: float) -> None:
     """Record a latency metric given a ``perf_counter`` start time."""
     metrics = getattr(container, "metrics", None)
     recorder = getattr(metrics, "record_latency", None) if metrics else None
@@ -126,7 +126,7 @@ def parse_users(raw: str) -> Any:
     return json_import.loads(raw)
 
 
-async def seed_demo_users(user_store: "SqliteUsers") -> None:
+async def seed_demo_users(user_store: SqliteUsers) -> None:
     """Seed demo users from ``RAGHUB_USERS`` or the default list."""
     users_env = os.getenv(ENV_RAGHUB_USERS, "").strip()
     if users_env:
@@ -172,7 +172,7 @@ async def seed_demo_users(user_store: "SqliteUsers") -> None:
 def build_models(
     settings: Settings,
     vector_store: Store,
-    uow: "UnitOfWork",
+    uow: UnitOfWork,
     nvidia_api_key: str,
 ) -> tuple[Any, ...]:
     """Build the LLM, embedding, retrieval, and document collaborators."""
@@ -210,7 +210,7 @@ def build_models(
     )
 
 
-def __build_conversation(uow: "UnitOfWork") -> Any:
+def __build_conversation(uow: UnitOfWork) -> Any:
     """Construct a :class:`ConversationHistory` bound to ``uow``."""
     from raghub.conv import ConversationHistory
 
