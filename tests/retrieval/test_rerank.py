@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -102,7 +101,10 @@ def test_cohere_rerank_reorders_by_client_result(monkeypatch: pytest.MonkeyPatch
     class StubCohereResponse:
         results = [StubCohereResult(2), StubCohereResult(0), StubCohereResult(1)]
 
-    monkeypatch.setattr("cohere.Client", lambda api_key: MagicMock(rerank=MagicMock(return_value=StubCohereResponse())))
+    monkeypatch.setattr(
+        "cohere.Client",
+        lambda api_key: MagicMock(rerank=MagicMock(return_value=StubCohereResponse())),
+    )
     cohere = Cohere(api_key="sk-test")
     ordered = cohere.rerank(question="q", hits=hits)
     assert [h.chunk.id for h in ordered] == ["c3", "c1", "c2"]
@@ -118,9 +120,16 @@ def test_cohere_score_skips_out_of_range_indices(monkeypatch: pytest.MonkeyPatch
             self.index = index
 
     class StubCohereResponse:
-        results = [StubCohereResult(0), StubCohereResult(99), StubCohereResult(1)]  # 99 is out of range
+        results = [
+            StubCohereResult(0),
+            StubCohereResult(99),
+            StubCohereResult(1),
+        ]  # 99 is out of range
 
-    monkeypatch.setattr("cohere.Client", lambda api_key: MagicMock(rerank=MagicMock(return_value=StubCohereResponse())))
+    monkeypatch.setattr(
+        "cohere.Client",
+        lambda api_key: MagicMock(rerank=MagicMock(return_value=StubCohereResponse())),
+    )
     cohere = Cohere(api_key="sk-test")
     ordered = cohere.score("q", hits)
     assert [h.chunk.id for h in ordered] == ["c1", "c2"]
