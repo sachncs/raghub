@@ -151,9 +151,7 @@ def test_build_messages_returns_expected_keys() -> None:
 
 def test_build_messages_preserves_question_under_tight_budget() -> None:
     """The question is always emitted, even when the budget is exhausted."""
-    builder = Prompt(
-        config=PromptConfig(max_tokens=10, reserved_output_tokens=5)
-    )
+    builder = Prompt(config=PromptConfig(max_tokens=10, reserved_output_tokens=5))
     payload = builder.build_messages(
         question="q",
         context=[{"text": " ".join(f"w{i}" for i in range(50))}],
@@ -226,9 +224,7 @@ def test_build_messages_no_args() -> None:
 
 def test_build_messages_uses_custom_system_prompt() -> None:
     """A custom ``system_prompt`` from config is used verbatim."""
-    config = PromptConfig(
-        system_prompt="be terse", max_tokens=4096, reserved_output_tokens=512
-    )
+    config = PromptConfig(system_prompt="be terse", max_tokens=4096, reserved_output_tokens=512)
     builder = Prompt(config=config)
     payload = builder.build_messages(question="q")
     assert payload["system"] == "be terse"
