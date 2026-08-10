@@ -27,22 +27,24 @@ The public names are re-exported here so existing imports —
 from __future__ import annotations
 
 from raghub.pipeline.agent import AgentPipeline
-from raghub.pipeline.pipeline_assembly import Flow, PipelineBuilder
 from raghub.pipeline.cache import Cache
+from raghub.pipeline.ingest import Ingest
+from raghub.pipeline.pipeline_assembly import Flow, PipelineBuilder
+from raghub.pipeline.query import QueryPipeline
+from raghub.pipeline.router import Router
 from raghub.pipeline.span_support import (
     DurationTimer,
     IngestResolvedMetadata,
     QueryContext,
-    coerce_to_awaitable,
-    coerce_to_awaitable as awaitable,  # deprecated alias
     canonical_filters,
+    coerce_to_awaitable,
     get_chunks,
     primary_company,
     sha256_checksum,
 )
-from raghub.pipeline.ingest import Ingest
-from raghub.pipeline.query import QueryPipeline
-from raghub.pipeline.router import Router
+from raghub.pipeline.span_support import (
+    coerce_to_awaitable as awaitable,  # deprecated alias
+)
 
 __all__ = [
     "AgentPipeline",
@@ -56,8 +58,8 @@ __all__ = [
     "QueryPipeline",
     "Router",
     "awaitable",
-    "coerce_to_awaitable",
     "canonical_filters",
+    "coerce_to_awaitable",
     "get_chunks",
     "primary_company",
     "sha256_checksum",
