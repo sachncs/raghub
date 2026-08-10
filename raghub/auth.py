@@ -290,9 +290,7 @@ class SqliteUsers:
             return None
         return json.loads(row[0])
 
-    async def set_pref(
-        self, user_id: str, key: str, value: JSONValue
-    ) -> None:
+    async def set_pref(self, user_id: str, key: str, value: JSONValue) -> None:
         """Upsert a single preference.
 
         Args:
@@ -442,7 +440,7 @@ class AuthService:
 
     """
 
-    def __init__(self, container: "RagContainer") -> None:
+    def __init__(self, container: RagContainer) -> None:
         """Store the container reference.
 
         Args:
