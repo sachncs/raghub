@@ -98,9 +98,7 @@ def _html_to_text(html: str) -> str:
         return ""
     soup = BeautifulSoup(html, "lxml")
     target = soup.find("main") or soup.find("body") or soup
-    for tag in target.find_all(
-        ["script", "style", "sup", "table.infobox"]
-    ):
+    for tag in target.find_all(["script", "style", "sup", "table.infobox"]):
         tag.decompose()
     text = target.get_text(separator="\n", strip=True)
     return unicodedata.normalize("NFKC", text)
@@ -131,6 +129,7 @@ async def fetch_corpus(corpus_dir: Path, *, force: bool = False) -> None:
         headers={"User-Agent": "raghub-frames-pipeline/1.0"},
         follow_redirects=True,
     ) as client:
+
         async def bound(u: str) -> tuple[str, bool]:
             async with sem:
                 return await _fetch_one(client, u, corpus_dir)
@@ -213,9 +212,7 @@ async def _run_pipeline(
     return [_result_to_dict(r) for r in results]
 
 
-async def _judge_faithfulness(
-    rag: RAG, rows: list[dict[str, Any]], results: list[Any]
-) -> None:
+async def _judge_faithfulness(rag: RAG, rows: list[dict[str, Any]], results: list[Any]) -> None:
     """Optional LLM-as-a-judge faithfulness pass.
 
     Skipped by default; the devtools CLI enables it with
@@ -248,8 +245,8 @@ async def _judge_faithfulness(
         if not predicted:
             continue
         verdict = await judge_one(predicted, row["question"], "")
-        result.metrics["llm_judgement"] = 0.0 if "UNSUPPORTED" in verdict else (
-            0.5 if "PARTIAL" in verdict else 1.0
+        result.metrics["llm_judgement"] = (
+            0.0 if "UNSUPPORTED" in verdict else (0.5 if "PARTIAL" in verdict else 1.0)
         )
 
 
@@ -279,13 +276,15 @@ def _print_table(rows: list[dict[str, Any]]) -> None:
         values = sorted(r["metrics"].get(k, 0.0) for r in rows)
         if not values:
             continue
-        summary.append([
-            k,
-            f"{statistics.mean(values):.3f}",
-            f"{statistics.median(values):.3f}",
-            f"{values[len(values) // 4]:.3f}",
-            f"{values[3 * len(values) // 4]:.3f}",
-        ])
+        summary.append(
+            [
+                k,
+                f"{statistics.mean(values):.3f}",
+                f"{statistics.median(values):.3f}",
+                f"{values[len(values) // 4]:.3f}",
+                f"{values[3 * len(values) // 4]:.3f}",
+            ]
+        )
     widths = [max(len(row[i]) for row in summary) for i in range(len(headers))]
     print()
     for line in summary:
@@ -302,9 +301,7 @@ async def _run_main(args: argparse.Namespace) -> int:
     print(f"\nFRAMES results ({len(rows)} questions):\n")
     _print_table(rows)
     if args.json:
-        Path(args.json).write_text(
-            json.dumps(rows, indent=2, default=str), encoding="utf-8"
-        )
+        Path(args.json).write_text(json.dumps(rows, indent=2, default=str), encoding="utf-8")
     return 0
 
 
@@ -324,11 +321,14 @@ def main() -> None:
         help="Pre-download the union of FRAMES Wikipedia URLs into a corpus dir.",
     )
     p_fetch.add_argument(
-        "--corpus-dir", type=str, default="/tmp/frames_corpus",
+        "--corpus-dir",
+        type=str,
+        default="/tmp/frames_corpus",
         help="Output directory for the downloaded Wikipedia pages.",
     )
     p_fetch.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Re-download every URL even if the local copy exists.",
     )
 
@@ -337,23 +337,32 @@ def main() -> None:
         help="Ingest the corpus and run the FRAMES eval end-to-end.",
     )
     p_run.add_argument(
-        "--corpus-dir", type=str, default="/tmp/frames_corpus",
+        "--corpus-dir",
+        type=str,
+        default="/tmp/frames_corpus",
         help="Directory holding the pre-fetched Wikipedia pages.",
     )
     p_run.add_argument(
-        "--examples", type=int, default=0,
+        "--examples",
+        type=int,
+        default=0,
         help="Number of FRAMES examples (0 = all 824).",
     )
     p_run.add_argument(
-        "--max-workers", type=int, default=4,
+        "--max-workers",
+        type=int,
+        default=4,
         help="ProcessPoolExecutor workers for the corpus ingest.",
     )
     p_run.add_argument(
-        "--with-judge", action="store_true",
+        "--with-judge",
+        action="store_true",
         help="Run an LLM-as-a-judge faithfulness pass on top of the deterministic one.",
     )
     p_run.add_argument(
-        "--json", type=str, default=None,
+        "--json",
+        type=str,
+        default=None,
         help="Optional path to write per-question results as JSON.",
     )
 
