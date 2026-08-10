@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from raghub.runtime import capture
 from raghub.errors import KnowledgeError
 from raghub.models import (
     BlockKind,
@@ -19,6 +18,7 @@ from raghub.models import (
     DocumentSection,
     KnowledgeRepository,
 )
+from raghub.runtime import capture
 
 OKF_SCHEMA_VERSION = "0.1"
 
@@ -97,9 +97,7 @@ def parse_okf_payload(payload: dict[str, Any] | str) -> dict[str, Any]:
     if isinstance(payload, str):
         parsed, _ = capture(json.loads, payload)
         if not isinstance(parsed, dict):
-            raise KnowledgeError(
-                f"Invalid OKF JSON: expected dict, got {type(parsed).__name__}"
-            )
+            raise KnowledgeError(f"Invalid OKF JSON: expected dict, got {type(parsed).__name__}")
         payload = parsed
     if not isinstance(payload, dict):
         raise KnowledgeError("OKF payload must be a dict")
