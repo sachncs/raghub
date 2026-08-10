@@ -85,7 +85,11 @@ class IngestMixin:
                 results: list[Pipeline] = []
                 iterator = tqdm(files, desc="Ingesting", unit="file")
                 for child in iterator:
-                    results.append(self.ingest(child, metadata=options.get("metadata"), user=options.get("user")))
+                    results.append(
+                        self.ingest(
+                            child, metadata=options.get("metadata"), user=options.get("user")
+                        )
+                    )
                 return Pipeline(
                     pipeline_id="batch",
                     pipeline_name="ingest",
@@ -146,9 +150,7 @@ class IngestMixin:
         if isinstance(source, (str, Path)):
             p = Path(source)
             if p.is_dir():
-                return await self.ingest_directory(
-                    p, options.get("metadata"), options.get("user")
-                )
+                return await self.ingest_directory(p, options.get("metadata"), options.get("user"))
             file_bytes = p.read_bytes()
             uri = str(p.resolve())
         else:
@@ -246,20 +248,14 @@ class IngestMixin:
         n_workers = max(1, min(max_workers or os.cpu_count() or 4, len(files)))
         settings_path = self.settings_path()
         embedder_signature = (self.embedder.model_name, self.embedder.dimension)
-        with ProcessPoolExecutor(
-            max_workers=n_workers, mp_context=mp.get_context("spawn")
-        ) as pool:
+        with ProcessPoolExecutor(max_workers=n_workers, mp_context=mp.get_context("spawn")) as pool:
             futures = [
-                pool.submit(
-                    ingest_one_worker, settings_path, str(p), metadata, embedder_signature
-                )
+                pool.submit(ingest_one_worker, settings_path, str(p), metadata, embedder_signature)
                 for p in files
             ]
             return [f.result() for f in futures]
 
-    def collect_worker_results(
-        self, files: list[Path], worker_outputs: list[Any]
-    ) -> Pipeline:
+    def collect_worker_results(self, files: list[Path], worker_outputs: list[Any]) -> Pipeline:
         """Insert each worker's chunks into the shared store and return a Pipeline."""
         vector_store = getattr(self, "vector_store", None)
         for chunks, vectors in worker_outputs:
@@ -339,7 +335,7 @@ class IngestMixin:
                 )
         return result
 
-    def delete(self, document_id: str) -> None:
+    def delete(self, document_id: str) -> None:  # ruff: ignore[too-many-branches] -- fans out to vector/knowledge/raptor/graph stores
         """Delete a document and all of its chunks.
 
         Accepts either a bundle id (the deterministic
@@ -403,15 +399,12 @@ class IngestMixin:
         """
         file_bytes, uri = self.resolve_ingest_source(source, source_uri)
         if self.persistent_queue is not None:
-            return self.submit_to_persistent_queue(
-                file_bytes, uri, mime_type, metadata, user
-            )
-        return self.submit_to_resumable(
-            file_bytes, uri, mime_type, metadata, user
-        )
+            return self.submit_to_persistent_queue(file_bytes, uri, mime_type, metadata, user)
+        return self.submit_to_resumable(file_bytes, uri, mime_type, metadata, user)
 
+    @staticmethod
     def resolve_ingest_source(
-        self, source: str | Path | bytes, source_uri: str | None
+        source: str | Path | bytes, source_uri: str | None
     ) -> tuple[bytes, str]:
         """Return ``(file_bytes, uri)`` for an ingest source (path or bytes)."""
         if isinstance(source, (str, Path)):
@@ -458,13 +451,10 @@ class IngestMixin:
                 content_hash=content_hash,
             )
             for job in existing_jobs:
-                if (
-                    job.payload.get("content_hash") == content_hash
-                    and job.status in (
-                        JobStatus.Pending,
-                        JobStatus.Running,
-                    )
-                ):
+                if job.payload.get("content_hash") == content_hash and job.status in {
+                    JobStatus.Pending,
+                    JobStatus.Running,
+                }:
                     return job.id
             return await queue.submit(
                 kind="ingest",
