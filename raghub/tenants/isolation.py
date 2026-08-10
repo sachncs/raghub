@@ -57,9 +57,7 @@ class TenantContext:
     isolation: Isolation = Isolation.RowLevel
 
 
-_tenant_context: ContextVar[TenantContext | None] = ContextVar(
-    "_tenant_context", default=None
-)
+_tenant_context: ContextVar[TenantContext | None] = ContextVar("_tenant_context", default=None)
 
 
 def current() -> TenantContext | None:
@@ -78,8 +76,7 @@ def reset(token: Any) -> None:
 
 
 def require_tenant() -> TenantContext:
-    """Return the current tenant context or raise
-    :class:`AuthorizationError`.
+    """Return the current tenant context or raise :class:`AuthorizationError`.
 
     Under :attr:`Isolation.SchemaPerTenant` and
     :attr:`Isolation.DatabasePerTenant`, every storage
@@ -108,7 +105,8 @@ class RowLevel:
       :class:`PgVectorStore`).
     """
 
-    def apply_to_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+    @staticmethod
+    def apply_to_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
         """Return ``kwargs`` with a ``tenant_id`` key when set."""
         context = _tenant_context.get()
         if context is None:
@@ -117,8 +115,8 @@ class RowLevel:
         kwargs.setdefault("tenant_id", context.tenant_id)
         return kwargs
 
+    @staticmethod
     def filter_query(
-        self,
         *,
         column: str = "tenant_id",
         operator: str = "=",
@@ -153,6 +151,7 @@ class SchemaPerTenant:
     """
 
     def __init__(self, dsn: str) -> None:
+        """Store the Postgres DSN used to open per-tenant connections."""
         self.dsn = dsn
 
     async def ensure_schema(self, tenant_id: str) -> None:
@@ -183,6 +182,7 @@ class DatabasePerTenant:
     """
 
     def __init__(self, tenants: TenantRegistry) -> None:
+        """Store the registry used to resolve per-tenant DSNs."""
         self.tenants = tenants
 
     async def connection_for(self, tenant_id: str) -> Any:
@@ -224,6 +224,7 @@ class TenantRegistry:
     """
 
     def __init__(self, entries: dict[str, dict[str, Any]] | None = None) -> None:
+        """Copy ``entries`` into the in-memory tenant map."""
         self.entries: dict[str, dict[str, Any]] = dict(entries or {})
 
     def get(self, tenant_id: str) -> dict[str, Any]:
@@ -250,9 +251,12 @@ class TenantSecretCipher:
     """
 
     def __init__(self, db_path: str) -> None:
+        """Store the SQLite path backing the encrypted-secrets table."""
         self.db_path = db_path
 
-    def fernet(self) -> Any:
+    @staticmethod
+    def fernet() -> Any:
+        """Return a Fernet cipher built from ``RAGHUB_TENANT_SECRETS_KEY``."""
         try:
             from cryptography.fernet import Fernet
         except ImportError as exc:
@@ -264,8 +268,7 @@ class TenantSecretCipher:
         if not key:
             raise MissingDepError(
                 ENV_RAGHUB_TENANT_SECRETS_KEY,
-                "set RAGHUB_TENANT_SECRETS_KEY to a Fernet key "
-                "(Fernet.generate_key()).",
+                "set RAGHUB_TENANT_SECRETS_KEY to a Fernet key (Fernet.generate_key()).",
             )
         return Fernet(key.encode("utf-8") if isinstance(key, str) else key)
 
@@ -285,8 +288,7 @@ class TenantSecretCipher:
         """Return the decrypted secret or ``None`` when absent."""
         with sqlite3.connect(self.db_path) as conn:
             row = conn.execute(
-                "SELECT value FROM raghub_tenant_secrets "
-                "WHERE tenant_id = ? AND key = ?",
+                "SELECT value FROM raghub_tenant_secrets WHERE tenant_id = ? AND key = ?",
                 (tenant_id, key),
             ).fetchone()
         if row is None:
@@ -358,24 +360,17 @@ def migrate_tenant_split(
     conn_src = sync_connect(asyncpg, source_dsn)
     conn_dst = sync_connect(asyncpg, target_dsn)
     try:
-        if (
-            from_strategy == Isolation.RowLevel
-            and to_strategy == Isolation.SchemaPerTenant
-        ):
+        if from_strategy == Isolation.RowLevel and to_strategy == Isolation.SchemaPerTenant:
             return migrate_row_to_schema(conn_src, conn_dst, tenant_id)
         if (
             from_strategy == Isolation.SchemaPerTenant
             and to_strategy == Isolation.DatabasePerTenant
         ):
             return migrate_schema_to_db(conn_src, conn_dst, tenant_id)
-        if (
-            from_strategy == Isolation.RowLevel
-            and to_strategy == Isolation.DatabasePerTenant
-        ):
+        if from_strategy == Isolation.RowLevel and to_strategy == Isolation.DatabasePerTenant:
             return migrate_row_to_db(conn_src, conn_dst, tenant_id)
         raise TenantMigrationError(
-            f"unsupported migration direction: "
-            f"{from_strategy.value} -> {to_strategy.value}"
+            f"unsupported migration direction: {from_strategy.value} -> {to_strategy.value}"
         )
     finally:
         conn_src.close()
@@ -383,7 +378,7 @@ def migrate_tenant_split(
 
 
 def sync_connect(asyncpg: Any, dsn: str) -> Any:
-    """Synchronously open a connection.
+    """Open a connection synchronously.
 
     Uses :func:`asyncio.run` under the hood. Production code should
     use the async API; this helper exists for the migration CLI.
@@ -415,9 +410,7 @@ def migrate_row_to_schema(src: Any, dst: Any, tenant_id: str | None) -> int:
             where = " WHERE tenant_id = $1"
             params = [tenant_id]
         # Discover tenants in the source table.
-        rows = await src.fetch(
-            f"SELECT DISTINCT tenant_id FROM raghub_chunks{where}", *params
-        )
+        rows = await src.fetch(f"SELECT DISTINCT tenant_id FROM raghub_chunks{where}", *params)
         copied = 0
         for row in rows:
             tid = row["tenant_id"]
@@ -425,9 +418,7 @@ def migrate_row_to_schema(src: Any, dst: Any, tenant_id: str | None) -> int:
             await dst.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
             await dst.execute(f'SET search_path TO "{schema}", public')
             await dst.execute(_DDL_SQL)
-            tenant_rows = await src.fetch(
-                "SELECT * FROM raghub_chunks WHERE tenant_id = $1", tid
-            )
+            tenant_rows = await src.fetch("SELECT * FROM raghub_chunks WHERE tenant_id = $1", tid)
             for tr in tenant_rows:
                 await dst.execute(
                     "INSERT INTO raghub_chunks "
@@ -472,9 +463,7 @@ def migrate_schema_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
             schemas = [row["schema_name"] for row in schema_rows]
         for schema in schemas:
             await dst.execute(_DDL_SQL)
-            rows = await src.fetch(
-                f'SELECT * FROM "{schema}".raghub_chunks'
-            )
+            rows = await src.fetch(f'SELECT * FROM "{schema}".raghub_chunks')
             for r in rows:
                 await dst.execute(
                     "INSERT INTO raghub_chunks "
@@ -515,9 +504,7 @@ def migrate_row_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
         if tenant_id is not None:
             where = " WHERE tenant_id = $1"
             params = [tenant_id]
-        rows = await src.fetch(
-            f"SELECT * FROM raghub_chunks{where}", *params
-        )
+        rows = await src.fetch(f"SELECT * FROM raghub_chunks{where}", *params)
         copied = 0
         for r in rows:
             await dst.execute(
