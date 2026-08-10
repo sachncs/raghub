@@ -21,9 +21,6 @@ and the CLI surface in :mod:`raghub.cli.main`.
 from __future__ import annotations
 
 from raghub.services.container import RagContainer, build_container
-from raghub.services.documents import Documents, get_doc, list_records
-from raghub.services.facade import RAG_FACADE_AVAILABLE, Facade
-from raghub.services.health import Health
 from raghub.services.diagnostics import (
     aggregate_status,
     build_models,
@@ -37,6 +34,9 @@ from raghub.services.diagnostics import (
     seed_demo_users,
     upload_record,
 )
+from raghub.services.documents import Documents, get_doc, list_records
+from raghub.services.facade import RAG_FACADE_AVAILABLE, Facade
+from raghub.services.health import Health
 from raghub.services.preference import Preference
 from raghub.services.query import Query
 from raghub.services.shutdown import Shutdown
