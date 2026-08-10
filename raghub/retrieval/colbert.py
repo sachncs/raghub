@@ -20,7 +20,7 @@ class Colbert:
 
     name = "colbert"
 
-    def __init__(self, config: "HybridConfig | None" = None) -> None:
+    def __init__(self, config: HybridConfig | None = None) -> None:
         """Initialise the adapter.
 
         Args:
