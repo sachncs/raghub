@@ -76,9 +76,7 @@ class TestHashingEmbeddingProvider:
         provider = FeatureHashingEmbedder(dimension=8)
         vec_x = provider.embed_text("x" * 100_000)
         vec_y = provider.embed_text("y" * 100_000)
-        assert vec_x != vec_y, (
-            "Long inputs with distinct characters must hash to distinct vectors"
-        )
+        assert vec_x != vec_y, "Long inputs with distinct characters must hash to distinct vectors"
 
     def test_embed_texts_returns_list_of_vectors(self) -> None:
         provider = FeatureHashingEmbedder(dimension=8)
