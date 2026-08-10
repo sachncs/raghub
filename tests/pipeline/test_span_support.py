@@ -172,4 +172,4 @@ def test_query_context_is_frozen() -> None:
         ctx.question = "other"  # type: ignore[misc]
 
 
-import pytest  # noqa: E402  (imported here for test ordering)
+import pytest  # ruff: ignore[module-import-not-at-top-of-file]  (imported here for test ordering)
