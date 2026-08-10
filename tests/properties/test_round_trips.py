@@ -177,7 +177,9 @@ def test_metrics_tokenize_idempotent(text: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-@given(strings=st.lists(st.text(min_size=1, max_size=8, alphabet="abcdefg"), min_size=1, max_size=4))
+@given(
+    strings=st.lists(st.text(min_size=1, max_size=8, alphabet="abcdefg"), min_size=1, max_size=4)
+)
 @settings(max_examples=20)
 def test_extract_strings_round_trip(strings: list[str]) -> None:
     """``extract_strings`` parses the JSON array form of ``strings``."""
