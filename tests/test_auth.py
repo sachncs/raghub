@@ -97,7 +97,7 @@ async def test_sqlite_users_create_and_get_by_email(users: SqliteUsers) -> None:
     assert record.password_hash.startswith("$2")
 
     found = await users.get_by_email("a@x.com")
-    assert found is not None, f"found should be set by test setup"
+    assert found is not None, "found should be set by test setup"
     assert found.user_id == record.user_id
 
 
@@ -126,7 +126,7 @@ async def test_sqlite_users_get_by_id_round_trip(users: SqliteUsers) -> None:
     """get_by_id finds the same record by its UUID."""
     created = await users.create_user(email="byid@x.com", password="pw")
     found = await users.get_by_id(created.user_id)
-    assert found is not None, f"found should be set by test setup"
+    assert found is not None, "found should be set by test setup"
     assert found.email == "byid@x.com"
 
 
@@ -141,7 +141,7 @@ async def test_sqlite_users_verify_password_success(users: SqliteUsers) -> None:
     """verify_password returns the record on a correct password."""
     await users.create_user(email="v@x.com", password="correct-password")
     verified = await users.verify_password("v@x.com", "correct-password")
-    assert verified is not None, f"verified should be set by test setup"
+    assert verified is not None, "verified should be set by test setup"
     assert verified.email == "v@x.com"
 
 
@@ -185,7 +185,7 @@ async def test_sqlite_users_prefs_round_trip(users: SqliteUsers) -> None:
     """set_pref/get_pref/get_prefs round-trip across scalars and dicts."""
     await users.create_user(email="pref@x.com", password="pw")
     store = await users.get_by_email("pref@x.com")
-    assert store is not None, f"store should be set by test setup"
+    assert store is not None, "store should be set by test setup"
     uid = store.user_id
 
     assert await users.get_pref(uid, "absent") is None
@@ -206,7 +206,7 @@ async def test_sqlite_users_set_prefs_bulk(users: SqliteUsers) -> None:
     """set_prefs writes many keys in one transaction; empty dict is a no-op."""
     await users.create_user(email="bulk@x.com", password="pw")
     record = await users.get_by_email("bulk@x.com")
-    assert record is not None, f"record should be set by test setup"
+    assert record is not None, "record should be set by test setup"
     uid = record.user_id
 
     await users.set_pref(uid, "existing", "old")
@@ -225,7 +225,7 @@ async def test_sqlite_users_delete_pref(users: SqliteUsers) -> None:
     """delete_pref removes the key; deleting again is a no-op."""
     await users.create_user(email="del@x.com", password="pw")
     record = await users.get_by_email("del@x.com")
-    assert record is not None, f"record should be set by test setup"
+    assert record is not None, "record should be set by test setup"
     uid = record.user_id
 
     await users.set_pref(uid, "k", "v")
@@ -470,7 +470,7 @@ async def test_auth_service_load_tool_settings_from_user_store(
     """When user_store exposes get_pref, load_tool_settings returns its dict."""
     await users.create_user(email="ts@x.com", password="pw")
     record = await users.get_by_email("ts@x.com")
-    assert record is not None, f"record should be set by test setup"
+    assert record is not None, "record should be set by test setup"
     await users.set_pref(record.user_id, "tool_settings", {"max_steps": 7})
     container = StubContainer(users)
     svc = AuthService(container)
