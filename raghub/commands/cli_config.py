@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -37,12 +38,13 @@ from raghub.constants import (
     DEFAULT_EMBEDDING_DIM,
     ENV_RAG_TENANT_DSNS,
 )
+from raghub.io import write_json as write_json_impl
+from raghub.rag import RAG
+
 # FeedbackCommand is re-exported from raghub.commands.__init__ but its
 # implementation lives in raghub.commands.feedback to avoid bloating this
 # module. No direct import needed here.
 from raghub.runtime import capture
-from raghub.io import write_json as write_json_impl
-from raghub.rag import RAG
 
 
 class CliConfig:
@@ -143,7 +145,7 @@ class ToolConfig:
         return asyncio.run(coro)
 
     @classmethod
-    def register(cls: type[Cli]) -> None:
+    def register(cls: type[ToolConfig]) -> None:
         """Attach every sub-command to ``cls.tools`` and wire ``cls.app``.
 
         Idempotent: subsequent calls are no-ops so :func:`main` can call
@@ -404,12 +406,8 @@ class QueueCommand:
             config: str | None = typer.Option(
                 None, "--config", "-c", help="Optional YAML/TOML config path."
             ),
-            status: str | None = typer.Option(
-                None, "--status", help="Filter by job status."
-            ),
-            tenant: str | None = typer.Option(
-                None, "--tenant", help="Filter by tenant id."
-            ),
+            status: str | None = typer.Option(None, "--status", help="Filter by job status."),
+            tenant: str | None = typer.Option(None, "--tenant", help="Filter by tenant id."),
             limit: int = typer.Option(100, "--limit", help="Maximum rows."),
         ) -> None:
             """List every queued job (optionally filtered)."""
@@ -484,9 +482,7 @@ class QueueCommand:
         @queue_app.command(name="retry")
         def retry_cmd(
             job_id: str = typer.Argument(..., help="Job id to retry."),
-            delay_seconds: int = typer.Option(
-                0, "--delay", help="Delay before re-running."
-            ),
+            delay_seconds: int = typer.Option(0, "--delay", help="Delay before re-running."),
             config: str | None = typer.Option(
                 None, "--config", "-c", help="Optional YAML/TOML config path."
             ),
@@ -530,11 +526,10 @@ class QueueCommand:
             typer.echo(f"removed {removed} job(s)")
 
 
-async def ingest_handler(job: Any, rag: Any, archive: Any, store: Any) -> None:
+async def ingest_handler(  # ruff: ignore[unused-async] -- Worker awaits its handlers
+    job: Any, rag: Any, archive: Any, store: Any
+) -> None:
     """Default queue handler: re-run ``RAG.ingest`` against the persisted payload."""
-    import asyncio
-    from pathlib import Path
-
     payload = job.payload
     source = payload["source"].encode("latin-1")
     source_uri = payload.get("source_uri", "bytes://queue")
@@ -574,12 +569,8 @@ class MigrateCommand:
 
         @migrate_app.command(name="tenant-split")
         def migrate_tenant_split(
-            from_strategy: str = typer.Option(
-                ..., "--from", help="Source isolation strategy."
-            ),
-            to_strategy: str = typer.Option(
-                ..., "--to", help="Target isolation strategy."
-            ),
+            from_strategy: str = typer.Option(..., "--from", help="Source isolation strategy."),
+            to_strategy: str = typer.Option(..., "--to", help="Target isolation strategy."),
             source_dsn: str = typer.Option(..., "--source-dsn", help="Source DSN."),
             target_dsn: str = typer.Option(..., "--target-dsn", help="Target DSN."),
             tenant_id: str | None = typer.Option(
@@ -650,7 +641,9 @@ class TenantCommand:
         def create_cmd(
             tenant_id: str = typer.Argument(..., help="Tenant id (regex-validated)."),
             dsn: str = typer.Option(..., "--dsn", help="Postgres DSN."),
-            vector_dim: int = typer.Option(DEFAULT_EMBEDDING_DIM, "--vector-dim", help="Vector dim."),
+            vector_dim: int = typer.Option(
+                DEFAULT_EMBEDDING_DIM, "--vector-dim", help="Vector dim."
+            ),
             config: str | None = typer.Option(
                 None, "--config", "-c", help="Optional YAML/TOML config path."
             ),
@@ -669,9 +662,7 @@ class TenantCommand:
         @tenant_app.command(name="delete")
         def delete_cmd(
             tenant_id: str = typer.Argument(..., help="Tenant id to delete."),
-            force: bool = typer.Option(
-                False, "--force", help="Delete even if data exists."
-            ),
+            force: bool = typer.Option(False, "--force", help="Delete even if data exists."),
             config: str | None = typer.Option(
                 None, "--config", "-c", help="Optional YAML/TOML config path."
             ),
@@ -709,9 +700,7 @@ class BackupCommand:
         @backup_app.command(name="create")
         def create_cmd(
             output: str = typer.Option(..., "--output", "-o", help="Archive path."),
-            tenant: str | None = typer.Option(
-                None, "--tenant", help="Limit to a single tenant."
-            ),
+            tenant: str | None = typer.Option(None, "--tenant", help="Limit to a single tenant."),
             config: str | None = typer.Option(
                 None, "--config", "-c", help="Optional YAML/TOML config path."
             ),
@@ -729,9 +718,7 @@ class BackupCommand:
         @backup_app.command(name="restore")
         def restore_cmd(
             input_path: str = typer.Option(..., "--input", "-i", help="Archive path."),
-            target_dir: str | None = typer.Option(
-                None, "--target-dir", help="Restore target."
-            ),
+            target_dir: str | None = typer.Option(None, "--target-dir", help="Restore target."),
             config: str | None = typer.Option(
                 None, "--config", "-c", help="Optional YAML/TOML config path."
             ),
@@ -805,10 +792,8 @@ def save_registry_entries(settings: Any, entries: dict[str, dict[str, Any]]) -> 
     """
     extra = dict(getattr(settings, "extra", None) or {})
     extra["_registry_entries"] = entries
-    try:
-        setattr(settings, "extra", extra)
-    except Exception:
-        pass
+    with suppress(Exception):
+        settings.extra = extra
 
 
 # Bind the tool-settings sub-commands onto the Typer sub-app at import time so
