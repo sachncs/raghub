@@ -10,11 +10,12 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 from raghub.errors import VerificationError
-from raghub.types import JSONValue
+from raghub.models.enums import UserKind
 
 __all__ = [
     "AuthLoginRequest",
@@ -46,13 +47,6 @@ def deterministic_id(*parts: str, length: int = 16) -> str:
 
 
 class User(BaseModel):
-    """Authenticated user principal.
-
-    Attributes:
-        type: UserKind discriminator (admin / standard).
-
-    """
-
     """Authenticated user principal.
 
     Attributes:
@@ -111,13 +105,6 @@ class Turn(BaseModel):
 
 
 class Session(BaseModel):
-    """Session metadata and isolated conversational history.
-
-    Attributes:
-        type: SessionKind discriminator.
-
-    """
-
     """Session metadata and isolated conversational history.
 
     Attributes:
