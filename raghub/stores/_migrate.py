@@ -7,12 +7,11 @@ and writes them into the SQLite-backed stores.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from tqdm import tqdm
 
 from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
-from raghub.stores import _conn, _documents, _images
+from raghub.stores import _conn, _documents
 
 __all__ = ["migrate_from_json"]
 
@@ -54,7 +53,9 @@ async def migrate_from_json(
     session_repo = repositories.SessionStore(db_path)
     await session_repo.initialize()
 
-    json_sessions = _conn.Sessions.json(Path(sessions_path), timeout_seconds=DEFAULT_SESSION_TIMEOUT_SECONDS)
+    json_sessions = _conn.Sessions.json(
+        Path(sessions_path), timeout_seconds=DEFAULT_SESSION_TIMEOUT_SECONDS
+    )
     for session in tqdm(
         list(json_sessions.sessions.values()),
         desc="Migrating sessions",
