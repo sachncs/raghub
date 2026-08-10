@@ -35,9 +35,7 @@ __all__ = [
 ]
 
 
-def capture(
-    call: Callable[..., Any], *args: Any, **kwargs: Any
-) -> tuple[Any, Exception | None]:
+def capture(call: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, Exception | None]:
     """Return a callable result and any raised exception.
 
     The callable's return type is intentionally ``Any`` rather than
