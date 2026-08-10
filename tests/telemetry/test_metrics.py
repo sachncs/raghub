@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from raghub.telemetry.metrics import NoOpTelemetry, NoopSpan
+from raghub.telemetry.metrics import NoopSpan, NoOpTelemetry
 
 
 def test_noop_span_records_name() -> None:
