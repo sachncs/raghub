@@ -189,9 +189,7 @@ class TestQueueConfig:
 
     def test_queue_config_constructor_override(self) -> None:
         """Constructor injection wins over defaults."""
-        settings = Settings(
-            queue=QueueConfig(backend="sqlite", max_inflight=1024)
-        )
+        settings = Settings(queue=QueueConfig(backend="sqlite", max_inflight=1024))
         assert settings.queue.backend == "sqlite"
         assert settings.queue.max_inflight == 1024
 
