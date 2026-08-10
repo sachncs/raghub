@@ -330,9 +330,7 @@ async def test_doc_store_as_record_round_trip() -> None:
     try:
         store = DocStore(":memory:", database_handle=mgr)
         await store.initialize()
-        doc = _make_document(
-            id="d1", tags=["a", "b"], chunks=["c1", "c2"], checksum="c1"
-        )
+        doc = _make_document(id="d1", tags=["a", "b"], chunks=["c1", "c2"], checksum="c1")
         await store.save(doc)
         cursor = await mgr.connection.execute(
             "SELECT * FROM documents WHERE document_id = ?", ("d1",)
@@ -377,7 +375,7 @@ async def test_session_store_create_and_load_round_trip(tmp_path: Path) -> None:
     sessions = Sessions(tmp_path / "sess.db", 3600)
     await sessions.initialize()
     loaded = await sessions.get_by_token("tok-x")
-    assert loaded is not None, f"loaded should be set by test setup"
+    assert loaded is not None, "loaded should be set by test setup"
     assert loaded.user_id == "alice"
 
 
@@ -391,7 +389,7 @@ async def test_session_store_create_from_record_preserves_history(tmp_path: Path
     sessions = Sessions(tmp_path / "sess.db", 3600)
     await sessions.initialize()
     loaded = await sessions.get_by_token("tok-y")
-    assert loaded is not None, f"loaded should be set by test setup"
+    assert loaded is not None, "loaded should be set by test setup"
     assert len(loaded.history) == 2
     assert loaded.history[0].question == "q1"
 
