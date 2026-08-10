@@ -13,12 +13,9 @@ from typing import Any
 from raghub.feedback import (
     Bm25BoostScorer,
     Feedback,
-    FeedbackStore,
     Rating,
-    SqliteFeedbackStore,
     VectorDownWeightScorer,
 )
-
 
 # ---------------------------------------------------------------------------
 # In-memory FeedbackStore stub for scorer tests
@@ -46,9 +43,7 @@ class InMemoryFeedbackStore:
     async def list_for_chunk(self, chunk_id: str) -> list[Feedback]:
         return [r for r in self.records if r.chunk_id == chunk_id]
 
-    async def list_for_tenant(
-        self, tenant_id: str, limit: int = 1000
-    ) -> list[Feedback]:
+    async def list_for_tenant(self, tenant_id: str, limit: int = 1000) -> list[Feedback]:
         return [r for r in self.records if r.tenant_id == tenant_id][:limit]
 
     async def delete(self, feedback_id: str) -> None:
@@ -116,10 +111,7 @@ class TestBm25BoostScorerBoost:
     def test_boost_with_positive_feedback_increases_score(self) -> None:
         """3 positive feedback rows boost score above 1.0."""
         store = InMemoryFeedbackStore(
-            records=[
-                _feedback("chunk_a", Rating.Positive, feedback_id=f"fb{i}")
-                for i in range(3)
-            ]
+            records=[_feedback("chunk_a", Rating.Positive, feedback_id=f"fb{i}") for i in range(3)]
         )
         scorer = Bm25BoostScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
@@ -128,10 +120,7 @@ class TestBm25BoostScorerBoost:
     def test_boost_with_negative_feedback_decreases_score(self) -> None:
         """2 negative feedback rows lower score below 1.0."""
         store = InMemoryFeedbackStore(
-            records=[
-                _feedback("chunk_b", Rating.Negative, feedback_id=f"fb{i}")
-                for i in range(2)
-            ]
+            records=[_feedback("chunk_b", Rating.Negative, feedback_id=f"fb{i}") for i in range(2)]
         )
         scorer = Bm25BoostScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
@@ -148,9 +137,7 @@ class TestBm25BoostScorerBoost:
 
     def test_boost_async_reads_live_store(self) -> None:
         """boost_async always reads the live store (no cache)."""
-        store = InMemoryFeedbackStore(
-            records=[_feedback("c", Rating.Positive, feedback_id="live")]
-        )
+        store = InMemoryFeedbackStore(records=[_feedback("c", Rating.Positive, feedback_id="live")])
         scorer = Bm25BoostScorer(store, tenant_id="acme")
         # No refresh() called; boost_async still sees the positive
         # feedback because it queries the store live.
@@ -172,35 +159,27 @@ class TestVectorDownWeightScorerBoost:
 
     def test_boost_with_negative_feedback_multiplies_score(self) -> None:
         """Negative feedback multiplies score by negative_factor (default 0.5)."""
-        store = InMemoryFeedbackStore(
-            records=[_feedback("c", Rating.Negative, feedback_id="n")]
-        )
+        store = InMemoryFeedbackStore(records=[_feedback("c", Rating.Negative, feedback_id="n")])
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
         assert scorer.boost("c", 1.0) == 0.5
 
     def test_boost_positive_feedback_does_not_multiply(self) -> None:
         """Positive feedback alone does not multiply score (algorithm design)."""
-        store = InMemoryFeedbackStore(
-            records=[_feedback("c", Rating.Positive, feedback_id="p")]
-        )
+        store = InMemoryFeedbackStore(records=[_feedback("c", Rating.Positive, feedback_id="p")])
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         asyncio.run(scorer.refresh())
         assert scorer.boost("c", 1.0) == 1.0
 
     def test_boost_custom_factor(self) -> None:
         """Custom negative_factor is honoured."""
-        store = InMemoryFeedbackStore(
-            records=[_feedback("c", Rating.Negative, feedback_id="n")]
-        )
+        store = InMemoryFeedbackStore(records=[_feedback("c", Rating.Negative, feedback_id="n")])
         scorer = VectorDownWeightScorer(store, tenant_id="acme", negative_factor=0.25)
         asyncio.run(scorer.refresh())
         assert scorer.boost("c", 1.0) == 0.25
 
     def test_boost_async_reads_live_store(self) -> None:
-        store = InMemoryFeedbackStore(
-            records=[_feedback("c", Rating.Negative, feedback_id="n")]
-        )
+        store = InMemoryFeedbackStore(records=[_feedback("c", Rating.Negative, feedback_id="n")])
         scorer = VectorDownWeightScorer(store, tenant_id="acme")
         result = asyncio.run(scorer.boost_async("c", 1.0))
         assert result == 0.5
