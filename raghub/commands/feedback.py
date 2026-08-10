@@ -31,15 +31,11 @@ class FeedbackCommand:
 
         @feedback_app.command(name="export")
         def export_cmd(
-            jsonl_path: str = typer.Option(
-                ..., "--jsonl", help="Output JSONL file path."
-            ),
+            jsonl_path: str = typer.Option(..., "--jsonl", help="Output JSONL file path."),
             config: str | None = typer.Option(
                 None, "--config", "-c", help="Optional YAML/TOML config path."
             ),
-            tenant: str | None = typer.Option(
-                None, "--tenant", help="Filter by tenant id."
-            ),
+            tenant: str | None = typer.Option(None, "--tenant", help="Filter by tenant id."),
         ) -> None:
             """Export every feedback record as JSONL to ``--jsonl``."""
             rag = CliConfig.make_rag(config)
@@ -64,9 +60,7 @@ class FeedbackCommand:
             config: str | None = typer.Option(
                 None, "--config", "-c", help="Optional YAML/TOML config path."
             ),
-            tenant: str | None = typer.Option(
-                None, "--tenant", help="Filter by tenant id."
-            ),
+            tenant: str | None = typer.Option(None, "--tenant", help="Filter by tenant id."),
         ) -> None:
             """Print aggregate feedback counts."""
             rag = CliConfig.make_rag(config)
