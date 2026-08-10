@@ -71,32 +71,8 @@ class SearchResponse(BaseModel):
     agent_trace: dict[str, Any] = Field(default_factory=dict)
 
 
-class DocumentBlock_(BaseModel):
-    """Deprecated local re-export shape for blocks."""
-
-
-class DocumentSection_(BaseModel):
-    """Deprecated local re-export shape for sections."""
-
-
 class DocumentAlias(Document):
     """Deprecated alias for :class:`Document`."""
-
-
-class ChunkAlias_(BaseModel):
-    """Deprecated local re-export shape for chunks."""
-
-
-class Embedding_(BaseModel):
-    """Deprecated local re-export shape for embeddings."""
-
-
-class Citation_(BaseModel):
-    """Deprecated local re-export shape for citations."""
-
-
-class Citations_(BaseModel):
-    """Deprecated wrapper for a list of citations."""
 
 
 class SearchResult(Hit):
@@ -113,10 +89,6 @@ class Query(SearchRequest):
 
 class Response(SearchResponse):
     """Canonical alias for :class:`SearchResponse`."""
-
-
-class Bundle_(BaseModel):
-    """Deprecated wrapper for an ingest result."""
 
 
 class PipelineCtx(BaseModel):
