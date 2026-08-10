@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from raghub.knowledge.graph import (
     extract_json_object,
-    tokenise,
     running_loop_present,
+    tokenise,
 )
 
 
