@@ -12,7 +12,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from raghub.constants import ENV_LANGFUSE_PUBLIC_KEY, ENV_LANGFUSE_SECRET_KEY
 from raghub.telemetry import (
     LangfuseTelemetryProvider,
     Logger,
