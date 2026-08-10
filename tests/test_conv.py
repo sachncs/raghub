@@ -226,8 +226,7 @@ def test_conversation_manager_append_default_metadata_is_empty_dict() -> None:
 
 def test_conversation_manager_load_returns_history() -> None:
     """``load`` returns the session's history."""
-    record = make_session(token="t1", history=[Turn(question="q1", answer="a1")]
-    )
+    record = make_session(token="t1", history=[Turn(question="q1", answer="a1")])
     uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     history = asyncio.run(manager.load("t1"))
@@ -252,8 +251,7 @@ def test_conversation_manager_clear_noop_for_unknown() -> None:
 
 def test_conversation_manager_clear_empties_history() -> None:
     """``clear`` empties the session's history and persists it."""
-    record = make_session(token="t1", history=[Turn(question="q", answer="a")]
-    )
+    record = make_session(token="t1", history=[Turn(question="q", answer="a")])
     uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     asyncio.run(manager.clear("t1"))
@@ -280,9 +278,8 @@ def test_conversation_manager_add_turn_noop_for_unknown_session() -> None:
 
 def test_conversation_manager_trim_history_with_explicit_budget() -> None:
     """An explicit ``max_tokens`` overrides the configured budget."""
-    record = make_session(session_id="sess-1", history=[
-            Turn(question=f"q{i}", answer=f"a{i}") for i in range(10)
-        ]
+    record = make_session(
+        session_id="sess-1", history=[Turn(question=f"q{i}", answer=f"a{i}") for i in range(10)]
     )
     uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow, max_tokens=10000)
