@@ -55,7 +55,7 @@ class LoguruSpan(Span):
     def __init__(
         self,
         name: str,
-        adapter: "Logger",
+        adapter: Logger,
         attributes: dict[str, Any],
     ) -> None:
         """Store the span's name and timing metadata."""
@@ -77,7 +77,7 @@ class LoguruSpan(Span):
 class LoguruTelemetryProvider(TelemetryProvider):
     """Telemetry provider that sinks through :mod:`loguru`."""
 
-    def __init__(self, adapter: "Logger | None" = None) -> None:
+    def __init__(self, adapter: Logger | None = None) -> None:
         """Build the provider with an optional adapter override."""
         self.adapter = adapter or Logger()
 
@@ -93,13 +93,13 @@ class LoguruTelemetryProvider(TelemetryProvider):
         """Emit an ``error``-level record."""
         self.adapter.error(message, **kwargs)
 
-    def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
+    @staticmethod
+    def record_latency(name: str, value_ms: float, **labels: Any) -> None:
         """No-op; Langfuse absorbs metric emission when configured."""
-        return None
 
-    def increment(self, name: str, value: int = 1, **labels: Any) -> None:
+    @staticmethod
+    def increment(name: str, value: int = 1, **labels: Any) -> None:
         """No-op; Langfuse absorbs metric emission when configured."""
-        return None
 
     def start_span(self, name: str, **attrs: Any) -> Span:
         """Open a new :class:`LoguruSpan`."""
