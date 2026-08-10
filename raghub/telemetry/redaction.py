@@ -16,8 +16,8 @@ from raghub.models import Span, TelemetryProvider
 from raghub.types import JSONValue
 
 __all__ = [
-    "RedactingTelemetry",
     "SECRET_KEY_RE",
+    "RedactingTelemetry",
     "redact_record",
     "scrub_secrets",
 ]
