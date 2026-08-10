@@ -7,7 +7,6 @@ import pytest
 from raghub.config import Settings
 from raghub.services.diagnostics import (
     aggregate_status,
-    build_models,
     emit_log,
     emit_metric,
     missing_doc,
