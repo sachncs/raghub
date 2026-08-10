@@ -69,9 +69,7 @@ def test_generate_uses_async_generate_when_available() -> None:
 
     llm.async_generate = _async_generate
     gen = DefaultGenerator(llm=llm)
-    answer = asyncio.run(
-        gen.generate(question="hi", context=[_hit("ctx")], conversation=[])
-    )
+    answer = asyncio.run(gen.generate(question="hi", context=[_hit("ctx")], conversation=[]))
     assert answer == "async-out"
 
 
@@ -84,9 +82,7 @@ def test_generate_uses_async_generate_with_timeout() -> None:
 
     llm.async_generate = _async_generate
     gen = DefaultGenerator(llm=llm, timeout_seconds=2.0)
-    answer = asyncio.run(
-        gen.generate(question="hi", context=[_hit("ctx")], conversation=[])
-    )
+    answer = asyncio.run(gen.generate(question="hi", context=[_hit("ctx")], conversation=[]))
     assert answer == "with-timeout"
 
 
@@ -95,9 +91,7 @@ def test_generate_falls_back_to_thread_when_no_async_generate() -> None:
     llm = MagicMock(spec=["generate"])
     llm.generate = MagicMock(return_value="thread-out")
     gen = DefaultGenerator(llm=llm)
-    answer = asyncio.run(
-        gen.generate(question="hi", context=[_hit("ctx")], conversation=[])
-    )
+    answer = asyncio.run(gen.generate(question="hi", context=[_hit("ctx")], conversation=[]))
     assert answer == "thread-out"
     llm.generate.assert_called_once()
 
@@ -112,9 +106,7 @@ def test_generate_handles_string_context_entries() -> None:
     llm.async_generate = _async_generate
     gen = DefaultGenerator(llm=llm)
     answer = asyncio.run(
-        gen.generate(
-            question="hi", context=["alpha", _hit("beta")], conversation=[]
-        )
+        gen.generate(question="hi", context=["alpha", _hit("beta")], conversation=[])
     )
     assert answer == "ctx=['alpha', 'beta']"
 
@@ -229,9 +221,7 @@ def test_astream_yields_from_provider_astream() -> None:
 
     async def _collect() -> list[str]:
         out: list[str] = []
-        async for piece in gen.astream(
-            question="hi", context=[_hit("ctx")], conversation=[]
-        ):
+        async for piece in gen.astream(question="hi", context=[_hit("ctx")], conversation=[]):
             out.append(piece)
         return out
 
@@ -254,9 +244,7 @@ def test_astream_filters_empty_pieces() -> None:
 
     async def _collect() -> list[str]:
         out: list[str] = []
-        async for piece in gen.astream(
-            question="hi", context=[_hit("ctx")], conversation=[]
-        ):
+        async for piece in gen.astream(question="hi", context=[_hit("ctx")], conversation=[]):
             out.append(piece)
         return out
 
@@ -372,9 +360,7 @@ def test_instructor_sync_client_lazy_loads(monkeypatch: pytest.MonkeyPatch) -> N
     provider = Instructor(model="gpt-4o-mini", async_client=False)
     assert provider.sync_instructor_client() is fake_client
     assert provider.sync_instructor_client() is fake_client  # cached
-    fake_instructor.from_provider.assert_called_once_with(
-        "litellm/gpt-4o-mini", async_client=False
-    )
+    fake_instructor.from_provider.assert_called_once_with("litellm/gpt-4o-mini", async_client=False)
 
 
 def test_instructor_async_client_lazy_loads(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -386,9 +372,7 @@ def test_instructor_async_client_lazy_loads(monkeypatch: pytest.MonkeyPatch) -> 
     provider = Instructor(model="gpt-4o-mini", async_client=True)
     assert provider.async_instructor_client() is fake_client
     assert provider.async_instructor_client() is fake_client
-    fake_instructor.from_provider.assert_called_once_with(
-        "litellm/gpt-4o-mini", async_client=True
-    )
+    fake_instructor.from_provider.assert_called_once_with("litellm/gpt-4o-mini", async_client=True)
 
 
 def test_instructor_sync_client_raises_when_missing() -> None:
