@@ -8,17 +8,16 @@ Hosts the Langfuse v3 client wrappers (:class:`LangfuseSpan`,
 """
 
 from __future__ import annotations
-from loguru import logger
 
 import os
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from typing import Any, TypeVar
 
-from raghub.runtime import capture
 from raghub.constants import ENV_LANGFUSE_PUBLIC_KEY, ENV_LANGFUSE_SECRET_KEY
 from raghub.errors import ConfigurationError, MissingDepError
 from raghub.models import Span, TelemetryProvider
+from raghub.runtime import capture
 from raghub.telemetry.metrics import NoopSpan
 from raghub.types import JSONValue
 
@@ -54,7 +53,6 @@ except ImportError as exc:  # optional dep — propagate when explicitly request
     Langfuse = None
     LANGFUSE_AVAILABLE = False
     IMPORT_ERROR = exc
-
 
 
 def try_import_submodule(module_name: str, target_name: str) -> Any:
