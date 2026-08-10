@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import warnings
 from typing import TYPE_CHECKING, Any, cast
 
 from raghub.auth import AuthService
@@ -21,18 +22,18 @@ if TYPE_CHECKING:
 RAG_FACADE_AVAILABLE: bool = importlib.util.find_spec("raghub.rag") is not None
 
 
-class ApplicationFacade:
+class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggregating the service surface
     """High-level application facade exposing every public action.
 
-Renamed from :class:`Facade` (the bare name violated AGENTS.md §602-630 
-as a forbidden class name; see :class:`Facade` for the deprecation alias).
+    Renamed from :class:`Facade` (the bare name violated AGENTS.md §602-630
+    as a forbidden class name; see :class:`Facade` for the deprecation alias).
 
     The application holds the container and four service handles. Each
     public method delegates to the appropriate service so the facade
     stays thin.
     """
 
-    def __init__(self, container: "RagContainer") -> None:
+    def __init__(self, container: RagContainer) -> None:
         """Initialise the facade and wire service handles back into the container."""
         self.container = container
         self.auth = AuthService(container)
@@ -47,7 +48,7 @@ as a forbidden class name; see :class:`Facade` for the deprecation alias).
         self.preferences = Preference(self)
 
     @staticmethod
-    def build_rag(container: "RagContainer") -> "RAG | None":
+    def build_rag(container: RagContainer) -> RAG | None:
         """Construct a :class:`raghub.RAG` from the container's collaborators."""
         if not RAG_FACADE_AVAILABLE:
             return None
@@ -61,7 +62,7 @@ as a forbidden class name; see :class:`Facade` for the deprecation alias).
             conversation_store=getattr(container, "conversation_store", None),
         )
 
-    def rag_facade(self) -> "RAG | None":
+    def rag_facade(self) -> RAG | None:
         """Return the lazily-built :class:`raghub.RAG` instance."""
         if getattr(self.container, "rag_facade", None) is None:
             self.container.rag_facade = self.build_rag(self.container)
@@ -120,7 +121,7 @@ as a forbidden class name; see :class:`Facade` for the deprecation alias).
         """Return the configured upload-byte limit (0 = unlimited)."""
         return int(getattr(self.container.settings, "max_upload_bytes", 0) or 0)
 
-    def get_rag_facade(self) -> "Any | None":
+    def get_rag_facade(self) -> Any | None:
         """Return the cached RAG facade, or None if not yet built."""
         return getattr(self.container, "rag_facade", None)
 
@@ -190,18 +191,16 @@ as a forbidden class name; see :class:`Facade` for the deprecation alias).
         await self.shutdown_coordinator.release()
 
 
-__all__ = ["ApplicationFacade", "Facade", "RAG_FACADE_AVAILABLE"]
+__all__ = ["RAG_FACADE_AVAILABLE", "ApplicationFacade", "Facade"]
 
 
 # Deprecated alias preserved for one minor version. Use ApplicationFacade in new code.
-import warnings
-
 class FacadeDeprecationMeta(type):
     """Metaclass that emits DeprecationWarning on first instantiation."""
 
     _warned: bool = False
 
-    def __call__(cls, *args, **kwargs):  # noqa: D401
+    def __call__(cls, *args, **kwargs):
         if not cls._warned:
             warnings.warn(
                 "raghub.services.Facade has been renamed to "
