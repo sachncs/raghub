@@ -15,7 +15,6 @@ from raghub.models import Chunk, Classification
 from raghub.store import MemoryStore
 from raghub.tenants import TenantContext, reset, set_current
 
-
 # ---------------------------------------------------------------------------
 # Strategies
 # ---------------------------------------------------------------------------
