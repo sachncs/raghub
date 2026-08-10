@@ -772,14 +772,16 @@ class TestMemoryStoreTenantIdIsolation:
     def test_search_filters_by_explicit_tenant_id(self) -> None:
         """search(..., tenant_id='alice') returns only Alice's chunks."""
         store = MemoryStore(embedding_dim=2)
-        store.insert([_chunk("a", tenant_id="alice"), _chunk("b", tenant_id="bob")], [[0.1, 0.2], [0.1, 0.2]])
+        store.insert(
+            [_chunk("a", tenant_id="alice"), _chunk("b", tenant_id="bob")], [[0.1, 0.2], [0.1, 0.2]]
+        )
         hits = store.search(vector=[0.1, 0.2], top_k=10, tenant_id="alice")
         ids = {h["chunk_id"] for h in hits}
         assert ids == {"a"}
 
     def test_search_filters_by_context_tenant_id(self) -> None:
         """search() honours tenant context when no explicit tenant_id."""
-        from raghub.tenants import TenantContext, set_current, reset
+        from raghub.tenants import TenantContext, reset, set_current
 
         store = MemoryStore(embedding_dim=2)
         store.insert(
@@ -806,7 +808,7 @@ class TestMemoryStoreTenantIdIsolation:
 
     def test_search_explicit_tenant_overrides_context(self) -> None:
         """Explicit tenant_id wins over a bound tenant context."""
-        from raghub.tenants import TenantContext, set_current, reset
+        from raghub.tenants import TenantContext, reset, set_current
 
         store = MemoryStore(embedding_dim=2)
         store.insert(
@@ -823,7 +825,7 @@ class TestMemoryStoreTenantIdIsolation:
 
     def test_search_chunks_with_none_tenant_id_excluded_when_filtering(self) -> None:
         """Chunks with ``tenant_id=None`` are excluded when a tenant is bound."""
-        from raghub.tenants import TenantContext, set_current, reset
+        from raghub.tenants import TenantContext, reset, set_current
 
         store = MemoryStore(embedding_dim=2)
         store.insert(
