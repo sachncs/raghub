@@ -5,8 +5,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from raghub.pipeline.router import Router
 from raghub.models import Turn
+from raghub.pipeline.router import Router
 
 
 def test_router_load_history_returns_empty_when_session_id_none() -> None:
