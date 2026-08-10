@@ -24,9 +24,8 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 
-from raghub.runtime import capture
 from raghub.errors import IngestionError, MissingDepError
-
+from raghub.runtime import capture
 
 # ---------------------------------------------------------------------------
 # Validation
