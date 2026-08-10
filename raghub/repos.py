@@ -128,21 +128,17 @@ class ChunkStore(ChunkRepository):
             self.store.upsert(records, embeddings)
             return
         chunk = chunk_or_records
-        embedding = (
-            embeddings
-            if isinstance(embeddings, list)
-            else self._embedding_for(chunk)
-        )
+        embedding = embeddings if isinstance(embeddings, list) else self._embedding_for(chunk)
         self.store.upsert([chunk], [embedding])
 
-    async def get(self, chunk_id: str) -> Chunk | None:
+    async def get(self, chunk_id: str) -> Chunk | None:  # ruff: ignore[no-self-use]
         """Return the chunk with ``chunk_id`` or ``None``."""
         # The vector store doesn't store full Chunk records; this
         # default implementation returns None. Subclasses with a
         # side-store override this.
         return None
 
-    async def list_by_document(
+    async def list_by_document(  # ruff: ignore[no-self-use]
         self, document_id: str, version: int | None = None
     ) -> list[Chunk]:
         """Return every chunk for ``document_id`` (optionally at ``version``)."""
@@ -156,7 +152,7 @@ class ChunkStore(ChunkRepository):
         """Remove every chunk for ``document_id``."""
         self.store.delete_document(document_id)
 
-    async def search_by_metadata(
+    async def search_by_metadata(  # ruff: ignore[no-self-use]
         self, filters: dict[str, Any], *, limit: int = 100
     ) -> list[Chunk]:
         """Return chunks whose metadata matches ``filters``."""
@@ -178,25 +174,25 @@ class ChunkStore(ChunkRepository):
     # ------------------------------------------------------------------
 
     async def insert(self, record: Chunk, embedding: list[float]) -> None:
-        """Deprecated alias for :meth:`upsert` with explicit embedding."""
+        """Insert a single record with its embedding (deprecated alias for :meth:`upsert`)."""
         self.store.upsert([record], [embedding])
 
     async def delete_by_id(self, chunk_id: str) -> None:
-        """Deprecated alias for :meth:`delete`."""
+        """Remove a chunk by id (deprecated alias for :meth:`delete`)."""
         await self.delete(chunk_id)
 
     async def search(
         self, vector: list[float], top_k: int, metadata_filter: str = ""
     ) -> list[dict[str, Any]]:
-        """Deprecated vector search; returns list of dicts."""
+        """Search by vector, returning a list of dicts (deprecated)."""
         return self.store.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
 
     async def optimize(self) -> None:
-        """Deprecated alias; delegates to underlying store.optimize()."""
+        """Optimize the underlying store (deprecated alias)."""
         self.store.optimize()
 
     async def health(self) -> dict[str, Any]:
-        """Deprecated alias; delegates to underlying store.health()."""
+        """Report the underlying store health (deprecated alias)."""
         return self.store.health()
 
 
@@ -361,9 +357,7 @@ class DocStore(DocumentRepository):
         while True:
             try:
                 conn = await self.conn()
-                await conn.execute(
-                    INSERT_SQL.format(mode=""), self.record_params(record)
-                )
+                await conn.execute(INSERT_SQL.format(mode=""), self.record_params(record))
                 await self.maybe_commit_close(conn)
                 return True
             except (aiosqlite.OperationalError, aiosqlite.DatabaseError):
@@ -611,7 +605,12 @@ class SessionStore(SessionRepository):
 class UnitOfWork(BaseUnitOfWork):
     """Coordinate repositories over a shared SQLite transaction."""
 
-    def __init__(self, db_path: str, vector_store: Store, session_timeout: int = DEFAULT_SESSION_TIMEOUT_SECONDS) -> None:
+    def __init__(
+        self,
+        db_path: str,
+        vector_store: Store,
+        session_timeout: int = DEFAULT_SESSION_TIMEOUT_SECONDS,
+    ) -> None:
         """Bind the three collaborators behind one transaction boundary."""
         self.db_path = db_path
         self.vector_store = vector_store
