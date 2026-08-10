@@ -25,10 +25,10 @@ SessionId = NewType("SessionId", str)
 JobId = NewType("JobId", str)
 
 __all__ = [
+    "ChunkId",
+    "DocumentId",
+    "JobId",
+    "SessionId",
     "TenantId",
     "UserId",
-    "DocumentId",
-    "ChunkId",
-    "SessionId",
-    "JobId",
 ]
