@@ -8,7 +8,7 @@ covered here.
 from __future__ import annotations
 
 
-def _new_rag() -> RAG:  # type: ignore[name-defined]  # noqa: F821
+def _new_rag() -> RAG:  # type: ignore[name-defined]  # ruff: ignore[undefined-name]
     from raghub import RAG
 
     return RAG()
