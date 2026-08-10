@@ -41,7 +41,18 @@ from raghub.auth_support import (
     Auth,
     Bearer,
 )
-from raghub.constants import HTTP_200_OK, HTTP_201_CREATED, HTTP_202_ACCEPTED, HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND, HTTP_413_PAYLOAD_TOO_LARGE, HTTP_422_UNPROCESSABLE, HTTP_429_TOO_MANY_REQUESTS, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_503_SERVICE_UNAVAILABLE
+from raghub.constants import (
+    HTTP_200_OK,
+    HTTP_201_CREATED,
+    HTTP_202_ACCEPTED,
+    HTTP_204_NO_CONTENT,
+    HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
+    HTTP_403_FORBIDDEN,
+    HTTP_404_NOT_FOUND,
+    HTTP_500_INTERNAL_SERVER_ERROR,
+    HTTP_503_SERVICE_UNAVAILABLE,
+)
 from raghub.errors import (
     AuthenticationError,
     AuthorizationError,
@@ -84,9 +95,13 @@ def user_store_or_raise(app_service: Facade) -> Any:
     """Return the configured user store or raise 503."""
     store = getattr(app_service.container, "user_store", None)
     if store is None:
-        raise HTTPException(status_code=HTTP_503_SERVICE_UNAVAILABLE, detail="user store unavailable")
+        raise HTTPException(
+            status_code=HTTP_503_SERVICE_UNAVAILABLE, detail="user store unavailable"
+        )
     if not hasattr(store, "get_pref") or not hasattr(store, "set_pref"):
-        raise HTTPException(status_code=HTTP_503_SERVICE_UNAVAILABLE, detail="user store lacks prefs API")
+        raise HTTPException(
+            status_code=HTTP_503_SERVICE_UNAVAILABLE, detail="user store lacks prefs API"
+        )
     return store
 
 
@@ -152,7 +167,9 @@ class Exceptions:
             """Return 500 for any uncategorised :class:`RagHubError`."""
             from fastapi.responses import JSONResponse
 
-            return JSONResponse(status_code=HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": str(exc)})
+            return JSONResponse(
+                status_code=HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": str(exc)}
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +287,9 @@ class AuthRoute:
             return {"history": [turn.model_dump(mode="json") for turn in history]}
 
     def register_clear_history(self) -> None:
-        @self.router.delete("/session/history", status_code=HTTP_204_NO_CONTENT, response_class=Response)
+        @self.router.delete(
+            "/session/history", status_code=HTTP_204_NO_CONTENT, response_class=Response
+        )
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
@@ -295,7 +314,9 @@ class DocumentRoute:
 
     def register_upload(self, *, enforce_limit: Any | None = None) -> None:
         @self.router.post(
-            "/documents/upload", status_code=HTTP_202_ACCEPTED, response_model=DocumentUploadResponse
+            "/documents/upload",
+            status_code=HTTP_202_ACCEPTED,
+            response_model=DocumentUploadResponse,
         )
         async def handler(
             request: Request,
@@ -386,9 +407,7 @@ class DocumentRoute:
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, list[dict[str, Any]]]:
             documents = await app_service.list_documents(token)
-            return {
-                "documents": [document.model_dump(mode="json") for document in documents]
-            }
+            return {"documents": [document.model_dump(mode="json") for document in documents]}
 
     def register_status(self) -> None:
         @self.router.get("/documents/{document_id}/status")
@@ -654,7 +673,8 @@ class FeedbackRoute:
         self.register_get()
         self.register_delete()
 
-    def feedback_store(self, app_service: Facade) -> Any:
+    @staticmethod
+    def feedback_store(app_service: Facade) -> Any:
         """Return the configured FeedbackStore or raise ``503`` if absent."""
         store = getattr(app_service.container, "feedback_store", None)
         if store is None:
