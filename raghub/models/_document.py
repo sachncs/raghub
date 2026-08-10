@@ -19,7 +19,6 @@ from raghub.models.enums import (
     DocumentLifecycleStatus,
     Visibility,
 )
-from raghub.types import JSONValue
 
 __all__ = [
     "Bundle",
@@ -76,9 +75,7 @@ class Document(BaseModel):
         if not self.checksum:
             raise VerificationError("Document: empty checksum")
         if self.updated_at < self.created_at:
-            raise VerificationError(
-                "Document: updated_at must be >= created_at"
-            )
+            raise VerificationError("Document: updated_at must be >= created_at")
 
 
 class Chunk(BaseModel):
@@ -130,8 +127,11 @@ class Hit(BaseModel):
 
 
 class SearchResult(Hit):
-    """Canonical alias for :class:`Hit`. Same shape; clearer name in API
-    responses where every entry is a *result* rather than a *hit*."""
+    """Canonical alias for :class:`Hit`.
+
+    Same shape; clearer name in API responses where every entry is a
+    *result* rather than a *hit*.
+    """
 
 
 class Embedding(BaseModel):
