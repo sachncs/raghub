@@ -32,7 +32,9 @@ def test_agent_pipeline_requires_agent() -> None:
     """``AgentPipeline.__init__`` raises ValueError when agent is None."""
 
     with pytest.raises(ValueError, match="requires an Agent"):
-        AgentPipeline(agent=None, embedder=MagicMock(), vector_store=MagicMock(), generator=MagicMock())
+        AgentPipeline(
+            agent=None, embedder=MagicMock(), vector_store=MagicMock(), generator=MagicMock()
+        )
 
 
 def test_agent_pipeline_stores_components() -> None:
@@ -90,10 +92,10 @@ async def test_run_calls_agent_with_agent_request() -> None:
             hits=MagicMock(return_value=[]),
             final_answer="Paris.",
             events=[],
-                tools_invoked=[],
-                to_dict=lambda: {},
-            )
+            tools_invoked=[],
+            to_dict=lambda: {},
         )
+    )
     pipeline = AgentPipeline(
         agent=agent,
         embedder=MagicMock(),
@@ -129,7 +131,9 @@ async def test_run_calls_agent_with_agent_request() -> None:
 async def test_run_returns_pipeline_with_answer_and_citations() -> None:
     """``run`` returns a Pipeline carrying answer, citations, and history."""
 
-    citation = SimpleNamespace(document_id="doc-1", version=1, page=1, section="intro", chunk_id="c1")
+    citation = SimpleNamespace(
+        document_id="doc-1", version=1, page=1, section="intro", chunk_id="c1"
+    )
     agent = MagicMock(spec=Agent)
     agent.run = AsyncMock(
         return_value=SimpleNamespace(
@@ -137,10 +141,10 @@ async def test_run_returns_pipeline_with_answer_and_citations() -> None:
             hits=MagicMock(return_value=[]),
             final_answer="Paris.",
             events=[],
-                tools_invoked=[],
-                to_dict=lambda: {},
-            )
+            tools_invoked=[],
+            to_dict=lambda: {},
         )
+    )
     pipeline = AgentPipeline(
         agent=agent,
         embedder=MagicMock(),
@@ -160,8 +164,12 @@ async def test_run_returns_pipeline_with_answer_and_citations() -> None:
 async def test_run_prefers_generator_citations_when_returned_as_tuple() -> None:
     """``run`` uses generator-returned citations when generator returns (answer, citations)."""
 
-    generator_citation = SimpleNamespace(document_id="d-gen", version=1, page=0, section="", chunk_id="gen-c")
-    agent_citation = SimpleNamespace(document_id="d-agt", version=1, page=0, section="", chunk_id="agt-c")
+    generator_citation = SimpleNamespace(
+        document_id="d-gen", version=1, page=0, section="", chunk_id="gen-c"
+    )
+    agent_citation = SimpleNamespace(
+        document_id="d-agt", version=1, page=0, section="", chunk_id="agt-c"
+    )
     agent = MagicMock(spec=Agent)
     agent.run = AsyncMock(
         return_value=SimpleNamespace(
@@ -169,10 +177,10 @@ async def test_run_prefers_generator_citations_when_returned_as_tuple() -> None:
             hits=MagicMock(return_value=[]),
             final_answer="agent answer",
             events=[],
-                tools_invoked=[],
-                to_dict=lambda: {},
-            )
+            tools_invoked=[],
+            to_dict=lambda: {},
         )
+    )
     pipeline = AgentPipeline(
         agent=agent,
         embedder=MagicMock(),
@@ -198,10 +206,10 @@ async def test_run_falls_back_to_agent_citations_when_generator_has_none() -> No
             hits=MagicMock(return_value=[]),
             final_answer="agent answer",
             events=[],
-                tools_invoked=[],
-                to_dict=lambda: {},
-            )
+            tools_invoked=[],
+            to_dict=lambda: {},
         )
+    )
     pipeline = AgentPipeline(
         agent=agent,
         embedder=MagicMock(),
@@ -229,10 +237,10 @@ async def test_run_applies_long_context_pass_when_eligible() -> None:
             hits=MagicMock(return_value=[hit_before]),
             final_answer="answer",
             events=[],
-                tools_invoked=[],
-                to_dict=lambda: {},
-            )
+            tools_invoked=[],
+            to_dict=lambda: {},
         )
+    )
     long_context = MagicMock()
     long_context.is_eligible = MagicMock(return_value=True)
 
@@ -268,10 +276,10 @@ async def test_run_skips_long_context_pass_when_ineligible() -> None:
             hits=MagicMock(return_value=[hit]),
             final_answer="answer",
             events=[],
-                tools_invoked=[],
-                to_dict=lambda: {},
-            )
+            tools_invoked=[],
+            to_dict=lambda: {},
         )
+    )
     long_context = MagicMock()
     long_context.is_eligible = MagicMock(return_value=False)
     long_context.rerank = AsyncMock()
@@ -300,10 +308,10 @@ async def test_run_skips_long_context_pass_when_no_hits() -> None:
             hits=MagicMock(return_value=[]),
             final_answer="answer",
             events=[],
-                tools_invoked=[],
-                to_dict=lambda: {},
-            )
+            tools_invoked=[],
+            to_dict=lambda: {},
         )
+    )
     long_context = MagicMock()
     long_context.is_eligible = MagicMock(return_value=True)
     long_context.rerank = AsyncMock()
