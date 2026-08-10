@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from raghub.config import Settings, TenantsConfig
+from raghub.config import Settings
 from raghub.tenants import (
     CompositeTenantResolver,
     HeaderTenantResolver,
@@ -30,7 +30,6 @@ from raghub.tenants.isolation import (
     reset,
     set_current,
 )
-
 
 # ---------------------------------------------------------------------------
 # validate_tenant
@@ -362,9 +361,7 @@ class TestMigrateRowToSchema:
         src_conn = await asyncpg.connect(dsn)
         dst_conn = await asyncpg.connect(dsn)
         try:
-            await src_conn.execute(
-                "CREATE SCHEMA IF NOT EXISTS public"
-            )
+            await src_conn.execute("CREATE SCHEMA IF NOT EXISTS public")
             await src_conn.execute(
                 "CREATE TABLE IF NOT EXISTS public.raghub_chunks ("
                 "  chunk_id TEXT PRIMARY KEY,"
@@ -372,9 +369,7 @@ class TestMigrateRowToSchema:
                 "  tenant_id TEXT"
                 ")"
             )
-            await dst_conn.execute(
-                "CREATE SCHEMA IF NOT EXISTS tenant_" + tenant_id
-            )
+            await dst_conn.execute("CREATE SCHEMA IF NOT EXISTS tenant_" + tenant_id)
             await dst_conn.execute(
                 "CREATE TABLE IF NOT EXISTS tenant_" + tenant_id + ".raghub_chunks ("
                 "  chunk_id TEXT PRIMARY KEY,"
