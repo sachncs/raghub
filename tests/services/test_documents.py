@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -116,9 +115,7 @@ async def test_upload_document_rejects_user_without_company_access() -> None:
     container = SimpleNamespace(auth=StubAuth(), ingestion=None)
     docs = Documents(container)
     with pytest.raises(AuthorizationError, match="cannot upload"):
-        await docs.upload_document(
-            token="t", filename="acme_report.txt", content=b"data"
-        )
+        await docs.upload_document(token="t", filename="acme_report.txt", content=b"data")
 
 
 @pytest.mark.asyncio
@@ -148,9 +145,7 @@ async def test_upload_document_uses_filename_company_when_unspecified() -> None:
 
     container = SimpleNamespace(auth=StubAuth(), ingestion=StubIngestion())
     docs = Documents(container)
-    result = await docs.upload_document(
-        token="t", filename="acme_report.txt", content=b"data"
-    )
+    result = await docs.upload_document(token="t", filename="acme_report.txt", content=b"data")
     assert captured_company == ["acme"]
     assert result.id == "doc-1"
 
