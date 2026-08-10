@@ -21,9 +21,9 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from raghub.runtime import capture
 from raghub.errors import EvaluationError
 from raghub.models import Evaluator, Result
+from raghub.runtime import capture
 
 
 class Frames(Evaluator):
