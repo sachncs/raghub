@@ -40,7 +40,7 @@ class Context:
 
     name = "long_context"
 
-    def __init__(self, llm: "Generator", settings: LongContextConfig) -> None:
+    def __init__(self, llm: Generator, settings: LongContextConfig) -> None:
         """Initialise the pass.
 
         Args:
