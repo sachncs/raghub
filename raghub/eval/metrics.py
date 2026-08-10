@@ -16,6 +16,7 @@ Class summary::
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Iterable, Sequence
 
@@ -137,7 +138,7 @@ class Metrics:
         """
         precision = Metrics.precision(retrieved_ids, relevant_ids, k)
         recall = Metrics.recall(retrieved_ids, relevant_ids, k)
-        if precision + recall == 0.0:
+        if math.isclose(precision, 0.0) and math.isclose(recall, 0.0):
             return 0.0
         return 2.0 * precision * recall / (precision + recall)
 
@@ -237,9 +238,9 @@ class Metrics:
             return 0.0
         return len(pred & q) / len(pred | q)
 
-
     CLAIM_SPLITTER = re.compile(r"(?<=[.!?])\s+")
 
+    @staticmethod
     def faithfulness_claims(answer: str, contexts: Sequence[str]) -> float:
         """Deterministic faithfulness via claim-substring check.
 
@@ -282,11 +283,7 @@ class Metrics:
     @staticmethod
     def split_claims(text: str) -> list[str]:
         """Split ``text`` into sentence-level claim strings."""
-        return [
-            claim.strip()
-            for claim in Metrics.CLAIM_SPLITTER.split(text)
-            if claim.strip()
-        ]
+        return [claim.strip() for claim in Metrics.CLAIM_SPLITTER.split(text) if claim.strip()]
 
     @staticmethod
     def count_supported(claims: Sequence[str], ctx_tokens: set[str]) -> tuple[int, int]:
@@ -294,9 +291,7 @@ class Metrics:
         supported = 0
         considered = 0
         for claim in claims:
-            tokens = {
-                t for t in Metrics.tokenize(claim) if t not in Metrics.STOPWORDS
-            }
+            tokens = {t for t in Metrics.tokenize(claim) if t not in Metrics.STOPWORDS}
             if not tokens:
                 continue
             considered += 1
