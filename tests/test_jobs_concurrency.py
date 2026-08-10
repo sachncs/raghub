@@ -71,13 +71,9 @@ class TestSqliteQueueConcurrency:
         async def ingest(job: Job) -> None:
             processed.append(int(job.payload["index"]))
 
-        workers = [
-            Worker(queue=queue, handler=ingest, concurrency=1)
-            for _ in range(worker_count)
-        ]
+        workers = [Worker(queue=queue, handler=ingest, concurrency=1) for _ in range(worker_count)]
         tasks = [
-            asyncio.create_task(worker.loop(f"stress-w{i}"))
-            for i, worker in enumerate(workers)
+            asyncio.create_task(worker.loop(f"stress-w{i}")) for i, worker in enumerate(workers)
         ]
 
         try:
