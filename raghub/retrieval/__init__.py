@@ -34,6 +34,7 @@ from raghub.retrieval.factories import (
     areranker,
     build_reranker,
     build_transformer,
+    reranker,
     transform,
 )
 from raghub.retrieval.fusion import (
@@ -100,12 +101,10 @@ __all__ = [
     "linear_combine",
     "merge_rrf",
     "query_prompt",
+    "reciprocal_rank_fusion",
     "record_latency",
     "reorder_candidates",
-    "build_transformer",
     "rerank_latency",
-    "reciprocal_rank_fusion",
-    "build_transformer",
     "reranker",
     "step_prompt",
     "transform",
