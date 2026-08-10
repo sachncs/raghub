@@ -35,7 +35,7 @@ class RerankerFactory:
         self,
         settings: Settings,
         *,
-        llm: "Generator | None" = None,
+        llm: Generator | None = None,
         cohere_api_key: str | None = None,
     ) -> None:
         """Initialise the factory dependencies."""
@@ -57,9 +57,7 @@ class RerankerFactory:
             )
         if provider == "llm":
             if self.llm is None:
-                raise RerankerError(
-                    "llm reranker requires an LLM via RerankerFactory(llm=...)"
-                )
+                raise RerankerError("llm reranker requires an LLM via RerankerFactory(llm=...)")
             return LlmJudge(llm=self.llm, top_k=cfg.top_k)
         if provider == "cascade":
             expensive: Rerank
@@ -88,7 +86,7 @@ class RerankerFactory:
 def build_reranker(
     settings: Settings,
     *,
-    llm: "Generator | None" = None,
+    llm: Generator | None = None,
     cohere_api_key: str | None = None,
 ) -> Rerank:
     """Build the configured reranker."""
@@ -135,7 +133,7 @@ async def transform(
     history: Sequence[Turn] = (),
     *,
     method: str = "hyde",
-    llm: "Generator | None" = None,
+    llm: Generator | None = None,
 ) -> list[Variant]:
     """Asynchronously transform ``question`` using the named ``method``.
 
@@ -177,7 +175,7 @@ def build_reranker_by_name(method: str) -> Rerank:
     raise RerankerError(f"Unknown reranker method: {method!r}")
 
 
-def build_transformer(method: str, llm: "Generator") -> Transformer:
+def build_transformer(method: str, llm: Generator) -> Transformer:
     """Construct a transformer by name."""
     if method == "hyde":
         return Hyde(llm)
@@ -188,6 +186,10 @@ def build_transformer(method: str, llm: "Generator") -> Transformer:
     if method == "step_back":
         return StepBack(llm)
     raise RerankerError(f"Unknown transform method: {method!r}")
+
+
+reranker = build_reranker_by_name
+transformer = build_transformer
 
 
 __all__ = [
