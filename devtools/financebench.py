@@ -133,9 +133,7 @@ def _build_settings(pipeline: str, data_dir: str) -> Settings:
         "allow_passwordless_login": False,
         "log_level": "WARNING",
     }
-    base_with_new = base.model_copy(
-        update={**overrides, "query_transforms": new_query_transforms}
-    )
+    base_with_new = base.model_copy(update={**overrides, "query_transforms": new_query_transforms})
     return Settings.model_validate(base_with_new.model_dump())
 
 
@@ -145,9 +143,7 @@ def _build_llm() -> LiteLLMProvider:
     api_key = os.environ.get("RAG_LLM_API_KEY")
     model = os.environ.get("RAG_LLM_MODEL", "gpt-4o-mini")
     if not base_url or not api_key:
-        raise RuntimeError(
-            "RAG_LLM_BASE_URL and RAG_LLM_API_KEY must both be set."
-        )
+        raise RuntimeError("RAG_LLM_BASE_URL and RAG_LLM_API_KEY must both be set.")
     return LiteLLMProvider(model=model, api_key=api_key, api_base=base_url)
 
 
@@ -164,9 +160,7 @@ def _match_pdfs(
     to keep the vector store small. Pass ``one_per_company=False`` to
     ingest every 10-K / 10-Q that mentions a question's company.
     """
-    needed: set[str] = {
-        _normalise_company(ex.get("company", "")) for ex in examples
-    }
+    needed: set[str] = {_normalise_company(ex.get("company", "")) for ex in examples}
     needed.discard("")
     matched: list[Path] = []
     seen_companies: set[str] = set()
@@ -301,8 +295,7 @@ async def _run_pipeline(
             f"check that {pdfs_dir} contains the right files."
         )
     print(
-        f"[{pipeline}] matched {len(pdfs)} PDFs in "
-        f"{time.perf_counter() - t_total:.1f}s",
+        f"[{pipeline}] matched {len(pdfs)} PDFs in {time.perf_counter() - t_total:.1f}s",
         flush=True,
     )
 
@@ -312,8 +305,7 @@ async def _run_pipeline(
     print(f"[{pipeline}] staging done in {time.perf_counter() - t_total:.1f}s", flush=True)
 
     print(
-        f"[{pipeline}] ingesting {len(pdfs)} PDFs "
-        f"(timeout {ingest_timeout_secs}s)...",
+        f"[{pipeline}] ingesting {len(pdfs)} PDFs (timeout {ingest_timeout_secs}s)...",
         flush=True,
     )
     t0 = time.perf_counter()
@@ -365,16 +357,18 @@ async def _run_pipeline(
         pass_rate=statistics.mean(1.0 if r.passed else 0.0 for r in results),
         token_overlap=metrics_avg.get("token_overlap", 0.0),
         within_tolerance=metrics_avg.get("within_tolerance", 0.0),
-        answer_length=statistics.mean(
-            len(r.details.get("predicted") or "") for r in results
-        ),
+        answer_length=statistics.mean(len(r.details.get("predicted") or "") for r in results),
     )
 
 
 def _print_table(results: list[PipelineResult]) -> None:
     headers = [
-        "pipeline", "n", "pass_rate", "token_overlap",
-        "numeric", "answer_len",
+        "pipeline",
+        "n",
+        "pass_rate",
+        "token_overlap",
+        "numeric",
+        "answer_len",
     ]
     rows = [
         [
@@ -429,9 +423,7 @@ async def _async_main(args: argparse.Namespace) -> int:
             pdfs_dir=pdfs_dir,
             ingest_timeout_secs=args.ingest_timeout,
         )
-        print(
-            f"[main] pipeline {name} done in {time.perf_counter() - t0:.1f}s"
-        )
+        print(f"[main] pipeline {name} done in {time.perf_counter() - t0:.1f}s")
         results.append(result)
     _print_table(results)
 
@@ -480,27 +472,40 @@ def main() -> None:
         description="Run the Finance sweep across pipeline configurations."
     )
     parser.add_argument(
-        "--examples", type=int, default=0,
+        "--examples",
+        type=int,
+        default=0,
         help="Number of Finance examples (0 = all 150).",
     )
     parser.add_argument(
-        "--pipeline", type=str, default=None, choices=list(PIPELINES),
+        "--pipeline",
+        type=str,
+        default=None,
+        choices=list(PIPELINES),
         help="Run a single pipeline variant instead of the full sweep.",
     )
     parser.add_argument(
-        "--pdfs-dir", type=str, default="/tmp/raghub_fb_pdfs",
+        "--pdfs-dir",
+        type=str,
+        default="/tmp/raghub_fb_pdfs",
         help="Directory of source 10-K / 10-Q PDFs.",
     )
     parser.add_argument(
-        "--data-dir", type=str, default="/tmp/raghub_financebench",
+        "--data-dir",
+        type=str,
+        default="/tmp/raghub_financebench",
         help="Per-run data dir (default: /tmp/raghub_financebench).",
     )
     parser.add_argument(
-        "--ingest-timeout", type=float, default=600.0,
+        "--ingest-timeout",
+        type=float,
+        default=600.0,
         help="Max seconds to wait for ingest (default: 600).",
     )
     parser.add_argument(
-        "--json", type=str, default=None,
+        "--json",
+        type=str,
+        default=None,
         help="Optional path to write raw results as JSON.",
     )
     args = parser.parse_args()
