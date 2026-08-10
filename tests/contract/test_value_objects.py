@@ -9,8 +9,6 @@ dedicated contract test file.
 
 from __future__ import annotations
 
-import pytest
-
 from raghub.ids import (
     ChunkId,
     DocumentId,
@@ -25,7 +23,6 @@ from raghub.typed_dicts import (
     Metadata,
     QueryRequest,
 )
-
 
 # ---------------------------------------------------------------------------
 # raghub.ids contract tests
