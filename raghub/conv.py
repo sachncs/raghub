@@ -23,7 +23,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
-from raghub.models import Session
 from raghub.models import Session, Turn
 from raghub.repos import UnitOfWork
 
@@ -191,7 +190,9 @@ class ConversationHistory:
         record = Session.model_validate(
             {
                 "user_id": user_id,
-                "expires_at": (datetime.now(UTC) + timedelta(seconds=DEFAULT_SESSION_TIMEOUT_SECONDS)).isoformat(),
+                "expires_at": (
+                    datetime.now(UTC) + timedelta(seconds=DEFAULT_SESSION_TIMEOUT_SECONDS)
+                ).isoformat(),
                 "last_seen_at": datetime.now(UTC).isoformat(),
             }
         )
