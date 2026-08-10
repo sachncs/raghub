@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from raghub.agent import ResolvedConfig, resolve
 from raghub.models import QueryResponse, User
@@ -46,8 +46,9 @@ class Preference:
             rag=rag,
         )
 
+    @staticmethod
     def resolve_flags(
-        self, user: User, flags: dict[str, Any], container: "RagContainer"
+        user: User, flags: dict[str, Any], container: RagContainer
     ) -> ResolvedConfig:
         """Resolve per-request, session, and user-prefs into a single :class:`ResolvedConfig`."""
         prefs = dict(getattr(user, "tool_settings", None) or {})
@@ -84,7 +85,7 @@ class Preference:
             response.metadata["requested_top_k"] = flags["top_k"]
         return response
 
-    async def query_advanced(
+    async def query_advanced(  # ruff: ignore[too-many-arguments] -- one facade method fanning out query inputs
         self,
         *,
         token: str,
@@ -92,9 +93,12 @@ class Preference:
         flags: dict[str, Any],
         resolved: ResolvedConfig,
         user: User,
-        rag: "RAG",
+        rag: RAG,
     ) -> QueryResponse:
-        """Run the full agent loop with the resolved RAG instance, returning a structured response."""
+        """Run the full agent loop with the resolved RAG instance.
+
+        Returns a structured response with the resolved config attached.
+        """
         container = self.facade.container
         session = await container.store.get_by_token(token)
         principal = User(
