@@ -100,9 +100,7 @@ def test_health_log_delegates_to_emit_log() -> None:
 
     container = SimpleNamespace(logger=TestLogger())
     Health(container).log("custom.event", user_id="alice", action="ping")
-    assert captured == [
-        ("custom.event", {"extra": {"user_id": "alice", "action": "ping"}})
-    ]
+    assert captured == [("custom.event", {"extra": {"user_id": "alice", "action": "ping"}})]
 
 
 def test_health_emit_metric_delegates_to_emit_metric() -> None:
