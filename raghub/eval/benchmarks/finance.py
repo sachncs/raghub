@@ -17,10 +17,10 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from raghub.models import Evaluator, Result
+from raghub.models import Result
 
 
-class Finance(Evaluator):
+class Finance:
     """The default RAGHub benchmark adapter.
 
     Loads the dataset from a local JSONL/JSON file when supplied, or

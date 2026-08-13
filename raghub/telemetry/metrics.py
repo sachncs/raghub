@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from raghub.models import Span, TelemetryProvider
 from raghub.types import JSONValue
 
 __all__ = [
@@ -19,12 +18,12 @@ __all__ = [
 ]
 
 
-class NoopSpan(Span):
+class NoopSpan:
     """No-op span implementation.
 
     Used when Langfuse is not installed or no credentials are
-    configured. Implements the :class:`Span` protocol so callers can
-    treat it interchangeably with the live implementation.
+    configured. Structurally compatible with the live span so callers
+    can treat them interchangeably.
     """
 
     def __init__(self, name: str) -> None:
@@ -45,8 +44,8 @@ class NoopSpan(Span):
         return dict(self.attrs)
 
 
-class NoOpTelemetry(TelemetryProvider):
-    """Silent telemetry provider; satisfies the contract."""
+class NoOpTelemetry:
+    """Silent telemetry provider."""
 
     def info(self, message: str, **kwargs: JSONValue) -> None:
         """No-op."""
@@ -64,7 +63,7 @@ class NoOpTelemetry(TelemetryProvider):
         """No-op."""
 
     @staticmethod
-    def start_span(name: str, **attrs: Any) -> Span:
+    def start_span(name: str, **attrs: Any) -> NoopSpan:
         """Return a no-op span.
 
         Args:
@@ -77,7 +76,7 @@ class NoOpTelemetry(TelemetryProvider):
         """
         return NoopSpan(name)
 
-    def end_span(self, span: Span) -> None:
+    def end_span(self, span: NoopSpan) -> None:
         """No-op."""
 
     def record_tokens(

@@ -13,11 +13,8 @@ from raghub.models import (
     Bundle,
     Chunk,
     Classification,
-    EmbeddingProvider,
     Pipeline,
     PipelineCtx,
-    PipelineRunner,
-    VectorStore,
     deterministic_id,
 )
 from raghub.pipeline.span_support import (
@@ -31,7 +28,7 @@ from raghub.retry import retry as retry_sync
 from raghub.telemetry import NoOpTelemetry
 
 
-class Ingest(PipelineRunner):
+class Ingest:
     """Convert → chunk → embed → index pipeline."""
 
     name: str = "ingest"
@@ -39,8 +36,8 @@ class Ingest(PipelineRunner):
     def __init__(
         self,
         *,
-        embedder: EmbeddingProvider,
-        vector_store: VectorStore,
+        embedder: Any,
+        vector_store: Any,
         **components: Any,
     ) -> None:
         """Initialise the ingest pipeline.

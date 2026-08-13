@@ -28,9 +28,7 @@ from raghub.config import Settings
 from raghub.errors import ConfigurationError, IngestionError, RagHubError
 from raghub.eval import Finance
 from raghub.models import (
-    LLMProvider,
     PipelineCtx,
-    RagQueryRequest,
     Response,
     Result,
 )
@@ -45,10 +43,10 @@ class QueryMixin:
     """Mixin providing query, streaming, agent, and evaluation entry points."""
 
     settings: Settings
-    llm: LLMProvider | None
+    llm: Any | None
     query_pipeline: QueryPipeline
     agentic_pipeline: AgentPipeline | None
-    conversation_store: ConversationStore
+    conversation_store: Any
 
     def query(self, question: str, **kwargs: Any) -> Response:
         """Ask a question and return a typed :class:`Response`."""
@@ -120,7 +118,7 @@ class QueryMixin:
         self,
         question: str,
         *,
-        request: RagQueryRequest | None = None,
+        request: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Response:
         """Async version of :meth:`query`.
@@ -134,7 +132,7 @@ class QueryMixin:
 
         Args:
             question: The user's question.
-            request: Optional :class:`RagQueryRequest` that bundles
+            request: Optional request dict that bundles
                 the remaining advanced-RAG overrides.
             **kwargs: Convenience overrides accepted as keyword
                 arguments (``user=``, ``session_id=``,
@@ -169,9 +167,9 @@ class QueryMixin:
 
     @staticmethod
     def merge_query_kwargs(
-        request: RagQueryRequest | None, kwargs: dict[str, Any]
+        request: dict[str, Any] | None, kwargs: dict[str, Any]
     ) -> dict[str, Any]:
-        """Merge the optional ``RagQueryRequest`` and the loose kwargs into one dict."""
+        """Merge the optional request dict and the loose kwargs into one dict."""
         merged: dict[str, Any] = dict(request) if request is not None else {}
         merged.update(kwargs)
         return merged
@@ -241,7 +239,7 @@ class QueryMixin:
         self,
         question: str,
         *,
-        request: RagQueryRequest | None = None,
+        request: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
         """Stream the answer token-by-token via the LLM's ``astream``.
@@ -295,14 +293,14 @@ class QueryMixin:
         self,
         question: str,
         *,
-        request: RagQueryRequest | None = None,
+        request: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[Any]:
         """Stream :class:`PlannerEvent` instances from the agent loop.
 
         Args:
             question: The user's question.
-            request: Optional :class:`RagQueryRequest` that bundles
+            request: Optional request dict that bundles
                 the remaining advanced-RAG overrides.
             **kwargs: Convenience overrides accepted as keyword
                 arguments (``user=``, ``session_id=``,

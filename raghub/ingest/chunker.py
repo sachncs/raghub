@@ -15,7 +15,7 @@ from typing import Any
 from raghub.errors import ConfigurationError
 from raghub.lifecycle import ChunkingPlan, chunk_words, normalize_text
 from raghub.llm import GenerationRequest
-from raghub.models import Chunk, Chunker, deterministic_id
+from raghub.models import Chunk, deterministic_id
 from raghub.runtime import capture
 from raghub.types import JSONValue
 
@@ -223,7 +223,7 @@ def auto_select_chunker(
     )
 
 
-class Chonkie(Chunker):
+class Chonkie:
     """Chonkie-backed chunker supporting all strategies."""
 
     chunk_size: int
@@ -392,7 +392,7 @@ class Chonkie(Chunker):
         return chunks
 
 
-class Words(Chunker):
+class Words:
     """Overlap-aware word-window chunker."""
 
     chunk_size: int
@@ -506,7 +506,7 @@ class Words(Chunker):
         return chunk_words(normalize_text(text), self.plan)
 
 
-def build_chonkie_chunker(name: str = "auto", **kwargs: JSONValue) -> Chunker:
+def build_chonkie_chunker(name: str = "auto", **kwargs: JSONValue) -> Any:
     """Pick a chunker by name.
 
     Args:
@@ -514,7 +514,7 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: JSONValue) -> Chunker:
         **kwargs: Forwarded to the underlying constructor.
 
     Returns:
-        A configured :class:`Chunker`.
+        A configured chunker.
 
     Raises:
         ConfigurationError: When ``name`` is unknown or chonkie is

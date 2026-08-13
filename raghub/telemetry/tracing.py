@@ -16,7 +16,6 @@ from typing import Any, TypeVar
 
 from raghub.constants import ENV_LANGFUSE_PUBLIC_KEY, ENV_LANGFUSE_SECRET_KEY
 from raghub.errors import ConfigurationError, MissingDepError
-from raghub.models import Span, TelemetryProvider
 from raghub.runtime import capture
 from raghub.telemetry.metrics import NoopSpan
 from raghub.types import JSONValue
@@ -129,7 +128,7 @@ def langfuse_client() -> Any:
         return None
 
 
-class LangfuseSpan(Span):
+class LangfuseSpan:
     """Wrapper around a Langfuse v3 observation context."""
 
     def __init__(self, ctx: Any, name: str) -> None:
@@ -160,7 +159,7 @@ class LangfuseSpan(Span):
         update(**{key: value})
 
 
-class LangfuseTelemetryProvider(TelemetryProvider):
+class LangfuseTelemetryProvider:
     """Langfuse-backed telemetry provider.
 
     Implements the full :class:`TelemetryProvider` contract:
@@ -328,7 +327,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
         except Exception:
             return
 
-    def start_span(self, name: str, **attrs: Any) -> Span:
+    def start_span(self, name: str, **attrs: Any) -> Any:
         """Open a Langfuse span (v3) or fall back to a no-op span.
 
         Args:
@@ -339,7 +338,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
                 the multi-user attribution.
 
         Returns:
-            A :class:`Span` (live or no-op).
+            A span (live :class:`LangfuseSpan` or :class:`NoopSpan`).
 
         """
         if self.client is None:
@@ -360,7 +359,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             propagate(**attrs)
 
     @staticmethod
-    def end_span(span: Span) -> None:
+    def end_span(span: Any) -> None:
         """Close a span.
 
         Args:
@@ -404,7 +403,7 @@ class LangfuseTelemetryProvider(TelemetryProvider):
             )
 
     @contextmanager
-    def span(self, name: str, **attrs: Any) -> Iterator[Span]:
+    def span(self, name: str, **attrs: Any) -> Iterator[Any]:
         """Context-manager wrapper around :meth:`start_span` / :meth:`end_span`."""
         s = self.start_span(name, **attrs)
         try:

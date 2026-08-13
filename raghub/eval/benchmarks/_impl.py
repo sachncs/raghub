@@ -26,7 +26,7 @@ from raghub.errors import EvaluationError
 from raghub.eval.benchmarks.finance import Finance
 from raghub.eval.benchmarks.frames import Frames
 from raghub.eval.metrics import Metrics, Scoring
-from raghub.models import Evaluator, Result
+from raghub.models import Result
 
 GENERATION_TUPLE_ARITY = 4
 

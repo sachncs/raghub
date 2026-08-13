@@ -17,7 +17,6 @@ from raghub.retrieval.types import Rerank, Variant
 
 if TYPE_CHECKING:
     from raghub.config import HybridConfig
-    from raghub.models import VectorStore
     from raghub.retrieval.colbert import Colbert
 
 
@@ -36,7 +35,7 @@ class Retrieval:
         self,
         *,
         embedding_provider: Embedder,
-        vector_store: VectorStore,
+        vector_store: Any,
         rerank: Rerank,
         hybrid: HybridConfig | None = None,
     ) -> None:

@@ -11,19 +11,16 @@ from raghub.agent import Agent, AgentRequest
 from raghub.embedder import Embedder
 from raghub.models import (
     Citation,
-    GeneratorProtocol,
     Pipeline,
     PipelineCtx,
-    PipelineRunner,
     Turn,
     User,
-    VectorStore,
 )
 from raghub.pipeline.span_support import DurationTimer, coerce_to_awaitable
 from raghub.telemetry import NoOpTelemetry
 
 
-class AgentPipeline(PipelineRunner):
+class AgentPipeline:
     """Query pipeline powered by the ReAct agent."""
 
     name = "query_agent"
@@ -35,8 +32,8 @@ class AgentPipeline(PipelineRunner):
         *,
         agent: Agent,
         embedder: Embedder,
-        vector_store: VectorStore,
-        generator: GeneratorProtocol,
+        vector_store: Any,
+        generator: Any,
         **components: Any,
     ) -> None:
         """Initialise the agentic pipeline.

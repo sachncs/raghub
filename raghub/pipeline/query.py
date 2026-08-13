@@ -17,14 +17,10 @@ from pydantic import ConfigDict
 from raghub.conv import Memory
 from raghub.models import (
     Citation,
-    EmbeddingProvider,
-    GeneratorProtocol,
     Hit,
     Pipeline,
     PipelineCtx,
-    PipelineRunner,
     Turn,
-    VectorStore,
 )
 from raghub.pipeline.query_helpers import (
     annotate_span,
@@ -45,7 +41,7 @@ from raghub.pipeline.span_support import DurationTimer, QueryContext, coerce_to_
 from raghub.telemetry import NoOpTelemetry
 
 
-class QueryPipeline(PipelineRunner):
+class QueryPipeline:
     """Embed → retrieve → rerank → generate pipeline."""
 
     name: str = "query"
@@ -55,9 +51,9 @@ class QueryPipeline(PipelineRunner):
     def __init__(
         self,
         *,
-        embedder: EmbeddingProvider,
-        vector_store: VectorStore,
-        generator: GeneratorProtocol,
+        embedder: Any,
+        vector_store: Any,
+        generator: Any,
         **components: Any,
     ) -> None:
         """Initialise the query pipeline.

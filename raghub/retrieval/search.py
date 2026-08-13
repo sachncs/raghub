@@ -14,7 +14,6 @@ from raghub.models import Chunk, Classification
 
 if TYPE_CHECKING:
     from raghub.embedder import Embedder
-    from raghub.models import VectorStore
 
 
 @dataclass
@@ -61,7 +60,7 @@ def build_filter(filters: SearchFilters | None) -> str:
 class Search:
     """Advanced search with faceted filtering for chunks."""
 
-    def __init__(self, vector_store: VectorStore, embedding_provider: Embedder) -> None:
+    def __init__(self, vector_store: Any, embedding_provider: Embedder) -> None:
         """Initialise the search engine.
 
         Args:

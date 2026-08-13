@@ -14,7 +14,6 @@ from typing import Any
 
 from loguru import logger
 
-from raghub.models import Logger, Span, TelemetryProvider
 from raghub.types import JSONValue
 
 __all__ = [
@@ -25,8 +24,8 @@ __all__ = [
 ]
 
 
-class Logger(Logger):  # type: ignore[no-redef]
-    """Adapter that implements :class:`Logger` against :mod:`loguru`.
+class Logger:
+    """Adapter that implements the logger contract against :mod:`loguru`.
 
     Each call binds structured kwargs into the loguru record so they
     appear in the formatted output.
@@ -34,22 +33,22 @@ class Logger(Logger):  # type: ignore[no-redef]
 
     def __init__(self) -> None:
         """Bind a logger instance for structured output."""
-        self._bound = logger.bind(component="raghub")
+        self.bound = logger.bind(component="raghub")
 
     def info(self, message: str, **kwargs: JSONValue) -> None:
         """Emit an ``INFO``-level record with structured ``kwargs``."""
-        self._bound.bind(**kwargs).info(message)
+        self.bound.bind(**kwargs).info(message)
 
     def warning(self, message: str, **kwargs: JSONValue) -> None:
         """Emit a ``WARNING``-level record with structured ``kwargs``."""
-        self._bound.bind(**kwargs).warning(message)
+        self.bound.bind(**kwargs).warning(message)
 
     def error(self, message: str, **kwargs: JSONValue) -> None:
         """Emit an ``ERROR``-level record with structured ``kwargs``."""
-        self._bound.bind(**kwargs).error(message)
+        self.bound.bind(**kwargs).error(message)
 
 
-class LoguruSpan(Span):
+class LoguruSpan:
     """Span whose :meth:`end` logs the duration via loguru."""
 
     def __init__(
@@ -74,7 +73,7 @@ class LoguruSpan(Span):
         self.attributes[key] = value
 
 
-class LoguruTelemetryProvider(TelemetryProvider):
+class LoguruTelemetryProvider:
     """Telemetry provider that sinks through :mod:`loguru`."""
 
     def __init__(self, adapter: Logger | None = None) -> None:
@@ -101,12 +100,12 @@ class LoguruTelemetryProvider(TelemetryProvider):
     def increment(name: str, value: int = 1, **labels: Any) -> None:
         """No-op; Langfuse absorbs metric emission when configured."""
 
-    def start_span(self, name: str, **attrs: Any) -> Span:
+    def start_span(self, name: str, **attrs: Any) -> LoguruSpan:
         """Open a new :class:`LoguruSpan`."""
         return LoguruSpan(name, self.adapter, attrs)
 
     @staticmethod
-    def end_span(span: Span) -> None:
+    def end_span(span: LoguruSpan) -> None:
         """Close the supplied span."""
         span.end()
 
