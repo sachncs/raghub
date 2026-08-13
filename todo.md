@@ -14,10 +14,10 @@
 - String-tag dispatch: replace with class-level registry
 
 ## Phase 1: Consolidate models/
-- [ ] Write todo.md
-- [ ] Consolidate `models/__init__.py` (dataclasses, inlined enums, Protocols deleted)
-- [ ] Update consumers that imported Protocols
-- [ ] Delete `models/_impl.py`, `models/_api.py`, `models/_document.py`, `models/_identity.py`, `models/_protocols.py`, `models/enums.py`
+- [x] Write todo.md
+- [x] Consolidate `models/__init__.py` (dataclasses, inlined enums, Protocols deleted)
+- [x] Update consumers that imported Protocols
+- [x] Delete `models/_impl.py`, `models/_api.py`, `models/_document.py`, `models/_identity.py`, `models/_protocols.py`, `models/enums.py`
 
 ## Phase 2: Polymorphism by registry
 - [ ] Add `Registry` helper in `raghub/registry.py`
