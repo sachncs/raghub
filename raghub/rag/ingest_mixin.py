@@ -32,10 +32,8 @@ from raghub.ingest import Resumable
 from raghub.jobs import Job, SqliteQueue
 from raghub.knowledge import Manifest, sha256_bytes
 from raghub.models import (
-    KnowledgeRepository,
     Pipeline,
     PipelineCtx,
-    VectorStore,
     deterministic_id,
 )
 from raghub.rag.defaults import ingest_one_worker
@@ -50,8 +48,8 @@ class IngestMixin:
 
     manifest: Manifest
     settings: Settings
-    vector_store: VectorStore
-    knowledge_repo: KnowledgeRepository
+    vector_store: Any
+    knowledge_repo: Any
     embedder: Embedder
     ingest_pipeline: IngestPipeline
     persistent_queue: SqliteQueue | None

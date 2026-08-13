@@ -57,7 +57,9 @@ from raghub.conv import Memory
 from raghub.errors import RagHubError
 from raghub.gen import DefaultGenerator
 from raghub.knowledge import GraphIndex, Manifest, MemoryRepo, Raptor
-from raghub.models import DocumentConverter, KnowledgeRepository, RagComponents
+# RagComponents (TypedDict) and the DocumentConverter / KnowledgeRepository
+# Protocols were deleted from raghub.models. The facade uses `Any` for now
+# and will be tightened in Phase 2 (registry-based polymorphism).
 from raghub.pipeline import AgentPipeline, Cache, Ingest, QueryPipeline
 from raghub.plugins import Plugins
 from raghub.rag.conversation_mixin import ConversationMixin
@@ -138,7 +140,7 @@ class RAG(  # ruff: ignore[too-many-public-methods] -- facade aggregating mixin 
         self,
         *,
         settings: Settings | None = None,
-        components: RagComponents | None = None,
+        components: dict[str, Any] | None = None,
         **kwargs: JSONValue,
     ) -> None:
         """Initialise the facade."""
@@ -165,7 +167,7 @@ class RAG(  # ruff: ignore[too-many-public-methods] -- facade aggregating mixin 
         """Resolve core collaborators from ``components`` or defaults."""
         self.settings: Settings = components.get("settings") or Settings.load()
         self.registry: Any = components.get("registry") or Plugins()
-        self.knowledge_repo: KnowledgeRepository = components.get("knowledge_repo") or MemoryRepo()
+        self.knowledge_repo: Any = components.get("knowledge_repo") or MemoryRepo()
         self.vector_store: Any = components.get("vector_store") or default_vector_store(
             self.settings.embedding_dim
         )
@@ -173,7 +175,7 @@ class RAG(  # ruff: ignore[too-many-public-methods] -- facade aggregating mixin 
             self.settings.embedding_model, self.settings.embedding_dim
         )
         self.llm: Any = components.get("llm") or default_llm(self.settings.llm_model)
-        self.converter: DocumentConverter = components.get("converter") or default_converter()
+        self.converter: Any = components.get("converter") or default_converter()
         self.chunker: Any = components.get("chunker") or default_chunker(
             self.settings.chunk_size_words,
             self.settings.chunk_overlap_words,

@@ -12,7 +12,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from raghub.models import Span, TelemetryProvider
 from raghub.types import JSONValue
 
 __all__ = [
@@ -71,10 +70,10 @@ def redact_record(record: dict[str, Any]) -> None:
     record.update(scrubbed)
 
 
-class RedactingTelemetry(TelemetryProvider):
+class RedactingTelemetry:
     """Telemetry wrapper that redacts secret-looking keys."""
 
-    def __init__(self, inner: TelemetryProvider) -> None:
+    def __init__(self, inner: Any) -> None:
         """Wrap ``inner`` with secret-redaction.
 
         Args:
@@ -103,11 +102,11 @@ class RedactingTelemetry(TelemetryProvider):
         """Forward ``increment`` with redacted labels."""
         self.inner.increment(name, value, **scrub_secrets(labels))
 
-    def start_span(self, name: str, **attrs: Any) -> Span:
+    def start_span(self, name: str, **attrs: Any) -> Any:
         """Forward ``start_span`` with redacted attributes."""
         return self.inner.start_span(name, **scrub_secrets(attrs))
 
-    def end_span(self, span: Span) -> None:
+    def end_span(self, span: Any) -> None:
         """Forward ``end_span``."""
         self.inner.end_span(span)
 

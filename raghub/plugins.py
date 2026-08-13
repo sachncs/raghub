@@ -19,18 +19,11 @@ from functools import cached_property
 from importlib import metadata
 from typing import Any
 
-from raghub.models import (
-    Chunker,
-    DocumentConverter,
-    EmbeddingProvider,
-    Evaluator,
-    GeneratorProtocol,
-    KnowledgeRepository,
-    Logger,
-    Metrics,
-    StructuredOutputProvider,
-    VectorStore,
-)
+# The Protocols that used to be imported from raghub.models (Chunker,
+# DocumentConverter, EmbeddingProvider, Evaluator, GeneratorProtocol,
+# KnowledgeRepository, Logger, Metrics, StructuredOutputProvider, VectorStore)
+# have been deleted. Plugin registration now takes Any-typed collaborators;
+# the registry itself (Phase 2) will tighten the types to concrete classes.
 from raghub.types import JSONValue
 
 __all__ = [
@@ -121,35 +114,35 @@ class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surfa
     # Convenience accessors (kept for backward-compat ergonomics)
     # ------------------------------------------------------------------
 
-    def register_converter(self, name: str, converter: DocumentConverter) -> None:
+    def register_converter(self, name: str, converter: Any) -> None:
         """Register a converter under ``name``."""
         self.register(PluginKind.Converter, name, converter)
 
-    def register_chunker(self, name: str, chunker: Chunker) -> None:
+    def register_chunker(self, name: str, chunker: Any) -> None:
         """Register a chunker under ``name``."""
         self.register(PluginKind.Chunker, name, chunker)
 
-    def register_embedder(self, name: str, embedder: EmbeddingProvider) -> None:
+    def register_embedder(self, name: str, embedder: Any) -> None:
         """Register an embedder under ``name``."""
         self.register(PluginKind.Embedder, name, embedder)
 
-    def register_vector_store(self, name: str, store: VectorStore) -> None:
+    def register_vector_store(self, name: str, store: Any) -> None:
         """Register a vector store under ``name``."""
         self.register(PluginKind.VectorStore, name, store)
 
-    def register_knowledge_repo(self, name: str, repo: KnowledgeRepository) -> None:
+    def register_knowledge_repo(self, name: str, repo: Any) -> None:
         """Register a knowledge repository under ``name``."""
         self.register(PluginKind.KnowledgeRepo, name, repo)
 
-    def register_generator(self, name: str, generator: GeneratorProtocol) -> None:
+    def register_generator(self, name: str, generator: Any) -> None:
         """Register a generator under ``name``."""
         self.register(PluginKind.Generator, name, generator)
 
-    def register_structured(self, name: str, provider: StructuredOutputProvider) -> None:
+    def register_structured(self, name: str, provider: Any) -> None:
         """Register a structured-output provider under ``name``."""
         self.register(PluginKind.Structured, name, provider)
 
-    def register_evaluator(self, name: str, evaluator: Evaluator) -> None:
+    def register_evaluator(self, name: str, evaluator: Any) -> None:
         """Register an evaluator under ``name``."""
         self.register(PluginKind.Evaluator, name, evaluator)
 
@@ -157,7 +150,7 @@ class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surfa
         """Register a generic factory under ``name``."""
         self.register(PluginKind.Factory, name, factory)
 
-    def register_telemetry(self, name: str, logger: Logger, metrics: Metrics) -> None:
+    def register_telemetry(self, name: str, logger: Any, metrics: Any) -> None:
         """Register a telemetry pair under ``name``.
 
         The logger and metrics are stored under
@@ -172,7 +165,7 @@ class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surfa
     # ------------------------------------------------------------------
 
     @cached_property
-    def converters(self) -> dict[str, DocumentConverter]:
+    def converters(self) -> dict[str, Any]:
         """A snapshot of registered converters (legacy accessor)."""
         return {
             name: self.entries[PluginKind.Converter, name]
@@ -180,14 +173,14 @@ class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surfa
         }
 
     @cached_property
-    def chunkers(self) -> dict[str, Chunker]:
+    def chunkers(self) -> dict[str, Any]:
         """A snapshot of registered chunkers (legacy accessor)."""
         return {
             name: self.entries[PluginKind.Chunker, name] for name in self.names(PluginKind.Chunker)
         }
 
     @cached_property
-    def embedders(self) -> dict[str, EmbeddingProvider]:
+    def embedders(self) -> dict[str, Any]:
         """A snapshot of registered embedders (legacy accessor)."""
         return {
             name: self.entries[PluginKind.Embedder, name]
@@ -195,7 +188,7 @@ class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surfa
         }
 
     @cached_property
-    def vector_stores(self) -> dict[str, VectorStore]:
+    def vector_stores(self) -> dict[str, Any]:
         """A snapshot of registered vector stores (legacy accessor)."""
         return {
             name: self.entries[PluginKind.VectorStore, name]
@@ -203,7 +196,7 @@ class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surfa
         }
 
     @cached_property
-    def knowledge_repos(self) -> dict[str, KnowledgeRepository]:
+    def knowledge_repos(self) -> dict[str, Any]:
         """A snapshot of registered knowledge repos (legacy accessor)."""
         return {
             name: self.entries[PluginKind.KnowledgeRepo, name]
@@ -211,7 +204,7 @@ class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surfa
         }
 
     @cached_property
-    def generators(self) -> dict[str, GeneratorProtocol]:
+    def generators(self) -> dict[str, Any]:
         """A snapshot of registered generators (legacy accessor)."""
         return {
             name: self.entries[PluginKind.Generator, name]
@@ -219,7 +212,7 @@ class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surfa
         }
 
     @cached_property
-    def structured(self) -> dict[str, StructuredOutputProvider]:
+    def structured(self) -> dict[str, Any]:
         """A snapshot of registered structured-output providers."""
         return {
             name: self.entries[PluginKind.Structured, name]
@@ -227,7 +220,7 @@ class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surfa
         }
 
     @cached_property
-    def evaluators(self) -> dict[str, Evaluator]:
+    def evaluators(self) -> dict[str, Any]:
         """A snapshot of registered evaluators (legacy accessor)."""
         return {
             name: self.entries[PluginKind.Evaluator, name]

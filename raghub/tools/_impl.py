@@ -43,7 +43,6 @@ from raghub.types import JSONValue
 
 if TYPE_CHECKING:
     from raghub.knowledge import GraphIndex, Raptor
-    from raghub.models import VectorStore
     from raghub.retrieval import Retrieval
 
 # ---------------------------------------------------------------------------
@@ -564,7 +563,7 @@ class Keyword(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, vector_store: VectorStore) -> None:
+    def __init__(self, vector_store: Any) -> None:
         """Initialise the tool.
 
         Args:

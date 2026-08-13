@@ -7,11 +7,10 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from queue import Queue
 from typing import Any
 
-from raghub.models import BackgroundWorker, TaskQueue
 from raghub.types import JSONValue
 
 
-class Synchronous(BackgroundWorker):
+class Synchronous:
     """Execute tasks inline on the caller's thread.
 
     Useful for tests that want deterministic ordering. Exceptions
@@ -27,7 +26,7 @@ class Synchronous(BackgroundWorker):
             raise
 
 
-class ThreadPool(BackgroundWorker):
+class ThreadPool:
     """Execute tasks on a :class:`ThreadPoolExecutor`.
 
     Attributes:
@@ -54,7 +53,7 @@ class ThreadPool(BackgroundWorker):
         return self.executor.submit(fn, *args, **kwargs)
 
 
-class MemoryQueue(TaskQueue):
+class MemoryQueue:
     """In-memory queue shim intended for Celery/RQ migration.
 
     Process-local; does not survive restarts.

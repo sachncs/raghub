@@ -1,4 +1,4 @@
-"""OKF serialisation and the in-memory :class:`KnowledgeRepository`.
+"""OKF serialisation and the in-memory knowledge repository.
 
 Owns the Open Knowledge Format (OKF) JSON wire format for
 :class:`raghub.models.Bundle` objects and the in-memory
@@ -16,7 +16,6 @@ from raghub.models import (
     Bundle,
     DocumentBlock,
     DocumentSection,
-    KnowledgeRepository,
 )
 from raghub.runtime import capture
 
@@ -171,8 +170,8 @@ def loads(payload: str) -> Bundle:
     return from_okf(data)
 
 
-class MemoryRepo(KnowledgeRepository):
-    """Threadsafe-ish :class:`KnowledgeRepository` for tests and dev."""
+class MemoryRepo:
+    """Threadsafe-ish knowledge repository for tests and dev."""
 
     def __init__(self) -> None:
         """Initialise the empty in-memory store."""

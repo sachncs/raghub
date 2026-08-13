@@ -26,7 +26,8 @@ from raghub.constants import (
 from raghub.embedder import Embedder, FeatureHashingEmbedder
 from raghub.errors import ConfigurationError, MissingDepError
 from raghub.ingest import build_chonkie_chunker
-from raghub.models import Chunker, DocumentConverter
+# The Chunker and DocumentConverter Protocols were deleted from raghub.models.
+# Type hints in this module use Any until Phase 2 introduces concrete base classes.
 from raghub.store import MemoryStore
 
 __all__ = [
@@ -67,7 +68,7 @@ def has_llm_api_key() -> bool:
     return any(os.getenv(k) for k in LLM_API_KEY_ENV_VARS)
 
 
-def default_converter() -> DocumentConverter:
+def default_converter() -> Any:
     """Return the default document converter.
 
     Prefers :class:`Marker` when ``marker-pdf`` is installed;
@@ -103,7 +104,7 @@ def default_chunker(
     *,
     chunker_strategy: str = "recursive",
     embedding_model_chunker: str = "minishlab/potion-base-8M",
-) -> Chunker:
+) -> Any:
     """Return the default chunker.
 
     Args:

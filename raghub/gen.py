@@ -30,7 +30,6 @@ from raghub.errors import MissingDepError
 from raghub.llm import GenerationRequest, Generator
 from raghub.models import (
     Hit,
-    StructuredOutputProvider,
     Turn,
 )
 
@@ -200,7 +199,7 @@ class DefaultGenerator:
             }
 
 
-class Instructor(StructuredOutputProvider):
+class Instructor:
     """Generate typed Pydantic outputs via Instructor.
 
     Backed by LiteLLM through Instructor's ``from_provider`` factory

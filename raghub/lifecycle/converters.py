@@ -1,10 +1,9 @@
 """Document converter implementations.
 
-This module owns the :class:`raghub.models.DocumentConverter`
-implementations that turn raw file bytes into a canonical
-:class:`raghub.models.Bundle`. It depends on :mod:`raghub.lifecycle.state`
-for :func:`normalise_markdown` and on :mod:`raghub.lifecycle.scanner`
-for :func:`looks_like_pdf`.
+This module owns the converter implementations that turn raw file
+bytes into a canonical :class:`raghub.models.Bundle`. It depends on
+:mod:`raghub.lifecycle.state` for :func:`normalise_markdown` and on
+:mod:`raghub.lifecycle.scanner` for :func:`looks_like_pdf`.
 
 Public surface:
 
@@ -29,7 +28,7 @@ from typing import Any
 from raghub.errors import ConfigurationError, ConversionError
 from raghub.lifecycle.scanner import looks_like_pdf
 from raghub.lifecycle.state import normalise_markdown
-from raghub.models import Bundle, DocumentConverter
+from raghub.models import Bundle
 from raghub.runtime import capture
 
 # ---------------------------------------------------------------------------
@@ -60,7 +59,7 @@ def build_marker_converter(*, device: str | None = None) -> Any:
     return PdfConverter(**kwargs)
 
 
-class PlainTextConverter(DocumentConverter):
+class PlainTextConverter:
     """Convert plain text into a :class:`Bundle`.
 
     The text is wrapped in a Markdown paragraph and normalised via
@@ -99,7 +98,7 @@ class PlainTextConverter(DocumentConverter):
         )
 
 
-class Marker(DocumentConverter):
+class Marker:
     """Convert documents with Marker's PDF pipeline."""
 
     def __init__(self, *, device: str | None = None) -> None:
@@ -234,7 +233,7 @@ class Marker(DocumentConverter):
         return text_content, images
 
 
-def pick_converter(path: Path) -> DocumentConverter:
+def pick_converter(path: Path) -> Any:
     """Pick a converter for ``path`` based on its extension.
 
     Args:
@@ -254,7 +253,7 @@ def pick_converter(path: Path) -> DocumentConverter:
 def convert_path(
     path: str | Path,
     *,
-    converter: DocumentConverter | None = None,
+    converter: Any | None = None,
 ) -> Bundle:
     """Convert a file at ``path`` into a :class:`Bundle`.
 

@@ -23,10 +23,9 @@ from raghub.eval.benchmarks import Finance, Frames, run
 from raghub.eval.gate import Gate, compare, compute_average
 from raghub.eval.judge import Judge, parse
 from raghub.eval.metrics import Metrics, Scoring
-from raghub.models import Evaluator, Result
+from raghub.models import Result
 
 __all__ = [
-    "Evaluator",
     "Finance",
     "Frames",
     "Gate",
