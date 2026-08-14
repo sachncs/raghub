@@ -1,13 +1,11 @@
-"""Domain package: ``raghub.sse``.
+"""Server-Sent Events helpers.
 
-Re-exports the implementation in :mod:`raghub.sse._impl`.
+Re-exports the public surface from :mod:`raghub.sse.core`.
 """
 
 from __future__ import annotations
 
-from raghub.sse._impl import (
-    Sse,
-)
+from raghub.sse.core import Sse
 
 __all__ = [
     "Sse",
