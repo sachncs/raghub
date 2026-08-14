@@ -621,15 +621,12 @@ class UnitOfWork(BaseUnitOfWork):
         doc_repo = DocStore(db_path, database_handle=self.database_handle)
         chunk_repo = ChunkStore(vector_store)
         sess_repo = SessionStore(db_path, session_timeout, database_handle=self.database_handle)
-        super().__init__(
-            document_repo=doc_repo,
-            chunk_repo=chunk_repo,
-            session_repo=sess_repo,
-            database_handle=self.database_handle,
-        )
+        # The base UnitOfWork(Registry) doesn't take __init__ args, so
+        # the four repository fields are set directly on self.
         self.document_repo = doc_repo
         self.chunk_repo = chunk_repo
         self.session_repo = sess_repo
+        self.database_handle = self.database_handle
 
     async def initialize(self) -> None:
         """Open the database connection and initialise all repositories."""
