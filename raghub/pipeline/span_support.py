@@ -13,12 +13,38 @@ import asyncio
 import inspect
 import time
 from contextlib import AbstractContextManager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from types import TracebackType
 from typing import Any
 
 from raghub.models import Bundle, Chunk, Classification, deterministic_id
+
+
+@dataclass(slots=True)
+class PipelineMeta:
+    """Mutable runtime metadata attached to a :class:`PipelineCtx`.
+
+    The timer, the query pipeline, and the agent pipeline all write
+    into this object during a single run. The shape is intentionally
+    open: pipeline stages add new attributes as they need them.
+
+    Attributes:
+        duration_ms: Wall-clock duration set by :class:`DurationTimer`.
+        resolved_config: The per-request resolved config dict, set
+            by the query pipeline so downstream observers (responses,
+            agent traces) can read the user's effective settings.
+        requested_top_k: The top-k the user asked for (set by the
+            preference resolver for downstream consumers).
+        extra: Free-form bag for pipeline-specific fields that don't
+            warrant a typed attribute.
+
+    """
+
+    duration_ms: float = 0.0
+    resolved_config: dict[str, Any] = field(default_factory=dict)
+    requested_top_k: int | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 def coerce_to_awaitable(value: Any) -> Any:
@@ -41,7 +67,7 @@ def coerce_to_awaitable(value: Any) -> Any:
 
 
 class DurationTimer(AbstractContextManager["DurationTimer"]):
-    """Set ``context.metadata["duration_ms"]`` on exit."""
+    """Set ``context.meta.duration_ms`` on exit."""
 
     def __init__(self, context: Any) -> None:
         """Store the context; the start time is captured on entry."""
@@ -59,8 +85,8 @@ class DurationTimer(AbstractContextManager["DurationTimer"]):
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        """Record the elapsed milliseconds in ``context.metadata``."""
-        self.context.metadata["duration_ms"] = (time.perf_counter() - self.start) * 1000.0
+        """Record the elapsed milliseconds on ``context.meta``."""
+        self.context.meta.duration_ms = (time.perf_counter() - self.start) * 1000.0
 
 
 def canonical_filters(filters: dict[str, Any] | str | None) -> tuple[tuple[str, Any], ...]:
@@ -174,6 +200,7 @@ class QueryContext:
 __all__ = [
     "DurationTimer",
     "IngestResolvedMetadata",
+    "PipelineMeta",
     "QueryContext",
     "canonical_filters",
     "coerce_to_awaitable",

@@ -191,7 +191,7 @@ class QueryPipeline:
                 "structured": structured_output,
                 "history": ctx.history,
                 "transforms_applied": transforms_applied,
-                "resolved_config": context.metadata.get("resolved_config"),
+                "resolved_config": context.meta.resolved_config if context.meta else None,
             },
         )
         cache_persist(self.cache, result, ctx)
