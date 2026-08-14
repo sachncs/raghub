@@ -1,6 +1,6 @@
 """Vector-store implementations.
 
-This package exposes the abstract :class:`Store` contract, an
+This package exposes the polymorphic :class:`Store` base, an
 in-process ``MemoryStore`` (cosine + BM25), and a ``SqliteStore``
 that uses the ``sqlite-vector`` package from
 ``github.com/sqliteai/sqlite-vector`` when installed, or a SQLite +
@@ -8,7 +8,7 @@ NumPy fallback when not.
 
 The implementation is split across four files:
 
-* :mod:`raghub.store.base` — the :class:`Store` ABC, the
+* :mod:`raghub.store.base` — the :class:`Store` Registry base, the
   :class:`MemoryVectorRecord` payload, and the ``matches_metadata_*``
   pre-filter helpers.
 * :mod:`raghub.store.memory` — :class:`MemoryStore`.
