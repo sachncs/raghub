@@ -22,8 +22,9 @@ from typing import Any
 # The Protocols that used to be imported from raghub.models (Chunker,
 # DocumentConverter, EmbeddingProvider, Evaluator, GeneratorProtocol,
 # KnowledgeRepository, Logger, Metrics, StructuredOutputProvider, VectorStore)
-# have been deleted. Plugin registration now takes Any-typed collaborators;
-# the registry itself (Phase 2) will tighten the types to concrete classes.
+# were deleted in Phase 1. Plugin registration takes Any-typed collaborators;
+# the polymorphic Registry subclasses (Embedder, Generator, Rerank,
+# etc.) provide the type contract for each slot.
 from raghub.types import JSONValue
 
 __all__ = [

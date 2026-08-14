@@ -15,7 +15,7 @@ collaborators it needs:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 from tqdm import tqdm
 
@@ -26,30 +26,11 @@ from raghub.models import Pipeline, deterministic_id
 from raghub.types import JSONValue
 
 
-class SyncHost(Protocol):
-    """Protocol of the host methods :class:`SyncMixin` delegates to.
-
-    The composing class (``RAG``) supplies these via other mixins
-    (notably :class:`IngestMixin`). Protocols are zero-cost at runtime
-    so this lives at module scope.
-    """
-
-    def ingest(
-        self,
-        source: str | Path | bytes,
-        **options: JSONValue,
-    ) -> Pipeline:
-        """Host-provided ingest entry point."""
-
-    def delete(self, document_id: str) -> None:
-        """Host-provided delete entry point."""
-
-
-class SyncMixin(SyncHost):
+class SyncMixin:
     """Mixin providing incremental-indexing (sync) entry points.
 
-    Inherits from :class:`SyncHost` so mypy recognises the
-    host-provided ``ingest`` and ``delete`` methods.
+    The host class (``RAG``) supplies ``ingest`` and ``delete`` as
+    methods, plus ``manifest`` and ``settings`` as attributes.
     """
 
     manifest: Manifest

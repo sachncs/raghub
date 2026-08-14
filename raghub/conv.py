@@ -20,10 +20,11 @@ from __future__ import annotations
 import threading
 from collections import defaultdict, deque
 from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol
+from typing import Any
 
 from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
 from raghub.models import Session, Turn
+from raghub.registry import Registry
 from raghub.repos import UnitOfWork
 
 __all__ = [
@@ -362,23 +363,28 @@ class ConversationHistory:
         await self.uow.session_repo.upsert(record)
 
 
-class ConversationStore(Protocol):
-    """Protocol for pluggable conversation history backends."""
+class ConversationStore(Registry):
+    """Polymorphic base for conversation history backends.
+
+    Concrete stores register via ``@ConversationStore.register``.
+    """
+
+    name: str = "conversation_store"
 
     def append(self, session_id: str, turn: Turn) -> None:
-        """Append a turn to the session's history."""
+        raise NotImplementedError
 
     def load(self, session_id: str, limit: int = 20) -> list[Turn]:
-        """Return the most recent ``limit`` turns (oldest first)."""
+        raise NotImplementedError
 
     def clear(self, session_id: str) -> None:
-        """Clear the session's history."""
+        raise NotImplementedError
 
     def get_overrides(self, session_id: str) -> dict[str, Any]:
-        """Return session-scoped tool/agent overrides."""
+        raise NotImplementedError
 
     def set_overrides(self, session_id: str, overrides: dict[str, Any]) -> None:
-        """Replace session-scoped tool/agent overrides."""
+        raise NotImplementedError
 
 
 class Memory:

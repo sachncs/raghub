@@ -10,18 +10,12 @@ first-class adapters ship in this release.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, Protocol
+from typing import Any
 
 from raghub.errors import ConfigurationError
 from raghub.models import Chunk, Hit
 
 __all__ = ["PgVectorStore"]
-
-
-class AsyncPgModule(Protocol):
-    """Slim asyncpg-shaped protocol used by :class:`PgVectorStore`."""
-
-    async def connect(self, dsn: str) -> Any: ...
 
 
 SCHEMA_SQL = """

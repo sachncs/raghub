@@ -18,9 +18,10 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Any
 
 from raghub.errors import RagHubError
+from raghub.registry import Registry
 
 __all__ = [
     "Job",
@@ -111,13 +112,17 @@ class QueueSaturatedError(RagHubError, RuntimeError):
     """Raised when a queue refuses new submissions due to back-pressure."""
 
 
-class PersistentQueue(Protocol):
-    """Storage contract for a persistent ingestion queue.
+class PersistentQueue(Registry):
+    """Polymorphic base for a persistent ingestion queue.
 
     All methods are async because SQLite access is async under
     :mod:`aiosqlite`. Implementations may add additional methods
-    (e.g. ``ack_batch``) but the protocol below is the minimum.
+    (e.g. ``ack_batch``) but the surface below is the minimum.
+
+    Concrete queues register via ``@PersistentQueue.register``.
     """
+
+    name: str = "persistent_queue"
 
     async def submit(
         self,
@@ -128,27 +133,27 @@ class PersistentQueue(Protocol):
         max_attempts: int = 3,
     ) -> str:
         """Submit a job; return its id."""
-        ...
+        raise NotImplementedError
 
     async def claim(self, worker_id: str, lease_seconds: int = 60) -> Job | None:
         """Claim the next pending job; returns ``None`` when the queue is empty."""
-        ...
+        raise NotImplementedError
 
     async def ack(self, job_id: str) -> None:
         """Mark ``job_id`` as succeeded."""
-        ...
+        raise NotImplementedError
 
     async def nack(self, job_id: str, error: str) -> None:
         """Record ``error``; the job moves back to pending or dead-lettered."""
-        ...
+        raise NotImplementedError
 
     async def dead_letter(self, job_id: str) -> None:
         """Move ``job_id`` to the ``dead`` state."""
-        ...
+        raise NotImplementedError
 
     async def retry(self, job_id: str, delay_seconds: int) -> None:
         """Move ``job_id`` back to ``pending`` with ``next_run_at`` offset."""
-        ...
+        raise NotImplementedError
 
     async def purge(self, status: JobStatus | None = None) -> int:
         """Delete jobs by status; return the count deleted."""
@@ -189,8 +194,11 @@ CREATE INDEX IF NOT EXISTS raghub_queue_tenant_id
 """
 
 
-class SqliteQueue:
+@PersistentQueue.register("sqlite")
+class SqliteQueue(PersistentQueue):
     """SQLite-backed :class:`PersistentQueue` implementation."""
+
+    name = "sqlite"
 
     def __init__(self, db_path: str, *, max_inflight: int = 256) -> None:
         """Initialise the queue.

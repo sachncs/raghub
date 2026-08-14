@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from typing import Any, Protocol
+from typing import Any
 
 __all__ = [
     "CompositeTenantResolver",
@@ -34,6 +34,7 @@ __all__ = [
 
 # Re-export context helpers and the dataclass so callers don't have to
 # reach into ``raghub.tenants.isolation`` for routine use.
+from raghub.registry import Registry
 from raghub.tenants.isolation import (
     Isolation,
     TenantContext,
@@ -63,23 +64,30 @@ def validate_tenant(tenant_id: str) -> None:
         )
 
 
-class TenantResolver(Protocol):
-    """Resolve a request to a tenant id.
+class TenantResolver(Registry):
+    """Polymorphic base for tenant-id resolution.
 
     Implementations must be deterministic and side-effect free. They
     must never trust a caller-supplied tenant id; the resolved
     value must come from a verified identity (JWT claim, trusted
     header, or a documented external mapping).
+
+    Concrete resolvers register via ``@TenantResolver.register``.
     """
+
+    name: str = "tenant_resolver"
 
     def resolve(self, request: Any) -> TenantId | None:
         """Return the tenant id for ``request`` or ``None`` when unknown."""
+        raise NotImplementedError
         ...
 
 
-class HeaderTenantResolver:
+@TenantResolver.register("header")
+class HeaderTenantResolver(TenantResolver):
     """Resolve tenant id from the ``X-Tenant-ID`` header."""
 
+    name = "header"
     HEADER_NAME = "X-Tenant-ID"
 
     def resolve(self, request: Any) -> TenantId | None:
@@ -97,9 +105,11 @@ class HeaderTenantResolver:
         return raw
 
 
-class JwtClaimTenantResolver:
+@TenantResolver.register("jwt_claim")
+class JwtClaimTenantResolver(TenantResolver):
     """Resolve tenant id from the ``tenant_id`` JWT claim."""
 
+    name = "jwt_claim"
     CLAIM_NAME = "tenant_id"
 
     def resolve(self, request: Any) -> TenantId | None:
@@ -117,7 +127,8 @@ class JwtClaimTenantResolver:
         return raw
 
 
-class CompositeTenantResolver:
+@TenantResolver.register("composite")
+class CompositeTenantResolver(TenantResolver):
     """Prefer the JWT claim, fall back to the header.
 
     The combination prevents header-injection spoofing: even when the
@@ -143,8 +154,11 @@ class CompositeTenantResolver:
         return self.header_resolver.resolve(request)
 
 
-class NoTenantResolver:
+@TenantResolver.register("none")
+class NoTenantResolver(TenantResolver):
     """Resolve ``None`` for every request. Used when tenant isolation is off."""
+
+    name = "none"
 
     @staticmethod
     def resolve(request: Any) -> TenantId | None:

@@ -28,7 +28,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import IntEnum
-from typing import Any, Protocol
+from typing import Any
 
 from raghub.errors import ConfigurationError, MissingDepError
 from raghub.registry import Registry
