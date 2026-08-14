@@ -47,9 +47,9 @@ mixins still exist and are scheduled for Phase 6.
   used as type-narrowing hints in test signatures, not as carriers)
 
 ## Phase 5: Replace ABCs with concrete polymorphism
-- [ ] Drop all ABCs (Embedder, Generator, File, Store, KnowledgeIndex, Tool)
-- [ ] Drop all Protocols (consumer updates complete)
-- [ ] Convert concrete subclasses to use registry
+- [x] Drop all ABCs (Embedder, Generator, File, Store, KnowledgeIndex, Tool)
+- [x] Drop all Protocols (consumer updates complete)
+- [x] Convert concrete subclasses to use registry
 
 ## Phase 6: Consolidate remaining structural oddities
 - [ ] Unify Job state machines
