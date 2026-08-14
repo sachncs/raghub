@@ -13,7 +13,7 @@ Each strategy implements the same :class:`Isolation`
 Protocol. The default is :class:`RowLevel`. Per-tenant secrets
 (API keys) are encrypted at rest with Fernet and stored in the
 ``raghub_tenant_secrets`` table (schema in
-:mod:`raghub.store.schema`).
+:mod:`raghub.stores.schema`).
 """
 
 from __future__ import annotations

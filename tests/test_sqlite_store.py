@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from raghub.errors import VectorStoreError
-from raghub.store import SqliteStore
+from raghub.stores import SqliteStore
 
 
 @pytest.fixture
@@ -113,7 +113,7 @@ def test_sqlite_store_search_filters_by_tenant_id(tmp_path):
     from datetime import UTC, datetime
 
     from raghub.models import Chunk, Classification
-    from raghub.store import SqliteStore
+    from raghub.stores import SqliteStore
     from raghub.tenants import TenantContext, reset, set_current
 
     db = tmp_path / "vecstore.db"
@@ -161,7 +161,7 @@ def test_sqlite_store_search_explicit_tenant_overrides_context(tmp_path):
     from datetime import UTC, datetime
 
     from raghub.models import Chunk, Classification
-    from raghub.store import SqliteStore
+    from raghub.stores import SqliteStore
     from raghub.tenants import TenantContext, reset, set_current
 
     db = tmp_path / "vecstore.db"

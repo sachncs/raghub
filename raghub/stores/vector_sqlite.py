@@ -20,7 +20,7 @@ import numpy as np
 
 from raghub.errors import VectorStoreError
 from raghub.models import Chunk, Classification
-from raghub.store.base import Store
+from raghub.stores.vector_base import Store
 
 # Local path to the (optional) ``sqlite-vector`` Python package. The repo
 # at github.com/sqliteai/sqlite-vector is not on PyPI as of writing; the

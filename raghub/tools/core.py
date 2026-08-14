@@ -39,7 +39,7 @@ from raghub.constants import RRF_K
 from raghub.errors import ConfigurationError
 from raghub.models import User
 from raghub.registry import Registry
-from raghub.store import Store
+from raghub.stores import Store
 from raghub.types import JSONValue
 
 if TYPE_CHECKING:

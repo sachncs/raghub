@@ -18,7 +18,7 @@ import pytest
 
 from raghub.models import Chunk
 from raghub.repos import ChunkStore, UnitOfWork
-from raghub.store import MemoryStore
+from raghub.stores import MemoryStore
 
 
 def _make_chunk(

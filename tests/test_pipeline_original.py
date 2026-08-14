@@ -29,7 +29,7 @@ from raghub.models import (
     User,
 )
 from raghub.pipeline import Ingest, QueryPipeline
-from raghub.store import MemoryStore
+from raghub.stores import MemoryStore
 
 
 def make_bundle(sections: list[DocumentSection] | None = None) -> Bundle:

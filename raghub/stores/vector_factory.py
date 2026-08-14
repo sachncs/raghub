@@ -6,8 +6,8 @@ import os
 
 from raghub.config import Settings
 from raghub.constants import ENV_RAG_VECTORSTORE_PATH
-from raghub.store.base import Store
-from raghub.store.sqlite import SqliteStore
+from raghub.stores.vector_base import Store
+from raghub.stores.vector_sqlite import SqliteStore
 
 
 def build_store(
