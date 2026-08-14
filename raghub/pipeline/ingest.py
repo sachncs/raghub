@@ -15,6 +15,7 @@ from raghub.models import (
     Classification,
     Pipeline,
     PipelineCtx,
+    PipelineOutputs,
     deterministic_id,
 )
 from raghub.pipeline.span_support import (
@@ -179,13 +180,14 @@ class Ingest:
         return Pipeline(
             pipeline_id=context.pipeline_id,
             pipeline_name=self.name,
-            outputs={
-                "bundle": existing,
-                "chunks": prior_chunks,
-                "chunk_count": len(prior_chunks),
-                "embeddings": [],
-                "incremental": True,
-            },
+            outputs=PipelineOutputs(
+                chunks=prior_chunks,
+                extra={
+                    "bundle": existing,
+                    "chunk_count": len(prior_chunks),
+                    "incremental": True,
+                },
+            ),
         )
 
     def convert_bundle(
@@ -276,13 +278,16 @@ class Ingest:
         return Pipeline(
             pipeline_id=context.pipeline_id,
             pipeline_name=self.name,
-            outputs={
-                "bundle": bundle,
-                "chunks": chunks,
-                "chunk_count": len(chunks),
-                "embeddings": vectors,
-                "incremental": incremental,
-            },
+            outputs=PipelineOutputs(
+                chunks=chunks,
+                vectors=vectors,
+                chunks_written=len(chunks),
+                extra={
+                    "bundle": bundle,
+                    "chunk_count": len(chunks),
+                    "incremental": incremental,
+                },
+            ),
         )
 
 
