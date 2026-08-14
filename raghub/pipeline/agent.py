@@ -13,6 +13,7 @@ from raghub.models import (
     Citation,
     Pipeline,
     PipelineCtx,
+    PipelineOutputs,
     Turn,
     User,
 )
@@ -116,18 +117,22 @@ class AgentPipeline:
             return Pipeline(
                 pipeline_id=context.pipeline_id,
                 pipeline_name=self.name,
-                outputs={
-                    "answer": answer or trace.final_answer,
-                    "citations": generator_citations,
-                    "hits": hits,
-                    "structured": None,
-                    "history": list(history),
-                    "transforms_applied": [],
-                    "resolved_config": context.meta.resolved_config if context.meta else None,
-                    "planner_trace": [event.model_dump(mode="json") for event in trace.events],
-                    "tools_invoked": list(trace.tools_invoked),
-                    "agent_trace": trace.to_dict(),
-                },
+                outputs=PipelineOutputs(
+                    answer=answer or trace.final_answer,
+                    citations=generator_citations,
+                    hits=hits,
+                    structured=None,
+                    history=list(history),
+                    transforms_applied=[],
+                    planner_trace=[event.model_dump(mode="json") for event in trace.events],
+                    tools_invoked=list(trace.tools_invoked),
+                    agent_trace=trace.to_dict(),
+                    extra={
+                        "resolved_config": context.meta.resolved_config
+                        if context.meta
+                        else None,
+                    },
+                ),
             )
 
     async def astream(

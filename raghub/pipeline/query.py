@@ -20,6 +20,7 @@ from raghub.models import (
     Hit,
     Pipeline,
     PipelineCtx,
+    PipelineOutputs,
     Turn,
 )
 from raghub.pipeline.query_helpers import (
@@ -184,15 +185,19 @@ class QueryPipeline:
         result = Pipeline(
             pipeline_id=context.pipeline_id,
             pipeline_name=self.name,
-            outputs={
-                "answer": answer,
-                "citations": citations,
-                "hits": hits,
-                "structured": structured_output,
-                "history": ctx.history,
-                "transforms_applied": transforms_applied,
-                "resolved_config": context.meta.resolved_config if context.meta else None,
-            },
+            outputs=PipelineOutputs(
+                answer=answer,
+                citations=citations,
+                hits=hits,
+                structured=structured_output,
+                history=list(ctx.history),
+                transforms_applied=list(transforms_applied),
+                extra={
+                    "resolved_config": context.meta.resolved_config
+                    if context.meta
+                    else None,
+                },
+            ),
         )
         cache_persist(self.cache, result, ctx)
         return result

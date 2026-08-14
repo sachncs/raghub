@@ -681,6 +681,50 @@ class PipelineCtx:
 
 
 @dataclass(slots=True, frozen=True)
+class PipelineOutputs:
+    """Typed output of a pipeline run.
+
+    Each pipeline type fills the fields that apply; the rest are
+    ``None``. The fields are intentionally a wide union so any
+    pipeline can return its result through the same :class:`Pipeline`
+    without coercing into a per-pipeline carrier class.
+
+    Attributes:
+        chunks: Chunks produced by the ingest pipeline.
+        vectors: Vectors produced by the ingest pipeline (parallel to ``chunks``).
+        chunks_written: Rows actually written by the vector store.
+        answer: The query pipeline's answer string.
+        hits: The query pipeline's retrieval hits.
+        citations: The query pipeline's citation list.
+        source_chunks: The query pipeline's :class:`Chunk` list.
+        structured: The structured-output payload (or ``None``).
+        history: Conversation history the answer was generated against.
+        transforms_applied: Names of query transforms that ran.
+        planner_trace: Agent loop planner events.
+        tools_invoked: Agent loop tool-call names.
+        agent_trace: Agent loop aggregate trace dict.
+        extra: Pipeline-specific fields that don't warrant a typed
+            attribute.
+
+    """
+
+    chunks: list[Chunk] | None = None
+    vectors: list[list[float]] | None = None
+    chunks_written: int | None = None
+    answer: str | None = None
+    hits: list[Hit] | None = None
+    citations: list[Citation] | None = None
+    source_chunks: list[Chunk] | None = None
+    structured: dict[str, Any] | None = None
+    history: list[Turn] | None = None
+    transforms_applied: list[str] | None = None
+    planner_trace: list[dict[str, Any]] | None = None
+    tools_invoked: list[str] | None = None
+    agent_trace: dict[str, Any] | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True, frozen=True)
 class Pipeline:
     """Output of a pipeline run.
 
@@ -692,7 +736,7 @@ class Pipeline:
     pipeline_id: str = ""
     pipeline_name: str = ""
     type: PipelineType = PipelineType.Ingest
-    outputs: dict[str, Any] = field(default_factory=dict)
+    outputs: PipelineOutputs = field(default_factory=PipelineOutputs)
     error: ErrorInfo | None = None
     finished_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
@@ -862,6 +906,7 @@ __all__ = [
     "ManifestType",
     "Pipeline",
     "PipelineCtx",
+    "PipelineOutputs",
     "PipelineType",
     "Query",
     "QueryRequest",

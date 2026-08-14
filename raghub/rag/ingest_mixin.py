@@ -34,6 +34,7 @@ from raghub.knowledge import Manifest, sha256_bytes
 from raghub.models import (
     Pipeline,
     PipelineCtx,
+    PipelineOutputs,
     deterministic_id,
 )
 from raghub.rag.defaults import ingest_one_worker
@@ -91,7 +92,7 @@ class IngestMixin:
                 return Pipeline(
                     pipeline_id="batch",
                     pipeline_name="ingest",
-                    outputs={"batch": results},
+                    outputs=PipelineOutputs(extra={"batch": results}),
                 )
             file_bytes = p.read_bytes()
             uri = str(p.resolve())
@@ -201,7 +202,7 @@ class IngestMixin:
         return Pipeline(
             pipeline_id="batch",
             pipeline_name="ingest",
-            outputs={"batch": list(results)},
+            outputs=PipelineOutputs(extra={"batch": list(results)}),
         )
 
     async def ingest_dir(
@@ -227,7 +228,7 @@ class IngestMixin:
             return Pipeline(
                 pipeline_id="batch",
                 pipeline_name="ingest",
-                outputs={"batch": []},
+                outputs=PipelineOutputs(extra={"batch": []}),
             )
         worker_outputs = self.run_workers_in_pool(directory, files, metadata, max_workers)
         return self.collect_worker_results(files, worker_outputs)
@@ -265,7 +266,12 @@ class IngestMixin:
         return Pipeline(
             pipeline_id="batch",
             pipeline_name="ingest",
-            outputs={"batch": worker_outputs, "files": [str(p) for p in files]},
+            outputs=PipelineOutputs(
+                extra={
+                    "batch": worker_outputs,
+                    "files": [str(p) for p in files],
+                },
+            ),
         )
 
     def settings_path(self) -> str:
