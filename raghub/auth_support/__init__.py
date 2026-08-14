@@ -1,15 +1,11 @@
-"""Domain package: ``raghub.auth_support``.
+"""Auth support primitives.
 
-Re-exports the implementation in :mod:`raghub.auth_support._impl`.
+Re-exports the public surface from :mod:`raghub.auth_support.core`.
 """
 
 from __future__ import annotations
 
-from raghub.auth_support._impl import (
-    App,
-    Auth,
-    Bearer,
-)
+from raghub.auth_support.core import App, Auth, Bearer
 
 __all__ = [
     "App",
