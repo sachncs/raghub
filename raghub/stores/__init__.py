@@ -23,7 +23,12 @@ from raghub.stores.documents import Documents, Snapshot
 from raghub.stores.images import ImageStore
 from raghub.stores.migrate import migrate_from_json
 from raghub.stores.schema import SQLITE_SCHEMA
-from raghub.stores.vector_base import MemoryVectorRecord, Store
+from raghub.stores.vector_base import (
+    MemoryVectorRecord,
+    Store,
+    matches_metadata_dict,
+    matches_metadata_string,
+)
 from raghub.stores.vector_factory import build_store
 from raghub.stores.vector_memory import MemoryStore
 from raghub.stores.vector_sqlite import SqliteStore
@@ -41,5 +46,7 @@ __all__ = [
     "SqliteStore",
     "Store",
     "build_store",
+    "matches_metadata_dict",
+    "matches_metadata_string",
     "migrate_from_json",
 ]

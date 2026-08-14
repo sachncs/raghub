@@ -39,6 +39,8 @@ from raghub.retrieval.factories import (
 )
 from raghub.retrieval.fusion import (
     Fusion,
+    LinearFusion,
+    ReciprocalRankFusion,
     linear_combine,
     merge_rrf,
     reciprocal_rank_fusion,
@@ -80,8 +82,10 @@ __all__ = [
     "Identity",
     "LlmJudge",
     "MultiQuery",
+    "LinearFusion",
     "Rerank",
     "RerankerFactory",
+    "ReciprocalRankFusion",
     "Retrieval",
     "Search",
     "SearchFilters",

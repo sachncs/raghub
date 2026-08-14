@@ -73,10 +73,18 @@ class Health:
         """
         self.log("health_check")
         components: dict[str, ComponentHealth] = {}
-        components["vectorstore"] = ComponentHealth(**probe_vector_store(self.container.vector_store))
+        vectorstore_payload = probe_vector_store(self.container.vector_store)
+        components["vectorstore"] = ComponentHealth(
+            status=str(vectorstore_payload.get("status", "ok")),
+            extra={k: v for k, v in vectorstore_payload.items() if k != "status"},
+        )
         embedder = getattr(self.container, "embeddings", None)
         if embedder is not None:
-            components["embedder"] = ComponentHealth(**probe_embedder(embedder))
+            embedder_payload = probe_embedder(embedder)
+            components["embedder"] = ComponentHealth(
+                status=str(embedder_payload.get("status", "ok")),
+                extra={k: v for k, v in embedder_payload.items() if k != "status"},
+            )
         components["registry"] = ComponentHealth(status="ok")
         probe_dicts = {
             name: {"status": comp.status, **comp.extra}
