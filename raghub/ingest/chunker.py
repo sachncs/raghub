@@ -16,14 +16,37 @@ from raghub.errors import ConfigurationError
 from raghub.lifecycle import ChunkingPlan, chunk_words, normalize_text
 from raghub.llm import GenerationRequest
 from raghub.models import Chunk, deterministic_id
+from raghub.registry import Registry
 from raghub.runtime import capture
 from raghub.types import JSONValue
 
 __all__ = [
     "Chonkie",
+    "Chunker",
     "Words",
     "build_chonkie_chunker",
 ]
+
+
+class Chunker(Registry):
+    """Polymorphic base for chunking strategies.
+
+    Concrete chunkers register themselves with ``@Chunker.register``
+    and implement :meth:`chunk` / :meth:`chunk_text`.
+    """
+
+    chunk_size: int
+    chunk_overlap: int
+
+    def chunk(self, bundle: Any) -> list[Chunk]:
+        """Split a :class:`Bundle` into chunks."""
+        raise NotImplementedError
+
+    def chunk_text(
+        self, text: str, *, document_id: str, version: int = 1
+    ) -> list[Chunk]:
+        """Split raw text into chunks."""
+        raise NotImplementedError
 
 chonkie, OptionalImportError = capture(__import__, "chonkie")
 CHONKIE_AVAILABLE = OptionalImportError is None
@@ -223,11 +246,9 @@ def auto_select_chunker(
     )
 
 
-class Chonkie:
+@Chunker.register("chonkie")
+class Chonkie(Chunker):
     """Chonkie-backed chunker supporting all strategies."""
-
-    chunk_size: int
-    chunk_overlap: int
 
     def __init__(
         self,
@@ -392,11 +413,9 @@ class Chonkie:
         return chunks
 
 
-class Words:
+@Chunker.register("words")
+class Words(Chunker):
     """Overlap-aware word-window chunker."""
-
-    chunk_size: int
-    chunk_overlap: int
 
     def __init__(
         self,

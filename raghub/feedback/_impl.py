@@ -31,6 +31,7 @@ from enum import IntEnum
 from typing import Any, Protocol
 
 from raghub.errors import ConfigurationError, MissingDepError
+from raghub.registry import Registry
 from raghub.telemetry import RedactingTelemetry
 from raghub.tenants import validate_tenant
 
@@ -472,13 +473,21 @@ def as_feedback(row: Any) -> Feedback:
 # ---------------------------------------------------------------------------
 
 
-class FeedbackScorer(Protocol):
-    """Apply a feedback-derived multiplier to a candidate's retrieval score."""
+class FeedbackScorer(Registry):
+    """Polymorphic base for retrieval-boost scoring algorithms.
 
-    def boost(self, chunk_id: str, base_score: float) -> float: ...
+    Concrete scorers register themselves via ``@FeedbackScorer.register``
+    and implement :meth:`boost`. The algorithms are documented in
+    ``docs/adr/0016-feedback-loop.md``.
+    """
+
+    def boost(self, chunk_id: str, base_score: float) -> float:
+        """Apply a feedback-derived multiplier to a candidate's retrieval score."""
+        raise NotImplementedError
 
 
-class NoOpFeedbackScorer:
+@FeedbackScorer.register("noop")
+class NoOpFeedbackScorer(FeedbackScorer):
     """Default identity scorer; feedback loop disabled."""
 
     @staticmethod
@@ -486,7 +495,8 @@ class NoOpFeedbackScorer:
         return base_score
 
 
-class Bm25BoostScorer:
+@FeedbackScorer.register("bm25_boost")
+class Bm25BoostScorer(FeedbackScorer):
     """Apply the bm25-boost algorithm from ADR 0016.
 
     * Positive feedback for ``chunk_id``: multiply by
@@ -569,7 +579,8 @@ class Bm25BoostScorer:
         return base_score * multiplier
 
 
-class VectorDownWeightScorer:
+@FeedbackScorer.register("vector_down_weight")
+class VectorDownWeightScorer(FeedbackScorer):
     """Apply the vector-down-weight algorithm from ADR 0016.
 
     Negative feedback for ``chunk_id`` multiplies dense similarity by

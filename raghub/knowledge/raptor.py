@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import hashlib
 import math
-from abc import ABC, abstractmethod
 from hashlib import sha256
 from typing import Any, cast
 
 from raghub.embedder import Embedder
 from raghub.llm import GenerationRequest, Generator
 from raghub.models import Chunk, Hit
+from raghub.registry import Registry
 from raghub.runtime import capture
 
 SUMMARY_PROMPT = (
@@ -27,30 +27,35 @@ SUMMARY_PROMPT = (
 )
 
 
-class KnowledgeIndex(ABC):
-    """Abstract structured-retrieval overlay."""
+class KnowledgeIndex(Registry):
+    """Polymorphic base for structured-retrieval overlays.
+
+    Concrete indexes (RAPTOR, GraphRAG, …) register themselves via
+    ``@KnowledgeIndex.register``; use :meth:`KnowledgeIndex.get` for
+    by-name dispatch.
+    """
 
     name: str = "knowledge_index"
 
-    @abstractmethod
     def add_chunks(
         self,
         chunks: list[Chunk],
         vectors: list[list[float]],
     ) -> None:
         """Ingest a batch of chunks (called once per ``ingest()``)."""
+        raise NotImplementedError
 
-    @abstractmethod
     def delete_for_document(self, document_id: str) -> int:
         """Remove every artefact belonging to ``document_id``."""
+        raise NotImplementedError
 
-    @abstractmethod
     def search(
         self,
         query: str,
         top_k: int = 5,
     ) -> list[Hit]:
         """Search the index for entries relevant to ``query``."""
+        raise NotImplementedError
 
     def health(self) -> dict[str, Any]:
         """Return a small JSON-friendly status dict for ``/health``."""
@@ -58,6 +63,7 @@ class KnowledgeIndex(ABC):
         return {"name": self.name, "chunks": len(chunks)}
 
 
+@KnowledgeIndex.register("raptor")
 class Raptor(KnowledgeIndex):
     """Recursive summary tree (Phase 6.2).
 

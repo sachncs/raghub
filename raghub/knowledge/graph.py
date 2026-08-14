@@ -75,6 +75,7 @@ def tokenise(text: str) -> set[str]:
     return {token for token in re.findall(r"\w+", text.lower()) if len(token) > MIN_TOKEN_LENGTH}
 
 
+@KnowledgeIndex.register("graphrag")
 class GraphIndex(KnowledgeIndex):
     """Entity + community graph (Phase 6.3).
 
