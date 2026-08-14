@@ -33,8 +33,11 @@ elif find_spec("sqlitevector") is not None:
     SQLITE_VECTOR_PKG = "sqlitevector"
 
 
+@Store.register("sqlite")
 class SqliteStore(Store):  # ruff: ignore[too-many-public-methods] -- full Store surface for SQLite backend
     """Vector store backed by SQLite."""
+
+    name = "sqlite"
 
     def __init__(
         self,

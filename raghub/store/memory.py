@@ -20,8 +20,11 @@ from raghub.store.base import (
 )
 
 
+@Store.register("memory")
 class MemoryStore(Store):
     """Cosine-similarity vector store with BM25 keyword search."""
+
+    name = "memory"
 
     def __init__(self, embedding_dim: int) -> None:
         """Initialise an empty store with a re-entrant lock.
