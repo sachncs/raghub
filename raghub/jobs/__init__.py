@@ -1,11 +1,11 @@
-"""Domain package: ``raghub.jobs``.
+"""Persistent task queue and worker primitives.
 
-Re-exports the implementation in :mod:`raghub.jobs._impl`.
+Re-exports the public surface from :mod:`raghub.jobs.core`.
 """
 
 from __future__ import annotations
 
-from raghub.jobs._impl import (
+from raghub.jobs.core import (
     Job,
     JobStateError,
     JobStatus,

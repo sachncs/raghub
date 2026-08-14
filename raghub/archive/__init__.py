@@ -1,11 +1,11 @@
-"""Domain package: ``raghub.archive``.
+"""Snapshot archive utilities.
 
-Re-exports the implementation in :mod:`raghub.archive._impl`.
+Re-exports the public surface from :mod:`raghub.archive.core`.
 """
 
 from __future__ import annotations
 
-from raghub.archive._impl import (
+from raghub.archive.core import (
     MANIFEST_FORMAT_VERSION,
     ArchiveCorruptionError,
     ArchiveEntry,
