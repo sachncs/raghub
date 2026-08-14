@@ -492,9 +492,9 @@ async def test_health_returns_aggregate_status(
 
     report = facade.health()
 
-    assert report["status"] == "ok"
-    assert report["components"]["vectorstore"]["status"] == "ok"
-    assert report["components"]["registry"]["status"] == "ok"
+    assert report.status == "ok"
+    assert report.components["vectorstore"].status == "ok"
+    assert report.components["registry"].status == "ok"
 
 
 async def test_shutdown_releases_resources(
