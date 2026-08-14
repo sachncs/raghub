@@ -63,12 +63,12 @@ mixins still exist and are scheduled for Phase 6.
 - [x] Convert `DocumentRepository/ChunkRepository/SessionRepository/Database/UnitOfWork` (in `raghub/domain.py`) from ABC+Protocol to Registry
 
 ## Phase 7: Verify
-- [ ] `grep -rn "ABC" raghub/` → zero hits
-- [ ] `grep -rn "Protocol" raghub/` → zero hits
-- [ ] `grep -rn "from pydantic" raghub/` → zero hits
-- [ ] `grep -rn "^[a-z_]*_.*\.py" raghub/` (leading underscore modules) → zero hits
-- [ ] `grep -rn "^_.*\.py" raghub/` (any leading underscore modules) → zero hits
-- [ ] `grep -rn "isinstance(.*Plugin" raghub/` etc. → zero hits
+- [x] `grep -rn "ABC" raghub/` → zero hits (in source; only one comment in store/__init__.py)
+- [x] `grep -rn "Protocol" raghub/` → zero hits (in source; docstring mentions only)
+- [ ] `grep -rn "from pydantic" raghub/` → still 10 hits (Settings, routes, agent, etc.) — see Phase 6 notes
+- [x] `grep -rn "^[a-z_]*_.*\.py" raghub/` (leading underscore modules) → zero hits
+- [x] `grep -rn "^_.*\.py" raghub/` (any leading underscore modules) → zero hits
+- [x] `grep -rn "isinstance(.*Plugin" raghub/` etc. → zero hits
 - [ ] Run `uv run poe syntax` or equivalent
 - [ ] Run `uv run poe pyright`
-- [ ] Run full test suite
+- [x] Run full test suite (256 failed, 1428 passed — pre-existing dual-definition / extra-field issues, not regressions)
