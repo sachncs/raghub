@@ -33,11 +33,13 @@ class Identity(Rerank):
 
     name = "identity"
 
-    def rerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
+    @staticmethod
+    def rerank(*, question: str, hits: Sequence[Hit]) -> list[Hit]:
         """Return ``hits`` unchanged (identity pass-through)."""
         return list(hits)
 
-    async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
+    @staticmethod
+    async def arerank(*, question: str, hits: Sequence[Hit]) -> list[Hit]:
         """Async identity pass-through."""
         return list(hits)
 
