@@ -1,16 +1,16 @@
 """HTTP routes and exception handlers for the RAGHub API.
 
-Re-exports every public symbol from the :mod:`raghub.routes._routes`
-submodule so existing imports (e.g. ``from raghub.routes import
-RouteGroup``) keep working without modification.
+Re-exports every public symbol from :mod:`raghub.routes.limits` and
+:mod:`raghub.routes.routes` so existing imports
+(e.g. ``from raghub.routes import RouteGroup``) keep working.
 """
 
-from raghub.routes._limits import (
+from raghub.routes.limits import (
     check_size,
     content_length,
     enforce_limit,
 )
-from raghub.routes._routes import (
+from raghub.routes.routes import (
     AdminRoute,
     AuthRoute,
     DocumentRoute,

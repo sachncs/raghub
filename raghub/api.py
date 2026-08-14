@@ -12,7 +12,7 @@ response installer (:class:`raghub.routes.Exceptions`) live in
 :mod:`raghub.routes`.
 
 Auth-side helpers (``Inject``, ``Auth``, ``Bearer``) live in
-:mod:`raghub.auth_support`; response shaping and rate-limiting live in
+:mod:`raghub.auth`; response shaping and rate-limiting live in
 :mod:`raghub.response` and :mod:`raghub.ratelimit`;
 streaming helpers live in :mod:`raghub.sse`.
 """
@@ -41,7 +41,7 @@ from raghub.constants import (
 from raghub.ingest import Batch
 from raghub.ratelimit import Ratelimit
 from raghub.routes import Exceptions, RouteGroup
-from raghub.routes._limits import check_size, content_length, enforce_limit
+from raghub.routes.limits import check_size, content_length, enforce_limit
 from raghub.runtime import capture
 from raghub.services import Facade
 
@@ -104,7 +104,7 @@ def validate_cors(origins: list[str]) -> None:
 
 # ---------------------------------------------------------------------------
 # Upload guards (enforce_limit, check_size, content_length) moved to
-# raghub.routes._limits to break the api <-> routes circular import.
+# raghub.routes.limits to break the api <-> routes circular import.
 
 
 # ---------------------------------------------------------------------------

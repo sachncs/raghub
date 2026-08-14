@@ -6,7 +6,7 @@ so existing imports (``from raghub.stores import Database``,
 
 The package layout:
 
-- :mod:`raghub.stores.connection` - Database, JsonSessions, Sessions, helpers
+- :mod:`raghub.stores.connection` - Database, JsonSessions, Sessions
 - :mod:`raghub.stores.documents` - Documents, Snapshot
 - :mod:`raghub.stores.images` - ImageStore
 - :mod:`raghub.stores.migrate` - migrate_from_json utility
@@ -14,13 +14,7 @@ The package layout:
 - :mod:`raghub.stores.pgvector` - Postgres/pgvector backend
 """
 
-from raghub.stores.connection import (
-    Database,
-    JsonSessions,
-    Sessions,
-    __keyed,
-    serialize_overrides,
-)
+from raghub.stores.connection import Database, JsonSessions, Sessions
 from raghub.stores.documents import Documents, Snapshot
 from raghub.stores.images import ImageStore
 from raghub.stores.migrate import migrate_from_json
@@ -34,7 +28,5 @@ __all__ = [
     "JsonSessions",
     "Sessions",
     "Snapshot",
-    "__keyed",
     "migrate_from_json",
-    "serialize_overrides",
 ]

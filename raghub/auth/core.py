@@ -13,13 +13,15 @@ Class summary::
 
 from __future__ import annotations
 
-from typing import Annotated, cast
+from typing import TYPE_CHECKING, Annotated, cast
 
 from fastapi import Depends, Header, HTTPException, Request
 
 from raghub.constants import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
 from raghub.models import User
-from raghub.services import Facade
+
+if TYPE_CHECKING:
+    from raghub.services.facade import Facade
 
 
 class App:
@@ -31,8 +33,10 @@ class App:
     """
 
     @staticmethod
-    def get(request: Request) -> Facade:
+    def get(request: Request) -> "Facade":
         """Return the application facade stored on ``app.state.application``."""
+        from raghub.services.facade import Facade
+
         app = request.app
         return cast(Facade, app.state.application)
 
@@ -77,7 +81,7 @@ class Auth:
     @staticmethod
     async def admin(
         authorization: Annotated[str | None, Header(default=None)],
-        application_facade: Annotated[Facade, Depends(App.get)],
+        application_facade: Annotated["Facade", Depends(App.get)],
     ) -> User:
         """Resolve the bearer token and require an admin principal.
 
@@ -100,7 +104,7 @@ class Auth:
         return user
 
     @staticmethod
-    async def user_id(application_facade: Facade, token: str) -> str:
+    async def user_id(application_facade: "Facade", token: str) -> str:
         """Resolve ``token`` to its user id via the auth service.
 
         Args:

@@ -679,7 +679,7 @@ class FakeApp:
 def test_inject_get_returns_application() -> None:
     """App.get reads the application facade off the request app's state."""
 
-    from raghub.auth_support import App
+    from raghub.auth import App
 
     application = MagicMock()
     request = MagicMock()
@@ -690,7 +690,7 @@ def test_inject_get_returns_application() -> None:
 def test_bearer_require_strips_token() -> None:
     """Bearer.require returns the trailing token, trimmed."""
 
-    from raghub.auth_support import Bearer
+    from raghub.auth import Bearer
 
     assert Bearer.require("Bearer my-token  ") == "my-token"
 
@@ -698,7 +698,7 @@ def test_bearer_require_strips_token() -> None:
 def test_bearer_require_lowercase() -> None:
     """Bearer.require is case-insensitive on the scheme."""
 
-    from raghub.auth_support import Bearer
+    from raghub.auth import Bearer
 
     assert Bearer.require("bearer t") == "t"
 
@@ -706,7 +706,7 @@ def test_bearer_require_lowercase() -> None:
 def test_bearer_require_missing_raises() -> None:
     """Bearer.require raises HTTPException(401) when header is missing."""
 
-    from raghub.auth_support import Bearer
+    from raghub.auth import Bearer
 
     with pytest.raises(HTTPException) as exc_info:
         Bearer.require(None)
@@ -716,7 +716,7 @@ def test_bearer_require_missing_raises() -> None:
 def test_bearer_require_wrong_scheme_raises() -> None:
     """Bearer.require rejects non-Bearer schemes."""
 
-    from raghub.auth_support import Bearer
+    from raghub.auth import Bearer
 
     with pytest.raises(HTTPException) as exc_info:
         Bearer.require("Basic xyz")
@@ -726,7 +726,7 @@ def test_bearer_require_wrong_scheme_raises() -> None:
 def test_auth_admin_resolves_admin() -> None:
     """Auth.admin returns the user when is_admin is True."""
 
-    from raghub.auth_support import Auth
+    from raghub.auth import Auth
 
     admin = MagicMock()
     admin.is_admin = True
@@ -746,7 +746,7 @@ def test_auth_admin_resolves_admin() -> None:
 def test_auth_admin_403_for_non_admin() -> None:
     """Auth.admin raises 403 for non-admin users."""
 
-    from raghub.auth_support import Auth
+    from raghub.auth import Auth
 
     user = MagicMock()
     user.is_admin = False
@@ -768,7 +768,7 @@ def test_auth_admin_403_for_non_admin() -> None:
 def test_auth_user_id_helper() -> None:
     """Auth.user_id returns user.id from the inner auth service."""
 
-    from raghub.auth_support import Auth
+    from raghub.auth import Auth
 
     user = MagicMock()
     user.id = "u-1"

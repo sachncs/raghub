@@ -17,10 +17,6 @@ from raghub.feedback.core import (
     RedactingTelemetry,
     SqliteFeedbackStore,
     VectorDownWeightScorer,
-    as_feedback,
-    new_id,
-    now_utc,
-    redact_comment,
 )
 
 __all__ = [
@@ -35,8 +31,4 @@ __all__ = [
     "RedactingTelemetry",
     "SqliteFeedbackStore",
     "VectorDownWeightScorer",
-    "as_feedback",
-    "new_id",
-    "now_utc",
-    "redact_comment",
 ]

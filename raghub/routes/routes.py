@@ -36,7 +36,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from raghub.auth_support import (
+from raghub.auth import (
     App,
     Auth,
     Bearer,
@@ -325,7 +325,7 @@ class DocumentRoute:
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> DocumentUploadResponse:
-            from raghub.routes._limits import enforce_limit
+            from raghub.routes.limits import enforce_limit
 
             enforce_limit(request, app_service.container)
             content = await file.read()
@@ -357,7 +357,7 @@ class DocumentRoute:
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> BatchIngestResponse:
-            from raghub.routes._limits import enforce_limit
+            from raghub.routes.limits import enforce_limit
 
             enforce_limit(request, app_service.container)
             results: list[BatchIngestItem] = []
@@ -440,7 +440,7 @@ class DocumentRoute:
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, str]:
-            from raghub.routes._limits import enforce_limit
+            from raghub.routes.limits import enforce_limit
 
             enforce_limit(request, app_service.container)
             content = await file.read()
