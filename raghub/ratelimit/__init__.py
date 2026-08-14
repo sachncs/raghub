@@ -1,14 +1,11 @@
-"""Domain package: ``raghub.ratelimit``.
+"""Rate limiting primitives.
 
-Re-exports the implementation in :mod:`raghub.ratelimit._impl`.
+Re-exports the public surface from :mod:`raghub.ratelimit.core`.
 """
 
 from __future__ import annotations
 
-from raghub.ratelimit._impl import (
-    Bucket,
-    Ratelimit,
-)
+from raghub.ratelimit.core import Bucket, Ratelimit
 
 __all__ = [
     "Bucket",
