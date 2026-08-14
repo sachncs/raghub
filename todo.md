@@ -39,11 +39,12 @@ and a few `_method()` helpers in `llm.py`, `parsers.py`, `rag/`
 mixins still exist and are scheduled for Phase 6.
 
 ## Phase 4: Objectify dict carriers
-- [ ] Convert `Cache` tuple to `CacheKey` dataclass
-- [ ] Convert `Pipeline.outputs` dict to `PipelineOutputs` dataclass
-- [ ] Convert `PipelineCtx.metadata` dict to `IngestMeta` dataclass
-- [ ] Convert `health()` dict to `HealthReport` dataclass
-- [ ] Convert other TypedDicts to dataclasses
+- [x] Convert `Cache` tuple to `CacheKey` dataclass
+- [x] Convert `Pipeline.outputs` dict to `PipelineOutputs` dataclass
+- [x] Convert `PipelineCtx.metadata` dict to `IngestMeta` (`PipelineMeta`) dataclass
+- [x] Convert `health()` dict to `HealthReport` dataclass
+- [ ] Convert other TypedDicts to dataclasses (left as TypedDicts; they're
+  used as type-narrowing hints in test signatures, not as carriers)
 
 ## Phase 5: Replace ABCs with concrete polymorphism
 - [ ] Drop all ABCs (Embedder, Generator, File, Store, KnowledgeIndex, Tool)
