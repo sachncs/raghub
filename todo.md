@@ -20,9 +20,9 @@
 - [x] Delete `models/_impl.py`, `models/_api.py`, `models/_document.py`, `models/_identity.py`, `models/_protocols.py`, `models/enums.py`
 
 ## Phase 2: Polymorphism by registry
-- [ ] Add `Registry` helper in `raghub/registry.py`
-- [ ] Convert `Embedder`, `Generator`, `File`, `Store`, `KnowledgeIndex`, `Tool`, etc. to use registry
-- [ ] Delete all `*_factory.py` files
+- [x] Add `Registry` helper in `raghub/registry.py`
+- [x] Convert `Embedder`, `Generator`, `File`, `Store`, `KnowledgeIndex`, `Tool`, etc. to use registry
+- [x] Delete all `*_factory.py` files
 
 ## Phase 3: Drop encapsulation
 - [ ] Delete all `_*` private files in every package
