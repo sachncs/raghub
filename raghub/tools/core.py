@@ -3,10 +3,10 @@
 Defines the tool contract and every concrete tool class in one helper file.
 Class summary::
 
-    ToolProtocol    - :class:`Protocol` describing the planner-facing contract.
+    Tool            - polymorphic base registered via Registry.
     ToolResult      - structured Pydantic result returned by a tool.
     ToolContext     - per-invocation state (user, session, question).
-    Tool            - reusable :class:`ABC` implementing :class:`ToolProtocol`.
+    Tool            - reusable :class:`Registry` base for tool implementations.
     ToolRegistry    - name -> tool lookup.
 
 Concrete tools (one class per format family, no ``Tool`` suffix):
@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from abc import ABC, abstractmethod
+
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
@@ -38,6 +38,7 @@ from pydantic import BaseModel, Field
 from raghub.constants import RRF_K
 from raghub.errors import ConfigurationError
 from raghub.models import User
+from raghub.registry import Registry
 from raghub.store import Store
 from raghub.types import JSONValue
 
@@ -71,39 +72,6 @@ class ToolResult(BaseModel):
     source_url: str | None = None
 
 
-@runtime_checkable
-class ToolProtocol(Protocol):
-    """Async tool the planner can invoke.
-
-    Attributes:
-        name: Stable tool name (e.g. ``"web_search"``). Must be unique
-            within a :class:`ToolRegistry`.
-        description: One-line description surfaced to the LLM.
-        json_schema: JSON-Schema describing accepted ``args``. Used by
-            the planner to prompt the model and to validate the parsed
-            arguments before invocation.
-
-    """
-
-    name: ClassVar[str]
-    description: ClassVar[str]
-    json_schema: ClassVar[dict[str, Any]]
-
-    async def run(self, args: dict[str, Any]) -> ToolResult:
-        """Execute the tool.
-
-        Args:
-            args: Arguments parsed from the LLM's planner output.
-
-        Returns:
-            A :class:`ToolResult`. Never raise for expected failures —
-            set ``ok=False`` and populate ``error`` so the planner can
-            observe the failure and adapt.
-
-        """
-        ...
-
-
 @dataclass
 class ToolContext:
     """Per-invocation context passed to every tool.
@@ -127,12 +95,11 @@ class ToolContext:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class Tool(ToolProtocol, ABC):
+class Tool(Registry):
     """Reusable :class:`Tool` base class.
 
-    Concrete tools override :meth:`execute` and declare the
-    class-level :attr:`name`, :attr:`description`, and
-    :attr:`json_schema`. The framework calls :meth:`run`, which:
+    Concrete tools register themselves via ``@Tool.register`` and
+    implement :meth:`execute`. The framework calls :meth:`run`, which:
 
     * Wraps every exception in a structured :class:`ToolResult`
       with ``ok=False``. Tools must never raise — the planner
@@ -145,7 +112,6 @@ class Tool(ToolProtocol, ABC):
     description: ClassVar[str]
     json_schema: ClassVar[dict[str, Any]]
 
-    @abstractmethod
     async def execute(self, context: ToolContext, **kwargs: JSONValue) -> ToolResult:
         """Run the tool.
 
@@ -155,6 +121,7 @@ class Tool(ToolProtocol, ABC):
                 planner output.
 
         """
+        raise NotImplementedError
 
     @staticmethod
     def context(**overrides: JSONValue) -> ToolContext:
@@ -240,9 +207,9 @@ class ToolRegistry:
 
     def __init__(self) -> None:
         """Initialise an empty registry."""
-        self.tools: dict[str, ToolProtocol] = {}
+        self.tools: dict[str, Tool] = {}
 
-    def register(self, tool: ToolProtocol) -> None:
+    def register(self, tool: Tool) -> None:
         """Add (or replace) ``tool`` under its :attr:`Tool.name`."""
         self.tools[tool.name] = tool
 
@@ -250,7 +217,7 @@ class ToolRegistry:
         """Remove a tool by name. No-op when absent."""
         self.tools.pop(name, None)
 
-    def get(self, name: str) -> ToolProtocol:
+    def get(self, name: str) -> Tool:
         """Return the tool registered under ``name``.
 
         Raises:
@@ -261,7 +228,7 @@ class ToolRegistry:
             raise ConfigurationError(f"Tool {name!r} is not registered")
         return self.tools[name]
 
-    def try_get(self, name: str) -> ToolProtocol | None:
+    def try_get(self, name: str) -> Tool | None:
         """Return the tool registered under ``name`` or ``None``."""
         return self.tools.get(name)
 
@@ -318,6 +285,7 @@ def as_admin_user(user: User | None) -> User:
 # ---------------------------------------------------------------------------
 
 
+@Tool.register("date_today")
 class Today(Tool):
     """UTC date stub.
 
@@ -348,6 +316,7 @@ class Today(Tool):
         )
 
 
+@Tool.register("graph_search")
 class GraphSearch(Tool):
     """GraphRAG local + global search.
 
@@ -422,6 +391,7 @@ class GraphSearch(Tool):
         )
 
 
+@Tool.register("hybrid_search")
 class HybridSearch(Tool):
     """Dense + sparse fused retrieval.
 
@@ -539,6 +509,7 @@ class HybridSearch(Tool):
         )
 
 
+@Tool.register("keyword_search")
 class Keyword(Tool):
     """BM25 keyword search.
 
@@ -608,6 +579,7 @@ class Keyword(Tool):
         )
 
 
+@Tool.register("summary_search")
 class SummarySearch(Tool):
     """Search the RAPTOR summary tree.
 
@@ -664,6 +636,7 @@ class SummarySearch(Tool):
         )
 
 
+@Tool.register("vector_search")
 class VectorSearch(Tool):
     """Top-K dense retrieval scoped to the user's RBAC filter.
 
@@ -724,6 +697,7 @@ class VectorSearch(Tool):
         )
 
 
+@Tool.register("web_search")
 class WebSearch(Tool):
     """DuckDuckGo web search.
 
@@ -802,7 +776,6 @@ __all__ = [
     "Today",
     "Tool",
     "ToolContext",
-    "ToolProtocol",
     "ToolRegistry",
     "ToolResult",
     "VectorSearch",
