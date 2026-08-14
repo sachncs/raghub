@@ -3,6 +3,9 @@
 Provides the no-op :class:`Identity` reranker, the :class:`Cohere`
 cross-encoder wrapper, and the two-stage :class:`Cascade` that only
 invokes the expensive reranker when the cheap one didn't have an opinion.
+
+Each class is registered with :class:`raghub.retrieval.types.Rerank`
+under a stable name; use :meth:`Rerank.get` for by-name dispatch.
 """
 
 from __future__ import annotations
@@ -17,31 +20,24 @@ from pydantic import SecretStr
 from raghub.constants import ENV_COHERE_API_KEY
 from raghub.errors import RerankerError
 from raghub.models import Hit
+from raghub.retrieval.types import Rerank
 from raghub.telemetry import record_rerank_latency
 
 if TYPE_CHECKING:
     import cohere
 
-    from raghub.retrieval.types import Rerank
 
-
-class Identity:
-    """No-op reranker.
-
-    Attributes:
-        name: ``"identity"``.
-
-    """
+@Rerank.register("identity")
+class Identity(Rerank):
+    """No-op reranker."""
 
     name = "identity"
 
-    @staticmethod
-    def rerank(*, question: str, hits: Sequence[Hit]) -> list[Hit]:
+    def rerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
         """Return ``hits`` unchanged (identity pass-through)."""
         return list(hits)
 
-    @staticmethod
-    async def arerank(*, question: str, hits: Sequence[Hit]) -> list[Hit]:
+    async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
         """Async identity pass-through."""
         return list(hits)
 
@@ -51,13 +47,9 @@ def rerank_latency(provider: str, seconds: float) -> None:
     record_rerank_latency(provider, seconds)
 
 
-class Cohere:
-    """Cohere cross-encoder reranker.
-
-    Attributes:
-        name: ``"cohere"``.
-
-    """
+@Rerank.register("cohere")
+class Cohere(Rerank):
+    """Cohere cross-encoder reranker."""
 
     name = "cohere"
 
@@ -67,7 +59,7 @@ class Cohere:
         *,
         model: str = "rerank-english-v3.0",
         top_k: int = 20,
-        client: cohere.Client | None = None,
+        client: "cohere.Client | None" = None,
     ) -> None:
         """Initialise the reranker.
 
@@ -92,7 +84,7 @@ class Cohere:
         self.top_k = top_k
         self.client = client
 
-    def ensure_client(self) -> cohere.Client:
+    def ensure_client(self) -> "cohere.Client":
         """Return the underlying :class:`cohere.Client`."""
         if self.client is None:
             import cohere
@@ -135,15 +127,12 @@ class Cohere:
         return ordered
 
 
-class Cascade:
+@Rerank.register("cascade")
+class Cascade(Rerank):
     """Two-stage reranker: ``cheap`` then ``expensive`` (conditionally).
 
     The expensive reranker is invoked only when the cheap reranker did
     not reorder the input list — i.e. cheap "didn't have an opinion".
-
-    Attributes:
-        name: ``"cascade"``.
-
     """
 
     name = "cascade"

@@ -47,6 +47,11 @@ T = TypeVar("T")
 class Registry:
     """Mixin that turns a base class into a by-name dispatch table.
 
+    Each subclass gets its own ``items`` dict through
+    :meth:`__init_subclass__`, so multiple independent registries
+    (e.g. ``Rerank`` and ``Transformer``) don't bleed into each
+    other.
+
     Attributes:
         items: Mapping from registered name to concrete subclass. The
             ``@register`` decorator populates this; subclasses
@@ -55,6 +60,11 @@ class Registry:
     """
 
     items: dict[str, type] = {}
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        """Give every subclass its own ``items`` dict."""
+        super().__init_subclass__(**kwargs)
+        cls.items = {}
 
     @classmethod
     def register(cls, name: str) -> Callable[[type], type]:

@@ -22,20 +22,18 @@ from raghub.retrieval.judge import (
     record_latency,
     reorder_candidates,
 )
+from raghub.retrieval.types import Rerank
 
 if TYPE_CHECKING:
     from raghub.llm import Generator
 
 
-class Context:
+@Rerank.register("long_context")
+class Context(Rerank):
     """Long-context second-pass reranker.
 
     Was named ``LongContextRerankPass``. The "long_context" prefix
     was redundant — context is what this thing consumes.
-
-    Attributes:
-        name: ``"long_context"``.
-
     """
 
     name = "long_context"
