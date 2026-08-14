@@ -12,7 +12,7 @@ from rank_bm25 import BM25Okapi
 from raghub.constants import RRF_K
 from raghub.errors import VectorStoreError
 from raghub.models import Chunk
-from raghub.store.base import (
+from raghub.stores.vector_base import (
     MemoryVectorRecord,
     Store,
     matches_metadata_dict,

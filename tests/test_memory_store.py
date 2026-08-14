@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from raghub.errors import VectorStoreError
-from raghub.store import MemoryStore
+from raghub.stores import MemoryStore
 
 
 def test_insert_returns_row_count(sample_chunks, sample_vectors):

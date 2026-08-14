@@ -23,7 +23,7 @@ import pytest
 from raghub.core import allowed_company_filter
 from raghub.models import Chunk, Classification, User
 from raghub.retrieval import Search, SearchFilters, build_filter
-from raghub.store import (
+from raghub.stores import (
     MemoryStore,
     MemoryVectorRecord,
     matches_metadata_dict,

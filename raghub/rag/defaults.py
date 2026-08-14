@@ -28,7 +28,7 @@ from raghub.errors import ConfigurationError, MissingDepError
 from raghub.ingest import build_chonkie_chunker
 # The Chunker and DocumentConverter Protocols were deleted from raghub.models.
 # Type hints in this module use Any until Phase 2 introduces concrete base classes.
-from raghub.store import MemoryStore
+from raghub.stores import MemoryStore
 
 __all__ = [
     "LLM_API_KEY_ENV_VARS",
@@ -187,7 +187,7 @@ def default_vector_store(embedding_dim: int) -> Any:
 
     Returns:
         :class:`MemoryStore` for the in-process test/dev path.
-        The full pipeline factory :func:`raghub.store.build_store`
+        The full pipeline factory :func:`raghub.stores.build_store`
         is used by the rest of the framework and points at a SQLite-backed
         store (sqlite-vector when installed, NumPy fallback otherwise).
 

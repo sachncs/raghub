@@ -326,7 +326,7 @@ class TestQueryPipelineHistoryPropagation:
             checksum="66ae6abbda82296610a97c23c8df7a494ded1222447f7cb5a01b2753b1117d6c",
         )
 
-        from raghub.store import MemoryStore
+        from raghub.stores import MemoryStore
 
         store = MemoryStore(embedding_dim=4)
         store.upsert([chunk], [embedder.embed_text(chunk.text)])

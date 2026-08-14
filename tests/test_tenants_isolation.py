@@ -431,7 +431,7 @@ class TestRowLevelEndToEnd:
 
     def test_row_level_isolation_across_search_calls(self) -> None:
         """A chunk ingested for tenant A is invisible when tenant B is active."""
-        from raghub.store import MemoryStore
+        from raghub.stores import MemoryStore
 
         store = MemoryStore(embedding_dim=2)
         store.insert(
