@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-from abc import ABC, abstractmethod
 from hashlib import sha256
 from typing import Any
 
@@ -34,6 +33,7 @@ from raghub.constants import (
     HASHING_BGE_MODEL,
 )
 from raghub.errors import ConfigurationError
+from raghub.registry import Registry
 
 __all__ = [
     "Embedder",
@@ -43,29 +43,21 @@ __all__ = [
 ]
 
 
-class Embedder(ABC):
-    """Abstract embedding provider.
+class Embedder(Registry):
+    """Polymorphic base for embedding providers.
 
-    All concrete providers must implement :meth:`embed_text`; the
-    :meth:`embed_texts` default simply calls it once per string, but
-    providers with batched APIs (NVIDIA) should
-    override for throughput.
+    Concrete providers register themselves with ``@Embedder.register``
+    and implement :meth:`embed_text`. The :meth:`embed_texts` default
+    simply calls it once per string, but providers with batched APIs
+    (NVIDIA) should override for throughput.
     """
 
     model_name: str
     dimension: int
 
-    @abstractmethod
     def embed_text(self, text: str) -> list[float]:
-        """Embed one string into a fixed-dimension vector.
-
-        Args:
-            text: The input text.
-
-        Returns:
-            A list of floats representing the embedding.
-
-        """
+        """Embed one string into a fixed-dimension vector."""
+        raise NotImplementedError
 
     async def aembed_text(self, text: str) -> list[float]:
         """Async wrapper around :meth:`embed_text`.
@@ -81,17 +73,11 @@ class Embedder(ABC):
 
         Default implementation loops over :meth:`embed_text`. Override
         when the backing API supports batched calls.
-
-        Args:
-            texts: The list of input strings.
-
-        Returns:
-            A list of embeddings, one per input string.
-
         """
         return [self.embed_text(text) for text in texts]
 
 
+@Embedder.register("hashing")
 class FeatureHashingEmbedder(Embedder):
     """Feature-hashing embedder producing deterministic L2-normalised vectors.
 
@@ -99,14 +85,6 @@ class FeatureHashingEmbedder(Embedder):
     fixed-dimension bucket with a random sign. This is the "hashing trick"
     used to compress very-high-cardinality feature spaces; here it stands in
     for a real text embedding model.
-
-    Attributes:
-        dimension: Output vector dimensionality. Default matches DEFAULT_EMBEDDING_DIM
-            NV-Embed-QA model used in production so downstream cosine
-            comparisons are dimensionally compatible.
-        model_name: Stable identifier reported as the provider name; useful
-            for telemetry and cache keys.
-
     """
 
     def __init__(
@@ -124,17 +102,7 @@ class FeatureHashingEmbedder(Embedder):
         self.model_name = model_name
 
     def embed_text(self, text: str) -> list[float]:
-        """Hash ``text`` into a deterministic L2-normalised vector.
-
-        Args:
-            text: The input text. Empty input returns an all-zero vector.
-
-        Returns:
-            A list of ``dimension`` floats. Empty inputs return a zero
-            vector (so the caller can distinguish "no signal" from "no
-            overlap" by inspecting the norm).
-
-        """
+        """Hash ``text`` into a deterministic L2-normalised vector."""
         if not text:
             return [0.0] * self.dimension
         return self.embed_texts([text])[0]
@@ -144,21 +112,7 @@ class FeatureHashingEmbedder(Embedder):
         return self.embed_text(text)
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        """Hash every input into a deterministic L2-normalised vector.
-
-        Vectorised with NumPy so a 1500-text batch runs in one
-        C-level pass rather than the per-token Python loop in
-        :meth:`embed_text`. The output is bit-identical to the prior
-        implementation (same hash, same sign rule, same
-        L2-normalisation).
-
-        Args:
-            texts: The list of input strings.
-
-        Returns:
-            A list of ``dimension``-float vectors in input order.
-
-        """
+        """Hash every input into a deterministic L2-normalised vector."""
         dim = self.dimension
         out = np.zeros((len(texts), dim), dtype=np.float32)
         if not texts:
@@ -178,10 +132,9 @@ class FeatureHashingEmbedder(Embedder):
         return out.tolist()
 
 
+@Embedder.register("litellm")
 class LiteLLMEmbedder(Embedder):
     """Embedding provider backed by LiteLLM."""
-
-    model_name: str
 
     def __init__(
         self,
@@ -203,15 +156,7 @@ class LiteLLMEmbedder(Embedder):
         self.api_base = api_base
 
     def embed_text(self, text: str) -> list[float]:
-        """Embed a single string.
-
-        Args:
-            text: The input text.
-
-        Returns:
-            A float vector.
-
-        """
+        """Embed a single string."""
         return self.embed_texts([text])[0]
 
     async def aembed_text(self, text: str) -> list[float]:
@@ -224,15 +169,7 @@ class LiteLLMEmbedder(Embedder):
         return await asyncio.to_thread(self.embed_text, text)
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        """Embed multiple strings in one LiteLLM call.
-
-        Args:
-            texts: The list of input strings.
-
-        Returns:
-            A list of float vectors.
-
-        """
+        """Embed multiple strings in one LiteLLM call."""
         if not texts:
             return []
         kwargs: dict[str, Any] = {"model": self.model_name, "input": texts}

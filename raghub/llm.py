@@ -2,7 +2,7 @@
 
 This module ships:
 
-* :class:`Generator` — abstract base class.
+* :class:`Generator` — polymorphic base class.
 * :class:`LiteLLM` — production LLM, backed by LiteLLM (any
   provider: OpenAI, NVIDIA, Anthropic, Bedrock, …).
 * :func:`build_llm` — selects an implementation by model
@@ -15,7 +15,6 @@ import asyncio
 import base64
 import mimetypes
 import os
-from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from types import TracebackType
@@ -34,6 +33,7 @@ from raghub.constants import (
 )
 from raghub.errors import ConfigurationError, GenerationError
 from raghub.models import Turn
+from raghub.registry import Registry
 from raghub.retry import aretry, retry
 
 __all__ = [
@@ -71,7 +71,7 @@ def has_llm_key() -> bool:
     return any(os.getenv(name) for name in LLM_API_KEY_ENV_VARS)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True, frozen=True)
 class GenerationRequest:
     """Inputs for a single :class:`Generator` invocation.
 
@@ -89,7 +89,7 @@ class GenerationRequest:
 
     """
 
-    question: str
+    question: str = ""
     system_prompt: str = ""
     conversation: Sequence[Turn] = ()
     context: Sequence[object] = ()
@@ -97,8 +97,8 @@ class GenerationRequest:
     session_history: list[dict[str, Any]] | None = None
 
 
-class Generator(ABC):
-    """Abstract LLM provider.
+class Generator(Registry):
+    """Polymorphic LLM provider base.
 
     All concrete providers implement :meth:`generate`. The interface is
     intentionally narrow: the caller assembles the prompt and passes the
@@ -108,17 +108,9 @@ class Generator(ABC):
 
     model_name: str
 
-    @abstractmethod
     def generate(self, request: GenerationRequest) -> str:
-        """Generate an answer from a fully-constructed prompt.
-
-        Args:
-            request: The prompt components for this invocation.
-
-        Returns:
-            The provider-generated answer as a plain string.
-
-        """
+        """Generate an answer from a fully-constructed prompt."""
+        raise NotImplementedError
 
     async def async_generate(self, request: GenerationRequest) -> str:
         """Generate without blocking the event loop."""
@@ -148,14 +140,13 @@ class LLMValueErrorBoundary:
         return False
 
 
+@Generator.register("litellm")
 class LiteLLM(Generator):
     """LLM provider backed by LiteLLM.
 
     The provider wraps LiteLLM and so works with any provider that
     LiteLLM supports: OpenAI, NVIDIA, Anthropic, Bedrock, etc.
     """
-
-    model_name: str
 
     def __init__(
         self,

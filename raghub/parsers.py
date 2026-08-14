@@ -3,13 +3,16 @@
 The parser classes (Markdown, plain text, Marker, etc.) and the
 :class:`Catalog` factory live here. Validation, chunking, and
 lifecycle helpers live in :mod:`raghub.lifecycle`.
+
+Every concrete parser registers itself with :class:`File` under a
+stable name; the :class:`Catalog` wires them up by MIME and
+extension.
 """
 
 from __future__ import annotations
 
 import io
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib import import_module
 from io import BytesIO
 from pathlib import Path
@@ -24,6 +27,7 @@ from raghub.lifecycle import (
     normalize_text,
     validate_upload,
 )
+from raghub.registry import Registry
 from raghub.runtime import capture
 
 __all__ = [
@@ -31,6 +35,7 @@ __all__ = [
     "Catalog",
     "ChunkingPlan",
     "Csv",
+    "File",
     "Image",
     "Lifecycle",
     "Marker",
@@ -45,7 +50,7 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class ParsedSection:
     """A single parsed chunk of a document.
 
@@ -60,32 +65,27 @@ class ParsedSection:
 
     """
 
-    section_index: int
-    source_location: str
-    text: str
-    metadata: dict[str, Any]
+    section_index: int = 0
+    source_location: str = ""
+    text: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class File(ABC):
-    """Abstract base for all document parsers."""
+class File(Registry):
+    """Polymorphic base for all document parsers.
 
-    @abstractmethod
-    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
-        """Parse ``file_bytes`` into a list of :class:`Section`.
+    Concrete parsers register themselves with ``@File.register``; the
+    :class:`Catalog` looks them up by MIME type and extension.
+    """
 
-        Args:
-            file_bytes: Raw file contents.
-            file_name: Original filename; useful for format-specific
-                hints (e.g. extension-based fallbacks).
-            mime_type: The MIME type reported by the validator.
-
-        Returns:
-            A list of :class:`Section` objects. Empty when the
-            parser finds no extractable text.
-
-        """
+    def parse(
+        self, file_bytes: bytes, file_name: str, mime_type: str
+    ) -> list[ParsedSection]:
+        """Parse ``file_bytes`` into a list of :class:`ParsedSection`."""
+        raise NotImplementedError
 
 
+@File.register("pdf")
 class Pdf(File):
     """PDF file using :mod:`pypdf`."""
 
@@ -100,7 +100,7 @@ class Pdf(File):
                 :class:`pypdf.PdfReader`).
 
         Returns:
-            A list of :class:`Section`, one per page. Empty
+            A list of :class:`ParsedSection`, one per page. Empty
             strings are returned for image-only pages rather than
             raising. The section's ``section_index`` is the 1-based
             page number and ``source_location`` is ``"page N"``. The
@@ -135,6 +135,7 @@ class Pdf(File):
         return sections
 
 
+@File.register("html")
 class HTML(File):
     """HTML file using :mod:`BeautifulSoup`."""
 
@@ -177,6 +178,7 @@ class HTML(File):
         ]
 
 
+@File.register("image")
 class Image(File):
     """PNG/JPEG/GIF/BMP/TIFF/WebP image."""
 
@@ -229,6 +231,7 @@ class Image(File):
         ]
 
 
+@File.register("office")
 class Office(File):
     """DOCX/XLSX/PPTX (also DOC/XLS/PPT) document."""
 
@@ -340,6 +343,7 @@ class Office(File):
         return result
 
 
+@File.register("csv")
 class Csv(File):
     """CSV file (UTF-8 decoded, no structural splitting)."""
 
@@ -369,6 +373,7 @@ class Csv(File):
         ]
 
 
+@File.register("txt")
 class Txt(File):
     """Plain text file."""
 
