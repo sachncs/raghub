@@ -17,6 +17,7 @@ from typing import Any, TypeVar
 from raghub.constants import ENV_LANGFUSE_PUBLIC_KEY, ENV_LANGFUSE_SECRET_KEY
 from raghub.errors import ConfigurationError, MissingDepError
 from raghub.runtime import capture
+from raghub.telemetry.base import Span, Telemetry
 from raghub.telemetry.metrics import NoopSpan
 from raghub.types import JSONValue
 
@@ -128,7 +129,7 @@ def langfuse_client() -> Any:
         return None
 
 
-class LangfuseSpan:
+class LangfuseSpan(Span):
     """Wrapper around a Langfuse v3 observation context."""
 
     def __init__(self, ctx: Any, name: str) -> None:
@@ -159,7 +160,8 @@ class LangfuseSpan:
         update(**{key: value})
 
 
-class LangfuseTelemetryProvider:
+@Telemetry.register("langfuse")
+class LangfuseTelemetryProvider(Telemetry):
     """Langfuse-backed telemetry provider.
 
     Implements the full :class:`TelemetryProvider` contract:

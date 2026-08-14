@@ -3,6 +3,8 @@
 The framework ships three interoperable telemetry layers split across
 focused submodules:
 
+* :mod:`raghub.telemetry.base` — polymorphic :class:`Telemetry` and
+  :class:`Span` base classes.
 * :mod:`raghub.telemetry.tracing` — v3 Langfuse adapter and
   OpenTelemetry :class:`Tracer` (the spec default).
 * :mod:`raghub.telemetry.logger` — loguru adapter for users who prefer
@@ -21,6 +23,7 @@ Public constants:
 
 from __future__ import annotations
 
+from raghub.telemetry.base import Span, Telemetry
 from raghub.telemetry.logger import (
     Logger,
     LoguruSpan,
@@ -63,6 +66,8 @@ __all__ = [
     "NoopSpan",
     "RedactingTelemetry",
     "SafeConsoleSpanExporter",
+    "Span",
+    "Telemetry",
     "Tracer",
     "langfuse_client",
     "langfuse_get_client",

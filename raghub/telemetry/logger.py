@@ -14,6 +14,7 @@ from typing import Any
 
 from loguru import logger
 
+from raghub.telemetry.base import Span, Telemetry
 from raghub.types import JSONValue
 
 __all__ = [
@@ -48,7 +49,7 @@ class Logger:
         self.bound.bind(**kwargs).error(message)
 
 
-class LoguruSpan:
+class LoguruSpan(Span):
     """Span whose :meth:`end` logs the duration via loguru."""
 
     def __init__(
@@ -73,8 +74,11 @@ class LoguruSpan:
         self.attributes[key] = value
 
 
-class LoguruTelemetryProvider:
+@Telemetry.register("loguru")
+class LoguruTelemetryProvider(Telemetry):
     """Telemetry provider that sinks through :mod:`loguru`."""
+
+    name = "loguru"
 
     def __init__(self, adapter: Logger | None = None) -> None:
         """Build the provider with an optional adapter override."""

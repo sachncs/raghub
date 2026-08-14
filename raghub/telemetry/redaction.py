@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from raghub.telemetry.base import Telemetry
 from raghub.types import JSONValue
 
 __all__ = [
@@ -70,8 +71,11 @@ def redact_record(record: dict[str, Any]) -> None:
     record.update(scrubbed)
 
 
-class RedactingTelemetry:
+@Telemetry.register("redacting")
+class RedactingTelemetry(Telemetry):
     """Telemetry wrapper that redacts secret-looking keys."""
+
+    name = "redacting"
 
     def __init__(self, inner: Any) -> None:
         """Wrap ``inner`` with secret-redaction.

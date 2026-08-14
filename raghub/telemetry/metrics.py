@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from raghub.telemetry.base import Span, Telemetry
 from raghub.types import JSONValue
 
 __all__ = [
@@ -18,7 +19,7 @@ __all__ = [
 ]
 
 
-class NoopSpan:
+class NoopSpan(Span):
     """No-op span implementation.
 
     Used when Langfuse is not installed or no credentials are
@@ -44,8 +45,11 @@ class NoopSpan:
         return dict(self.attrs)
 
 
-class NoOpTelemetry:
+@Telemetry.register("noop")
+class NoOpTelemetry(Telemetry):
     """Silent telemetry provider."""
+
+    name = "noop"
 
     def info(self, message: str, **kwargs: JSONValue) -> None:
         """No-op."""
