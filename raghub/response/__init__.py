@@ -1,14 +1,11 @@
-"""Domain package: ``raghub.response``.
+"""Response builders and redaction.
 
-Re-exports the implementation in :mod:`raghub.response._impl`.
+Re-exports the public surface from :mod:`raghub.response.core`.
 """
 
 from __future__ import annotations
 
-from raghub.response._impl import (
-    Redaction,
-    ResponseBuilder,
-)
+from raghub.response.core import Redaction, ResponseBuilder
 
 __all__ = [
     "Redaction",
