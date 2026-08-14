@@ -1,8 +1,7 @@
-"""Conversation mixin for the RAG facade.
+"""Conversation-history entry points for the RAG facade.
 
-Holds the conversation-history entry points (:meth:`conversation_history`,
-:meth:`clear_conversation`) that read and clear the in-memory
-conversation store.
+Holds :meth:`conversation_history` and :meth:`clear_conversation`,
+which read and clear the in-memory conversation store.
 
 The mixin assumes the host class has already wired the
 collaborators it needs:
@@ -13,29 +12,17 @@ collaborators it needs:
 
 from __future__ import annotations
 
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
-from raghub.conv import ConversationStore
 from raghub.models import Turn
 
 
-class ConversationHost(Protocol):
-    """Protocol of the host methods :class:`ConversationMixin` delegates to.
+class ConversationMixin:
+    """Mixin providing conversation-history entry points.
 
-    The composing class (``RAG``) supplies ``scoped`` via
-    :class:`QueryMixin` and ``conversation_store`` via its facade.
+    The host class (``RAG``) supplies ``scoped`` and
+    ``conversation_store`` as instance attributes.
     """
-
-    def scoped(self, user: Any, session_id: str | None) -> str | None:
-        """Compose a namespaced session key from ``user`` and ``session_id``."""
-
-    conversation_store: ConversationStore
-
-
-class ConversationMixin(ConversationHost):
-    """Mixin providing conversation-history entry points."""
-
-    pass
 
     def conversation_history(
         self,

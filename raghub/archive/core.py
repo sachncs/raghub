@@ -30,10 +30,11 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 from raghub.constants import ENV_RAGHUB_ARCHIVE_SIGNING_KEY
 from raghub.errors import RagHubError
+from raghub.registry import Registry
 
 __all__ = [
     "ArchiveCorruptionError",
@@ -129,16 +130,32 @@ def signing_key() -> bytes:
     return raw.encode("utf-8")
 
 
-class ArchiveStore(Protocol):
-    """Storage backend for archives."""
+class ArchiveStore(Registry):
+    """Polymorphic base for archive storage backends.
 
-    def put(self, key: str, data: bytes) -> None: ...
-    def get(self, key: str) -> bytes: ...
-    def list(self, prefix: str = "") -> list[str]: ...
-    def delete(self, key: str) -> None: ...
+    Concrete backends (LocalArchiveStore, …) register via
+    ``@ArchiveStore.register`` and implement the four methods.
+    """
+
+    name: str = "archive_store"
+
+    def put(self, key: str, data: bytes) -> None:
+        raise NotImplementedError
+
+    def get(self, key: str) -> bytes:
+        raise NotImplementedError
+
+    def list(self, prefix: str = "") -> list[str]:
+        raise NotImplementedError
+
+    def delete(self, key: str) -> None:
+        raise NotImplementedError
 
 
-class LocalArchiveStore:
+@ArchiveStore.register("local")
+class LocalArchiveStore(ArchiveStore):
+
+    name = "local"
     """Stores archives on the local filesystem."""
 
     def __init__(self, base_path: str | Path) -> None:
