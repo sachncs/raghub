@@ -1196,10 +1196,9 @@ def test_feedback_router_aggregate_returns_counts(tmp_path) -> None:
 
     from raghub.feedback import (
         Feedback,
+        FeedbackStore,
         Rating,
         SqliteFeedbackStore,
-        new_id,
-        now_utc,
     )
     from raghub.routes import FeedbackRoute
 
@@ -1209,7 +1208,7 @@ def test_feedback_router_aggregate_returns_counts(tmp_path) -> None:
         asyncio.run(
             store.record(
                 Feedback(
-                    id=new_id(),
+                    id=FeedbackStore.new_id(),
                     session_id=f"s{i}",
                     query_id="q1",
                     chunk_id="c1",
@@ -1218,7 +1217,7 @@ def test_feedback_router_aggregate_returns_counts(tmp_path) -> None:
                     tenant_id="acme",
                     rating=rating,
                     comment=None,
-                    created_at=now_utc(),
+                    created_at=FeedbackStore.now_utc(),
                 )
             )
         )
