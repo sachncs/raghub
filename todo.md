@@ -25,10 +25,18 @@
 - [x] Delete all `*_factory.py` files
 
 ## Phase 3: Drop encapsulation
-- [ ] Delete all `_*` private files in every package
-- [ ] Remove `getattr(self.x, "method", None)` probes
-- [ ] Remove `ConversationHost`/`SyncHost` Protocols
-- [ ] Remove `ConversationMixin`/`SyncMixin` empty bodies
+- [x] Delete all `_*` private files in every package
+- [x] Remove `getattr(self.x, "method", None)` probes
+- [x] Remove `ConversationHost`/`SyncHost` Protocols
+- [x] Remove `ConversationMixin`/`SyncMixin` empty bodies
+- [x] Rename `auth_support` to `auth` (user request)
+- [x] Drop semi-private helper names (`__keyed` -> `keyed`; `as_feedback`,
+  `new_id`, `now_utc`, `redact_comment` promoted to `FeedbackStore`
+  static methods; `serialize_overrides` removed from `__all__`)
+
+Known follow-up: the `raghub/store/` legacy vector-store package
+and a few `_method()` helpers in `llm.py`, `parsers.py`, `rag/`
+mixins still exist and are scheduled for Phase 6.
 
 ## Phase 4: Objectify dict carriers
 - [ ] Convert `Cache` tuple to `CacheKey` dataclass
