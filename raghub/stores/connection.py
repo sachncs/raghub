@@ -24,12 +24,10 @@ __all__ = [
     "Database",
     "JsonSessions",
     "Sessions",
-    "__keyed",
-    "serialize_overrides",
 ]
 
 
-def __keyed(row: Any) -> bool:
+def keyed(row: Any) -> bool:
     """Return ``True`` when ``row`` is an :class:`aiosqlite.Row`.
 
     Defers the import so the module loads without ``aiosqlite``.
@@ -425,7 +423,7 @@ class Sessions:
         await self.maybe_commit_close(conn)
         if row is None:
             return {}
-        raw = row[0] if not __keyed(row) else row["overrides"]
+        raw = row[0] if not keyed(row) else row["overrides"]
         if not raw:
             return {}
         decoded = json.loads(raw)

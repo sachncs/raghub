@@ -90,18 +90,85 @@ class FeedbackAggregate:
     by_chunk: dict[str, int]
 
 
-class FeedbackStore(Protocol):
-    """Storage contract for feedback."""
+class FeedbackStore:
+    """Polymorphic base for feedback storage.
 
-    async def record(self, feedback: Feedback) -> None: ...
-    async def get(self, feedback_id: str) -> Feedback | None: ...
-    async def list_for_session(self, session_id: str) -> list[Feedback]: ...
-    async def list_for_chunk(self, chunk_id: str) -> list[Feedback]: ...
+    Concrete stores (SqliteFeedbackStore, PgFeedbackStore) inherit
+    from this and implement the async methods. The static helpers
+    below — ``redact_comment``, ``as_feedback``, ``new_id``,
+    ``now_utc`` — are pure functions and live on the class so they
+    travel with the store they support.
+    """
+
+    @staticmethod
+    def redact_comment(comment: str | None) -> str | None:
+        """Redact secrets from ``comment`` before persistence."""
+        if not comment:
+            return comment
+        from raghub.telemetry import redact_record
+
+        sanitized: dict[str, Any] = {"comment": comment}
+        redact_record(sanitized)
+        return sanitized.get("comment")
+
+    @staticmethod
+    def as_feedback(row: Any) -> Feedback:
+        """Convert a SQLite / asyncpg row to a :class:`Feedback`."""
+        metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+        rating_value = int(row["rating"])
+        return Feedback(
+            id=row["id"],
+            session_id=row["session_id"],
+            query_id=row["query_id"],
+            chunk_id=row["chunk_id"],
+            answer_id=row["answer_id"],
+            user_id=row["user_id"],
+            tenant_id=row["tenant_id"],
+            rating=Rating(rating_value),
+            comment=row["comment"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            metadata=metadata,
+        )
+
+    @staticmethod
+    def new_id() -> str:
+        """Generate a new feedback id."""
+        return str(uuid.uuid4())
+
+    @staticmethod
+    def now_utc() -> datetime:
+        """Return the current UTC datetime (injectable seam for tests)."""
+        return datetime.now(UTC)
+
+    async def record(self, feedback: Feedback) -> None:
+        """Persist ``feedback``."""
+        raise NotImplementedError
+
+    async def get(self, feedback_id: str) -> Feedback | None:
+        """Return the feedback or ``None``."""
+        raise NotImplementedError
+
+    async def list_for_session(self, session_id: str) -> list[Feedback]:
+        """Return every feedback record for the session."""
+        raise NotImplementedError
+
+    async def list_for_chunk(self, chunk_id: str) -> list[Feedback]:
+        """Return every feedback record for the chunk."""
+        raise NotImplementedError
+
     async def list_for_tenant(
         self, tenant_id: str, limit: int = 1000
-    ) -> list[Feedback]: ...
-    async def delete(self, feedback_id: str) -> None: ...
-    async def aggregate(self, tenant_id: str | None = None) -> FeedbackAggregate: ...
+    ) -> list[Feedback]:
+        """Return every feedback record for the tenant (capped at ``limit``)."""
+        raise NotImplementedError
+
+    async def delete(self, feedback_id: str) -> None:
+        """Delete one feedback record by id."""
+        raise NotImplementedError
+
+    async def aggregate(self, tenant_id: str | None = None) -> FeedbackAggregate:
+        """Return aggregate counts."""
+        raise NotImplementedError
 
 
 SCHEMA_SQL = (
@@ -119,17 +186,6 @@ SCHEMA_SQL = (
     "metadata TEXT NOT NULL DEFAULT '{}', "
     "UNIQUE (session_id, query_id, chunk_id, user_id))"
 )
-
-
-def redact_comment(comment: str | None) -> str | None:
-    """Redact secrets from ``comment`` before persistence."""
-    if not comment:
-        return comment
-    from raghub.telemetry import redact_record
-
-    sanitized: dict[str, Any] = {"comment": comment}
-    redact_record(sanitized)
-    return sanitized.get("comment")
 
 
 class NullTelemetry:
@@ -159,7 +215,7 @@ class SqliteFeedbackStore:
 
     async def record(self, feedback: Feedback) -> None:
         """Persist ``feedback`` with redacted comment."""
-        redacted_comment = redact_comment(feedback.comment)
+        redacted_comment = FeedbackStore.redact_comment(feedback.comment)
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 "INSERT INTO raghub_feedback "
@@ -192,7 +248,7 @@ class SqliteFeedbackStore:
             ).fetchone()
         if row is None:
             return None
-        return as_feedback(row)
+        return FeedbackStore.as_feedback(row)
 
     async def list_for_session(self, session_id: str) -> list[Feedback]:
         """Return every feedback record for the session."""
@@ -203,7 +259,7 @@ class SqliteFeedbackStore:
                 "ORDER BY created_at DESC",
                 (session_id,),
             ).fetchall()
-        return [as_feedback(r) for r in rows]
+        return [FeedbackStore.as_feedback(r) for r in rows]
 
     async def list_for_chunk(self, chunk_id: str) -> list[Feedback]:
         """Return every feedback record for the chunk."""
@@ -214,7 +270,7 @@ class SqliteFeedbackStore:
                 "ORDER BY created_at DESC",
                 (chunk_id,),
             ).fetchall()
-        return [as_feedback(r) for r in rows]
+        return [FeedbackStore.as_feedback(r) for r in rows]
 
     async def list_for_tenant(
         self, tenant_id: str, limit: int = 1000
@@ -227,7 +283,7 @@ class SqliteFeedbackStore:
                 "ORDER BY created_at DESC LIMIT ?",
                 (tenant_id, limit),
             ).fetchall()
-        return [as_feedback(r) for r in rows]
+        return [FeedbackStore.as_feedback(r) for r in rows]
 
     async def delete(self, feedback_id: str) -> None:
         """Delete one feedback record by id."""
@@ -294,7 +350,7 @@ class PgFeedbackStore:
             raise MissingDepError(
                 "asyncpg", "pip install raghub[pgvector]"
             ) from exc
-        redacted_comment = redact_comment(feedback.comment)
+        redacted_comment = FeedbackStore.redact_comment(feedback.comment)
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute(
@@ -332,7 +388,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return as_feedback(row) if row else None
+        return FeedbackStore.as_feedback(row) if row else None
 
     async def list_for_session(self, session_id: str) -> list[Feedback]:
         """Return every feedback record for the session."""
@@ -351,7 +407,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return [as_feedback(r) for r in rows]
+        return [FeedbackStore.as_feedback(r) for r in rows]
 
     async def list_for_chunk(self, chunk_id: str) -> list[Feedback]:
         """Return every feedback record for the chunk."""
@@ -370,7 +426,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return [as_feedback(r) for r in rows]
+        return [FeedbackStore.as_feedback(r) for r in rows]
 
     async def list_for_tenant(
         self, tenant_id: str, limit: int = 1000
@@ -392,7 +448,7 @@ class PgFeedbackStore:
             )
         finally:
             await conn.close()
-        return [as_feedback(r) for r in rows]
+        return [FeedbackStore.as_feedback(r) for r in rows]
 
     async def delete(self, feedback_id: str) -> None:
         """Delete one feedback record by id."""
@@ -449,28 +505,14 @@ class PgFeedbackStore:
         )
 
 
-def as_feedback(row: Any) -> Feedback:
-    """Convert a SQLite / asyncpg row to a :class:`Feedback`."""
-    metadata = json.loads(row["metadata"]) if row["metadata"] else {}
-    rating_value = int(row["rating"])
-    return Feedback(
-        id=row["id"],
-        session_id=row["session_id"],
-        query_id=row["query_id"],
-        chunk_id=row["chunk_id"],
-        answer_id=row["answer_id"],
-        user_id=row["user_id"],
-        tenant_id=row["tenant_id"],
-        rating=Rating(rating_value),
-        comment=row["comment"],
-        created_at=datetime.fromisoformat(row["created_at"]),
-        metadata=metadata,
-    )
-
-
 # ---------------------------------------------------------------------------
 # Retrieval-boost scoring algorithms
 # ---------------------------------------------------------------------------
+
+
+# The as_feedback, new_id, now_utc, redact_comment helpers were
+# promoted to FeedbackStore static methods above. The legacy
+# module-level names are removed in favour of the class methods.
 
 
 class FeedbackScorer(Registry):
@@ -636,11 +678,6 @@ class VectorDownWeightScorer(FeedbackScorer):
         return base_score * self.negative_factor if has_negative else base_score
 
 
-def new_id() -> str:
-    """Generate a new feedback id."""
-    return str(uuid.uuid4())
-
-
-def now_utc() -> datetime:
-    """Return the current UTC timestamp."""
-    return datetime.now(UTC)
+# The legacy module-level new_id and now_utc helpers were promoted
+# to FeedbackStore static methods above. The module-level names are
+# removed in favour of FeedbackStore.new_id() and FeedbackStore.now_utc().
