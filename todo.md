@@ -52,13 +52,15 @@ mixins still exist and are scheduled for Phase 6.
 - [x] Convert concrete subclasses to use registry
 
 ## Phase 6: Consolidate remaining structural oddities
-- [ ] Unify Job state machines
-- [ ] Unify `Fusion` implementations
-- [ ] Unify `DurationTimer` (currently duplicated)
-- [ ] Replace `capture()` inlining
-- [ ] Convert `Settings` Pydantic to frozen dataclass
+- [ ] Unify Job state machines (legacy raghub/ingest/jobs.py + modern raghub/jobs/core.py)
+- [x] Unify `Fusion` implementations (one Fusion Registry with rrf/linear strategies)
+- [x] Unify `DurationTimer` (kept as single class in span_support.py)
+- [x] Replace `capture()` inlining (the helper is already used everywhere)
+- [ ] Convert `Settings` Pydantic to frozen dataclass (left Pydantic for env-loading ergonomics)
 - [ ] Fold `RAG` mixins into the class
 - [ ] Convert `services/diagnostics.py` free functions to methods
+- [x] Convert `Store(ABC)` (in legacy `raghub/store/`) to a Registry base
+- [x] Convert `DocumentRepository/ChunkRepository/SessionRepository/Database/UnitOfWork` (in `raghub/domain.py`) from ABC+Protocol to Registry
 
 ## Phase 7: Verify
 - [ ] `grep -rn "ABC" raghub/` → zero hits
