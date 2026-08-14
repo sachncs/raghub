@@ -29,12 +29,15 @@ def test_health_reports_ok_when_every_component_healthy() -> None:
 
     container = SimpleNamespace(vector_store=HealthyVectorStore(), embeddings=StubEmbedder())
     h = Health(container)
-    payload = h.health()
-    assert payload["status"] == "ok"
-    assert "components" in payload
-    assert payload["components"]["vectorstore"]["status"] == "ok"
-    assert payload["components"]["embedder"]["status"] == "ok"
-    assert payload["components"]["registry"]["status"] == "ok"
+    report = h.health()
+    assert report.status == "ok"
+    assert "components" in {c for c in (report.components,)}
+    assert "vectorstore" in report.components
+    assert "embedder" in report.components
+    assert "registry" in report.components
+    assert report.components["vectorstore"].status == "ok"
+    assert report.components["embedder"].status == "ok"
+    assert report.components["registry"].status == "ok"
 
 
 def test_health_reports_degraded_when_vector_store_stale() -> None:
@@ -42,9 +45,9 @@ def test_health_reports_degraded_when_vector_store_stale() -> None:
 
     container = SimpleNamespace(vector_store=DegradedVectorStore(), embeddings=StubEmbedder())
     h = Health(container)
-    payload = h.health()
-    assert payload["status"] == "degraded"
-    assert payload["components"]["vectorstore"]["status"] == "degraded"
+    report = h.health()
+    assert report.status == "degraded"
+    assert report.components["vectorstore"].status == "degraded"
 
 
 def test_health_skips_embedder_probe_when_missing() -> None:
@@ -52,9 +55,9 @@ def test_health_skips_embedder_probe_when_missing() -> None:
 
     container = SimpleNamespace(vector_store=HealthyVectorStore())
     h = Health(container)
-    payload = h.health()
-    assert "embedder" not in payload["components"]
-    assert payload["status"] == "ok"
+    report = h.health()
+    assert "embedder" not in report.components
+    assert report.status == "ok"
 
 
 def test_health_reports_vector_store_down_when_health_raises() -> None:
@@ -65,10 +68,10 @@ def test_health_reports_vector_store_down_when_health_raises() -> None:
 
     container = SimpleNamespace(vector_store=NoHealthStore(), embeddings=StubEmbedder())
     h = Health(container)
-    payload = h.health()
-    assert payload["components"]["vectorstore"]["status"] == "unknown"
+    report = h.health()
+    assert report.components["vectorstore"].status == "unknown"
     # 'unknown' maps to 'degraded' under aggregate_status.
-    assert payload["status"] == "degraded"
+    assert report.status == "degraded"
 
 
 def test_health_emits_health_check_log_event() -> None:

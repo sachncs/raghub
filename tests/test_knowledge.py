@@ -559,13 +559,13 @@ def test_graph_index_search_returns_list() -> None:
 
 
 def test_graph_index_health() -> None:
-    """GraphIndex.health returns a structured dict with name/chunks."""
+    """GraphIndex.health returns a structured dict with name/levels."""
 
     index = GraphIndex()
     health = index.health()
     assert isinstance(health, dict)
     assert health.get("name") == "graphrag"
-    assert health.get("chunks") == 0
+    assert "levels" in health
 
 
 def test_graph_index_delete_for_document_zero() -> None:

@@ -14,6 +14,7 @@ import pytest
 
 from raghub.retrieval import (
     Fusion,
+    ReciprocalRankFusion,
     context_prompt,
     decompose_prompt,
     extract_array,
@@ -33,9 +34,9 @@ from raghub.retrieval import (
 
 
 def test_fusion_fuses_multiple_rankings() -> None:
-    """Fusion.fuse returns one row per chunk_id, sorted by fused score."""
+    """ReciprocalRankFusion.fuse returns one row per chunk_id, sorted by fused score."""
 
-    fusion = Fusion(k=60)
+    fusion = ReciprocalRankFusion(k=60)
     rows = fusion.fuse(
         [
             [{"chunk_id": "a", "score": 1.0}, {"chunk_id": "b", "score": 0.5}],
