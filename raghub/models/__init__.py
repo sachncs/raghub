@@ -661,12 +661,22 @@ class Bundle:
 
 @dataclass(slots=True, frozen=True)
 class PipelineCtx:
-    """Per-invocation state passed to every stage of a pipeline."""
+    """Per-invocation state passed to every stage of a pipeline.
+
+    Attributes:
+        pipeline_id: Stable id for this run.
+        pipeline_name: Logical pipeline name (e.g. ``"ingest"``).
+        user: Authenticated user principal driving the call.
+        meta: Mutable :class:`PipelineMeta` updated by stages
+            during the run (duration, resolved config, etc.).
+        started_at: Pipeline start timestamp (UTC).
+
+    """
 
     pipeline_id: str = field(default_factory=lambda: deterministic_id("pipeline", str(uuid4())))
     pipeline_name: str = "default"
     user: Any | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    meta: Any = None  # PipelineMeta; Any avoids the import cycle
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 

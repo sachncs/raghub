@@ -32,6 +32,7 @@ from raghub.models import (
     User,
 )
 from raghub.pipeline import Ingest
+from raghub.pipeline.span_support import PipelineMeta
 from raghub.repos import UnitOfWork
 from raghub.types import JSONValue
 
@@ -345,7 +346,10 @@ class Ingestor:
         classification: Classification,
     ) -> Any:
         """Run the configured Ingest pipeline and return the result."""
-        context = PipelineCtx(pipeline_name="ingest", metadata={"user_id": owner.email})
+        context = PipelineCtx(
+            pipeline_name="ingest",
+            meta=PipelineMeta(extra={"user_id": owner.email}),
+        )
         if self.make_pipeline is None:
             self.make_pipeline = self.build_pipeline()
         return await self.make_pipeline.run(

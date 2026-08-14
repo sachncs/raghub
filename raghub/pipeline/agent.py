@@ -123,7 +123,7 @@ class AgentPipeline:
                     "structured": None,
                     "history": list(history),
                     "transforms_applied": [],
-                    "resolved_config": context.metadata.get("resolved_config"),
+                    "resolved_config": context.meta.resolved_config if context.meta else None,
                     "planner_trace": [event.model_dump(mode="json") for event in trace.events],
                     "tools_invoked": list(trace.tools_invoked),
                     "agent_trace": trace.to_dict(),

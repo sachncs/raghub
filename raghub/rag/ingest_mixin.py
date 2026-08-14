@@ -307,9 +307,13 @@ class IngestMixin:
 
         """
         user: Any | None = options.get("user")
+        from raghub.pipeline.span_support import PipelineMeta
+
         context = PipelineCtx(
             pipeline_name="ingest",
-            metadata={"user_id": getattr(user, "email", None)} if user is not None else {},
+            meta=PipelineMeta(
+                extra={"user_id": getattr(user, "email", None)} if user is not None else {}
+            ),
         )
         result = await self.ingest_pipeline.run(
             context,

@@ -151,12 +151,14 @@ class QueryMixin:
         merged = self.merge_query_kwargs(request, kwargs)
         self.validate_query_inputs(question, merged)
         scoped = self.scoped(merged.get("user"), merged.get("session_id"))
+        from raghub.pipeline.span_support import PipelineMeta
+
         context = PipelineCtx(
             pipeline_name="query",
-            metadata={"session_id": scoped} if scoped else {},
+            meta=PipelineMeta(extra={"session_id": scoped} if scoped else {}),
         )
         resolved = self.resolve_query_flags(merged, scoped)
-        context.metadata["resolved_config"] = resolved.to_dict()
+        context.meta.resolved_config = resolved.to_dict()
         return await self.execute_query_pipeline(
             question=question,
             merged=merged,
@@ -256,9 +258,11 @@ class QueryMixin:
         top_k: int = merged.get("top_k", 5)
         metadata_filter: dict[str, Any] | None = merged.get("metadata_filter")
         scoped = self.scoped(user, session_id)
+        from raghub.pipeline.span_support import PipelineMeta
+
         context = PipelineCtx(
             pipeline_name="query",
-            metadata={"session_id": scoped} if scoped else {},
+            meta=PipelineMeta(extra={"session_id": scoped} if scoped else {}),
         )
 
         resolved = resolve(
@@ -277,7 +281,7 @@ class QueryMixin:
             user_prefs=getattr(user, "tool_settings", None) if user else None,
             settings=self.settings,
         )
-        context.metadata["resolved_config"] = resolved.to_dict()
+        context.meta.resolved_config = resolved.to_dict()
         async for piece in self.query_pipeline.stream(
             context,
             question=question,
@@ -326,10 +330,10 @@ class QueryMixin:
             return
         context = PipelineCtx(
             pipeline_name="query_agent",
-            metadata={
-                "session_id": scoped or "",
-                "resolved_config": resolved.to_dict(),
-            },
+            meta=PipelineMeta(
+                extra={"session_id": scoped or ""},
+                resolved_config=resolved.to_dict(),
+            ),
         )
         async for event in self.agentic_pipeline.astream(
             context,
