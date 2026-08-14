@@ -11,7 +11,8 @@ from pathlib import Path
 from tqdm import tqdm
 
 from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
-from raghub.stores import _conn, _documents
+from raghub.stores import connection as _conn
+from raghub.stores import documents as _documents
 
 __all__ = ["migrate_from_json"]
 
