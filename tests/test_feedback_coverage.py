@@ -23,13 +23,10 @@ from raghub.feedback import (
     Bm25BoostScorer,
     Feedback,
     FeedbackAggregate,
+    FeedbackStore,
     Rating,
     SqliteFeedbackStore,
     VectorDownWeightScorer,
-    as_feedback,
-    new_id,
-    now_utc,
-    redact_comment,
 )
 
 # ---------------------------------------------------------------------------
@@ -45,7 +42,7 @@ def _make_feedback(
     comment: str | None = None,
 ) -> Feedback:
     return Feedback(
-        id=new_id(),
+        id=FeedbackStore.new_id(),
         session_id="s1",
         query_id="q1",
         chunk_id=chunk_id,
@@ -54,7 +51,7 @@ def _make_feedback(
         tenant_id=tenant_id,
         rating=rating,
         comment=comment,
-        created_at=now_utc(),
+        created_at=FeedbackStore.now_utc(),
         metadata={},
     )
 
@@ -97,7 +94,7 @@ class TestSqliteFeedbackStore:
             tenant_id="acme",
             rating=Rating.Positive,
             comment=None,
-            created_at=now_utc(),
+            created_at=FeedbackStore.now_utc(),
         )
         f2 = Feedback(
             id="fb-2",
@@ -109,7 +106,7 @@ class TestSqliteFeedbackStore:
             tenant_id="acme",
             rating=Rating.Negative,
             comment=None,
-            created_at=now_utc(),
+            created_at=FeedbackStore.now_utc(),
         )
         asyncio.run(store.record(f1))
         asyncio.run(store.record(f2))
@@ -142,7 +139,7 @@ class TestSqliteFeedbackStore:
                 tenant_id="acme",
                 rating=Rating.Positive,
                 comment=None,
-                created_at=now_utc(),
+                created_at=FeedbackStore.now_utc(),
             )
             asyncio.run(store.record(feedback))
         rows = asyncio.run(store.list_for_tenant("acme", limit=2))
@@ -190,7 +187,7 @@ class TestSqliteFeedbackStore:
                     tenant_id="acme",
                     rating=Rating.Positive,
                     comment=None,
-                    created_at=now_utc(),
+                    created_at=FeedbackStore.now_utc(),
                 )
             )
         )
@@ -206,7 +203,7 @@ class TestSqliteFeedbackStore:
                     tenant_id="globex",
                     rating=Rating.Positive,
                     comment=None,
-                    created_at=now_utc(),
+                    created_at=FeedbackStore.now_utc(),
                 )
             )
         )
@@ -231,7 +228,7 @@ class TestSqliteFeedbackStore:
 
     def test_redact_comment_passes_through_when_no_secret_keys(self) -> None:
         """``redact_comment`` returns the input unchanged for benign content."""
-        assert redact_comment("just a regular comment") == "just a regular comment"
+        assert FeedbackStore.redact_comment("just a regular comment") == "just a regular comment"
 
 
 # ---------------------------------------------------------------------------
@@ -254,7 +251,7 @@ class TestAsFeedback:
             "created_at": "2024-01-01T00:00:00+00:00",
             "metadata": '{"k":"v"}',
         }
-        feedback = as_feedback(row)
+        feedback = FeedbackStore.as_feedback(row)
         assert feedback.id == "fb1"
         assert feedback.rating == Rating.Positive
         assert feedback.metadata == {"k": "v"}
@@ -262,14 +259,14 @@ class TestAsFeedback:
 
 class TestRedactComment:
     def test_none_returns_none(self) -> None:
-        assert redact_comment(None) is None
+        assert FeedbackStore.redact_comment(None) is None
 
     def test_empty_returns_empty(self) -> None:
-        assert redact_comment("") is None or redact_comment("") == ""
+        assert FeedbackStore.redact_comment("") is None or FeedbackStore.redact_comment("") == ""
 
     def test_plain_text_passes_through(self) -> None:
         """Redaction is key-driven, not value-driven; plain text is preserved."""
-        assert redact_comment("just a comment") == "just a comment"
+        assert FeedbackStore.redact_comment("just a comment") == "just a comment"
 
 
 # ---------------------------------------------------------------------------
@@ -397,5 +394,5 @@ class TestFeedbackValidation:
                 tenant_id="",
                 rating=Rating.Positive,
                 comment=None,
-                created_at=now_utc(),
+                created_at=FeedbackStore.now_utc(),
             )

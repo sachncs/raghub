@@ -463,7 +463,7 @@ def test_feedback_cli_export_writes_jsonl(tmp_path) -> None:
     from unittest.mock import MagicMock
 
     from raghub.commands import FeedbackCommand
-    from raghub.feedback import Feedback, Rating, SqliteFeedbackStore, new_id
+    from raghub.feedback import Feedback, FeedbackStore, Rating, SqliteFeedbackStore
 
     feedback_db = tmp_path / "fb.db"
     store = SqliteFeedbackStore(db_path=str(feedback_db))
@@ -471,7 +471,7 @@ def test_feedback_cli_export_writes_jsonl(tmp_path) -> None:
     asyncio.run(
         store.record(
             Feedback(
-                id=new_id(),
+                id=FeedbackStore.new_id(),
                 session_id="s1",
                 query_id="q1",
                 chunk_id="c1",
@@ -534,7 +534,7 @@ def test_feedback_cli_stats_prints_counts(tmp_path) -> None:
         asyncio.run(
             store.record(
                 Feedback(
-                    id=new_id(),
+                    id=FeedbackStore.new_id(),
                     session_id=f"s{i}",
                     query_id="q1",
                     chunk_id="c1",
