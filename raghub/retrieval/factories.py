@@ -1,11 +1,10 @@
-"""Reranker/transformer construction, defaults, and dispatch.
+"""Reranker/transformer construction and dispatch.
 
-This module is the public construction surface for the package: it
-exposes the by-name dispatchers (``reranker``, ``transformer``,
-``areranker``, ``transform``), the settings-driven
-:class:`RerankerFactory`, and the fallback default-config helpers
-(:func:`default_hybrid`, :func:`default_long`,
-:class:`HybridConfigShim`).
+This module provides the public by-name dispatchers (``reranker``,
+``transformer``, ``areranker``, ``transform``) and the
+``RerankerFactory`` settings-driven builder. Both delegate to the
+:class:`Rerank` and :class:`Transformer` registries for concrete
+implementation lookup.
 """
 
 from __future__ import annotations
@@ -26,6 +25,11 @@ from raghub.retrieval.types import Rerank, Transformer, Variant
 
 if TYPE_CHECKING:
     from raghub.llm import Generator
+
+
+def default_long() -> LongContextConfig:
+    """Return a disabled :class:`LongContextConfig` for fallback construction."""
+    return LongContextConfig(enabled=False, candidate_k=5, allowlist_models=[])
 
 
 class RerankerFactory:
@@ -74,13 +78,14 @@ class RerankerFactory:
                 raise RerankerError(
                     "long_context reranker requires an LLM via RerankerFactory(llm=...)"
                 )
-            # Context is async-only; Rerank requires sync rerank, so callers
-            # reach it through the async path or asyncio.run (see build_reranker()).
             return cast(
                 Rerank,
                 Context(self.llm, getattr(cfg, "long_context", None) or default_long()),
             )
-        raise RerankerError(f"Unknown reranker provider: {provider!r}")
+        try:
+            return cast(Rerank, Rerank.get(provider)())
+        except ValueError as exc:
+            raise RerankerError(f"Unknown reranker provider: {provider!r}") from exc
 
 
 def build_reranker(
@@ -110,11 +115,6 @@ class HybridConfigShim:
     rrf_k = 60
     colbert_enabled = False
     long_context: Context | None = None
-
-
-def default_long() -> LongContextConfig:
-    """Return a disabled :class:`LongContextConfig` for fallback construction."""
-    return LongContextConfig(enabled=False, candidate_k=5, allowlist_models=[])
 
 
 async def areranker(
@@ -169,23 +169,24 @@ def build_reranker_by_name(method: str) -> Rerank:
     if method == "long_context":
         from raghub.llm import LiteLLM
 
-        # Async-only (rerank is awaited by the pipeline); Rerank requires
-        # a sync rerank, so callers reach it via arerank / asyncio.run.
         return cast(Rerank, Context(LiteLLM(), default_long()))
-    raise RerankerError(f"Unknown reranker method: {method!r}")
+    return cast(Rerank, Rerank.get(method)())
 
 
 def build_transformer(method: str, llm: Generator) -> Transformer:
     """Construct a transformer by name."""
-    if method == "hyde":
-        return Hyde(llm)
-    if method == "multi_query":
-        return MultiQuery(llm)
-    if method == "decompose":
-        return Decompose(llm)
-    if method == "step_back":
-        return StepBack(llm)
-    raise RerankerError(f"Unknown transform method: {method!r}")
+    registry = {
+        "hyde": Hyde,
+        "multi_query": MultiQuery,
+        "decompose": Decompose,
+        "step_back": StepBack,
+    }
+    if method in registry:
+        return registry[method](llm)
+    try:
+        return cast(Transformer, Transformer.get(method)(llm))
+    except ValueError as exc:
+        raise RerankerError(f"Unknown transform method: {method!r}") from exc
 
 
 reranker = build_reranker_by_name
@@ -198,7 +199,6 @@ __all__ = [
     "areranker",
     "build_reranker",
     "default_hybrid",
-    "default_long",
     "reranker",
     "transform",
     "transformer",

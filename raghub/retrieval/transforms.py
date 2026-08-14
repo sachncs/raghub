@@ -4,6 +4,10 @@ Each transformer turns a single question into one or more rephrased
 :class:`Variant`s. :class:`Compose` chains several transforms in order
 and always prepends the original question so retrieval stays biased
 toward the user's literal wording.
+
+Every concrete transformer registers itself with
+:class:`raghub.retrieval.types.Transformer`; use :meth:`Transformer.get`
+for by-name dispatch.
 """
 
 from __future__ import annotations
@@ -36,13 +40,9 @@ def hyde_prompt(question: str) -> str:
     )
 
 
-class Hyde:
-    """HyDE (Hypothetical Document Embeddings) transformer.
-
-    Attributes:
-        name: Always ``"hyde"``.
-
-    """
+@Transformer.register("hyde")
+class Hyde(Transformer):
+    """HyDE (Hypothetical Document Embeddings) transformer."""
 
     name = "hyde"
 
@@ -99,13 +99,9 @@ def query_prompt(question: str, n: int) -> str:
     )
 
 
-class MultiQuery:
-    """Multi-query rewriter.
-
-    Attributes:
-        name: Always ``"multi_query"``.
-
-    """
+@Transformer.register("multi_query")
+class MultiQuery(Transformer):
+    """Multi-query rewriter."""
 
     name = "multi_query"
 
@@ -157,13 +153,9 @@ def decompose_prompt(question: str) -> str:
     )
 
 
-class Decompose:
-    """Decomposition transformer.
-
-    Attributes:
-        name: Always ``"decompose"``.
-
-    """
+@Transformer.register("decompose")
+class Decompose(Transformer):
+    """Decomposition transformer."""
 
     name = "decompose"
 
@@ -211,13 +203,9 @@ def step_prompt(question: str) -> str:
     )
 
 
-class StepBack:
-    """Step-back prompting transformer.
-
-    Attributes:
-        name: Always ``"step_back"``.
-
-    """
+@Transformer.register("step_back")
+class StepBack(Transformer):
+    """Step-back prompting transformer."""
 
     name = "step_back"
 
@@ -251,16 +239,12 @@ class StepBack:
         return [Variant(text=text, kind="step_back", weight=1.2)]
 
 
-class Compose:
+class Compose(Transformer):
     """Run several transforms in order; prepend the original question.
 
     The original question is always present in the output (weight
     ``1.5``) so retrieval is biased toward the user's literal phrasing
     even when every transform fails or returns nothing.
-
-    Attributes:
-        name: ``"compose"``.
-
     """
 
     name = "compose"

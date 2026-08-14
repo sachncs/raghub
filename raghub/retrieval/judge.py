@@ -19,6 +19,7 @@ from raghub.llm import GenerationRequest
 from raghub.models import Hit, RankedList
 from raghub.retrieval.fusion import merge_rrf
 from raghub.retrieval.rerank import rerank_latency
+from raghub.retrieval.types import Rerank
 from raghub.runtime import capture
 from raghub.telemetry import record_long_context
 
@@ -56,13 +57,9 @@ def extract_array(raw: str) -> list[dict[str, Any]]:
     return [ranked_record for ranked_record in parsed if isinstance(ranked_record, dict)]
 
 
-class LlmJudge:
-    """LLM-as-judge listwise / pairwise reranker.
-
-    Attributes:
-        name: ``"llm"``.
-
-    """
+@Rerank.register("llm")
+class LlmJudge(Rerank):
+    """LLM-as-judge listwise / pairwise reranker."""
 
     name = "llm"
 
