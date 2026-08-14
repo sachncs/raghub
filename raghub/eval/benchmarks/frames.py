@@ -22,11 +22,13 @@ from pathlib import Path
 from typing import Any
 
 from raghub.errors import EvaluationError
+from raghub.eval.benchmarks.base import Evaluator
 from raghub.models import Result
 from raghub.runtime import capture
 
 
-class Frames:
+@Evaluator.register("frames")
+class Frames(Evaluator):
     """FRAMES — multi-hop RAG benchmark (Krishna et al. 2024).
 
     Loads the 824-question FRAMES test split from
