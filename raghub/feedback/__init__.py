@@ -1,11 +1,11 @@
-"""Domain package: ``raghub.feedback``.
+"""Annotation / feedback capture and retrieval boost.
 
-Re-exports the implementation in :mod:`raghub.feedback._impl`.
+Re-exports the public surface from :mod:`raghub.feedback.core`.
 """
 
 from __future__ import annotations
 
-from raghub.feedback._impl import (
+from raghub.feedback.core import (
     Bm25BoostScorer,
     Feedback,
     FeedbackAggregate,

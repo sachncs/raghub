@@ -1,11 +1,11 @@
-"""Domain package: ``raghub.tenants``.
+"""Tenant isolation primitives.
 
-Re-exports the implementation in :mod:`raghub.tenants._impl`.
+Re-exports the public surface from :mod:`raghub.tenants.core`.
 """
 
 from __future__ import annotations
 
-from raghub.tenants._impl import (
+from raghub.tenants.core import (
     CompositeTenantResolver,
     HeaderTenantResolver,
     Isolation,

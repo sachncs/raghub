@@ -1,11 +1,11 @@
 """Built-in tool implementations for RAGHub agents.
 
-Re-exports the implementation in :mod:`raghub.tools._impl`.
+Re-exports the public surface from :mod:`raghub.tools.core`.
 """
 
 from __future__ import annotations
 
-from raghub.tools._impl import (
+from raghub.tools.core import (
     GraphSearch,
     HybridSearch,
     Keyword,
@@ -13,7 +13,6 @@ from raghub.tools._impl import (
     Today,
     Tool,
     ToolContext,
-    ToolProtocol,
     ToolRegistry,
     ToolResult,
     VectorSearch,
@@ -29,7 +28,6 @@ __all__ = [
     "Today",
     "Tool",
     "ToolContext",
-    "ToolProtocol",
     "ToolRegistry",
     "ToolResult",
     "VectorSearch",
