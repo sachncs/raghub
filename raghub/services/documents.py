@@ -6,7 +6,7 @@ import time
 from typing import TYPE_CHECKING, cast
 
 from raghub.core import can_access_company
-from raghub.errors import AuthorizationError
+from raghub.errors import AuthorizationError, IngestionError
 from raghub.lifecycle import detect_mime_type
 from raghub.models import Document
 from raghub.services.diagnostics import emit_log, emit_metric, upload_record
@@ -30,6 +30,7 @@ async def get_doc(uow: UnitOfWork, document_id: str) -> Document:
         from raghub.services.diagnostics import missing_doc
 
         missing_doc(document_id)
+        raise IngestionError(f"Unknown document id: {document_id}")
     return record
 
 
@@ -65,7 +66,10 @@ class Documents:
 
         """
         started = time.perf_counter()
-        auth: AuthService = self.container.auth
+        auth: AuthService | None = self.container.auth
+        if auth is None:
+            raise RuntimeError("container.auth must be set before this call")
+        auth = auth
         user, _ = await auth.resolve_user(token)
         target_company = company or filename.split("_", 1)[0]
         if not can_access_company(user, target_company):
@@ -95,7 +99,10 @@ class Documents:
         Admin users see every document; non-admins see only the
         documents whose organization is in their allow-list.
         """
-        auth: AuthService = self.container.auth
+        auth: AuthService | None = self.container.auth
+        if auth is None:
+            raise RuntimeError("container.auth must be set before this call")
+        auth = auth
         user, _ = await auth.resolve_user(token)
         if user.is_admin:
             return await list_records(self.container.uow)
@@ -114,9 +121,13 @@ class Documents:
                 document's organization.
 
         """
-        auth: AuthService = self.container.auth
+        auth: AuthService | None = self.container.auth
+        if auth is None:
+            raise RuntimeError("container.auth must be set before document_status")
         user, _ = await auth.resolve_user(token)
         document = await get_doc(self.container.uow, document_id)
+        if document is None:
+            raise IngestionError(f"document not found: {document_id}")
         if not can_access_company(user, document.organization):
             raise AuthorizationError("Forbidden")
         return document
@@ -130,7 +141,10 @@ class Documents:
         (Raptor / Graph). Admin check is preserved here because the
         facade itself does not enforce it.
         """
-        auth: AuthService = self.container.auth
+        auth: AuthService | None = self.container.auth
+        if auth is None:
+            raise RuntimeError("container.auth must be set before this call")
+        auth = auth
         user, _ = await auth.resolve_user(token)
         if not user.is_admin:
             raise AuthorizationError("Admin only")

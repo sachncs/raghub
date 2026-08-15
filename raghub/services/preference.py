@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from raghub.agent import ResolvedConfig, resolve
 from raghub.models import QueryResponse, User
@@ -11,13 +11,13 @@ from raghub.types import JSONValue
 if TYPE_CHECKING:
     from raghub.rag.facade import RAG
     from raghub.services.container import RagContainer
-    from raghub.services.facade import Facade
+    from raghub.services.facade import ApplicationFacade, Facade  # noqa: F401  - kept for backwards compatibility in tests
 
 
 class Preference:
     """Routes advanced-RAG requests based on resolved user prefs."""
 
-    def __init__(self, facade: Facade) -> None:
+    def __init__(self, facade: ApplicationFacade) -> None:
         """Store the facade reference."""
         self.facade = facade
 
@@ -76,12 +76,12 @@ class Preference:
         resolved: ResolvedConfig,
     ) -> QueryResponse:
         """Run a basic RAG query without the agent loop, attaching resolved config metadata."""
-        response = await self.facade.query(token=token, question=question)
+        response = cast(QueryResponse, await self.facade.query(token=token, question=question))
         metadata = dict(response.metadata or {})
         metadata["resolved_config"] = resolved.to_dict()
         if flags.get("top_k") is not None:
             metadata["requested_top_k"] = flags["top_k"]
-        return response.copy(metadata=metadata)
+        return cast(QueryResponse, response.copy(metadata=metadata))
 
     async def query_advanced(  # noqa: PLR0913 - one facade method fanning out query inputs
         self,
@@ -115,7 +115,7 @@ class Preference:
         )
         return QueryResponse(
             answer=canonical.answer,
-            citations=canonical.citations,
+            citations=[c.dump(mode="json") for c in canonical.citations],
             source_chunks=[chunk.dump(mode="json") for chunk in canonical.source_chunks],
             planner_trace=canonical.metadata.get("planner_trace"),
             tools_invoked=canonical.metadata.get("tools_invoked") or [],

@@ -10,10 +10,11 @@ from typing import TYPE_CHECKING, Any, cast
 from raghub.auth import AuthService
 from raghub.models import AuthLoginResponse, Document, QueryResponse, Turn, User
 from raghub.services.documents import Documents
-from raghub.services.health import Health
+from raghub.services.health import Health, HealthReport
 from raghub.services.preference import Preference
 from raghub.services.query import Query
 from raghub.services.shutdown import Shutdown
+from raghub.types import JSONValue
 
 if TYPE_CHECKING:
     from raghub.rag.facade import RAG
@@ -53,7 +54,7 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
         if not RAG_FACADE_AVAILABLE:
             return None
         rag_module = importlib.import_module("raghub.rag")
-        return rag_module.RAG(
+        rag_instance = rag_module.RAG(
             settings=container.settings,
             embedder=container.embeddings,
             llm=container.llm,
@@ -61,6 +62,7 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
             knowledge_repo=container.registry,
             conversation_store=getattr(container, "conversation_store", None),
         )
+        return cast("RAG | None", rag_instance)
 
     def rag_facade(self) -> RAG | None:
         """Return the lazily-built :class:`raghub.RAG` instance."""
@@ -125,9 +127,10 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
         """Return the cached RAG facade, or None if not yet built."""
         return getattr(self.container, "rag_facade", None)
 
-    def get_vector_chunk_count(self) -> int:
+    async def get_vector_chunk_count(self) -> int:
         """Return the vector store's chunk count from the health snapshot."""
-        return self.vector_store_health().get("chunks", 0)
+        health = await self.vector_store_health()
+        return cast(int, health.get("chunks", 0))
 
     async def document_status(self, token: str, document_id: str) -> Document:
         """Return the status of a single document."""
@@ -148,7 +151,7 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
             await self.container.conversation.load(token),
         )
 
-    def health(self) -> dict[str, object]:
+    def health(self) -> HealthReport:
         """Run liveness checks and return a status dict."""
         return self.container.health.health()
 
@@ -178,7 +181,7 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
             **flags,
         )
 
-    def log(self, message: str, **payload: object) -> None:
+    def log(self, message: str, **payload: JSONValue) -> None:
         """Emit a structured log event via the health service."""
         self.container.health.log(message, **payload)
 
@@ -200,7 +203,7 @@ class FacadeDeprecationMeta(type):
 
     _warned: bool = False
 
-    def __call__(cls, *args, **kwargs):
+    def __call__(cls, *args: Any, **kwargs: Any) -> Any:
         if not cls._warned:
             warnings.warn(
                 "raghub.services.Facade has been renamed to "
