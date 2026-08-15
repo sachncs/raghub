@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+import pytest
+
 from raghub.models import Hit
 from raghub.retrieval.types import (
     ORIGINAL_WEIGHT,
@@ -34,10 +36,38 @@ def test_variant_accepts_custom_kind_and_weight() -> None:
 def test_variant_weight_must_be_non_negative() -> None:
     """``Variant(weight=-1)`` raises ValueError (ge=0.0)."""
 
-    import pytest
-
     with pytest.raises(ValueError):
         Variant(text="q", weight=-1.0)
+
+
+def test_rerank_default_abstract_methods_raise() -> None:
+    """Default ``Rerank.rerank`` and ``arerank`` raise NotImplementedError."""
+
+    instance = Rerank()  # type: ignore[abstract]
+    with pytest.raises(NotImplementedError):
+        instance.rerank(question="q", hits=[])
+
+    import asyncio
+
+    async def _drive_async() -> None:
+        await instance.arerank(question="q", hits=[])
+
+    with pytest.raises(NotImplementedError):
+        asyncio.run(_drive_async())
+
+
+def test_transformer_default_abstract_method_raises() -> None:
+    """Default ``Transformer.transform`` raises NotImplementedError."""
+
+    instance = Transformer()  # type: ignore[abstract]
+
+    import asyncio
+
+    async def _drive() -> None:
+        await instance.transform(question="q", history=[])
+
+    with pytest.raises(NotImplementedError):
+        asyncio.run(_drive())
 
 
 def test_variant_kind_is_literal_type_alias() -> None:
