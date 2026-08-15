@@ -13,8 +13,6 @@ import os
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from pydantic import SecretStr
-
 from raghub.config.env import (
     csv_to_transforms,
     env_bool,
@@ -51,6 +49,7 @@ from raghub.constants import (
     GPT4O_MINI_MODEL,
     HASHING_BGE_MODEL,
 )
+from raghub.models import Secret
 
 __all__ = ["load_from_env"]
 
@@ -135,7 +134,7 @@ def load_string_settings(payload: dict[str, Any]) -> dict[str, Any]:
 def load_security_settings(payload: dict[str, Any]) -> dict[str, Any]:
     """Build security-typed Settings (jwt_secret, nvidia_api_key, allow_passwordless)."""
     return {
-        "jwt_secret": SecretStr(os.getenv(ENV_JWT_SECRET, "")),
+        "jwt_secret": Secret(os.getenv(ENV_JWT_SECRET, "")),
         "nvidia_api_key": os.getenv(ENV_NVIDIA_API_KEY, payload.get("nvidia_api_key", "")),
         "allow_passwordless_login": env_bool(
             ENV_RAG_ALLOW_PASSWORDLESS,
