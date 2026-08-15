@@ -38,7 +38,7 @@ def _make_document(**overrides: Any) -> Document:
         "file_type": "txt",
         "mime_type": "text/plain",
         "chunk_count": 0,
-        "chunk_ids": [],
+        "chunks": [],
     }
     defaults.update(overrides)
     return Document(**defaults)
@@ -384,7 +384,12 @@ async def test_session_store_create_from_record_preserves_history(tmp_path: Path
     store = SessionStore(tmp_path / "sess.db")
     await store.initialize()
     record = _make_session(token="tok-y")
-    record.history = [Turn(question="q1", answer="a1"), Turn(question="q2", answer="a2")]
+    record = record.copy(
+        history=[
+            Turn(question="q1", answer="a1"),
+            Turn(question="q2", answer="a2"),
+        ]
+    )
     await store.create_from_record(record)
     sessions = Sessions(tmp_path / "sess.db", 3600)
     await sessions.initialize()

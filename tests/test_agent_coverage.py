@@ -47,7 +47,14 @@ from raghub.agent import (
     resolve,
     system_prompt,
 )
-from raghub.config import AgentConfig, Settings
+from raghub.config import (
+    AgentConfig,
+    LongContextConfig,
+    QueryTransformsConfig,
+    RerankerConfig,
+    Settings,
+    WebSearchConfig,
+)
 from raghub.errors import AgentBudgetError, GenerationError
 from raghub.models import Chunk
 from raghub.tools import ToolContext, ToolRegistry, ToolResult
@@ -198,9 +205,9 @@ def _settings(**overrides: Any) -> Settings:
     """Build a :class:`Settings` with predictable defaults."""
     defaults: dict[str, Any] = {
         "agent": AgentConfig(enabled=True, max_steps=8),
-        "reranker": Settings.model_fields["reranker"].default_factory(),
-        "long_context_pass": Settings.model_fields["long_context_pass"].default_factory(),
-        "query_transforms": Settings.model_fields["query_transforms"].default_factory(),
+        "reranker": RerankerConfig(),
+        "long_context_pass": LongContextConfig(),
+        "query_transforms": QueryTransformsConfig(),
     }
     return Settings(**defaults)
 
@@ -527,14 +534,12 @@ class TestBuildTools:
         assert "graph_search" not in names
 
     def test_web_search_registered_when_enabled(self) -> None:
-        settings = Settings(web_search=Settings.model_fields["web_search"].default_factory())
-        settings.web_search.enabled = True
+        settings = Settings(web_search=WebSearchConfig(enabled=True))
         registry = build_tools(settings, retrieval_pipeline=object(), vector_store=object())
         assert "web_search" in registry.names()
 
     def test_summary_search_requires_raptor(self) -> None:
-        settings = Settings()
-        settings.summary_search_enabled = True
+        settings = Settings(summary_search_enabled=True)
         # Without raptor: not registered.
         registry = build_tools(settings, retrieval_pipeline=object(), vector_store=object())
         assert "summary_search" not in registry.names()
@@ -545,8 +550,7 @@ class TestBuildTools:
         assert "summary_search" in registry.names()
 
     def test_graph_search_requires_graph(self) -> None:
-        settings = Settings()
-        settings.graph_search_enabled = True
+        settings = Settings(graph_search_enabled=True)
         registry = build_tools(settings, retrieval_pipeline=object(), vector_store=object())
         assert "graph_search" not in registry.names()
         registry = build_tools(

@@ -213,7 +213,7 @@ class TestIngestionResult:
             text="b",
             company="",
             owner="",
-            checksum="3e23e8160039594a33894c65666c7b22f3feec0c9bb7518840fe77f5099fcc49",
+            checksum="3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d",
         )
         result = IngestionResult(
             document=doc,

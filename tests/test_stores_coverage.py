@@ -63,9 +63,7 @@ def test_documents_load_persisted_state(tmp_path: Path) -> None:
         json.dumps(
             {
                 "documents": {
-                    "d1": [
-                        _make_document(id="d1", version=1, checksum="c1").model_dump(mode="json")
-                    ]
+                    "d1": [_make_document(id="d1", version=1, checksum="c1").dump(mode="json")]
                 },
                 "checksum_index": {"c1": ["d1", 1]},
             }

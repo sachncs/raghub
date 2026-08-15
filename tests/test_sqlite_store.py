@@ -59,11 +59,9 @@ def test_insert_or_ignore_skips_duplicates(sqlite_store, sample_chunks, sample_v
     new_text = "different text"
     import hashlib as _hashlib
 
-    dupe = sample_chunks[0].model_copy(
-        update={
-            "text": new_text,
-            "checksum": _hashlib.sha256(new_text.encode("utf-8")).hexdigest(),
-        }
+    dupe = sample_chunks[0].copy(
+        text=new_text,
+        checksum=_hashlib.sha256(new_text.encode("utf-8")).hexdigest(),
     )
     written2 = sqlite_store.insert([dupe], sample_vectors)
     assert written2 == 1
@@ -84,9 +82,7 @@ def test_concurrent_inserts_are_safe(sqlite_store, sample_chunks):
     results: list[int] = []
 
     def insert_chunks(offset: int) -> None:
-        chunks = [
-            sample_chunks[0].model_copy(update={"id": f"thread-{offset}-{i}"}) for i in range(5)
-        ]
+        chunks = [sample_chunks[0].copy(id=f"thread-{offset}-{i}") for i in range(5)]
         vectors = [[0.01 * (offset + i)] * 384 for i in range(5)]
         barrier.wait()
         results.append(sqlite_store.insert(chunks, vectors))

@@ -70,7 +70,7 @@ def test_user_record_round_trip_dump() -> None:
         allowed_groups=["g1"],
         is_admin=True,
     )
-    dumped = record.model_dump()
+    dumped = record.dump()
     rebuilt = UserRecord(**dumped)
     assert rebuilt == record
 

@@ -52,7 +52,7 @@ def test_rag_conversation_history_round_trip() -> None:
     from raghub.models import User
 
     rag = _new_rag()
-    user = User(user_id="alice", email="alice@x")
+    user = User(id="alice", email="alice@x")
     rag.aquery("hello", user=user, session_id="s1")
     history = rag.conversation_history("s1", user=user)
     assert isinstance(history, list)
@@ -63,7 +63,7 @@ def test_rag_clear_conversation_smoke() -> None:
     from raghub.models import User
 
     rag = _new_rag()
-    user = User(user_id="alice", email="alice@x")
+    user = User(id="alice", email="alice@x")
     rag.clear_conversation("s1", user=user)
 
 

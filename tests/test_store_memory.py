@@ -311,7 +311,7 @@ class TestSearch:
     def test_top_k_limits_results(self) -> None:
         store = MemoryStore(embedding_dim=2)
         store.insert(
-            [make_chunk(chunk_id=f"c{i}") for i in range(10)],
+            [make_chunk(id=f"c{i}") for i in range(10)],
             [[0.1, 0.2]] * 10,
         )
         assert len(store.search(vector=[0.1, 0.2], top_k=3)) == 3
@@ -587,7 +587,7 @@ class TestLargeCorpus:
         """Insert 10 000 chunks and verify a query still returns top_k hits."""
         store = MemoryStore(embedding_dim=2)
         chunks = [
-            make_chunk(chunk_id=f"c{i:05d}", text=f"doc number {i} about topic {i % 100}")
+            make_chunk(id=f"c{i:05d}", text=f"doc number {i} about topic {i % 100}")
             for i in range(10_000)
         ]
         vectors = [[float(i), 0.0] for i in range(10_000)]
@@ -868,6 +868,6 @@ class TestMemoryStoreTenantIdIsolation:
         hits = store.hybrid_search(query="revenue", vector=[0.5, 0.5], top_k=2)
         assert len(hits) == 2
         ids = [h["chunk_id"] for h in hits]
-        assert ids[0] == "alpha", (
-            f"BM25 should rank the keyword-matching chunk first; got order {ids}"
-        )
+        assert (
+            ids[0] == "alpha"
+        ), f"BM25 should rank the keyword-matching chunk first; got order {ids}"

@@ -28,7 +28,7 @@ def make_session(**overrides: Any) -> Session:
     defaults: dict[str, Any] = {
         "user_id": "u",
         "token": "t1",
-        "session_id": "sess-1",
+        "id": "sess-1",
         "created_at": now,
         "expires_at": now + timedelta(seconds=3600),
         "last_seen_at": now,
@@ -261,7 +261,7 @@ def test_conversation_manager_clear_empties_history() -> None:
 
 def test_conversation_manager_add_turn_trims() -> None:
     """``add_turn`` appends the turn then trims to the configured budget."""
-    record = make_session(session_id="sess-1", history=[])
+    record = make_session(id="sess-1", history=[])
     uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow, max_tokens=10000)
     asyncio.run(manager.add_turn("sess-1", Turn(question="q", answer="a")))
@@ -279,7 +279,7 @@ def test_conversation_manager_add_turn_noop_for_unknown_session() -> None:
 def test_conversation_manager_trim_history_with_explicit_budget() -> None:
     """An explicit ``max_tokens`` overrides the configured budget."""
     record = make_session(
-        session_id="sess-1", history=[Turn(question=f"q{i}", answer=f"a{i}") for i in range(10)]
+        id="sess-1", history=[Turn(question=f"q{i}", answer=f"a{i}") for i in range(10)]
     )
     uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow, max_tokens=10000)
@@ -289,7 +289,7 @@ def test_conversation_manager_trim_history_with_explicit_budget() -> None:
 
 def test_conversation_manager_trim_history_uses_default_budget() -> None:
     """Without an override, the configured ``sliding_window`` is used."""
-    record = make_session(session_id="sess-1", history=[Turn(question="q", answer="a")])
+    record = make_session(id="sess-1", history=[Turn(question="q", answer="a")])
     uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow, max_tokens=10000)
     trimmed = asyncio.run(manager.trim_history("sess-1"))
@@ -332,21 +332,23 @@ def test_conversation_manager_get_overrides_returns_empty_when_unset() -> None:
 
 
 def test_conversation_manager_set_overrides_replaces() -> None:
-    """``set_overrides`` replaces the session's overrides mapping."""
-    record = make_session(overrides={"old": True})
+    """``set_overrides`` replaces the previous overrides mapping."""
+    record = make_session(id="sess-1", overrides={"old": 1})
     uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     asyncio.run(manager.set_overrides("sess-1", {"new": True}))
-    assert record.overrides == {"new": True}
+    upserted = uow.session_repo.upsert.await_args.args[0]
+    assert upserted.overrides == {"new": True}
 
 
 def test_conversation_manager_set_overrides_clears_with_empty() -> None:
     """An empty / ``None`` overrides mapping resets to an empty dict."""
-    record = make_session(session_id="sess-1", overrides={"a": 1})
+    record = make_session(id="sess-1", overrides={"a": 1})
     uow = make_uow_with_session(record)
     manager = ConversationHistory(uow=uow)
     asyncio.run(manager.set_overrides("sess-1", {}))
-    assert record.overrides == {}
+    upserted = uow.session_repo.upsert.await_args.args[0]
+    assert upserted.overrides == {}
 
 
 def test_conversation_manager_set_overrides_noop_for_unknown() -> None:

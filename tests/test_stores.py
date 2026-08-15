@@ -17,7 +17,7 @@ from raghub.models import Document, DocumentLifecycleStatus
 
 
 def _make_document(
-    document_id: str = "d1",
+    id: str = "d1",
     version: int = 1,
     checksum: str = "abc123",
     company: str = "acme",
@@ -27,9 +27,9 @@ def _make_document(
     from datetime import UTC, datetime
 
     return Document(
-        id=document_id,
+        id=id,
         version=version,
-        source="mem://x",
+        mime_type="mem://x",
         organization=company,
         owner="alice@example.com",
         checksum=checksum,
@@ -170,8 +170,8 @@ def test_documents_list_accessible_filters_by_company(tmp_path: Path) -> None:
 
     path = tmp_path / "la.json"
     registry = Documents(path)
-    registry.save_version(_make_document(document_id="a", company="acme"))
-    registry.save_version(_make_document(document_id="b", company="globex"))
+    registry.save_version(_make_document(id="a", company="acme"))
+    registry.save_version(_make_document(id="b", company="globex"))
     accessible = registry.list_accessible(["acme"])
     ids = {doc.id for doc in accessible}
     assert ids == {"a"}
@@ -313,7 +313,8 @@ def test_json_sessions_expired_session_is_purged(tmp_path: Path) -> None:
     store = JsonSessions(tmp_path / "exp.json", timeout_seconds=3600)
     session = store.create(user_id="u1")
     # Force the expiry into the past.
-    session.expires_at = datetime(2026, 1, 1, tzinfo=UTC) - timedelta(seconds=1)
+    past = datetime(2026, 1, 1, tzinfo=UTC) - timedelta(seconds=1)
+    store.sessions[session.token] = session.copy(expires_at=past)
     store.save()
     assert store.resolve(session.token) is None
 

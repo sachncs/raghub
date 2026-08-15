@@ -15,7 +15,6 @@ from typing import ClassVar
 from unittest.mock import MagicMock
 
 import pytest
-from pydantic import SecretStr
 
 from raghub.auth import AuthService
 from raghub.config import Settings
@@ -314,7 +313,7 @@ async def rag_container(
         registry_path=tmp_path / "registry.json",
         sessions_path=tmp_path / "sessions.json",
         embedding_dim=16,
-        jwt_secret=SecretStr("service-tests-use-a-deterministic-secret-32"),
+        jwt_secret="service-tests-use-a-deterministic-secret-32",
         nvidia_api_key="service-test-key",
     )
     settings.ensure_dirs()

@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from raghub.models import Pipeline
+from raghub.models import Pipeline, PipelineOutputs
 from raghub.pipeline.cache import Cache
 
 
@@ -20,7 +20,7 @@ def test_cache_set_then_get_round_trip() -> None:
     """``Cache.set`` followed by ``Cache.get`` returns the stored pipeline."""
 
     cache = Cache(ttl_seconds=60)
-    pipeline = Pipeline(pipeline_id="abc", pipeline_name="test", metadata={})
+    pipeline = Pipeline(pipeline_id="abc", pipeline_name="test", outputs=PipelineOutputs())
     cache.set("revenue", user_id="alice", filters=None, result=pipeline)
     assert cache.get("revenue", user_id="alice") is pipeline
 
@@ -29,7 +29,7 @@ def test_cache_get_evicts_expired_entry() -> None:
     """``Cache.get`` removes entries older than ttl and returns None."""
 
     cache = Cache(ttl_seconds=60)
-    pipeline = Pipeline(pipeline_id="abc", pipeline_name="test", metadata={})
+    pipeline = Pipeline(pipeline_id="abc", pipeline_name="test", outputs=PipelineOutputs())
     with patch("time.monotonic", return_value=100.0):
         cache.set("revenue", user_id=None, filters=None, result=pipeline)
     with patch("time.monotonic", return_value=1000.0):
@@ -42,7 +42,7 @@ def test_cache_clear_evicts_everything() -> None:
     """``Cache.clear`` empties the store."""
 
     cache = Cache()
-    pipeline = Pipeline(pipeline_id="abc", pipeline_name="test", metadata={})
+    pipeline = Pipeline(pipeline_id="abc", pipeline_name="test", outputs=PipelineOutputs())
     cache.set("q1", user_id=None, filters=None, result=pipeline)
     cache.set("q2", user_id=None, filters=None, result=pipeline)
     cache.clear()
@@ -57,13 +57,13 @@ def test_cache_invalidate_by_question() -> None:
         "q1",
         user_id=None,
         filters=None,
-        result=Pipeline(pipeline_id="a", pipeline_name="test", metadata={}),
+        result=Pipeline(pipeline_id="a", pipeline_name="test", outputs=PipelineOutputs()),
     )
     cache.set(
         "q2",
         user_id=None,
         filters=None,
-        result=Pipeline(pipeline_id="b", pipeline_name="test", metadata={}),
+        result=Pipeline(pipeline_id="b", pipeline_name="test", outputs=PipelineOutputs()),
     )
     cache.invalidate(question="q1")
     assert list(cache.store.keys()) == [Cache.make_key("q2", None, None)]
@@ -73,13 +73,15 @@ def test_cache_invalidate_by_user_id() -> None:
     """``Cache.invalidate(user_id=...)`` evicts all entries for that user."""
 
     cache = Cache()
-    pipeline_factory = lambda pid: Pipeline(pipeline_id=pid, pipeline_name="test", metadata={})
+    pipeline_factory = lambda pid: Pipeline(
+        pipeline_id=pid, pipeline_name="test", outputs=PipelineOutputs()
+    )
     cache.set("q1", user_id="alice", filters=None, result=pipeline_factory("a"))
     cache.set("q2", user_id="bob", filters=None, result=pipeline_factory("b"))
     cache.invalidate(user_id="alice")
     keys = list(cache.store.keys())
     assert len(keys) == 1
-    assert keys[0][1] == "bob"
+    assert keys[0].user_id == "bob"
 
 
 def test_cache_invalidate_all_when_no_filters() -> None:
@@ -90,7 +92,7 @@ def test_cache_invalidate_all_when_no_filters() -> None:
         "q1",
         user_id=None,
         filters=None,
-        result=Pipeline(pipeline_id="a", pipeline_name="test", metadata={}),
+        result=Pipeline(pipeline_id="a", pipeline_name="test", outputs=PipelineOutputs()),
     )
     cache.invalidate()
     assert cache.store == {}

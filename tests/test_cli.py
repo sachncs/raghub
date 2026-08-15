@@ -257,7 +257,7 @@ def test_ingest_command_invokes_rag_ingest(
 ) -> None:
     """``raghub ingest path`` calls RAG.ingest and prints OK."""
     fake_batch = MagicMock()
-    fake_batch.model_dump.return_value = {"path": "x"}
+    fake_batch.dump.return_value = {"path": "x"}
     fake_result = MagicMock()
     fake_result.outputs = {"batch": [fake_batch]}
     fake_result.error = None
@@ -284,7 +284,7 @@ def test_ingest_command_success_prints_ok(
     def _dump(*_args: object, **_kwargs: object) -> dict[str, object]:
         return {"success": True}
 
-    fake_result.model_dump.side_effect = _dump
+    fake_result.dump.side_effect = _dump
     fake_rag = MagicMock()
     fake_rag.ingest.return_value = fake_result
     monkeypatch.setattr(CliConfig, "make_rag", lambda config: fake_rag)
@@ -307,7 +307,7 @@ def test_ingest_command_failure_prints_fail(
     def _dump(*_args: object, **_kwargs: object) -> dict[str, object]:
         return {"success": False}
 
-    fake_result.model_dump.side_effect = _dump
+    fake_result.dump.side_effect = _dump
     fake_rag = MagicMock()
     fake_rag.ingest.return_value = fake_result
     monkeypatch.setattr(CliConfig, "make_rag", lambda config: fake_rag)
@@ -330,7 +330,7 @@ def test_ingest_command_no_success_prints_ingested(
     def _dump(*_args: object, **_kwargs: object) -> dict[str, object]:
         return {"chunk_count": 3}
 
-    fake_result.model_dump.side_effect = _dump
+    fake_result.dump.side_effect = _dump
     fake_rag = MagicMock()
     fake_rag.ingest.return_value = fake_result
     monkeypatch.setattr(CliConfig, "make_rag", lambda config: fake_rag)
@@ -384,9 +384,9 @@ def test_query_command_prints_answer(
     """``raghub query "..."`` echoes the response answer."""
     fake_response = MagicMock()
     fake_response.answer = "the answer is 42"
+    fake_response.metadata = {}
     fake_response.citations = []
     fake_response.source_chunks = []
-    fake_response.metadata = {}
     fake_rag = MagicMock()
     fake_rag.query.return_value = fake_response
     monkeypatch.setattr(CliConfig, "make_rag", lambda config: fake_rag)
@@ -400,9 +400,9 @@ def test_query_command_json_output(monkeypatch: pytest.MonkeyPatch) -> None:
     """``raghub query --json "..."`` writes a JSON payload with answer + metadata."""
     fake_response = MagicMock()
     fake_response.answer = "yes"
+    fake_response.metadata = {"k": "v"}
     fake_response.citations = []
     fake_response.source_chunks = []
-    fake_response.metadata = {"k": "v"}
     fake_rag = MagicMock()
     fake_rag.query.return_value = fake_response
     monkeypatch.setattr(CliConfig, "make_rag", lambda config: fake_rag)
@@ -422,8 +422,8 @@ def test_query_command_with_citations(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_response = MagicMock()
     fake_response.answer = "use"
     fake_response.citations = [fake_citation]
-    fake_response.source_chunks = []
     fake_response.metadata = {}
+    fake_response.source_chunks = []
     fake_rag = MagicMock()
     fake_rag.query.return_value = fake_response
     monkeypatch.setattr(CliConfig, "make_rag", lambda config: fake_rag)
@@ -522,9 +522,9 @@ def test_feedback_cli_stats_prints_counts(tmp_path) -> None:
     from raghub.commands import FeedbackCommand
     from raghub.feedback import (
         Feedback,
+        FeedbackStore,
         Rating,
         SqliteFeedbackStore,
-        new_id,
     )
 
     feedback_db = tmp_path / "fb.db"

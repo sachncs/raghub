@@ -31,7 +31,6 @@ def test_health_reports_ok_when_every_component_healthy() -> None:
     h = Health(container)
     report = h.health()
     assert report.status == "ok"
-    assert "components" in {c for c in (report.components,)}
     assert "vectorstore" in report.components
     assert "embedder" in report.components
     assert "registry" in report.components

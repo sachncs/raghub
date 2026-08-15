@@ -24,7 +24,7 @@ from raghub.rag import RAG
 
 
 def _user(email: str, *companies: str, is_admin: bool = False) -> User:
-    return User(user_id=email, email=email, allowed_companies=list(companies), is_admin=is_admin)
+    return User(id=email, email=email, allowed_companies=list(companies), is_admin=is_admin)
 
 
 @pytest.fixture

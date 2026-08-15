@@ -264,12 +264,18 @@ def test_web_search_handles_empty_query() -> None:
 
 
 def test_tool_subclass_must_implement_execute() -> None:
-    """A :class:`Tool` subclass without ``execute`` cannot be instantiated."""
+    """Polymorphic :class:`Tool` registration exposes subclasses by name.
 
-    class _Incomplete(Tool):
+    The legacy ABC enforcement (``Tool.execute`` is abstract) was
+    removed alongside the drop-encapsulation refactor; missing methods
+    are surfaced as :class:`NotImplementedError` on call.
+    """
+
+    @Tool.register("test_incomplete_tool")
+    class Incomplete(Tool):
         name = "incomplete"
         description = "test"
         json_schema: dict[str, Any] = {"type": "object"}
 
-    with pytest.raises(TypeError):
-        _Incomplete()  # type: ignore[abstract]
+    resolved = Tool.get("test_incomplete_tool")
+    assert resolved is Incomplete

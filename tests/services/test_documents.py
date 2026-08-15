@@ -15,25 +15,21 @@ from raghub.services.documents import Documents, get_doc, list_records
 
 def make_document(
     *,
-    document_id: str = "doc-1",
+    id: str = "doc-1",
     organization: str = "acme",
     owner: str = "alice@example.com",
 ) -> Document:
     """Build a minimal :class:`Document` for tests."""
 
     return Document(
-        id=document_id,
+        id=id,
         organization=organization,
         owner=owner,
-        title="Quarterly Report",
-        source_uri="mem://text",
+        filename="Quarterly Report",
         mime_type="text/plain",
-        size_bytes=1024,
         checksum="deadbeef",
         classification=Classification.Internal,
-        company="acme",
         department="finance",
-        tenant_id=None,
         status=DocumentLifecycleStatus.Ready,
     )
 
@@ -41,7 +37,7 @@ def make_document(
 def test_list_records_returns_documents_from_repository() -> None:
     """``list_records`` delegates to ``uow.document_repo.list_all()``."""
 
-    docs = [make_document(document_id="a"), make_document(document_id="b")]
+    docs = [make_document(id="a"), make_document(id="b")]
 
     class StubRepo:
         async def list_all(self) -> list[Document]:
@@ -160,7 +156,7 @@ async def test_list_documents_returns_all_for_admin() -> None:
         async def resolve_user(self, token: str) -> tuple[Any, list[Any]]:
             return user, []
 
-    docs = [make_document(document_id="a"), make_document(document_id="b")]
+    docs = [make_document(id="a"), make_document(id="b")]
 
     class StubRepo:
         async def list_all(self) -> list[Document]:
@@ -185,8 +181,8 @@ async def test_list_documents_filters_by_company_for_non_admin() -> None:
         async def resolve_user(self, token: str) -> tuple[Any, list[Any]]:
             return user, []
 
-    acme_doc = make_document(document_id="a", organization="acme")
-    other_doc = make_document(document_id="b", organization="globex")
+    acme_doc = make_document(id="a", organization="acme")
+    other_doc = make_document(id="b", organization="globex")
 
     class StubRepo:
         async def list_by_organization(self, org: str) -> list[Document]:
