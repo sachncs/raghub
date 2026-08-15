@@ -11,7 +11,7 @@ from raghub.types import JSONValue
 if TYPE_CHECKING:
     from raghub.rag.facade import RAG
     from raghub.services.container import RagContainer
-    from raghub.services.facade import ApplicationFacade, Facade  # noqa: F401  - kept for backwards compatibility in tests
+    from raghub.services.facade import ApplicationFacade
 
 
 class Preference:

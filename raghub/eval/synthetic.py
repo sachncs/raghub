@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 from raghub.llm import GenerationRequest, Generator
 
@@ -44,7 +44,7 @@ def chunk_text(chunk: Any) -> str:
     text = getattr(chunk, "text", None)
     if text is None:
         raise ValueError(f"corpus item has no .text attribute: {chunk!r}")
-    return text
+    return cast(str, text)
 
 
 def chunk_id(chunk: Any) -> str:

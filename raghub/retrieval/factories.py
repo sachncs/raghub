@@ -10,7 +10,7 @@ implementation lookup.
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from raghub.config import LongContextConfig, Settings
@@ -83,7 +83,7 @@ class RerankerFactory:
                 Context(self.llm, getattr(cfg, "long_context", None) or default_long()),
             )
         try:
-            return cast(Rerank, Rerank.get(provider)())
+            return cast(Rerank, Rerank.lookup(provider)())
         except ValueError as exc:
             raise RerankerError(f"Unknown reranker provider: {provider!r}") from exc
 
@@ -171,7 +171,7 @@ def build_reranker_by_name(method: str) -> Rerank:
 
         return cast(Rerank, Context(LiteLLM(), default_long()))
     try:
-        cls = Rerank.get(method)
+        cls = Rerank.lookup(method)
     except ValueError as exc:
         raise RerankerError(
             f"Unknown reranker method: {method!r}; known: {Rerank.names()}"
@@ -181,7 +181,7 @@ def build_reranker_by_name(method: str) -> Rerank:
 
 def build_transformer(method: str, llm: Generator) -> Transformer:
     """Construct a transformer by name."""
-    registry = {
+    registry: dict[str, Callable[[Generator], Transformer]] = {
         "hyde": Hyde,
         "multi_query": MultiQuery,
         "decompose": Decompose,
@@ -190,7 +190,7 @@ def build_transformer(method: str, llm: Generator) -> Transformer:
     if method in registry:
         return registry[method](llm)
     try:
-        return cast(Transformer, Transformer.get(method)(llm))
+        return cast(Transformer, Transformer.lookup(method)(llm))
     except ValueError as exc:
         raise RerankerError(f"Unknown transform method: {method!r}") from exc
 

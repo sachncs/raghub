@@ -614,7 +614,9 @@ class SummarySearch(Tool):
         """Run the RAPTOR summary search."""
         if self.index is None:
             return ToolResult(content="(no summary index configured)")
-        hits = self.index.search(str(kwargs.get("query", "")), top_k=int(cast(int, kwargs.get("top_k", 0))))
+        hits = self.index.search(
+            str(kwargs.get("query", "")), top_k=int(cast(int, kwargs.get("top_k", 0)))
+        )
         if not hits:
             return ToolResult(content="(no summaries matched)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)
@@ -672,7 +674,9 @@ class VectorSearch(Tool):
         if not text:
             return ToolResult(ok=False, error="vector_search: empty query")
         user = as_admin_user(context.user)
-        hits = self.pipeline.retrieve(user=user, question=text, top_k=int(cast(int, kwargs.get("top_k", 0))))
+        hits = self.pipeline.retrieve(
+            user=user, question=text, top_k=int(cast(int, kwargs.get("top_k", 0)))
+        )
         if not hits:
             return ToolResult(content="(no hits)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)

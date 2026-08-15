@@ -1,12 +1,9 @@
 """Pipeline builder — fluent factory for :class:`Pipeline` records.
 
-Exposes :class:`Flow` as the canonical name; ``PipelineBuilder`` is
-re-exported for backward compatibility with existing imports.
+Exposes :class:`Flow`; no alias is retained.
 """
 
 from __future__ import annotations
-
-from typing import Any
 
 from raghub.models import ErrorInfo, Pipeline, PipelineCtx, PipelineOutputs
 
@@ -37,8 +34,4 @@ class Flow:
         )
 
 
-PipelineBuilder = Flow
-"""Backward-compatible alias for :class:`Flow`."""
-
-
-__all__ = ["Flow", "PipelineBuilder"]
+__all__ = ["Flow", "Flow"]

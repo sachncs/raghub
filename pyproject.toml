@@ -158,6 +158,13 @@ preview = true
 # independently-configurable fields; collapsing them into a config
 # object would hide the ergonomics that the existing call sites rely
 # on.
+#
+# raghub/repos.py PLR6301: ChunkRepository / SessionRepository /
+# DocumentRepository get() / list_by_document() / search_by_metadata()
+# are instance methods (they're separately overridden by the SQLite
+# subclasses in DocStore / SessionStore / ChunkStore). The default
+# implementations return None / []; mypy flags the unused ``self``
+# but the contract is genuinely an instance method.
 "tests/*" = ["PLR2004", "PLR0913", "D", "PLR6301", "RUF029", "SIM117", "RUF012"]
 "docs/*" = ["D"]
 "devtools/*" = ["PLR0913", "D"]
@@ -165,6 +172,7 @@ preview = true
 "raghub/stores/vector_sqlite.py" = ["PLR0904"]
 "raghub/plugins.py" = ["PLR0904"]
 "raghub/lifecycle/chunking.py" = ["PLR0913"]
+"raghub/repos.py" = ["PLR6301", "ARG002"]
 
 [tool.ruff.format]
 quote-style = "double"

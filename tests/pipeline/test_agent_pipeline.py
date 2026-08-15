@@ -245,7 +245,7 @@ async def test_run_applies_long_context_pass_when_eligible() -> None:
     async def fake_rerank(*, question: str, hits):
         return [hit_after]
 
-    long_context.rerank = fake_rerank
+    long_context.arerank = fake_rerank
 
     pipeline = AgentPipeline(
         agent=agent,
@@ -280,7 +280,7 @@ async def test_run_skips_long_context_pass_when_ineligible() -> None:
     )
     long_context = MagicMock()
     long_context.is_eligible = MagicMock(return_value=False)
-    long_context.rerank = AsyncMock()
+    long_context.arerank = AsyncMock()
 
     pipeline = AgentPipeline(
         agent=agent,
@@ -292,7 +292,7 @@ async def test_run_skips_long_context_pass_when_ineligible() -> None:
     pipeline.generator.generate = MagicMock(return_value="answer")
 
     await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
-    long_context.rerank.assert_not_called()
+    long_context.arerank.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -312,7 +312,7 @@ async def test_run_skips_long_context_pass_when_no_hits() -> None:
     )
     long_context = MagicMock()
     long_context.is_eligible = MagicMock(return_value=True)
-    long_context.rerank = AsyncMock()
+    long_context.arerank = AsyncMock()
 
     pipeline = AgentPipeline(
         agent=agent,
@@ -324,4 +324,4 @@ async def test_run_skips_long_context_pass_when_no_hits() -> None:
     pipeline.generator.generate = MagicMock(return_value="answer")
 
     await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
-    long_context.rerank.assert_not_called()
+    long_context.arerank.assert_not_called()

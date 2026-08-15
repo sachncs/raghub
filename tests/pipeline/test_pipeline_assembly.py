@@ -1,9 +1,9 @@
-"""Tests for ``raghub.pipeline.pipeline_assembly`` (Flow / PipelineBuilder)."""
+"""Tests for ``raghub.pipeline.pipeline_assembly`` (Flow)."""
 
 from __future__ import annotations
 
 from raghub.models import ErrorInfo, Pipeline, PipelineCtx, PipelineOutputs
-from raghub.pipeline.pipeline_assembly import Flow, PipelineBuilder
+from raghub.pipeline.pipeline_assembly import Flow
 
 
 def makemake_ctx() -> PipelineCtx:
@@ -70,21 +70,19 @@ def test_flow_failure_without_outputs_defaults_to_empty_dict() -> None:
     assert pipeline.outputs.extra == {}
 
 
-def test_pipeline_builder_is_alias_for_flow() -> None:
-    """``PipelineBuilder`` is the backward-compatible alias for :class:`Flow`."""
+def test_flow_builder_query_pipeline_name() -> None:
+    """``Flow.success`` preserves the configured pipeline name."""
 
-    assert PipelineBuilder is Flow
-
-    builder = PipelineBuilder(makemake_ctx(), "query")
-    pipeline = builder.success(_outputs_with({"answer": "42"}))
+    flow = Flow(makemake_ctx(), "query")
+    pipeline = flow.success(_outputs_with({"answer": "42"}))
     assert pipeline.pipeline_name == "query"
     assert pipeline.outputs.extra == {"answer": "42"}
 
 
-def test_pipeline_builder_can_be_constructed_via_alias_and_used() -> None:
-    """The :class:`PipelineBuilder` alias accepts the same arguments as :class:`Flow`."""
+def test_flow_failure_with_full_payload() -> None:
+    """``Flow.failure(error, outputs=...)`` carries the failure payload alongside the error."""
 
-    builder = PipelineBuilder(makemake_ctx(), "test")
+    builder = Flow(makemake_ctx(), "test")
     pipeline = builder.failure("err", outputs=_outputs_with({"x": 1}))
     assert pipeline.error is not None
     assert pipeline.error.message == "err"

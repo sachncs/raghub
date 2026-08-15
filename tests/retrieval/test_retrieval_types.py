@@ -69,7 +69,7 @@ def test_rerank_protocol_has_rerank_and_arerank() -> None:
         async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
             return list(hits)
 
-    resolved = Rerank.get("test_stub_rerank")
+    resolved = Rerank.lookup("test_stub_rerank")
     assert resolved is StubRerank
     assert resolved.name == "stub"
 
@@ -87,7 +87,7 @@ def test_rerank_protocol_does_not_require_arerank_to_be_async() -> None:
         async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
             return list(hits)
 
-    assert Rerank.get("test_sync_only") is SyncOnly
+    assert Rerank.lookup("test_sync_only") is SyncOnly
 
 
 def test_transformer_protocol_has_transform() -> None:
@@ -100,6 +100,6 @@ def test_transformer_protocol_has_transform() -> None:
         async def transform(self, *, question: str, history: Sequence[Any]) -> list[Variant]:
             return [Variant(text=question, kind="original", weight=1.0)]
 
-    resolved = Transformer.get("test_stub_transformer")
+    resolved = Transformer.lookup("test_stub_transformer")
     assert resolved is StubTransformer
     assert resolved.name == "stub"

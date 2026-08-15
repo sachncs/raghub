@@ -35,7 +35,7 @@ class SyncMixin:
     manifest: Manifest
     settings: Settings
     # Provided by the host class via the mixin contract:
-    ingest: Any  # noqa: F821 - satisfies mixin protocol
+    ingest: Any
     delete: Any
 
     def sync_index(

@@ -236,14 +236,11 @@ class PgVectorStore:
             rows = await conn.fetch(sql, *params)
             # pgvector only persists the embedding; we don't have the full Chunk
             # available here, so emit a Hit-shaped dict and let callers rehydrate.
-            # The framework's vector_store.search contract returns 
+            # The framework's vector_store.search contract returns
             # ``dict[str, Any]`` entries; this adapter honours that.
             return cast(
                 list[Hit],
-                [
-                    Hit(score=float(row["score"]), chunk=row["id"])
-                    for row in rows
-                ],
+                [Hit(score=float(row["score"]), chunk=row["id"]) for row in rows],
             )
         finally:
             await conn.close()
@@ -311,10 +308,7 @@ class PgVectorStore:
         # See note above; pgvector emits Hit-shaped dicts, not Hit records.
         return cast(
             list[Hit],
-            [
-                Hit(score=float(row["score"]), chunk=row["id"])
-                for row in rows
-            ],
+            [Hit(score=float(row["score"]), chunk=row["id"]) for row in rows],
         )
 
     async def optimize(self) -> None:

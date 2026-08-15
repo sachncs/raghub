@@ -18,7 +18,7 @@ import os
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, cast
 
 import litellm
 
@@ -320,7 +320,7 @@ class LiteLLM(Generator):
         messages = self.build_messages(request)
         self.require_litellm()
         if self.direct_client is not None and self.direct_url is not None:
-            response = await self.direct_chat(messages)
+            normalised: Any = await self.direct_chat(messages)
         else:
             options = {
                 "model": self.model_name,
@@ -346,11 +346,13 @@ class LiteLLM(Generator):
                     raise
                 except Exception as exc:
                     raise GenerationError(f"LLM async completion failed: {exc}") from exc
-            response = self.normalise_response(response_dict)
+            normalised = cast(Any, self.normalise_response(response_dict))
         try:
-            choices = response["choices"] if isinstance(response, dict) else response.choices
+            choices: Any = (
+                normalised["choices"] if isinstance(normalised, dict) else normalised.choices
+            )
             choice = choices[0]
-            message = choice["message"] if isinstance(choice, dict) else choice.message
+            message: Any = choice["message"] if isinstance(choice, dict) else choice.message
             content = message["content"] if isinstance(message, dict) else message.content
         except (KeyError, IndexError, AttributeError, TypeError) as exc:
             raise GenerationError(f"LLM returned unexpected response shape: {exc}") from exc

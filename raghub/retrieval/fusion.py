@@ -18,10 +18,8 @@ class Fusion(Registry):
     """Polymorphic base for ranked-list fusion strategies.
 
     Concrete strategies register themselves via ``@Fusion.register``
-    and implement :meth:`fuse`. Use :meth:`Fusion.get` to look up a
-    strategy by name; the helpers below (``reciprocal_rank_fusion``,
-    ``linear_combine``, ``merge_rrf``) are thin wrappers preserved for
-    backward compatibility.
+    and implement :meth:`fuse`. Resolve a strategy by name via
+    :meth:`Fusion.lookup`.
     """
 
     name: str = "fusion"

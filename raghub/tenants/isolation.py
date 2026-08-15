@@ -293,7 +293,9 @@ class TenantSecretCipher:
             ).fetchone()
         if row is None:
             return None
-        return self.fernet().decrypt(row[0].encode("utf-8")).decode("utf-8")
+        cipher = self.fernet()
+        plaintext: str = cipher.decrypt(row[0].encode("utf-8")).decode("utf-8")
+        return plaintext
 
     def set(self, tenant_id: str, key: str, value: str) -> None:
         """Encrypt and store ``value`` under ``(tenant_id, key)``."""

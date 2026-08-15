@@ -16,9 +16,9 @@ always wired together by :class:`UnitOfWork`:
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from collections.abc import Sequence
 from typing import Any, cast
 
 import aiosqlite
@@ -114,12 +114,10 @@ class ChunkStore(ChunkRepository):
     ) -> None:
         """Insert or update chunks using explicit or chunk-stored embeddings.
 
-        Modern signature accepts a single :class:`Chunk` whose
-        embedding is read from ``chunk.metadata['vector']``.
-
-        Legacy signature accepts ``(records, embeddings)``; when
-        ``embeddings`` is ``None`` we raise ``ValueError`` for
-        backward compat.
+        Accepts a single :class:`Chunk` whose embedding is read from
+        ``chunk.metadata['vector']``, OR a list of records paired
+        with explicit embeddings (rejected if the embeddings
+        argument is omitted).
         """
         if isinstance(chunk_or_records, list):
             records = chunk_or_records
@@ -137,7 +135,7 @@ class ChunkStore(ChunkRepository):
         single_embedding = cast(list[float], embedding)
         self.store.upsert([chunk], [single_embedding])
 
-    async def get(  # type: ignore[override]
+    async def get(
         self,
         chunk_id: str,
     ) -> Chunk | None:
@@ -147,8 +145,10 @@ class ChunkStore(ChunkRepository):
         # side-store override this.
         return None
 
-    async def list_by_document(  # noqa: PLR6301 - registry base; subclasses override
-        self, document_id: str, version: int | None = None
+    async def list_by_document(
+        self,
+        document_id: str,
+        version: int | None = None,
     ) -> list[Chunk]:
         """Return every chunk for ``document_id`` (optionally at ``version``)."""
         return []
@@ -161,9 +161,7 @@ class ChunkStore(ChunkRepository):
         """Remove every chunk for ``document_id``."""
         self.store.delete_document(document_id)
 
-    async def search_by_metadata(  # noqa: PLR6301 - registry base; subclasses override
-        self, filters: dict[str, Any], *, limit: int = 100
-    ) -> list[Chunk]:
+    async def search_by_metadata(self, filters: dict[str, Any], *, limit: int = 100) -> list[Chunk]:
         """Return chunks whose metadata matches ``filters``."""
         # The vector store's native search handles metadata filters
         # via the ``metadata_filter`` argument; downstream callers
@@ -177,32 +175,6 @@ class ChunkStore(ChunkRepository):
         """Extract a numeric embedding from ``chunk.metadata['vector']``."""
         vector = (chunk.metadata or {}).get("vector") or []
         return [float(x) for x in vector]
-
-    # ------------------------------------------------------------------
-    # Backward-compat aliases (deprecated)
-    # ------------------------------------------------------------------
-
-    async def insert(self, record: Chunk, embedding: list[float]) -> None:
-        """Insert a single record with its embedding (deprecated alias for :meth:`upsert`)."""
-        self.store.upsert([record], [embedding])
-
-    async def delete_by_id(self, chunk_id: str) -> None:
-        """Remove a chunk by id (deprecated alias for :meth:`delete`)."""
-        await self.delete(chunk_id)
-
-    async def search(
-        self, vector: list[float], top_k: int, metadata_filter: str = ""
-    ) -> list[dict[str, Any]]:
-        """Search by vector, returning a list of dicts (deprecated)."""
-        return self.store.search(vector=vector, top_k=top_k, metadata_filter=metadata_filter)
-
-    async def optimize(self) -> None:
-        """Optimize the underlying store (deprecated alias)."""
-        self.store.optimize()
-
-    async def health(self) -> dict[str, Any]:
-        """Report the underlying store health (deprecated alias)."""
-        return self.store.health()
 
 
 class DocStore(DocumentRepository):
@@ -375,7 +347,7 @@ class DocStore(DocumentRepository):
                     raise
                 await asyncio.sleep(RETRY_BASE_DELAY * (2 ** (attempt - 1)))
 
-    async def get(  # type: ignore[override]
+    async def get(
         self,
         document_id: str,
     ) -> Document | None:
@@ -599,7 +571,7 @@ class SessionStore(SessionRepository):
         """Backward-compat alias for :meth:`upsert`."""
         await self.upsert(record)
 
-    async def get(  # type: ignore[override]
+    async def get(
         self,
         session_id: str,
     ) -> Session | None:

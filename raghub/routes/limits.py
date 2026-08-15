@@ -4,7 +4,7 @@ This module breaks the circular import between :mod:`raghub.api`
 and :mod:`raghub.routes` by holding the input-size helpers in a
 leaf module both can import.
 
-Public surface (re-exported for backward compatibility):
+Public surface:
 - :func:`check_size` — pre-flight check on the Content-Length header
 - :func:`content_length` — parse the Content-Length header
 - :func:`enforce_limit` — raise 413 if a request (or payload) exceeds

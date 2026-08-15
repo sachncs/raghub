@@ -93,7 +93,7 @@ class AgentPipeline:
                     and self.long_context_pass.is_eligible()
                 ):
                     with self.telemetry.span("query_agent.long_context_pass"):
-                        hits = await self.long_context_pass.rerank(question=question, hits=hits)
+                        hits = await self.long_context_pass.arerank(question=question, hits=hits)
 
                 agent_answer = trace.final_answer
                 generator_result = await coerce_to_awaitable(
@@ -103,9 +103,9 @@ class AgentPipeline:
                         conversation=history,
                     )
                 )
-                generator_citations = (
-                    generator_result[1] if isinstance(generator_result, tuple) else citations
-                )
+                generator_citations: list[Citation] = []
+                if isinstance(generator_result, tuple):
+                    generator_citations = generator_result[1]
                 if not generator_citations:
                     generator_citations = cast(list[Citation], citations)
                 answer = agent_answer

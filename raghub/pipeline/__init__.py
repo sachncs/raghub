@@ -11,17 +11,13 @@ This package is a structural split of the former monolithic
 * :mod:`raghub.pipeline.router` — :class:`Router`, the conversation
   store facade.
 * :mod:`raghub.pipeline.pipeline_assembly` — :class:`Flow`, the fluent
-  :class:`Pipeline` builder (with the legacy :class:`PipelineBuilder`
-  alias).
+  :class:`Pipeline` builder.
 * :mod:`raghub.pipeline.ingest` — :class:`Ingest`, the convert →
   chunk → embed → index pipeline.
 * :mod:`raghub.pipeline.query` — :class:`QueryPipeline`, the embed
   → retrieve → rerank → generate pipeline.
 * :mod:`raghub.pipeline.agent` — :class:`AgentPipeline`, the ReAct
   agent-driven query pipeline.
-
-The public names are re-exported here so existing imports —
-``from raghub.pipeline import Ingest`` — continue to work unchanged.
 """
 
 from __future__ import annotations
@@ -29,7 +25,7 @@ from __future__ import annotations
 from raghub.pipeline.agent import AgentPipeline
 from raghub.pipeline.cache import Cache
 from raghub.pipeline.ingest import Ingest
-from raghub.pipeline.pipeline_assembly import Flow, PipelineBuilder
+from raghub.pipeline.pipeline_assembly import Flow
 from raghub.pipeline.query import QueryPipeline
 from raghub.pipeline.router import Router
 from raghub.pipeline.span_support import (
@@ -42,9 +38,6 @@ from raghub.pipeline.span_support import (
     primary_company,
     sha256_checksum,
 )
-from raghub.pipeline.span_support import (
-    coerce_to_awaitable as awaitable,  # deprecated alias
-)
 
 __all__ = [
     "AgentPipeline",
@@ -53,11 +46,9 @@ __all__ = [
     "Flow",
     "Ingest",
     "IngestResolvedMetadata",
-    "PipelineBuilder",
     "QueryContext",
     "QueryPipeline",
     "Router",
-    "awaitable",
     "canonical_filters",
     "coerce_to_awaitable",
     "get_chunks",

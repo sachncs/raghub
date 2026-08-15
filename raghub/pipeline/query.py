@@ -219,7 +219,7 @@ class QueryPipeline:
                 hits = self.reranker.rerank(question=question, hits=hits)
         if self.long_context_pass is not None and hits:
             with self.telemetry.span("query.long_context_pass"):
-                hits = await self.long_context_pass.rerank(question=question, hits=hits)
+                hits = await self.long_context_pass.arerank(question=question, hits=hits)
         return hits, []
 
     async def maybe_transform(
@@ -347,7 +347,7 @@ class QueryPipeline:
                 hits = self.reranker.rerank(question=question, hits=hits)
         if self.long_context_pass is not None and hits:
             with self.telemetry.span("query.long_context_pass"):
-                hits = await self.long_context_pass.rerank(question=question, hits=hits)
+                hits = await self.long_context_pass.arerank(question=question, hits=hits)
         return hits
 
     async def stream_answer(
