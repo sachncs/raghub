@@ -538,7 +538,7 @@ class IngestMixin:
                 stats = await queue.stats()
                 if sum(stats.values()) == 0:
                     return None
-                jobs = await queue.list(status=None, limit=1000)
+                jobs = await queue.list_jobs(status=None, limit=1000)
                 for job in jobs:
                     if job.id == job_id:
                         return str(job.status.value)

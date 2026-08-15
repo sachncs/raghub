@@ -618,7 +618,7 @@ def test_queue_cli_list_runs(tmp_path) -> None:
         ]
 
     queue = MagicMock()
-    queue.list = fake_list
+    queue.list_jobs = fake_list
 
     rag = MagicMock()
     rag.queue.return_value = queue

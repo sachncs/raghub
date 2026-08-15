@@ -9,7 +9,8 @@ from __future__ import annotations
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
+from collections.abc import Sequence
+from typing import Any, cast
 
 from raghub.models import Pipeline
 from raghub.pipeline.span_support import canonical_filters
@@ -35,7 +36,7 @@ class CacheKey:
 
     question: str
     user_id: str
-    filters: str
+    filters: tuple[tuple[str, Any], ...]
     top_k: int
     model_key: str
     session_id: str
@@ -122,11 +123,11 @@ class Cache:
             question=question,
             user_id=user_id,
             filters=filters,
-            top_k=options.get("top_k", 5),
-            response_model=options.get("response_model"),
-            session_id=options.get("session_id"),
-            history=options.get("history", ()),
-            scope=options.get("scope"),
+            top_k=cast(int, options.get("top_k", 5)),
+            response_model=cast(Any, options.get("response_model")),
+            session_id=cast(str | None, options.get("session_id")),
+            history=cast(Sequence[Any], options.get("history", ())),
+            scope=cast(tuple[tuple[str, Any], ...] | None, options.get("scope")),
         )
 
     def get(
