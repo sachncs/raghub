@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 
 from raghub.config import Settings
@@ -51,6 +52,22 @@ def test_resolve_flags_reranker_flag_overrides_settings_default() -> None:
     user = SimpleNamespace(tool_settings=None)
     resolved = pref.resolve_flags(user, {"reranker": "cascade"}, container)
     assert resolved.reranker == "cascade"
+
+
+def test_query_with_flags_raises_when_container_auth_is_unbound() -> None:
+    """``Preference.query_with_flags`` requires container.auth to be set."""
+
+    import pytest
+
+    settings = Settings(jwt_secret="x" * 32)
+    container = SimpleNamespace(settings=settings, auth=None)
+    pref = Preference(SimpleNamespace(container=container))
+
+    async def _drive() -> None:
+        await pref.query_with_flags(token="t", question="q")
+
+    with pytest.raises(RuntimeError, match="container.auth"):
+        asyncio.run(_drive())
 
 
 def test_resolve_flags_max_steps_default_inherited_from_settings() -> None:

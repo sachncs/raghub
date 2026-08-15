@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from raghub.services.workers import MemoryQueue, Synchronous, ThreadPool
+from raghub.services.workers import MemoryQueue, QueueBase, Synchronous, ThreadPool, Worker
 
 
 def test_synchronous_submit_invokes_inline() -> None:
@@ -26,6 +26,25 @@ def test_synchronous_submit_passes_kwargs() -> None:
         return f"{greeting}, {name}"
 
     assert Synchronous.submit(greet, "alice", greeting="Hi") == "Hi, alice"
+
+
+def test_worker_default_submit_raises() -> None:
+    """``Worker.submit`` raises ``NotImplementedError`` on the abstract base."""
+
+    import inspect
+
+    fn = Worker.__dict__["submit"]
+    # fn is the unbound function; calling it bypasses the override.
+    with pytest.raises(NotImplementedError):
+        fn(None, lambda: None)
+
+
+def test_queue_base_default_enqueue_raises() -> None:
+    """The abstract base QueueBase.enqueue raises NotImplementedError."""
+
+    base = QueueBase()  # type: ignore[abstract]
+    with pytest.raises(NotImplementedError):
+        base.enqueue("noop", {"any": "payload"})
 
 
 def test_synchronous_submit_propagates_exception() -> None:

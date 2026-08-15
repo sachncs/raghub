@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from typing import Any
 
@@ -156,6 +157,13 @@ async def test_resolve_user_delegates_to_auth() -> None:
 
     query = Query(SimpleNamespace(auth=StubAuth()))
     assert await query.resolve_user("t") is sentinel
+
+
+def test_resolve_user_raises_when_container_auth_is_unbound() -> None:
+    """``Query.resolve_user`` requires container.auth to be set."""
+
+    with pytest.raises(RuntimeError, match="container.auth"):
+        asyncio.run(Query(SimpleNamespace(auth=None)).resolve_user("t"))
 
 
 def test_citation_builds_expected_dict() -> None:
