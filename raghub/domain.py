@@ -29,8 +29,12 @@ __all__ = [
 class DocumentRepository(Registry):
     """Polymorphic base for :class:`Document` persistence."""
 
-    async def get(self, document_id: str) -> Document | None:
+    async def get(self, document_id: str) -> Document | None:  # type: ignore[override]
         """Return the document with ``document_id`` or ``None``."""
+        raise NotImplementedError
+
+    async def get_by_checksum(self, checksum: str) -> Document | None:
+        """Return the document with ``checksum`` or ``None``."""
         raise NotImplementedError
 
     async def list_by_organization(self, organization: str) -> list[Document]:
@@ -39,6 +43,10 @@ class DocumentRepository(Registry):
 
     async def list_all(self) -> list[Document]:
         """Return every document in the repository."""
+        raise NotImplementedError
+
+    async def initialize(self) -> None:
+        """Open the repository's storage (idempotent)."""
         raise NotImplementedError
 
     async def upsert(self, document: Document) -> None:
@@ -57,12 +65,16 @@ class DocumentRepository(Registry):
 class ChunkRepository(Registry):
     """Polymorphic base for :class:`Chunk` persistence."""
 
-    async def get(self, chunk_id: str) -> Chunk | None:
+    async def get(self, chunk_id: str) -> Chunk | None:  # type: ignore[override]
         """Return the chunk with ``chunk_id`` or ``None``."""
         raise NotImplementedError
 
     async def list_by_document(self, document_id: str, version: int | None = None) -> list[Chunk]:
         """Return every chunk for ``document_id`` (optionally at ``version``)."""
+        raise NotImplementedError
+
+    async def initialize(self) -> None:
+        """Open the repository's storage (idempotent)."""
         raise NotImplementedError
 
     async def upsert(self, chunk: Chunk) -> None:
@@ -85,12 +97,16 @@ class ChunkRepository(Registry):
 class SessionRepository(Registry):
     """Polymorphic base for :class:`Session` persistence."""
 
-    async def get(self, session_id: str) -> Session | None:
+    async def get(self, session_id: str) -> Session | None:  # type: ignore[override]
         """Return the session with ``session_id`` or ``None``."""
         raise NotImplementedError
 
     async def get_by_token(self, token: str) -> Session | None:
         """Return the session whose ``token`` matches or ``None``."""
+        raise NotImplementedError
+
+    async def initialize(self) -> None:
+        """Open the repository's storage (idempotent)."""
         raise NotImplementedError
 
     async def upsert(self, session: Session) -> None:
