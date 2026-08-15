@@ -188,7 +188,7 @@ class ConversationHistory:
             A new :class:`Session` wrapping the persisted record.
 
         """
-        record = Session.validate(
+        record: Session = Session.validate(
             {
                 "user_id": user_id,
                 "expires_at": (
@@ -239,11 +239,11 @@ class ConversationHistory:
         if record is None:
             return
         turn = Turn(question=question, answer=answer, metadata=metadata or {})
-        record = record.copy(last_seen_at=datetime.now(UTC))
-        record.history.append(turn)
+        updated: Session = record.copy(last_seen_at=datetime.now(UTC))
+        updated.history.append(turn)
         # Update the session's last-seen timestamp on every append so
         # expiry sweeps can identify idle sessions.
-        await self.uow.session_repo.upsert(record)
+        await self.uow.session_repo.upsert(updated)
 
     async def load(self, session_token: str) -> list[Turn]:
         """Load the full history for ``session_token``.
@@ -272,8 +272,8 @@ class ConversationHistory:
         if record is None:
             return
         record.history.clear()
-        record = record.copy(last_seen_at=datetime.now(UTC))
-        await self.uow.session_repo.upsert(record)
+        updated: Session = record.copy(last_seen_at=datetime.now(UTC))
+        await self.uow.session_repo.upsert(updated)
 
     async def add_turn(self, session_id: str, turn: Turn) -> None:
         """Append ``turn`` and immediately re-trim the history.
@@ -291,8 +291,8 @@ class ConversationHistory:
         if record is None:
             return
         record.history.append(turn)
-        record = record.copy(last_seen_at=datetime.now(UTC))
-        await self.uow.session_repo.upsert(record)
+        updated: Session = record.copy(last_seen_at=datetime.now(UTC))
+        await self.uow.session_repo.upsert(updated)
         await self.trim_history(session_id)
 
     async def trim_history(
@@ -323,8 +323,8 @@ class ConversationHistory:
             trimmed = self.sliding_window.trim(history)
         record.history.clear()
         record.history.extend(trimmed)
-        record = record.copy(last_seen_at=datetime.now(UTC))
-        await self.uow.session_repo.upsert(record)
+        updated: Session = record.copy(last_seen_at=datetime.now(UTC))
+        await self.uow.session_repo.upsert(updated)
         return trimmed
 
     async def get_overrides(self, session_id: str) -> dict[str, Any]:
@@ -358,11 +358,11 @@ class ConversationHistory:
         record = await self.uow.session_repo.get(session_id)
         if record is None:
             return
-        record = record.copy(
+        updated: Session = record.copy(
             overrides=dict(overrides or {}),
             last_seen_at=datetime.now(UTC),
         )
-        await self.uow.session_repo.upsert(record)
+        await self.uow.session_repo.upsert(updated)
 
 
 class ConversationStore(Registry):

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import inspect
 from hashlib import sha256
-from typing import Any
+from typing import Any, cast
 
 from raghub.errors import ConfigurationError
 from raghub.lifecycle import ChunkingPlan, chunk_words, normalize_text
@@ -139,11 +139,11 @@ def build_chonkie_inner(
 def chonkie_options(options: dict[str, JSONValue]) -> tuple[str, str, str, str, Any]:
     """Return (tokenizer, chunker_name, embedding_model, language, genie) from options."""
     return (
-        options.get("tokenizer", "character"),
-        options.get("chunker_name", "recursive"),
-        options.get("embedding_model", "minishlab/potion-base-8M"),
-        options.get("language", "auto"),
-        options.get("genie"),
+        cast(str, options.get("tokenizer", "character")),
+        cast(str, options.get("chunker_name", "recursive")),
+        cast(str, options.get("embedding_model", "minishlab/potion-base-8M")),
+        cast(str, options.get("language", "auto")),
+        cast(Any, options.get("genie")),
     )
 
 
@@ -287,14 +287,15 @@ class Chonkie(Chunker):
         self.inner = build_chonkie_inner(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
-            tokenizer=options.get("tokenizer", "character"),
-            chunker_name=options.get("chunker_name", "recursive"),
-            embedding_model=options.get("embedding_model", "minishlab/potion-base-8M"),
-            language=options.get("language", "auto"),
-            genie=genie,
+            tokenizer=cast(str, options.get("tokenizer", "character")),
+            chunker_name=cast(str, options.get("chunker_name", "recursive")),
+            embedding_model=cast(str, options.get("embedding_model", "minishlab/potion-base-8M")),
+            language=cast(str, options.get("language", "auto")),
+            genie=cast(Any, genie),
         )
         self.refinery = build_refinery(
-            context_size=chunk_overlap, tokenizer=options.get("tokenizer", "character")
+            context_size=chunk_overlap,
+            tokenizer=cast(str, options.get("tokenizer", "character")),
         )
 
     def chonkie_text_chunks(self, text: str) -> list[Any]:
@@ -553,13 +554,31 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: JSONValue) -> Any:
     }
     if name in chonkie_names:
         if CHONKIE_AVAILABLE:
-            return Chonkie(chunker_name=name, **kwargs)
+            return _build_chonkie_kw(name, kwargs)
         if name != "auto":
             raise ConfigurationError("chonkie is not installed")
     if name in {"chonkie", "word_window", "auto"}:
         if name == "chonkie":
             if CHONKIE_AVAILABLE:
-                return Chonkie(**kwargs)
+                return _build_chonkie_kw(None, kwargs)
             raise ConfigurationError("chonkie is not installed")
-        return Words(**kwargs)
+        return _build_words_kw(kwargs)
     raise ConfigurationError(f"Unknown chunker: {name!r}")
+
+
+def _build_chonkie_kw(name: str | None, kwargs: dict[str, JSONValue]) -> Any:
+    """Forward kwargs to ``Chonkie`` through an Any boundary.
+
+    Chonkie's stub signature declares narrow integer-only kwargs; the
+    runtime accepts the rich JSONValue-typed kwargs this builder is
+    constructed with. Wrap the call so mypy doesn't try to match the
+    external type stubs.
+    """
+    if name is not None:
+        return Chonkie(chunker_name=name, **kwargs)  # type: ignore[arg-type]
+    return Chonkie(**kwargs)  # type: ignore[arg-type]
+
+
+def _build_words_kw(kwargs: dict[str, JSONValue]) -> Any:
+    """Forward kwargs to ``Words`` through an Any boundary."""
+    return Words(**kwargs)  # type: ignore[arg-type]
