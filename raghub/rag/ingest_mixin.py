@@ -126,7 +126,7 @@ class IngestMixin:
             uri = str(p.resolve())
         else:
             file_bytes = bytes(source)
-            uri = options.get("source_uri") or "bytes://memory"
+            uri = cast(str, options.get("source_uri") or "bytes://memory")
         if not file_bytes:
             raise IngestionError(f"ingest({source!r}) received empty bytes; nothing to index.")
 
@@ -136,10 +136,10 @@ class IngestMixin:
                 self.ingest_one(
                     file_bytes,
                     uri,
-                    options.get("mime_type", "text/plain"),
-                    metadata=options.get("metadata"),
-                    force=options.get("force", False),
-                    user=options.get("user"),
+                    cast(str, options.get("mime_type", "text/plain")),
+                    metadata=cast(dict[str, Any] | None, options.get("metadata")),
+                    force=cast(bool, options.get("force", False)),
+                    user=cast(Any, options.get("user")),
                 )
             ),
         )
@@ -169,21 +169,25 @@ class IngestMixin:
         if isinstance(source, str | Path):
             p = Path(source)
             if p.is_dir():
-                return await self.ingest_directory(p, options.get("metadata"), options.get("user"))
+                return await self.ingest_directory(
+                    p,
+                    cast(dict[str, Any] | None, options.get("metadata")),
+                    cast(Any, options.get("user")),
+                )
             file_bytes = p.read_bytes()
             uri = str(p.resolve())
         else:
             file_bytes = bytes(source)
-            uri = options.get("source_uri") or "bytes://memory"
+            uri = cast(str, options.get("source_uri") or "bytes://memory")
         if not file_bytes:
             raise IngestionError(f"aingest({source!r}) received empty bytes; nothing to index.")
         return await self.ingest_one(
             file_bytes,
             uri,
-            options.get("mime_type", "text/plain"),
-            metadata=options.get("metadata"),
-            force=options.get("force", False),
-            user=options.get("user"),
+            cast(str, options.get("mime_type", "text/plain")),
+            metadata=cast(dict[str, Any] | None, options.get("metadata")),
+            force=cast(bool, options.get("force", False)),
+            user=cast(Any, options.get("user")),
         )
 
     async def ingest_directory(
@@ -456,7 +460,9 @@ class IngestMixin:
         from raghub.jobs import JobStatus
         from raghub.tenants import current, validate_tenant
 
-        queue = self.persistent_queue
+        if self.persistent_queue is None:
+            raise RuntimeError("submit_to_persistent_queue called without persistent_queue")
+        queue: SqliteQueue = self.persistent_queue
         tenant_id: str | None = None
         ctx = current()
         if ctx is not None:
@@ -485,13 +491,16 @@ class IngestMixin:
                     JobStatus.Running,
                 }:
                     return job.id
-            return await queue.submit(
-                kind="ingest",
-                payload=payload,
-                tenant_id=tenant_id,
+            return cast(
+                str,
+                await queue.submit(
+                    kind="ingest",
+                    payload=payload,
+                    tenant_id=tenant_id,
+                ),
             )
 
-        return run_sync(submit())
+        return cast(str, run_sync(submit()))
 
     def submit_to_resumable(
         self,
