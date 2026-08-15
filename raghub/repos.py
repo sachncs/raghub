@@ -18,7 +18,8 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from collections.abc import Sequence
+from typing import Any, cast
 
 import aiosqlite
 
@@ -124,13 +125,22 @@ class ChunkStore(ChunkRepository):
             records = chunk_or_records
             if embeddings is None:
                 raise ValueError("embeddings required for upsert")
-            self.store.upsert(records, embeddings)
+            vectors: Sequence[list[float]]
+            if embeddings and not isinstance(embeddings[0], list):
+                vectors = [cast(list[float], embeddings)]
+            else:
+                vectors = cast(Sequence[list[float]], embeddings)
+            self.store.upsert(records, vectors)
             return
         chunk = chunk_or_records
         embedding = embeddings if isinstance(embeddings, list) else self.embedding_for(chunk)
-        self.store.upsert([chunk], [embedding])
+        single_embedding = cast(list[float], embedding)
+        self.store.upsert([chunk], [single_embedding])
 
-    async def get(self, chunk_id: str) -> Chunk | None:  # noqa: PLR6301 - registry base; subclasses override
+    async def get(  # type: ignore[override]
+        self,
+        chunk_id: str,
+    ) -> Chunk | None:
         """Return the chunk with ``chunk_id`` or ``None``."""
         # The vector store doesn't store full Chunk records; this
         # default implementation returns None. Subclasses with a
@@ -218,7 +228,7 @@ class DocStore(DocumentRepository):
     async def conn(self) -> aiosqlite.Connection:
         """Return a configured aiosqlite connection."""
         if self.database_handle is not None:
-            return self.database_handle.connection
+            return cast(aiosqlite.Connection, self.database_handle.connection)
         conn = await aiosqlite.connect(self.db_path)
         conn.row_factory = aiosqlite.Row
         await conn.execute("PRAGMA journal_mode=WAL")
@@ -365,7 +375,10 @@ class DocStore(DocumentRepository):
                     raise
                 await asyncio.sleep(RETRY_BASE_DELAY * (2 ** (attempt - 1)))
 
-    async def get(self, document_id: str) -> Document | None:
+    async def get(  # type: ignore[override]
+        self,
+        document_id: str,
+    ) -> Document | None:
         """Return the latest version record for ``document_id``."""
         return await self.get_version(document_id)
 
@@ -586,7 +599,10 @@ class SessionStore(SessionRepository):
         """Backward-compat alias for :meth:`upsert`."""
         await self.upsert(record)
 
-    async def get(self, session_id: str) -> Session | None:
+    async def get(  # type: ignore[override]
+        self,
+        session_id: str,
+    ) -> Session | None:
         """Return the session with ``session_id`` or ``None``."""
         return await self.inner.get_session(session_id)
 
@@ -601,7 +617,7 @@ class SessionStore(SessionRepository):
     async def conn(self) -> aiosqlite.Connection:
         """Return a configured aiosqlite connection for sessions."""
         if self.database_handle is not None:
-            return self.database_handle.connection
+            return cast(aiosqlite.Connection, self.database_handle.connection)
         conn = await aiosqlite.connect(self.inner.db_path)
         conn.row_factory = aiosqlite.Row
         return conn
@@ -659,10 +675,8 @@ class UnitOfWork(BaseUnitOfWork):
     async def __aenter__(self) -> UnitOfWork:
         """Enter the unit-of-work as an async context manager."""
         await self.initialize()
-        await super().__aenter__()
         return self
 
     async def __aexit__(self, *args: object) -> None:
         """Exit the unit-of-work as an async context manager."""
-        await super().__aexit__(*args)
         await self.close()

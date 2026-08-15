@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from hashlib import sha256
-from typing import Any
+from typing import Any, cast
 
 from raghub.embedder import Embedder
 from raghub.errors import IngestionError
@@ -81,9 +81,12 @@ def record_from_pipeline(
             ``checksum=``, ``tags=`` overrides.
 
     """
-    classification: Classification = options.get("classification", Classification.Internal)
-    checksum: str = options.get("checksum", "")
-    tags: list[str] | None = options.get("tags")
+    classification: Classification = cast(
+        Classification,
+        options.get("classification", Classification.Internal),
+    )
+    checksum = cast(str, options.get("checksum", ""))
+    tags = cast(list[str] | None, options.get("tags"))
     chunks = extract_chunks(result)
     document_id = resolve_document_id(result, chunks)
     return Document(
@@ -103,7 +106,6 @@ def record_from_pipeline(
     )
 
 
-@staticmethod
 def extract_chunks(result: Pipeline) -> list[Chunk]:
     """Pull Chunk instances (or dicts) out of the Pipeline output."""
     raw = result.get("chunks") or []
@@ -112,7 +114,6 @@ def extract_chunks(result: Pipeline) -> list[Chunk]:
     return list(raw)
 
 
-@staticmethod
 def resolve_document_id(result: Pipeline, chunks: list[Chunk]) -> str:
     """Compute the document_id, threading it onto chunks that lack one.
 
@@ -161,9 +162,12 @@ class Ingestor:
         self.embedding_provider = embedding_provider
         self.lifecycle_coordinator = lifecycle_coordinator
         self.max_upload_bytes = max_upload_bytes
-        self.virus_scan_hook = options.get("virus_scan_hook") or (lambda _: None)
-        self.plan = options.get("plan")
-        self.make_pipeline: Ingest | None = options.get("pipeline")
+        self.virus_scan_hook: Callable[[bytes], object] = cast(
+            Callable[[bytes], object],
+            options.get("virus_scan_hook") or (lambda _: None),
+        )
+        self.plan = cast(str | None, options.get("plan"))
+        self.make_pipeline: Ingest | None = cast(Ingest | None, options.get("pipeline"))
 
     def build_pipeline(self) -> Ingest:
         """Construct the default :class:`Ingest`."""
@@ -196,7 +200,8 @@ class Ingestor:
 
         """
         svc = options.get("background_service") or Batch()
-        return svc.submit(
+        background: Batch = svc if isinstance(svc, Batch) else Batch()
+        return background.submit(
             self.ingest,
             file_name=file_name,
             file_bytes=file_bytes,
@@ -279,13 +284,13 @@ class Ingestor:
         organization: str,
         classification: Any,
         checksum: str,
-        tags: list[str],
+        tags: list[str] | None,
     ) -> IngestionResult:
         """Either raise IngestionError (failure path) or persist the successful record."""
         if result.error is not None:
             await self.mark_failed(previous, result)
             raise IngestionError(result.error.message if result.error else "ingestion failed")
-        return self.finalize_successful_record(
+        return await self.finalize_successful_record(
             result=result,
             file_name=file_name,
             mime_type=mime_type,
@@ -306,7 +311,7 @@ class Ingestor:
         organization: str,
         classification: Any,
         checksum: str,
-        tags: list[str],
+        tags: list[str] | None,
     ) -> IngestionResult:
         """Build the Document record from a successful Pipeline and persist it."""
         record = record_from_pipeline(
@@ -317,9 +322,9 @@ class Ingestor:
             organization=organization,
             classification=classification,
             checksum=checksum,
-            tags=tags,
+            tags=cast(JSONValue, tags or []),
         )
-        await self.uow.document_repo.save(record)
+        await self.uow.document_repo.upsert(record)
         return IngestionResult(document=record, chunks=list(record.chunks))
 
     @staticmethod
@@ -381,4 +386,4 @@ class Ingestor:
             status=DocumentLifecycleStatus.Failed,
             error=normalised,
         )
-        await self.uow.document_repo.save(updated)
+        await self.uow.document_repo.upsert(updated)
