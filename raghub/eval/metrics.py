@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Iterable, Sequence
+from typing import cast
 
 from raghub.runtime import capture
 from raghub.types import JSONValue
@@ -468,9 +469,9 @@ class Metrics:
             A dict of metric name → value.
 
         """
-        ground_truth: str = options.get("ground_truth", "")
-        question: str = options.get("question", "")
-        k: int = options.get("k", 5)
+        ground_truth: str = cast(str, options.get("ground_truth", ""))
+        question: str = cast(str, options.get("question", ""))
+        k: int = cast(int, options.get("k", 5))
         metrics: dict[str, float] = {
             f"recall_at_{k}": Metrics.recall(retrieved_ids, relevant_ids, k),
             f"precision_at_{k}": Metrics.precision(retrieved_ids, relevant_ids, k),
