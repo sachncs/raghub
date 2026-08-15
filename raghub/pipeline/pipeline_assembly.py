@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from raghub.models import ErrorInfo, Pipeline, PipelineCtx
+from raghub.models import ErrorInfo, Pipeline, PipelineCtx, PipelineOutputs
 
 
 class Flow:
@@ -19,7 +19,7 @@ class Flow:
         self.context = context
         self.pipeline_name = pipeline_name
 
-    def success(self, outputs: dict[str, Any]) -> Pipeline:
+    def success(self, outputs: PipelineOutputs) -> Pipeline:
         """Build a successful :class:`Pipeline` with ``outputs``."""
         return Pipeline(
             pipeline_id=self.context.pipeline_id,
@@ -27,13 +27,13 @@ class Flow:
             outputs=outputs,
         )
 
-    def failure(self, error: str, outputs: dict[str, Any] | None = None) -> Pipeline:
+    def failure(self, error: str, outputs: PipelineOutputs | None = None) -> Pipeline:
         """Build a failed :class:`Pipeline` with ``error``."""
         return Pipeline(
             pipeline_id=self.context.pipeline_id,
             pipeline_name=self.pipeline_name,
             error=ErrorInfo(kind="ingestion", message=error),
-            outputs=outputs or {},
+            outputs=outputs or PipelineOutputs(),
         )
 
 
