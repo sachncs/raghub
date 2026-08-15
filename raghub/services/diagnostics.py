@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from raghub.config import Settings
 from raghub.constants import ENV_CORS_ORIGINS, ENV_RAGHUB_USERS
@@ -66,9 +66,12 @@ def probe_vector_store(store: object) -> dict[str, object]:
     probe = getattr(store, "health", None)
     if not callable(probe):
         return {"status": "unknown", "detail": "no health() method"}
-    payload = probe()
-    if not isinstance(payload, dict):
-        payload = {"value": payload}
+    payload_any: Any = probe()
+    payload = (
+        cast(dict[str, object], payload_any)
+        if isinstance(payload_any, dict)
+        else {"value": payload_any}
+    )
     status = str(payload.get("status", "ok")).lower()
     if status not in {"ok", "healthy", "up", "ready"}:
         payload = {**payload, "status": "degraded"}

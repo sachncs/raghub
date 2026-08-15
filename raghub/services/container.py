@@ -66,10 +66,10 @@ class RagContainer:
     parser_registry: Catalog
     store: Sessions
     uow: UnitOfWork
-    auth: AuthService = None
-    documents: Documents = None
-    query: Query = None
-    health: Health = None
+    auth: AuthService | None = None
+    documents: Documents | None = None
+    query: Query | None = None
+    health: Health | None = None
     rag_facade: RAG | None = None
 
 
