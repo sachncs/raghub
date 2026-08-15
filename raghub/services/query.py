@@ -54,6 +54,8 @@ class Query:
 
     async def resolve_user(self, token: str) -> tuple[Any, list]:
         """Resolve token into (user, recent history)."""
+        if self.container.auth is None:
+            raise RuntimeError("container.auth must be set before resolve_user()")
         return await self.container.auth.resolve_user(token)
 
     async def retrieve_chunks(self, user: User, question: str) -> list:

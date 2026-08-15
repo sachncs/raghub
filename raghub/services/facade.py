@@ -153,10 +153,14 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
 
     def health(self) -> HealthReport:
         """Run liveness checks and return a status dict."""
+        if self.container.health is None:
+            raise RuntimeError("container.health must be set before health()")
         return self.container.health.health()
 
     async def query(self, *, token: str, question: str) -> QueryResponse:
         """Run a single retrieval-augmented Q/A turn."""
+        if self.container.query is None:
+            raise RuntimeError("container.query must be set before query()")
         return await self.container.query.query(token=token, question=question)
 
     async def query_with_flags(
@@ -183,10 +187,14 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
 
     def log(self, message: str, **payload: JSONValue) -> None:
         """Emit a structured log event via the health service."""
+        if self.container.health is None:
+            raise RuntimeError("container.health must be set before log()")
         self.container.health.log(message, **payload)
 
     def emit_metric(self, name: str, started_at: float) -> None:
         """Emit a latency metric given a perf-counter start time."""
+        if self.container.health is None:
+            raise RuntimeError("container.health must be set before emit_metric()")
         self.container.health.emit_metric(name, started_at)
 
     async def shutdown(self) -> None:

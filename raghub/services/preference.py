@@ -30,6 +30,8 @@ class Preference:
     ) -> QueryResponse:
         """Resolve advanced-RAG flags against user prefs and route accordingly."""
         container = self.facade.container
+        if container.auth is None:
+            raise RuntimeError("container.auth must be set before query_with_flags()")
         user, _ = await container.auth.resolve_user(token)
         resolved = self.resolve_flags(user, flags, container)
         rag = getattr(container, "rag_facade", None)
