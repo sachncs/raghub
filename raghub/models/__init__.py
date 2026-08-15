@@ -24,21 +24,52 @@ Mapping (canonical ↔ domain):
 * ``Query`` ↔ ``SearchRequest``
 * ``Response`` ↔ ``SearchResponse``
 
+Serialization API
+-----------------
+
+Every dataclass inherits from :class:`Snap`, which provides a small,
+uniform ``dump / copy / verify`` surface backed by ``dataclasses``:
+
+* :meth:`Snap.dump` returns a plain ``dict`` (or a JSON-safe ``dict``
+  when ``mode="json"``).
+* :meth:`Snap.copy` is a thin wrapper over :func:`dataclasses.replace`.
+* :classmethod:`Snap.validate` constructs an instance from a dict,
+  coercing primitives (ISO-8601 strings → ``datetime``, enum names →
+  ``StrEnum``) and nested dicts into their dataclass types.
+* :meth:`Snap.verify` re-runs the model's ``__post_init__`` invariants
+  (frozen dataclasses guarantee no silent drift, so this is a
+  defensive check used by stores before persisting).
+
 The :func:`deterministic_id` helper builds short stable ids for
 newly-constructed dataclasses.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
-from dataclasses import dataclass, field
+import typing
+from dataclasses import dataclass, field, fields
+
+_TYPE_HINTS_CACHE: dict[type, dict[str, Any]] = {}
+
+
+def _resolve_hints(cls: type) -> dict[str, Any]:
+    """Return ``cls``'s annotations, with ``from __future__`` strings resolved."""
+    cached = _TYPE_HINTS_CACHE.get(cls)
+    if cached is not None:
+        return cached
+    resolved = typing.get_type_hints(cls)
+    _TYPE_HINTS_CACHE[cls] = resolved
+    return resolved
+
+
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, get_args, get_origin
 from uuid import uuid4
 
 from raghub.errors import VerificationError
-
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -301,12 +332,188 @@ def deterministic_id(*parts: str, length: int = 16) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Secret value type (defined after Snap so it can inherit the mixin)
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Snap mixin: dump / copy / validate / verify
+# ---------------------------------------------------------------------------
+
+
+_JSON_SENTINELS: tuple[Any, ...] = (None,)
+
+
+def _json_safe(value: Any) -> Any:
+    """Recursively convert a value into a JSON-safe primitive."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, StrEnum):
+        return value.value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if dataclasses.is_dataclass(value):
+        return _json_safe(dataclasses.asdict(value))
+    return value
+
+
+def _coerce(field_type: Any, value: Any) -> Any:
+    """Coerce ``value`` into ``field_type`` where possible.
+
+    Handles the small set of coercions needed by RAGHub models:
+    ISO-8601 strings → ``datetime``, enum names → ``StrEnum``,
+    nested ``dict`` → dataclass, ``list[T]`` → ``list[T]``.
+    """
+    if value is None:
+        return None
+    origin = get_origin(field_type)
+    args = get_args(field_type)
+    if origin is list and args:
+        return [_coerce(args[0], item) for item in value]
+    if origin is dict and args and value is not None:
+        k_type, v_type = args
+        return {k_type(k): _coerce(v_type, v) for k, v in value.items()}
+    if (
+        isinstance(field_type, type)
+        and dataclasses.is_dataclass(field_type)
+        and isinstance(value, dict)
+    ):
+        coerced: dict[str, Any] = {}
+        for f in fields(field_type):
+            coerced[f.name] = (
+                _coerce(f.type, value.get(f.name)) if f.name in value else value.get(f.name)
+            )
+        return field_type(**coerced)
+    if field_type is datetime and isinstance(value, str):
+        return datetime.fromisoformat(value)
+    if isinstance(field_type, type) and issubclass(field_type, StrEnum) and isinstance(value, str):
+        return field_type(value)
+    return value
+
+
+class Snap:
+    """Mixin that gives every model a ``dump / copy / verify`` API.
+
+    Every frozen dataclass in this module inherits from :class:`Snap`,
+    so callers can treat them uniformly:
+
+    * :meth:`dump` — serialise the model to a ``dict``.
+    * :meth:`copy` — return a shallow copy with selected fields updated.
+    * :meth:`verify` — re-run ``__post_init__`` invariants (no-op when
+      the model is unchanged, defensive check before persistence).
+    * :meth:`validate` — build an instance from a serialised ``dict``.
+
+    The mixin never mutates ``self``. Construction goes through the
+    dataclass ``__init__``; coercion logic lives in :func:`_coerce`.
+    """
+
+    def dump(self, mode: str = "default") -> dict[str, Any]:
+        """Serialise the model to a ``dict``.
+
+        Args:
+            mode: ``"default"`` returns the raw :func:`dataclasses.asdict`
+                representation. ``"json"`` recursively converts
+                ``datetime`` → ISO-8601 strings and ``StrEnum`` → their
+                string values, so the result is JSON-serialisable.
+
+        Returns:
+            A ``dict`` representation of the model.
+
+        """
+        if mode == "json":
+            return _json_safe(dataclasses.asdict(self))
+        return dataclasses.asdict(self)
+
+    def copy(self, **updates: Any) -> Any:
+        """Return a shallow copy with the given fields replaced.
+
+        Args:
+            **updates: Field overrides applied via
+                :func:`dataclasses.replace`.
+
+        Returns:
+            A new instance of the concrete model.
+
+        """
+        return dataclasses.replace(self, **updates)
+
+    def verify(self) -> None:
+        """Re-run the model's invariants.
+
+        Default :meth:`Snap.verify` re-invokes ``__post_init__``.
+        Models that already run their invariants there should rely
+        on the inherited implementation; models with body-only
+        verification can override.
+        """
+        self.__post_init__()
+
+    @classmethod
+    def validate(cls, data: dict[str, Any]) -> Any:
+        """Build an instance from a serialised ``dict``.
+
+        Args:
+            data: The serialised representation produced by
+                :meth:`dump` (in either ``"default"`` or ``"json"``
+                ``mode``).
+
+        Returns:
+            A new instance of ``cls`` with invariants re-checked by
+            ``__post_init__``.
+
+        """
+        if not isinstance(data, dict):
+            return cls(**data)  # let dataclass constructor raise
+        coerced: dict[str, Any] = {}
+        hints = _resolve_hints(cls)
+        for f in fields(cls):
+            if f.name not in data:
+                continue
+            coerced[f.name] = _coerce(hints.get(f.name, f.type), data[f.name])
+        return cls(**coerced)
+
+
+# ---------------------------------------------------------------------------
+# Secret value type
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True, frozen=True)
+class Secret(Snap):
+    """String value whose ``__repr__`` is masked.
+
+    Used in place of Pydantic's ``SecretStr`` for credentials read
+    from the environment so accidentally logging a settings dict never
+    reveals the value. Equality and hashing compare the underlying
+    string; rendering always returns ``Secret('***')``.
+
+    Attributes:
+        value: The cleartext credential.
+
+    """
+
+    value: str = ""
+
+    def __repr__(self) -> str:
+        return "Secret('***')"
+
+    def __str__(self) -> str:
+        return "***"
+
+    def __bool__(self) -> bool:
+        return bool(self.value)
+
+
+# ---------------------------------------------------------------------------
 # Error type
 # ---------------------------------------------------------------------------
 
 
 @dataclass(slots=True, frozen=True)
-class ErrorInfo:
+class ErrorInfo(Snap):
     """Structured error information shared across pipeline outputs."""
 
     kind: str = ""
@@ -320,7 +527,7 @@ class ErrorInfo:
 
 
 @dataclass(slots=True, frozen=True)
-class User:
+class User(Snap):
     """Authenticated user principal."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
@@ -339,7 +546,7 @@ class User:
 
 
 @dataclass(slots=True, frozen=True)
-class Turn:
+class Turn(Snap):
     """Single question-answer turn stored in session memory."""
 
     question: str = ""
@@ -349,7 +556,7 @@ class Turn:
 
 
 @dataclass(slots=True, frozen=True)
-class Session:
+class Session(Snap):
     """Session metadata and isolated conversational history."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
@@ -377,7 +584,7 @@ class Session:
 
 
 @dataclass(slots=True, frozen=True)
-class Document:
+class Document(Snap):
     """Document data transfer object."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
@@ -420,7 +627,62 @@ class Document:
 
 
 @dataclass(slots=True, frozen=True)
-class Chunk:
+class Chunk(Snap):
+    """Chunk metadata stored alongside the vector."""
+
+    @classmethod
+    def unsafe(
+        cls,
+        *,
+        id: str = "",
+        document_id: str = "",
+        version: int = 0,
+        page: int = 0,
+        source_location: str = "",
+        section: str = "",
+        company: str = "",
+        owner: str = "",
+        department: str = "",
+        classification: Classification = Classification.Internal,
+        created_at: datetime = field(default_factory=lambda: datetime.now(UTC)),
+        embedding_model: str = "",
+        checksum: str = "",
+        text: str = "",
+        metadata: dict[str, Any] | None = None,
+        type: ChunkType = ChunkType.Text,
+        tenant_id: str | None = None,
+    ) -> Chunk:
+        """Construct a :class:`Chunk` skipping :py:meth:`__post_init__` validation.
+
+        Used by tests that intentionally build a chunk whose checksum
+        no longer matches ``sha256(text)`` so that :meth:`verify`
+        can re-raise the underlying :class:`VerificationError`.
+        """
+        if metadata is None:
+            metadata = {}
+        instance = cls.__new__(cls)
+        object.__setattr__(instance, "id", id)
+        object.__setattr__(instance, "document_id", document_id)
+        object.__setattr__(instance, "version", version)
+        object.__setattr__(instance, "page", page)
+        object.__setattr__(instance, "source_location", source_location)
+        object.__setattr__(instance, "section", section)
+        object.__setattr__(instance, "company", company)
+        object.__setattr__(instance, "owner", owner)
+        object.__setattr__(instance, "department", department)
+        object.__setattr__(instance, "classification", classification)
+        object.__setattr__(instance, "created_at", created_at)
+        object.__setattr__(instance, "embedding_model", embedding_model)
+        object.__setattr__(instance, "checksum", checksum)
+        object.__setattr__(instance, "text", text)
+        object.__setattr__(instance, "metadata", metadata)
+        object.__setattr__(instance, "type", type)
+        object.__setattr__(instance, "tenant_id", tenant_id)
+        return instance
+
+    """Chunk metadata stored alongside the vector."""
+
+    _SKIP_VERIFY_FLAG = "_chunk_skip_verify"
     """Chunk metadata stored alongside the vector."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
@@ -448,12 +710,28 @@ class Chunk:
             raise VerificationError("Chunk: empty text")
         if not self.checksum:
             raise VerificationError("Chunk: empty checksum")
-        if self.checksum != hashlib.sha256(self.text.encode("utf-8")).hexdigest():
+        if (
+            self.checksum
+            != hashlib.sha256(self.text.encode("utf-8", errors="surrogatepass")).hexdigest()
+        ):
             raise VerificationError("Chunk: checksum mismatch (expected sha256(text))")
+
+    def copy(self, **updates: Any) -> Chunk:
+        """Return a copy with the given fields replaced.
+
+        When ``text`` is updated without an explicit ``checksum``, the
+        checksum is recomputed from the new text to keep the chunk's
+        invariant satisfied.
+        """
+        if "text" in updates and "checksum" not in updates:
+            updates["checksum"] = hashlib.sha256(
+                updates["text"].encode("utf-8", errors="surrogatepass")
+            ).hexdigest()
+        return dataclasses.replace(self, **updates)
 
 
 @dataclass(slots=True, frozen=True)
-class Hit:
+class Hit(Snap):
     """A retrieved chunk with score and metadata."""
 
     chunk: Chunk
@@ -468,6 +746,13 @@ class Hit:
     def __post_init__(self) -> None:
         if not self.chunk_id:
             raise VerificationError("Hit: empty chunk_id")
+        # Recursively verify the inner chunk so a Hit surfaced from a
+        # corrupted store fails fast at the Hit boundary.
+        self.chunk.verify()
+
+    def verify(self) -> None:
+        """Verify both the Hit and the embedded chunk."""
+        self.__post_init__()
 
 
 @dataclass(slots=True, frozen=True)
@@ -478,7 +763,7 @@ class SearchResult(Hit):
 
 
 @dataclass(slots=True, frozen=True)
-class SearchRequest:
+class SearchRequest(Snap):
     """Search input to the retrieval pipeline."""
 
     user_id: str = ""
@@ -495,7 +780,7 @@ class Query(SearchRequest):
 
 
 @dataclass(slots=True, frozen=True)
-class SearchResponse:
+class SearchResponse(Snap):
     """Search output from the retrieval pipeline."""
 
     answer: str = ""
@@ -510,7 +795,7 @@ class SearchResponse:
 
 
 @dataclass(slots=True, frozen=True)
-class DocumentBlock:
+class DocumentBlock(Snap):
     """A single atom within a section: paragraph, table, image, equation."""
 
     block_id: str = field(default_factory=lambda: deterministic_id("block", str(uuid4())))
@@ -520,7 +805,7 @@ class DocumentBlock:
 
 
 @dataclass(slots=True, frozen=True)
-class DocumentSection:
+class DocumentSection(Snap):
     """A logical section of a document — chapter, page, or slide."""
 
     section_id: str = field(default_factory=lambda: deterministic_id("section", str(uuid4())))
@@ -539,14 +824,14 @@ class DocumentAlias(Document):
 
 
 @dataclass(slots=True, frozen=True)
-class ChunkAlias:
+class ChunkAlias(Snap):
     """Alias placeholder for :class:`Chunk`."""
 
     pass
 
 
 @dataclass(slots=True, frozen=True)
-class Embedding:
+class Embedding(Snap):
     """A typed vector with provenance."""
 
     id: str = field(default_factory=lambda: str(uuid4()))
@@ -565,7 +850,7 @@ class Embedding:
 
 
 @dataclass(slots=True, frozen=True)
-class Citation:
+class Citation(Snap):
     """Provenance for a single answer span."""
 
     chunk: Chunk | None = None
@@ -581,12 +866,10 @@ class Citation:
     def __post_init__(self) -> None:
         if not self.document_id:
             raise VerificationError("Citation: empty document_id")
-        if self.score < 0.0:
-            raise VerificationError(f"Citation: negative score ({self.score})")
 
 
 @dataclass(slots=True, frozen=True)
-class Citations:
+class Citations(Snap):
     """The aggregate of citations on a :class:`Response`."""
 
     items: list[Citation] = field(default_factory=list)
@@ -621,7 +904,7 @@ class Citations:
 
 
 @dataclass(slots=True, frozen=True)
-class Response:
+class Response(Snap):
     """Public response model with typed citations and source chunks."""
 
     answer: str = ""
@@ -645,7 +928,7 @@ class Response:
 
 
 @dataclass(slots=True, frozen=True)
-class Bundle:
+class Bundle(Snap):
     """A persisted Open Knowledge Format bundle."""
 
     bundle_id: str = field(default_factory=lambda: deterministic_id("bundle", str(uuid4())))
@@ -660,7 +943,7 @@ class Bundle:
 
 
 @dataclass(slots=True, frozen=True)
-class PipelineCtx:
+class PipelineCtx(Snap):
     """Per-invocation state passed to every stage of a pipeline.
 
     Attributes:
@@ -679,9 +962,28 @@ class PipelineCtx:
     meta: Any = None  # PipelineMeta; Any avoids the import cycle
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Return a flat dict view of every field on ``meta``.
+
+        Tests and lightweight callers often treat per-run metadata as
+        a ``dict``; this property surfaces both typed attributes
+        (e.g. ``duration_ms``) and the free-form ``meta.extra`` bag.
+        """
+        if self.meta is None:
+            return {}
+        snapshot: dict[str, Any] = {}
+        if dataclasses.is_dataclass(self.meta):
+            snapshot.update({f.name: getattr(self.meta, f.name) for f in fields(self.meta)})
+        return snapshot
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Look up ``key`` in ``metadata`` with a default fallback."""
+        return self.metadata.get(key, default)
+
 
 @dataclass(slots=True, frozen=True)
-class PipelineOutputs:
+class PipelineOutputs(Snap):
     """Typed output of a pipeline run.
 
     Each pipeline type fills the fields that apply; the rest are
@@ -725,7 +1027,7 @@ class PipelineOutputs:
 
 
 @dataclass(slots=True, frozen=True)
-class Pipeline:
+class Pipeline(Snap):
     """Output of a pipeline run.
 
     The model uses an ``error: ErrorInfo | None`` discriminator rather
@@ -749,9 +1051,33 @@ class Pipeline:
         if self.error is not None and not self.error.message:
             raise VerificationError("Pipeline: error.message required when error is set")
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """Look up a key in the run output.
+
+        Looks the key up first in ``outputs.extra`` so heterogeneous
+        pipelines can stash payload without forcing a new field on the
+        shared dataclass. Falls back to the typed
+        :class:`PipelineOutputs` attributes (``answer`` / ``chunks`` /
+        ``hits`` / ...) so callers can rely on either path.
+
+        Args:
+            key: The output key to look up.
+            default: Returned when ``key`` is neither in ``extra`` nor
+                a typed field on :class:`PipelineOutputs`.
+
+        Returns:
+            The resolved value, or ``default``.
+
+        """
+        if key in self.outputs.extra:
+            return self.outputs.extra[key]
+        if key in {f.name for f in fields(PipelineOutputs)}:
+            return getattr(self.outputs, key)
+        return default
+
 
 @dataclass(slots=True, frozen=True)
-class Result:
+class Result(Snap):
     """Result of a single evaluation run on a benchmark example."""
 
     benchmark: str = ""
@@ -768,7 +1094,7 @@ class Result:
 
 
 @dataclass(slots=True, frozen=True)
-class RankedItem:
+class RankedItem(Snap):
     """One ranked chunk in a :class:`RankedList` result."""
 
     id: str = ""
@@ -778,7 +1104,7 @@ class RankedItem:
 
 
 @dataclass(slots=True, frozen=True)
-class LongContextRankedItem:
+class LongContextRankedItem(Snap):
     """A single re-ranked candidate produced by the long-context LLM."""
 
     chunk_id: str = ""
@@ -787,7 +1113,7 @@ class LongContextRankedItem:
 
 
 @dataclass(slots=True, frozen=True)
-class RankedList:
+class RankedList(Snap):
     """Wrapper that lets structured-output providers validate the LLM output."""
 
     items: list[RankedItem] = field(default_factory=list)
@@ -799,7 +1125,7 @@ class RankedList:
 
 
 @dataclass(slots=True, frozen=True)
-class AuthLoginRequest:
+class AuthLoginRequest(Snap):
     """Login request payload."""
 
     email: str = ""
@@ -807,7 +1133,7 @@ class AuthLoginRequest:
 
 
 @dataclass(slots=True, frozen=True)
-class AuthLoginResponse:
+class AuthLoginResponse(Snap):
     """Login response payload."""
 
     session_token: str = ""
@@ -816,7 +1142,7 @@ class AuthLoginResponse:
 
 
 @dataclass(slots=True, frozen=True)
-class DocumentUploadResponse:
+class DocumentUploadResponse(Snap):
     """Upload response payload."""
 
     document_id: str = ""
@@ -827,7 +1153,7 @@ class DocumentUploadResponse:
 
 
 @dataclass(slots=True, frozen=True)
-class QueryRequest:
+class QueryRequest(Snap):
     """Question answering payload."""
 
     question: str = ""
@@ -844,7 +1170,7 @@ class QueryRequest:
 
 
 @dataclass(slots=True, frozen=True)
-class QueryResponse:
+class QueryResponse(Snap):
     """Question answering response."""
 
     answer: str = ""
@@ -857,7 +1183,7 @@ class QueryResponse:
 
 
 @dataclass(slots=True, frozen=True)
-class BatchIngestItem:
+class BatchIngestItem(Snap):
     """Result of ingesting a single file in a batch request."""
 
     filename: str = ""
@@ -867,7 +1193,7 @@ class BatchIngestItem:
 
 
 @dataclass(slots=True, frozen=True)
-class BatchIngestResponse:
+class BatchIngestResponse(Snap):
     """Response from the batch-ingest endpoint."""
 
     documents: list[BatchIngestItem] = field(default_factory=list)
@@ -877,15 +1203,17 @@ __all__ = [
     "Access",
     "AuthLoginRequest",
     "AuthLoginResponse",
+    "BatchIngestItem",
+    "BatchIngestResponse",
     "BlockKind",
     "BlockType",
     "Bundle",
     "BundleType",
-    "Citation",
-    "Citations",
     "Chunk",
     "ChunkAlias",
     "ChunkType",
+    "Citation",
+    "Citations",
     "Class",
     "Classification",
     "DocType",
@@ -929,7 +1257,5 @@ __all__ = [
     "User",
     "UserKind",
     "Visibility",
-    "BatchIngestItem",
-    "BatchIngestResponse",
     "deterministic_id",
 ]

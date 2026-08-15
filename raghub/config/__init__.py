@@ -61,6 +61,8 @@ from raghub.config.settings import (
     Settings,
     TenantsConfig,
     WebSearchConfig,
+    production_check,
+    settings_field_names,
 )
 
 __all__ = [
@@ -102,6 +104,8 @@ __all__ = [
     "load_tenants",
     "load_transforms",
     "load_web",
+    "production_check",
     "read_toml_file",
     "resolve_config_dir",
+    "settings_field_names",
 ]
