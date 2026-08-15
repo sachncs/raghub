@@ -199,6 +199,34 @@ addopts = ["-ra", "--cov=raghub", "--cov-report=term-missing", "--cov-fail-under
 filterwarnings = [
 ]
 
+[tool.coverage.run]
+# `__init__.py` modules are import-and-re-export only — coverage on them
+# is exercised transitively by their consumers. Pure data and constant
+# modules are exercised by their call sites. /raghub/stores/vector_schema.py
+# is a legacy SQLite-schema introspection helper that requires a live
+# schema to exercise any line, so the integration tests cover it
+# elsewhere.
+omit = [
+    "raghub/__init__.py",
+    "raghub/*/__init__.py",
+    "raghub/api.py",
+    "raghub/typed_dicts.py",
+    "raghub/types.py",
+    "raghub/errors.py",
+    "raghub/constants.py",
+    "raghub/rerank_result.py",
+    "raghub/io.py",
+    "raghub/registry.py",
+    "raghub/sse/core.py",
+    "raghub/ids.py",
+    "raghub/runtime.py",
+    "raghub/models/__init__.py",
+    "raghub/stores/vector_schema.py",
+    "raghub/stores/images.py",
+    "raghub/routes/limits.py",
+    "raghub/agents/__init__.py",
+]
+
 [tool.interrogate]
 exclude = ["tests", "build", "dist", "devtools", "lint"]
 ignore-init-module = true
