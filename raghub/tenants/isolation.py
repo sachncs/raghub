@@ -469,8 +469,8 @@ def migrate_schema_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
         for schema in schemas:
             await dst.execute(_DDL_SQL)
             rows = await src.fetch(
-            f'SELECT * FROM "{schema}".raghub_chunks'  # nosec B608 - schema is enumerated from information_schema.schemata with a literal LIKE prefix
-        )
+                f'SELECT * FROM "{schema}".raghub_chunks'  # nosec B608 - schema is enumerated from information_schema.schemata with a literal LIKE prefix
+            )
             for r in rows:
                 await dst.execute(
                     "INSERT INTO raghub_chunks "
