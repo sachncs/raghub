@@ -31,8 +31,6 @@ def test_synchronous_submit_passes_kwargs() -> None:
 def test_worker_default_submit_raises() -> None:
     """``Worker.submit`` raises ``NotImplementedError`` on the abstract base."""
 
-    import inspect
-
     fn = Worker.__dict__["submit"]
     # fn is the unbound function; calling it bypasses the override.
     with pytest.raises(NotImplementedError):
