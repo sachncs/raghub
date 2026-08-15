@@ -149,7 +149,7 @@ class SqliteStore(Store):  # ruff: ignore[too-many-public-methods] -- full Store
             where = " WHERE " + " AND ".join(clauses)
         return list(
             self.conn.execute(
-                f"SELECT {columns} FROM {self.collection}{where}",
+                f"SELECT {columns} FROM {self.collection}{where}",  # nosec B608 - collection is a config-validated table; metadata_filter dict is parameterised via ?
                 params,
             )
         )
@@ -213,7 +213,7 @@ class SqliteStore(Store):  # ruff: ignore[too-many-public-methods] -- full Store
         """Delete chunks by ``chunk_id``."""
         with self.lock:
             self.conn.executemany(
-                f"DELETE FROM {self.collection} WHERE chunk_id = ?",
+                f"DELETE FROM {self.collection} WHERE chunk_id = ?",  # nosec B608 - collection is config-validated, chunk_id is parameterised
                 [(cid,) for cid in chunk_ids],
             )
             self.conn.commit()
@@ -222,7 +222,7 @@ class SqliteStore(Store):  # ruff: ignore[too-many-public-methods] -- full Store
         """Delete every chunk that belongs to ``document_id``."""
         with self.lock:
             self.conn.execute(
-                f"DELETE FROM {self.collection} WHERE document_id = ?",
+                f"DELETE FROM {self.collection} WHERE document_id = ?",  # nosec B608 - collection is config-validated, document_id is parameterised
                 (document_id,),
             )
             self.conn.commit()
@@ -231,7 +231,7 @@ class SqliteStore(Store):  # ruff: ignore[too-many-public-methods] -- full Store
         """Delete every chunk that belongs to one ``(document_id, version)`` pair."""
         with self.lock:
             self.conn.execute(
-                f"DELETE FROM {self.collection} WHERE document_id = ? AND version = ?",
+                f"DELETE FROM {self.collection} WHERE document_id = ? AND version = ?",  # nosec B608 - collection is config-validated, identifiers are parameterised
                 (document_id, version),
             )
             self.conn.commit()
@@ -374,7 +374,7 @@ class SqliteStore(Store):  # ruff: ignore[too-many-public-methods] -- full Store
                 self.conn.execute(
                     f"SELECT chunk_id, document_id, version, classification, "
                     f"text, source_location, company, owner, department, tenant_id, vector "
-                    f"FROM {self.collection} WHERE text LIKE ?",
+                    f"FROM {self.collection} WHERE text LIKE ?",  # nosec B608 - collection is config-validated, query is parameterised
                     (f"%{query}%",),
                 )
             )
@@ -406,7 +406,9 @@ class SqliteStore(Store):  # ruff: ignore[too-many-public-methods] -- full Store
     def health(self) -> dict[str, Any]:
         """Return liveness information for the health endpoint."""
         with self.lock:
-            count = self.conn.execute(f"SELECT COUNT(*) FROM {self.collection}").fetchone()[0]
+            count = self.conn.execute(
+                f"SELECT COUNT(*) FROM {self.collection}"  # nosec B608 - collection is config-validated
+            ).fetchone()[0]
         return {
             "status": "ok",
             "backend": self.backend,

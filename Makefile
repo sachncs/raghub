@@ -48,7 +48,7 @@ format:
 	ruff format raghub/ tests/ devtools/
 
 security:
-	bandit -r raghub/ -q -ll -i
+	bandit -c pyproject.toml -r raghub/ -q -ll -i
 
 audit:
 	pip-audit

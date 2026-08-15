@@ -411,7 +411,10 @@ def migrate_row_to_schema(src: Any, dst: Any, tenant_id: str | None) -> int:
             where = " WHERE tenant_id = $1"
             params = [tenant_id]
         # Discover tenants in the source table.
-        rows = await src.fetch(f"SELECT DISTINCT tenant_id FROM raghub_chunks{where}", *params)
+        rows = await src.fetch(
+            f"SELECT DISTINCT tenant_id FROM raghub_chunks{where}",  # nosec B608 - where is a literal column ref, tenant_id is parameterised via $1
+            *params,
+        )
         copied = 0
         for row in rows:
             tid = row["tenant_id"]
@@ -465,7 +468,9 @@ def migrate_schema_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
             schemas = [row["schema_name"] for row in schema_rows]
         for schema in schemas:
             await dst.execute(_DDL_SQL)
-            rows = await src.fetch(f'SELECT * FROM "{schema}".raghub_chunks')
+            rows = await src.fetch(
+            f'SELECT * FROM "{schema}".raghub_chunks'  # nosec B608 - schema is enumerated from information_schema.schemata with a literal LIKE prefix
+        )
             for r in rows:
                 await dst.execute(
                     "INSERT INTO raghub_chunks "
@@ -507,7 +512,10 @@ def migrate_row_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
         if tenant_id is not None:
             where = " WHERE tenant_id = $1"
             params = [tenant_id]
-        rows = await src.fetch(f"SELECT * FROM raghub_chunks{where}", *params)
+        rows = await src.fetch(
+            f"SELECT * FROM raghub_chunks{where}",  # nosec B608 - where is a literal column ref, tenant_id is parameterised via $1
+            *params,
+        )
         copied = 0
         for r in rows:
             await dst.execute(

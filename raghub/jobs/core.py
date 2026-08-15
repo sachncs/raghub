@@ -435,7 +435,7 @@ class SqliteQueue(PersistentQueue):
         async with self.connect() as conn:
             conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
-                f"SELECT * FROM raghub_queue {where} " "ORDER BY created_at DESC LIMIT ?",
+                f"SELECT * FROM raghub_queue {where} " "ORDER BY created_at DESC LIMIT ?",  # nosec B608 - where clause built from literal column refs and ? placeholders
                 tuple(params),
             )
             rows = await cursor.fetchall()
