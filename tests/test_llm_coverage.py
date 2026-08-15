@@ -417,7 +417,7 @@ def test_litellm_async_generate_handles_pydantic_response() -> None:
     class Response:
         choices = [Choice()]
 
-    Response.model_dump = MagicMock(  # type: ignore[attr-defined]
+    Response.dump = MagicMock(  # type: ignore[attr-defined]
         return_value={"choices": [{"message": {"role": "assistant", "content": "pydantic-async"}}]}
     )
 
@@ -629,7 +629,7 @@ def test_normalise_response_dict_passthrough() -> None:
 
 
 def test_normalise_response_object_with_model_dump() -> None:
-    """An object with ``model_dump`` is converted to a dict."""
+    """An object exposing ``model_dump`` (litellm / Pydantic-2) is converted to a dict."""
     payload = MagicMock()
     payload.model_dump.return_value = {"choices": []}
     assert LiteLLM.normalise_response(payload) == {"choices": []}

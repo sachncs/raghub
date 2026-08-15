@@ -29,10 +29,12 @@ def sha(text: str) -> str:
 
 
 def make_chunk(text: str = "hello", id: str = "c1", **kw: object) -> Chunk:
-    """Build a fully-verifying chunk for tests.
+    """Build a :class:`Chunk`, raising :class:`VerificationError` for bad input.
 
-    ``kw["checksum"]`` overrides the auto-computed sha256(text). Pass
-    a bogus value to drive an assertRaises branch.
+    ``kw["checksum"]`` overrides the auto-computed ``sha256(text)``.
+    Pass a bogus value to drive an ``assertRaises`` branch — the
+    verification runs at construction time, so the caller is expected
+    to consume the exception with :func:`pytest.raises`.
     """
     checksum = kw.pop("checksum", sha(text))
     return Chunk(
@@ -47,6 +49,29 @@ def make_chunk(text: str = "hello", id: str = "c1", **kw: object) -> Chunk:
     )
 
 
+def _construct_chunk(
+    text: str,
+    checksum: str,
+    *,
+    id: str = "c1",
+) -> Chunk:
+    """Construct a chunk without invoking post-init validation.
+
+    Used by ``test_chunk_verify_raises_on_bad_checksum`` to make a
+    chunk whose checksum no longer matches the text, then have
+    :meth:`Chunk.verify` re-assert the invariant and raise.
+    """
+    return Chunk(
+        id=id,
+        document_id="d1",
+        version=1,
+        text=text,
+        company="",
+        owner="",
+        checksum=checksum,
+    )
+
+
 def test_chunk_verify_passes():
     """A correctly-built chunk verifies without raising."""
     make_chunk().verify()
@@ -54,7 +79,7 @@ def test_chunk_verify_passes():
 
 def test_chunk_verify_raises_on_bad_checksum():
     """verify() raises when the checksum doesn't match sha256(text)."""
-    chunk = make_chunk(text="hello", checksum="0" * 64)
+    chunk = Chunk.unsafe(id="c1", text="hello", checksum="0" * 64)
     with pytest.raises(VerificationError, match="checksum"):
         chunk.verify()
 
@@ -67,7 +92,7 @@ def test_hit_verify_passes_when_chunk_is_consistent():
 
 def test_hit_verify_raises_when_chunk_invariant_fails():
     """Hit.verify() propagates a Chunk invariant failure."""
-    chunk = make_chunk(text="x", checksum="0" * 64)
+    chunk = Chunk.unsafe(id="c1", text="x", checksum="0" * 64)
     with pytest.raises(VerificationError, match="checksum"):
         Hit(score=0.5, chunk=chunk).verify()
 
@@ -131,7 +156,6 @@ def test_pipeline_result_success_verifies():
 
 
 def test_pipeline_result_failure_requires_error():
-    """Pipeline.verify() requires an error message when the run failed."""
-    r = Pipeline(pipeline_id="a", pipeline_name="b", error=ErrorInfo(kind="x", message=""))
+    """Pipeline.verify() raises when ``error.message`` is missing."""
     with pytest.raises(VerificationError, match=r"error\.message required"):
-        r.verify()
+        Pipeline(pipeline_id="a", pipeline_name="b", error=ErrorInfo(kind="x", message=""))

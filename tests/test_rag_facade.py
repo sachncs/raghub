@@ -127,7 +127,7 @@ def test_rag_evaluate_calls_evaluator() -> None:
 
         async def evaluate(self, examples, *, response_factory):
             self.called_with = (tuple(examples), response_factory)
-            return [Result(benchmark="financebench", example_id="0", predicted="y")]
+            return [Result(benchmark="financebench", example_id="0", details={"predicted": "y"})]
 
     fake_evaluator = FakeEvaluator()
     results = rag.evaluate(
@@ -301,7 +301,7 @@ def test_rag_evaluate_without_factory(monkeypatch: pytest.MonkeyPatch) -> None:
         async def evaluate(self, examples, *, response_factory):
             for ex in examples:
                 await response_factory(ex)
-            return [Result(benchmark="financebench", example_id="0", predicted="y")]
+            return [Result(benchmark="financebench", example_id="0", details={"predicted": "y"})]
 
     fake_evaluator = FakeEvaluator()
     results = rag.evaluate(

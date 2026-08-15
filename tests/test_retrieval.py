@@ -13,7 +13,6 @@ from typing import Any
 import pytest
 
 from raghub.retrieval import (
-    Fusion,
     ReciprocalRankFusion,
     context_prompt,
     decompose_prompt,

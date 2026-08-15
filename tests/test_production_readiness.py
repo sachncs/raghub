@@ -220,7 +220,6 @@ class TestCacheRBACScoping:
         result = Pipeline(
             pipeline_id="q",
             pipeline_name="query",
-            success=True,
             outputs={"answer": "top-secret", "citations": [], "hits": []},
         )
         cache.set(

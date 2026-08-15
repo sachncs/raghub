@@ -58,7 +58,7 @@ def test_resolve_flags_max_steps_default_inherited_from_settings() -> None:
 
     from raghub.config import AgentConfig
 
-    settings = Settings(jwt_secret="x" * 32).model_copy(update={"agent": AgentConfig(max_steps=12)})
+    settings = Settings(jwt_secret="x" * 32).copy(agent=AgentConfig(max_steps=12))
     container = SimpleNamespace(settings=settings)
     pref = Preference(container)
     user = SimpleNamespace(tool_settings=None)

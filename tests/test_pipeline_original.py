@@ -29,6 +29,7 @@ from raghub.models import (
     User,
 )
 from raghub.pipeline import Ingest, QueryPipeline
+from raghub.pipeline.span_support import PipelineMeta
 from raghub.stores import MemoryStore
 
 
@@ -93,7 +94,7 @@ class StubChunker:
             return []
         return [
             Chunk(
-                chunk_id=f"stub-{document_id}-{version}",
+                id=f"stub-{document_id}-{version}",
                 document_id=document_id,
                 version=version,
                 text=text,
@@ -122,7 +123,7 @@ class TestIngestThenQuery:
             embedder=embedder,
             vector_store=vector_store,
         )
-        ctx = PipelineCtx(pipeline_name="ingest")
+        ctx = PipelineCtx(pipeline_name="ingest", meta=PipelineMeta())
         ingest_result = await ingest.run(
             ctx,
             file_bytes=b"hello",
@@ -137,11 +138,11 @@ class TestIngestThenQuery:
             vector_store=vector_store,
             generator=generator,
         )
-        ctx_q = PipelineCtx(pipeline_name="query")
+        ctx_q = PipelineCtx(pipeline_name="query", meta=PipelineMeta())
         result = await query.run(ctx_q, question="hello world", top_k=5)
         assert getattr(result, "error", None) is None
-        assert result.outputs["answer"] == "response"
-        assert result.outputs["hits"], "At least one hit must come from the store"
+        assert result.get("answer") == "response"
+        assert result.get("hits"), "At least one hit must come from the store"
 
 
 class TestRbacEndToEnd:
@@ -153,7 +154,7 @@ class TestRbacEndToEnd:
         chunks = []
         for tenant in ("acme", "globex"):
             bundle = make_bundle([make_section([f"document for {tenant}"])])
-            bundle.metadata = {"company": tenant}
+            bundle = bundle.copy(metadata={"company": tenant})
             chunks.extend(StubChunker().chunk(bundle))
         store.upsert(
             chunks,
@@ -168,13 +169,13 @@ class TestRbacEndToEnd:
         )
         user = User(email="u@acme.com", allowed_companies=["acme"], is_admin=False)
         result = await query.run(
-            PipelineCtx(pipeline_name="query"),
+            PipelineCtx(pipeline_name="query", meta=PipelineMeta()),
             question="document",
             user=user,
             top_k=10,
         )
         assert getattr(result, "error", None) is None
-        for hit in result.outputs["hits"]:
+        for hit in result.get("hits"):
             assert hit.chunk.company == "acme", (
                 "A non-admin with only [acme] must not see globex "
                 "chunks even when both are in the store."
@@ -186,7 +187,7 @@ class TestRbacEndToEnd:
         chunks = []
         for tenant in ("acme", "globex"):
             bundle = make_bundle([make_section([f"document for {tenant}"])])
-            bundle.metadata = {"company": tenant}
+            bundle = bundle.copy(metadata={"company": tenant})
             chunks.extend(StubChunker().chunk(bundle))
         store.upsert(
             chunks,
@@ -197,12 +198,12 @@ class TestRbacEndToEnd:
         query = QueryPipeline(embedder=embedder, vector_store=store, generator=generator)
         admin = User(email="a@b.com", is_admin=True)
         result = await query.run(
-            PipelineCtx(pipeline_name="query"),
+            PipelineCtx(pipeline_name="query", meta=PipelineMeta()),
             question="document",
             user=admin,
             top_k=10,
         )
-        companies = {hit.chunk.company for hit in result.outputs["hits"]}
+        companies = {hit.chunk.company for hit in result.get("hits")}
         assert companies == {"acme", "globex"}
 
 
@@ -234,12 +235,12 @@ class TestCacheBehavior:
         )
         user = User(email="u@b.com", allowed_companies=["acme"], is_admin=False)
         await query.run(
-            PipelineCtx(pipeline_name="query"),
+            PipelineCtx(pipeline_name="query", meta=PipelineMeta()),
             question="hi",
             user=user,
         )
         await query.run(
-            PipelineCtx(pipeline_name="query"),
+            PipelineCtx(pipeline_name="query", meta=PipelineMeta()),
             question="hi",
             user=user,
         )
@@ -269,14 +270,14 @@ class TestIncrementalIngest:
             vector_store=store,
             knowledge_repo=knowledge_repo,
         )
-        ctx = PipelineCtx(pipeline_name="ingest")
+        ctx = PipelineCtx(pipeline_name="ingest", meta=PipelineMeta())
         first = await ingest.run(
             ctx,
             file_bytes=b"hello",
             source_uri="file:///x.pdf",
         )
         assert getattr(first, "error", None) is None
-        assert first.outputs.get("incremental") is False
+        assert first.get("incremental") is False
         converter.convert.assert_called_once()
         # The vector store received at least one chunk.
         assert len(store.records) >= 1
@@ -289,7 +290,7 @@ class TestErrorPropagation:
         generator = build_generator()
         generator.generate = AsyncMock(side_effect=RuntimeError("gen-fail"))
         query = QueryPipeline(embedder=embedder, vector_store=store, generator=generator)
-        ctx = PipelineCtx(pipeline_name="query")
+        ctx = PipelineCtx(pipeline_name="query", meta=PipelineMeta())
         with pytest.raises(RuntimeError, match="gen-fail"):
             await query.run(ctx, question="q")
         assert ctx.metadata.get("duration_ms", 0) > 0
@@ -302,7 +303,7 @@ class TestErrorPropagation:
             embedder=embedder,
             vector_store=store,
         )
-        ctx = PipelineCtx(pipeline_name="ingest")
+        ctx = PipelineCtx(pipeline_name="ingest", meta=PipelineMeta())
         with (
             patch.object(ingest.converter, "convert", side_effect=ValueError("nope")),
             pytest.raises(ValueError),

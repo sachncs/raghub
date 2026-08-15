@@ -8,6 +8,7 @@ and the IngestionResult / Ingestor class skeletons.
 from __future__ import annotations
 
 import asyncio
+from hashlib import sha256
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -213,33 +214,33 @@ def test_resumable_init_with_db_path(tmp_path: Any) -> None:
 def test_record_from_pipeline_projects_chunks() -> None:
     """record_from_pipeline produces a Document with chunk ids."""
 
+    from raghub.models import Chunk, Pipeline, PipelineOutputs
+
     user = MagicMock()
     user.email = "alice@x.com"
-    pipeline = MagicMock()
-    pipeline.outputs = {
-        "document_id": "d1",
-        "version": 1,
-        "chunks": [
-            {
-                "id": "c1",
-                "text": "first",
-                "checksum": "0" * 64,
-                "document_id": "d1",
-                "version": 1,
-                "company": "acme",
-                "owner": "alice@example.com",
-            },
-            {
-                "id": "c2",
-                "text": "second",
-                "checksum": "0" * 64,
-                "document_id": "d1",
-                "version": 1,
-                "company": "acme",
-                "owner": "alice@example.com",
-            },
-        ],
-    }
+    chunks = [
+        Chunk(
+            id="c1",
+            text="first",
+            checksum=sha256(b"first").hexdigest(),
+            document_id="d1",
+            version=1,
+            company="acme",
+            owner="alice@example.com",
+        ),
+        Chunk(
+            id="c2",
+            text="second",
+            checksum=sha256(b"second").hexdigest(),
+            document_id="d1",
+            version=1,
+            company="acme",
+            owner="alice@example.com",
+        ),
+    ]
+    pipeline = Pipeline(
+        outputs=PipelineOutputs(extra={"chunks": chunks, "version": 1, "document_id": "d1"})
+    )
     document = record_from_pipeline(
         pipeline,
         file_name="doc.txt",
@@ -266,7 +267,7 @@ def test_record_from_pipeline_no_chunks() -> None:
     user = MagicMock()
     user.email = "alice@x.com"
     pipeline = MagicMock()
-    pipeline.outputs = {"document_id": "d2", "chunks": []}
+    pipeline.outputs = {"id": "d2", "chunks": []}
     document = record_from_pipeline(
         pipeline,
         file_name="x.txt",

@@ -64,7 +64,7 @@ def test_cohere_init_reads_api_key_from_env(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setenv("COHERE_API_KEY", "sk-from-env")
     cohere = Cohere()
-    assert cohere.api_key.get_secret_value() == "sk-from-env"
+    assert cohere.api_key.value == "sk-from-env"
 
 
 def test_cohere_init_raises_when_no_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -79,7 +79,7 @@ def test_cohere_init_accepts_explicit_api_key() -> None:
     """``Cohere.__init__`` uses the supplied api_key over the env var."""
 
     cohere = Cohere(api_key="sk-explicit")
-    assert cohere.api_key.get_secret_value() == "sk-explicit"
+    assert cohere.api_key.value == "sk-explicit"
 
 
 def test_cohere_rerank_returns_empty_for_empty_hits() -> None:

@@ -9,6 +9,7 @@ structured-retrieval indexes (Raptor, GraphIndex).
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -435,7 +436,7 @@ def test_cluster_short_list_returns_single_group() -> None:
             company="c",
             owner="o",
             text=f"t{i}",
-            checksum="0" * 64,
+            checksum=sha256(f"t{i}".encode()).hexdigest(),
         )
         for i in range(2)
     ]
@@ -459,7 +460,7 @@ def test_chunk_to_record_carries_vector() -> None:
         company="acme",
         owner="alice",
         text="hello",
-        checksum="0" * 64,
+        checksum=sha256(b"hello").hexdigest(),
     )
     out = chunk_to_record(chunk, [0.1, 0.2, 0.3], level=1)
     assert out.id == "c1"

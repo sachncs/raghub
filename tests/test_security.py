@@ -130,9 +130,9 @@ def test_prompt_injection_does_not_override_instructions(rag_with_plain_text) ->
     result = rag_with_plain_text.query("What is the capital of France?")
     assert isinstance(result.answer, str)
     assert MARKER in result.answer, "Generator did not run"
-    assert "PWNED" not in result.answer, (
-        f"Prompt-injection marker leaked into answer: {result.answer!r}"
-    )
+    assert (
+        "PWNED" not in result.answer
+    ), f"Prompt-injection marker leaked into answer: {result.answer!r}"
 
 
 def test_prompt_injection_via_system_role_does_not_crash(rag_with_plain_text) -> None:
@@ -153,9 +153,9 @@ def test_prompt_injection_via_system_role_does_not_crash(rag_with_plain_text) ->
     assert isinstance(result.answer, str)
     assert MARKER in result.answer, "Generator did not run"
     flat_chunks = [cit.chunk for cit in result.citations if cit.chunk is not None]
-    assert any("capital of France" in c.text for c in flat_chunks), (
-        "Expected the ingested factual sentence to surface as a citation"
-    )
+    assert any(
+        "capital of France" in c.text for c in flat_chunks
+    ), "Expected the ingested factual sentence to surface as a citation"
 
 
 # ---------------------------------------------------------------------------
@@ -180,9 +180,9 @@ def test_knowledge_base_poisoning_adversarial_doc(rag_with_plain_text) -> None:
     assert isinstance(result.answer, str)
     assert MARKER in result.answer, "Generator did not run"
     flat_text = " ".join(cit.chunk.text for cit in result.citations if cit.chunk is not None)
-    assert "Paris" in flat_text and "Berlin" in flat_text, (
-        f"Expected both contradicting facts in retrieved citations; got {flat_text!r}"
-    )
+    assert (
+        "Paris" in flat_text and "Berlin" in flat_text
+    ), f"Expected both contradicting facts in retrieved citations; got {flat_text!r}"
 
 
 def test_knowledge_base_poisoning_with_empty_content(rag_with_plain_text) -> None:
@@ -208,9 +208,9 @@ def test_knowledge_base_poisoning_with_unicode_smuggled(rag_with_plain_text) -> 
     assert isinstance(result.answer, str)
     assert MARKER in result.answer, "Generator did not run"
     flat_chunks = [cit.chunk for cit in result.citations if cit.chunk is not None]
-    assert any("capital of France" in c.text for c in flat_chunks), (
-        "Expected the canonical fact to surface as a citation"
-    )
+    assert any(
+        "capital of France" in c.text for c in flat_chunks
+    ), "Expected the canonical fact to surface as a citation"
 
 
 # ---------------------------------------------------------------------------

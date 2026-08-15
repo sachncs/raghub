@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from raghub.agent import Agent, AgentRequest
-from raghub.models import PipelineCtx, PipelineType, Turn, User
+from raghub.models import PipelineCtx, Turn, User
 from raghub.pipeline.agent import AgentPipeline
 
 
@@ -17,8 +17,6 @@ def make_ctx() -> PipelineCtx:
 
     return PipelineCtx(
         pipeline_id="run-1",
-        pipeline_type=PipelineType.Agent,
-        inputs={"question": "what is the capital of France?"},
     )
 
 
@@ -155,9 +153,9 @@ async def test_run_returns_pipeline_with_answer_and_citations() -> None:
 
     result = await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
     assert result.pipeline_name == "query_agent"
-    assert result.outputs["answer"] == "Paris."
-    assert result.outputs["citations"] == [citation]
-    assert result.outputs["transforms_applied"] == []
+    assert result.get("answer") == "Paris."
+    assert result.get("citations") == [citation]
+    assert result.get("transforms_applied") == []
 
 
 @pytest.mark.asyncio
@@ -190,8 +188,8 @@ async def test_run_prefers_generator_citations_when_returned_as_tuple() -> None:
     pipeline.generator.generate = MagicMock(return_value=("generator answer", [generator_citation]))
 
     result = await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
-    assert result.outputs["answer"] == "agent answer"  # agent's final_answer wins
-    assert result.outputs["citations"] == [generator_citation]  # generator's citations win
+    assert result.get("answer") == "agent answer"  # agent's final_answer wins
+    assert result.get("citations") == [generator_citation]  # generator's citations win
 
 
 @pytest.mark.asyncio
@@ -219,8 +217,8 @@ async def test_run_falls_back_to_agent_citations_when_generator_has_none() -> No
     pipeline.generator.generate = MagicMock(return_value=("answer", []))
 
     result = await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
-    assert result.outputs["answer"] == "agent answer"  # agent's final_answer wins
-    assert result.outputs["citations"] == [agent_citation]  # falls back to agent
+    assert result.get("answer") == "agent answer"  # agent's final_answer wins
+    assert result.get("citations") == [agent_citation]  # falls back to agent
 
 
 @pytest.mark.asyncio
@@ -259,7 +257,7 @@ async def test_run_applies_long_context_pass_when_eligible() -> None:
     pipeline.generator.generate = MagicMock(return_value="answer")
 
     result = await pipeline.run(make_ctx(), question="q", user=make_user(), history=[])
-    assert result.outputs["hits"] == [hit_after]
+    assert result.get("hits") == [hit_after]
     long_context.is_eligible.assert_called_once()
 
 

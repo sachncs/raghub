@@ -398,7 +398,7 @@ class FakeEvaluator:
                     example_id=str(example.get("id", "")),
                     metrics=metrics,
                     passed=True,
-                    predicted=answer,
+                    details={"predicted": answer},
                 )
             )
         return results

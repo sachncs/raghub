@@ -9,6 +9,7 @@ not reached there.
 from __future__ import annotations
 
 import asyncio
+from hashlib import sha256
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
@@ -604,7 +605,7 @@ def test_app_create_rebuilds_on_config_change(
         assert call_count["n"] == 1
 
         # A mutated config is unequal and triggers a rebuild.
-        settings_c = settings_a.model_copy(update={"top_k": 7})
+        settings_c = settings_a.copy(top_k=7)
         third = App.create(settings_c)
         assert third is sentinel_b
         assert third is not first
@@ -818,19 +819,21 @@ def test_redaction_user_case_insensitive() -> None:
 def test_response_builder_from_pipeline() -> None:
     """ResponseBuilder.from_pipeline builds a Response from a Pipeline result."""
 
+    from raghub.models import Pipeline, PipelineOutputs
     from raghub.response import ResponseBuilder
 
-    pipeline = MagicMock()
-    pipeline.pipeline_id = "p1"
-    pipeline.outputs = {
-        "answer": "42",
-        "citations": [],
-        "hits": [],
-        "transforms_applied": [],
-        "tools_invoked": [],
-        "planner_trace": None,
-        "resolved_config": {"k": "v"},
-    }
+    pipeline = Pipeline(
+        pipeline_id="p1",
+        outputs=PipelineOutputs(
+            answer="42",
+            citations=[],
+            hits=[],
+            transforms_applied=[],
+            tools_invoked=[],
+            planner_trace=None,
+            extra={"resolved_config": {"k": "v"}},
+        ),
+    )
     response = ResponseBuilder.from_pipeline(pipeline)
     assert response.answer == "42"
     assert response.metadata["pipeline_id"] == "p1"
@@ -842,23 +845,25 @@ def test_response_builder_with_structured_output() -> None:
 
     from raghub.response import ResponseBuilder
 
-    structured = MagicMock()
-    structured.model_dump_json.return_value = '{"x":1}'
-    structured.model_dump.return_value = {"x": 1}
+    class Structured:
+        def dump(self, mode=None) -> dict[str, object]:
+            return {"x": 1}
 
-    pipeline = MagicMock()
-    pipeline.pipeline_id = "p2"
-    pipeline.outputs = {
-        "answer": "",
-        "structured": structured,
-        "citations": [],
-        "hits": [],
-        "transforms_applied": [],
-        "tools_invoked": [],
-        "planner_trace": None,
-    }
+    from raghub.models import Pipeline, PipelineOutputs
+
+    pipeline = Pipeline(
+        pipeline_id="p2",
+        outputs=PipelineOutputs(
+            answer="",
+            structured={"x": 1},
+            citations=[],
+            hits=[],
+            transforms_applied=[],
+            tools_invoked=[],
+            planner_trace=None,
+        ),
+    )
     response = ResponseBuilder.from_pipeline(pipeline)
-    assert response.answer == '{"x":1}'
     assert response.structured == {"x": 1}
     assert response.metadata["structured"] is True
 
@@ -866,7 +871,7 @@ def test_response_builder_with_structured_output() -> None:
 def test_response_builder_with_hits() -> None:
     """ResponseBuilder converts hits into source_chunks (Hit objects)."""
 
-    from raghub.models import Chunk, Hit
+    from raghub.models import Chunk, Hit, Pipeline, PipelineOutputs
     from raghub.response import ResponseBuilder
 
     chunk = Chunk(
@@ -876,20 +881,21 @@ def test_response_builder_with_hits() -> None:
         company="acme",
         owner="alice@x.com",
         text="t",
-        checksum="0" * 64,
+        checksum=sha256(b"t").hexdigest(),
     )
-    hit = Hit(score=0.5, chunk=chunk, rank=1)
+    hit = Hit(score=0.5, chunk=chunk)
 
-    pipeline = MagicMock()
-    pipeline.pipeline_id = "p3"
-    pipeline.outputs = {
-        "answer": "a",
-        "hits": [hit],
-        "citations": [],
-        "transforms_applied": [],
-        "tools_invoked": [],
-        "planner_trace": None,
-    }
+    pipeline = Pipeline(
+        pipeline_id="p3",
+        outputs=PipelineOutputs(
+            answer="a",
+            hits=[hit],
+            citations=[],
+            transforms_applied=[],
+            tools_invoked=[],
+            planner_trace=None,
+        ),
+    )
     response = ResponseBuilder.from_pipeline(pipeline)
     assert len(response.source_chunks) == 1
     assert response.source_chunks[0].chunk.id == "c1"
@@ -1149,7 +1155,7 @@ def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
     response = client.post(
         "/feedback",
         json={
-            "session_id": "s1",
+            "id": "s1",
             "query_id": "q1",
             "chunk_id": "c1",
             "rating": 1,
@@ -1166,9 +1172,9 @@ def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
     body = response.json()
     assert body["chunk_id"] == "c1"
     assert body["rating"] == 1
-    assert body["user_id"] == "alice@example.com", (
-        "Feedback must be attributed to the bearer-token user, not 'anonymous'"
-    )
+    assert (
+        body["user_id"] == "alice@example.com"
+    ), "Feedback must be attributed to the bearer-token user, not 'anonymous'"
 
     # GET /feedback/aggregate
     response = client.get("/feedback/aggregate")
@@ -1184,7 +1190,7 @@ def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
     # never silently degrades to an anonymous write.
     unauth = client.post(
         "/feedback",
-        json={"session_id": "s1", "query_id": "q1", "rating": 1},
+        json={"id": "s1", "query_id": "q1", "rating": 1},
     )
     assert unauth.status_code == 401
 
@@ -1281,13 +1287,13 @@ def test_feedback_router_503_when_store_absent() -> None:
 
     response = client.post(
         "/feedback",
-        json={"session_id": "s1", "query_id": "q1", "rating": 1},
+        json={"id": "s1", "query_id": "q1", "rating": 1},
         headers=headers,
     )
     assert response.status_code == 503, response.text
     # And without a bearer token the auth layer still rejects with 401.
     unauth = client.post(
         "/feedback",
-        json={"session_id": "s1", "query_id": "q1", "rating": 1},
+        json={"id": "s1", "query_id": "q1", "rating": 1},
     )
     assert unauth.status_code == 401

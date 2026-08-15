@@ -31,12 +31,10 @@ def makemake_settings_with_provider(provider: str) -> Settings:
 
     settings = makemake_settings()
     # RerankerConfig provider is Literal['none', 'cohere', 'llm', 'cascade']
-    # For other strings we patch the field via model_copy.
+    # For other strings we patch the field via copy.
     if provider not in ("none", "cohere", "llm", "cascade"):
         return settings
-    settings = settings.model_copy()
-    settings.reranker.provider = provider  # type: ignore[assignment]
-    return settings
+    return settings.copy(reranker=settings.reranker.copy(provider=provider))
 
 
 def test_reranker_factory_creates_identity_for_none_provider() -> None:
@@ -55,7 +53,9 @@ def test_reranker_factory_raises_for_unknown_provider() -> None:
 
     settings = makemake_settings()
     factory = RerankerFactory(settings)
-    factory.settings.reranker.provider = "mystery"  # type: ignore[assignment]
+    factory.settings = factory.settings.copy(
+        reranker=factory.settings.reranker.copy(provider="mystery")
+    )
     with pytest.raises(RerankerError, match="Unknown reranker provider"):
         factory.create()
 
@@ -130,4 +130,4 @@ def test_default_long_returns_long_context_config() -> None:
 
     config = default_long()
     assert config is not None, "config should be set by test setup"
-    assert hasattr(config, "model_dump")
+    assert hasattr(config, "dump")

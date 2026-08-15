@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from raghub.models import ErrorInfo, Pipeline, PipelineCtx, PipelineType
+from raghub.models import ErrorInfo, Pipeline, PipelineCtx
 from raghub.pipeline.pipeline_assembly import Flow, PipelineBuilder
 
 
@@ -11,8 +11,6 @@ def makemake_ctx() -> PipelineCtx:
 
     return PipelineCtx(
         pipeline_id="run-123",
-        pipeline_type=PipelineType.Ingest,
-        inputs={"source": "bytes://memory"},
     )
 
 

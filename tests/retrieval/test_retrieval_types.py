@@ -57,9 +57,10 @@ def test_original_weight_is_one_point_five() -> None:
 
 
 def test_rerank_protocol_has_rerank_and_arerank() -> None:
-    """``Rerank`` is a runtime-checkable protocol with rerank + arerank."""
+    """``Rerank`` is a registry; concrete implementations register by name."""
 
-    class StubRerank:
+    @Rerank.register("test_stub_rerank")
+    class StubRerank(Rerank):
         name = "stub"
 
         def rerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
@@ -68,35 +69,37 @@ def test_rerank_protocol_has_rerank_and_arerank() -> None:
         async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
             return list(hits)
 
-    instance = StubRerank()
-    assert isinstance(instance, Rerank)
-    assert instance.name == "stub"
+    resolved = Rerank.get("test_stub_rerank")
+    assert resolved is StubRerank
+    assert resolved.name == "stub"
 
 
 def test_rerank_protocol_does_not_require_arerank_to_be_async() -> None:
-    """A sync-only ``Rerank`` implementation still satisfies the protocol."""
+    """A sync-only ``Rerank`` implementation still registers."""
 
-    class SyncOnly:
+    @Rerank.register("test_sync_only")
+    class SyncOnly(Rerank):
         name = "sync"
 
         def rerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
             return list(hits)
 
         async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
-            # No-op: actual sync model. Just need the method to exist.
             return list(hits)
 
-    assert isinstance(SyncOnly(), Rerank)
+    assert Rerank.get("test_sync_only") is SyncOnly
 
 
 def test_transformer_protocol_has_transform() -> None:
-    """``Transformer`` is a runtime-checkable protocol with transform()."""
+    """``Transformer`` is a registry; concrete implementations register by name."""
 
-    class StubTransformer:
+    @Transformer.register("test_stub_transformer")
+    class StubTransformer(Transformer):
         name = "stub"
 
         async def transform(self, *, question: str, history: Sequence[Any]) -> list[Variant]:
             return [Variant(text=question, kind="original", weight=1.0)]
 
-    assert isinstance(StubTransformer(), Transformer)
-    assert StubTransformer().name == "stub"
+    resolved = Transformer.get("test_stub_transformer")
+    assert resolved is StubTransformer
+    assert resolved.name == "stub"
