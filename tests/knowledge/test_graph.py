@@ -1,4 +1,4 @@
-"""Tests for ``raghub.knowledge.graph`` (extract_json_object, tokenise, GraphIndex, connected_components)."""
+"""Tests for ``raghub.knowledge.graph`` (extract_json_object, tokenise, GraphIndex)."""
 
 from __future__ import annotations
 

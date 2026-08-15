@@ -65,7 +65,7 @@ def test_canonical_filters_returns_hashable_tuple(filters: dict) -> None:
     result = canonical_filters(filters)
     assert isinstance(result, tuple)
     # The result must be usable as a dict key.
-    {result: 1}
+    _ = {result: 1}
 
 
 # ---------------------------------------------------------------------------

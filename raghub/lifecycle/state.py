@@ -110,10 +110,7 @@ def new_version(previous: Document | None, **overrides: Any) -> Document:
 
     """
     version_number = 1 if previous is None else previous.version + 1
-    if previous is None:
-        baseline = Document()
-    else:
-        baseline = previous
+    baseline = Document() if previous is None else previous
     return baseline.copy(
         version=version_number,
         status=DocumentLifecycleStatus.New,

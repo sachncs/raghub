@@ -105,7 +105,7 @@ class IngestMixin:
             IngestionError: When ingestion cannot complete.
 
         """
-        if isinstance(source, (str, Path)):
+        if isinstance(source, str | Path):
             p = Path(source)
             if p.is_dir():
                 files = sorted(p for p in p.rglob("*") if p.is_file())
@@ -166,7 +166,7 @@ class IngestMixin:
             IngestionError: When ingestion cannot complete.
 
         """
-        if isinstance(source, (str, Path)):
+        if isinstance(source, str | Path):
             p = Path(source)
             if p.is_dir():
                 return await self.ingest_directory(p, options.get("metadata"), options.get("user"))
@@ -363,7 +363,7 @@ class IngestMixin:
                 )
         return result
 
-    def delete(self, document_id: str) -> None:  # ruff: ignore[too-many-branches] -- fans out to vector/knowledge/raptor/graph stores
+    def delete(self, document_id: str) -> None:  # noqa: PLR0912 - fans out to vector/knowledge/raptor/graph stores
         """Delete a document and all of its chunks.
 
         Accepts either a bundle id (the deterministic
@@ -435,7 +435,7 @@ class IngestMixin:
         source: str | Path | bytes, source_uri: str | None
     ) -> tuple[bytes, str]:
         """Return ``(file_bytes, uri)`` for an ingest source (path or bytes)."""
-        if isinstance(source, (str, Path)):
+        if isinstance(source, str | Path):
             p = Path(source)
             file_bytes = p.read_bytes()
             uri = str(p.resolve())

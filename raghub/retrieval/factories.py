@@ -47,7 +47,7 @@ class RerankerFactory:
         self.llm = llm
         self.cohere_api_key = cohere_api_key
 
-    def create(self, spec: str | None = None) -> Rerank:
+    def create(self, spec: str | None = None) -> Rerank:  # noqa: PLR0911 - factory fans out to every supported provider
         """Create the configured (or named) reranker."""
         cfg = self.settings.reranker
         provider = spec or cfg.provider

@@ -83,7 +83,7 @@ class Preference:
             metadata["requested_top_k"] = flags["top_k"]
         return response.copy(metadata=metadata)
 
-    async def query_advanced(  # ruff: ignore[too-many-arguments] -- one facade method fanning out query inputs
+    async def query_advanced(  # noqa: PLR0913 - one facade method fanning out query inputs
         self,
         *,
         token: str,

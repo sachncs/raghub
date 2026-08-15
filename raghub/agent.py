@@ -280,7 +280,7 @@ def coerce_tools(value: Any) -> set[str]:
     """Coerce a value to a validated set of tool names."""
     if value is None:
         return set()
-    if isinstance(value, (list, tuple, set, frozenset)):
+    if isinstance(value, list | tuple | set | frozenset):
         return {str(v) for v in value if isinstance(v, str) and v in ALLOWED_TOOLS}
     return set()
 
@@ -708,7 +708,7 @@ class Agent:
             )
         raise AgentBudgetError(f"agent exceeded step budget ({self.settings.max_steps})")
 
-    async def dispatch_action(  # ruff: ignore[too-many-arguments] -- six step-local values; grouping would couple it to build_state
+    async def dispatch_action(  # noqa: PLR0913 - six step-local values; grouping would couple it to build_state
         self,
         *,
         parsed: PlannerAction,

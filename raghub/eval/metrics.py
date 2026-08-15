@@ -509,7 +509,7 @@ class Metrics:
         g_raw = Scoring.first_number(gold)
         p_parsed, _ = capture(float, p_raw) if p_raw else (None, None)
         g_parsed, _ = capture(float, g_raw) if g_raw else (None, None)
-        if not isinstance(p_parsed, (int, float)) or not isinstance(g_parsed, (int, float)):
+        if not isinstance(p_parsed, int | float) or not isinstance(g_parsed, int | float):
             return 0.0
         p, g = p_parsed, g_parsed
         if g == 0:

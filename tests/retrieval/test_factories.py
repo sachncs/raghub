@@ -32,7 +32,7 @@ def makemake_settings_with_provider(provider: str) -> Settings:
     settings = makemake_settings()
     # RerankerConfig provider is Literal['none', 'cohere', 'llm', 'cascade']
     # For other strings we patch the field via copy.
-    if provider not in ("none", "cohere", "llm", "cascade"):
+    if provider not in {"none", "cohere", "llm", "cascade"}:
         return settings
     return settings.copy(reranker=settings.reranker.copy(provider=provider))
 

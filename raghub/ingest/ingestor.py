@@ -268,7 +268,7 @@ class Ingestor:
             tags=tags,
         )
 
-    async def handle_pipeline_result(  # ruff: ignore[too-many-arguments] -- mirrors record_from_pipeline keyword surface
+    async def handle_pipeline_result(  # noqa: PLR0913 - mirrors record_from_pipeline keyword surface
         self,
         *,
         result: Any,
@@ -296,7 +296,7 @@ class Ingestor:
             tags=tags,
         )
 
-    async def finalize_successful_record(  # ruff: ignore[too-many-arguments] -- mirrors record_from_pipeline keyword surface
+    async def finalize_successful_record(  # noqa: PLR0913 - mirrors record_from_pipeline keyword surface
         self,
         *,
         result: Any,
@@ -338,7 +338,7 @@ class Ingestor:
             return IngestionResult(document=previous, chunks=list(previous.chunks))
         return None
 
-    async def run_pipeline(  # ruff: ignore[too-many-arguments] -- mirrors record_from_pipeline keyword surface
+    async def run_pipeline(  # noqa: PLR0913 - mirrors record_from_pipeline keyword surface
         self,
         *,
         file_bytes: bytes,

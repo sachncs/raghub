@@ -37,6 +37,7 @@ class Variant(Snap):
     weight: float = field(default=1.0)
 
     def __post_init__(self) -> None:
+        """Reject variants with negative fusion weights."""
         if self.weight < 0.0:
             raise ValueError(f"Variant: weight must be non-negative (got {self.weight})")
 

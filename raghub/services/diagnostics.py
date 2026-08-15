@@ -85,7 +85,7 @@ def probe_embedder(embedder: object) -> dict[str, object]:
     if not callable(embed):
         return {"status": "unknown", "detail": "no embed_text() method"}
     vector = embed("health-check-probe")
-    if not isinstance(vector, (list, tuple)) or hasattr(vector, "__aiter__"):
+    if not isinstance(vector, list | tuple) or hasattr(vector, "__aiter__"):
         return {
             "status": "ok",
             "dimension": None,

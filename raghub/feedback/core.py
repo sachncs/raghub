@@ -203,6 +203,7 @@ class SqliteFeedbackStore:
     """SQLite-backed :class:`FeedbackStore` implementation."""
 
     def __init__(self, db_path: str) -> None:
+        """Open (and lazily initialise) the SQLite database at ``db_path``."""
         self.db_path = db_path
 
     def initialize(self) -> None:
@@ -318,6 +319,7 @@ class PgFeedbackStore:
     """Postgres-backed :class:`FeedbackStore` reusing the pgvector pool."""
 
     def __init__(self, dsn: str) -> None:
+        """Cache the Postgres DSN; connections open lazily on first use."""
         self.dsn = dsn
 
     async def initialize(self) -> None:
@@ -502,6 +504,7 @@ class NoOpFeedbackScorer(FeedbackScorer):
 
     @staticmethod
     def boost(chunk_id: str, base_score: float) -> float:
+        """Return ``base_score`` unchanged; the no-op scorer is identity."""
         return base_score
 
 
@@ -528,6 +531,7 @@ class Bm25BoostScorer(FeedbackScorer):
         alpha: float = 0.5,
         beta: float = 0.3,
     ) -> None:
+        """Cache the store and validate the ``alpha``/``beta`` weights."""
         if not 0 <= alpha <= 1:
             raise ConfigurationError("alpha must be in [0, 1]")
         if not 0 <= beta <= 1:
@@ -573,6 +577,7 @@ class Bm25BoostScorer(FeedbackScorer):
         positive: int,
         negative: int,
     ) -> float:
+        """Combine ``base_score`` with the cached positive/negative counts."""
         multiplier = 1.0
         if positive:
             multiplier *= 1.0 + self.alpha * math.log1p(positive)
@@ -601,6 +606,7 @@ class VectorDownWeightScorer(FeedbackScorer):
         *,
         negative_factor: float = 0.5,
     ) -> None:
+        """Cache the store and validate the ``negative_factor`` weight."""
         if not 0 <= negative_factor <= 1:
             raise ConfigurationError("negative_factor must be in [0, 1]")
         self.store = store

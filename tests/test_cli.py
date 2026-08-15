@@ -811,12 +811,6 @@ def test_tenant_list_create_delete_round_trip(tmp_path, monkeypatch) -> None:
     CliConfig.make_rag = lambda config: MagicMock(  # type: ignore[assignment]
         settings=Settings(data_dir=tmp_path)
     )
-    original_load = __import__(
-        "raghub.commands", fromlist=["load_registry_entries"]
-    ).load_registry_entries
-    original_save = __import__(
-        "raghub.commands", fromlist=["save_registry_entries"]
-    ).save_registry_entries
 
     def mock_load(settings):
         return dict(shared_registry.entries)
@@ -961,7 +955,7 @@ def test_backup_verify_succeeds_on_valid_archive(tmp_path) -> None:
     BackupCommand.register(app)
     runner = CliRunner()
 
-    with patch("raghub.archive.verify_archive") as mock_verify:
+    with patch("raghub.archive.verify_archive"):
         result = runner.invoke(app, ["backup", "verify", "--input", str(tmp_path / "good.tar.zst")])
     assert result.exit_code == 0, result.output
     assert "verified" in result.output

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import FrozenInstanceError
 from types import SimpleNamespace
+
+import pytest
 
 from raghub.pipeline.span_support import (
     DurationTimer,
@@ -147,7 +150,7 @@ def test_ingest_resolved_metadata_is_frozen() -> None:
         mime_type="text/plain",
         language="en",
     )
-    with pytest.raises(Exception):
+    with pytest.raises(FrozenInstanceError):
         metadata.document_id = "other"  # type: ignore[misc]
 
 
@@ -168,8 +171,5 @@ def test_query_context_is_frozen() -> None:
         scope=(False, (), ()),
     )
     assert ctx.question == "q"
-    with pytest.raises(Exception):
+    with pytest.raises(FrozenInstanceError):
         ctx.question = "other"  # type: ignore[misc]
-
-
-import pytest  # ruff: ignore[module-import-not-at-top-of-file]  (imported here for test ordering)

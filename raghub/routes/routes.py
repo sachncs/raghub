@@ -245,6 +245,8 @@ class HealthRoute:
         self.register_health()
 
     def register_health(self) -> None:
+        """Register ``GET /health`` returning the liveness probe response."""
+
         @self.router.get("/health")
         def handler(
             app_service: Annotated[Facade, Depends(App.get)],
@@ -259,6 +261,7 @@ class AuthRoute:
     router: APIRouter
 
     def __init__(self) -> None:
+        """Wire the auth router and register every auth/history endpoint."""
         self.router = APIRouter()
         self.register_login()
         self.register_logout()
@@ -266,6 +269,8 @@ class AuthRoute:
         self.register_clear_history()
 
     def register_login(self) -> None:
+        """Register ``POST /auth/login`` for credentials-based sign-in."""
+
         @self.router.post("/auth/login", response_model=AuthLoginResponse)
         async def handler(
             payload: AuthLoginRequest,
@@ -274,6 +279,8 @@ class AuthRoute:
             return await app_service.login(payload.email, payload.password)
 
     def register_logout(self) -> None:
+        """Register ``POST /auth/logout`` to invalidate the bearer token."""
+
         @self.router.post("/auth/logout")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
@@ -283,6 +290,8 @@ class AuthRoute:
             return {"status": "logged_out"}
 
     def register_session_history(self) -> None:
+        """Register ``GET /session/history`` returning the stored turns."""
+
         @self.router.get("/session/history")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
@@ -292,6 +301,8 @@ class AuthRoute:
             return {"history": [turn.dump(mode="json") for turn in history]}
 
     def register_clear_history(self) -> None:
+        """Register ``DELETE /session/history`` to drop the caller's turns."""
+
         @self.router.delete(
             "/session/history", status_code=HTTP_204_NO_CONTENT, response_class=Response
         )
@@ -309,6 +320,7 @@ class DocumentRoute:
     router: APIRouter
 
     def __init__(self) -> None:
+        """Wire the documents router and register every document endpoint."""
         self.router = APIRouter()
         self.register_upload()
         self.register_ingest_batch()
@@ -318,6 +330,8 @@ class DocumentRoute:
         self.register_ingest_async()
 
     def register_upload(self, *, enforce_limit: Any | None = None) -> None:
+        """Register ``POST /documents/upload`` for synchronous single uploads."""
+
         @self.router.post(
             "/documents/upload",
             status_code=HTTP_202_ACCEPTED,
@@ -350,6 +364,8 @@ class DocumentRoute:
             )
 
     def register_ingest_batch(self) -> None:
+        """Register ``POST /documents/ingest/batch`` for multi-file uploads."""
+
         @self.router.post(
             "/documents/ingest/batch",
             status_code=HTTP_200_OK,
@@ -406,6 +422,8 @@ class DocumentRoute:
             return BatchIngestResponse(documents=results)
 
     def register_list(self) -> None:
+        """Register ``GET /documents`` to list the caller's documents."""
+
         @self.router.get("/documents")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
@@ -415,6 +433,8 @@ class DocumentRoute:
             return {"documents": [document.dump(mode="json") for document in documents]}
 
     def register_status(self) -> None:
+        """Register ``GET /documents/{document_id}/status`` for a single doc."""
+
         @self.router.get("/documents/{document_id}/status")
         async def handler(
             document_id: str,
@@ -425,6 +445,8 @@ class DocumentRoute:
             return document.dump(mode="json")
 
     def register_delete(self) -> None:
+        """Register ``DELETE /documents/{document_id}`` for removal."""
+
         @self.router.delete(
             "/documents/{document_id}", status_code=HTTP_204_NO_CONTENT, response_class=Response
         )
@@ -437,6 +459,8 @@ class DocumentRoute:
             return Response(status_code=HTTP_204_NO_CONTENT)
 
     def register_ingest_async(self) -> None:
+        """Register ``POST /ingest/async`` for background ingestion jobs."""
+
         @self.router.post("/ingest/async")
         async def handler(
             request: Request,
@@ -467,12 +491,15 @@ class QueryRoute:
     router: APIRouter
 
     def __init__(self) -> None:
+        """Wire the query router and register query/stream/agent endpoints."""
         self.router = APIRouter()
         self.register_query()
         self.register_stream()
         self.register_agent_run()
 
     def register_query(self) -> None:
+        """Register ``POST /query`` (non-streaming, with optional flags)."""
+
         @self.router.post("/query", response_model=QueryResponse)
         async def handler(
             payload: QueryRequest,
@@ -497,6 +524,8 @@ class QueryRoute:
             )
 
     def register_stream(self) -> None:
+        """Register ``POST /query/stream`` returning SSE-encoded events."""
+
         @self.router.post("/query/stream")
         def handler(
             payload: QueryRequest,
@@ -531,6 +560,8 @@ class QueryRoute:
             return StreamingResponse(gen(), media_type="text/event-stream")
 
     def register_agent_run(self) -> None:
+        """Register ``POST /agent/run`` to run the agent with the given flags."""
+
         @self.router.post("/agent/run", response_model=QueryResponse)
         async def handler(
             payload: QueryRequest,
@@ -559,12 +590,15 @@ class AdminRoute:
     router: APIRouter
 
     def __init__(self) -> None:
+        """Wire the admin router (prefix=/admin, tag=admin)."""
         self.router = APIRouter(prefix="/admin", tags=["admin"])
         self.register_documents()
         self.register_users()
         self.register_stats()
 
     def register_documents(self) -> None:
+        """Register ``GET /admin/documents`` listing every document."""
+
         @self.router.get("/documents")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
@@ -574,6 +608,8 @@ class AdminRoute:
             return [doc.dump(mode="json") for doc in docs]
 
     def register_users(self) -> None:
+        """Register ``GET /admin/users`` listing redacted user records."""
+
         @self.router.get("/users")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
@@ -583,6 +619,8 @@ class AdminRoute:
             return [Redaction.user(user.dump(mode="json")) for user in users]
 
     def register_stats(self) -> None:
+        """Register ``GET /admin/stats`` returning aggregate counts."""
+
         @self.router.get("/stats")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
@@ -606,12 +644,15 @@ class PreferenceRoute:
     router: APIRouter
 
     def __init__(self) -> None:
+        """Wire the preferences router and register get/patch/delete."""
         self.router = APIRouter()
         self.register_get()
         self.register_patch()
         self.register_delete()
 
     def register_get(self) -> None:
+        """Register ``GET /users/me/preferences`` returning the user's prefs."""
+
         @self.router.get(
             "/users/me/preferences",
             response_model=PreferencesResponse,
@@ -626,6 +667,8 @@ class PreferenceRoute:
             return PreferencesResponse(prefs=prefs or {})
 
     def register_patch(self) -> None:
+        """Register ``PATCH /users/me/preferences`` to merge new keys."""
+
         @self.router.patch(
             "/users/me/preferences",
             response_model=PreferencesResponse,
@@ -642,6 +685,8 @@ class PreferenceRoute:
             return PreferencesResponse(prefs=prefs or {})
 
     def register_delete(self) -> None:
+        """Register ``DELETE /users/me/preferences/{key}`` to remove a key."""
+
         @self.router.delete(
             "/users/me/preferences/{key}",
             status_code=HTTP_204_NO_CONTENT,
@@ -669,6 +714,12 @@ class FeedbackRoute:
     router: APIRouter
 
     def __init__(self) -> None:
+        """Wire the feedback router and register every feedback endpoint.
+
+        Register aggregate BEFORE the ``{feedback_id}`` catch-all so the
+        ``/feedback/aggregate`` route is not treated as a lookup for an
+        id literally named ``"aggregate"``.
+        """
         self.router = APIRouter()
         # Register aggregate BEFORE the {feedback_id} catch-all so
         # ``/feedback/aggregate`` does not get treated as a lookup for
@@ -690,6 +741,8 @@ class FeedbackRoute:
         return store
 
     def register_submit(self) -> None:
+        """Register ``POST /feedback`` to record a new feedback entry."""
+
         @self.router.post(
             "/feedback",
             status_code=HTTP_201_CREATED,
@@ -727,6 +780,8 @@ class FeedbackRoute:
             return {"id": feedback.id}
 
     def register_get(self) -> None:
+        """Register ``GET /feedback/{feedback_id}`` to fetch one record."""
+
         @self.router.get("/feedback/{feedback_id}")
         async def handler(
             feedback_id: str,
@@ -741,6 +796,8 @@ class FeedbackRoute:
             return asdict(feedback)
 
     def register_delete(self) -> None:
+        """Register ``DELETE /feedback/{feedback_id}`` to remove one record."""
+
         @self.router.delete("/feedback/{feedback_id}", status_code=HTTP_204_NO_CONTENT)
         async def handler(
             feedback_id: str,
@@ -751,6 +808,8 @@ class FeedbackRoute:
             return Response(status_code=HTTP_204_NO_CONTENT)
 
     def register_aggregate(self) -> None:
+        """Register ``GET /feedback/aggregate`` returning per-tenant counts."""
+
         @self.router.get(
             "/feedback/aggregate",
             response_model=FeedbackAggregateResponse,

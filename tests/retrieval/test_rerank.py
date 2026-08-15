@@ -168,7 +168,7 @@ def test_cascade_runs_expensive_when_cheap_did_not_reorder() -> None:
             return [hits[2], hits[0], hits[1]]
 
     cascade = Cascade(cheap=cheap, expensive=ExpensiveRerank())
-    result = cascade.rerank(question="q", hits=hits)
+    _ = cascade.rerank(question="q", hits=hits)
     assert len(expensive_called) == 1
     assert expensive_called[0] == hits
 
