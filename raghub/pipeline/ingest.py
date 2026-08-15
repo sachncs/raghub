@@ -109,9 +109,11 @@ class Ingest:
                     resolved.language,
                     resolved.normalized_metadata,
                 )
-                bundle.bundle_id = bundle_id
-                bundle.checksum = checksum
-                bundle.metadata = {**bundle.metadata, **resolved.normalized_metadata}
+                bundle = bundle.copy(
+                    bundle_id=bundle_id,
+                    checksum=checksum,
+                    metadata={**bundle.metadata, **resolved.normalized_metadata},
+                )
 
                 chunks = self.chunk_documents(bundle, resolved)
                 vectors = self.embed_chunks(chunks)
@@ -227,13 +229,16 @@ class Ingest:
                 disable=not getattr(self, "show_progress", True),
                 unit="chunk",
             ):
-                chunk.document_id = resolved.document_id
-                chunk.version = resolved.version
-                chunk.company = resolved.tenant_company
-                chunk.owner = resolved.owner
-                chunk.classification = resolved.classification
-                chunk.tenant_id = tenant_id
-                chunks.append(chunk)
+                chunks.append(
+                    chunk.copy(
+                        document_id=resolved.document_id,
+                        version=resolved.version,
+                        company=resolved.tenant_company,
+                        owner=resolved.owner,
+                        classification=resolved.classification,
+                        tenant_id=tenant_id,
+                    )
+                )
         return chunks
 
     def embed_chunks(self, chunks: list[Chunk]) -> list[list[float]]:

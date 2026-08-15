@@ -216,7 +216,6 @@ class LiteLLM(Generator):
         downstream consumer manages to import this module without
         ``litellm`` installed.
         """
-        import litellm  # ruff: ignore[unused-import]  # presence check
 
     @staticmethod
     def build_messages(request: GenerationRequest) -> list[dict[str, Any]]:
@@ -378,6 +377,11 @@ class LiteLLM(Generator):
             return response
         if hasattr(response, "model_dump"):
             return dict(response.model_dump())
+        if hasattr(response, "dump"):
+            value = response.dump()
+            return (
+                dict(value) if isinstance(value, dict) else dict(value) if value is not None else {}
+            )
         return dict(response) if response is not None else {}
 
     async def astream(self, request: GenerationRequest) -> AsyncIterator[str]:
@@ -388,14 +392,14 @@ class LiteLLM(Generator):
         The streaming loop honours :pyattr:`timeout_seconds` with
         :func:`asyncio.timeout` so a slow LLM does not block indefinitely.
         """
-        options = self._build_stream_options(request)
+        options = self.build_stream_options(request)
         with LLMValueErrorBoundary("LiteLLM streaming failed"):
             response = await litellm.acompletion(**options)
-        async for content in self._consume_stream(response):
+        async for content in self.consume_stream(response):
             yield content
-        # After consumption, last_usage is set in _consume_stream.
+        # After consumption, last_usage is set in consume_stream.
 
-    async def _consume_stream(self, response: Any) -> AsyncIterator[str]:
+    async def consume_stream(self, response: Any) -> AsyncIterator[str]:
         """Yield content chunks while tracking token usage; set last_usage on exit."""
         prompt_tokens = 0
         completion_tokens = 0
@@ -407,10 +411,10 @@ class LiteLLM(Generator):
                         if isinstance(chunk, dict)
                         else getattr(chunk, "usage", None)
                     )
-                    prompt_tokens, completion_tokens = self._accumulate_usage(
+                    prompt_tokens, completion_tokens = self.accumulate_usage(
                         usage, prompt_tokens, completion_tokens
                     )
-                    content = self._extract_chunk_content(chunk)
+                    content = self.extract_chunk_content(chunk)
                     if content:
                         yield content
         except TimeoutError as exc:
@@ -424,7 +428,7 @@ class LiteLLM(Generator):
                 "model": self.model_name,
             }
 
-    def _build_stream_options(self, request: GenerationRequest) -> dict[str, Any]:
+    def build_stream_options(self, request: GenerationRequest) -> dict[str, Any]:
         """Build the LiteLLM completion options dict for streaming."""
         messages = self.build_messages(request)
         self.require_litellm()
@@ -443,7 +447,7 @@ class LiteLLM(Generator):
             options["timeout"] = self.timeout_seconds
         return options
 
-    async def _iter_stream_chunks(self, response: Any) -> AsyncIterator[str]:
+    async def iter_stream_chunks(self, response: Any) -> AsyncIterator[str]:
         """Yield content chunks while tracking token usage.
 
         Returns an async iterator of content deltas; the final token
@@ -465,10 +469,10 @@ class LiteLLM(Generator):
                         if isinstance(chunk, dict)
                         else getattr(chunk, "usage", None)
                     )
-                    prompt_tokens, completion_tokens = self._accumulate_usage(
+                    prompt_tokens, completion_tokens = self.accumulate_usage(
                         usage, prompt_tokens, completion_tokens
                     )
-                    content = self._extract_chunk_content(chunk)
+                    content = self.extract_chunk_content(chunk)
                     if content:
                         yield content
         except TimeoutError as exc:
@@ -477,9 +481,7 @@ class LiteLLM(Generator):
             ) from exc
 
     @staticmethod
-    def _accumulate_usage(
-        usage: Any, prompt_tokens: int, completion_tokens: int
-    ) -> tuple[int, int]:
+    def accumulate_usage(usage: Any, prompt_tokens: int, completion_tokens: int) -> tuple[int, int]:
         """Update running usage counters from a chunk's ``usage`` field."""
         if not usage:
             return prompt_tokens, completion_tokens
@@ -494,7 +496,7 @@ class LiteLLM(Generator):
         )
 
     @staticmethod
-    def _extract_chunk_content(chunk: Any) -> str | None:
+    def extract_chunk_content(chunk: Any) -> str | None:
         """Return the assistant text delta from one LiteLLM streaming chunk."""
         if not isinstance(chunk, dict):
             return None

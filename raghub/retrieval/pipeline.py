@@ -6,7 +6,7 @@ hybrid fusion, variant expansion, and a final reranker pass.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from raghub.core import allowed_company_filter
 from raghub.embedder import Embedder

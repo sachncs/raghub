@@ -35,7 +35,6 @@ from raghub.models import (
 from raghub.response import ResponseBuilder
 
 if TYPE_CHECKING:
-    from raghub.conv import ConversationStore
     from raghub.pipeline import AgentPipeline, QueryPipeline
 
 
@@ -328,6 +327,8 @@ class QueryMixin:
             async for event in self.fallback_planner_events(question, session_id, user):
                 yield event
             return
+        from raghub.pipeline.span_support import PipelineMeta
+
         context = PipelineCtx(
             pipeline_name="query_agent",
             meta=PipelineMeta(
@@ -436,7 +437,7 @@ class QueryMixin:
             return result
 
         return asyncio.run(
-            self._arun_evaluation(
+            self.arun_evaluation(
                 evaluator=evaluator,
                 examples=examples,
                 response_factory=coerce_answer,
@@ -444,7 +445,7 @@ class QueryMixin:
         )
 
     @staticmethod
-    async def _arun_evaluation(
+    async def arun_evaluation(
         *,
         evaluator: Any,
         examples: Sequence[dict[str, Any]] | None,

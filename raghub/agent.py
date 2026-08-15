@@ -26,12 +26,10 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Any, Literal, cast
 
-from pydantic import BaseModel, Field
-
 from raghub.config import AgentConfig, Settings
 from raghub.errors import AgentBudgetError, GenerationError, ToolError
 from raghub.llm import GenerationRequest, Generator
-from raghub.models import Chunk, Hit, Turn, User
+from raghub.models import Chunk, Hit, Snap, Turn, User
 from raghub.runtime import capture
 from raghub.telemetry import NoOpTelemetry
 from raghub.tools import (
@@ -63,7 +61,8 @@ __all__ = [
 PlannerEventKind = Literal["thought", "tool_call", "tool_result", "answer_chunk", "final"]
 
 
-class PlannerEvent(BaseModel):
+@dataclass(slots=True, frozen=True)
+class PlannerEvent(Snap):
     """One step emitted by the agent loop.
 
     Attributes:
@@ -74,9 +73,9 @@ class PlannerEvent(BaseModel):
 
     """
 
-    kind: PlannerEventKind
+    kind: PlannerEventKind = "thought"
     step: int = 0
-    payload: dict[str, Any] = Field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -393,7 +392,11 @@ def resolve_tools(
 def resolve_reranker_choice(layers: tuple[dict, ...], settings: Settings) -> str:
     """Return the effective reranker choice (request > settings default)."""
     requested = pick_value(layers, "reranker")
-    return coerce_reranker(requested if requested is not None else settings.reranker.provider)
+    if requested is None:
+        return coerce_reranker(settings.reranker.provider)
+    if isinstance(requested, str):
+        return coerce_reranker(requested)
+    return coerce_reranker(requested.get("provider", settings.reranker.provider))
 
 
 def resolve_long_context_flag(layers: tuple[dict, ...], settings: Settings) -> bool:

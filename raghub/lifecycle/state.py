@@ -58,14 +58,17 @@ class Lifecycle:
             self.machine = DocumentStateMachine()
 
     def transition(self, document: Document, status: DocumentLifecycleStatus) -> Document:
-        """Update ``document.status`` to ``status`` if the transition is legal.
+        """Return a new :class:`Document` whose ``status`` is ``status``.
+
+        The input document is not mutated. Callers that held a
+        reference should keep the returned instance instead.
 
         Args:
-            document: The :class:`Document` to update.
+            document: The :class:`Document` to transition.
             status: The target lifecycle status.
 
         Returns:
-            The same ``document`` instance, mutated in place.
+            A new :class:`Document` with ``status`` updated.
 
         Raises:
             ValueError: If the transition is not in the state machine's
@@ -75,8 +78,7 @@ class Lifecycle:
         """
         if not self.machine.can_transition(document.status, status) and status != document.status:
             raise ValueError(f"Illegal transition from {document.status} to {status}")
-        document.status = status
-        return document
+        return document.copy(status=status)
 
 
 # ---------------------------------------------------------------------------
@@ -108,15 +110,16 @@ def new_version(previous: Document | None, **overrides: Any) -> Document:
 
     """
     version_number = 1 if previous is None else previous.version + 1
-    payload = previous.model_dump() if previous else {}
-    payload.update(overrides)
-    payload["version"] = version_number
-    payload["status"] = DocumentLifecycleStatus.New
-    payload["updated_at"] = datetime_now_utc()
-    if previous is not None:
-        payload.setdefault("document_id", previous.id)
-        payload.setdefault("created_at", previous.created_at)
-    return Document.model_validate(payload)
+    if previous is None:
+        baseline = Document()
+    else:
+        baseline = previous
+    return baseline.copy(
+        version=version_number,
+        status=DocumentLifecycleStatus.New,
+        updated_at=datetime_now_utc(),
+        **overrides,
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -29,15 +29,12 @@ from __future__ import annotations
 
 import asyncio
 import time
-
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from pydantic import BaseModel, Field
-
 from raghub.constants import RRF_K
 from raghub.errors import ConfigurationError
-from raghub.models import User
+from raghub.models import Snap, User
 from raghub.registry import Registry
 from raghub.stores import Store
 from raghub.types import JSONValue
@@ -51,7 +48,8 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-class ToolResult(BaseModel):
+@dataclass(slots=True, frozen=True)
+class ToolResult(Snap):
     """Structured result returned by a :class:`Tool`.
 
     Attributes:
@@ -66,7 +64,7 @@ class ToolResult(BaseModel):
 
     ok: bool = True
     content: str = ""
-    data: dict[str, Any] = Field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     latency_ms: float = 0.0
     source_url: str | None = None
@@ -438,9 +436,7 @@ class HybridSearch(Tool):
             return ToolResult(content="(no hits)")
         return self.build_fused_tool_result(id_to_hit, fused)
 
-    def fetch_sparse_results(
-        self, text: str, kwargs: dict[str, Any]
-    ) -> list[dict[str, Any]]:
+    def fetch_sparse_results(self, text: str, kwargs: dict[str, Any]) -> list[dict[str, Any]]:
         """Return keyword-search hits if the vector store supports it."""
         keyword_search = getattr(self.vector_store, "keyword_search", None)
         if not callable(keyword_search):
@@ -465,9 +461,7 @@ class HybridSearch(Tool):
         )
 
     @staticmethod
-    def merge_into_hit_map(
-        dense: list[Any], sparse_raw: list[dict[str, Any]]
-    ) -> dict[str, Any]:
+    def merge_into_hit_map(dense: list[Any], sparse_raw: list[dict[str, Any]]) -> dict[str, Any]:
         """Build a chunk-id -> hit dict, deduplicating across dense/sparse."""
         id_to_hit: dict[str, Any] = {h.chunk.id: h for h in dense}
         for search_record in sparse_raw:

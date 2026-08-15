@@ -31,7 +31,7 @@ import uvicorn
 import yaml
 
 from raghub.api import App
-from raghub.config import Settings
+from raghub.config import Settings, settings_field_names
 from raghub.constants import (
     DEFAULT_CHUNK_OVERLAP_WORDS,
     DEFAULT_CHUNK_SIZE_WORDS,
@@ -75,7 +75,7 @@ class CliConfig:
             data = tomllib.loads(Path(path).read_text(encoding="utf-8")) or {}
         else:
             data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
-        return Settings(**{k: v for k, v in data.items() if k in Settings.model_fields})
+        return Settings(**{k: v for k, v in data.items() if k in settings_field_names()})
 
     @staticmethod
     def make_rag(config: str | None) -> Any:
@@ -253,10 +253,10 @@ class IngestCommand:
             batch = result.outputs.get("batch") if result.outputs else None
             if isinstance(batch, list) and batch:
                 payload: dict[str, Any] | list[dict[str, Any]] = [
-                    r.model_dump(mode="json") for r in batch
+                    r.dump(mode="json") for r in batch
                 ]
             else:
-                payload = result.model_dump(mode="json")
+                payload = result.dump(mode="json")
             if json_output:
                 CliConfig.write_json(payload)
                 return
@@ -332,8 +332,8 @@ class QueryCommand:
                 CliConfig.write_json(
                     {
                         "answer": response.answer,
-                        "citations": [c.model_dump() for c in response.citations],
-                        "source_chunks": [s.model_dump() for s in response.source_chunks],
+                        "citations": [c.dump() for c in response.citations],
+                        "source_chunks": [s.dump() for s in response.source_chunks],
                         "metadata": response.metadata,
                     }
                 )

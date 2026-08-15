@@ -61,9 +61,7 @@ class ChunkRepository(Registry):
         """Return the chunk with ``chunk_id`` or ``None``."""
         raise NotImplementedError
 
-    async def list_by_document(
-        self, document_id: str, version: int | None = None
-    ) -> list[Chunk]:
+    async def list_by_document(self, document_id: str, version: int | None = None) -> list[Chunk]:
         """Return every chunk for ``document_id`` (optionally at ``version``)."""
         raise NotImplementedError
 
@@ -79,9 +77,7 @@ class ChunkRepository(Registry):
         """Remove every chunk for ``document_id``."""
         raise NotImplementedError
 
-    async def search_by_metadata(
-        self, filters: dict[str, Any], *, limit: int = 100
-    ) -> list[Chunk]:
+    async def search_by_metadata(self, filters: dict[str, Any], *, limit: int = 100) -> list[Chunk]:
         """Return chunks whose metadata matches ``filters``."""
         raise NotImplementedError
 

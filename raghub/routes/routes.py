@@ -19,6 +19,7 @@ The :class:`RouteGroup` composes the focused route classes
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
 from typing import Annotated, Any
 
 from fastapi import (
@@ -34,7 +35,6 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from loguru import logger
-from pydantic import BaseModel, Field
 
 from raghub.auth import (
     App,
@@ -68,6 +68,7 @@ from raghub.models import (
     DocumentUploadResponse,
     QueryRequest,
     QueryResponse,
+    Snap,
     User,
 )
 from raghub.response import Redaction
@@ -177,7 +178,8 @@ class Exceptions:
 # ---------------------------------------------------------------------------
 
 
-class PreferencesResponse(BaseModel):
+@dataclass(slots=True, frozen=True)
+class PreferencesResponse(Snap):
     """Preferences for the authenticated user.
 
     Attributes:
@@ -187,10 +189,11 @@ class PreferencesResponse(BaseModel):
 
     """
 
-    prefs: dict[str, Any] = Field(default_factory=dict)
+    prefs: dict[str, Any] = field(default_factory=dict)
 
 
-class PreferencesPatch(BaseModel):
+@dataclass(slots=True, frozen=True)
+class PreferencesPatch(Snap):
     """Preferences update payload.
 
     Attributes:
@@ -199,29 +202,31 @@ class PreferencesPatch(BaseModel):
 
     """
 
-    prefs: dict[str, Any] = Field(default_factory=dict)
+    prefs: dict[str, Any] = field(default_factory=dict)
 
 
-class FeedbackSubmission(BaseModel):
+@dataclass(slots=True, frozen=True)
+class FeedbackSubmission(Snap):
     """Inbound feedback payload."""
 
-    session_id: str
-    query_id: str
+    session_id: str = ""
+    query_id: str = ""
     chunk_id: str | None = None
     answer_id: str | None = None
-    rating: int  # -1, 0, or 1
+    rating: int = 0
     comment: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class FeedbackAggregateResponse(BaseModel):
+@dataclass(slots=True, frozen=True)
+class FeedbackAggregateResponse(Snap):
     """Aggregate counts response."""
 
-    tenant_id: str | None
-    positive: int
-    negative: int
-    neutral: int
-    by_chunk: dict[str, int]
+    tenant_id: str | None = None
+    positive: int = 0
+    negative: int = 0
+    neutral: int = 0
+    by_chunk: dict[str, int] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -284,7 +289,7 @@ class AuthRoute:
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, list[dict[str, Any]]]:
             history = await app_service.history(token)
-            return {"history": [turn.model_dump(mode="json") for turn in history]}
+            return {"history": [turn.dump(mode="json") for turn in history]}
 
     def register_clear_history(self) -> None:
         @self.router.delete(
@@ -407,7 +412,7 @@ class DocumentRoute:
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, list[dict[str, Any]]]:
             documents = await app_service.list_documents(token)
-            return {"documents": [document.model_dump(mode="json") for document in documents]}
+            return {"documents": [document.dump(mode="json") for document in documents]}
 
     def register_status(self) -> None:
         @self.router.get("/documents/{document_id}/status")
@@ -417,7 +422,7 @@ class DocumentRoute:
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, Any]:
             document = await app_service.document_status(token, document_id)
-            return document.model_dump(mode="json")
+            return document.dump(mode="json")
 
     def register_delete(self) -> None:
         @self.router.delete(
@@ -521,7 +526,7 @@ class QueryRoute:
                     query_transforms=payload.query_transforms,
                     max_steps=payload.max_steps,
                 ):
-                    yield Sse.format(event.kind, event.model_dump(mode="json"))
+                    yield Sse.format(event.kind, event.dump(mode="json"))
 
             return StreamingResponse(gen(), media_type="text/event-stream")
 
@@ -566,7 +571,7 @@ class AdminRoute:
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> list[dict[str, Any]]:
             docs = await app_service.list_all_documents()
-            return [doc.model_dump(mode="json") for doc in docs]
+            return [doc.dump(mode="json") for doc in docs]
 
     def register_users(self) -> None:
         @self.router.get("/users")
@@ -575,7 +580,7 @@ class AdminRoute:
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> list[dict[str, Any]]:
             users = await app_service.list_all_users()
-            return [Redaction.user(user.model_dump(mode="json")) for user in users]
+            return [Redaction.user(user.dump(mode="json")) for user in users]
 
     def register_stats(self) -> None:
         @self.router.get("/stats")
@@ -694,7 +699,7 @@ class FeedbackRoute:
             token: Annotated[str, Depends(Bearer.dependency)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, str]:
-            from raghub.feedback import Feedback, Rating, new_id, now_utc
+            from raghub.feedback import Feedback, FeedbackStore, Rating
             from raghub.tenants import current
 
             store = self.feedback_store(app_service)
@@ -706,7 +711,7 @@ class FeedbackRoute:
                 else getattr(user, "tenant_id", None) or "default"
             )
             feedback = Feedback(
-                id=new_id(),
+                id=FeedbackStore.new_id(),
                 session_id=payload.session_id,
                 query_id=payload.query_id,
                 chunk_id=payload.chunk_id,
@@ -715,7 +720,7 @@ class FeedbackRoute:
                 tenant_id=tenant_id,
                 rating=Rating(payload.rating),
                 comment=payload.comment,
-                created_at=now_utc(),
+                created_at=FeedbackStore.now_utc(),
                 metadata=payload.metadata,
             )
             await store.record(feedback)

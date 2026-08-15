@@ -125,7 +125,7 @@ async def build_auth_components(
 
     user_store = SqliteUsers(settings.data_dir / "users.db")
     await user_store.initialize()
-    jwt_secret = settings.jwt_secret.get_secret_value()
+    jwt_secret = settings.jwt_secret.value
     if not jwt_secret:
         raise RuntimeError("JWT_SECRET must be configured")
     authorization = Authz(user_store)

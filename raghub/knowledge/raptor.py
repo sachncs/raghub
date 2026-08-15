@@ -33,6 +33,21 @@ class KnowledgeIndex(Registry):
     Concrete indexes (RAPTOR, GraphRAG, …) register themselves via
     ``@KnowledgeIndex.register``; use :meth:`KnowledgeIndex.get` for
     by-name dispatch.
+
+    Subclasses should override :meth:`health` to return a structured
+    ``dict`` summarising their internal state. The default returns
+    only the registered ``name``.
+    """
+
+    def health(self) -> dict[str, Any]:
+        """Return the default health snapshot (``{"name": <registered name>}``)."""
+        return {"name": getattr(self, "name", self.__class__.__name__.lower())}
+
+    """Polymorphic base for structured-retrieval overlays.
+
+    Concrete indexes (RAPTOR, GraphRAG, …) register themselves via
+    ``@KnowledgeIndex.register``; use :meth:`KnowledgeIndex.get` for
+    by-name dispatch.
     """
 
     name: str = "knowledge_index"

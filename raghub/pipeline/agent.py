@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, cast
 
-from pydantic import ConfigDict
-
 from raghub.agent import Agent, AgentRequest
 from raghub.embedder import Embedder
 from raghub.models import (
@@ -25,8 +23,6 @@ class AgentPipeline:
     """Query pipeline powered by the ReAct agent."""
 
     name = "query_agent"
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __init__(
         self,
@@ -124,13 +120,11 @@ class AgentPipeline:
                     structured=None,
                     history=list(history),
                     transforms_applied=[],
-                    planner_trace=[event.model_dump(mode="json") for event in trace.events],
+                    planner_trace=[event.dump(mode="json") for event in trace.events],
                     tools_invoked=list(trace.tools_invoked),
                     agent_trace=trace.to_dict(),
                     extra={
-                        "resolved_config": context.meta.resolved_config
-                        if context.meta
-                        else None,
+                        "resolved_config": context.meta.resolved_config if context.meta else None,
                     },
                 ),
             )

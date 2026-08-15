@@ -88,7 +88,7 @@ def record_from_pipeline(
     document_id = resolve_document_id(result, chunks)
     return Document(
         id=document_id,
-        version=int(result.outputs.get("version") or 1),
+        version=int(result.get("version") or 1),
         checksum=checksum,
         owner=owner.email,
         organization=organization,
@@ -106,20 +106,25 @@ def record_from_pipeline(
 @staticmethod
 def extract_chunks(result: Pipeline) -> list[Chunk]:
     """Pull Chunk instances (or dicts) out of the Pipeline output."""
-    raw = result.outputs.get("chunks") or []
+    raw = result.get("chunks") or []
     if raw and isinstance(raw[0], dict):
-        return [Chunk.model_validate(c) for c in raw]
+        return [Chunk.validate(c) for c in raw]
     return list(raw)
 
 
 @staticmethod
-def resolve_document_id(result: Pipeline, chunks: list) -> str:
-    """Compute the document_id, threading it onto chunks that lack one."""
-    bundle = result.outputs.get("bundle")
-    document_id = str(result.outputs.get("document_id") or getattr(bundle, "bundle_id", "") or "")
-    for chunk in chunks:
+def resolve_document_id(result: Pipeline, chunks: list[Chunk]) -> str:
+    """Compute the document_id, threading it onto chunks that lack one.
+
+    Returns:
+        The document_id applied to the chunks.
+
+    """
+    bundle = result.get("bundle")
+    document_id = str(result.get("document_id") or getattr(bundle, "bundle_id", "") or "")
+    for index, chunk in enumerate(chunks):
         if not chunk.document_id:
-            chunk.document_id = document_id
+            chunks[index] = chunk.copy(document_id=document_id)
     return document_id
 
 
@@ -371,6 +376,9 @@ class Ingestor:
         if previous is None:
             return
         error_message = (result.error.message if result.error else None) or "ingestion failed"
-        previous.status = DocumentLifecycleStatus.Failed
-        previous.error = error_message if isinstance(error_message, str) else error_message.message
-        await self.uow.document_repo.save(previous)
+        normalised = error_message if isinstance(error_message, str) else error_message.message
+        updated = previous.copy(
+            status=DocumentLifecycleStatus.Failed,
+            error=normalised,
+        )
+        await self.uow.document_repo.save(updated)

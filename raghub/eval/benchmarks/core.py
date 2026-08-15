@@ -83,9 +83,7 @@ def extract_prediction(out: Any, example: dict[str, Any], idx: int) -> tuple:
     """Unpack the factory's response into ``(predicted, contexts, retrieved_ids, relevant_ids)``."""
     contexts: list[str] | None = None
     retrieved_ids: list[str] | None = None
-    relevant_ids: list[str] = list(example.get("relevant_ids", [])) or [
-        str(example.get("id", idx))
-    ]
+    relevant_ids: list[str] = list(example.get("relevant_ids", [])) or [str(example.get("id", idx))]
     if isinstance(out, tuple) and len(out) == GENERATION_TUPLE_ARITY:
         predicted, contexts, retrieved_ids, relevant_ids = out
     else:

@@ -47,9 +47,7 @@ class Preference:
         )
 
     @staticmethod
-    def resolve_flags(
-        user: User, flags: dict[str, Any], container: RagContainer
-    ) -> ResolvedConfig:
+    def resolve_flags(user: User, flags: dict[str, Any], container: RagContainer) -> ResolvedConfig:
         """Resolve per-request, session, and user-prefs into a single :class:`ResolvedConfig`."""
         prefs = dict(getattr(user, "tool_settings", None) or {})
         return resolve(
@@ -79,11 +77,11 @@ class Preference:
     ) -> QueryResponse:
         """Run a basic RAG query without the agent loop, attaching resolved config metadata."""
         response = await self.facade.query(token=token, question=question)
-        response.metadata = dict(response.metadata or {})
-        response.metadata["resolved_config"] = resolved.to_dict()
+        metadata = dict(response.metadata or {})
+        metadata["resolved_config"] = resolved.to_dict()
         if flags.get("top_k") is not None:
-            response.metadata["requested_top_k"] = flags["top_k"]
-        return response
+            metadata["requested_top_k"] = flags["top_k"]
+        return response.copy(metadata=metadata)
 
     async def query_advanced(  # ruff: ignore[too-many-arguments] -- one facade method fanning out query inputs
         self,
@@ -118,7 +116,7 @@ class Preference:
         return QueryResponse(
             answer=canonical.answer,
             citations=canonical.citations,
-            source_chunks=[chunk.model_dump(mode="json") for chunk in canonical.source_chunks],
+            source_chunks=[chunk.dump(mode="json") for chunk in canonical.source_chunks],
             planner_trace=canonical.metadata.get("planner_trace"),
             tools_invoked=canonical.metadata.get("tools_invoked") or [],
             transforms_applied=canonical.transforms_applied,

@@ -42,11 +42,10 @@ class Chunker(Registry):
         """Split a :class:`Bundle` into chunks."""
         raise NotImplementedError
 
-    def chunk_text(
-        self, text: str, *, document_id: str, version: int = 1
-    ) -> list[Chunk]:
+    def chunk_text(self, text: str, *, document_id: str, version: int = 1) -> list[Chunk]:
         """Split raw text into chunks."""
         raise NotImplementedError
+
 
 chonkie, OptionalImportError = capture(__import__, "chonkie")
 CHONKIE_AVAILABLE = OptionalImportError is None

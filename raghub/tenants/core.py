@@ -59,8 +59,7 @@ def validate_tenant(tenant_id: str) -> None:
     """
     if not tenant_id or not TENANT_ID_PATTERN.match(tenant_id):
         raise ValueError(
-            f"invalid tenant id {tenant_id!r}; "
-            "must match ^[a-z][a-z0-9_-]{{2,63}}$"
+            f"invalid tenant id {tenant_id!r}; " "must match ^[a-z][a-z0-9_-]{{2,63}}$"
         )
 
 
