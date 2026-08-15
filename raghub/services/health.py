@@ -87,8 +87,7 @@ class Health:
             )
         components["registry"] = ComponentHealth(status="ok")
         probe_dicts = {
-            name: {"status": comp.status, **comp.extra}
-            for name, comp in components.items()
+            name: {"status": comp.status, **comp.extra} for name, comp in components.items()
         }
         return HealthReport(
             status=aggregate_status(probe_dicts),

@@ -23,7 +23,6 @@ from raghub.config import Settings
 from raghub.errors import IngestionError, RagHubError
 from raghub.knowledge import Manifest, sha256_bytes
 from raghub.models import Pipeline, deterministic_id
-from raghub.types import JSONValue
 
 
 class SyncMixin:
@@ -80,12 +79,12 @@ class SyncMixin:
             "removed": [],
         }
 
-        self._walk_files(directory, seen, summary, metadata, user, show_progress)
-        self._retire_orphans(directory, seen, summary)
+        self.walk_files(directory, seen, summary, metadata, user, show_progress)
+        self.retire_orphans(directory, seen, summary)
         self.manifest.save()
         return summary
 
-    def _walk_files(  # ruff: ignore[too-many-arguments, too-many-positional-arguments] -- private walker threading per-file state
+    def walk_files(
         self,
         directory: Path,
         seen: set[str],
@@ -100,7 +99,7 @@ class SyncMixin:
         for child in iterator:
             self.sync_one(child, metadata, user, seen, summary)
 
-    def _retire_orphans(
+    def retire_orphans(
         self,
         directory: Path,
         seen: set[str],

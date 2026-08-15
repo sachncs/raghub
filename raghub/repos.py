@@ -127,7 +127,7 @@ class ChunkStore(ChunkRepository):
             self.store.upsert(records, embeddings)
             return
         chunk = chunk_or_records
-        embedding = embeddings if isinstance(embeddings, list) else self._embedding_for(chunk)
+        embedding = embeddings if isinstance(embeddings, list) else self.embedding_for(chunk)
         self.store.upsert([chunk], [embedding])
 
     async def get(self, chunk_id: str) -> Chunk | None:  # ruff: ignore[no-self-use]
@@ -163,7 +163,7 @@ class ChunkStore(ChunkRepository):
         return []
 
     @staticmethod
-    def _embedding_for(chunk: Chunk) -> list[float]:
+    def embedding_for(chunk: Chunk) -> list[float]:
         """Extract a numeric embedding from ``chunk.metadata['vector']``."""
         vector = (chunk.metadata or {}).get("vector") or []
         return [float(x) for x in vector]
@@ -492,9 +492,15 @@ class DocStore(DocumentRepository):
         data["tags"] = json.loads(data.get("tags", "[]"))
         data["chunks"] = json.loads(data.get("chunk_ids", "[]"))
         # The SQL column is ``document_id``; the model field is ``id``.
-        # Bridge the gap so pydantic does not fall back to a fresh UUID.
+        # Accept a handful of legacy aliases (``document_id``, ``chunk_ids``)
+        # so row payloads written by older revisions round-trip cleanly
+        # without forcing a migration column rename.
         if "document_id" in data and "id" not in data:
             data["id"] = data["document_id"]
+        if "chunk_ids" in data and "chunks" not in data:
+            data["chunks"] = data["chunk_ids"]
+        data.pop("document_id", None)
+        data.pop("chunk_ids", None)
         return Document(**data)
 
 
@@ -564,7 +570,7 @@ class SessionStore(SessionRepository):
                 record.created_at.isoformat(),
                 record.expires_at.isoformat(),
                 record.last_seen_at.isoformat(),
-                json.dumps([t.model_dump(mode="json") for t in record.history]),
+                json.dumps([t.dump(mode="json") for t in record.history]),
                 json.dumps(record.overrides or {}),
             ),
         )

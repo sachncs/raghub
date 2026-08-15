@@ -170,7 +170,13 @@ def build_reranker_by_name(method: str) -> Rerank:
         from raghub.llm import LiteLLM
 
         return cast(Rerank, Context(LiteLLM(), default_long()))
-    return cast(Rerank, Rerank.get(method)())
+    try:
+        cls = Rerank.get(method)
+    except ValueError as exc:
+        raise RerankerError(
+            f"Unknown reranker method: {method!r}; known: {Rerank.names()}"
+        ) from exc
+    return cast(Rerank, cls())
 
 
 def build_transformer(method: str, llm: Generator) -> Transformer:

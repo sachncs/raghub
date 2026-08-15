@@ -26,6 +26,7 @@ from raghub.constants import (
 from raghub.embedder import Embedder, FeatureHashingEmbedder
 from raghub.errors import ConfigurationError, MissingDepError
 from raghub.ingest import build_chonkie_chunker
+
 # The Chunker and DocumentConverter Protocols were deleted from raghub.models.
 # Type hints in this module use Any until Phase 2 introduces concrete base classes.
 from raghub.stores import MemoryStore
@@ -307,7 +308,7 @@ def ingest_one_worker(
     from raghub.config import Settings
 
     settings_dict = json.loads(Path(settings_path).read_text(encoding="utf-8"))
-    settings = Settings.model_validate(settings_dict)
+    settings = Settings.validate(settings_dict)
     # Each worker re-uses the process-pool's environment for the LLM
     # creds. The vector store is local to the worker (an in-memory
     # list) — the parent process owns the merged, durable index.

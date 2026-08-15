@@ -5,6 +5,7 @@ Individual command classes are split into submodules:
   (Ingest, Init, Query, Server, Queue, Migrate, Tenant, Backup)
 - raghub.commands.feedback - FeedbackCommand
 """
+
 from raghub.commands.cli_config import (
     BackupCommand,
     CliConfig,

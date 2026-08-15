@@ -12,8 +12,6 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
-from pydantic import ConfigDict
-
 from raghub.conv import Memory
 from raghub.models import (
     Citation,
@@ -46,8 +44,6 @@ class QueryPipeline:
     """Embed → retrieve → rerank → generate pipeline."""
 
     name: str = "query"
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __init__(
         self,
@@ -193,9 +189,7 @@ class QueryPipeline:
                 history=list(ctx.history),
                 transforms_applied=list(transforms_applied),
                 extra={
-                    "resolved_config": context.meta.resolved_config
-                    if context.meta
-                    else None,
+                    "resolved_config": context.meta.resolved_config if context.meta else None,
                 },
             ),
         )

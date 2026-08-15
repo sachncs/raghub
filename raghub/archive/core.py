@@ -154,7 +154,6 @@ class ArchiveStore(Registry):
 
 @ArchiveStore.register("local")
 class LocalArchiveStore(ArchiveStore):
-
     name = "local"
     """Stores archives on the local filesystem."""
 
@@ -375,8 +374,7 @@ def restore_snapshot(
     manifest_dict = json.loads(manifest_bytes.decode("utf-8"))
     if int(manifest_dict["format_version"]) != MANIFEST_FORMAT_VERSION:
         raise ArchiveCorruptionError(
-            f"unsupported archive format_version: "
-            f"{manifest_dict['format_version']!r}"
+            f"unsupported archive format_version: " f"{manifest_dict['format_version']!r}"
         )
     manifest = ArchiveManifest(
         format_version=int(manifest_dict["format_version"]),
@@ -441,14 +439,10 @@ def extract_member(tar_bytes: bytes, member_path: str) -> bytes:
             if member.name != member_path:
                 continue
             if member.name.startswith("/") or ".." in member.name.split("/"):
-                raise ArchiveCorruptionError(
-                    f"path traversal detected in archive: {member.name!r}"
-                )
+                raise ArchiveCorruptionError(f"path traversal detected in archive: {member.name!r}")
             extracted = tar.extractfile(member)
             if extracted is None:
-                raise ArchiveCorruptionError(
-                    f"member {member.name!r} is not a regular file"
-                )
+                raise ArchiveCorruptionError(f"member {member.name!r} is not a regular file")
             return extracted.read()
     raise ArchiveCorruptionError(f"member not found: {member_path!r}")
 
@@ -501,8 +495,7 @@ def verify_archive(archive_path: str | Path) -> None:
     manifest_dict = json.loads(manifest_bytes.decode("utf-8"))
     if int(manifest_dict["format_version"]) != MANIFEST_FORMAT_VERSION:
         raise ArchiveCorruptionError(
-            f"unsupported archive format_version: "
-            f"{manifest_dict['format_version']!r}"
+            f"unsupported archive format_version: " f"{manifest_dict['format_version']!r}"
         )
     manifest = ArchiveManifest(
         format_version=int(manifest_dict["format_version"]),
@@ -551,7 +544,4 @@ def collect_with_vacuum(
     """VACUUM every SQLite file under ``data_dir`` then read its bytes."""
     for path in sqlite_paths:
         vacuum_sqlite(path)
-    return {
-        str(path.relative_to(data_dir)): path.read_bytes()
-        for path in data_dir.rglob("*.db")
-    }
+    return {str(path.relative_to(data_dir)): path.read_bytes() for path in data_dir.rglob("*.db")}

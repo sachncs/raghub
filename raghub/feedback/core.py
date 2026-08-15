@@ -156,9 +156,7 @@ class FeedbackStore:
         """Return every feedback record for the chunk."""
         raise NotImplementedError
 
-    async def list_for_tenant(
-        self, tenant_id: str, limit: int = 1000
-    ) -> list[Feedback]:
+    async def list_for_tenant(self, tenant_id: str, limit: int = 1000) -> list[Feedback]:
         """Return every feedback record for the tenant (capped at ``limit``)."""
         raise NotImplementedError
 
@@ -255,8 +253,7 @@ class SqliteFeedbackStore:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                "SELECT * FROM raghub_feedback WHERE session_id = ? "
-                "ORDER BY created_at DESC",
+                "SELECT * FROM raghub_feedback WHERE session_id = ? " "ORDER BY created_at DESC",
                 (session_id,),
             ).fetchall()
         return [FeedbackStore.as_feedback(r) for r in rows]
@@ -266,15 +263,12 @@ class SqliteFeedbackStore:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                "SELECT * FROM raghub_feedback WHERE chunk_id = ? "
-                "ORDER BY created_at DESC",
+                "SELECT * FROM raghub_feedback WHERE chunk_id = ? " "ORDER BY created_at DESC",
                 (chunk_id,),
             ).fetchall()
         return [FeedbackStore.as_feedback(r) for r in rows]
 
-    async def list_for_tenant(
-        self, tenant_id: str, limit: int = 1000
-    ) -> list[Feedback]:
+    async def list_for_tenant(self, tenant_id: str, limit: int = 1000) -> list[Feedback]:
         """Return every feedback record for the tenant (capped at ``limit``)."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -288,9 +282,7 @@ class SqliteFeedbackStore:
     async def delete(self, feedback_id: str) -> None:
         """Delete one feedback record by id."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                "DELETE FROM raghub_feedback WHERE id = ?", (feedback_id,)
-            )
+            conn.execute("DELETE FROM raghub_feedback WHERE id = ?", (feedback_id,))
             conn.commit()
 
     async def aggregate(self, tenant_id: str | None = None) -> FeedbackAggregate:
@@ -333,9 +325,7 @@ class PgFeedbackStore:
         try:
             import asyncpg
         except ImportError as exc:
-            raise MissingDepError(
-                "asyncpg", "pip install raghub[pgvector]"
-            ) from exc
+            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute(SCHEMA_SQL)
@@ -347,9 +337,7 @@ class PgFeedbackStore:
         try:
             import asyncpg
         except ImportError as exc:
-            raise MissingDepError(
-                "asyncpg", "pip install raghub[pgvector]"
-            ) from exc
+            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         redacted_comment = FeedbackStore.redact_comment(feedback.comment)
         conn = await asyncpg.connect(self.dsn)
         try:
@@ -378,14 +366,10 @@ class PgFeedbackStore:
         try:
             import asyncpg
         except ImportError as exc:
-            raise MissingDepError(
-                "asyncpg", "pip install raghub[pgvector]"
-            ) from exc
+            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
-            row = await conn.fetchrow(
-                "SELECT * FROM raghub_feedback WHERE id = $1", feedback_id
-            )
+            row = await conn.fetchrow("SELECT * FROM raghub_feedback WHERE id = $1", feedback_id)
         finally:
             await conn.close()
         return FeedbackStore.as_feedback(row) if row else None
@@ -395,14 +379,11 @@ class PgFeedbackStore:
         try:
             import asyncpg
         except ImportError as exc:
-            raise MissingDepError(
-                "asyncpg", "pip install raghub[pgvector]"
-            ) from exc
+            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             rows = await conn.fetch(
-                "SELECT * FROM raghub_feedback WHERE session_id = $1 "
-                "ORDER BY created_at DESC",
+                "SELECT * FROM raghub_feedback WHERE session_id = $1 " "ORDER BY created_at DESC",
                 session_id,
             )
         finally:
@@ -414,30 +395,23 @@ class PgFeedbackStore:
         try:
             import asyncpg
         except ImportError as exc:
-            raise MissingDepError(
-                "asyncpg", "pip install raghub[pgvector]"
-            ) from exc
+            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             rows = await conn.fetch(
-                "SELECT * FROM raghub_feedback WHERE chunk_id = $1 "
-                "ORDER BY created_at DESC",
+                "SELECT * FROM raghub_feedback WHERE chunk_id = $1 " "ORDER BY created_at DESC",
                 chunk_id,
             )
         finally:
             await conn.close()
         return [FeedbackStore.as_feedback(r) for r in rows]
 
-    async def list_for_tenant(
-        self, tenant_id: str, limit: int = 1000
-    ) -> list[Feedback]:
+    async def list_for_tenant(self, tenant_id: str, limit: int = 1000) -> list[Feedback]:
         """Return every feedback record for the tenant (capped at ``limit``)."""
         try:
             import asyncpg
         except ImportError as exc:
-            raise MissingDepError(
-                "asyncpg", "pip install raghub[pgvector]"
-            ) from exc
+            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             rows = await conn.fetch(
@@ -455,14 +429,10 @@ class PgFeedbackStore:
         try:
             import asyncpg
         except ImportError as exc:
-            raise MissingDepError(
-                "asyncpg", "pip install raghub[pgvector]"
-            ) from exc
+            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
-            await conn.execute(
-                "DELETE FROM raghub_feedback WHERE id = $1", feedback_id
-            )
+            await conn.execute("DELETE FROM raghub_feedback WHERE id = $1", feedback_id)
         finally:
             await conn.close()
 
@@ -471,9 +441,7 @@ class PgFeedbackStore:
         try:
             import asyncpg
         except ImportError as exc:
-            raise MissingDepError(
-                "asyncpg", "pip install raghub[pgvector]"
-            ) from exc
+            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             params: tuple[Any, ...] = ()
@@ -576,24 +544,16 @@ class Bm25BoostScorer(FeedbackScorer):
         counts: dict[str, tuple[int, int]] = {}
         for chunk_id in aggregate.by_chunk:
             chunk_feedback = await self.store.list_for_chunk(chunk_id)
-            positive = sum(
-                1 for f in chunk_feedback if int(f.rating) == int(Rating.Positive)
-            )
-            negative = sum(
-                1 for f in chunk_feedback if int(f.rating) == int(Rating.Negative)
-            )
+            positive = sum(1 for f in chunk_feedback if int(f.rating) == int(Rating.Positive))
+            negative = sum(1 for f in chunk_feedback if int(f.rating) == int(Rating.Negative))
             counts[chunk_id] = (positive, negative)
         self.counts = counts
 
     async def boost_async(self, chunk_id: str, base_score: float) -> float:
         """Live boost that always reads the feedback store."""
         chunk_feedback = await self.store.list_for_chunk(chunk_id)
-        positive = sum(
-            1 for f in chunk_feedback if int(f.rating) == int(Rating.Positive)
-        )
-        negative = sum(
-            1 for f in chunk_feedback if int(f.rating) == int(Rating.Negative)
-        )
+        positive = sum(1 for f in chunk_feedback if int(f.rating) == int(Rating.Positive))
+        negative = sum(1 for f in chunk_feedback if int(f.rating) == int(Rating.Negative))
         return self.apply(chunk_id, base_score, positive, negative)
 
     def boost(self, chunk_id: str, base_score: float) -> float:
@@ -654,9 +614,7 @@ class VectorDownWeightScorer(FeedbackScorer):
         result: dict[str, bool] = {}
         for chunk_id in aggregate.by_chunk:
             chunk_feedback = await self.store.list_for_chunk(chunk_id)
-            result[chunk_id] = any(
-                int(f.rating) == int(Rating.Negative) for f in chunk_feedback
-            )
+            result[chunk_id] = any(int(f.rating) == int(Rating.Negative) for f in chunk_feedback)
         self.has_negative = result
 
     def boost(self, chunk_id: str, base_score: float) -> float:
@@ -672,9 +630,7 @@ class VectorDownWeightScorer(FeedbackScorer):
     async def boost_async(self, chunk_id: str, base_score: float) -> float:
         """Live boost that always reads the feedback store."""
         chunk_feedback = await self.store.list_for_chunk(chunk_id)
-        has_negative = any(
-            int(f.rating) == int(Rating.Negative) for f in chunk_feedback
-        )
+        has_negative = any(int(f.rating) == int(Rating.Negative) for f in chunk_feedback)
         return base_score * self.negative_factor if has_negative else base_score
 
 

@@ -49,7 +49,7 @@ class Query:
         return QueryResponse(
             answer=answer,
             citations=[self.citation(c) for c in chunks],
-            source_chunks=[c.model_dump(mode="json") for c in chunks],
+            source_chunks=[c.dump(mode="json") for c in chunks],
         )
 
     async def resolve_user(self, token: str) -> tuple[Any, list]:

@@ -52,11 +52,12 @@ from typing import Any, cast
 import yaml
 
 from raghub.agent import Agent, build_tools
-from raghub.config import Settings
+from raghub.config import Settings, settings_field_names
 from raghub.conv import Memory
 from raghub.errors import RagHubError
 from raghub.gen import DefaultGenerator
 from raghub.knowledge import GraphIndex, Manifest, MemoryRepo, Raptor
+
 # RagComponents (TypedDict) and the DocumentConverter / KnowledgeRepository
 # Protocols were deleted from raghub.models. The facade uses `Any` for now
 # and will be tightened in Phase 2 (registry-based polymorphism).
@@ -490,7 +491,7 @@ class RAG(  # ruff: ignore[too-many-public-methods] -- facade aggregating mixin 
         else:
             payload = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
 
-        settings = Settings(**{k: v for k, v in payload.items() if k in Settings.model_fields})
+        settings = Settings(**{k: v for k, v in payload.items() if k in settings_field_names()})
         settings.ensure_dirs()
         return cls(settings=settings)
 

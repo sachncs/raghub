@@ -15,11 +15,9 @@ import time
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, cast
 
-from pydantic import SecretStr
-
 from raghub.constants import ENV_COHERE_API_KEY
 from raghub.errors import RerankerError
-from raghub.models import Hit
+from raghub.models import Hit, Secret
 from raghub.retrieval.types import Rerank
 from raghub.telemetry import record_rerank_latency
 
@@ -57,11 +55,11 @@ class Cohere(Rerank):
 
     def __init__(
         self,
-        api_key: str | SecretStr | None = None,
+        api_key: str | Secret | None = None,
         *,
         model: str = "rerank-english-v3.0",
         top_k: int = 20,
-        client: "cohere.Client | None" = None,
+        client: cohere.Client | None = None,
     ) -> None:
         """Initialise the reranker.
 
@@ -81,17 +79,17 @@ class Cohere(Rerank):
             if not env:
                 raise RerankerError("Cohere requires COHERE_API_KEY or an explicit api_key")
             resolved = env
-        self.api_key = resolved if isinstance(resolved, SecretStr) else SecretStr(resolved)
+        self.api_key = resolved if isinstance(resolved, Secret) else Secret(resolved)
         self.model = model
         self.top_k = top_k
         self.client = client
 
-    def ensure_client(self) -> "cohere.Client":
+    def ensure_client(self) -> cohere.Client:
         """Return the underlying :class:`cohere.Client`."""
         if self.client is None:
             import cohere
 
-            self.client = cohere.Client(api_key=self.api_key.get_secret_value())
+            self.client = cohere.Client(api_key=self.api_key.value)
         return self.client
 
     def rerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:

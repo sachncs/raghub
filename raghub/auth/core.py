@@ -33,7 +33,7 @@ class App:
     """
 
     @staticmethod
-    def get(request: Request) -> "Facade":
+    def get(request: Request) -> Facade:
         """Return the application facade stored on ``app.state.application``."""
         from raghub.services.facade import Facade
 
@@ -81,7 +81,7 @@ class Auth:
     @staticmethod
     async def admin(
         authorization: Annotated[str | None, Header(default=None)],
-        application_facade: Annotated["Facade", Depends(App.get)],
+        application_facade: Annotated[Facade, Depends(App.get)],
     ) -> User:
         """Resolve the bearer token and require an admin principal.
 
@@ -104,7 +104,7 @@ class Auth:
         return user
 
     @staticmethod
-    async def user_id(application_facade: "Facade", token: str) -> str:
+    async def user_id(application_facade: Facade, token: str) -> str:
         """Resolve ``token`` to its user id via the auth service.
 
         Args:

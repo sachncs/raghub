@@ -119,7 +119,7 @@ class JsonSessions:
             self.sessions = {}
             return
         for token, raw in payload.get("sessions", {}).items():
-            self.sessions[token] = Session.model_validate(raw)
+            self.sessions[token] = Session.validate(raw)
 
     def save(self) -> None:
         """Atomically persist the in-memory sessions map to disk."""
@@ -127,8 +127,7 @@ class JsonSessions:
             self.path,
             {
                 "sessions": {
-                    token: session.model_dump(mode="json")
-                    for token, session in self.sessions.items()
+                    token: session.dump(mode="json") for token, session in self.sessions.items()
                 }
             },
         )
@@ -160,8 +159,8 @@ class JsonSessions:
                 self.sessions.pop(token, None)
                 self.save()
                 return None
-            session.last_seen_at = now
-            session.expires_at = now + self.timeout
+            session = session.copy(last_seen_at=now, expires_at=now + self.timeout)
+            self.sessions[token] = session
             self.save()
             return session
 
@@ -298,7 +297,7 @@ class Sessions:
                 session.created_at.isoformat(),
                 session.expires_at.isoformat(),
                 session.last_seen_at.isoformat(),
-                json.dumps([t.model_dump(mode="json") for t in session.history]),
+                json.dumps([t.dump(mode="json") for t in session.history]),
                 serialize_overrides(session.overrides),
             ),
         )
@@ -364,8 +363,7 @@ class Sessions:
             )
             await self.maybe_commit_close(conn)
             return None
-        session.last_seen_at = now
-        session.expires_at = now + self.timeout
+        session = session.copy(last_seen_at=now, expires_at=now + self.timeout)
         await conn.execute(
             """
             UPDATE sessions
@@ -375,7 +373,7 @@ class Sessions:
             (
                 session.last_seen_at.isoformat(),
                 session.expires_at.isoformat(),
-                json.dumps([t.model_dump(mode="json") for t in session.history]),
+                json.dumps([t.dump(mode="json") for t in session.history]),
                 serialize_overrides(session.overrides),
                 session.token,
             ),
@@ -400,7 +398,7 @@ class Sessions:
                 session.created_at.isoformat(),
                 session.expires_at.isoformat(),
                 session.last_seen_at.isoformat(),
-                json.dumps([t.model_dump(mode="json") for t in session.history]),
+                json.dumps([t.dump(mode="json") for t in session.history]),
                 serialize_overrides(session.overrides),
                 session.id,
             ),
@@ -454,7 +452,7 @@ class Sessions:
             await self.maybe_commit_close(conn)
             return
         history = json.loads(row["history"])
-        history.append(turn.model_dump(mode="json"))
+        history.append(turn.dump(mode="json"))
         await conn.execute(
             "UPDATE sessions SET history = ? WHERE session_id = ?",
             (json.dumps(history), session_id),
@@ -472,7 +470,7 @@ class Sessions:
         if row is None:
             return []
         history = json.loads(row["history"])
-        return [Turn.model_validate(t) for t in history]
+        return [Turn.validate(t) for t in history]
 
     # ------------------------------------------------------------------
     # SessionStore protocol aliases
@@ -500,13 +498,16 @@ class Sessions:
         overrides_raw = row["overrides"] if "overrides" in row_keys else "{}"
         history = json.loads(history_raw) if history_raw else []
         overrides = json.loads(overrides_raw) if overrides_raw else {}
+        created = row["created_at"]
+        expires = row["expires_at"]
+        seen = row["last_seen_at"]
         return Session(
             id=row["session_id"],
             user_id=row["user_id"],
             token=row["token"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-            expires_at=datetime.fromisoformat(row["expires_at"]),
-            last_seen_at=datetime.fromisoformat(row["last_seen_at"]),
-            history=[Turn.model_validate(t) for t in history],
+            created_at=datetime.fromisoformat(created) if isinstance(created, str) else created,
+            expires_at=datetime.fromisoformat(expires) if isinstance(expires, str) else expires,
+            last_seen_at=datetime.fromisoformat(seen) if isinstance(seen, str) else seen,
+            history=[Turn.validate(t) for t in history],
             overrides=overrides if isinstance(overrides, dict) else {},
         )

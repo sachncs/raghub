@@ -13,14 +13,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
-from raghub.models import Hit, Turn
+from raghub.models import Hit, Snap, Turn
 from raghub.registry import Registry
 
 VariantKind = Literal["original", "hyde", "multi_query", "step_back", "sub"]
 
 
 @dataclass(slots=True, frozen=True)
-class Variant:
+class Variant(Snap):
     """A single rephrased question ready for retrieval.
 
     Attributes:
@@ -28,12 +28,17 @@ class Variant:
         kind: Discriminator string for telemetry.
         weight: Multiplier applied when the variant's hits are fused.
             ``1.5`` biases retrieval toward the user's literal wording.
+            Must be non-negative.
 
     """
 
     text: str
     kind: VariantKind = "original"
     weight: float = field(default=1.0)
+
+    def __post_init__(self) -> None:
+        if self.weight < 0.0:
+            raise ValueError(f"Variant: weight must be non-negative (got {self.weight})")
 
 
 class Rerank(Registry):

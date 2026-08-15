@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from raghub.models import Pipeline
@@ -53,7 +53,7 @@ class CacheKey:
         session_id: str | None = None,
         history: Sequence[Any] = (),
         scope: Any = None,
-    ) -> "CacheKey":
+    ) -> CacheKey:
         """Build a :class:`CacheKey` from the query context."""
         model_key = (
             ""
@@ -69,9 +69,7 @@ class CacheKey:
                 turn.get("question", "")
                 if isinstance(turn, dict)
                 else getattr(turn, "question", ""),
-                turn.get("answer", "")
-                if isinstance(turn, dict)
-                else getattr(turn, "answer", ""),
+                turn.get("answer", "") if isinstance(turn, dict) else getattr(turn, "answer", ""),
             )
             for turn in history
         )

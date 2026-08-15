@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -29,9 +30,7 @@ try:
 except ImportError:
     raise MissingDepError("aiosqlite", "pip install raghub[auth]") from None
 
-from pydantic import BaseModel, Field
-
-from raghub.models import AuthLoginResponse, Turn, User
+from raghub.models import AuthLoginResponse, Snap, Turn, User
 
 if TYPE_CHECKING:
     from raghub.services.container import RagContainer
@@ -43,8 +42,9 @@ __all__ = [
 ]
 
 
-class UserRecord(BaseModel):
-    """Pydantic model representing a single user.
+@dataclass(slots=True, frozen=True)
+class UserRecord(Snap):
+    """Single user record.
 
     Attributes:
         user_id: Stable UUID; primary key.
@@ -59,13 +59,13 @@ class UserRecord(BaseModel):
 
     """
 
-    user_id: str = Field(default_factory=lambda: str(uuid4()))
-    email: str
-    password_hash: str
-    allowed_companies: list[str] = Field(default_factory=list)
-    allowed_groups: list[str] = Field(default_factory=list)
+    user_id: str = field(default_factory=lambda: str(uuid4()))
+    email: str = ""
+    password_hash: str = ""
+    allowed_companies: list[str] = field(default_factory=list)
+    allowed_groups: list[str] = field(default_factory=list)
     is_admin: bool = False
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class SqliteUsers:
@@ -257,7 +257,7 @@ class SqliteUsers:
         data["allowed_groups"] = json.loads(data.get("allowed_groups", "[]"))
         data["is_admin"] = bool(data["is_admin"])
         data["created_at"] = datetime.fromisoformat(data["created_at"])
-        return UserRecord.model_validate(data)
+        return UserRecord.validate(data)
 
     async def get_prefs(self, user_id: str) -> dict[str, Any]:
         """Return every stored preference for ``user_id`` as a dict.

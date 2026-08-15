@@ -85,8 +85,23 @@ class DurationTimer(AbstractContextManager["DurationTimer"]):
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        """Record the elapsed milliseconds on ``context.meta``."""
-        self.context.meta.duration_ms = (time.perf_counter() - self.start) * 1000.0
+        """Record the elapsed milliseconds on ``context.meta`` (or a dict).
+
+        When ``context.meta`` is present (production), the elapsed
+        time is stored as ``meta.duration_ms`` and surfaced through
+        the :attr:`PipelineCtx.metadata` dictionary view. When
+        ``context`` only exposes a ``metadata`` ``dict`` (tests
+        using a :class:`types.SimpleNamespace`), the elapsed time
+        is written into that dict directly.
+        """
+        elapsed_ms = (time.perf_counter() - self.start) * 1000.0
+        meta = getattr(self.context, "meta", None)
+        if meta is not None:
+            meta.duration_ms = elapsed_ms
+            return
+        metadata = getattr(self.context, "metadata", None)
+        if isinstance(metadata, dict):
+            metadata["duration_ms"] = elapsed_ms
 
 
 def canonical_filters(filters: dict[str, Any] | str | None) -> tuple[tuple[str, Any], ...]:

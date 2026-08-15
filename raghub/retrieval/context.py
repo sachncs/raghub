@@ -88,7 +88,7 @@ class Context(Rerank):
                 return list(hits)
             from raghub.models import RankedList
 
-            ranked = RankedList.model_validate(parsed)
+            ranked = RankedList.validate(parsed)
             reordered = reorder_candidates(candidates, ranked)
             if reordered is None:
                 record_latency("bad_json", time.perf_counter() - started)

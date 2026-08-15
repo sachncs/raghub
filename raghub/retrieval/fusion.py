@@ -71,10 +71,13 @@ class LinearFusion(Fusion):
         linear_scores: dict[str, float] = {}
         records_linear: dict[str, dict[str, Any]] = {}
         for ranking in lists:
-            maximum = max(
-                (float(scored_record.get("score", 0)) for scored_record in ranking),
-                default=0.0,
-            ) or 1.0
+            maximum = (
+                max(
+                    (float(scored_record.get("score", 0)) for scored_record in ranking),
+                    default=0.0,
+                )
+                or 1.0
+            )
             for scored_record in ranking:
                 key = scored_record["chunk_id"]
                 if not isinstance(key, str):
@@ -118,7 +121,7 @@ def linear_combine(
     *,
     weights: Mapping[str, float] | None = None,
 ) -> list[tuple[str, float]]:
-    """Combine max-normalised channel scores.
+    """Combine max-normalised, per-channel-weighted scores.
 
     Args:
         channel_scores: ``{channel_name: {chunk_id: score}}`` mapping.
@@ -126,11 +129,12 @@ def linear_combine(
             max normalisation.
 
     Returns:
-        A list of ``(chunk_id, fused_score)`` tuples sorted by descending score.
+        A list of ``(chunk_id, fused_score)`` tuples sorted by
+        descending score.
 
     """
-    rows: list[list[dict[str, Any]]] = []
     weight_map = dict(weights or {})
+    fused_scores: dict[str, float] = {}
     for channel_name, channel in channel_scores.items():
         if not channel:
             continue
@@ -138,14 +142,11 @@ def linear_combine(
         if max_score <= 0:
             max_score = 1.0
         weight = weight_map.get(channel_name, 1.0)
-        rows.append(
-            [
-                {"chunk_id": cid, "score": float(raw) / max_score * weight}
-                for cid, raw in channel.items()
-            ]
-        )
-    fused = LinearFusion().fuse(rows)
-    return [(row["chunk_id"], float(row["score"])) for row in fused]
+        for chunk_id, raw in channel.items():
+            fused_scores[chunk_id] = fused_scores.get(chunk_id, 0.0) + (
+                float(raw) / max_score * weight
+            )
+    return sorted(fused_scores.items(), key=lambda pair: pair[1], reverse=True)
 
 
 def merge_rrf(per_window: list[list[Hit]], rrf_k: int = 60) -> list[Hit]:

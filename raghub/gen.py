@@ -23,8 +23,6 @@ import os
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from typing import Any, TypeVar, cast
 
-from pydantic import BaseModel
-
 from raghub.constants import ENV_RAG_LLM_TIMEOUT_SECONDS
 from raghub.errors import MissingDepError
 from raghub.llm import GenerationRequest, Generator
@@ -33,7 +31,7 @@ from raghub.models import (
     Turn,
 )
 
-T = TypeVar("T", bound=BaseModel)
+T = TypeVar("T")
 
 __all__ = [
     "DefaultGenerator",

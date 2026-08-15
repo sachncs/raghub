@@ -47,9 +47,7 @@ class JobStatus(StrEnum):
 # Allowed transitions per the state machine in todo/v0.7.4.
 _VALID_TRANSITIONS: dict[JobStatus, frozenset[JobStatus]] = {
     JobStatus.Pending: frozenset({JobStatus.Running, JobStatus.Dead}),
-    JobStatus.Running: frozenset(
-        {JobStatus.Succeeded, JobStatus.Failed, JobStatus.Dead}
-    ),
+    JobStatus.Running: frozenset({JobStatus.Succeeded, JobStatus.Failed, JobStatus.Dead}),
     JobStatus.Failed: frozenset({JobStatus.Pending}),
     JobStatus.Succeeded: frozenset(),
     JobStatus.Dead: frozenset(),
@@ -89,9 +87,7 @@ class Job:
 
         """
         if not self.can_transition(target):
-            raise JobStateError(
-                f"Job {self.id}: illegal transition {self.status} -> {target}"
-            )
+            raise JobStateError(f"Job {self.id}: illegal transition {self.status} -> {target}")
         return Job(
             id=self.id,
             kind=self.kind,
@@ -226,8 +222,7 @@ class SqliteQueue(PersistentQueue):
     async def count(conn: Any) -> int:
         """Count pending/running jobs on ``conn``."""
         cursor = await conn.execute(
-            "SELECT COUNT(*) FROM raghub_queue "
-            "WHERE status IN (?, ?)",
+            "SELECT COUNT(*) FROM raghub_queue " "WHERE status IN (?, ?)",
             (JobStatus.Pending.value, JobStatus.Running.value),
         )
         row = await cursor.fetchone()
@@ -249,9 +244,7 @@ class SqliteQueue(PersistentQueue):
         async with self.connect() as conn:
             current = await self.count(conn)
             if current >= self.max_inflight:
-                raise QueueSaturatedError(
-                    f"queue saturated: {current} pending/running jobs"
-                )
+                raise QueueSaturatedError(f"queue saturated: {current} pending/running jobs")
             await conn.execute(
                 "INSERT INTO raghub_queue "
                 "(id, kind, payload, status, attempts, max_attempts, "
@@ -324,22 +317,16 @@ class SqliteQueue(PersistentQueue):
         now = datetime.now(UTC)
         async with self.connect() as conn:
             conn.row_factory = aiosqlite.Row
-            cursor = await conn.execute(
-                "SELECT * FROM raghub_queue WHERE id = ?", (job_id,)
-            )
+            cursor = await conn.execute("SELECT * FROM raghub_queue WHERE id = ?", (job_id,))
             row = await cursor.fetchone()
             if row is None:
                 return
             attempts = int(row["attempts"]) + 1
             max_attempts = int(row["max_attempts"])
             next_status = (
-                JobStatus.Dead.value
-                if attempts >= max_attempts
-                else JobStatus.Pending.value
+                JobStatus.Dead.value if attempts >= max_attempts else JobStatus.Pending.value
             )
-            backoff = 0 if next_status == JobStatus.Dead.value else int(
-                2 ** (attempts - 1)
-            )
+            backoff = 0 if next_status == JobStatus.Dead.value else int(2 ** (attempts - 1))
             await conn.execute(
                 "UPDATE raghub_queue SET status = ?, attempts = ?, "
                 "last_error = ?, next_run_at = ?, "
@@ -351,10 +338,7 @@ class SqliteQueue(PersistentQueue):
                     (
                         now
                         if next_status == JobStatus.Dead.value
-                        else (
-                            datetime.now(UTC)
-                            + timedelta(seconds=backoff)
-                        ).isoformat()
+                        else (datetime.now(UTC) + timedelta(seconds=backoff)).isoformat()
                     ),
                     now,
                     job_id,
@@ -374,9 +358,7 @@ class SqliteQueue(PersistentQueue):
 
     async def retry(self, job_id: str, delay_seconds: int = 0) -> None:
         """Move ``job_id`` back to ``pending`` with the given delay."""
-        next_run_at = (
-            datetime.now(UTC) + timedelta(seconds=delay_seconds)
-        ).isoformat()
+        next_run_at = (datetime.now(UTC) + timedelta(seconds=delay_seconds)).isoformat()
         now = datetime.now(UTC).isoformat()
         async with self.connect() as conn:
             await conn.execute(
@@ -452,8 +434,7 @@ class SqliteQueue(PersistentQueue):
         async with self.connect() as conn:
             conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
-                f"SELECT * FROM raghub_queue {where} "
-                "ORDER BY created_at DESC LIMIT ?",
+                f"SELECT * FROM raghub_queue {where} " "ORDER BY created_at DESC LIMIT ?",
                 tuple(params),
             )
             rows = await cursor.fetchall()
@@ -463,9 +444,7 @@ class SqliteQueue(PersistentQueue):
         """Return counts per status."""
         counts: dict[str, int] = {s.value: 0 for s in JobStatus}
         async with self.connect() as conn:
-            cursor = await conn.execute(
-                "SELECT status, COUNT(*) FROM raghub_queue GROUP BY status"
-            )
+            cursor = await conn.execute("SELECT status, COUNT(*) FROM raghub_queue GROUP BY status")
             rows = await cursor.fetchall()
         for status, count in rows:
             counts[status] = int(count)
@@ -531,9 +510,7 @@ class Worker:
                 await asyncio.sleep(0.5)
                 continue
             try:
-                result = await asyncio.wait_for(
-                    self.handler(job), timeout=self.max_wall_seconds
-                )
+                result = await asyncio.wait_for(self.handler(job), timeout=self.max_wall_seconds)
             except Exception as exc:
                 await self.queue.nack(job.id, repr(exc))
                 continue

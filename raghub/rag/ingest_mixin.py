@@ -44,6 +44,34 @@ if TYPE_CHECKING:
     from raghub.pipeline import Ingest as IngestPipeline
 
 
+def run_sync(coro: Any) -> Any:
+    """Drive ``coro`` to completion from a sync context.
+
+    When called outside a running event loop, the coroutine is
+    executed via :func:`asyncio.run`. When called from a context that
+    already has a loop (such as a thread spawned by the asyncio
+    default executor), a fresh loop is created in the current thread
+    via :func:`asyncio.new_event_loop` so the coroutine still runs to
+    completion without disturbing the outer loop.
+
+    Args:
+        coro: The coroutine to execute.
+
+    Returns:
+        The result of ``coro``.
+
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
 class IngestMixin:
     """Mixin providing synchronous, async, and background ingestion."""
 
@@ -102,17 +130,9 @@ class IngestMixin:
         if not file_bytes:
             raise IngestionError(f"ingest({source!r}) received empty bytes; nothing to index.")
 
-        def _run_sync(coro: Any) -> Any:
-            """Drive ``coro`` via asyncio.run when no event loop is running."""
-            try:
-                asyncio.get_running_loop()
-            except RuntimeError:
-                return asyncio.run(coro)
-            return coro
-
         result = cast(
             Pipeline,
-            _run_sync(
+            run_sync(
                 self.ingest_one(
                     file_bytes,
                     uri,
@@ -288,7 +308,7 @@ class IngestMixin:
         path = Path(tempfile.mkstemp(prefix="rag-settings-", suffix=".json")[1])
         path.write_text(
             json.dumps(
-                self.settings.model_dump(mode="json"),
+                self.settings.dump(mode="json"),
                 default=str,
             ),
             encoding="utf-8",
@@ -470,14 +490,7 @@ class IngestMixin:
                 tenant_id=tenant_id,
             )
 
-        try:
-            asyncio.get_running_loop()
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                return ex.submit(lambda: asyncio.run(submit())).result()
-        except RuntimeError:
-            return asyncio.run(submit())
+        return run_sync(submit())
 
     def submit_to_resumable(
         self,

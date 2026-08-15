@@ -78,9 +78,7 @@ class File(Registry):
     :class:`Catalog` looks them up by MIME type and extension.
     """
 
-    def parse(
-        self, file_bytes: bytes, file_name: str, mime_type: str
-    ) -> list[ParsedSection]:
+    def parse(self, file_bytes: bytes, file_name: str, mime_type: str) -> list[ParsedSection]:
         """Parse ``file_bytes`` into a list of :class:`ParsedSection`."""
         raise NotImplementedError
 
@@ -420,14 +418,14 @@ class Catalog:
         the registry compact and lets the same object back several
         lookups.
         """
-        parsers = self._build_default_parsers()
+        parsers = self.build_default_parsers()
         for mime, parser in parsers:
             self.register(mime, parser)
-        for ext, parser in self._build_default_extensions(parsers):
+        for ext, parser in self.build_default_extensions(parsers):
             self.register(ext, parser)
 
     @staticmethod
-    def _build_default_parsers() -> list[tuple[str, File]]:
+    def build_default_parsers() -> list[tuple[str, File]]:
         """Return ``(mime, File)`` pairs for every built-in parser type."""
         return [
             ("application/pdf", Pdf()),
@@ -458,7 +456,7 @@ class Catalog:
         ]
 
     @staticmethod
-    def _build_default_extensions(parsers: list[tuple[str, File]]) -> list[tuple[str, File]]:
+    def build_default_extensions(parsers: list[tuple[str, File]]) -> list[tuple[str, File]]:
         """Return ``(extension, File)`` pairs (with leading dot) for built-in parsers."""
         extension_map: dict[str, File] = {
             ".pdf": parsers[0][1],

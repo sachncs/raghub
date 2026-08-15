@@ -78,9 +78,11 @@ class Registry:
             unchanged so it can still be used as a normal class.
 
         """
+
         def deco(subclass: type) -> type:
             cls.items[name] = subclass
             return subclass
+
         return deco
 
     @classmethod
@@ -98,9 +100,7 @@ class Registry:
 
         """
         if name not in cls.items:
-            raise ValueError(
-                f"Unknown {cls.__name__}: {name!r}; known: {sorted(cls.items)}"
-            )
+            raise ValueError(f"Unknown {cls.__name__}: {name!r}; known: {sorted(cls.items)}")
         return cls.items[name]
 
     @classmethod

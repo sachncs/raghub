@@ -22,7 +22,7 @@ class Redaction:
         """Return a shallow copy of ``payload`` with sensitive fields replaced.
 
         Args:
-            payload: A user dict produced by ``UserRecord.model_dump``.
+            payload: A user dict produced by ``UserRecord.dump``.
 
         Returns:
             A shallow copy with sensitive keys replaced by ``"***"``.
@@ -41,38 +41,41 @@ class ResponseBuilder:
     @staticmethod
     def from_pipeline(result: Pipeline) -> Response:
         """Build a typed response from a pipeline result."""
-        outputs = result.outputs
-        answer = outputs.get("answer", "")
-        structured = outputs.get("structured")
+        answer = str(result.get("answer", "") or "")
+        structured = result.get("structured")
         structured_payload = None
 
         if structured is not None:
-            answer = structured.model_dump_json()
-            structured_payload = structured.model_dump()
+            answer = (
+                structured.dump(mode="json")
+                if isinstance(structured, Pipeline)
+                else str(structured)
+            )
+            structured_payload = structured.dump() if hasattr(structured, "dump") else structured
 
         metadata = {
             "pipeline_id": result.pipeline_id,
             "structured": structured is not None,
         }
-        resolved_config = outputs.get("resolved_config")
+        resolved_config = result.get("resolved_config")
         if resolved_config:
             metadata["resolved_config"] = resolved_config
 
         return Response(
             answer=answer,
-            citations=list(outputs.get("citations", [])),
+            citations=list(result.get("citations", [])),
             source_chunks=[
                 Hit(
                     score=h.score,
                     chunk=h.chunk,
                 )
-                for h in outputs.get("hits", [])
+                for h in result.get("hits", [])
             ],
             metadata=metadata,
             structured=structured_payload,
-            transforms_applied=list(outputs.get("transforms_applied", []) or []),
-            planner_trace=list(outputs.get("planner_trace") or []) or None,
-            tools_invoked=list(outputs.get("tools_invoked") or []),
+            transforms_applied=list(result.get("transforms_applied", []) or []),
+            planner_trace=list(result.get("planner_trace") or []) or None,
+            tools_invoked=list(result.get("tools_invoked") or []),
         )
 
 

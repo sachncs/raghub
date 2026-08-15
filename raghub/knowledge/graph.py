@@ -163,6 +163,10 @@ class GraphIndex(KnowledgeIndex):
         self.lock_token += 1
         return removed
 
+    def health(self) -> dict[str, Any]:
+        """Return a structured status dict for ``/health``."""
+        return {"name": self.name, "levels": len(self.communities), "chunks": len(self.chunks)}
+
     def search_local(self, query: str, top_k: int = 5) -> list[Hit]:
         """Local search: anchor on entities mentioned in the query."""
         anchors = self.entities_in_query(query)

@@ -188,7 +188,7 @@ class ConversationHistory:
             A new :class:`Session` wrapping the persisted record.
 
         """
-        record = Session.model_validate(
+        record = Session.validate(
             {
                 "user_id": user_id,
                 "expires_at": (
@@ -239,10 +239,10 @@ class ConversationHistory:
         if record is None:
             return
         turn = Turn(question=question, answer=answer, metadata=metadata or {})
+        record = record.copy(last_seen_at=datetime.now(UTC))
         record.history.append(turn)
         # Update the session's last-seen timestamp on every append so
         # expiry sweeps can identify idle sessions.
-        record.last_seen_at = datetime.now(UTC)
         await self.uow.session_repo.upsert(record)
 
     async def load(self, session_token: str) -> list[Turn]:
@@ -272,7 +272,7 @@ class ConversationHistory:
         if record is None:
             return
         record.history.clear()
-        record.last_seen_at = datetime.now(UTC)
+        record = record.copy(last_seen_at=datetime.now(UTC))
         await self.uow.session_repo.upsert(record)
 
     async def add_turn(self, session_id: str, turn: Turn) -> None:
@@ -291,7 +291,7 @@ class ConversationHistory:
         if record is None:
             return
         record.history.append(turn)
-        record.last_seen_at = datetime.now(UTC)
+        record = record.copy(last_seen_at=datetime.now(UTC))
         await self.uow.session_repo.upsert(record)
         await self.trim_history(session_id)
 
@@ -323,7 +323,7 @@ class ConversationHistory:
             trimmed = self.sliding_window.trim(history)
         record.history.clear()
         record.history.extend(trimmed)
-        record.last_seen_at = datetime.now(UTC)
+        record = record.copy(last_seen_at=datetime.now(UTC))
         await self.uow.session_repo.upsert(record)
         return trimmed
 
@@ -358,8 +358,10 @@ class ConversationHistory:
         record = await self.uow.session_repo.get(session_id)
         if record is None:
             return
-        record.overrides = dict(overrides or {})
-        record.last_seen_at = datetime.now(UTC)
+        record = record.copy(
+            overrides=dict(overrides or {}),
+            last_seen_at=datetime.now(UTC),
+        )
         await self.uow.session_repo.upsert(record)
 
 

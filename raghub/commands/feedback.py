@@ -43,14 +43,14 @@ class FeedbackCommand:
             if store is None:
                 typer.echo("feedback_store not configured", err=True)
                 raise typer.Exit(code=1)
-            records = FeedbackCommand._load_records(store, tenant)
+            records = FeedbackCommand.load_records(store, tenant)
 
             written = 0
             with open(jsonl_path, "w", encoding="utf-8") as handle:
                 for record in records:
                     if record.tenant_id != tenant:
                         continue
-                    payload = FeedbackCommand._serialise_record(record)
+                    payload = FeedbackCommand.serialise_record(record)
                     handle.write(json.dumps(payload, default=str) + "\n")
                     written += 1
             typer.echo(f"wrote {written} feedback records to {jsonl_path}")
@@ -77,7 +77,7 @@ class FeedbackCommand:
         app.add_typer(feedback_app, name="feedback")
 
     @staticmethod
-    def _load_records(store: Any, tenant: str | None) -> list[Any]:
+    def load_records(store: Any, tenant: str | None) -> list[Any]:
         """Load all feedback records from ``store`` for the optional tenant filter.
 
         Empty-tenant-string is used as a wildcard by the SQL
@@ -89,7 +89,7 @@ class FeedbackCommand:
         return asyncio.run(store.list_for_tenant(""))
 
     @staticmethod
-    def _serialise_record(record: Any) -> dict[str, Any]:
+    def serialise_record(record: Any) -> dict[str, Any]:
         """Project a feedback record into a JSON-serialisable dict."""
         return {
             "id": record.id,

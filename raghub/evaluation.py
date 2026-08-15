@@ -57,7 +57,7 @@ def run_financebench(
         write_json(
             {
                 "summary": summary,
-                "results": [r.model_dump(mode="json") for r in results],
+                "results": [r.dump(mode="json") for r in results],
             }
         )
 
@@ -99,7 +99,7 @@ def run_frames(
         write_json(
             {
                 "summary": summary,
-                "results": [r.model_dump(mode="json") for r in results],
+                "results": [r.dump(mode="json") for r in results],
             }
         )
 

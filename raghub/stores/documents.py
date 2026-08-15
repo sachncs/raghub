@@ -58,7 +58,7 @@ class Documents:
         documents = payload.get("documents", {})
         checksum_index = payload.get("checksum_index", {})
         self.documents = {
-            document_id: [Document.model_validate(version_record) for version_record in versions]
+            document_id: [Document.validate(version_record) for version_record in versions]
             for document_id, versions in documents.items()
             if isinstance(versions, list)
         }
@@ -83,7 +83,7 @@ class Documents:
             self.path,
             {
                 "documents": {
-                    document_id: [version.model_dump(mode="json") for version in versions]
+                    document_id: [version.dump(mode="json") for version in versions]
                     for document_id, versions in self.documents.items()
                 },
                 "checksum_index": {
@@ -108,8 +108,10 @@ class Documents:
                 # ``for/else`` runs when the loop completes without a
                 # ``break`` — a brand-new version number.
                 if versions and document.version > versions[-1].version:
-                    versions[-1].status = DocumentLifecycleStatus.Archived
-                    versions[-1].updated_at = datetime.now(UTC)
+                    versions[-1] = versions[-1].copy(
+                        status=DocumentLifecycleStatus.Archived,
+                        updated_at=datetime.now(UTC),
+                    )
                 versions.append(document)
             self.checksum_index[document.checksum] = (
                 document.id,
@@ -161,8 +163,15 @@ class Documents:
             latest = self.get_latest(document_id)
             if latest is None:
                 return
-            latest.status = DocumentLifecycleStatus.Archived
-            latest.updated_at = datetime.now(UTC)
+            archived = latest.copy(
+                status=DocumentLifecycleStatus.Archived,
+                updated_at=datetime.now(UTC),
+            )
+            versions = self.documents[document_id]
+            for index, current in enumerate(versions):
+                if current.version == archived.version:
+                    versions[index] = archived
+                    break
             self.save()
 
     def dump(self) -> Snapshot:
