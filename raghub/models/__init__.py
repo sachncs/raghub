@@ -52,7 +52,7 @@ import typing
 from dataclasses import dataclass, field, fields
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any, get_args, get_origin
+from typing import Any, cast, get_args, get_origin
 from uuid import uuid4
 
 from raghub.errors import VerificationError
@@ -362,7 +362,7 @@ def _json_safe(value: Any) -> Any:  # noqa: PLR0911 - one return per coercion br
     if isinstance(value, dict):
         return {str(k): _json_safe(v) for k, v in value.items()}
     if dataclasses.is_dataclass(value):
-        return _json_safe(dataclasses.asdict(value))
+        return _json_safe(dataclasses.asdict(cast(Any, value)))
     return value
 
 
@@ -435,8 +435,8 @@ class Snap:
 
         """
         if mode == "json":
-            return _json_safe(dataclasses.asdict(self))
-        return dataclasses.asdict(self)
+            return cast(dict[str, Any], _json_safe(dataclasses.asdict(cast(Any, self))))
+        return cast(dict[str, Any], dataclasses.asdict(cast(Any, self)))
 
     def copy(self, **updates: Any) -> Any:
         """Return a shallow copy with the given fields replaced.
@@ -449,7 +449,7 @@ class Snap:
             A new instance of the concrete model.
 
         """
-        return dataclasses.replace(self, **updates)
+        return dataclasses.replace(cast(Any, self), **updates)
 
     def verify(self) -> None:
         """Re-run the model's invariants.
@@ -459,7 +459,7 @@ class Snap:
         on the inherited implementation; models with body-only
         verification can override.
         """
-        self.__post_init__()
+        self.__post_init__()  # type: ignore[attr-defined]
 
     @classmethod
     def validate(cls, data: dict[str, Any]) -> Any:
@@ -475,11 +475,9 @@ class Snap:
             ``__post_init__``.
 
         """
-        if not isinstance(data, dict):
-            return cls(**data)  # let dataclass constructor raise
         coerced: dict[str, Any] = {}
         hints = _resolve_hints(cls)
-        for f in fields(cls):
+        for f in fields(cast(Any, cls)):
             if f.name not in data:
                 continue
             coerced[f.name] = _coerce(hints.get(f.name, f.type), data[f.name])

@@ -30,7 +30,7 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from raghub.constants import RRF_K
 from raghub.errors import ConfigurationError
@@ -165,8 +165,7 @@ class Tool(Registry):
         ctx = context or self.context()
         started = time.perf_counter()
         result = await self.execute(ctx, **args)
-        result.latency_ms = (time.perf_counter() - started) * 1000.0
-        return result
+        return cast(ToolResult, result.copy(latency_ms=(time.perf_counter() - started) * 1000.0))
 
     def call(
         self,
@@ -344,7 +343,7 @@ class GraphSearch(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, graph_index: GraphIndex) -> None:
+    def __init__(self, graph_index: GraphIndex | None) -> None:
         """Initialise the tool.
 
         Args:
@@ -370,7 +369,7 @@ class GraphSearch(Tool):
                 ok=False,
                 error=f"graph_search: mode {mode!r} not supported by index",
             )
-        hits = fn(query, top_k=int(kwargs.get("top_k", 0)))
+        hits = fn(query, top_k=int(cast(int, kwargs.get("top_k", 0))))
         if not hits:
             return ToolResult(content="(no graph matches)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)
@@ -427,7 +426,7 @@ class HybridSearch(Tool):
         dense = self.pipeline.retrieve(
             user=as_admin_user(context.user),
             question=text,
-            top_k=int(kwargs.get("top_k", 0)),
+            top_k=int(cast(int, kwargs.get("top_k", 0))),
         )
         sparse_raw = self.fetch_sparse_results(text, kwargs)
         fused = self.fuse_results(dense, sparse_raw, kwargs)
@@ -441,7 +440,11 @@ class HybridSearch(Tool):
         keyword_search = getattr(self.vector_store, "keyword_search", None)
         if not callable(keyword_search):
             return []
-        return keyword_search(text, int(kwargs.get("top_k", 0)) * 2)
+        hits: list[dict[str, Any]] = cast(
+            list[dict[str, Any]],
+            keyword_search(text, int(cast(int, kwargs.get("top_k", 0)) * 2)),
+        )
+        return hits
 
     @staticmethod
     def fuse_results(
@@ -548,7 +551,7 @@ class Keyword(Tool):
                 ok=False,
                 error="keyword_search: vector store lacks keyword_search()",
             )
-        raw = keyword_search(text, int(kwargs.get("top_k", 0)))
+        raw = keyword_search(text, int(cast(int, kwargs.get("top_k", 0))))
         if not raw:
             return ToolResult(content="(no hits)")
         joined = "\n\n---\n\n".join(
@@ -598,7 +601,7 @@ class SummarySearch(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, raptor_index: Raptor) -> None:
+    def __init__(self, raptor_index: Raptor | None) -> None:
         """Initialise the tool.
 
         Args:
@@ -611,7 +614,7 @@ class SummarySearch(Tool):
         """Run the RAPTOR summary search."""
         if self.index is None:
             return ToolResult(content="(no summary index configured)")
-        hits = self.index.search(str(kwargs.get("query", "")), top_k=int(kwargs.get("top_k", 0)))
+        hits = self.index.search(str(kwargs.get("query", "")), top_k=int(cast(int, kwargs.get("top_k", 0))))
         if not hits:
             return ToolResult(content="(no summaries matched)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)
@@ -669,7 +672,7 @@ class VectorSearch(Tool):
         if not text:
             return ToolResult(ok=False, error="vector_search: empty query")
         user = as_admin_user(context.user)
-        hits = self.pipeline.retrieve(user=user, question=text, top_k=int(kwargs.get("top_k", 0)))
+        hits = self.pipeline.retrieve(user=user, question=text, top_k=int(cast(int, kwargs.get("top_k", 0))))
         if not hits:
             return ToolResult(content="(no hits)")
         joined = "\n\n---\n\n".join(h.chunk.text for h in hits if h.chunk.text)
