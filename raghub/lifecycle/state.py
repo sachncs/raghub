@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from raghub.constants import DEFAULT_CHUNK_SIZE_WORDS
 from raghub.core import DocumentStateMachine
@@ -78,7 +78,7 @@ class Lifecycle:
         """
         if not self.machine.can_transition(document.status, status) and status != document.status:
             raise ValueError(f"Illegal transition from {document.status} to {status}")
-        return document.copy(status=status)
+        return cast(Document, document.copy(status=status))
 
 
 # ---------------------------------------------------------------------------
@@ -111,11 +111,14 @@ def new_version(previous: Document | None, **overrides: Any) -> Document:
     """
     version_number = 1 if previous is None else previous.version + 1
     baseline = Document() if previous is None else previous
-    return baseline.copy(
-        version=version_number,
-        status=DocumentLifecycleStatus.New,
-        updated_at=datetime_now_utc(),
-        **overrides,
+    return cast(
+        Document,
+        baseline.copy(
+            version=version_number,
+            status=DocumentLifecycleStatus.New,
+            updated_at=datetime_now_utc(),
+            **overrides,
+        ),
     )
 
 
@@ -294,10 +297,10 @@ def normalise_markdown(
         The canonical :class:`Bundle`.
 
     """
-    mime_type: str = options.get("mime_type", "")
-    language: str = options.get("language", "")
-    metadata: dict[str, Any] | None = options.get("metadata")
-    page_numbers: list[int] | None = options.get("page_numbers")
+    mime_type: str = cast(str, options.get("mime_type", ""))
+    language: str = cast(str, options.get("language", ""))
+    metadata: dict[str, Any] | None = cast(dict[str, Any] | None, options.get("metadata"))
+    page_numbers: list[int] | None = cast(list[int] | None, options.get("page_numbers"))
     metadata = metadata or {}
     page_numbers = page_numbers or []
     blocks, flat = md_to_blocks(markdown)
