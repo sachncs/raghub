@@ -12,7 +12,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import RLock
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
@@ -159,7 +159,8 @@ class JsonSessions:
                 self.sessions.pop(token, None)
                 self.save()
                 return None
-            session = session.copy(last_seen_at=now, expires_at=now + self.timeout)
+            updated: Session = session.copy(last_seen_at=now, expires_at=now + self.timeout)
+            session = cast(Session, updated)
             self.sessions[token] = session
             self.save()
             return session
