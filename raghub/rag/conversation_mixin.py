@@ -24,6 +24,9 @@ class ConversationMixin:
     ``conversation_store`` as instance attributes.
     """
 
+    scoped: Any  # provided by the host class
+    conversation_store: Any  # provided by the host class
+
     def conversation_history(
         self,
         session_id: str,
