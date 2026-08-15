@@ -371,7 +371,7 @@ class RAG(  # noqa: PLR0904 - facade aggregating mixin surface
         except ImportError:
             return None
         if not isinstance(self.persistent_queue, SqliteQueue):
-            return None
+            return None  # type: ignore[unreachable]
 
         async def ingest(job: Any) -> None:  # noqa: RUF029 - Worker awaits its handlers
             """Drain a queue job by routing it back into the facade's ingest path."""
@@ -443,7 +443,7 @@ class RAG(  # noqa: PLR0904 - facade aggregating mixin surface
             return JwtClaimTenantResolver()
         if resolver == "header":
             return HeaderTenantResolver()
-        return None
+        return None  # type: ignore[unreachable]
 
     def init_feedback(self, components: dict[str, Any]) -> Any:
         """Construct the feedback store (Tier 3 Item 19).
