@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from raghub.models import ErrorInfo, Pipeline, PipelineCtx
+from raghub.models import ErrorInfo, Pipeline, PipelineCtx, PipelineOutputs
 from raghub.pipeline.pipeline_assembly import Flow, PipelineBuilder
 
 
@@ -12,6 +12,11 @@ def makemake_ctx() -> PipelineCtx:
     return PipelineCtx(
         pipeline_id="run-123",
     )
+
+
+def _outputs_with(extra: dict[str, object]) -> PipelineOutputs:
+    """Build a :class:`PipelineOutputs` carrying the supplied ``extra`` map."""
+    return PipelineOutputs(extra={k: v for k, v in extra.items()})
 
 
 def test_flow_stores_context_and_pipeline_name() -> None:
@@ -27,11 +32,11 @@ def test_flow_success_builds_pipeline_with_outputs() -> None:
     """``Flow.success(outputs)`` returns a Pipeline carrying outputs and pipeline_id."""
 
     flow = Flow(makemake_ctx(), "ingest")
-    pipeline = flow.success({"chunks": 3, "documents": 1})
+    pipeline = flow.success(_outputs_with({"chunks": 3, "documents": 1}))
     assert isinstance(pipeline, Pipeline)
     assert pipeline.pipeline_id == "run-123"
     assert pipeline.pipeline_name == "ingest"
-    assert pipeline.outputs == {"chunks": 3, "documents": 1}
+    assert pipeline.outputs.extra == {"chunks": 3, "documents": 1}
     assert pipeline.error is None
 
 
@@ -44,17 +49,17 @@ def test_flow_failure_populates_error_info() -> None:
     assert isinstance(pipeline.error, ErrorInfo)
     assert pipeline.error.kind == "ingestion"
     assert pipeline.error.message == "failed to parse"
-    assert pipeline.outputs == {}
+    assert pipeline.outputs.extra == {}
 
 
 def test_flow_failure_with_outputs_preserves_them() -> None:
     """``Flow.failure(error, outputs=...)`` carries partial outputs alongside the error."""
 
     flow = Flow(makemake_ctx(), "ingest")
-    pipeline = flow.failure("partial", outputs={"attempted": 2})
+    pipeline = flow.failure("partial", outputs=_outputs_with({"attempted": 2}))
     assert pipeline.error is not None
     assert pipeline.error.message == "partial"
-    assert pipeline.outputs == {"attempted": 2}
+    assert pipeline.outputs.extra == {"attempted": 2}
 
 
 def test_flow_failure_without_outputs_defaults_to_empty_dict() -> None:
@@ -62,7 +67,7 @@ def test_flow_failure_without_outputs_defaults_to_empty_dict() -> None:
 
     flow = Flow(makemake_ctx(), "ingest")
     pipeline = flow.failure("boom")
-    assert pipeline.outputs == {}
+    assert pipeline.outputs.extra == {}
 
 
 def test_pipeline_builder_is_alias_for_flow() -> None:
@@ -71,19 +76,19 @@ def test_pipeline_builder_is_alias_for_flow() -> None:
     assert PipelineBuilder is Flow
 
     builder = PipelineBuilder(makemake_ctx(), "query")
-    pipeline = builder.success({"answer": "42"})
+    pipeline = builder.success(_outputs_with({"answer": "42"}))
     assert pipeline.pipeline_name == "query"
-    assert pipeline.outputs == {"answer": "42"}
+    assert pipeline.outputs.extra == {"answer": "42"}
 
 
 def test_pipeline_builder_can_be_constructed_via_alias_and_used() -> None:
     """The :class:`PipelineBuilder` alias accepts the same arguments as :class:`Flow`."""
 
     builder = PipelineBuilder(makemake_ctx(), "test")
-    pipeline = builder.failure("err", outputs={"x": 1})
+    pipeline = builder.failure("err", outputs=_outputs_with({"x": 1}))
     assert pipeline.error is not None
     assert pipeline.error.message == "err"
-    assert pipeline.outputs == {"x": 1}
+    assert pipeline.outputs.extra == {"x": 1}
 
 
 def test_flow_success_pipeline_id_is_unique_per_context() -> None:
@@ -92,4 +97,5 @@ def test_flow_success_pipeline_id_is_unique_per_context() -> None:
     ctx = makemake_ctx()
     flow_a = Flow(ctx, "a")
     flow_b = Flow(ctx, "b")
-    assert flow_a.success({}).pipeline_id == flow_b.success({}).pipeline_id == "run-123"
+    empty = PipelineOutputs()
+    assert flow_a.success(empty).pipeline_id == flow_b.success(empty).pipeline_id == "run-123"

@@ -12,7 +12,7 @@ import dataclasses
 import typing
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from raghub.constants import (
     DEFAULT_CHUNK_OVERLAP_WORDS,
@@ -392,7 +392,8 @@ class Settings(Snap):
             current = getattr(self, f.name)
             expected = hints.get(f.name, f.type)
             if isinstance(current, dict) and dataclasses.is_dataclass(expected):
-                object.__setattr__(self, f.name, expected(**current))
+                expected_cls: Any = cast(Any, expected)
+                object.__setattr__(self, f.name, expected_cls(**current))
 
     def known_fields(self) -> dict[str, Any]:
         """Return a ``dict`` of all canonical fields (excluding ``extra``)."""
@@ -416,11 +417,14 @@ class Settings(Snap):
         data_dir.mkdir(parents=True, exist_ok=True)
         registry_path.parent.mkdir(parents=True, exist_ok=True)
         sessions_path.parent.mkdir(parents=True, exist_ok=True)
-        return self.copy(
-            data_dir=data_dir,
-            registry_path=registry_path,
-            sessions_path=sessions_path,
-            profile_path=profile_path,
+        return cast(
+            "Settings",
+            self.copy(
+                data_dir=data_dir,
+                registry_path=registry_path,
+                sessions_path=sessions_path,
+                profile_path=profile_path,
+            ),
         )
 
     def override(self, **changes: Any) -> Settings:

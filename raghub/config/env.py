@@ -117,7 +117,7 @@ def csv_to_transforms(raw: str, default: list[str]) -> list[TransformName]:
     for chunk in raw.split(","):
         name = chunk.strip().lower()
         if name and name in TRANSFORM_NAMES and name not in out:
-            out.append(name)
+            out.append(cast(TransformName, name))
     return out
 
 
@@ -194,7 +194,10 @@ def resolve_config_dir() -> Path:
         from importlib.resources import files
 
         bundled = files("raghub").joinpath("config")
-        if bundled.is_dir() and (bundled / "development.yaml").exists():
+        has_dev: bool = cast(bool, getattr(bundled, "is_dir", lambda: False)())
+        joined = bundled / "development.yaml"
+        has_yaml: bool = cast(bool, getattr(joined, "exists", lambda: False)())
+        if has_dev and has_yaml:
             return Path(str(bundled))
     except (ModuleNotFoundError, FileNotFoundError):
         pass

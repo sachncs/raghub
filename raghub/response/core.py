@@ -46,7 +46,7 @@ class ResponseBuilder:
         structured_payload = None
 
         if structured is not None:
-            answer = (
+            answer: str = (
                 structured.dump(mode="json")
                 if isinstance(structured, Pipeline)
                 else str(structured)
