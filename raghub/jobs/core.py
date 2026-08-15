@@ -153,19 +153,19 @@ class PersistentQueue(Registry):
 
     async def purge(self, status: JobStatus | None = None) -> int:
         """Delete jobs by status; return the count deleted."""
-        ...
+        raise NotImplementedError
 
-    async def list(
+    async def list_jobs(
         self,
         status: JobStatus | None = None,
         limit: int = 100,
     ) -> list[Job]:
         """List jobs, optionally filtered by status."""
-        ...
+        raise NotImplementedError
 
     async def stats(self) -> dict[str, int]:
         """Return counts per status."""
-        ...
+        raise NotImplementedError
 
 
 SCHEMA_SQL = """
@@ -382,7 +382,7 @@ class SqliteQueue(PersistentQueue):
             await conn.commit()
             return cursor.rowcount or 0
 
-    async def list(
+    async def list_jobs(
         self,
         status: JobStatus | None = None,
         limit: int = 100,

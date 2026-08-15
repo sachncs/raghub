@@ -424,7 +424,7 @@ class QueueCommand:
                 typer.echo("queue not configured", err=True)
                 raise typer.Exit(code=1)
             status_filter = JobStatus(status) if status else None
-            jobs = asyncio.run(queue.list(status=status_filter, limit=limit))
+            jobs = asyncio.run(queue.list_jobs(status=status_filter, limit=limit))
             if tenant is not None:
                 jobs = [j for j in jobs if j.tenant_id == tenant]
             typer.echo(
