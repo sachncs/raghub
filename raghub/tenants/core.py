@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 __all__ = [
     "CompositeTenantResolver",
@@ -117,13 +117,13 @@ class JwtClaimTenantResolver(TenantResolver):
         if claims is None:
             return None
         raw = claims.get(self.CLAIM_NAME)
-        if not raw or not isinstance(raw, str):
+        if not isinstance(raw, str) or not raw:
             return None
         try:
             validate_tenant(raw)
         except ValueError:
             return None
-        return raw
+        return cast(TenantId, raw)
 
 
 @TenantResolver.register("composite")

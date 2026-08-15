@@ -23,7 +23,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib import import_module
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from raghub.errors import ConfigurationError, ConversionError
 from raghub.lifecycle.scanner import looks_like_pdf
@@ -269,10 +269,13 @@ def convert_path(
     p = Path(path)
     active = converter or pick_converter(p)
     data = p.read_bytes()
-    return active.convert(
-        source_uri=str(p.resolve()),
-        file_bytes=data,
-        mime_type="application/pdf" if p.suffix.lower() == ".pdf" else "text/plain",
+    return cast(
+        Bundle,
+        active.convert(
+            source_uri=str(p.resolve()),
+            file_bytes=data,
+            mime_type="application/pdf" if p.suffix.lower() == ".pdf" else "text/plain",
+        ),
     )
 
 

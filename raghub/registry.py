@@ -20,7 +20,7 @@ through :meth:`Registry.get`:
             return list(hits)
 
     # Construct by name:
-    Identity = Rerank.get("identity")()
+    Identity = Rerank.lookup("identity")()
 
 Why a class mixin rather than a free function?
 
@@ -87,7 +87,7 @@ class Registry:
         return deco
 
     @classmethod
-    def get(cls, name: str) -> type:
+    def lookup(cls, name: str) -> type:
         """Look up a registered subclass by name.
 
         Args:

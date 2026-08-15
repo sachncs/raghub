@@ -58,7 +58,7 @@ class Context(Rerank):
             return False
         return model_name in (self.settings.allowlist_models or [])
 
-    async def rerank(
+    async def arerank(
         self,
         *,
         question: str,
@@ -98,10 +98,6 @@ class Context(Rerank):
         except Exception:  # pragma: no cover - defensive envelope
             record_latency("error", time.perf_counter() - started)
             return list(hits)
-
-    async def arerank(self, *, question: str, hits: Sequence[Hit]) -> list[Hit]:
-        """Async alias preserved for symmetry with other rerankers."""
-        return await self.rerank(question=question, hits=hits)
 
 
 __all__ = ["Context"]

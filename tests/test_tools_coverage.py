@@ -277,5 +277,5 @@ def test_tool_subclass_must_implement_execute() -> None:
         description = "test"
         json_schema: dict[str, Any] = {"type": "object"}
 
-    resolved = Tool.get("test_incomplete_tool")
+    resolved = Tool.lookup("test_incomplete_tool")
     assert resolved is Incomplete

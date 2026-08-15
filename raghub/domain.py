@@ -29,7 +29,7 @@ __all__ = [
 class DocumentRepository(Registry):
     """Polymorphic base for :class:`Document` persistence."""
 
-    async def get(self, document_id: str) -> Document | None:  # type: ignore[override]
+    async def get(self, document_id: str) -> Document | None:
         """Return the document with ``document_id`` or ``None``."""
         raise NotImplementedError
 
@@ -65,7 +65,7 @@ class DocumentRepository(Registry):
 class ChunkRepository(Registry):
     """Polymorphic base for :class:`Chunk` persistence."""
 
-    async def get(self, chunk_id: str) -> Chunk | None:  # type: ignore[override]
+    async def get(self, chunk_id: str) -> Chunk | None:
         """Return the chunk with ``chunk_id`` or ``None``."""
         raise NotImplementedError
 
@@ -97,7 +97,7 @@ class ChunkRepository(Registry):
 class SessionRepository(Registry):
     """Polymorphic base for :class:`Session` persistence."""
 
-    async def get(self, session_id: str) -> Session | None:  # type: ignore[override]
+    async def get(self, session_id: str) -> Session | None:
         """Return the session with ``session_id`` or ``None``."""
         raise NotImplementedError
 

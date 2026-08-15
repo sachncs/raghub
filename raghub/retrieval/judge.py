@@ -204,7 +204,11 @@ def reorder_candidates(
     ordered: list[Hit] = []
     seen: set[str] = set()
     for ranked_record in ranked.items:
-        if ranked_record.chunk is not None and ranked_record.chunk.id in id_to_hit and ranked_record.chunk.id not in seen:
+        if (
+            ranked_record.chunk is not None
+            and ranked_record.chunk.id in id_to_hit
+            and ranked_record.chunk.id not in seen
+        ):
             ordered.append(id_to_hit[ranked_record.chunk.id])
             seen.add(ranked_record.chunk.id)
     if not ordered:

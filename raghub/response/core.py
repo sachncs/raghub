@@ -7,7 +7,7 @@ typed response so the API surface stays consistent.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from raghub.models import Hit, Pipeline, Response
 
@@ -41,15 +41,16 @@ class ResponseBuilder:
     @staticmethod
     def from_pipeline(result: Pipeline) -> Response:
         """Build a typed response from a pipeline result."""
-        answer = str(result.get("answer", "") or "")
+        answer: str = str(result.get("answer", "") or "")
         structured = result.get("structured")
         structured_payload = None
 
         if structured is not None:
-            answer: str = (
+            answer = cast(
+                str,
                 structured.dump(mode="json")
                 if isinstance(structured, Pipeline)
-                else str(structured)
+                else str(structured),
             )
             structured_payload = structured.dump() if hasattr(structured, "dump") else structured
 

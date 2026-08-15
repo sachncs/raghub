@@ -116,7 +116,7 @@ from raghub.models import (
 )
 
 # Pipeline builders.
-from raghub.pipeline import Cache, PipelineBuilder, Router
+from raghub.pipeline import Cache, Flow, Router
 
 # Plugin.
 from raghub.plugins import Plugins
@@ -171,6 +171,7 @@ __all__ = [
     "Facade",
     "FeatureHashingEmbedder",
     "Finance",
+    "Flow",
     "Frames",
     "Gate",
     "GenerationError",
@@ -195,7 +196,6 @@ __all__ = [
     "MissingDepError",
     "Noop",
     "Pipeline",
-    "PipelineBuilder",
     "PipelineError",
     "Plugins",
     "RagHubError",

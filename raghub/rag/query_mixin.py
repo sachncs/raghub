@@ -458,4 +458,6 @@ class QueryMixin:
         await it directly.
         """
         examples_list = list(examples or [])
-        return cast(list[Result], await evaluator.evaluate(examples_list, response_factory=response_factory))
+        return cast(
+            list[Result], await evaluator.evaluate(examples_list, response_factory=response_factory)
+        )

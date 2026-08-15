@@ -18,7 +18,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from raghub.errors import AuthenticationError, AuthorizationError, MissingDepError
@@ -257,7 +257,7 @@ class SqliteUsers:
         data["allowed_groups"] = json.loads(data.get("allowed_groups", "[]"))
         data["is_admin"] = bool(data["is_admin"])
         data["created_at"] = datetime.fromisoformat(data["created_at"])
-        return UserRecord.validate(data)
+        return cast(UserRecord, UserRecord.validate(data))
 
     async def get_prefs(self, user_id: str) -> dict[str, Any]:
         """Return every stored preference for ``user_id`` as a dict.

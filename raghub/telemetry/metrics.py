@@ -80,7 +80,7 @@ class NoOpTelemetry(Telemetry):
         """
         return NoopSpan(name)
 
-    def end_span(self, span: "Span") -> None:
+    def end_span(self, span: Span) -> None:
         """No-op for the metric recorder; ``span`` is unused."""
 
     def record_tokens(

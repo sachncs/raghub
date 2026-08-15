@@ -302,7 +302,7 @@ class TestContextRerank:
         llm = RecordingLLM()
         ctx = Context(llm, LongContextConfig(enabled=False))
         hits = [_make_hit("a", "c0"), _make_hit("b", "c1")]
-        result = asyncio.run(ctx.rerank(question="q", hits=hits))
+        result = asyncio.run(ctx.arerank(question="q", hits=hits))
         # LLM was not consulted, input was returned.
         assert [h.chunk_id for h in result] == ["c0", "c1"]
         assert llm.calls == []
@@ -311,14 +311,14 @@ class TestContextRerank:
         llm = RecordingLLM()
         llm.model_name = "claude-3-5-sonnet"  # type: ignore[attr-defined]
         ctx = Context(llm, LongContextConfig(enabled=True, allowlist_models=["claude-3-5-sonnet"]))
-        assert asyncio.run(ctx.rerank(question="q", hits=[])) == []
+        assert asyncio.run(ctx.arerank(question="q", hits=[])) == []
 
     def test_unparseable_response_returns_input_unchanged(self) -> None:
         llm = RecordingLLM(response="not json at all")
         llm.model_name = "claude-3-5-sonnet"  # type: ignore[attr-defined]
         ctx = Context(llm, LongContextConfig(enabled=True, allowlist_models=["claude-3-5-sonnet"]))
         hits = [_make_hit("a", "c0"), _make_hit("b", "c1")]
-        result = asyncio.run(ctx.rerank(question="q", hits=hits))
+        result = asyncio.run(ctx.arerank(question="q", hits=hits))
         assert [h.chunk_id for h in result] == ["c0", "c1"]
 
     def test_valid_response_falls_through_due_to_schema_mismatch(self) -> None:
@@ -340,7 +340,7 @@ class TestContextRerank:
         llm.model_name = "claude-3-5-sonnet"  # type: ignore[attr-defined]
         ctx = Context(llm, LongContextConfig(enabled=True, allowlist_models=["claude-3-5-sonnet"]))
         hits = [_make_hit("a", "c0"), _make_hit("b", "c1")]
-        result = asyncio.run(ctx.rerank(question="q", hits=hits))
+        result = asyncio.run(ctx.arerank(question="q", hits=hits))
         # The schema mismatch forces the fallback path.
         assert [h.chunk_id for h in result] == ["c0", "c1"]
 

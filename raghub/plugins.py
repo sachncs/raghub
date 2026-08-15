@@ -13,9 +13,7 @@ provide one explicitly.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from enum import StrEnum
-from functools import cached_property
 from importlib import metadata
 from typing import Any
 
@@ -25,7 +23,6 @@ from typing import Any
 # were deleted in Phase 1. Plugin registration takes Any-typed collaborators;
 # the polymorphic Registry subclasses (Embedder, Generator, Rerank,
 # etc.) provide the type contract for each slot.
-from raghub.types import JSONValue
 
 __all__ = [
     "PluginKind",
@@ -95,10 +92,6 @@ class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surfa
         """
         self.entries[kind, name] = obj
 
-    def get(self, kind: PluginKind, name: str) -> Any:
-        """Return the registered plugin or raise :class:`KeyError`."""
-        return self.entries[kind, name]
-
     def has(self, kind: PluginKind, name: str) -> bool:
         """Return ``True`` when a plugin is registered for ``kind``/``name``."""
         return (kind, name) in self.entries
@@ -111,129 +104,21 @@ class Plugins:  # ruff: ignore[too-many-public-methods] -- legacy accessor surfa
         """Return the names registered under ``kind``."""
         return sorted(name for k, name in self.entries if k == kind)
 
-    # ------------------------------------------------------------------
-    # Convenience accessors (kept for backward-compat ergonomics)
-    # ------------------------------------------------------------------
+    def get(self, kind: PluginKind, name: str) -> Any:
+        """Return the entry registered under ``(kind, name)``.
 
-    def register_converter(self, name: str, converter: Any) -> None:
-        """Register a converter under ``name``."""
-        self.register(PluginKind.Converter, name, converter)
+        Raises:
+            KeyError: When ``(kind, name)`` is not registered.
 
-    def register_chunker(self, name: str, chunker: Any) -> None:
-        """Register a chunker under ``name``."""
-        self.register(PluginKind.Chunker, name, chunker)
-
-    def register_embedder(self, name: str, embedder: Any) -> None:
-        """Register an embedder under ``name``."""
-        self.register(PluginKind.Embedder, name, embedder)
-
-    def register_vector_store(self, name: str, store: Any) -> None:
-        """Register a vector store under ``name``."""
-        self.register(PluginKind.VectorStore, name, store)
-
-    def register_knowledge_repo(self, name: str, repo: Any) -> None:
-        """Register a knowledge repository under ``name``."""
-        self.register(PluginKind.KnowledgeRepo, name, repo)
-
-    def register_generator(self, name: str, generator: Any) -> None:
-        """Register a generator under ``name``."""
-        self.register(PluginKind.Generator, name, generator)
-
-    def register_structured(self, name: str, provider: Any) -> None:
-        """Register a structured-output provider under ``name``."""
-        self.register(PluginKind.Structured, name, provider)
-
-    def register_evaluator(self, name: str, evaluator: Any) -> None:
-        """Register an evaluator under ``name``."""
-        self.register(PluginKind.Evaluator, name, evaluator)
-
-    def register_factory(self, name: str, factory: Callable[..., JSONValue]) -> None:
-        """Register a generic factory under ``name``."""
-        self.register(PluginKind.Factory, name, factory)
-
-    def register_telemetry(self, name: str, logger: Any, metrics: Any) -> None:
-        """Register a telemetry pair under ``name``.
-
-        The logger and metrics are stored under
-        ``(TELEMETRY_LOGGER, name)`` and
-        ``(TELEMETRY_METRICS, name)`` respectively.
         """
-        self.register(PluginKind.TelemetryLogger, name, logger)
-        self.register(PluginKind.TelemetryMetrics, name, metrics)
+        try:
+            return self.entries[kind, name]
+        except KeyError as exc:
+            raise KeyError(f"Plugin not registered: {kind.value}/{name}") from exc
 
-    # ------------------------------------------------------------------
-    # Legacy accessors (per-kind dicts)
-    # ------------------------------------------------------------------
-
-    @cached_property
-    def converters(self) -> dict[str, Any]:
-        """A snapshot of registered converters (legacy accessor)."""
-        return {
-            name: self.entries[PluginKind.Converter, name]
-            for name in self.names(PluginKind.Converter)
-        }
-
-    @cached_property
-    def chunkers(self) -> dict[str, Any]:
-        """A snapshot of registered chunkers (legacy accessor)."""
-        return {
-            name: self.entries[PluginKind.Chunker, name] for name in self.names(PluginKind.Chunker)
-        }
-
-    @cached_property
-    def embedders(self) -> dict[str, Any]:
-        """A snapshot of registered embedders (legacy accessor)."""
-        return {
-            name: self.entries[PluginKind.Embedder, name]
-            for name in self.names(PluginKind.Embedder)
-        }
-
-    @cached_property
-    def vector_stores(self) -> dict[str, Any]:
-        """A snapshot of registered vector stores (legacy accessor)."""
-        return {
-            name: self.entries[PluginKind.VectorStore, name]
-            for name in self.names(PluginKind.VectorStore)
-        }
-
-    @cached_property
-    def knowledge_repos(self) -> dict[str, Any]:
-        """A snapshot of registered knowledge repos (legacy accessor)."""
-        return {
-            name: self.entries[PluginKind.KnowledgeRepo, name]
-            for name in self.names(PluginKind.KnowledgeRepo)
-        }
-
-    @cached_property
-    def generators(self) -> dict[str, Any]:
-        """A snapshot of registered generators (legacy accessor)."""
-        return {
-            name: self.entries[PluginKind.Generator, name]
-            for name in self.names(PluginKind.Generator)
-        }
-
-    @cached_property
-    def structured(self) -> dict[str, Any]:
-        """A snapshot of registered structured-output providers."""
-        return {
-            name: self.entries[PluginKind.Structured, name]
-            for name in self.names(PluginKind.Structured)
-        }
-
-    @cached_property
-    def evaluators(self) -> dict[str, Any]:
-        """A snapshot of registered evaluators (legacy accessor)."""
-        return {
-            name: self.entries[PluginKind.Evaluator, name]
-            for name in self.names(PluginKind.Evaluator)
-        }
-
-    @cached_property
-    def factories(self) -> dict[str, Callable[..., JSONValue]]:
-        """A snapshot of registered factories (legacy accessor)."""
-        return {
-            name: self.entries[PluginKind.Factory, name] for name in self.names(PluginKind.Factory)
-        }
+    def entries_for(self, kind: PluginKind) -> dict[str, Any]:
+        """Return a snapshot of all entries registered under ``kind``."""
+        return {name: self.entries[kind, name] for name in self.names(kind)}
 
     # ------------------------------------------------------------------
     # Entry-point discovery

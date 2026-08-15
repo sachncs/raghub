@@ -162,11 +162,11 @@ def test_rag_shutdown_is_safe_call(rag: RAG) -> None:
 
 def test_plugin_registry_records() -> None:
     """A registry stores registrations by category."""
-    from raghub.plugins import Plugins
+    from raghub.plugins import PluginKind, Plugins
 
     reg = Plugins()
-    reg.register_factory("noop", lambda: None)
-    assert reg.factories["noop"]() is None
+    reg.register(PluginKind.Factory, "noop", lambda: None)
+    assert reg.entries_for(PluginKind.Factory)["noop"]() is None
     assert reg.discover_entrypoints(group="raghub.plugins.does.not.exist") == 0
 
 

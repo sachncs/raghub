@@ -137,36 +137,15 @@ def test_prompt_config_default_values() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_plugin_registry_register_converter() -> None:
-    """Plugins.register_converter stores by name."""
+def test_plugin_registry_entries_for_kind() -> None:
+    """``Plugins.entries_for(kind)`` snapshots the registered entries."""
 
-    from raghub.plugins import Plugins
+    from raghub.plugins import PluginKind, Plugins
 
     registry = Plugins()
     plugin = MagicMock()
-    registry.register_converter("default", plugin)
-    assert registry.converters["default"] is plugin
-
-
-def test_plugin_registry_register_each_type() -> None:
-    """Plugins exposes register_* methods for every plugin family."""
-
-    from raghub.plugins import Plugins
-
-    registry = Plugins()
-    for method in (
-        "register_converter",
-        "register_chunker",
-        "register_embedder",
-        "register_vector_store",
-        "register_knowledge_repo",
-        "register_generator",
-        "register_structured",
-        "register_telemetry",
-        "register_evaluator",
-        "register_factory",
-    ):
-        assert hasattr(registry, method)
+    registry.register(PluginKind.Converter, "default", plugin)
+    assert registry.entries_for(PluginKind.Converter)["default"] is plugin
 
 
 # ---------------------------------------------------------------------------
