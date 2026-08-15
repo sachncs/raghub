@@ -10,7 +10,7 @@ first-class adapters ship in this release.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 from raghub.errors import ConfigurationError
 from raghub.models import Chunk, Hit
@@ -234,7 +234,17 @@ class PgVectorStore:
                 f"LIMIT ${len(params)}"
             )
             rows = await conn.fetch(sql, *params)
-            return [Hit(score=float(row["score"]), chunk_id=row["id"]) for row in rows]
+            # pgvector only persists the embedding; we don't have the full Chunk
+            # available here, so emit a Hit-shaped dict and let callers rehydrate.
+            # The framework's vector_store.search contract returns 
+            # ``dict[str, Any]`` entries; this adapter honours that.
+            return cast(
+                list[Hit],
+                [
+                    Hit(score=float(row["score"]), chunk=row["id"])
+                    for row in rows
+                ],
+            )
         finally:
             await conn.close()
 
@@ -276,7 +286,8 @@ class PgVectorStore:
             fused[row["id"]] = fused.get(row["id"], 0.0) + 1.0 / (k + rank)
         sorted_hits = sorted(fused.items(), key=lambda kv: kv[1], reverse=True)
         return [
-            Hit(score=score, chunk_id=chunk_id) for chunk_id, score in sorted_hits[: int(top_k)]
+            Hit(score=score, chunk=chunk_id)  # type: ignore[arg-type]
+            for chunk_id, score in sorted_hits[: int(top_k)]
         ]
 
     async def keyword_search(
@@ -297,7 +308,14 @@ class PgVectorStore:
             )
         finally:
             await conn.close()
-        return [Hit(score=float(row["score"]), chunk_id=row["id"]) for row in rows]
+        # See note above; pgvector emits Hit-shaped dicts, not Hit records.
+        return cast(
+            list[Hit],
+            [
+                Hit(score=float(row["score"]), chunk=row["id"])
+                for row in rows
+            ],
+        )
 
     async def optimize(self) -> None:
         """VACUUM ANALYZE; rebuilds HNSW if drift is high."""

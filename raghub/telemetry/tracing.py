@@ -433,7 +433,7 @@ class SafeConsoleSpanExporter:
                 "opentelemetry-sdk",
                 "pip install raghub[otel]",
             ) from None
-        self.parent = ConsoleSpanExporter(*args, **kwargs)
+        self.parent = ConsoleSpanExporter(*args, **kwargs)  # type: ignore[arg-type]
 
     def export(self, spans: Sequence[Any]) -> Any:
         """Forward to the parent exporter; suppress closed-stdout errors.

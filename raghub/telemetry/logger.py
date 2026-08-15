@@ -109,8 +109,8 @@ class LoguruTelemetryProvider(Telemetry):
         return LoguruSpan(name, self.adapter, attrs)
 
     @staticmethod
-    def end_span(span: LoguruSpan) -> None:
-        """Close the supplied span."""
+    def end_span(span: "Span") -> None:
+        """Close the supplied span (any :class:`Span`)."""
         span.end()
 
     def record_tokens(
