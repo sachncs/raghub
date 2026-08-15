@@ -456,6 +456,7 @@ class AioSqliteConnection:
     """Async context manager wrapping ``aiosqlite.connect``."""
 
     def __init__(self, coro: Any) -> None:
+        """Cache the ``aiosqlite.connect`` coroutine for ``__aenter__``."""
         self.coro = coro
 
     async def __aenter__(self) -> Any:

@@ -196,6 +196,7 @@ def make_answer_factory(rag: Any) -> Any:
     """
 
     async def factory(ex: dict[str, Any]) -> Any:
+        """Build an :func:`aquery` factory for example ``ex`` returning ``answer``."""
         response = await rag.aquery(ex["question"])
         return response.answer
 

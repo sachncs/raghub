@@ -80,6 +80,7 @@ class Registry:
         """
 
         def deco(subclass: type) -> type:
+            """Record ``subclass`` under ``name`` and return it unchanged."""
             cls.items[name] = subclass
             return subclass
 

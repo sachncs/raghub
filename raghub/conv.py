@@ -374,18 +374,23 @@ class ConversationStore(Registry):
     name: str = "conversation_store"
 
     def append(self, session_id: str, turn: Turn) -> None:
+        """Append a turn to the store for ``session_id``."""
         raise NotImplementedError
 
     def load(self, session_id: str, limit: int = 20) -> list[Turn]:
+        """Return up to ``limit`` recent turns for ``session_id``."""
         raise NotImplementedError
 
     def clear(self, session_id: str) -> None:
+        """Drop every stored turn for ``session_id``."""
         raise NotImplementedError
 
     def get_overrides(self, session_id: str) -> dict[str, Any]:
+        """Return the per-session override map (or empty if absent)."""
         raise NotImplementedError
 
     def set_overrides(self, session_id: str, overrides: dict[str, Any]) -> None:
+        """Replace the per-session override map with ``overrides``."""
         raise NotImplementedError
 
 

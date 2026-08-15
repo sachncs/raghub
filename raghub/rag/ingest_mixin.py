@@ -474,6 +474,7 @@ class IngestMixin:
         }
 
         async def submit() -> str:
+            """Submit a new job, returning the id of a deduplicated match if one exists."""
             existing_jobs: list[Job] = await queue.list_for_tenant(
                 tenant_id=tenant_id,
                 content_hash=content_hash,
@@ -524,6 +525,7 @@ class IngestMixin:
             queue = self.persistent_queue
 
             async def lookup() -> str | None:
+                """Return the stringified status, or ``None`` if the queue is empty."""
                 stats = await queue.stats()
                 if sum(stats.values()) == 0:
                     return None

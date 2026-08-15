@@ -160,6 +160,7 @@ class ToolConfig:
             """Print the tool_settings blob for ``--email`` as JSON."""
 
             async def runner() -> None:
+                """Resolve the user, fetch their tool_settings, print JSON."""
                 store = await cls.load_store()
                 user = await store.get_by_email(email)
                 if user is None:
@@ -191,6 +192,7 @@ class ToolConfig:
                 raise typer.BadParameter("--json must be a JSON object")
 
             async def runner() -> None:
+                """Resolve the user, merge the JSON into tool_settings."""
                 store = await cls.load_store()
                 user = await store.get_by_email(email)
                 if user is None:
@@ -212,6 +214,7 @@ class ToolConfig:
             """Delete the tool_settings blob for ``--email``."""
 
             async def runner() -> None:
+                """Resolve the user, delete tool_settings, print confirmation."""
                 store = await cls.load_store()
                 user = await store.get_by_email(email)
                 if user is None:
