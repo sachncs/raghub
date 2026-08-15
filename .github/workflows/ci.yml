@@ -179,7 +179,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
       - name: Bandit
-        run: bandit -ll -i -r raghub/
+        run: bandit -c pyproject.toml -ll -i -r raghub/
 
   benchmark-smoke:
     name: Benchmark smoke (master-only)

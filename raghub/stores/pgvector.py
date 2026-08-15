@@ -229,7 +229,7 @@ class PgVectorStore:
             sql = (
                 "SELECT id, 1 - (embedding <=> $1) AS score "
                 "FROM raghub_chunks "
-                f"WHERE {where_clause} "
+                f"WHERE {where_clause} "  # nosec B608 - where clause is a literal column ref; values use asyncpg $N placeholders
                 "ORDER BY embedding <=> $1 "
                 f"LIMIT ${len(params)}"
             )
