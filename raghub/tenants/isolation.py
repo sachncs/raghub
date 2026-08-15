@@ -404,6 +404,7 @@ def migrate_row_to_schema(src: Any, dst: Any, tenant_id: str | None) -> int:
     import asyncio
 
     async def migrate() -> int:
+        """Copy ``src`` rows to a new schema-per-tenant layout in ``dst``."""
         where = ""
         params: list[Any] = []
         if tenant_id is not None:
@@ -452,6 +453,7 @@ def migrate_schema_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
     import asyncio
 
     async def migrate() -> int:
+        """Copy ``src`` rows into the ``tenant_*`` schemas that exist on ``dst``."""
         copied = 0
         if tenant_id is not None:
             schemas = [f"tenant_{tenant_id}"]
@@ -498,6 +500,7 @@ def migrate_row_to_db(src: Any, dst: Any, tenant_id: str | None) -> int:
     import asyncio
 
     async def migrate() -> int:
+        """Copy ``src`` rows into ``dst`` keeping a single shared schema."""
         await dst.execute(_DDL_SQL)
         where = ""
         params: list[Any] = []
