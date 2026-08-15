@@ -84,7 +84,7 @@ class SyncMixin:
         self.manifest.save()
         return summary
 
-    def walk_files(
+    def walk_files(  # noqa: PLR0913, PLR0917 - filesystem walker preserves per-call mutating state
         self,
         directory: Path,
         seen: set[str],

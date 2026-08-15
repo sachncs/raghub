@@ -102,7 +102,7 @@ __all__ = [
 ]
 
 
-class RAG(  # ruff: ignore[too-many-public-methods] -- facade aggregating mixin surface
+class RAG(  # noqa: PLR0904 - facade aggregating mixin surface
     IngestMixin,
     QueryMixin,
     SyncMixin,
@@ -373,7 +373,7 @@ class RAG(  # ruff: ignore[too-many-public-methods] -- facade aggregating mixin 
         if not isinstance(self.persistent_queue, SqliteQueue):
             return None
 
-        async def ingest(job: Any) -> None:  # ruff: ignore[unused-async] -- Worker awaits its handlers
+        async def ingest(job: Any) -> None:  # noqa: RUF029 - Worker awaits its handlers
             """Drain a queue job by routing it back into the facade's ingest path."""
             payload = getattr(job, "payload", {}) or {}
             source_bytes = payload.get("source", "").encode("latin-1")

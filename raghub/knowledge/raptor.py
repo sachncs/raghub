@@ -43,13 +43,6 @@ class KnowledgeIndex(Registry):
         """Return the default health snapshot (``{"name": <registered name>}``)."""
         return {"name": getattr(self, "name", self.__class__.__name__.lower())}
 
-    """Polymorphic base for structured-retrieval overlays.
-
-    Concrete indexes (RAPTOR, GraphRAG, …) register themselves via
-    ``@KnowledgeIndex.register``; use :meth:`KnowledgeIndex.get` for
-    by-name dispatch.
-    """
-
     name: str = "knowledge_index"
 
     def add_chunks(
@@ -71,11 +64,6 @@ class KnowledgeIndex(Registry):
     ) -> list[Hit]:
         """Search the index for entries relevant to ``query``."""
         raise NotImplementedError
-
-    def health(self) -> dict[str, Any]:
-        """Return a small JSON-friendly status dict for ``/health``."""
-        chunks = getattr(self, "chunks", None) or {}
-        return {"name": self.name, "chunks": len(chunks)}
 
 
 @KnowledgeIndex.register("raptor")

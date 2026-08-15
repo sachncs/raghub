@@ -43,7 +43,7 @@ class CacheKey:
     scope: tuple[tuple[str, Any], ...] | None
 
     @classmethod
-    def build(
+    def build(  # noqa: PLR0913, PLR0917 - cache key carries every retrieval input
         cls,
         question: str,
         user_id: str | None,

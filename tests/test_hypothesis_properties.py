@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import pytest
 
-pytest.importorskip("hypothesis")
-from hypothesis import given
-from hypothesis import strategies as st
-
 from raghub.eval import Metrics
 from raghub.knowledge import dumps, from_okf, to_okf
 from raghub.lifecycle import ChunkingPlan, chunk_words, normalize_text
 from raghub.models import deterministic_id
 from raghub.pipeline import canonical_filters
+
+pytest.importorskip("hypothesis")
+
+from hypothesis import given  # noqa: E402 - module only available after importorskip
+from hypothesis import strategies as st  # noqa: E402 - module only available after importorskip
 
 
 @given(

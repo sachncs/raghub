@@ -147,7 +147,7 @@ def chonkie_options(options: dict[str, JSONValue]) -> tuple[str, str, str, str, 
     )
 
 
-def chonkie_chunk_builders(  # ruff: ignore[too-many-arguments, too-many-positional-arguments] -- five chonkie knobs, all consumed by dict
+def chonkie_chunk_builders(  # noqa: PLR0913, PLR0917 - five chonkie knobs, all consumed by dict
     tokenizer: str,
     embedding_model: str,
     language: str,
@@ -220,7 +220,7 @@ def auto_select_chunker(
         if cls is None:
             continue
         sig, signature_error = capture(inspect.signature, cls)
-        if isinstance(signature_error, (TypeError, ValueError)):
+        if isinstance(signature_error, TypeError | ValueError):
             sig = None
         kwargs: dict[str, Any] = {}
         if sig is not None:

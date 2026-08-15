@@ -66,7 +66,7 @@ class LinearFusion(Fusion):
 
     name = "linear"
 
-    def fuse(self, lists: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
+    def fuse(self, lists: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:  # noqa: PLR6301 - registry polymorphism requires instance method
         """Fuse lists of result dictionaries keyed by ``chunk_id``."""
         linear_scores: dict[str, float] = {}
         records_linear: dict[str, dict[str, Any]] = {}

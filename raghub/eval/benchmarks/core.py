@@ -91,7 +91,7 @@ def extract_prediction(out: Any, example: dict[str, Any], idx: int) -> tuple:
     return predicted, contexts, retrieved_ids, relevant_ids
 
 
-def build_result(  # ruff: ignore[too-many-arguments] -- aggregates every scoring signal into one Result
+def build_result(  # noqa: PLR0913 - aggregates every scoring signal into one Result
     *,
     benchmark: str,
     idx: int,

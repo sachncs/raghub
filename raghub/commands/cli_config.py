@@ -526,10 +526,10 @@ class QueueCommand:
             typer.echo(f"removed {removed} job(s)")
 
 
-async def ingest_handler(  # ruff: ignore[unused-async] -- Worker awaits its handlers
+async def ingest_handler(  # noqa: RUF029 - Worker awaits its handlers
     job: Any, rag: Any, archive: Any, store: Any
 ) -> None:
-    """Default queue handler: re-run ``RAG.ingest`` against the persisted payload."""
+    """Re-run ``RAG.ingest`` against the persisted job payload."""
     payload = job.payload
     source = payload["source"].encode("latin-1")
     source_uri = payload.get("source_uri", "bytes://queue")

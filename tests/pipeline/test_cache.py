@@ -73,9 +73,10 @@ def test_cache_invalidate_by_user_id() -> None:
     """``Cache.invalidate(user_id=...)`` evicts all entries for that user."""
 
     cache = Cache()
-    pipeline_factory = lambda pid: Pipeline(
-        pipeline_id=pid, pipeline_name="test", outputs=PipelineOutputs()
-    )
+
+    def pipeline_factory(pid: str) -> Pipeline:
+        return Pipeline(pipeline_id=pid, pipeline_name="test", outputs=PipelineOutputs())
+
     cache.set("q1", user_id="alice", filters=None, result=pipeline_factory("a"))
     cache.set("q2", user_id="bob", filters=None, result=pipeline_factory("b"))
     cache.invalidate(user_id="alice")

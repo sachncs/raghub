@@ -39,24 +39,31 @@ class Telemetry(Registry):
     name: str = "telemetry"
 
     def info(self, message: str, **kwargs: JSONValue) -> None:
+        """Emit an info-level log line."""
         raise NotImplementedError
 
     def warning(self, message: str, **kwargs: JSONValue) -> None:
+        """Emit a warning-level log line."""
         raise NotImplementedError
 
     def error(self, message: str, **kwargs: JSONValue) -> None:
+        """Emit an error-level log line."""
         raise NotImplementedError
 
     def record_latency(self, name: str, value_ms: float, **labels: Any) -> None:
+        """Record a latency sample under ``name`` with the given labels."""
         raise NotImplementedError
 
     def increment(self, name: str, value: int = 1, **labels: Any) -> None:
+        """Increment the ``name`` counter by ``value`` (default 1)."""
         raise NotImplementedError
 
     def start_span(self, name: str, **attrs: JSONValue) -> Span:
+        """Start a new span and return it for later ``end_span``."""
         raise NotImplementedError
 
     def end_span(self, span: Span) -> None:
+        """Close a previously-started span."""
         raise NotImplementedError
 
     def record_tokens(
@@ -66,6 +73,7 @@ class Telemetry(Registry):
         completion_tokens: int,
         model: str = "",
     ) -> None:
+        """Record token usage for a model call."""
         raise NotImplementedError
 
     @contextmanager

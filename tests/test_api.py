@@ -1109,7 +1109,7 @@ async def test_rate_limiter_middleware_no_client() -> None:
 
 
 def test_feedback_router_post_get_delete_round_trip(tmp_path) -> None:
-    """POST /feedback, GET /feedback/{id}, DELETE /feedback/{id} all work and the user attribution is real.
+    """POST /feedback and GET/DELETE work; user attribution is real.
 
     The bearer token is required by :class:`Auth.admin` /
     :class:`Bearer.require`; the facade's auth service is stubbed
@@ -1250,7 +1250,7 @@ def test_feedback_router_aggregate_returns_counts(tmp_path) -> None:
 
 
 def test_feedback_router_503_when_store_absent() -> None:
-    """503 returned when feedback_store is not configured — but only after the bearer token check passes.
+    """503 returned when feedback_store is not configured after token check.
 
     The auth layer is wired with a stub that resolves any token to
     a real user so the request reaches the handler. The handler

@@ -130,14 +130,14 @@ class ChunkStore(ChunkRepository):
         embedding = embeddings if isinstance(embeddings, list) else self.embedding_for(chunk)
         self.store.upsert([chunk], [embedding])
 
-    async def get(self, chunk_id: str) -> Chunk | None:  # ruff: ignore[no-self-use]
+    async def get(self, chunk_id: str) -> Chunk | None:  # noqa: PLR6301 - registry base; subclasses override
         """Return the chunk with ``chunk_id`` or ``None``."""
         # The vector store doesn't store full Chunk records; this
         # default implementation returns None. Subclasses with a
         # side-store override this.
         return None
 
-    async def list_by_document(  # ruff: ignore[no-self-use]
+    async def list_by_document(  # noqa: PLR6301 - registry base; subclasses override
         self, document_id: str, version: int | None = None
     ) -> list[Chunk]:
         """Return every chunk for ``document_id`` (optionally at ``version``)."""
@@ -151,7 +151,7 @@ class ChunkStore(ChunkRepository):
         """Remove every chunk for ``document_id``."""
         self.store.delete_document(document_id)
 
-    async def search_by_metadata(  # ruff: ignore[no-self-use]
+    async def search_by_metadata(  # noqa: PLR6301 - registry base; subclasses override
         self, filters: dict[str, Any], *, limit: int = 100
     ) -> list[Chunk]:
         """Return chunks whose metadata matches ``filters``."""

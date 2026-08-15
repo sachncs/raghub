@@ -10,7 +10,7 @@ def test_jsonvalue_alias_accepts_scalar_types() -> None:
 
     scalars: list[JSONValue] = ["s", 1, 1.5, True, None]
     for s in scalars:
-        assert isinstance(s, (str, int, float, bool, type(None)))
+        assert isinstance(s, str | int | float | bool | type(None))
 
 
 def test_jsonvalue_alias_accepts_nested_lists_and_dicts() -> None:

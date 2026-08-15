@@ -50,6 +50,12 @@ import dataclasses
 import hashlib
 import typing
 from dataclasses import dataclass, field, fields
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any, get_args, get_origin
+from uuid import uuid4
+
+from raghub.errors import VerificationError
 
 _TYPE_HINTS_CACHE: dict[type, dict[str, Any]] = {}
 
@@ -63,13 +69,6 @@ def _resolve_hints(cls: type) -> dict[str, Any]:
     _TYPE_HINTS_CACHE[cls] = resolved
     return resolved
 
-
-from datetime import UTC, datetime
-from enum import StrEnum
-from typing import Any, get_args, get_origin
-from uuid import uuid4
-
-from raghub.errors import VerificationError
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -310,9 +309,9 @@ class BlockKind(StrEnum):
 
 
 def deterministic_id(*parts: str, length: int = 16) -> str:
-    """Build a short, deterministic id from a tuple of strings.
+    r"""Build a short, deterministic id from a tuple of strings.
 
-    SHA-256 of ``"\\x1f".join(parts)`` truncated to ``length`` hex
+    SHA-256 of ``"\x1f".join(parts)`` truncated to ``length`` hex
     characters. Re-indexing the same content yields the same id, which
     is the foundation of the incremental-indexing support.
 
@@ -344,15 +343,21 @@ def deterministic_id(*parts: str, length: int = 16) -> str:
 _JSON_SENTINELS: tuple[Any, ...] = (None,)
 
 
-def _json_safe(value: Any) -> Any:
-    """Recursively convert a value into a JSON-safe primitive."""
-    if value is None or isinstance(value, (str, int, float, bool)):
+def _json_safe(value: Any) -> Any:  # noqa: PLR0911 - one return per coercion branch
+    """Recursively convert a value into a JSON-safe primitive.
+
+    Each branch handles a different primitive / container shape; the
+    function is intentionally written with one ``return`` per branch
+    so the structure stays obvious in performance-sensitive serialise
+    paths.
+    """
+    if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, StrEnum):
         return value.value
     if isinstance(value, datetime):
         return value.isoformat()
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, list | tuple):
         return [_json_safe(item) for item in value]
     if isinstance(value, dict):
         return {str(k): _json_safe(v) for k, v in value.items()}
@@ -361,12 +366,17 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
-def _coerce(field_type: Any, value: Any) -> Any:
+def _coerce(field_type: Any, value: Any) -> Any:  # noqa: PLR0911 - one return per coercion branch
     """Coerce ``value`` into ``field_type`` where possible.
 
     Handles the small set of coercions needed by RAGHub models:
     ISO-8601 strings → ``datetime``, enum names → ``StrEnum``,
     nested ``dict`` → dataclass, ``list[T]`` → ``list[T]``.
+
+    Each branch returns immediately to keep the coercion logic
+    readable; the function is intentionally structured as a
+    discriminated ladder instead of a match statement because the
+    cascading short-circuits benefit from the early return.
     """
     if value is None:
         return None
@@ -539,6 +549,7 @@ class User(Snap):
     type: UserKind = UserKind.Standard
 
     def __post_init__(self) -> None:
+        """Validate that required identity fields are non-empty."""
         if not self.id:
             raise VerificationError("User: empty id")
         if not self.email:
@@ -570,6 +581,7 @@ class Session(Snap):
     type: SessionKind = SessionKind.Standard
 
     def __post_init__(self) -> None:
+        """Validate that required session identity fields are non-empty."""
         if not self.id:
             raise VerificationError("Session: empty id")
         if not self.token:
@@ -609,6 +621,7 @@ class Document(Snap):
     state: State = State.New
 
     def __post_init__(self) -> None:
+        """Validate the document id and the FAILED-state error payload."""
         if not self.id:
             raise VerificationError("Document: empty id")
         if self.state == State.Failed and not self.error:
@@ -631,7 +644,7 @@ class Chunk(Snap):
     """Chunk metadata stored alongside the vector."""
 
     @classmethod
-    def unsafe(
+    def unsafe(  # noqa: PLR0913 - factory intentionally exposes every Chunk field
         cls,
         *,
         id: str = "",
@@ -644,7 +657,7 @@ class Chunk(Snap):
         owner: str = "",
         department: str = "",
         classification: Classification = Classification.Internal,
-        created_at: datetime = field(default_factory=lambda: datetime.now(UTC)),
+        created_at: datetime = field(default_factory=lambda: datetime.now(UTC)),  # noqa: B008 - dataclass field is the documented default-factory pattern
         embedding_model: str = "",
         checksum: str = "",
         text: str = "",
@@ -704,6 +717,7 @@ class Chunk(Snap):
     tenant_id: str | None = None
 
     def __post_init__(self) -> None:
+        """Validate chunk id/text/checksum and the checksum-text alignment."""
         if not self.id:
             raise VerificationError("Chunk: empty id")
         if not self.text:
@@ -744,6 +758,7 @@ class Hit(Snap):
         return self.chunk.id
 
     def __post_init__(self) -> None:
+        """Validate chunk_id and recursively verify the embedded Chunk."""
         if not self.chunk_id:
             raise VerificationError("Hit: empty chunk_id")
         # Recursively verify the inner chunk so a Hit surfaced from a
@@ -843,6 +858,7 @@ class Embedding(Snap):
     type: EmbeddingType = EmbeddingType.Dense
 
     def __post_init__(self) -> None:
+        """Validate that the embedding carries an id and a non-empty vector."""
         if not self.id:
             raise VerificationError("Embedding: empty id")
         if not self.vector:
@@ -864,6 +880,7 @@ class Citation(Snap):
     type: CitationType = CitationType.Direct
 
     def __post_init__(self) -> None:
+        """Validate that the citation carries a non-empty document reference."""
         if not self.document_id:
             raise VerificationError("Citation: empty document_id")
 
@@ -918,6 +935,7 @@ class Response(Snap):
     type: ResponseType = ResponseType.Answer
 
     def __post_init__(self) -> None:
+        """Validate answer/citation/sources and verify the citations aggregate."""
         if not self.answer and not self.citations:
             raise VerificationError("Response: empty answer and no citations")
         Citations(items=list(self.citations)).verify(chunks=list(self.source_chunks))
@@ -1048,6 +1066,7 @@ class Pipeline(Snap):
         return self.error is None
 
     def __post_init__(self) -> None:
+        """Validate that a Pipeline error carries a message when present."""
         if self.error is not None and not self.error.message:
             raise VerificationError("Pipeline: error.message required when error is set")
 

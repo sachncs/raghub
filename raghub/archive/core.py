@@ -140,24 +140,30 @@ class ArchiveStore(Registry):
     name: str = "archive_store"
 
     def put(self, key: str, data: bytes) -> None:
+        """Write ``data`` under ``key``."""
         raise NotImplementedError
 
     def get(self, key: str) -> bytes:
+        """Return the bytes stored under ``key``."""
         raise NotImplementedError
 
     def list(self, prefix: str = "") -> list[str]:
+        """Return all keys whose name begins with ``prefix``."""
         raise NotImplementedError
 
     def delete(self, key: str) -> None:
+        """Remove ``key`` from the archive."""
         raise NotImplementedError
 
 
 @ArchiveStore.register("local")
 class LocalArchiveStore(ArchiveStore):
-    name = "local"
     """Stores archives on the local filesystem."""
 
+    name = "local"
+
     def __init__(self, base_path: str | Path) -> None:
+        """Persist archives under ``base_path``, creating the directory."""
         self.base_path = Path(base_path)
         self.base_path.mkdir(parents=True, exist_ok=True)
 

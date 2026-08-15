@@ -134,7 +134,7 @@ class TestRowLevelFilterQuery:
         ctx = TenantContext(tenant_id="acme")
         token = set_current(ctx)
         try:
-            clause, params = RowLevel().filter_query(column="owner")
+            clause, _ = RowLevel().filter_query(column="owner")
             assert clause == "owner = :tenant_id"
         finally:
             reset(token)
@@ -143,7 +143,7 @@ class TestRowLevelFilterQuery:
         ctx = TenantContext(tenant_id="acme")
         token = set_current(ctx)
         try:
-            clause, params = RowLevel().filter_query(operator="!=")
+            clause, _ = RowLevel().filter_query(operator="!=")
             assert clause == "tenant_id != :tenant_id"
         finally:
             reset(token)

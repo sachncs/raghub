@@ -39,7 +39,7 @@ inheritance. That's strictly less abstract than the ABC + Protocol
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypeVar
+from typing import ClassVar, TypeVar
 
 T = TypeVar("T")
 
@@ -59,7 +59,7 @@ class Registry:
 
     """
 
-    items: dict[str, type] = {}
+    items: ClassVar[dict[str, type]] = {}
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         """Give every subclass its own ``items`` dict."""

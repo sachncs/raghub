@@ -188,7 +188,7 @@ def test_synchronous_worker_runs_synchronously() -> None:
 
 
 def test_thread_pool_worker_returns_real_result() -> None:
-    """``ThreadPool.submit`` runs the callable and surfaces its return value via ``future.result``."""
+    """``ThreadPool.submit`` runs the callable; ``future.result`` returns it."""
 
     worker = ThreadPool()
     future = worker.submit(lambda: "expected-result")
@@ -200,7 +200,7 @@ def test_thread_pool_worker_returns_real_result() -> None:
 
 
 def test_memory_queue_enqueue_round_trip() -> None:
-    """``MemoryQueue.enqueue`` returns a non-empty id and the entry round-trips via the underlying queue."""
+    """``MemoryQueue.enqueue`` returns a non-empty id and entry round-trips."""
 
     queue = MemoryQueue()
     rid = queue.enqueue("op", {"a": 1})

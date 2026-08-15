@@ -214,6 +214,7 @@ class SqliteQueue(PersistentQueue):
             await conn.executescript(SCHEMA_SQL)
 
     def connect(self) -> AioSqliteConnection:
+        """Open an aiosqlite connection wrapped as :class:`AioSqliteConnection`."""
         import aiosqlite
 
         return AioSqliteConnection(aiosqlite.connect(self.db_path))
@@ -504,6 +505,7 @@ class Worker:
         await asyncio.gather(*(self.loop(f"worker-{i}") for i in range(self.concurrency)))
 
     async def loop(self, worker_id: str) -> None:
+        """Claim and execute jobs forever; exits only on cancellation."""
         while True:
             job = await self.queue.claim(worker_id, lease_seconds=self.lease_seconds)
             if job is None:
