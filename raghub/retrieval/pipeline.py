@@ -142,8 +142,7 @@ class Retrieval:
 
     def hybrid_search(self, *, user: User, question: str, top_k: int) -> list[Hit]:
         """RBAC-filtered vector hits fused with keyword hits."""
-        vector_results = self.retrieve(user=user, question=question, top_k=top_k)
-        return self.retrieve_hybrid(question, vector_results)
+        return self.retrieve_hybrid(user=user, question=question, top_k=top_k)
 
     def retrieve_variants(
         self,

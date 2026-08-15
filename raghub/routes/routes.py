@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import (
     APIRouter,
@@ -252,7 +252,17 @@ class HealthRoute:
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, Any]:
             """Report liveness."""
-            return app_service.health()
+            report = app_service.health()
+            return cast(
+                dict[str, Any],
+                {
+                    "status": report.status,
+                    "components": {
+                        name: {"status": comp.status, **comp.extra}
+                        for name, comp in report.components.items()
+                    },
+                },
+            )
 
 
 class AuthRoute:
@@ -642,11 +652,11 @@ class AdminRoute:
             admin_user: Annotated[User, Depends(Auth.admin)],
             app_service: Annotated[Facade, Depends(App.get)],
         ) -> dict[str, Any]:
-            """Handle ``GET /users``."""
+            """Handle ``GET /stats``."""
             docs = await app_service.list_all_documents()
             users = await app_service.list_all_users()
-            vector_health = app_service.vector_store_health()
-            chunk_count = vector_health.get("chunks", 0)
+            vector_health = await app_service.vector_store_health()
+            chunk_count = cast(int, vector_health.get("chunks", 0))
             return {
                 "document_count": len(docs),
                 "user_count": len(users),
