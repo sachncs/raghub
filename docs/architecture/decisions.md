@@ -19,6 +19,7 @@
 | ADR-0015 | 2024-Q4 | Structured output is delivered via Instructor when available | Accepted |
 | ADR-0016 | 2024-Q4 | Background ingestion is resumable through a persistent ledger | Accepted |
 | ADR-0017 | 2024-Q4 | Production forbids passwordless login and short JWT secrets | Accepted |
+| ADR-0018 | 2025-Q1 | Registry-based polymorphism and fail-fast imports | Accepted |
 
 ---
 
@@ -272,3 +273,26 @@ is `false`. Any violation raises `RuntimeError` at startup.
 **Consequences:** the production profile cannot silently accept
 forged credentials or permit passwordless sessions. CI also
 fails the build when the `InsecureKeyLengthWarning` fires.
+
+## ADR-0018: Registry-based polymorphism and fail-fast imports
+
+**Context:** the codebase had three inconsistent patterns for
+extensibility (ABCs, Protocols, ad-hoc classes) and defensive
+`try/except ImportError` guards around core dependencies that
+are always installed.
+
+**Decision:** all polymorphic surfaces (vector stores, feedback
+stores, tenant resolvers, archive stores) use
+`raghub.registry.Registry` as their base. Concrete adapters
+register via `@Subclass.register("name")` and are resolved by
+string key. Core dependencies (`asyncpg`, `cryptography`) are
+pinned in `pyproject.toml` and imported at module level; no
+`try/except ImportError` guards remain in production code.
+Optional dependencies may still use guards when the feature is
+genuinely opt-in.
+
+**Consequences:** adding a new adapter is a one-line `@register`
+decorator. Import failures for missing core deps surface
+immediately at `import raghub` rather than at first use. The
+`FeedbackStore`, `Store`, `TenantResolver`, and `ArchiveStore`
+hierarchies are all uniform.
