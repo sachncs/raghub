@@ -1,4 +1,4 @@
-"""Contract tests for the public value-object and TypedDict modules.
+"""Contract tests for the public value-object and dataclass modules.
 
 AGENTS.md §2461-2475 calls for contract tests verifying accepted
 inputs, rejected inputs, outputs, exceptions, and side effects of
@@ -69,34 +69,35 @@ def test_ids_string_operations_work() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_metadata_typed_dict_accepts_partial_fields() -> None:
-    """``Metadata`` is total=False so callers may omit any field."""
+def test_metadata_accepts_partial_fields() -> None:
+    """``Metadata`` fields default to None so callers may omit any field."""
 
-    md: Metadata = {}
-    md["vector"] = [0.1, 0.2, 0.3]
-    assert md == {"vector": [0.1, 0.2, 0.3]}
-
-
-def test_metadata_typed_dict_accepts_any_field() -> None:
-    """TypedDict is structural; undeclared keys are valid at runtime."""
-
-    md: Metadata = {"custom_field": "any value"}
-    assert md["custom_field"] == "any value"
+    md = Metadata()
+    assert md.vector is None
+    md.vector = [0.1, 0.2, 0.3]
+    assert md.vector == [0.1, 0.2, 0.3]
 
 
-def test_auth_headers_typed_dict_accepts_partial_fields() -> None:
+def test_metadata_accepts_extra_fields() -> None:
+    """``Metadata.extra`` dict allows arbitrary key/value pairs."""
+
+    md = Metadata(extra={"custom_field": "any value"})
+    assert md.extra["custom_field"] == "any value"
+
+
+def test_auth_headers_accepts_partial_fields() -> None:
     """``AuthHeaders`` accepts just the Authorization header."""
 
-    headers: AuthHeaders = {"authorization": "Bearer xyz"}
-    assert headers["authorization"] == "Bearer xyz"
+    headers = AuthHeaders(authorization="Bearer xyz")
+    assert headers.authorization == "Bearer xyz"
 
 
-def test_query_request_typed_dict_accepts_partial_fields() -> None:
+def test_query_request_accepts_partial_fields() -> None:
     """``QueryRequest`` accepts a subset of the documented fields."""
 
-    req: QueryRequest = {"question": "What is X?", "top_k": 5}
-    assert req["question"] == "What is X?"
-    assert req["top_k"] == 5
+    req = QueryRequest(question="What is X?", top_k=5)
+    assert req.question == "What is X?"
+    assert req.top_k == 5
 
 
 # ---------------------------------------------------------------------------
@@ -107,19 +108,17 @@ def test_query_request_typed_dict_accepts_partial_fields() -> None:
 def test_score_breakdown_accepts_partial_fields() -> None:
     """``ScoreBreakdown`` accepts any subset of the optional fields."""
 
-    sb: ScoreBreakdown = {"raw_score": 0.7}
-    assert sb["raw_score"] == 0.7
+    sb = ScoreBreakdown(raw_score=0.7)
+    assert sb.raw_score == 0.7
 
 
 def test_score_breakdown_serializes_to_dict() -> None:
-    """``ScoreBreakdown`` is JSON-serialisable."""
+    """``ScoreBreakdown`` is convertible to a dict."""
+    import dataclasses
 
-    import json
-
-    sb: ScoreBreakdown = {"raw_score": 0.7, "normalised": 0.5, "rank": 1}
-    encoded = json.dumps(sb)
-    decoded = json.loads(encoded)
-    assert decoded == sb
+    sb = ScoreBreakdown(raw_score=0.7, normalised=0.5, rank=1)
+    d = dataclasses.asdict(sb)
+    assert d == {"raw_score": 0.7, "normalised": 0.5, "rank": 1}
 
 
 # ---------------------------------------------------------------------------
@@ -142,8 +141,8 @@ def test_ids_module_exports_six_aliases() -> None:
     }
 
 
-def test_typed_dicts_module_exports_three_typed_dicts() -> None:
-    """``raghub.typed_dicts`` exports three TypedDict subclasses."""
+def test_typed_dicts_module_exports_three_dataclasses() -> None:
+    """``raghub.typed_dicts`` exports three dataclasses."""
 
     import raghub.typed_dicts
 
