@@ -160,8 +160,8 @@ class RAG(  # noqa: PLR0904 - facade aggregating mixin surface
         self.worker_task: asyncio.Task[None] | None = None
         self._tenant_resolver = self.init_tenant(component_map)
         self._feedback_store = self.init_feedback(component_map)
-        self._rate_limiter: Any = None
-        self._archive: Any = None
+        self._rate_limiter = self.init_rate_limiter(component_map)
+        self._archive = self.init_archive(component_map)
         self.isolation: Any = component_map.get("isolation_strategy")
 
     def wire_components(self, components: dict[str, Any]) -> None:
@@ -467,6 +467,56 @@ class RAG(  # noqa: PLR0904 - facade aggregating mixin surface
             store.initialize()
             return store
         # postgres backend requires asyncpg; deferred to a future release
+        return None
+
+    def init_rate_limiter(self, components: dict[str, Any]) -> Any:
+        """Construct the rate limiter bucket.
+
+        Priority:
+            1. ``components["rate_limiter"]`` if supplied.
+            2. ``Settings.rate_limit.backend == "memory"`` -> ``Bucket``.
+            3. Otherwise ``None``.
+        """
+        supplied = components.get("rate_limiter")
+        if supplied is not None:
+            return supplied
+        backend = self.settings.rate_limit.backend
+        if backend == "none":
+            return None
+        if backend == "memory":
+            from raghub.ratelimit import Bucket
+
+            return Bucket(
+                rate=self.settings.rate_limit.per_tenant_rps,
+                burst=self.settings.rate_limit.per_tenant_burst,
+            )
+        if backend == "sqlite":
+            from raghub.ratelimit import Bucket
+
+            return Bucket(
+                rate=self.settings.rate_limit.per_tenant_rps,
+                burst=self.settings.rate_limit.per_tenant_burst,
+            )
+        return None
+
+    def init_archive(self, components: dict[str, Any]) -> Any:
+        """Construct the archive store.
+
+        Priority:
+            1. ``components["archive"]`` if supplied.
+            2. ``Settings.archive.backend == "local"`` -> ``LocalArchiveStore``.
+            3. Otherwise ``None``.
+        """
+        supplied = components.get("archive")
+        if supplied is not None:
+            return supplied
+        backend = self.settings.archive.backend
+        if backend == "none":
+            return None
+        if backend == "local":
+            from raghub.archive import LocalArchiveStore
+
+            return LocalArchiveStore(base_path=self.settings.archive.local_dir)
         return None
 
     # ------------------------------------------------------------------
