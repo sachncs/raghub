@@ -15,11 +15,13 @@ from contextlib import contextmanager
 from typing import Any, TypeVar
 
 from raghub.constants import ENV_LANGFUSE_PUBLIC_KEY, ENV_LANGFUSE_SECRET_KEY
-from raghub.errors import ConfigurationError, MissingDepError
+from raghub.errors import ConfigurationError
 from raghub.runtime import capture
 from raghub.telemetry.base import Span, Telemetry
 from raghub.telemetry.metrics import NoopSpan
 from raghub.types import JSONValue
+
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SpanExportResult
 
 T = TypeVar("T")
 
@@ -32,27 +34,18 @@ __all__ = [
     "SafeConsoleSpanExporter",
     "Tracer",
     "langfuse_client",
-    "langfuse_get_client",
     "record_long_context",
     "record_rerank_latency",
     "try_import_submodule",
 ]
 
 
-langfuse_get_client: Any
 Langfuse: Any
 
-try:
-    from langfuse import Langfuse
-    from langfuse import get_client as langfuse_get_client
+from langfuse import Langfuse
 
-    LANGFUSE_AVAILABLE = True
-    IMPORT_ERROR: Exception | None = None
-except ImportError as exc:  # optional dep — propagate when explicitly requested
-    langfuse_get_client = None
-    Langfuse = None
-    LANGFUSE_AVAILABLE = False
-    IMPORT_ERROR = exc
+LANGFUSE_AVAILABLE = True
+IMPORT_ERROR: Exception | None = None
 
 
 def try_import_submodule(module_name: str, target_name: str) -> Any:
@@ -117,14 +110,12 @@ def record_long_context(*, outcome: str, seconds: float) -> None:
 
 def langfuse_client() -> Any:
     """Return the active Langfuse client or ``None`` when not configured."""
-    if langfuse_get_client is None:
-        return None
     public_key = os.getenv(ENV_LANGFUSE_PUBLIC_KEY)
     secret_key = os.getenv(ENV_LANGFUSE_SECRET_KEY)
     if not public_key or not secret_key:
         return None
     try:
-        return langfuse_get_client()
+        return langfuse.get_client()
     except Exception:
         return None
 
@@ -249,8 +240,6 @@ class LangfuseTelemetryProvider(Telemetry):
             nor v2 SDKs are available.
 
         """
-        if langfuse_get_client is not None:
-            return langfuse_get_client()
         return Langfuse(
             public_key=public_key,
             secret_key=secret_key,
@@ -426,13 +415,6 @@ class SafeConsoleSpanExporter:
 
     def __init__(self, *args: Any, **kwargs: JSONValue) -> None:
         """Lazy-import the parent :class:`ConsoleSpanExporter`."""
-        try:
-            from opentelemetry.sdk.trace.export import ConsoleSpanExporter
-        except ImportError:
-            raise MissingDepError(
-                "opentelemetry-sdk",
-                "pip install raghub[otel]",
-            ) from None
         self.parent = ConsoleSpanExporter(*args, **kwargs)  # type: ignore[arg-type]
 
     def export(self, spans: Sequence[Any]) -> Any:
@@ -459,11 +441,7 @@ class SafeConsoleSpanExporter:
 
     @staticmethod
     def failure() -> Any:
-        """Return the OTel FAILURE result without importing it at module load."""
-        try:
-            from opentelemetry.sdk.trace.export import SpanExportResult
-        except ImportError:
-            return None
+        """Return the OTel FAILURE result."""
         return SpanExportResult.FAILURE
 
 
