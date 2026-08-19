@@ -25,6 +25,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+import asyncpg
+from cryptography.fernet import Fernet
+
 from raghub.constants import DEFAULT_EMBEDDING_DIM, ENV_RAGHUB_TENANT_SECRETS_KEY
 from raghub.errors import AuthorizationError, MissingDepError, RagHubError
 
@@ -158,13 +161,6 @@ class SchemaPerTenant:
         """Create the ``tenant_<id>`` schema and run the migrations inside."""
         require_tenant()
         schema = f"tenant_{tenant_id}"
-        try:
-            import asyncpg
-        except ImportError as exc:
-            raise MissingDepError(
-                "asyncpg",
-                "pip install raghub[pgvector]",
-            ) from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
@@ -191,13 +187,6 @@ class DatabasePerTenant:
 
         require_tenant()
         record = self.tenants.get(tenant_id)
-        try:
-            import asyncpg
-        except ImportError as exc:
-            raise MissingDepError(
-                "asyncpg",
-                "pip install raghub[pgvector]",
-            ) from exc
         return await asyncpg.connect(record["dsn"])
 
 
@@ -257,13 +246,6 @@ class TenantSecretCipher:
     @staticmethod
     def fernet() -> Any:
         """Return a Fernet cipher built from ``RAGHUB_TENANT_SECRETS_KEY``."""
-        try:
-            from cryptography.fernet import Fernet
-        except ImportError as exc:
-            raise MissingDepError(
-                "cryptography",
-                "pip install raghub[auth]",
-            ) from exc
         key = os.getenv(ENV_RAGHUB_TENANT_SECRETS_KEY)
         if not key:
             raise MissingDepError(
@@ -352,13 +334,6 @@ def migrate_tenant_split(
     * ``ROW_LEVEL -> DATABASE_PER_TENANT``
 
     """
-    try:
-        import asyncpg
-    except ImportError as exc:
-        raise MissingDepError(
-            "asyncpg",
-            "pip install raghub[pgvector]",
-        ) from exc
     conn_src = sync_connect(asyncpg, source_dsn)
     conn_dst = sync_connect(asyncpg, target_dsn)
     try:

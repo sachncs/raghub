@@ -30,7 +30,9 @@ from datetime import UTC, datetime
 from enum import IntEnum
 from typing import Any
 
-from raghub.errors import ConfigurationError, MissingDepError
+import asyncpg
+
+from raghub.errors import ConfigurationError
 from raghub.registry import Registry
 from raghub.telemetry import RedactingTelemetry
 from raghub.tenants import validate_tenant
@@ -349,10 +351,6 @@ class PgFeedbackStore(FeedbackStore):
 
     async def initialize(self) -> None:
         """Create the feedback table."""
-        try:
-            import asyncpg
-        except ImportError as exc:
-            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute(SCHEMA_SQL)
@@ -361,10 +359,6 @@ class PgFeedbackStore(FeedbackStore):
 
     async def record(self, feedback: Feedback) -> None:
         """Persist ``feedback`` with redacted comment."""
-        try:
-            import asyncpg
-        except ImportError as exc:
-            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         redacted_comment = FeedbackStore.redact_comment(feedback.comment)
         conn = await asyncpg.connect(self.dsn)
         try:
@@ -390,10 +384,6 @@ class PgFeedbackStore(FeedbackStore):
 
     async def get(self, feedback_id: str) -> Feedback | None:
         """Return the feedback or ``None``."""
-        try:
-            import asyncpg
-        except ImportError as exc:
-            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             row = await conn.fetchrow("SELECT * FROM raghub_feedback WHERE id = $1", feedback_id)
@@ -403,10 +393,6 @@ class PgFeedbackStore(FeedbackStore):
 
     async def list_for_session(self, session_id: str) -> list[Feedback]:
         """Return every feedback record for the session."""
-        try:
-            import asyncpg
-        except ImportError as exc:
-            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             rows = await conn.fetch(
@@ -419,10 +405,6 @@ class PgFeedbackStore(FeedbackStore):
 
     async def list_for_chunk(self, chunk_id: str) -> list[Feedback]:
         """Return every feedback record for the chunk."""
-        try:
-            import asyncpg
-        except ImportError as exc:
-            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             rows = await conn.fetch(
@@ -435,10 +417,6 @@ class PgFeedbackStore(FeedbackStore):
 
     async def list_for_tenant(self, tenant_id: str, limit: int = 1000) -> list[Feedback]:
         """Return every feedback record for the tenant (capped at ``limit``)."""
-        try:
-            import asyncpg
-        except ImportError as exc:
-            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             rows = await conn.fetch(
@@ -453,10 +431,6 @@ class PgFeedbackStore(FeedbackStore):
 
     async def delete(self, feedback_id: str) -> None:
         """Delete one feedback record by id."""
-        try:
-            import asyncpg
-        except ImportError as exc:
-            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute("DELETE FROM raghub_feedback WHERE id = $1", feedback_id)
@@ -465,10 +439,6 @@ class PgFeedbackStore(FeedbackStore):
 
     async def aggregate(self, tenant_id: str | None = None) -> FeedbackAggregate:
         """Return aggregate counts."""
-        try:
-            import asyncpg
-        except ImportError as exc:
-            raise MissingDepError("asyncpg", "pip install raghub[pgvector]") from exc
         conn = await asyncpg.connect(self.dsn)
         try:
             params: tuple[Any, ...] = ()
