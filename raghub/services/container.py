@@ -97,7 +97,7 @@ async def build_container(settings: Settings) -> RagContainer:
     ) = model_components
     del model_components
     await maybe_seed_demo_users(settings, user_store)
-    feedback_store = _build_feedback_store(settings)
+    feedback_store = build_feedback_store(settings)
     return RagContainer(
         settings=settings,
         logger=None,
@@ -120,7 +120,7 @@ async def build_container(settings: Settings) -> RagContainer:
     )
 
 
-def _build_feedback_store(settings: Settings) -> Any:
+def build_feedback_store(settings: Settings) -> Any:
     """Construct a feedback store when the backend is configured."""
     backend = settings.feedback.backend
     if backend == "none":

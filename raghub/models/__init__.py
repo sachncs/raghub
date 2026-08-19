@@ -60,7 +60,7 @@ from raghub.errors import VerificationError
 _TYPE_HINTS_CACHE: dict[type, dict[str, Any]] = {}
 
 
-def _resolve_hints(cls: type) -> dict[str, Any]:
+def resolve_hints(cls: type) -> dict[str, Any]:
     """Return ``cls``'s annotations, with ``from __future__`` strings resolved."""
     cached = _TYPE_HINTS_CACHE.get(cls)
     if cached is not None:
@@ -343,7 +343,7 @@ def deterministic_id(*parts: str, length: int = 16) -> str:
 _JSON_SENTINELS: tuple[Any, ...] = (None,)
 
 
-def _json_safe(value: Any) -> Any:  # noqa: PLR0911 - one return per coercion branch
+def json_safe(value: Any) -> Any:  # noqa: PLR0911 - one return per coercion branch
     """Recursively convert a value into a JSON-safe primitive.
 
     Each branch handles a different primitive / container shape; the
@@ -358,15 +358,15 @@ def _json_safe(value: Any) -> Any:  # noqa: PLR0911 - one return per coercion br
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, list | tuple):
-        return [_json_safe(item) for item in value]
+        return [json_safe(item) for item in value]
     if isinstance(value, dict):
-        return {str(k): _json_safe(v) for k, v in value.items()}
+        return {str(k): json_safe(v) for k, v in value.items()}
     if dataclasses.is_dataclass(value):
-        return _json_safe(dataclasses.asdict(cast(Any, value)))
+        return json_safe(dataclasses.asdict(cast(Any, value)))
     return value
 
 
-def _coerce(field_type: Any, value: Any) -> Any:  # noqa: PLR0911 - one return per coercion branch
+def coerce_value(field_type: Any, value: Any) -> Any:  # noqa: PLR0911 - one return per coercion branch
     """Coerce ``value`` into ``field_type`` where possible.
 
     Handles the small set of coercions needed by RAGHub models:
@@ -383,10 +383,10 @@ def _coerce(field_type: Any, value: Any) -> Any:  # noqa: PLR0911 - one return p
     origin = get_origin(field_type)
     args = get_args(field_type)
     if origin is list and args:
-        return [_coerce(args[0], item) for item in value]
+        return [coerce_value(args[0], item) for item in value]
     if origin is dict and args and value is not None:
         k_type, v_type = args
-        return {k_type(k): _coerce(v_type, v) for k, v in value.items()}
+        return {k_type(k): coerce_value(v_type, v) for k, v in value.items()}
     if (
         isinstance(field_type, type)
         and dataclasses.is_dataclass(field_type)
@@ -395,7 +395,7 @@ def _coerce(field_type: Any, value: Any) -> Any:  # noqa: PLR0911 - one return p
         coerced: dict[str, Any] = {}
         for f in fields(field_type):
             coerced[f.name] = (
-                _coerce(f.type, value.get(f.name)) if f.name in value else value.get(f.name)
+                coerce_value(f.type, value.get(f.name)) if f.name in value else value.get(f.name)
             )
         return field_type(**coerced)
     if field_type is datetime and isinstance(value, str):
@@ -418,7 +418,7 @@ class Snap:
     * :meth:`validate` — build an instance from a serialised ``dict``.
 
     The mixin never mutates ``self``. Construction goes through the
-    dataclass ``__init__``; coercion logic lives in :func:`_coerce`.
+    dataclass ``__init__``; coercion logic lives in :func:`coerce_value`.
     """
 
     def dump(self, mode: str = "default") -> dict[str, Any]:
@@ -435,7 +435,7 @@ class Snap:
 
         """
         if mode == "json":
-            return cast(dict[str, Any], _json_safe(dataclasses.asdict(cast(Any, self))))
+            return cast(dict[str, Any], json_safe(dataclasses.asdict(cast(Any, self))))
         return cast(dict[str, Any], dataclasses.asdict(cast(Any, self)))
 
     def copy(self, **updates: Any) -> Any:
@@ -476,11 +476,11 @@ class Snap:
 
         """
         coerced: dict[str, Any] = {}
-        hints = _resolve_hints(cls)
+        hints = resolve_hints(cls)
         for f in fields(cast(Any, cls)):
             if f.name not in data:
                 continue
-            coerced[f.name] = _coerce(hints.get(f.name, f.type), data[f.name])
+            coerced[f.name] = coerce_value(hints.get(f.name, f.type), data[f.name])
         return cls(**coerced)
 
 
