@@ -61,6 +61,7 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
             vector_store=container.vector_store,
             knowledge_repo=container.registry,
             conversation_store=getattr(container, "conversation_store", None),
+            feedback_store=container.feedback_store,
         )
         return cast("RAG | None", rag_instance)
 

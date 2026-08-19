@@ -762,7 +762,7 @@ class FeedbackRoute:
     @staticmethod
     def feedback_store(app_service: Facade) -> Any:
         """Return the configured FeedbackStore or raise ``503`` if absent."""
-        store = getattr(app_service.container, "feedback_store", None)
+        store = app_service.container.feedback_store
         if store is None:
             raise HTTPException(
                 status_code=HTTP_503_SERVICE_UNAVAILABLE,

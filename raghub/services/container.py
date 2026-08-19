@@ -71,6 +71,7 @@ class RagContainer:
     query: Query | None = None
     health: Health | None = None
     rag_facade: RAG | None = None
+    feedback_store: Any = None
 
 
 async def build_container(settings: Settings) -> RagContainer:
@@ -96,6 +97,7 @@ async def build_container(settings: Settings) -> RagContainer:
     ) = model_components
     del model_components
     await maybe_seed_demo_users(settings, user_store)
+    feedback_store = _build_feedback_store(settings)
     return RagContainer(
         settings=settings,
         logger=None,
@@ -114,7 +116,23 @@ async def build_container(settings: Settings) -> RagContainer:
         parser_registry=parser_registry,
         store=raw_session_store,
         uow=uow,
+        feedback_store=feedback_store,
     )
+
+
+def _build_feedback_store(settings: Settings) -> Any:
+    """Construct a feedback store when the backend is configured."""
+    backend = settings.feedback.backend
+    if backend == "none":
+        return None
+    if backend == "sqlite":
+        from raghub.feedback import SqliteFeedbackStore
+
+        db_path = settings.feedback.db_path or settings.data_dir / "feedback.db"
+        store = SqliteFeedbackStore(db_path=str(db_path))
+        store.initialize()
+        return store
+    return None
 
 
 async def build_auth_components(
