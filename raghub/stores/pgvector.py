@@ -1,7 +1,7 @@
 """pgvector-backed :class:`Store` adapter.
 
 The first first-class vector-store adapter. Opt-in via
-``pip install raghub[pgvector]``. Other backends (Qdrant, FAISS,
+``pip install raghub``. Other backends (Qdrant, FAISS,
 Chroma, Milvus) remain pluggable via :class:`raghub.plugins.Plugins`
 and the entry-point ``group="raghub.vector_stores"``; no
 first-class adapters ship in this release.
@@ -12,7 +12,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, cast
 
-from raghub.errors import ConfigurationError
+import asyncpg
+
 from raghub.models import Chunk, Hit
 
 __all__ = ["PgVectorStore"]
@@ -40,17 +41,6 @@ CREATE INDEX IF NOT EXISTS raghub_chunks_embedding_hnsw
 CREATE INDEX IF NOT EXISTS raghub_chunks_text_search
     ON raghub_chunks USING GIN (to_tsvector('english', text));
 """
-
-
-def try_import_asyncpg() -> Any:
-    """Return the asyncpg module or raise :class:`ConfigurationError`."""
-    try:
-        import asyncpg
-    except ImportError as exc:
-        raise ConfigurationError(
-            "PgVectorStore requires asyncpg; install with `pip install raghub[pgvector]`."
-        ) from exc
-    return asyncpg
 
 
 class PgVectorStore:
@@ -83,7 +73,6 @@ class PgVectorStore:
 
     async def initialize(self) -> None:
         """Create the schema, indexes, and pgvector extension."""
-        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             schema = SCHEMA_SQL.format(dim=self.embedding_dim)
@@ -121,7 +110,6 @@ class PgVectorStore:
         """Insert ``chunks`` with their ``vectors``."""
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors must be parallel")
-        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             inserted = 0
@@ -156,7 +144,6 @@ class PgVectorStore:
         """Upsert ``chunks``; returns the count."""
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors must be parallel")
-        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             updated = 0
@@ -184,7 +171,6 @@ class PgVectorStore:
 
     async def delete(self, chunk_id: str) -> None:
         """Delete one chunk."""
-        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute("DELETE FROM raghub_chunks WHERE id = $1", chunk_id)
@@ -193,7 +179,6 @@ class PgVectorStore:
 
     async def delete_document(self, document_id: str) -> None:
         """Delete every chunk tied to ``document_id``."""
-        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute(
@@ -216,7 +201,6 @@ class PgVectorStore:
             raise ConfigurationError(
                 f"vector dimension mismatch: expected {self.embedding_dim}, got {len(query_vector)}"
             )
-        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             await self.set_session(conn, tenant_id=tenant_id or "")
@@ -254,7 +238,6 @@ class PgVectorStore:
         tenant_id: str | None = None,
     ) -> list[Hit]:
         """Hybrid dense + Postgres FTS search, fused by RRF."""
-        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             await self.set_session(conn, tenant_id=tenant_id or "")
@@ -293,7 +276,6 @@ class PgVectorStore:
         top_k: int = 5,
     ) -> list[Hit]:
         """Postgres FTS-only search."""
-        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             rows = await conn.fetch(
@@ -313,7 +295,6 @@ class PgVectorStore:
 
     async def optimize(self) -> None:
         """VACUUM ANALYZE; rebuilds HNSW if drift is high."""
-        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             await conn.execute("VACUUM ANALYZE raghub_chunks")
@@ -323,7 +304,6 @@ class PgVectorStore:
 
     async def health(self) -> dict[str, Any]:
         """Return a status dict."""
-        asyncpg = try_import_asyncpg()
         conn = await asyncpg.connect(self.dsn)
         try:
             row = await conn.fetchrow("SELECT COUNT(*) AS n FROM raghub_chunks")
