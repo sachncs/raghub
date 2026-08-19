@@ -21,14 +21,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
-from raghub.errors import AuthenticationError, AuthorizationError, MissingDepError
+from raghub.errors import AuthenticationError, AuthorizationError
 from raghub.types import JSONValue
 
-try:
-    import aiosqlite
-    import bcrypt
-except ImportError:
-    raise MissingDepError("aiosqlite", "pip install raghub[auth]") from None
+import aiosqlite
+import bcrypt
 
 from raghub.models import AuthLoginResponse, Snap, Turn, User
 
