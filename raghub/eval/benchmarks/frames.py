@@ -21,6 +21,8 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
+import csv
+
 from raghub.errors import EvaluationError
 from raghub.eval.benchmarks.base import Evaluator
 from raghub.models import Result
@@ -169,10 +171,6 @@ class Frames(Evaluator):
     @staticmethod
     def load_tsv(path: Path) -> list[dict[str, Any]]:
         """Parse a TSV / CSV file with the FRAMES schema."""
-        try:
-            import csv
-        except ImportError:  # pragma: no cover - stdlib
-            return []
         with path.open("r", encoding="utf-8", newline="") as fh:
             reader = csv.DictReader(fh, delimiter="\t" if path.suffix == ".tsv" else ",")
             return [row for row in reader]

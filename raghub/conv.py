@@ -27,6 +27,8 @@ from raghub.models import Session, Turn
 from raghub.registry import Registry
 from raghub.repos import UnitOfWork
 
+import gigatoken as gt
+
 __all__ = [
     "Memory",
 ]
@@ -57,10 +59,6 @@ class Tokenizer:
             unavailable.
 
         """
-        try:
-            import gigatoken as gt
-        except ImportError:
-            return None
         try:
             return gt.Tokenizer(model)
         except Exception:
