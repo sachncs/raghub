@@ -16,9 +16,11 @@ from typing import Any, cast
 from uuid import uuid4
 
 from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
-from raghub.errors import AuthenticationError, MissingDepError
+from raghub.errors import AuthenticationError
 from raghub.io import atomic_write_json, load_json
 from raghub.models import Session, Turn
+
+import aiosqlite
 
 __all__ = [
     "Database",
@@ -28,14 +30,7 @@ __all__ = [
 
 
 def keyed(row: Any) -> bool:
-    """Return ``True`` when ``row`` is an :class:`aiosqlite.Row`.
-
-    Defers the import so the module loads without ``aiosqlite``.
-    """
-    try:
-        import aiosqlite
-    except ImportError:
-        return False
+    """Return ``True`` when ``row`` is an :class:`aiosqlite.Row`."""
     return isinstance(row, aiosqlite.Row)
 
 
@@ -55,13 +50,6 @@ class Database:
     async def connect(self) -> Any:
         """Open (or reuse) the underlying aiosqlite connection."""
         if self.conn is None:
-            try:
-                import aiosqlite
-            except ImportError:
-                raise MissingDepError(
-                    "aiosqlite",
-                    "pip install raghub[auth]",
-                ) from None
             self.conn = await aiosqlite.connect(self.db_path, isolation_level=None)
             self.conn.row_factory = aiosqlite.Row
             await self.conn.execute("PRAGMA journal_mode=WAL")
@@ -235,13 +223,6 @@ class Sessions:
 
     async def conn(self) -> Any:
         """Return a usable connection (shared or fresh)."""
-        try:
-            import aiosqlite
-        except ImportError:
-            raise MissingDepError(
-                "aiosqlite",
-                "pip install raghub[auth]",
-            ) from None
         if self.db is not None:
             return self.db.connection
         conn = await aiosqlite.connect(self.db_path)

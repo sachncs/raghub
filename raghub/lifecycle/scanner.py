@@ -24,8 +24,10 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 
-from raghub.errors import IngestionError, MissingDepError
+from raghub.errors import IngestionError
 from raghub.runtime import capture
+
+from pypdf import PdfReader
 
 # ---------------------------------------------------------------------------
 # Validation
@@ -150,13 +152,6 @@ def extract_pdf_pages(pdf_bytes: bytes) -> list[tuple[int, str]]:
         A list of ``(page_number, text)`` tuples.
 
     """
-    try:
-        from pypdf import PdfReader
-    except ImportError:
-        raise MissingDepError(
-            "pypdf",
-            "pip install raghub[pdf]",
-        ) from None
     reader = PdfReader(BytesIO(pdf_bytes))
     pages: list[tuple[int, str]] = []
     for page_index, page in enumerate(reader.pages, start=1):
@@ -245,10 +240,6 @@ def extract_pdf_metadata(pdf_bytes: bytes) -> dict[str, str]:
         ``creator`` keys (empty strings when missing).
 
     """
-    try:
-        from pypdf import PdfReader
-    except ImportError:
-        return {}
     reader, error = capture(PdfReader, BytesIO(pdf_bytes))
     if error is not None:
         return {}
