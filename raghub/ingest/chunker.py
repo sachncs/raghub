@@ -554,19 +554,19 @@ def build_chonkie_chunker(name: str = "auto", **kwargs: JSONValue) -> Any:
     }
     if name in chonkie_names:
         if CHONKIE_AVAILABLE:
-            return _build_chonkie_kw(name, kwargs)
+            return build_chonkie_kw(name, kwargs)
         if name != "auto":
             raise ConfigurationError("chonkie is not installed")
     if name in {"chonkie", "word_window", "auto"}:
         if name == "chonkie":
             if CHONKIE_AVAILABLE:
-                return _build_chonkie_kw(None, kwargs)
+                return build_chonkie_kw(None, kwargs)
             raise ConfigurationError("chonkie is not installed")
-        return _build_words_kw(kwargs)
+        return build_words_kw(kwargs)
     raise ConfigurationError(f"Unknown chunker: {name!r}")
 
 
-def _build_chonkie_kw(name: str | None, kwargs: dict[str, JSONValue]) -> Any:
+def build_chonkie_kw(name: str | None, kwargs: dict[str, JSONValue]) -> Any:
     """Forward kwargs to ``Chonkie`` through an Any boundary.
 
     Chonkie's stub signature declares narrow integer-only kwargs; the
@@ -579,6 +579,6 @@ def _build_chonkie_kw(name: str | None, kwargs: dict[str, JSONValue]) -> Any:
     return Chonkie(**kwargs)  # type: ignore[arg-type]
 
 
-def _build_words_kw(kwargs: dict[str, JSONValue]) -> Any:
+def build_words_kw(kwargs: dict[str, JSONValue]) -> Any:
     """Forward kwargs to ``Words`` through an Any boundary."""
     return Words(**kwargs)  # type: ignore[arg-type]
