@@ -14,6 +14,12 @@ nav:
   - Reference:
       - API: reference/api.md
       - Configuration: reference/configuration.md
+  - Adapters:
+      - Memory: adapters/memory.md
+      - SQLite: adapters/sqlite.md
+      - PgVector: adapters/pgvector.md
+      - Feedback: adapters/feedback.md
+      - Archive: adapters/archive.md
   - Plugins: plugins.md
   - Operations:
       - Monitoring: operations/monitoring.md
