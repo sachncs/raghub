@@ -1,54 +1,57 @@
-"""Reusable TypedDicts for opac-payload dicts.
+"""Reusable value-object dataclasses for opaque payloads.
 
 AGENTS.md §927-938 forbids bare ``dict[str, Any]`` without context.
-These TypedDicts provide a single source of truth for the dict
-shapes used across the framework and give mypy/pyright a discriminator
-for typed dicts.
+These dataclasses provide a single source of truth for the dict
+shapes used across the framework.
 
 Usage::
 
     from raghub.typed_dicts import Metadata, Payload
 
     def record(self, *, metadata: Metadata) -> None:
-        # metadata is a TypedDict; callers get auto-complete
+        # metadata is a dataclass; callers get auto-complete
         ...
 """
 
 from __future__ import annotations
 
-from typing import NotRequired, TypedDict
+from dataclasses import dataclass, field
+from typing import Any
 
 
-class Metadata(TypedDict, total=False):
+@dataclass
+class Metadata:
     """Arbitrary key/value metadata attached to a record.
 
-    Use ``total=False`` so callers can omit any field; required
-    fields would belong on the parent Pydantic model, not here.
+    All fields are optional so callers can populate only what they need.
     """
 
-    vector: NotRequired[list[float]]
-    block_kind: NotRequired[str]
-    block_id: NotRequired[str]
-    section_index: NotRequired[int]
-    source: NotRequired[str]
-    provider: NotRequired[str]
+    vector: list[float] | None = None
+    block_kind: str | None = None
+    block_id: str | None = None
+    section_index: int | None = None
+    source: str | None = None
+    provider: str | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
-class AuthHeaders(TypedDict, total=False):
+@dataclass
+class AuthHeaders:
     """HTTP headers used by the auth/rate-limit/permission middleware."""
 
-    authorization: NotRequired[str]
+    authorization: str | None = None
 
 
-class QueryRequest(TypedDict, total=False):
+@dataclass
+class QueryRequest:
     """Top-level fields accepted by ``/v1/query``."""
 
-    question: NotRequired[str]
-    session_id: NotRequired[str]
-    user_id: NotRequired[str]
-    top_k: NotRequired[int]
-    response_model: NotRequired[str]
-    history: NotRequired[list[dict]]
+    question: str | None = None
+    session_id: str | None = None
+    user_id: str | None = None
+    top_k: int | None = None
+    response_model: str | None = None
+    history: list[dict[str, Any]] | None = None
 
 
 __all__ = [
