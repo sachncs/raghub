@@ -41,7 +41,8 @@ from raghub.models import (
     DocumentLifecycleStatus,
     Session,
 )
-from raghub.stores import Database, Sessions, Store
+from raghub.stores.connection import Database, Sessions
+from raghub.stores.vector_base import Store
 
 __all__ = [
     "ChunkStore",

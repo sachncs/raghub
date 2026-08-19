@@ -2,9 +2,9 @@
 
 Hosts the Langfuse v3 client wrappers (:class:`LangfuseSpan`,
 :class:`LangfuseTelemetryProvider`), the convenience scorers
-(:func:`record_rerank_latency`, :func:`record_long_context`), the
-:func:`try_import_submodule` helper, and the OpenTelemetry
-:class:`Tracer` with its closed-stdout-safe :class:`SafeConsoleSpanExporter`.
+(:func:`record_rerank_latency`, :func:`record_long_context`),
+and the OpenTelemetry :class:`Tracer` with its closed-stdout-safe
+:class:`SafeConsoleSpanExporter`.
 """
 
 from __future__ import annotations
@@ -21,7 +21,11 @@ from raghub.telemetry.base import Span, Telemetry
 from raghub.telemetry.metrics import NoopSpan
 from raghub.types import JSONValue
 
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SpanExportResult
+from langfuse import Langfuse
+from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter, SpanExportResult
 
 T = TypeVar("T")
 
@@ -36,27 +40,13 @@ __all__ = [
     "langfuse_client",
     "record_long_context",
     "record_rerank_latency",
-    "try_import_submodule",
 ]
 
-
-Langfuse: Any
 
 from langfuse import Langfuse
 
 LANGFUSE_AVAILABLE = True
 IMPORT_ERROR: Exception | None = None
-
-
-def try_import_submodule(module_name: str, target_name: str) -> Any:
-    """Import ``target_name`` from ``module_name``; return ``None`` on failure."""
-    import importlib
-
-    try:
-        module = importlib.import_module(module_name)
-    except (ImportError, ModuleNotFoundError):
-        return None
-    return getattr(module, target_name, None)
 
 
 def record_rerank_latency(provider: str, seconds: float) -> None:
@@ -468,21 +458,9 @@ class Tracer:
                 not installed.
 
         """
-        ot_trace = try_import_submodule("opentelemetry", "trace")
-        ot_resources = try_import_submodule("opentelemetry.sdk.resources", "Resource")
-        ot_trace_mod = try_import_submodule("opentelemetry.sdk.trace", "TracerProvider")
-        ot_export = try_import_submodule("opentelemetry.sdk.trace.export", "BatchSpanProcessor")
-        if ot_trace is None or ot_resources is None or ot_trace_mod is None or ot_export is None:
-            raise ConfigurationError("OpenTelemetry tracing requires opentelemetry-sdk")
-
-        trace = ot_trace
-        resource_cls = ot_resources
-        tracer_provider_cls = ot_trace_mod
-        batch_processor_cls = ot_export
-
-        resource = resource_cls.create({"service.name": service_name})
-        provider = tracer_provider_cls(resource=resource)
-        processor = batch_processor_cls(SafeConsoleSpanExporter())
+        resource = Resource.create({"service.name": service_name})
+        provider = TracerProvider(resource=resource)
+        processor = BatchSpanProcessor(SafeConsoleSpanExporter())
         provider.add_span_processor(processor)
         trace.set_tracer_provider(provider)
         self.provider = provider
