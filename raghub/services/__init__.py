@@ -12,7 +12,7 @@ Public surface is re-exported from focused submodules:
     container   - RagContainer dataclass and build_container.
     shutdown    - Shutdown coordinator.
     preference  - Preference router for advanced-RAG flags.
-    facade      - Facade plus RAG_FACADE_AVAILABLE.
+    facade      - ApplicationFacade and Facade.
 
 The module-level dispatch entry points live in :mod:`raghub.api`
 and the CLI surface in :mod:`raghub.cli.main`.
@@ -35,7 +35,7 @@ from raghub.services.diagnostics import (
     upload_record,
 )
 from raghub.services.documents import Documents, get_doc, list_records
-from raghub.services.facade import RAG_FACADE_AVAILABLE, Facade
+from raghub.services.facade import Facade
 from raghub.services.health import Health
 from raghub.services.preference import Preference
 from raghub.services.query import Query
@@ -43,7 +43,6 @@ from raghub.services.shutdown import Shutdown
 from raghub.services.workers import MemoryQueue, Synchronous, ThreadPool
 
 __all__ = [
-    "RAG_FACADE_AVAILABLE",
     "Documents",
     "Facade",
     "Health",

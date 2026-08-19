@@ -49,7 +49,6 @@ from raghub.telemetry.tracing import (
     langfuse_client,
     record_long_context,
     record_rerank_latency,
-    try_import_submodule,
 )
 
 __all__ = [
@@ -73,5 +72,4 @@ __all__ = [
     "record_rerank_latency",
     "redact_record",
     "scrub_secrets",
-    "try_import_submodule",
 ]

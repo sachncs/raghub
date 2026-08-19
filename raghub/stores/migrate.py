@@ -11,7 +11,8 @@ from pathlib import Path
 from tqdm import tqdm
 
 from raghub.constants import DEFAULT_SESSION_TIMEOUT_SECONDS
-from raghub.stores import connection as _conn
+from raghub.repos import DocStore, SessionStore
+from raghub.stores.connection import Sessions
 from raghub.stores import documents as _documents
 
 __all__ = ["migrate_from_json"]
@@ -36,9 +37,7 @@ async def migrate_from_json(
         show_progress: Wrap each step in a :class:`tqdm.tqdm` bar.
 
     """
-    import raghub.repos as repositories  # lazy: break the cycle here
-
-    registry = repositories.DocStore(db_path)
+    registry = DocStore(db_path)
     await registry.initialize()
 
     documents = _documents.Documents(Path(registry_path))
@@ -51,10 +50,10 @@ async def migrate_from_json(
     ):
         await registry.save(doc)
 
-    session_repo = repositories.SessionStore(db_path)
+    session_repo = SessionStore(db_path)
     await session_repo.initialize()
 
-    json_sessions = _conn.Sessions.json(
+    json_sessions = Sessions.json(
         Path(sessions_path), timeout_seconds=DEFAULT_SESSION_TIMEOUT_SECONDS
     )
     for session in tqdm(

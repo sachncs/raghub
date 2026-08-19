@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import importlib
-import importlib.util
 import warnings
 from typing import TYPE_CHECKING, Any, cast
 
 from raghub.auth import AuthService
 from raghub.models import AuthLoginResponse, Document, QueryResponse, Turn, User
+from raghub.rag.facade import RAG
 from raghub.services.documents import Documents
 from raghub.services.health import Health, HealthReport
 from raghub.services.preference import Preference
@@ -17,10 +16,7 @@ from raghub.services.shutdown import Shutdown
 from raghub.types import JSONValue
 
 if TYPE_CHECKING:
-    from raghub.rag.facade import RAG
     from raghub.services.container import RagContainer
-
-RAG_FACADE_AVAILABLE: bool = importlib.util.find_spec("raghub.rag") is not None
 
 
 class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggregating the service surface
@@ -49,12 +45,9 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
         self.preferences = Preference(self)
 
     @staticmethod
-    def build_rag(container: RagContainer) -> RAG | None:
+    def build_rag(container: RagContainer) -> RAG:
         """Construct a :class:`raghub.RAG` from the container's collaborators."""
-        if not RAG_FACADE_AVAILABLE:
-            return None
-        rag_module = importlib.import_module("raghub.rag")
-        rag_instance = rag_module.RAG(
+        rag_instance = RAG(
             settings=container.settings,
             embedder=container.embeddings,
             llm=container.llm,
@@ -63,9 +56,9 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
             conversation_store=getattr(container, "conversation_store", None),
             feedback_store=container.feedback_store,
         )
-        return cast("RAG | None", rag_instance)
+        return cast("RAG", rag_instance)
 
-    def rag_facade(self) -> RAG | None:
+    def rag_facade(self) -> RAG:
         """Return the lazily-built :class:`raghub.RAG` instance."""
         if getattr(self.container, "rag_facade", None) is None:
             self.container.rag_facade = self.build_rag(self.container)
@@ -203,7 +196,7 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
         await self.shutdown_coordinator.release()
 
 
-__all__ = ["RAG_FACADE_AVAILABLE", "ApplicationFacade", "Facade"]
+__all__ = ["ApplicationFacade", "Facade"]
 
 
 # Deprecated alias preserved for one minor version. Use ApplicationFacade in new code.

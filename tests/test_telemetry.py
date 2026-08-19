@@ -23,7 +23,6 @@ from raghub.telemetry import (
     record_rerank_latency,
     redact_record,
     scrub_secrets,
-    try_import_submodule,
 )
 
 # ---------------------------------------------------------------------------
@@ -150,32 +149,6 @@ def test_redact_record_keeps_non_secret_keys_unchanged() -> None:
     record = {"name": "alice", "age": 30}
     redact_record(record)
     assert record == {"name": "alice", "age": 30}
-
-
-# ---------------------------------------------------------------------------
-# try_import_submodule
-# ---------------------------------------------------------------------------
-
-
-def test_try_import_submodule_existing() -> None:
-    """try_import_submodule returns the symbol from an existing module."""
-
-    import os as _os
-
-    obj = try_import_submodule("os", "getcwd")
-    assert obj is _os.getcwd
-
-
-def test_try_import_submodule_missing_module_returns_none() -> None:
-    """try_import_submodule returns None when the module is unknown."""
-
-    assert try_import_submodule("this_does_not_exist", "x") is None
-
-
-def test_try_import_submodule_missing_target_returns_none() -> None:
-    """try_import_submodule returns None when the symbol is unknown."""
-
-    assert try_import_submodule("os", "does_not_exist_here") is None
 
 
 # ---------------------------------------------------------------------------
