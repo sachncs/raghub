@@ -56,6 +56,7 @@ from raghub.config import Settings, settings_field_names
 from raghub.conv import Memory
 from raghub.errors import RagHubError
 from raghub.gen import DefaultGenerator
+from raghub.jobs import SqliteQueue, Worker
 from raghub.knowledge import GraphIndex, Manifest, MemoryRepo, Raptor
 
 # RagComponents (TypedDict) and the DocumentConverter / KnowledgeRepository
@@ -365,10 +366,6 @@ class RAG(  # noqa: PLR0904 - facade aggregating mixin surface
         if supplied is not None:
             return supplied
         if self.persistent_queue is None:
-            return None
-        try:
-            from raghub.jobs import SqliteQueue, Worker
-        except ImportError:
             return None
         if not isinstance(self.persistent_queue, SqliteQueue):
             return None  # type: ignore[unreachable]

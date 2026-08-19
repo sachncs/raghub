@@ -18,6 +18,13 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from bs4 import BeautifulSoup
+from docx import Document
+from openpyxl import load_workbook
+from PIL import Image as PillowImage
+from pptx import Presentation
+from pypdf import PdfReader
+
 from raghub.errors import MissingDepError
 from raghub.lifecycle import (
     ChunkingPlan,
@@ -106,13 +113,6 @@ class Pdf(File):
             page's media box) when available.
 
         """
-        try:
-            from pypdf import PdfReader
-        except ImportError:
-            raise MissingDepError(
-                "pypdf",
-                "pip install raghub[pdf]",
-            ) from None
         reader = PdfReader(BytesIO(file_bytes))
         sections: list[ParsedSection] = []
         for i, page in enumerate(reader.pages, start=1):
@@ -154,13 +154,6 @@ class HTML(File):
             text of every ``<h1>``, ``<h2>``, and ``<h3>`` element.
 
         """
-        try:
-            from bs4 import BeautifulSoup
-        except ImportError:
-            raise MissingDepError(
-                "beautifulsoup4",
-                "pip install raghub[docs]",
-            ) from None
         soup = BeautifulSoup(file_bytes, "lxml")
         body = soup.find("body") or soup
         text = body.get_text(separator=" ", strip=True)
@@ -198,13 +191,6 @@ class Image(File):
             :mod:`pytesseract` is unavailable or fails.
 
         """
-        try:
-            from PIL import Image as PillowImage
-        except ImportError:
-            raise MissingDepError(
-                "Pillow",
-                "pip install raghub[docs]",
-            ) from None
         image = PillowImage.open(BytesIO(file_bytes))
         pytesseract_module, import_error = capture(import_module, "pytesseract")
         text = ""
@@ -280,10 +266,6 @@ class Office(File):
     @staticmethod
     def parse_docx(file_bytes: bytes) -> ParsedSection:
         """Parse a Word document into a single text section."""
-        try:
-            from docx import Document
-        except ImportError as exc:
-            raise MissingDepError("python-docx", "pip install raghub[docs]") from exc
         doc = Document(io.BytesIO(file_bytes))
         text_parts = [para.text for para in doc.paragraphs]
         return ParsedSection(
@@ -296,10 +278,6 @@ class Office(File):
     @staticmethod
     def parse_xlsx(file_bytes: bytes) -> list[ParsedSection]:
         """Parse an Excel workbook into one section per worksheet."""
-        try:
-            from openpyxl import load_workbook
-        except ImportError as exc:
-            raise MissingDepError("openpyxl", "pip install raghub[docs]") from exc
         wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
         result: list[ParsedSection] = []
         for i, ws_name in enumerate(wb.sheetnames, start=1):
@@ -322,10 +300,6 @@ class Office(File):
     @staticmethod
     def parse_pptx(file_bytes: bytes) -> list[ParsedSection]:
         """Parse a PowerPoint deck into one section per slide."""
-        try:
-            from pptx import Presentation
-        except ImportError as exc:
-            raise MissingDepError("python-pptx", "pip install raghub[docs]") from exc
         prs = Presentation(io.BytesIO(file_bytes))
         result: list[ParsedSection] = []
         for i, slide in enumerate(prs.slides, start=1):

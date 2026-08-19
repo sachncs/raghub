@@ -21,6 +21,7 @@ from types import TracebackType
 from typing import Any, Literal, Self, cast
 
 import litellm
+import httpx
 
 from raghub.constants import (
     ENV_ANTHROPIC_API_KEY,
@@ -186,24 +187,18 @@ class LiteLLM(Generator):
         self.direct_client: Any = None
         self.direct_url: str | None = None
         if self.api_base:
-            try:
-                import httpx
-
-                headers = {"authorization": f"Bearer {self.api_key}"} if self.api_key else {}
-                # Normalise the base URL so POSTing to <base>/chat/completions
-                # always lands at the standard path.
-                base = self.api_base.rstrip("/")
-                if not base.endswith("/v1"):
-                    base = f"{base}/v1"
-                self.direct_client = httpx.AsyncClient(
-                    base_url=base,
-                    headers=headers,
-                    timeout=timeout_seconds or 60.0,
-                )
-                self.direct_url = f"{base}/chat/completions"
-            except ImportError:  # pragma: no cover - optional dep
-                self.direct_client = None
-                self.direct_url = None
+            headers = {"authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+            # Normalise the base URL so POSTing to <base>/chat/completions
+            # always lands at the standard path.
+            base = self.api_base.rstrip("/")
+            if not base.endswith("/v1"):
+                base = f"{base}/v1"
+            self.direct_client = httpx.AsyncClient(
+                base_url=base,
+                headers=headers,
+                timeout=timeout_seconds or 60.0,
+            )
+            self.direct_url = f"{base}/chat/completions"
         else:
             self.direct_url = None
 
