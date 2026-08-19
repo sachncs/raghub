@@ -156,12 +156,12 @@ class RAG(  # noqa: PLR0904 - facade aggregating mixin surface
         )
         self.background_ingestion = component_map.get("background_service")
         self.persistent_queue = self.init_queue(component_map)
-        self.worker_ = self.init_worker(component_map)
-        self.worker_task_: asyncio.Task[None] | None = None
-        self.tenant_resolver_ = self.init_tenant(component_map)
-        self.feedback_store_ = self.init_feedback(component_map)
-        self.rate_limiter_: Any = None
-        self.archive_: Any = None
+        self.worker = self.init_worker(component_map)
+        self.worker_task: asyncio.Task[None] | None = None
+        self._tenant_resolver = self.init_tenant(component_map)
+        self._feedback_store = self.init_feedback(component_map)
+        self._rate_limiter: Any = None
+        self._archive: Any = None
         self.isolation: Any = component_map.get("isolation_strategy")
 
     def wire_components(self, components: dict[str, Any]) -> None:
@@ -396,23 +396,23 @@ class RAG(  # noqa: PLR0904 - facade aggregating mixin surface
     async def start_worker(self) -> None:
         """Run the configured :class:`Worker` until :meth:`stop_worker` is called.
 
-        Only meaningful when ``self.worker_`` is not ``None`` (i.e. a
+        Only meaningful when ``self.worker`` is not ``None`` (i.e. a
         SQLite-backed queue is configured). When the library runs without
         a persistent queue, the legacy threadpool path is used and this
         method is a no-op so callers can invoke it unconditionally.
         """
-        if self.worker_ is None:
+        if self.worker is None:
             return
-        if self.worker_task_ is not None and not self.worker_task_.done():
+        if self.worker_task is not None and not self.worker_task.done():
             return
-        self.worker_task_ = asyncio.create_task(self.worker_.loop("raghub-worker"))
+        self.worker_task = asyncio.create_task(self.worker.loop("raghub-worker"))
 
     async def stop_worker(self) -> None:
         """Cancel :meth:`start_worker` and await its task to drain."""
-        if self.worker_task_ is None:
+        if self.worker_task is None:
             return
-        task = self.worker_task_
-        self.worker_task_ = None
+        task = self.worker_task
+        self.worker_task = None
         task.cancel()
         with suppress(asyncio.CancelledError, Exception):
             await task
@@ -577,19 +577,19 @@ class RAG(  # noqa: PLR0904 - facade aggregating mixin surface
 
     def feedback_store(self) -> Any:
         """Return the feedback store or ``None`` when not configured."""
-        return self.feedback_store_
+        return self._feedback_store
 
     def rate_limiter(self) -> Any:
         """Return the rate limiter or ``None`` when not configured."""
-        return self.rate_limiter_
+        return self._rate_limiter
 
     def archive(self) -> Any:
         """Return the archive store or ``None`` when not configured."""
-        return self.archive_
+        return self._archive
 
     def tenant_resolver(self) -> Any:
         """Return the tenant resolver or ``None`` when not configured."""
-        return self.tenant_resolver_
+        return self._tenant_resolver
 
     def isolation_strategy(self) -> Any:
         """Return the active isolation strategy enum (defaults to ``RowLevel``)."""
