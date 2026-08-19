@@ -121,6 +121,23 @@ from raghub.pipeline import Cache, Flow, Router
 # Plugin.
 from raghub.plugins import Plugins
 
+# Archive.
+from raghub.archive.core import ArchiveStore, LocalArchiveStore
+
+# Feedback.
+from raghub.feedback.core import (
+    FeedbackAggregate,
+    FeedbackStore,
+    SqliteFeedbackStore,
+)
+
+# Rate limiting.
+from raghub.ratelimit.core import Bucket, Ratelimit
+
+# Tenants.
+from raghub.tenants.core import TenantResolver
+from raghub.tenants.isolation import TenantContext
+
 # RAG facade.
 from raghub.rag import RAG
 
@@ -131,9 +148,11 @@ from raghub.retrieval import (
     RerankerFactory,
     Retrieval,
 )
+from raghub.retrieval.search import SearchFilters
 
 # Framework facade.
 from raghub.services import Facade
+from raghub.services.container import RagContainer
 
 # Storage layer.
 from raghub.stores import (
@@ -142,6 +161,10 @@ from raghub.stores import (
     JsonSessions,
     Sessions,
 )
+from raghub.stores.pgvector import PgVectorStore
+from raghub.stores.vector_base import Store as VectorStore
+from raghub.stores.vector_memory import MemoryStore
+from raghub.stores.vector_sqlite import SqliteStore
 
 # Telemetry.
 from raghub.telemetry import (
@@ -153,7 +176,10 @@ from raghub.telemetry import (
 )
 
 __all__ = [
+    "ArchiveStore",
+    "Bucket",
     "RAG",
+    "ArchiveStore",
     "AuthService",
     "AuthenticationError",
     "AuthorizationError",
@@ -170,6 +196,8 @@ __all__ = [
     "Embedder",
     "Facade",
     "FeatureHashingEmbedder",
+    "FeedbackAggregate",
+    "FeedbackStore",
     "Finance",
     "Flow",
     "Frames",
@@ -188,17 +216,22 @@ __all__ = [
     "Langfuse",
     "LiteLLM",
     "LiteLLMEmbedder",
+    "LocalArchiveStore",
     "Logger",
     "Manifest",
     "Memory",
     "MemoryRepo",
+    "MemoryStore",
     "Metrics",
     "MissingDepError",
     "Noop",
+    "PgVectorStore",
     "Pipeline",
     "PipelineError",
     "Plugins",
+    "RagContainer",
     "RagHubError",
+    "Ratelimit",
     "Rerank",
     "RerankerFactory",
     "Response",
@@ -207,15 +240,21 @@ __all__ = [
     "RetrievalError",
     "Router",
     "Scoring",
+    "SearchFilters",
     "Section",
     "Session",
     "Sessions",
     "Settings",
     "SlidingWindow",
+    "SqliteFeedbackStore",
+    "SqliteStore",
     "Store",
+    "TenantContext",
+    "TenantResolver",
     "Tokenizer",
     "Turn",
     "User",
+    "VectorStore",
     "VectorStoreError",
     "VerificationError",
     "Words",
