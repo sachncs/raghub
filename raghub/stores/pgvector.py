@@ -14,7 +14,9 @@ from typing import Any, cast
 
 import asyncpg
 
+from raghub.errors import ConfigurationError
 from raghub.models import Chunk, Hit
+from raghub.stores.vector_base import Store
 
 __all__ = ["PgVectorStore"]
 
@@ -43,10 +45,12 @@ CREATE INDEX IF NOT EXISTS raghub_chunks_text_search
 """
 
 
-class PgVectorStore:
+@Store.register("pgvector")
+class PgVectorStore(Store):
     """Postgres + pgvector adapter implementing the ``Store`` contract."""
 
     DISTANCE_METRIC = "cosine"
+    name = "pgvector"
 
     def __init__(
         self,
@@ -188,24 +192,36 @@ class PgVectorStore:
         finally:
             await conn.close()
 
+    async def delete_version(self, document_id: str, version: int) -> None:
+        """Delete every chunk tied to one ``(document_id, version)`` pair."""
+        conn = await asyncpg.connect(self.dsn)
+        try:
+            await conn.execute(
+                "DELETE FROM raghub_chunks WHERE document_id = $1 AND (metadata->>'version')::int = $2",
+                document_id,
+                version,
+            )
+        finally:
+            await conn.close()
+
     async def search(
         self,
-        query_vector: Sequence[float],
+        vector: Sequence[float],
         top_k: int = 5,
         *,
         tenant_id: str | None = None,
         metadata_filter: dict[str, Any] | None = None,
     ) -> list[Hit]:
         """Dense-similarity search."""
-        if len(query_vector) != self.embedding_dim:
+        if len(vector) != self.embedding_dim:
             raise ConfigurationError(
-                f"vector dimension mismatch: expected {self.embedding_dim}, got {len(query_vector)}"
+                f"vector dimension mismatch: expected {self.embedding_dim}, got {len(vector)}"
             )
         conn = await asyncpg.connect(self.dsn)
         try:
             await self.set_session(conn, tenant_id=tenant_id or "")
             where = ["tenant_id IS NULL"]
-            params: list[Any] = [format_vector(query_vector), int(top_k)]
+            params: list[Any] = [format_vector(vector), int(top_k)]
             if tenant_id is not None:
                 where = ["tenant_id = $2"]
                 params.append(tenant_id)
@@ -218,10 +234,6 @@ class PgVectorStore:
                 f"LIMIT ${len(params)}"
             )
             rows = await conn.fetch(sql, *params)
-            # pgvector only persists the embedding; we don't have the full Chunk
-            # available here, so emit a Hit-shaped dict and let callers rehydrate.
-            # The framework's vector_store.search contract returns
-            # ``dict[str, Any]`` entries; this adapter honours that.
             return cast(
                 list[Hit],
                 [Hit(score=float(row["score"]), chunk=row["id"]) for row in rows],
@@ -229,11 +241,11 @@ class PgVectorStore:
         finally:
             await conn.close()
 
-    async def search_hybrid(
+    async def hybrid_search(
         self,
         *,
         query: str,
-        query_vector: Sequence[float],
+        vector: Sequence[float],
         top_k: int = 5,
         tenant_id: str | None = None,
     ) -> list[Hit]:
@@ -245,7 +257,7 @@ class PgVectorStore:
                 "SELECT id, 1 - (embedding <=> $1) AS score "
                 "FROM raghub_chunks "
                 "ORDER BY embedding <=> $1 LIMIT $2",
-                format_vector(query_vector),
+                format_vector(vector),
                 int(top_k),
             )
             fts_rows = await conn.fetch(
@@ -266,7 +278,7 @@ class PgVectorStore:
             fused[row["id"]] = fused.get(row["id"], 0.0) + 1.0 / (k + rank)
         sorted_hits = sorted(fused.items(), key=lambda kv: kv[1], reverse=True)
         return [
-            Hit(score=score, chunk=chunk_id)  # type: ignore[arg-type]
+            Hit(score=score, chunk=chunk_id)
             for chunk_id, score in sorted_hits[: int(top_k)]
         ]
 
