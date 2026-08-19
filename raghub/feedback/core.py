@@ -90,7 +90,7 @@ class FeedbackAggregate:
     by_chunk: dict[str, int]
 
 
-class FeedbackStore:
+class FeedbackStore(Registry):
     """Polymorphic base for feedback storage.
 
     Concrete stores (SqliteFeedbackStore, PgFeedbackStore) inherit
@@ -222,7 +222,8 @@ class NullTelemetry:
         ...
 
 
-class SqliteFeedbackStore:
+@FeedbackStore.register("sqlite")
+class SqliteFeedbackStore(FeedbackStore):
     """SQLite-backed :class:`FeedbackStore` implementation."""
 
     def __init__(self, db_path: str) -> None:
@@ -338,7 +339,8 @@ class SqliteFeedbackStore:
         )
 
 
-class PgFeedbackStore:
+@FeedbackStore.register("pg")
+class PgFeedbackStore(FeedbackStore):
     """Postgres-backed :class:`FeedbackStore` reusing the pgvector pool."""
 
     def __init__(self, dsn: str) -> None:
