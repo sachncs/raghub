@@ -25,6 +25,13 @@ import json
 import os
 import sqlite3
 import tarfile
+import uuid
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import zstandard
+import tarfile
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass, field
@@ -417,21 +424,12 @@ def restore_snapshot(
 
 
 def zstd_decompress(data: bytes) -> bytes:
-    """Decompress ``data`` with zstd; fall back to no-op when zstd is unavailable."""
-    try:
-        import zstandard
-    except ImportError:
-        # No zstd available — assume the input is plain tar bytes.
-        return data
+    """Decompress ``data`` with zstd."""
     return zstandard.ZstdDecompressor().decompress(data, max_output_size=1 << 32)
 
 
 def zstd_compress(data: bytes) -> bytes:
-    """Compress ``data`` with zstd when available; fall back to plain bytes."""
-    try:
-        import zstandard
-    except ImportError:
-        return data
+    """Compress ``data`` with zstd."""
     return zstandard.ZstdCompressor().compress(data)
 
 
