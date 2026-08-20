@@ -6,6 +6,12 @@ nav:
   - Architecture:
       - Overview: architecture/overview.md
       - Decisions: architecture/decisions.md
+  - ADRs:
+      - ADR 0014 — Multi-tenant isolation: adr/0014-multi-tenant-isolation.md
+      - ADR 0015 — Persistent queue: adr/0015-persistent-queue.md
+      - ADR 0016 — Feedback loop: adr/0016-feedback-loop.md
+      - ADR 0017 — Backup format: adr/0017-backup-format.md
+      - ADR 0018 — pgvector as first adapter: adr/0018-pgvector-as-first-adapter.md
   - Guide:
       - Development: guide/development.md
       - Deployment: guide/deployment.md
@@ -15,10 +21,12 @@ nav:
       - API: reference/api.md
       - Configuration: reference/configuration.md
   - Adapters:
+      - Queue: adapters/queue.md
       - Memory: adapters/memory.md
       - SQLite: adapters/sqlite.md
       - PgVector: adapters/pgvector.md
       - Feedback: adapters/feedback.md
+      - Isolation: adapters/isolation.md
       - Archive: adapters/archive.md
   - Plugins: plugins.md
   - Operations:
