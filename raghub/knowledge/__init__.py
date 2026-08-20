@@ -20,8 +20,10 @@ from __future__ import annotations
 from raghub.knowledge.graph import (
     COMMUNITY_PROMPT,
     EXTRACT_PROMPT,
-    MIN_TOKEN_LENGTH,
     GraphIndex,
+)
+from raghub.knowledge.helpers import (
+    MIN_TOKEN_LENGTH,
     connected_components,
     extract_json_object,
     run_in_thread,
