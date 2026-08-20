@@ -21,11 +21,11 @@ from raghub.constants import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
 from raghub.models import User
 
 if TYPE_CHECKING:
-    from raghub.services.facade import Facade
+    from raghub.services.facade import ApplicationFacade
 
 
 class App:
-    """Request-scoped accessor for the :class:`Facade`.
+    """Request-scoped accessor for the :class:`ApplicationFacade`.
 
     The facade is placed on ``app.state.application`` by
     :func:`raghub.api.create_app`; this class is the single place
@@ -33,9 +33,9 @@ class App:
     """
 
     @staticmethod
-    def get(request: Request) -> Facade:
+    def get(request: Request) -> ApplicationFacade:
         """Return the application facade stored on ``app.state.application``."""
-        from raghub.services.facade import Facade
+        from raghub.services.facade import ApplicationFacade
 
         app = request.app
         return cast(Facade, app.state.application)

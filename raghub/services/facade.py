@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING, Any, cast
 
 from raghub.auth import AuthService
@@ -162,7 +161,7 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
         *,
         token: str,
         question: str,
-        **flags: Any,
+        **flags: JSONValue,
     ) -> QueryResponse:
         """Resolve advanced-RAG flags against user prefs and route accordingly.
 
@@ -196,27 +195,4 @@ class ApplicationFacade:  # ruff: ignore[too-many-public-methods] -- facade aggr
         await self.shutdown_coordinator.release()
 
 
-__all__ = ["ApplicationFacade", "Facade"]
-
-
-# Deprecated alias preserved for one minor version. Use ApplicationFacade in new code.
-class FacadeDeprecationMeta(type):
-    """Metaclass that emits DeprecationWarning on first instantiation."""
-
-    _warned: bool = False
-
-    def __call__(cls, *args: Any, **kwargs: Any) -> Any:
-        if not cls._warned:
-            warnings.warn(
-                "raghub.services.Facade has been renamed to "
-                "raghub.services.ApplicationFacade; import the new name. "
-                "This compatibility alias will be removed in the next minor release.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            cls._warned = True
-        return super().__call__(*args, **kwargs)
-
-
-class Facade(ApplicationFacade, metaclass=FacadeDeprecationMeta):
-    """Deprecated alias for :class:`ApplicationFacade`."""
+__all__ = ["ApplicationFacade"]

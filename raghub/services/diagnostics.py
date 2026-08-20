@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from raghub.config import Settings
 from raghub.constants import ENV_CORS_ORIGINS, ENV_RAGHUB_USERS
@@ -27,6 +27,7 @@ from raghub.types import JSONValue
 
 if TYPE_CHECKING:
     from raghub.auth import SqliteUsers
+    from raghub.conv import ConversationHistory
     from raghub.repos import UnitOfWork
     from raghub.services.container import RagContainer
 
@@ -66,11 +67,11 @@ def probe_vector_store(store: object) -> dict[str, object]:
     probe = getattr(store, "health", None)
     if not callable(probe):
         return {"status": "unknown", "detail": "no health() method"}
-    payload_any: Any = probe()
+    raw_payload = probe()
     payload = (
-        cast(dict[str, object], payload_any)
-        if isinstance(payload_any, dict)
-        else {"value": payload_any}
+        cast(dict[str, object], raw_payload)
+        if isinstance(raw_payload, dict)
+        else {"value": raw_payload}
     )
     status = str(payload.get("status", "ok")).lower()
     if status not in {"ok", "healthy", "up", "ready"}:
@@ -121,11 +122,12 @@ def seed_blocked(settings: Settings) -> bool:
     return os.getenv(ENV_CORS_ORIGINS, "").strip() == "*"
 
 
-def parse_users(raw: str) -> Any:
+def parse_users(raw: str) -> dict[str, object]:
     """Parse the ``RAGHUB_USERS`` env var as JSON."""
     import json as json_import
 
-    return json_import.loads(raw)
+    result = json_import.loads(raw)
+    return result if isinstance(result, dict) else {}
 
 
 async def seed_demo_users(user_store: SqliteUsers) -> None:
@@ -176,7 +178,16 @@ def build_models(
     vector_store: Store,
     uow: UnitOfWork,
     nvidia_api_key: str,
-) -> tuple[Any, ...]:
+) -> tuple[
+    Embedder,
+    Generator,
+    RetrievalPipeline,
+    Ingestor,
+    object,
+    Prompt,
+    ImageStore,
+    Catalog,
+]:
     """Build the LLM, embedding, retrieval, and document collaborators."""
     embeddings: Embedder = build_embedder(
         settings.embedding_model,
@@ -212,7 +223,7 @@ def build_models(
     )
 
 
-def __build_conversation(uow: UnitOfWork) -> Any:
+def __build_conversation(uow: UnitOfWork) -> ConversationHistory:
     """Construct a :class:`ConversationHistory` bound to ``uow``."""
     from raghub.conv import ConversationHistory
 

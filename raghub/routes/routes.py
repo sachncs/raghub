@@ -72,7 +72,7 @@ from raghub.models import (
     User,
 )
 from raghub.response import Redaction
-from raghub.services import Facade
+from raghub.services import ApplicationFacade
 from raghub.sse import Sse
 
 __all__ = [
@@ -92,7 +92,7 @@ __all__ = [
 ]
 
 
-def user_store_or_raise(app_service: Facade) -> Any:
+def user_store_or_raise(app_service: ApplicationFacade) -> Any:
     """Return the configured user store or raise 503."""
     store = getattr(app_service.container, "user_store", None)
     if store is None:
@@ -249,7 +249,7 @@ class HealthRoute:
 
         @self.router.get("/health")
         def handler(
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> dict[str, Any]:
             """Report liveness."""
             report = app_service.health()
@@ -284,7 +284,7 @@ class AuthRoute:
         @self.router.post("/auth/login", response_model=AuthLoginResponse)
         async def handler(
             payload: AuthLoginRequest,
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> AuthLoginResponse:
             """Handle ``POST /auth/login``."""
             return await app_service.login(payload.email, payload.password)
@@ -295,7 +295,7 @@ class AuthRoute:
         @self.router.post("/auth/logout")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> dict[str, str]:
             """Handle ``POST /auth/login``."""
             await app_service.logout(token)
@@ -307,7 +307,7 @@ class AuthRoute:
         @self.router.get("/session/history")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> dict[str, list[dict[str, Any]]]:
             """Handle ``POST /auth/logout``."""
             history = await app_service.history(token)
@@ -321,7 +321,7 @@ class AuthRoute:
         )
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> Response:
             """Handle ``DELETE /session/history``."""
             await app_service.clear_history(token)
@@ -356,7 +356,7 @@ class DocumentRoute:
             file: Annotated[UploadFile, File(...)],
             company: Annotated[str | None, Form(default=None)],
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> DocumentUploadResponse:
             """Handle ``POST /documents/upload``."""
             from raghub.routes.limits import enforce_limit
@@ -391,7 +391,7 @@ class DocumentRoute:
             files: Annotated[list[UploadFile], File(...)],
             company: Annotated[str | None, Form(default=None)],
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> BatchIngestResponse:
             """Handle ``POST /documents/ingest/batch``."""
             from raghub.routes.limits import enforce_limit
@@ -443,7 +443,7 @@ class DocumentRoute:
         @self.router.get("/documents")
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> dict[str, list[dict[str, Any]]]:
             """Handle ``GET /documents``."""
             documents = await app_service.list_documents(token)
@@ -456,7 +456,7 @@ class DocumentRoute:
         async def handler(
             document_id: str,
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> dict[str, Any]:
             """Handle ``GET /documents``."""
             document = await app_service.document_status(token, document_id)
@@ -471,7 +471,7 @@ class DocumentRoute:
         async def handler(
             document_id: str,
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> Response:
             """Handle ``DELETE /documents/{document_id}``."""
             await app_service.delete_document(token, document_id)
@@ -486,7 +486,7 @@ class DocumentRoute:
             file: Annotated[UploadFile, File(...)],
             company: Annotated[str | None, Form(default=None)],
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> dict[str, str]:
             """Handle ``POST /ingest/async``."""
             from raghub.routes.limits import enforce_limit
@@ -524,7 +524,7 @@ class QueryRoute:
         async def handler(
             payload: QueryRequest,
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> QueryResponse:
             """Handle ``POST /query``."""
             if not has_flags(payload):
@@ -551,7 +551,7 @@ class QueryRoute:
         def handler(
             payload: QueryRequest,
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> StreamingResponse:
             """Handle ``POST /query/stream``."""
             resolved_tools = set(payload.tools_enabled) if payload.tools_enabled else set()
@@ -589,7 +589,7 @@ class QueryRoute:
         async def handler(
             payload: QueryRequest,
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> QueryResponse:
             """Handle ``POST /agent/run``."""
             return await app_service.query_with_flags(
@@ -626,7 +626,7 @@ class AdminRoute:
         @self.router.get("/documents")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> list[dict[str, Any]]:
             """Handle ``GET /admin``."""
             docs = await app_service.list_all_documents()
@@ -638,7 +638,7 @@ class AdminRoute:
         @self.router.get("/users")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> list[dict[str, Any]]:
             """Handle ``GET /documents``."""
             users = await app_service.list_all_users()
@@ -650,7 +650,7 @@ class AdminRoute:
         @self.router.get("/stats")
         async def handler(
             admin_user: Annotated[User, Depends(Auth.admin)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> dict[str, Any]:
             """Handle ``GET /stats``."""
             docs = await app_service.list_all_documents()
@@ -686,7 +686,7 @@ class PreferenceRoute:
         )
         async def handler(
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> PreferencesResponse:
             """Handle ``GET /users/me/preferences``."""
             user_id = await Auth.user_id(app_service, token)
@@ -704,7 +704,7 @@ class PreferenceRoute:
         async def handler(
             payload: PreferencesPatch,
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> PreferencesResponse:
             """Handle ``PATCH /users/me/preferences``."""
             user_id = await Auth.user_id(app_service, token)
@@ -723,7 +723,7 @@ class PreferenceRoute:
         async def handler(
             key: str,
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> None:
             """Handle ``DELETE /users/me/preferences/{key}``."""
             user_id = await Auth.user_id(app_service, token)
@@ -760,7 +760,7 @@ class FeedbackRoute:
         self.register_delete()
 
     @staticmethod
-    def feedback_store(app_service: Facade) -> Any:
+    def feedback_store(app_service: ApplicationFacade) -> Any:
         """Return the configured FeedbackStore or raise ``503`` if absent."""
         store = app_service.container.feedback_store
         if store is None:
@@ -780,7 +780,7 @@ class FeedbackRoute:
         async def handler(
             payload: FeedbackSubmission,
             token: Annotated[str, Depends(Bearer.dependency)],
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> dict[str, str]:
             """Handle ``POST /feedback``."""
             from raghub.feedback import Feedback, FeedbackStore, Rating
@@ -816,7 +816,7 @@ class FeedbackRoute:
         @self.router.get("/feedback/{feedback_id}")
         async def handler(
             feedback_id: str,
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> dict[str, Any]:
             """Handle ``GET /feedback/{feedback_id}``."""
             from dataclasses import asdict
@@ -833,7 +833,7 @@ class FeedbackRoute:
         @self.router.delete("/feedback/{feedback_id}", status_code=HTTP_204_NO_CONTENT)
         async def handler(
             feedback_id: str,
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
         ) -> Response:
             """Handle ``DELETE /feedback/{feedback_id}``."""
             store = self.feedback_store(app_service)
@@ -848,7 +848,7 @@ class FeedbackRoute:
             response_model=FeedbackAggregateResponse,
         )
         async def handler(
-            app_service: Annotated[Facade, Depends(App.get)],
+            app_service: Annotated[ApplicationFacade, Depends(App.get)],
             tenant_id: str | None = None,
         ) -> FeedbackAggregateResponse:
             """Handle ``GET /feedback/aggregate``."""

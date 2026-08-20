@@ -43,7 +43,7 @@ from raghub.ratelimit import Ratelimit
 from raghub.routes import Exceptions, RouteGroup
 from raghub.routes.limits import check_size, content_length, enforce_limit
 from raghub.runtime import capture
-from raghub.services import Facade
+from raghub.services import ApplicationFacade
 
 # ---------------------------------------------------------------------------
 # CORS
@@ -279,10 +279,10 @@ class App:
         if cls.instance is None or cls.instance.config != config:
             cls.instance = cls(config)
         if cls.instance.cached is None:
-            from raghub.services import Facade, build_container
+            from raghub.services import ApplicationFacade, build_container
 
             container = asyncio.run(build_container(config))
-            cls.instance.cached = create_app(Facade(container))
+            cls.instance.cached = create_app(ApplicationFacade(container))
         return cls.instance.cached
 
     @classmethod
