@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from raghub.config import Settings
 from raghub.conv import ConversationHistory
@@ -22,7 +22,9 @@ from raghub.services.diagnostics import (
 from raghub.stores import ImageStore, Sessions, Store, build_store
 
 if TYPE_CHECKING:
-    from raghub.auth import AuthService, Authz, SqliteUsers
+    from raghub.auth import Authz, SqliteUsers
+    from raghub.feedback.core import FeedbackStore
+    from raghub.repos import UnitOfWork
     from raghub.rag.facade import RAG
     from raghub.services.documents import Documents
     from raghub.services.health import Health
@@ -71,7 +73,7 @@ class RagContainer:
     query: Query | None = None
     health: Health | None = None
     rag_facade: RAG | None = None
-    feedback_store: Any = None
+    feedback_store: FeedbackStore | None = None
 
 
 async def build_container(settings: Settings) -> RagContainer:
@@ -120,7 +122,7 @@ async def build_container(settings: Settings) -> RagContainer:
     )
 
 
-def build_feedback_store(settings: Settings) -> Any:
+def build_feedback_store(settings: Settings) -> FeedbackStore | None:
     """Construct a feedback store when the backend is configured."""
     backend = settings.feedback.backend
     if backend == "none":
@@ -137,7 +139,7 @@ def build_feedback_store(settings: Settings) -> Any:
 
 async def build_auth_components(
     settings: Settings,
-) -> tuple[Any, Any]:
+) -> tuple[Authz, SqliteUsers]:
     """Build the ``Authz`` coordinator and user store."""
     from raghub.auth import Authz, SqliteUsers
 
@@ -150,7 +152,7 @@ async def build_auth_components(
     return authorization, user_store
 
 
-async def build_storage_components(settings: Settings) -> tuple[Any, Any, Store]:
+async def build_storage_components(settings: Settings) -> tuple[Sessions, UnitOfWork, Store]:
     """Build the raw session store, the unit of work, and the vector store."""
     raw_session_store = Sessions(
         settings.data_dir / "sessions.db",

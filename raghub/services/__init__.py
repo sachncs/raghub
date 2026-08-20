@@ -35,7 +35,7 @@ from raghub.services.diagnostics import (
     upload_record,
 )
 from raghub.services.documents import Documents, get_doc, list_records
-from raghub.services.facade import Facade
+from raghub.services.facade import ApplicationFacade
 from raghub.services.health import Health
 from raghub.services.preference import Preference
 from raghub.services.query import Query
@@ -43,8 +43,8 @@ from raghub.services.shutdown import Shutdown
 from raghub.services.workers import MemoryQueue, Synchronous, ThreadPool
 
 __all__ = [
+    "ApplicationFacade",
     "Documents",
-    "Facade",
     "Health",
     "MemoryQueue",
     "Preference",
