@@ -302,7 +302,7 @@ class Today(Tool):
     }
 
     @staticmethod
-    async def execute(context: ToolContext, **_: Any) -> ToolResult:
+    async def execute(context: ToolContext, **_: JSONValue) -> ToolResult:
         """Return today's date in UTC ISO 8601 format."""
         from datetime import UTC, datetime
 
@@ -531,7 +531,7 @@ class Keyword(Tool):
         "additionalProperties": False,
     }
 
-    def __init__(self, vector_store: Any) -> None:
+    def __init__(self, vector_store: Store) -> None:
         """Initialise the tool.
 
         Args:

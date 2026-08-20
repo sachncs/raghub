@@ -575,10 +575,10 @@ def build_chonkie_kw(name: str | None, kwargs: dict[str, JSONValue]) -> Any:
     external type stubs.
     """
     if name is not None:
-        return Chonkie(chunker_name=name, **kwargs)  # type: ignore[arg-type]
-    return Chonkie(**kwargs)  # type: ignore[arg-type]
+        return Chonkie(chunker_name=name, **kwargs)
+    return Chonkie(**kwargs)
 
 
 def build_words_kw(kwargs: dict[str, JSONValue]) -> Any:
     """Forward kwargs to ``Words`` through an Any boundary."""
-    return Words(**kwargs)  # type: ignore[arg-type]
+    return Words(**kwargs)
