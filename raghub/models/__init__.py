@@ -459,7 +459,7 @@ class Snap:
         on the inherited implementation; models with body-only
         verification can override.
         """
-        self.__post_init__()  # type: ignore[attr-defined]
+        self.__post_init__()
 
     @classmethod
     def validate(cls, data: dict[str, Any]) -> Any:

@@ -6,7 +6,7 @@ hybrid fusion, variant expansion, and a final reranker pass.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from raghub.core import allowed_company_filter
 from raghub.embedder import Embedder
@@ -18,6 +18,7 @@ from raghub.retrieval.types import Rerank, Variant
 if TYPE_CHECKING:
     from raghub.config import HybridConfig
     from raghub.retrieval.colbert import Colbert
+    from raghub.stores.vector_base import Store
 
 
 class Retrieval:
@@ -35,7 +36,7 @@ class Retrieval:
         self,
         *,
         embedding_provider: Embedder,
-        vector_store: Any,
+        vector_store: Store,
         rerank: Rerank,
         hybrid: HybridConfig | None = None,
     ) -> None:

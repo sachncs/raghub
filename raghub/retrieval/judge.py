@@ -105,7 +105,7 @@ class LlmJudge(Rerank):
         ordered: list[Hit] = []
         seen: set[int] = set()
         for ranked_record in parsed:
-            index_value: Any = ranked_record.get("index")
+            index_value = ranked_record.get("index")
             if (
                 not isinstance(index_value, int)
                 or index_value < 0

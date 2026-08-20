@@ -7,7 +7,7 @@ hybrid retrieval pipeline.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from raghub.errors import GraphUnavailableError
 
@@ -30,7 +30,7 @@ class Colbert:
         """
         self.config = config
         self.enabled = bool(getattr(config, "colbert_enabled", False))
-        self.index: Any | None = None
+        self.index: object | None = None
 
     def is_available(self) -> bool:
         """Return ``True`` when ColBERT is enabled and importable."""
