@@ -85,6 +85,16 @@ from raghub.ingest import (
     Words,
 )
 
+# Jobs (persistent queue).
+from raghub.jobs import (
+    JobStatus,
+    JobStateError,
+    PersistentQueue,
+    QueueSaturatedError,
+    SqliteQueue,
+    Worker,
+)
+
 # Knowledge repo + manifest.
 from raghub.knowledge import (
     Manifest,
@@ -122,21 +132,38 @@ from raghub.pipeline import Cache, Flow, Router
 from raghub.plugins import Plugins
 
 # Archive.
-from raghub.archive.core import ArchiveStore, LocalArchiveStore
+from raghub.archive.core import ArchiveManifest, ArchiveStore, LocalArchiveStore
 
 # Feedback.
 from raghub.feedback.core import (
+    Bm25BoostScorer,
+    Feedback,
     FeedbackAggregate,
     FeedbackStore,
     SqliteFeedbackStore,
+    VectorDownWeightScorer,
 )
 
 # Rate limiting.
 from raghub.ratelimit.core import Bucket, Ratelimit
 
 # Tenants.
-from raghub.tenants.core import TenantResolver
-from raghub.tenants.isolation import TenantContext
+from raghub.tenants.core import (
+    CompositeTenantResolver,
+    HeaderTenantResolver,
+    JwtClaimTenantResolver,
+    NoTenantResolver,
+    TenantResolver,
+)
+from raghub.tenants.isolation import (
+    DatabasePerTenant,
+    Isolation,
+    RowLevel,
+    SchemaPerTenant,
+    TenantContext,
+    TenantRegistry,
+    TenantSecretCipher,
+)
 
 # RAG facade.
 from raghub.rag import RAG
@@ -151,7 +178,7 @@ from raghub.retrieval import (
 from raghub.retrieval.search import SearchFilters
 
 # Framework facade.
-from raghub.services import Facade
+from raghub.services import ApplicationFacade
 from raghub.services.container import RagContainer
 
 # Storage layer.
@@ -176,7 +203,9 @@ from raghub.telemetry import (
 )
 
 __all__ = [
+    "ArchiveManifest",
     "ArchiveStore",
+    "Bm25BoostScorer",
     "Bucket",
     "RAG",
     "ArchiveStore",
@@ -189,13 +218,16 @@ __all__ = [
     "Chunk",
     "Citation",
     "Citations",
+    "CompositeTenantResolver",
     "ConfigurationError",
     "Conversations",
     "Database",
+    "DatabasePerTenant",
     "Document",
     "Embedder",
-    "Facade",
+    "ApplicationFacade",
     "FeatureHashingEmbedder",
+    "Feedback",
     "FeedbackAggregate",
     "FeedbackStore",
     "Finance",
@@ -204,15 +236,20 @@ __all__ = [
     "Gate",
     "GenerationError",
     "Generator",
+    "HeaderTenantResolver",
     "Hit",
     "Identity",
     "ImageStore",
     "IngestionError",
     "Ingestor",
+    "Isolation",
     "Job",
+    "JobStateError",
+    "JobStatus",
     "Jobs",
     "JsonSessions",
     "Judge",
+    "JwtClaimTenantResolver",
     "Langfuse",
     "LiteLLM",
     "LiteLLMEmbedder",
@@ -224,11 +261,14 @@ __all__ = [
     "MemoryStore",
     "Metrics",
     "MissingDepError",
+    "NoTenantResolver",
     "Noop",
+    "PersistentQueue",
     "PgVectorStore",
     "Pipeline",
     "PipelineError",
     "Plugins",
+    "QueueSaturatedError",
     "RagContainer",
     "RagHubError",
     "Ratelimit",
@@ -238,7 +278,9 @@ __all__ = [
     "Result",
     "Retrieval",
     "RetrievalError",
+    "RowLevel",
     "Router",
+    "SchemaPerTenant",
     "Scoring",
     "SearchFilters",
     "Section",
@@ -247,16 +289,21 @@ __all__ = [
     "Settings",
     "SlidingWindow",
     "SqliteFeedbackStore",
+    "SqliteQueue",
     "SqliteStore",
     "Store",
     "TenantContext",
+    "TenantRegistry",
     "TenantResolver",
+    "TenantSecretCipher",
     "Tokenizer",
     "Turn",
     "User",
+    "VectorDownWeightScorer",
     "VectorStore",
     "VectorStoreError",
     "VerificationError",
+    "Worker",
     "Words",
     "auth",
     "authhelpers",
