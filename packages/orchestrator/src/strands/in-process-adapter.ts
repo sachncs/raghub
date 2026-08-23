@@ -1,24 +1,39 @@
 /**
- * In-process adapter — Phase 1 default.
+ * In-process Strands adapter — Phase 1 default.
  *
- * Implements Graph/Swarm/Workflow as straightforward JS pipelines
- * over the registered agents and tools. Not a faithful model of the
- * real Strands runtime; it is a faithful shape of the eventual
- * adapter. Tests verify the contract; the Phase 2 swap is a one-file
- * change here.
+ * Runs the Graph / Swarm / Workflow patterns as the same
+ * retriever -> generator pipeline. The streaming generator agent
+ * is registered when the caller passes an `onDelta` callback so
+ * the SSE proxy can surface tokens without buffering.
  */
 
-import type { Hit } from '@raghub/core';
-import type { Citation, OrchestratorRequest, OrchestratorResult, PlannerEvent, Strategy } from '../strands/types.js';
-import type { InvocationState } from '../strands/types.js';
-import type { StrandsAdapter } from '../strands/adapter.js';
+import type { Hit, Llm, Retrieval } from '@raghub/core';
+
+import type {
+  Citation,
+  OrchestratorRequest,
+  OrchestratorResult,
+  PlannerEvent,
+  Strategy,
+} from './types.js';
+import type { InvocationState } from './types.js';
+import type { StrandsAdapter } from './adapter.js';
 
 import type { AgentRegistry } from '../agents/registry.js';
 import type { ToolRegistry } from '../tools/registry.js';
 
+import {
+  createGeneratorAgent,
+  createRetrieverAgent,
+  createStreamingGeneratorAgent,
+} from '../agents/defaults.js';
+
 export interface InProcessAdapterDeps {
   readonly agents: AgentRegistry;
   readonly tools: ToolRegistry;
+  readonly llm: Llm;
+  readonly retrieval: Retrieval;
+  readonly model: string;
 }
 
 const citeFromHit = (h: Hit): Citation => ({
@@ -43,10 +58,16 @@ export class InProcessAdapter implements StrandsAdapter {
   public readonly name = 'in-process';
   private readonly agents: AgentRegistry;
   private readonly _tools: ToolRegistry;
+  private readonly llm: Llm;
+  private readonly retrieval: Retrieval;
+  private readonly model: string;
 
   constructor(deps: InProcessAdapterDeps) {
     this.agents = deps.agents;
     this._tools = deps.tools;
+    this.llm = deps.llm;
+    this.retrieval = deps.retrieval;
+    this.model = deps.model;
   }
 
   public async runGraph(req: OrchestratorRequest, state: InvocationState): Promise<OrchestratorResult> {
@@ -66,7 +87,6 @@ export class InProcessAdapter implements StrandsAdapter {
     state: InvocationState,
     mode: Strategy['mode'],
   ): Promise<OrchestratorResult> {
-    const retriever = this.agents.require('retriever');
     const events: PlannerEvent[] = [];
     events.push({ kind: 'thought', step: 0, payload: { text: `mode=${mode}` } });
 
@@ -74,6 +94,8 @@ export class InProcessAdapter implements StrandsAdapter {
       return { ...emptyResult(mode, req), events };
     }
 
+    this.ensureAgents();
+    const retriever = this.agents.require('retriever');
     const search = await retriever.retrieve(req, state);
     events.push({
       kind: 'tool_result',
@@ -89,6 +111,7 @@ export class InProcessAdapter implements StrandsAdapter {
     if (!search.ok) {
       return { ...emptyResult(mode, req), events };
     }
+
     const generator = this.agents.require('generator');
     const final = await generator.generate(req, search.hits, state);
     events.push({ kind: 'answer_chunk', step: 2, payload: { delta: final.answer } });
@@ -107,5 +130,27 @@ export class InProcessAdapter implements StrandsAdapter {
       events,
       mode,
     };
+  }
+
+  public useStreamingGenerator(onDelta: (delta: string) => void): void {
+    this.agents.register(
+      'generator',
+      createStreamingGeneratorAgent({ llm: this.llm, model: this.model, onDelta }),
+    );
+  }
+
+  private ensureAgents(): void {
+    if (!this.agents.ids().includes('retriever')) {
+      this.agents.register(
+        'retriever',
+        createRetrieverAgent({ retrieval: this.retrieval, llm: this.llm, model: this.model }),
+      );
+    }
+    if (!this.agents.ids().includes('generator')) {
+      this.agents.register(
+        'generator',
+        createGeneratorAgent({ llm: this.llm, model: this.model }),
+      );
+    }
   }
 }

@@ -2,18 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   type CollectionId,
+  type Llm,
   NoOpTelemetry,
+  type Retrieval,
   type TenantId,
   type UserId,
   User,
   UserRole,
   brandId,
 } from '@raghub/core';
-import { AgentRegistry, Orchestrator } from '../src/index.js';
-import {
-  createGeneratorAgent,
-  createRetrieverAgent,
-} from '../src/agents/defaults.js';
+import { AgentRegistry, type Agent, Orchestrator } from '../src/index.js';
 import { ToolRegistry } from '../src/tools/registry.js';
 import { resolveStrategy } from '../src/patterns/strategy.js';
 
@@ -49,12 +47,34 @@ describe('resolveStrategy', () => {
 });
 
 describe('Orchestrator', () => {
+  const fakeLlm: Llm = {
+    provider: 'fake',
+    model: 'test',
+    async generate() {
+      return { content: 'ok', toolCalls: [], usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, finishReason: 'stop' };
+    },
+    stream: async function* () {
+      yield { delta: 'ok', toolCalls: [], finishReason: 'stop' };
+    },
+    async rawStream() {
+      throw new Error('not used');
+    },
+  };
+  const fakeRetrieval: Retrieval = {
+    async retrieve() {
+      return [];
+    },
+  } as unknown as Retrieval;
+  const noopAgent: Agent = {
+    id: 'noop',
+    async retrieve() { return { ok: true, content: '', hits: [], latencyMs: 0 }; },
+    async generate() { return { answer: '' }; },
+  };
+
   it('dispatches by strategy.mode and propagates invocation state', async () => {
     const agents = new AgentRegistry();
-    agents.register('retriever', createRetrieverAgent({
-      retrieve: (async () => ({ ok: true, content: 'r', hits: [], latencyMs: 1 })) as never,
-    } as never));
-    agents.register('generator', createGeneratorAgent());
+    agents.register('retriever', noopAgent);
+    agents.register('generator', noopAgent);
 
     const tools = new ToolRegistry();
     const orch = new Orchestrator({
@@ -77,6 +97,7 @@ describe('Orchestrator', () => {
 
   it('exposes invocationState with tenant + user + strategy', () => {
     const agents = new AgentRegistry();
+    agents.register('generator', noopAgent);
     const tools = new ToolRegistry();
     const orch = new Orchestrator({
       telemetry: new NoOpTelemetry(),
@@ -97,10 +118,8 @@ describe('Orchestrator', () => {
 
   it('emits PlannerEvents from stream()', async () => {
     const agents = new AgentRegistry();
-    agents.register('retriever', createRetrieverAgent({
-      retrieve: (async () => ({ ok: true, content: 'r', hits: [], latencyMs: 1 })) as never,
-    } as never));
-    agents.register('generator', createGeneratorAgent());
+    agents.register('retriever', noopAgent);
+    agents.register('generator', noopAgent);
     const tools = new ToolRegistry();
     const orch = new Orchestrator({
       telemetry: new NoOpTelemetry(),
