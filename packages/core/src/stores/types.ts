@@ -3,19 +3,26 @@
  *
  * All retrieval reads go through this interface. The Phase 1
  * implementation is `SqliteVecStore` (sqlite-vec extension + FTS5).
- * Multi-tenant and per-user filtering is enforced here, not at the
- * caller — every method requires a `StoreFilter`.
+ * Per-workspace, per-user, per-collection, and per-document-ACL
+ * filtering is enforced here, not at the caller.
  */
 
 import type { Chunk, Hit } from '../domain/index.js';
 import type { ChunkId, DocumentId, WorkspaceId, UserId } from '../domain/index.js';
 
+export interface Principal {
+  readonly type: 'user' | 'role' | 'group';
+  readonly id: string;
+}
+
 export interface StoreFilter {
   readonly workspaceId: WorkspaceId;
-  /** When `null`, the store returns rows owned by any user in the tenant. */
+  /** When `null`, the store returns rows owned by any user in the workspace (admin only). */
   readonly userId: UserId | null;
   readonly collectionId: string | null;
-  /** RBAC: only chunks whose metadata.company ∈ allowedCompanies. */
+  /** ACL principals (resolved user / role / group IDs) that grant document access. */
+  readonly principals: readonly Principal[];
+  /** RBAC: only chunks whose metadata.company ∈ allowedCompanies. Empty array disables the filter. */
   readonly allowedCompanies: readonly string[];
 }
 
@@ -55,7 +62,7 @@ export interface VectorStore {
   /** BM25 keyword search via SQLite FTS5; returns hits in score-desc order. */
   searchKeyword(opts: KeywordSearchOptions): Promise<KeywordHit[]>;
 
-  /** Fetch a chunk by id, scoped by tenant. */
+  /** Fetch a chunk by id, scoped by workspace. */
   getById(workspaceId: WorkspaceId, id: ChunkId): Promise<Chunk | null>;
 
   /** Cascade-delete every chunk belonging to `documentId`. */

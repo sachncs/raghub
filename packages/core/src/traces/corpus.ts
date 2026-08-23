@@ -1,23 +1,15 @@
 /**
- * T3 trace corpus (Phase 1 surface).
+ * T3 trace corpus — sqlite-backed, shared Database handle.
  *
- * Implements the storage + retrieval half of the T3 pipeline
- * (arXiv 2605.03344). The thinker runner + transformations live
- * in the `@raghub/traces` namespace; this module is the SQLite
- * store the @raghub/orchestrator's `trace_search` tool reads
- * from.
- *
- * Schema: trace_corpus(trace_id, workspace_id, user_id, source_problem,
- * raw, struct, semantic, reflect, embedding, created_at).
- *
- * Phase 1 ships the storage + similarity search; populating the
- * table is the `raghub traces build` command (Phase 2). User-
- * supplied problem JSONL only.
+ * C-03: takes the shared `Database` handle. Schema lives in
+ * `Workspace.open()`. Population is a separate `@raghub/traces`
+ * builder step (commit 12).
  */
 
-import type { ChunkId, WorkspaceId, TraceId, UserId } from '../domain/ids.js';
-import { brandId } from '../domain/ids.js';
+import type { WorkspaceId, UserId, TraceId } from '../domain/index.js';
+import { brandId } from '../domain/index.js';
 import { VectorStoreError } from '../errors/index.js';
+import type { Database } from '../workspace.js';
 
 export type TraceRepresentation = 'struct' | 'semantic' | 'reflect';
 
@@ -68,87 +60,36 @@ export interface TraceCorpus {
   close(): Promise<void>;
 }
 
-interface Database {
-  prepare(sql: string): Statement;
-  exec(sql: string): void;
-  close(): void;
-}
-
-interface Statement {
-  get(...params: unknown[]): unknown;
-  all(...params: unknown[]): unknown[];
-  run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
-}
-
-const dynamicImport = (spec: string): Promise<unknown> => import(spec);
-
-const loadBetterSqlite3 = async (): Promise<(filename: string) => Database> => {
-  try {
-    const mod = (await dynamicImport('better-sqlite3')) as {
-      default: (filename: string) => Database;
-    };
-    return mod.default;
-  } catch (cause) {
-    throw new VectorStoreError('better-sqlite3 is not installed', {
-      cause,
-      details: { hint: 'pnpm add better-sqlite3' },
-    });
-  }
-};
-
 export interface SqliteTraceCorpusOptions {
-  readonly path: string;
+  readonly db: Database;
 }
 
 export class SqliteTraceCorpus implements TraceCorpus {
-  private db: Database | null = null;
-  private readonly path: string;
+  private readonly db: Database;
 
   constructor(opts: SqliteTraceCorpusOptions) {
-    this.path = opts.path;
-  }
-
-  private async ensure(): Promise<Database> {
-    if (this.db) return this.db;
-    const sqlite = await loadBetterSqlite3();
-    const db = sqlite(this.path);
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS trace_corpus (
-        trace_id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        user_id TEXT,
-        source_problem TEXT NOT NULL,
-        raw TEXT NOT NULL,
-        struct TEXT,
-        semantic TEXT,
-        reflect TEXT,
-        embedding TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_traces_tenant ON trace_corpus(workspace_id);
-    `);
-    this.db = db;
-    return db;
+    this.db = opts.db;
   }
 
   public async insert(record: TraceInsert): Promise<void> {
-    const db = await this.ensure();
-    db.prepare(
-      `INSERT OR REPLACE INTO trace_corpus
-       (trace_id, workspace_id, user_id, source_problem, raw, struct, semantic, reflect, embedding, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      record.id,
-      record.workspaceId,
-      record.userId,
-      record.sourceProblem,
-      record.raw,
-      record.struct ?? null,
-      record.semantic ?? null,
-      record.reflect ?? null,
-      JSON.stringify([...record.embedding]),
-      Date.now(),
-    );
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO trace_corpus
+         (trace_id, workspace_id, user_id, source_problem, raw, struct, semantic, reflect, embedding, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        record.id,
+        record.workspaceId,
+        record.userId,
+        record.sourceProblem,
+        record.raw,
+        record.struct ?? null,
+        record.semantic ?? null,
+        record.reflect ?? null,
+        JSON.stringify([...record.embedding]),
+        Date.now(),
+      );
   }
 
   public async insertBatch(records: readonly TraceInsert[]): Promise<void> {
@@ -156,12 +97,9 @@ export class SqliteTraceCorpus implements TraceCorpus {
   }
 
   public async search(query: TraceQuery): Promise<readonly TraceHit[]> {
-    const db = await this.ensure();
     const col = query.representation;
-    if (col !== 'struct' && col !== 'semantic' && col !== 'reflect') {
-      return [];
-    }
-    const rows = db
+    if (col !== 'struct' && col !== 'semantic' && col !== 'reflect') return [];
+    const rows = this.db
       .prepare(
         `SELECT trace_id, ${col} AS text, source_problem, embedding
          FROM trace_corpus
@@ -194,18 +132,14 @@ export class SqliteTraceCorpus implements TraceCorpus {
   }
 
   public async count(workspaceId: WorkspaceId): Promise<number> {
-    const db = await this.ensure();
-    const row = db
+    const row = this.db
       .prepare('SELECT COUNT(*) AS n FROM trace_corpus WHERE workspace_id = ?')
       .get(workspaceId) as Record<string, unknown>;
     return Number(row['n'] ?? 0);
   }
 
   public async close(): Promise<void> {
-    if (this.db) {
-      this.db.close();
-      this.db = null;
-    }
+    // No-op.
   }
 }
 
@@ -224,4 +158,4 @@ const cosine = (a: Float32Array, b: Float32Array): number => {
   return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1);
 };
 
-void brandId;
+void VectorStoreError;

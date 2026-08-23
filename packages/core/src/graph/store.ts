@@ -1,48 +1,16 @@
 /**
- * Simple entity graph + traversal.
+ * Entity graph + traversal.
  *
- * Phase 1 keeps this intentionally small: entities are capitalized
- * phrases extracted from chunk text via a regex pass, edges are
- * co-occurrence in the same chunk. The graph is stored in the
- * same sqlite-vec database as a side-table so retrieval stays
- * zero-dep beyond better-sqlite3.
- *
- * `searchEntities` runs a substring match; `expandNeighborhood`
- * walks the graph to depth `hop` from a starting set.
+ * C-03: takes the shared `Database` handle. Phase 1 keeps this
+ * intentionally small — entities are capitalised phrases extracted
+ * from chunk text via `extractEntities`, edges are co-occurrence in
+ * the same chunk. The graph is stored in the same `workspace.db` so
+ * retrieval stays zero-dep beyond better-sqlite3.
  */
 
-import type { WorkspaceId } from '../domain/ids.js';
-import { brandId } from '../domain/ids.js';
-import type { ChunkId } from '../domain/ids.js';
-import { VectorStoreError } from '../errors/index.js';
-
-interface Database {
-  prepare(sql: string): Statement;
-  exec(sql: string): void;
-  close(): void;
-}
-
-interface Statement {
-  get(...params: unknown[]): unknown;
-  all(...params: unknown[]): unknown[];
-  run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
-}
-
-const dynamicImport = (spec: string): Promise<unknown> => import(spec);
-
-const loadBetterSqlite3 = async (): Promise<(filename: string) => Database> => {
-  try {
-    const mod = (await dynamicImport('better-sqlite3')) as {
-      default: (filename: string) => Database;
-    };
-    return mod.default;
-  } catch (cause) {
-    throw new VectorStoreError('better-sqlite3 is not installed', {
-      cause,
-      details: { hint: 'pnpm add better-sqlite3' },
-    });
-  }
-};
+import type { WorkspaceId } from '../domain/index.js';
+import type { ChunkId } from '../domain/index.js';
+import type { Database } from '../workspace.js';
 
 export interface GraphEntity {
   readonly name: string;
@@ -59,7 +27,12 @@ export interface GraphEdge {
 export interface GraphStore {
   addMentions(workspaceId: WorkspaceId, chunkId: ChunkId, entities: readonly string[]): Promise<void>;
   searchEntities(workspaceId: WorkspaceId, query: string, limit?: number): Promise<readonly GraphEntity[]>;
-  expandNeighborhood(workspaceId: WorkspaceId, seeds: readonly string[], hop: number, limit?: number): Promise<readonly GraphEntity[]>;
+  expandNeighborhood(
+    workspaceId: WorkspaceId,
+    seeds: readonly string[],
+    hop: number,
+    limit?: number,
+  ): Promise<readonly GraphEntity[]>;
   close(): Promise<void>;
 }
 
@@ -84,39 +57,14 @@ export const extractEntities = (text: string): readonly string[] => {
 };
 
 export interface SqliteGraphStoreOptions {
-  readonly path: string;
+  readonly db: Database;
 }
 
 export class SqliteGraphStore implements GraphStore {
-  private db: Database | null = null;
-  private readonly path: string;
+  private readonly db: Database;
 
   constructor(opts: SqliteGraphStoreOptions) {
-    this.path = opts.path;
-  }
-
-  private async ensure(): Promise<Database> {
-    if (this.db) return this.db;
-    const sqlite = await loadBetterSqlite3();
-    const db = sqlite(this.path);
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS graph_entities (
-        name TEXT NOT NULL,
-        workspace_id TEXT NOT NULL,
-        chunk_id TEXT NOT NULL,
-        PRIMARY KEY (name, workspace_id, chunk_id)
-      );
-      CREATE INDEX IF NOT EXISTS idx_graph_entities_tenant ON graph_entities(workspace_id);
-      CREATE TABLE IF NOT EXISTS graph_edges (
-        workspace_id TEXT NOT NULL,
-        from_name TEXT NOT NULL,
-        to_name TEXT NOT NULL,
-        weight INTEGER NOT NULL DEFAULT 1,
-        PRIMARY KEY (workspace_id, from_name, to_name)
-      );
-    `);
-    this.db = db;
-    return db;
+    this.db = opts.db;
   }
 
   public async addMentions(
@@ -125,8 +73,7 @@ export class SqliteGraphStore implements GraphStore {
     entities: readonly string[],
   ): Promise<void> {
     if (entities.length === 0) return;
-    const db = await this.ensure();
-    const stmt = db.prepare(
+    const stmt = this.db.prepare(
       `INSERT OR IGNORE INTO graph_entities (name, workspace_id, chunk_id) VALUES (?, ?, ?)`,
     );
     for (const name of entities) {
@@ -137,11 +84,13 @@ export class SqliteGraphStore implements GraphStore {
         const a = entities[i];
         const b = entities[j];
         if (!a || !b) continue;
-        db.prepare(
-          `INSERT INTO graph_edges (workspace_id, from_name, to_name, weight)
-           VALUES (?, ?, ?, 1)
-           ON CONFLICT(workspace_id, from_name, to_name) DO UPDATE SET weight = weight + 1`,
-        ).run(workspaceId, a, b);
+        this.db
+          .prepare(
+            `INSERT INTO graph_edges (workspace_id, from_name, to_name, weight)
+             VALUES (?, ?, ?, 1)
+             ON CONFLICT(workspace_id, from_name, to_name) DO UPDATE SET weight = weight + 1`,
+          )
+          .run(workspaceId, a, b);
       }
     }
   }
@@ -151,9 +100,8 @@ export class SqliteGraphStore implements GraphStore {
     query: string,
     limit: number = 10,
   ): Promise<readonly GraphEntity[]> {
-    const db = await this.ensure();
     const like = `%${query.replace(/[%_]/g, '\\$&')}%`;
-    const rows = db
+    const rows = this.db
       .prepare(
         `SELECT name, COUNT(chunk_id) AS cnt FROM graph_entities
          WHERE workspace_id = ? AND name LIKE ? ESCAPE '\\'
@@ -173,14 +121,13 @@ export class SqliteGraphStore implements GraphStore {
     hop: number,
     limit: number = 20,
   ): Promise<readonly GraphEntity[]> {
-    const db = await this.ensure();
     if (seeds.length === 0 || hop < 1) return [];
     const visited = new Set<string>(seeds);
     let frontier = [...seeds];
     for (let h = 0; h < hop; h++) {
       if (frontier.length === 0) break;
       const placeholders = frontier.map(() => '?').join(',');
-      const rows = db
+      const rows = this.db
         .prepare(
           `SELECT to_name AS name, COUNT(*) AS w FROM graph_edges
            WHERE workspace_id = ? AND from_name IN (${placeholders})
@@ -201,11 +148,6 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   public async close(): Promise<void> {
-    if (this.db) {
-      this.db.close();
-      this.db = null;
-    }
+    // No-op.
   }
 }
-
-void brandId;

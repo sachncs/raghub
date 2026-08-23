@@ -17,8 +17,9 @@ import type {
 import { FeatureHashingEmbedder } from '../../src/embedder/feature-hashing.js';
 import { Retrieval } from '../../src/retrieval/pipeline.js';
 import { SqliteVecStore } from '../../src/stores/sqlite-vec.js';
+import { openWorkspace, type WorkspaceHandle } from '../../src/workspace.js';
 
-const tenant = brandId<WorkspaceId>('tnt_1');
+const workspace = brandId<WorkspaceId>('wsp_1');
 const user = brandId<UserId>('usr_1');
 const coll = brandId<CollectionId>('col_1');
 const doc = brandId<DocumentId>('doc_1');
@@ -26,7 +27,7 @@ const doc = brandId<DocumentId>('doc_1');
 const mkUser = (role: 'admin' | 'member' | 'viewer') =>
   new User({
     id: user,
-    workspaceId: tenant,
+    workspaceId: workspace,
     email: 'u@x',
     role: role === 'admin' ? UserRole.Admin : role === 'member' ? UserRole.Member : UserRole.Viewer,
     allowedCompanies: role === 'admin' ? [] : ['acme'],
@@ -44,7 +45,7 @@ const seed = async (store: SqliteVecStore, embedder: FeatureHashingEmbedder) => 
     const v = await embedder.embedQuery(text);
     const c = new Chunk({
       id: brandId<ChunkId>(`chk_${Math.random().toString(36).slice(2, 10)}`),
-      workspaceId: tenant,
+      workspaceId: workspace,
       ownerId: user,
       collectionId: coll,
       documentId: doc,
@@ -64,16 +65,19 @@ const itg = integration ? it : it.skip;
 
 describe('SqliteVecStore + Retrieval (integration)', () => {
   let store: SqliteVecStore;
+  let handle: WorkspaceHandle;
   let embedder: FeatureHashingEmbedder;
 
   beforeAll(async () => {
-    store = new SqliteVecStore({ path: ':memory:', embeddingDim: 128 });
+    handle = await openWorkspace({ path: ':memory:' });
+    store = new SqliteVecStore({ db: handle.db, embeddingDim: 128 });
     embedder = new FeatureHashingEmbedder('fh', 128);
     await seed(store, embedder);
   }, 30_000);
 
   afterAll(async () => {
     await store.close();
+    handle.close();
   });
 
   itg('vector search returns the most semantically similar chunk', async () => {
@@ -88,14 +92,20 @@ describe('SqliteVecStore + Retrieval (integration)', () => {
     const hits = await store.searchKeyword({
       query: 'raghub framework',
       topK: 3,
-      filter: { workspaceId: tenant, userId: null, collectionId: null, allowedCompanies: [] },
+      filter: {
+        workspaceId: workspace,
+        userId: null,
+        collectionId: null,
+        principals: [],
+        allowedCompanies: [],
+      },
     });
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0]?.text.toLowerCase()).toContain('raghub');
   });
 
-  itg('vector search respects tenant isolation', async () => {
-    const otherWorkspace = brandId<WorkspaceId>('tnt_2');
+  itg('vector search respects workspace isolation', async () => {
+    const otherWorkspace = brandId<WorkspaceId>('wsp_2');
     const hits = await store.searchVector({
       vector: new Array(128).fill(0),
       topK: 10,
@@ -103,6 +113,7 @@ describe('SqliteVecStore + Retrieval (integration)', () => {
         workspaceId: otherWorkspace,
         userId: null,
         collectionId: null,
+        principals: [],
         allowedCompanies: [],
       },
     });

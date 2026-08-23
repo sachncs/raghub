@@ -1,14 +1,14 @@
 /**
- * Conversation store.
+ * Conversation store — sqlite-backed, shared Database handle.
  *
- * SQLite-backed turn history. Each turn is appended on the active
- * session; the store trims by sliding window when the session
- * exceeds `maxTurns`.
+ * Sliding-window history: `history(sessionId, maxTurns)` returns the
+ * last `maxTurns` rows in chronological order.
  */
 
 import type { SessionId, WorkspaceId, Turn, UserId } from '../domain/index.js';
-import { brandId, Turn as TurnClass, TurnRole } from '../domain/index.js';
-import { VectorStoreError } from '../errors/index.js';
+import { Turn as TurnClass, TurnRole } from '../domain/index.js';
+import { brandId } from '../domain/index.js';
+import type { Database } from '../workspace.js';
 
 export interface TurnInput {
   readonly role: keyof typeof TurnRole;
@@ -16,70 +16,26 @@ export interface TurnInput {
 }
 
 export interface ConversationStore {
-  append(sessionId: SessionId, workspaceId: WorkspaceId, userId: UserId, turn: TurnInput): Promise<Turn>;
+  append(
+    sessionId: SessionId,
+    workspaceId: WorkspaceId,
+    userId: UserId,
+    turn: TurnInput,
+  ): Promise<Turn>;
   history(sessionId: SessionId, workspaceId: WorkspaceId, maxTurns: number): Promise<readonly Turn[]>;
   clear(sessionId: SessionId, workspaceId: WorkspaceId): Promise<void>;
   close(): Promise<void>;
 }
 
-interface Database {
-  prepare(sql: string): Statement;
-  exec(sql: string): void;
-  close(): void;
-}
-
-interface Statement {
-  get(...params: unknown[]): unknown;
-  all(...params: unknown[]): unknown[];
-  run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
-}
-
-const dynamicImport = (spec: string): Promise<unknown> => import(spec);
-
-const loadBetterSqlite3 = async (): Promise<(filename: string) => Database> => {
-  try {
-    const mod = (await dynamicImport('better-sqlite3')) as {
-      default: (filename: string) => Database;
-    };
-    return mod.default;
-  } catch (cause) {
-    throw new VectorStoreError('better-sqlite3 is not installed', {
-      cause,
-      details: { hint: 'pnpm add better-sqlite3' },
-    });
-  }
-};
-
 export interface SqliteConversationStoreOptions {
-  readonly path: string;
+  readonly db: Database;
 }
 
 export class SqliteConversationStore implements ConversationStore {
-  private db: Database | null = null;
-  private readonly path: string;
+  private readonly db: Database;
 
   constructor(opts: SqliteConversationStoreOptions) {
-    this.path = opts.path;
-  }
-
-  private async ensure(): Promise<Database> {
-    if (this.db) return this.db;
-    const sqlite = await loadBetterSqlite3();
-    const db = sqlite(this.path);
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS turns (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        workspace_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_turns_session ON turns(session_id, workspace_id, id DESC);
-    `);
-    this.db = db;
-    return db;
+    this.db = opts.db;
   }
 
   public async append(
@@ -88,10 +44,9 @@ export class SqliteConversationStore implements ConversationStore {
     userId: UserId,
     turn: TurnInput,
   ): Promise<Turn> {
-    const db = await this.ensure();
     const now = Date.now();
     const role = TurnRole[turn.role];
-    const r = db
+    this.db
       .prepare(
         `INSERT INTO turns (session_id, workspace_id, user_id, role, content, created_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
@@ -112,8 +67,7 @@ export class SqliteConversationStore implements ConversationStore {
     workspaceId: WorkspaceId,
     maxTurns: number,
   ): Promise<readonly Turn[]> {
-    const db = await this.ensure();
-    const rows = db
+    const rows = this.db
       .prepare(
         `SELECT * FROM turns WHERE session_id = ? AND workspace_id = ? ORDER BY id DESC LIMIT ?`,
       )
@@ -132,14 +86,12 @@ export class SqliteConversationStore implements ConversationStore {
   }
 
   public async clear(sessionId: SessionId, workspaceId: WorkspaceId): Promise<void> {
-    const db = await this.ensure();
-    db.prepare('DELETE FROM turns WHERE session_id = ? AND workspace_id = ?').run(sessionId, workspaceId);
+    this.db
+      .prepare('DELETE FROM turns WHERE session_id = ? AND workspace_id = ?')
+      .run(sessionId, workspaceId);
   }
 
   public async close(): Promise<void> {
-    if (this.db) {
-      this.db.close();
-      this.db = null;
-    }
+    // No-op.
   }
 }

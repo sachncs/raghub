@@ -37,6 +37,7 @@ export const buildInvocationState = (input: BuildInvocationStateInput): Invocati
         workspaceId: input.workspaceId,
         userId: null as UserId | null,
         collectionId: null as CollectionId | null,
+        principals: [],
         allowedCompanies: [] as readonly string[],
       };
   const collectionId: CollectionId | null = rbacFilter.collectionId

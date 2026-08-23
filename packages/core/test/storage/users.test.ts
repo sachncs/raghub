@@ -1,22 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  brandId,
-  WorkspacePlan,
-  UserRole,
-  type WorkspaceId,
-} from '../../src/domain/index.js';
+import { brandId, UserRole, type WorkspaceId, type UserId } from '../../src/domain/index.js';
 import { BcryptHasher } from '../../src/auth/password.js';
+import { openWorkspace, type WorkspaceHandle } from '../../src/workspace.js';
 import { SqliteUserStore } from '../../src/storage/users.js';
 
-const workspaceId = brandId<WorkspaceId>('tnt_1');
-const otherTenantId = brandId<WorkspaceId>('tnt_2');
+const workspaceId = brandId<WorkspaceId>('wsp_1');
+const otherTenantId = brandId<WorkspaceId>('wsp_2');
 
-const setupStore = async () => {
-  const store = new SqliteUserStore({ path: ':memory:' });
-  await store.upsertWorkspace({ id: workspaceId, name: 'Acme', plan: 'Free' });
-  await store.upsertWorkspace({ id: otherTenantId, name: 'Other', plan: 'Free' });
-  return store;
+const setupStore = async (): Promise<{ workspace: WorkspaceHandle; store: SqliteUserStore }> => {
+  const workspace = await openWorkspace({ path: ':memory:' });
+  const store = new SqliteUserStore({ db: workspace.db });
+  return { workspace, store };
 };
 
 const integration = process.env['RAGHUB_RUN_SQLITE_TESTS'] === '1';
@@ -24,19 +19,17 @@ const itg = integration ? it : it.skip;
 
 describe('SqliteUserStore (integration)', () => {
   let store: SqliteUserStore;
+  let workspace: WorkspaceHandle;
 
   beforeEach(async () => {
-    store = await setupStore();
+    const s = await setupStore();
+    workspace = s.workspace;
+    store = s.store;
   });
 
   afterEach(async () => {
     await store.close();
-  });
-
-  itg('upserts a tenant and reads it back', async () => {
-    const t = await store.getWorkspace(workspaceId);
-    expect(t?.name).toBe('Acme');
-    expect(t?.plan).toBe(WorkspacePlan.Free);
+    workspace.close();
   });
 
   itg('creates a user, hashes the password, and looks it up by email', async () => {
@@ -57,7 +50,7 @@ describe('SqliteUserStore (integration)', () => {
     expect(await hasher.verify('wrong', lookup?.passwordHash ?? '')).toBe(false);
   });
 
-  itg('looks up a user by id scoped to the tenant', async () => {
+  itg('looks up a user by id scoped to the workspace', async () => {
     const hasher = new BcryptHasher(4);
     const user = await store.create({
       workspaceId,
@@ -72,3 +65,5 @@ describe('SqliteUserStore (integration)', () => {
     expect(cross).toBeNull();
   });
 });
+
+
