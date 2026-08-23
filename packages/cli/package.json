@@ -8,7 +8,9 @@
   "bin": {
     "raghub": "./dist/index.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -19,7 +21,11 @@
     "clean": "rm -raf dist .turbo"
   },
   "dependencies": {
-    "@raghub/core": "workspace:*"
+    "@hono/node-server": "^2.1.1",
+    "@raghub/core": "workspace:*",
+    "@raghub/orchestrator": "workspace:*",
+    "@raghub/api": "workspace:*",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
