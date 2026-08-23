@@ -253,11 +253,16 @@ export class OpenAILlm implements Llm {
   private async ensureClient(): Promise<OpenAIClient> {
     if (this.clientPromise) return this.clientPromise;
     const mod = await loadOpenAI();
-    const client = new mod.default({
+    const authHeader =
+      this.authorizationPrefix === 'Raw' ? this.apiKey : `Bearer ${this.apiKey}`;
+    const ctor = mod.default as unknown as new (opts: {
+      apiKey: string;
+      baseURL?: string;
+      defaultHeaders?: Record<string, string>;
+    }) => OpenAIClient;
+    const client = new ctor({
       apiKey: this.apiKey,
-      defaultHeaders: {
-        Authorization: this.authorizationPrefix === 'Raw' ? this.apiKey : `Bearer ${this.apiKey}`,
-      },
+      defaultHeaders: { Authorization: authHeader },
       ...(this.baseUrl ? { baseURL: this.baseUrl } : {}),
     });
     this.clientPromise = Promise.resolve(client);

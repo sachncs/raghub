@@ -18,6 +18,7 @@ describe('createApp (shape only)', () => {
       jobQueue: undefined as never,
       embedder: undefined as never,
       vectorStore: undefined as never,
+      workspacePaths: { resolve: async () => null } as never,
     });
     expect(typeof app.fetch).toBe('function');
   });
