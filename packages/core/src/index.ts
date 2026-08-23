@@ -2,8 +2,7 @@
  * @raghub/core — public surface.
  *
  * Domain types, errors, settings, stores, embedder, retrieval, auth,
- * tenants, telemetry, storage, LLM, chunker, ingest. Plugins,
- * multimodal, traces, eval land in their dedicated packages.
+ * workspaces, telemetry, storage, LLM, chunker, ingest, workspace.
  */
 
 export * from './errors/index.js';
@@ -23,3 +22,5 @@ export * from './web/search.js';
 export * from './graph/store.js';
 export * from './summary/index.js';
 export * from './traces/corpus.js';
+export type { WorkspaceHandle } from './workspace.js';
+export { openWorkspace } from './workspace.js';

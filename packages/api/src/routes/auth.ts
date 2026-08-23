@@ -34,7 +34,7 @@ interface LoginInput {
   readonly password: string;
 }
 
-const newTenantId = (): WorkspaceId => brandId<WorkspaceId>(`tnt_${Math.random().toString(36).slice(2, 14)}`);
+const newTenantId = (): WorkspaceId => brandId<WorkspaceId>(`wsp_${Math.random().toString(36).slice(2, 14)}`);
 
 export const authRoutes = (deps: AuthRouteDeps): Hono => {
   const app = new Hono();
@@ -48,7 +48,6 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
       return c.json({ error: { code: 'auth_error', message: 'password must be at least 8 chars' } }, 400);
     }
     const workspaceId = newTenantId();
-    await deps.userStore.upsertWorkspace({ id: workspaceId, name: body.tenantName, plan: 'Free' });
     const passwordHash = await deps.hasher.hash(body.password);
     const user = await deps.userStore.create({
       workspaceId,

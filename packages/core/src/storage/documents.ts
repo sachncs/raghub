@@ -1,19 +1,15 @@
 /**
- * Documents store.
+ * Document store — sqlite-backed, shared Database handle.
  *
- * SQLite-backed metadata for ingested documents. Tracks hash,
- * lifecycle status, and per-document chunk counts so the API can
- * surface progress without re-querying the vector store.
- *
- * Idempotent on `hash`: `upsert()` returns the existing row's id
- * when the hash is unchanged.
+ * C-03: takes the shared `Database` handle. Schema creation lives in
+ * `Workspace.open()`. Idempotent on hash via UNIQUE constraint.
  */
 
-import type { DocumentId, WorkspaceId, UserId } from '../domain/index.js';
-import { brandId, Document, DocumentLifecycleStatus } from '../domain/index.js';
-import type { DocumentLifecycleStatusValue } from '../domain/index.js';
-import type { DocumentLifecycleStatusValue as DLS, DocumentId as DocId, WorkspaceId as TnId, UserId as UsId } from '../domain/index.js';
-import { ConfigurationError, VectorStoreError } from '../errors/index.js';
+import type { Document, DocumentId, DocumentLifecycleStatusValue, WorkspaceId, UserId } from '../domain/index.js';
+import { Document as DocumentClass, DocumentLifecycleStatus } from '../domain/index.js';
+import { brandId, type ChunkId, type CollectionId, type WorkspacePlanValue } from '../domain/index.js';
+import { ConfigurationError } from '../errors/index.js';
+import type { Database } from '../workspace.js';
 
 export interface DocumentStore {
   upsert(input: {
@@ -33,70 +29,15 @@ export interface DocumentStore {
   close(): Promise<void>;
 }
 
-interface Database {
-  prepare(sql: string): Statement;
-  exec(sql: string): void;
-  close(): void;
-}
-
-interface Statement {
-  get(...params: unknown[]): unknown;
-  all(...params: unknown[]): unknown[];
-  run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
-}
-
-const dynamicImport = (spec: string): Promise<unknown> => import(spec);
-
-const loadBetterSqlite3 = async (): Promise<(filename: string) => Database> => {
-  try {
-    const mod = (await dynamicImport('better-sqlite3')) as {
-      default: (filename: string) => Database;
-    };
-    return mod.default;
-  } catch (cause) {
-    throw new VectorStoreError('better-sqlite3 is not installed', {
-      cause,
-      details: { hint: 'pnpm add better-sqlite3' },
-    });
-  }
-};
-
 export interface SqliteDocumentStoreOptions {
-  readonly path: string;
+  readonly db: Database;
 }
 
 export class SqliteDocumentStore implements DocumentStore {
-  private db: Database | null = null;
-  private readonly path: string;
+  private readonly db: Database;
 
   constructor(opts: SqliteDocumentStoreOptions) {
-    this.path = opts.path;
-  }
-
-  private async ensure(): Promise<Database> {
-    if (this.db) return this.db;
-    const sqlite = await loadBetterSqlite3();
-    const db = sqlite(this.path);
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS documents (
-        id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        owner_id TEXT NOT NULL,
-        filename TEXT NOT NULL,
-        mime_type TEXT NOT NULL,
-        hash TEXT NOT NULL,
-        byte_size INTEGER NOT NULL,
-        status TEXT NOT NULL,
-        metadata_json TEXT NOT NULL DEFAULT '{}',
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_documents_tenant ON documents(workspace_id);
-      CREATE INDEX IF NOT EXISTS idx_documents_owner ON documents(workspace_id, owner_id);
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_hash ON documents(workspace_id, hash);
-    `);
-    this.db = db;
-    return db;
+    this.db = opts.db;
   }
 
   public async upsert(input: {
@@ -108,31 +49,32 @@ export class SqliteDocumentStore implements DocumentStore {
     byteSize: number;
     metadata?: Readonly<Record<string, string>>;
   }): Promise<Document> {
-    const db = await this.ensure();
+    const id = brandId<DocumentId>(`doc_${input.hash.slice(0, 16)}`);
     const now = Date.now();
-    const id = brandId<DocId>(`doc_${input.hash.slice(0, 16)}`);
     const meta = JSON.stringify({ ...(input.metadata ?? {}) });
-    db.prepare(
-      `INSERT INTO documents (id, workspace_id, owner_id, filename, mime_type, hash, byte_size, status, metadata_json, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(workspace_id, hash) DO UPDATE SET
-         filename = excluded.filename,
-         mime_type = excluded.mime_type,
-         updated_at = excluded.updated_at`,
-    ).run(
-      id,
-      input.workspaceId,
-      input.ownerId,
-      input.filename,
-      input.mimeType,
-      input.hash,
-      input.byteSize,
-      DocumentLifecycleStatus.Pending,
-      meta,
-      now,
-      now,
-    );
-    return new Document({
+    this.db
+      .prepare(
+        `INSERT INTO documents (id, workspace_id, owner_id, filename, mime_type, hash, byte_size, status, metadata_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(workspace_id, hash) DO UPDATE SET
+           filename = excluded.filename,
+           mime_type = excluded.mime_type,
+           updated_at = excluded.updated_at`,
+      )
+      .run(
+        id,
+        input.workspaceId,
+        input.ownerId,
+        input.filename,
+        input.mimeType,
+        input.hash,
+        input.byteSize,
+        DocumentLifecycleStatus.Pending,
+        meta,
+        now,
+        now,
+      );
+    return new DocumentClass({
       id,
       workspaceId: input.workspaceId,
       ownerId: input.ownerId,
@@ -148,56 +90,49 @@ export class SqliteDocumentStore implements DocumentStore {
   }
 
   public async getById(workspaceId: WorkspaceId, id: DocumentId): Promise<Document | null> {
-    const db = await this.ensure();
-    const row = db
+    const row = this.db
       .prepare('SELECT * FROM documents WHERE workspace_id = ? AND id = ?')
       .get(workspaceId, id) as Record<string, unknown> | undefined;
     return row ? rowToDocument(row) : null;
   }
 
   public async getByHash(workspaceId: WorkspaceId, hash: string): Promise<Document | null> {
-    const db = await this.ensure();
-    const row = db
+    const row = this.db
       .prepare('SELECT * FROM documents WHERE workspace_id = ? AND hash = ?')
       .get(workspaceId, hash) as Record<string, unknown> | undefined;
     return row ? rowToDocument(row) : null;
   }
 
   public async listForUser(workspaceId: WorkspaceId, ownerId: UserId): Promise<readonly Document[]> {
-    const db = await this.ensure();
-    const rows = db
+    const rows = this.db
       .prepare('SELECT * FROM documents WHERE workspace_id = ? AND owner_id = ? ORDER BY created_at DESC')
       .all(workspaceId, ownerId) as Record<string, unknown>[];
     return rows.map(rowToDocument);
   }
 
-  public async setStatus(id: DocumentId, workspaceId: WorkspaceId, status: DLS): Promise<void> {
-    const db = await this.ensure();
-    const r = db
+  public async setStatus(id: DocumentId, workspaceId: WorkspaceId, status: DocumentLifecycleStatusValue): Promise<void> {
+    const r = this.db
       .prepare('UPDATE documents SET status = ?, updated_at = ? WHERE id = ? AND workspace_id = ?')
       .run(status, Date.now(), id, workspaceId);
     if (r.changes === 0) throw new ConfigurationError('document not found');
   }
 
-  public async countChunks(_id: DocumentId, _tenantId: WorkspaceId): Promise<number> {
+  public async countChunks(_id: DocumentId, _workspaceId: WorkspaceId): Promise<number> {
     return 0;
   }
 
   public async close(): Promise<void> {
-    if (this.db) {
-      this.db.close();
-      this.db = null;
-    }
+    // No-op: db is owned by Workspace.
   }
 }
 
 const rowToDocument = (row: Record<string, unknown>): Document => {
-  const id = brandId<DocId>(String(row['id']));
-  const workspaceId = brandId<TnId>(String(row['workspace_id']));
-  const ownerId = brandId<UsId>(String(row['owner_id']));
-  const status = String(row['status']) as DLS;
+  const id = brandId<DocumentId>(String(row['id']));
+  const workspaceId = String(row['workspace_id']) as WorkspaceId;
+  const ownerId = String(row['owner_id']) as UserId;
+  const status = String(row['status']) as DocumentLifecycleStatusValue;
   const metadata = JSON.parse(String(row['metadata_json'] ?? '{}')) as Record<string, string>;
-  return new Document({
+  return new DocumentClass({
     id,
     workspaceId,
     ownerId,
