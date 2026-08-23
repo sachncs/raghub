@@ -11,7 +11,9 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -22,6 +24,7 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
+    "@hono/node-server": "^2.1.1",
     "@raghub/core": "workspace:*",
     "@raghub/orchestrator": "workspace:*",
     "hono": "4.6.10"

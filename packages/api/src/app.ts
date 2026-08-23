@@ -1,24 +1,40 @@
 /**
- * The Hono app factory.
+ * @raghub/api — public surface.
  *
- * Wires every middleware and route group; the returned `app` can be
- * served by any Hono adapter (`@hono/node-server`, Bun, Cloudflare
- * Workers, Lambda, etc.).
+ * Wires the Hono server with every middleware + route group, the
+ * SSE streaming helpers, and the auth/error middleware exports.
  */
 
 import { Hono } from 'hono';
 
-import type { BcryptHasher, JwtService, UserStore } from '@raghub/core';
+import {
+  type BcryptHasher,
+  type ConversationStore,
+  type DocumentStore,
+  type Embedder,
+  type JwtService,
+  type SqliteJobQueue,
+  type SessionStore,
+  type UserStore,
+  type VectorStore,
+} from '@raghub/core';
 import type { Orchestrator } from '@raghub/orchestrator';
 
 import { jwtAuthMiddleware } from './middleware/auth.js';
 import { errorMiddleware } from './middleware/error.js';
 import { authRoutes } from './routes/auth.js';
+import { documentsRoutes } from './routes/documents.js';
 import { meRoutes } from './routes/me.js';
 import { queryRoutes } from './routes/query.js';
 
 export interface AppDeps {
   readonly userStore: UserStore;
+  readonly documentStore: DocumentStore;
+  readonly sessionStore: SessionStore;
+  readonly conversationStore: ConversationStore;
+  readonly jobQueue: SqliteJobQueue;
+  readonly embedder: Embedder;
+  readonly vectorStore: VectorStore;
   readonly hasher: BcryptHasher;
   readonly jwt: JwtService;
   readonly orchestrator: Orchestrator;
@@ -29,12 +45,29 @@ export const createApp = (deps: AppDeps): Hono => {
   app.use('*', errorMiddleware());
   app.get('/health', (c) => c.json({ ok: true }));
 
-  app.route('/', authRoutes({ userStore: deps.userStore, hasher: deps.hasher, jwt: deps.jwt }));
+  app.route(
+    '/',
+    authRoutes({ userStore: deps.userStore, hasher: deps.hasher, jwt: deps.jwt }),
+  );
 
   const protectedApp = new Hono();
   protectedApp.use('*', jwtAuthMiddleware(deps.jwt));
-  protectedApp.route('/', meRoutes({ userStore: deps.userStore, jwt: deps.jwt }));
+  protectedApp.route(
+    '/',
+    meRoutes({ userStore: deps.userStore, sessionStore: deps.sessionStore, jwt: deps.jwt }),
+  );
   protectedApp.route('/', queryRoutes({ orchestrator: deps.orchestrator }));
+  protectedApp.route(
+    '/',
+    documentsRoutes({
+      userStore: deps.userStore,
+      documentStore: deps.documentStore,
+      sessionStore: deps.sessionStore,
+      jobQueue: deps.jobQueue,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+    }),
+  );
   app.route('/', protectedApp);
 
   return app;
