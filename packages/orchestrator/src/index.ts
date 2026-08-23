@@ -33,6 +33,18 @@ export {
   RAG_AGENT_DEFAULT_ROLES,
 } from './agents/rag-agent.js';
 
+export {
+  buildVectorSubAgent,
+  buildKeywordSubAgent,
+  buildGraphSubAgent,
+  buildTraceSubAgent,
+  buildWebSubAgent,
+  buildMemorySubAgent,
+  buildSummarySubAgent,
+  buildDefaultSubAgents,
+} from './agents/sub-agents.js';
+export type { SubAgentDeps } from './agents/sub-agents.js';
+
 export { ToolRegistry } from './tools/registry.js';
 export type { Tool, ToolContext, ToolResult } from './tools/registry.js';
 export {

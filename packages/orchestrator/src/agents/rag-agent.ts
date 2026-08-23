@@ -185,7 +185,7 @@ export class RagAgent {
     if (req.signal?.aborted) {
       throw new Error('aborted');
     }
-    const roles = req.roles ?? this.defaultRoles;
+    const roles: readonly AgentRole[] = req.roles ?? this.defaultRoles;
     const outputs = await this.fanOut(roles, req, state);
     const hits = mergeHits(outputs);
     const history = await this.maybeSummarize(req.history ?? [], state);
@@ -219,7 +219,10 @@ export class RagAgent {
     req: OrchestratorRequest,
     state: InvocationState,
   ): Promise<readonly SubAgentOutput[]> {
-    const filter = { workspaceId: state.workspace_id, userId: state.user_id ?? undefined };
+    const filter: SubAgentInput['filter'] = { workspaceId: state.workspace_id };
+    if (state.user_id !== null) {
+      (filter as { userId?: string }).userId = state.user_id;
+    }
     const tasks = roles
       .map((role) => this.subAgents.find((s) => s.role === role))
       .filter((s): s is SubAgent => s !== undefined)
@@ -282,7 +285,7 @@ export class RagAgent {
     const summarizer = this.agents.get(this.summarizerId);
     if (!summarizer || typeof summarizer.generate !== 'function') return history;
     const fakeHits: readonly Hit[] = [];
-    const fakeReq: OrchestratorRequest = { question: '', history };
+    const fakeReq: OrchestratorRequest = { question: '', history, user: null, sessionId: null };
     try {
       const { answer } = await summarizer.generate(fakeReq, fakeHits, state);
       return [

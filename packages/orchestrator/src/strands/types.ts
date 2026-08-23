@@ -94,6 +94,7 @@ export interface OrchestratorRequest {
   readonly sessionId: string | null;
   readonly history?: readonly { readonly role: 'user' | 'assistant' | 'system' | 'tool'; readonly content: string }[];
   readonly signal?: AbortSignal;
+  readonly roles?: readonly import('../agents/rag-agent.js').AgentRole[];
 }
 
 export interface OrchestratorResult {
