@@ -32,16 +32,37 @@ const fakeLlm = () =>
     model: 'gpt-4.1',
   }) as never;
 
-const baseReq = (): OrchestratorRequest => ({ question: 'What is raghub?' });
+const baseReq = (): OrchestratorRequest => ({
+  question: 'What is raghub?',
+  user: null,
+  sessionId: null,
+});
 
 const baseState = (): InvocationState => ({
   workspace_id: brandId<WorkspaceId>('wsp_1'),
   user_id: brandId<UserId>('usr_1'),
   is_admin: false,
-  rbac_filter: { allowedCompanies: [] },
-  strategy: { mode: 'graph', k: 10, weights: { dense: 0.7, sparse: 0.3 }, graphDepth: 2 },
+  rbac_filter: {
+    workspaceId: brandId<WorkspaceId>('wsp_1'),
+    userId: brandId<UserId>('usr_1'),
+    collectionId: null,
+    allowedCompanies: [],
+  },
+  session_id: null,
+  session_overrides: {},
+  strategy: {
+    mode: 'graph',
+    hybrid: { denseWeight: 0.7, sparseWeight: 0.3, rrfK: 60, colbert: false },
+    ordering: 'standard',
+    k: 10,
+    reranker: 'identity',
+    multimodal: { enabled: false },
+    traceCorpus: { enabled: false, representation: 'semantic', topK: 5 },
+  },
   trace_id: 'trace_1',
   request_id: 'req_1',
+  db: null,
+  secrets: {},
 });
 
 describe('RagAgent', () => {
