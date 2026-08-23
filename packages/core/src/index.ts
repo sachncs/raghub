@@ -1,10 +1,9 @@
 /**
  * @raghub/core — public surface.
  *
- * Domain types, errors, settings, stores, embedder, retrieval. Auth,
- * tenants, telemetry, ingest, plugins, settings loader land in
- * subsequent commits; this index is the minimum that exercises the
- * foundation.
+ * Domain types, errors, settings, stores, embedder, retrieval, auth,
+ * tenants, telemetry. Ingest, plugins, LLM generator land in
+ * subsequent commits.
  */
 
 export * from './errors/index.js';
@@ -13,3 +12,6 @@ export * from './settings/index.js';
 export * from './embedder/index.js';
 export * from './stores/index.js';
 export * from './retrieval/index.js';
+export * from './auth/index.js';
+export * from './tenants/index.js';
+export * from './telemetry/index.js';
