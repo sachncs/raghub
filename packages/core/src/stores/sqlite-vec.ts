@@ -119,7 +119,7 @@ export class SqliteVecStore implements VectorStore {
       );
     }
     const f = opts.filter;
-    const principalsClause = buildAclClause(f.principals);
+    const { clause: principalsClause, params: principalParams } = buildAclClause(f.principals);
     const userClause = f.userId ? 'AND c.owner_id = ?' : '';
     const collClause = f.collectionId ? 'AND c.collection_id = ?' : '';
     const sql = `
@@ -133,7 +133,7 @@ export class SqliteVecStore implements VectorStore {
       ORDER BY v.distance ASC
       LIMIT ?
     `;
-    const params: unknown[] = [f.workspaceId];
+    const params: unknown[] = [f.workspaceId, ...principalParams];
     if (f.userId) params.push(f.userId);
     if (f.collectionId) params.push(f.collectionId);
     params.push(opts.topK);
@@ -154,7 +154,7 @@ export class SqliteVecStore implements VectorStore {
 
   public async searchKeyword(opts: KeywordSearchOptions): Promise<KeywordHit[]> {
     const f = opts.filter;
-    const principalsClause = buildAclClause(f.principals);
+    const { clause: principalsClause, params: principalParams } = buildAclClause(f.principals);
     const userClause = f.userId ? 'AND c.owner_id = ?' : '';
     const collClause = f.collectionId ? 'AND c.collection_id = ?' : '';
     const sql = `
@@ -169,7 +169,7 @@ export class SqliteVecStore implements VectorStore {
       ORDER BY rank ASC
       LIMIT ?
     `.trim();
-    const params: unknown[] = [opts.query, f.workspaceId];
+    const params: unknown[] = [opts.query, f.workspaceId, ...principalParams];
     if (f.userId) params.push(f.userId);
     if (f.collectionId) params.push(f.collectionId);
     params.push(opts.topK);
@@ -217,16 +217,35 @@ export class SqliteVecStore implements VectorStore {
   }
 }
 
-const buildAclClause = (principals: readonly Principal[] | undefined): string => {
-  if (!principals || principals.length === 0) return '';
+interface AclClause {
+  readonly clause: string;
+  readonly params: readonly unknown[];
+}
+
+/**
+ * Build the SQL fragment that joins `document_principal` to filter
+ * chunks the active user's principals can see. A chunk is reachable
+ * if any of the user's principals (user, role, or group) has `read`
+ * or `admin` on its parent document.
+ *
+ * Returns { clause, params } so callers can append with `?` and
+ * pass the params into the prepared statement.
+ */
+const buildAclClause = (principals: readonly Principal[] | undefined): AclClause => {
+  if (!principals || principals.length === 0) return { clause: '', params: [] };
   const conds: string[] = [];
+  const params: unknown[] = [];
   for (const p of principals) {
-    if (p.type === 'user') conds.push(`(d.owner_id = '${p.id}')`);
-    else if (p.type === 'role')
-      conds.push(`EXISTS (SELECT 1 FROM role_member rm WHERE rm.principal_type = 'role' AND rm.principal_id = '${p.id}')`);
-    else if (p.type === 'group')
-      conds.push(`EXISTS (SELECT 1 FROM workspace_group_member gm WHERE gm.group_id = '${p.id}')`);
+    conds.push('(dp.principal_type = ? AND dp.principal_id = ?)');
+    params.push(p.type, p.id);
   }
-  if (conds.length === 0) return '';
-  return `AND (${conds.join(' OR ')})`;
+  return {
+    clause: `AND EXISTS (
+      SELECT 1 FROM document_principal dp
+      WHERE dp.document_id = c.document_id
+        AND (${conds.join(' OR ')})
+        AND dp.permission IN ('read', 'admin')
+    )`,
+    params,
+  };
 };

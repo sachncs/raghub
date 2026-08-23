@@ -42,3 +42,17 @@ export type {
 export type { Role, RoleAssignment, Group, GroupMembership, RoleStore, GroupStore } from './groups.js';
 export { SqliteRoleStore, SqliteGroupStore } from './groups.js';
 export type { SqliteRoleStoreOptions, SqliteGroupStoreOptions } from './groups.js';
+
+export type {
+  DocumentPrincipal,
+  DocumentPrincipalType,
+  DocumentPrincipalStore,
+  DocumentPermissionValue,
+  GrantInput,
+  PrincipalRef,
+} from './document-principal.js';
+export {
+  DocumentPermission,
+  SqliteDocumentPrincipalStore,
+} from './document-principal.js';
+export type { SqliteDocumentPrincipalStoreOptions } from './document-principal.js';
