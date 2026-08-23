@@ -25,3 +25,16 @@ export type { SqliteSessionStoreOptions } from './sessions.js';
 export type { ConversationStore, TurnInput } from './conversations.js';
 export { SqliteConversationStore } from './conversations.js';
 export type { SqliteConversationStoreOptions } from './conversations.js';
+
+export type { WorkspaceMember, WorkspaceMemberStore } from './workspace-member.js';
+export {
+  SqliteWorkspaceMemberStore,
+  WorkspaceMemberRole,
+  canManageWorkspace,
+  canIngest,
+  resolveRoleFor,
+} from './workspace-member.js';
+export type {
+  WorkspaceMemberRoleValue,
+  SqliteWorkspaceMemberStoreOptions,
+} from './workspace-member.js';
