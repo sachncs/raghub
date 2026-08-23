@@ -47,6 +47,11 @@ export class AgentRegistry {
     return a;
   }
 
+  /** Non-throwing variant. */
+  public get(id: string): Agent | undefined {
+    return this.agents.get(id);
+  }
+
   public ids(): readonly string[] {
     return [...this.agents.keys()];
   }

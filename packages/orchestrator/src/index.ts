@@ -13,7 +13,25 @@ export type { Agent, ToolExecution, AgentFactory } from './agents/registry.js';
 export {
   createGeneratorAgent,
   createRetrieverAgent,
+  createStreamingGeneratorAgent,
 } from './agents/defaults.js';
+
+export { RagAgent } from './agents/rag-agent.js';
+export type {
+  AgentRole,
+  SubAgent,
+  SubAgentInput,
+  SubAgentOutput,
+  RagAgentHooks,
+  RagAgentDeps,
+  RetryStrategy,
+  SessionState,
+} from './agents/rag-agent.js';
+export {
+  defaultRetryStrategy,
+  createSessionState,
+  RAG_AGENT_DEFAULT_ROLES,
+} from './agents/rag-agent.js';
 
 export { ToolRegistry } from './tools/registry.js';
 export type { Tool, ToolContext, ToolResult } from './tools/registry.js';
