@@ -73,3 +73,7 @@ export type { SqliteWorkspaceMemoryStoreOptions } from './memory.js';
 
 export type { FileStat, LocalFileStorage, LocalFileStorageOptions } from './local-file-storage.js';
 export { FsLocalFileStorage, InMemoryLocalFileStorage } from './local-file-storage.js';
+
+export type { AuditEvent, AuditEventKind, AuditEventStore } from './audit.js';
+export { SqliteAuditEventStore } from './audit.js';
+export type { SqliteAuditEventStoreOptions } from './audit.js';

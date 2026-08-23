@@ -26,6 +26,7 @@ export interface SessionStore {
     strategyOverrides?: Readonly<Record<string, unknown>>;
   }): Promise<SessionRecord>;
   get(rawToken: string): Promise<SessionRecord | null>;
+  remove(rawToken: string, workspaceId?: WorkspaceId): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -87,5 +88,10 @@ export class SqliteSessionStore implements SessionStore {
 
   public async close(): Promise<void> {
     // No-op.
+  }
+
+  public async remove(rawToken: string, workspaceId?: WorkspaceId): Promise<void> {
+    void workspaceId;
+    this.db.prepare('DELETE FROM sessions WHERE raw_token = ?').run(rawToken);
   }
 }

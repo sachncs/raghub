@@ -18,27 +18,21 @@ import {
   type Settings,
   type UserStore,
   type WorkspaceId,
+  type WorkspaceRegistry,
   type WorkspaceSettingsStore,
   AuthError,
   WorkspaceMemberRole,
+  SqliteAuditEventStore,
   SqliteWorkspaceMemberStore,
   brandId,
   openEncryptedWorkspace,
 } from '@raghub/core';
 
-export interface WorkspacePathResolver {
-  /**
-   * Map a workspaceId to its on-disk path. Returned path is opened
-   * with `openEncryptedWorkspace({ path, passphrase })`.
-   */
-  resolve(workspaceId: WorkspaceId): Promise<string | null>;
-}
-
 export interface AuthRouteDeps {
   readonly userStore: UserStore;
   readonly hasher: BcryptHasher;
   readonly jwt: JwtService;
-  readonly paths: WorkspacePathResolver;
+  readonly registry: WorkspaceRegistry;
 }
 
 interface LlmInput {
@@ -64,6 +58,9 @@ interface LoginInput {
 
 const newWorkspaceId = (): WorkspaceId =>
   brandId<WorkspaceId>(`wsp_${Math.random().toString(36).slice(2, 14)}`);
+
+const workspaceDir = (workspaceId: WorkspaceId): string =>
+  `${process.env['RAGHUB_WORKSPACE_DIR'] ?? `${process.env['HOME'] ?? '/tmp'}/.raghub/workspaces`}/${workspaceId}/workspace.db`;
 
 const writeLlmSettings = async (
   settings: WorkspaceSettingsStore,
@@ -109,12 +106,10 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
     }
 
     const workspaceId = newWorkspaceId();
-    const path = await deps.paths.resolve(workspaceId);
-    if (path === null) {
-      return c.json({ error: { code: 'auth_error', message: 'cannot provision workspace storage' } }, 500);
-    }
+    const path = workspaceDir(workspaceId);
 
     const handle = await openEncryptedWorkspace({ path, passphrase: body.passphrase });
+    await deps.registry.register({ workspaceId, path, encryption: 'passphrase-aes-256-gcm' });
     try {
       const passwordHash = await deps.hasher.hash(body.password);
       const user = await deps.userStore.create({
@@ -140,6 +135,15 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
         workspaceId: user.workspaceId,
         isAdmin: user.isAdmin,
       });
+      const audit = new SqliteAuditEventStore({ db: handle.db });
+      await audit.record({
+        kind: 'auth.register',
+        workspaceId,
+        actorId: user.id,
+        resourceId: null,
+        detail: { email: body.email },
+      });
+      await audit.close();
       return c.json({ token, user: user.toJSON(), workspace: { id: workspaceId, name: body.workspaceName } });
     } finally {
       handle.close();
@@ -159,12 +163,12 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
     if (!ok) {
       return c.json({ error: { code: 'auth_error', message: 'invalid credentials' } }, 401);
     }
-    const path = await deps.paths.resolve(found.user.workspaceId);
-    if (path === null) {
+    const entry = await deps.registry.resolve(found.user.workspaceId);
+    if (!entry) {
       return c.json({ error: { code: 'auth_error', message: 'workspace not found' } }, 404);
     }
     try {
-      await openEncryptedWorkspace({ path, passphrase: body.passphrase });
+      await openEncryptedWorkspace({ path: entry.path, passphrase: body.passphrase });
     } catch (err) {
       if (err instanceof AuthError) {
         return c.json({ error: { code: 'auth_error', message: 'invalid passphrase' } }, 401);

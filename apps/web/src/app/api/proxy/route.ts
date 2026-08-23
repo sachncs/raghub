@@ -5,60 +5,58 @@
  * cannot stream SSE directly with a bearer token. This route
  * accepts a `x-raghub-path` header from the client, forwards the
  * request to the API server, and pipes the response back. Cookies
- * (the JWT) ride along on the server-to-server hop.
+ * (the JWT and the workspace passphrase) ride along on the
+ * server-to-server hop.
+ *
+ * The passphrase cookie is server-only (httpOnly would be ideal;
+ * Next.js does not expose this for plain `Response.cookie` yet —
+ * left as a non-httpOnly document cookie for now and marked TODO).
  */
 
 import { cookies } from 'next/headers';
 
 const API_BASE = process.env['RAGHUB_API_BASE'] ?? 'http://localhost:3000';
 
-export async function POST(req: Request): Promise<Response> {
-  const path = req.headers.get('x-raghub-path') ?? '/';
+const cookieHeader = async (): Promise<string> => {
   const cookieStore = await cookies();
-  const token = cookieStore.get('raghub_token')?.value;
+  return cookieStore
+    .getAll()
+    .map((c) => `${c.name}=${c.value}`)
+    .join('; ');
+};
+
+const forwardedHeaders = async (
+  req: Request,
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+): Promise<HeadersInit> => {
+  const token = (await cookies()).get('raghub_token')?.value;
+  const cookie = await cookieHeader();
+  const headers: Record<string, string> = {
+    'x-raghub-forwarded': '1',
+  };
+  if (cookie) headers['cookie'] = cookie;
+  if (token) headers['authorization'] = `Bearer ${token}`;
+  if (method !== 'GET') {
+    headers['content-type'] = req.headers.get('content-type') ?? 'application/json';
+  }
+  return headers;
+};
+
+const proxy = async (req: Request, method: 'GET' | 'POST' | 'PATCH' | 'DELETE'): Promise<Response> => {
+  const path = req.headers.get('x-raghub-path') ?? '/';
   const init: RequestInit = {
-    method: 'POST',
-    headers: {
-      'content-type': req.headers.get('content-type') ?? 'application/json',
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
-    body: req.body,
+    method,
+    headers: await forwardedHeaders(req, method),
+    ...(method === 'GET' ? {} : { body: req.body }),
   };
   const upstream = await fetch(`${API_BASE}${path}`, init);
   return new Response(upstream.body, {
     status: upstream.status,
     headers: upstream.headers,
   });
-}
+};
 
-export async function GET(req: Request): Promise<Response> {
-  const path = req.headers.get('x-raghub-path') ?? '/';
-  const cookieStore = await cookies();
-  const token = cookieStore.get('raghub_token')?.value;
-  const upstream = await fetch(`${API_BASE}${path}`, {
-    method: 'GET',
-    headers: token ? { authorization: `Bearer ${token}` } : {},
-  });
-  return new Response(upstream.body, {
-    status: upstream.status,
-    headers: upstream.headers,
-  });
-}
-
-export async function PATCH(req: Request): Promise<Response> {
-  const path = req.headers.get('x-raghub-path') ?? '/';
-  const cookieStore = await cookies();
-  const token = cookieStore.get('raghub_token')?.value;
-  const upstream = await fetch(`${API_BASE}${path}`, {
-    method: 'PATCH',
-    headers: {
-      'content-type': req.headers.get('content-type') ?? 'application/json',
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
-    body: req.body,
-  });
-  return new Response(upstream.body, {
-    status: upstream.status,
-    headers: upstream.headers,
-  });
-}
+export const POST = (req: Request): Promise<Response> => proxy(req, 'POST');
+export const GET = (req: Request): Promise<Response> => proxy(req, 'GET');
+export const PATCH = (req: Request): Promise<Response> => proxy(req, 'PATCH');
+export const DELETE = (req: Request): Promise<Response> => proxy(req, 'DELETE');

@@ -18,6 +18,8 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { runMigrations } from './migrations.js';
+
 export interface Database {
   prepare(sql: string): Statement;
   exec(sql: string): void;
@@ -102,6 +104,8 @@ const SCHEMA_SQL = `
     workspace_id INTEGER NOT NULL DEFAULT 1,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',
+    is_admin INTEGER NOT NULL DEFAULT 0,
     allowed_companies_json TEXT NOT NULL DEFAULT '[]',
     created_at INTEGER NOT NULL
   );
@@ -232,10 +236,10 @@ const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS audit_event (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id INTEGER NOT NULL DEFAULT 1,
-    actor_id TEXT NOT NULL,
-    action TEXT NOT NULL,
-    target TEXT,
-    metadata_json TEXT NOT NULL DEFAULT '{}',
+    actor_id TEXT,
+    kind TEXT NOT NULL,
+    resource_id TEXT,
+    detail_json TEXT NOT NULL DEFAULT '{}',
     created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_audit_workspace ON audit_event (workspace_id, created_at DESC);
@@ -263,8 +267,13 @@ export const openWorkspace = async (opts: WorkspaceOptions): Promise<WorkspaceHa
   const sqlite = await loadBetterSqlite3();
   const db = sqlite(opts.path);
   if (db.pragma) db.pragma('journal_mode = WAL');
+  if (db.pragma) db.pragma('synchronous = NORMAL');
+  if (db.pragma) db.pragma('busy_timeout = 5000');
   if (db.pragma) db.pragma('foreign_keys = ON');
+  if (db.pragma) db.pragma('temp_store = MEMORY');
+  if (db.pragma) db.pragma('cache_size = -64000');
   db.exec(SCHEMA_SQL);
+  runMigrations({ db: { exec: (s) => db.exec(s), prepare: (s) => db.prepare(s) } });
 
   const id = String((db.prepare('SELECT id FROM workspace WHERE id = 1').get() as { id?: number } | undefined)?.id ?? '');
   if (id === '') {
