@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { Hono } from 'hono';
-import { brandId, type DocumentPrincipalStore, type WorkspaceMemberStore } from '@raghub/core';
+import { brandId, type DocumentPrincipalStore, type JwtClaims, type WorkspaceMemberStore } from '@raghub/core';
 import { workspaceRoutes } from '../../src/routes/workspaces.js';
 import { documentAclRoutes } from '../../src/routes/document-acl.js';
 
-const buildClaims = (workspaceId: string, sub: string, isAdmin = false) => ({
+const buildClaims = (workspaceId: string, sub: string, isAdmin = false): JwtClaims => ({
   workspace_id: workspaceId,
   sub,
   is_admin: isAdmin,
@@ -13,10 +13,10 @@ const buildClaims = (workspaceId: string, sub: string, isAdmin = false) => ({
   exp: 0,
 });
 
-const authedHono = (claims: ReturnType<typeof buildClaims>): Hono => {
+const authedHono = (claims: JwtClaims): Hono => {
   const h = new Hono();
   h.use('*', async (c, next) => {
-    c.set('claims', claims);
+    c.set('claims' as never, claims as never);
     await next();
   });
   return h;
@@ -41,7 +41,7 @@ describe('workspaceRoutes', () => {
     const authed = authedHono(buildClaims('wsp_1', 'usr_x'));
     authed.route('/', app);
     const res = await authed.request('/v1/workspaces/members');
-    const body = await res.json();
+    const body = (await res.json()) as { members: readonly unknown[] };
     expect(body.members.length).toBe(1);
   });
 
