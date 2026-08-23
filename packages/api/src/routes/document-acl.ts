@@ -1,0 +1,135 @@
+/**
+ * Document ACL routes.
+ *
+ * POST   /v1/documents/:id/principals           grant a permission
+ * DELETE /v1/documents/:id/principals           revoke
+ * GET    /v1/documents/:id/principals           list grants
+ *
+ * Only document owners or workspace admins can mutate ACL.
+ */
+
+import { Hono } from 'hono';
+
+import {
+  brandId,
+  type DocumentId,
+  type DocumentPrincipalStore,
+  type DocumentPrincipalType,
+  type DocumentStore,
+  type UserId,
+  type WorkspaceId,
+  canManageWorkspace,
+  type WorkspaceMemberStore,
+} from '@raghub/core';
+
+import { getClaims } from '../middleware/auth.js';
+
+export interface DocumentAclRouteDeps {
+  readonly principalStore: DocumentPrincipalStore;
+  readonly memberStore: WorkspaceMemberStore;
+  readonly documentStore: DocumentStore;
+}
+
+const validTypes: readonly DocumentPrincipalType[] = ['user', 'role', 'group'];
+const validPerms = ['read', 'admin'] as const;
+type Perm = (typeof validPerms)[number];
+
+const isType = (s: string): s is DocumentPrincipalType =>
+  (validTypes as readonly string[]).includes(s);
+const isPerm = (s: string): s is Perm => (validPerms as readonly string[]).includes(s);
+
+export const documentAclRoutes = (deps: DocumentAclRouteDeps): Hono => {
+  const app = new Hono();
+
+  app.get('/v1/documents/:id/principals', async (c) => {
+    const claims = getClaims(c);
+    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
+    const userId = brandId<UserId>(claims.sub);
+    const doc = await deps.documentStore.getById(workspaceId, brandId<DocumentId>(c.req.param('id')));
+    if (!doc) {
+      return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);
+    }
+    const me = await deps.memberStore.get(workspaceId, userId);
+    const isOwner = doc.ownerId === userId;
+    const isAdmin = me ? canManageWorkspace(me.role) : false;
+    if (!isOwner && !isAdmin) {
+      return c.json({ error: { code: 'authorization_error', message: 'only owner or admin can read ACL' } }, 403);
+    }
+    const list = await deps.principalStore.listByDocument(doc.id);
+    return c.json({
+      principals: list.map((p) => ({
+        documentId: p.documentId,
+        principalType: p.principalType,
+        principalId: p.principalId,
+        permission: p.permission,
+        grantedBy: p.grantedBy,
+        grantedAt: p.grantedAt.toISOString(),
+      })),
+    });
+  });
+
+  app.post('/v1/documents/:id/principals', async (c) => {
+    const claims = getClaims(c);
+    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
+    const userId = brandId<UserId>(claims.sub);
+    const doc = await deps.documentStore.getById(workspaceId, brandId<DocumentId>(c.req.param('id')));
+    if (!doc) {
+      return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);
+    }
+    const me = await deps.memberStore.get(workspaceId, userId);
+    const isOwner = doc.ownerId === userId;
+    const isAdmin = me ? canManageWorkspace(me.role) : false;
+    if (!isOwner && !isAdmin) {
+      return c.json({ error: { code: 'authorization_error', message: 'only owner or admin can grant' } }, 403);
+    }
+    const body = (await c.req.json().catch(() => ({}))) as {
+      principalType?: string;
+      principalId?: string;
+      permission?: string;
+    };
+    if (!body.principalType || !isType(body.principalType) || !body.principalId || !body.permission || !isPerm(body.permission)) {
+      return c.json({ error: { code: 'raghub_error', message: 'principalType, principalId, permission required' } }, 400);
+    }
+    await deps.principalStore.grant({
+      documentId: doc.id,
+      principalType: body.principalType,
+      principalId: body.principalId,
+      permission: body.permission,
+      grantedBy: userId,
+    });
+    return c.json({ ok: true });
+  });
+
+  app.delete('/v1/documents/:id/principals', async (c) => {
+    const claims = getClaims(c);
+    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
+    const userId = brandId<UserId>(claims.sub);
+    const doc = await deps.documentStore.getById(workspaceId, brandId<DocumentId>(c.req.param('id')));
+    if (!doc) {
+      return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);
+    }
+    const me = await deps.memberStore.get(workspaceId, userId);
+    const isOwner = doc.ownerId === userId;
+    const isAdmin = me ? canManageWorkspace(me.role) : false;
+    if (!isOwner && !isAdmin) {
+      return c.json({ error: { code: 'authorization_error', message: 'only owner or admin can revoke' } }, 403);
+    }
+    const body = (await c.req.json().catch(() => ({}))) as {
+      principalType?: string;
+      principalId?: string;
+      permission?: string;
+    };
+    if (!body.principalType || !isType(body.principalType) || !body.principalId || !body.permission || !isPerm(body.permission)) {
+      return c.json({ error: { code: 'raghub_error', message: 'principalType, principalId, permission required' } }, 400);
+    }
+    await deps.principalStore.revoke({
+      documentId: doc.id,
+      principalType: body.principalType,
+      principalId: body.principalId,
+      permission: body.permission,
+    });
+    return c.json({ ok: true });
+  });
+
+  return app;
+};
