@@ -12,6 +12,12 @@ describe('createApp (shape only)', () => {
       hasher: undefined as never,
       jwt: undefined as never,
       orchestrator: undefined as never,
+      documentStore: undefined as never,
+      sessionStore: undefined as never,
+      conversationStore: undefined as never,
+      jobQueue: undefined as never,
+      embedder: undefined as never,
+      vectorStore: undefined as never,
     });
     expect(typeof app.fetch).toBe('function');
   });

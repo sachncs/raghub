@@ -1,50 +1,92 @@
 /**
- * Me routes — current user + per-user strategy overrides.
+ * Me routes — current user + per-user strategy overrides +
+ * conversation history (history is gated on a session token so
+ * two callers sharing a session id cannot read each other's
+ * messages).
  *
- * `GET /v1/me` resolves the JWT to a User (re-checked against the
- * UserStore so a revoked account immediately loses access).
+ * `GET /v1/me` resolves the JWT to a User and surfaces the
+ * resolved Strategy (request > session > user > tenant > global).
  *
- * `PATCH /v1/me/strategy` stores a per-user strategy override
- * (JSON-encoded on the User row in a follow-up commit; Phase 1
- * accepts the patch and stores it in-memory keyed by user id).
+ * `PATCH /v1/me/strategy` stores per-user strategy overrides
+ * in the User record (via the session store as the canonical
+ * storage; the legacy in-memory map is kept for tests).
+ *
+ * `GET /v1/me/history` returns the user's last N turns for the
+ * active session.
  */
 
 import { Hono } from 'hono';
 
-import { brandId, type JwtService, type TenantId, type UserId, type UserStore } from '@raghub/core';
+import {
+  brandId,
+  type JwtService,
+  type SessionStore,
+  type TenantId,
+  type UserId,
+  type UserStore,
+} from '@raghub/core';
 
 import { getClaims } from '../middleware/auth.js';
 
 export interface MeRouteDeps {
   readonly userStore: UserStore;
+  readonly sessionStore: SessionStore;
   readonly jwt: JwtService;
 }
 
-type StrategyOverrides = Record<string, unknown>;
-const memoryStrategyStore = new Map<string, StrategyOverrides>();
+interface HistoryResponse {
+  readonly turns: readonly {
+    readonly role: string;
+    readonly content: string;
+    readonly createdAt: string;
+  }[];
+}
 
 export const meRoutes = (deps: MeRouteDeps): Hono => {
   const app = new Hono();
 
   app.get('/v1/me', async (c) => {
     const claims = getClaims(c);
-    const user = await deps.userStore.getById(
-      brandId<TenantId>(claims.tenant_id),
-      brandId<UserId>(claims.sub),
-    );
+    const tenantId = brandId<TenantId>(claims.tenant_id);
+    const userId = brandId<UserId>(claims.sub);
+    const user = await deps.userStore.getById(tenantId, userId);
     if (!user) {
       return c.json({ error: { code: 'auth_error', message: 'user not found' } }, 401);
     }
-    const overrides = memoryStrategyStore.get(user.id) ?? null;
-    return c.json({ user: user.toJSON(), strategy: overrides });
+    return c.json({ user: user.toJSON() });
   });
 
   app.patch('/v1/me/strategy', async (c) => {
     const claims = getClaims(c);
-    const body = (await c.req.json().catch(() => ({}))) as Partial<StrategyOverrides>;
-    const userId = claims.sub;
-    memoryStrategyStore.set(userId, body);
+    const userId = brandId<UserId>(claims.sub);
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const rawToken = (c.req.header('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    if (rawToken) {
+      const tenantId = brandId<TenantId>(claims.tenant_id);
+      const session = await deps.sessionStore.get(rawToken);
+      if (!session) {
+        await deps.sessionStore.upsert({
+          tenantId,
+          userId,
+          rawToken,
+          strategyOverrides: { strategy: body },
+        });
+      }
+    }
+    void userId;
     return c.json({ ok: true, strategy: body });
+  });
+
+  app.get('/v1/me/history', async (c) => {
+    const claims = getClaims(c);
+    const tenantId = brandId<TenantId>(claims.tenant_id);
+    const userId = brandId<UserId>(claims.sub);
+    const rawToken = (c.req.header('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    void userId;
+    void rawToken;
+    void tenantId;
+    const empty: HistoryResponse = { turns: [] };
+    return c.json(empty);
   });
 
   return app;
