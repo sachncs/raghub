@@ -22,7 +22,7 @@ import type { Orchestrator } from '@raghub/orchestrator';
 
 import { jwtAuthMiddleware } from './middleware/auth.js';
 import { errorMiddleware } from './middleware/error.js';
-import { authRoutes } from './routes/auth.js';
+import { authRoutes, type WorkspacePathResolver } from './routes/auth.js';
 import { documentsRoutes } from './routes/documents.js';
 import { meRoutes } from './routes/me.js';
 import { queryRoutes } from './routes/query.js';
@@ -38,6 +38,7 @@ export interface AppDeps {
   readonly hasher: BcryptHasher;
   readonly jwt: JwtService;
   readonly orchestrator: Orchestrator;
+  readonly workspacePaths: WorkspacePathResolver;
 }
 
 export const createApp = (deps: AppDeps): Hono => {
@@ -47,7 +48,12 @@ export const createApp = (deps: AppDeps): Hono => {
 
   app.route(
     '/',
-    authRoutes({ userStore: deps.userStore, hasher: deps.hasher, jwt: deps.jwt }),
+    authRoutes({
+      userStore: deps.userStore,
+      hasher: deps.hasher,
+      jwt: deps.jwt,
+      paths: deps.workspacePaths,
+    }),
   );
 
   const protectedApp = new Hono();
