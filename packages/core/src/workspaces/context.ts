@@ -12,30 +12,30 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 import { AuthorizationError } from '../errors/index.js';
-import type { TenantId, UserId } from '../domain/ids.js';
+import type { WorkspaceId, UserId } from '../domain/ids.js';
 
-export interface TenantContextValue {
-  readonly tenantId: TenantId;
+export interface WorkspaceContextValue {
+  readonly workspaceId: WorkspaceId;
   readonly userId: UserId | null;
   readonly isAdmin: boolean;
   readonly sessionId: string | null;
 }
 
-const storage = new AsyncLocalStorage<TenantContextValue>();
+const storage = new AsyncLocalStorage<WorkspaceContextValue>();
 
 export const runWithTenant = <T>(
-  ctx: TenantContextValue,
+  ctx: WorkspaceContextValue,
   fn: () => T | Promise<T>,
 ): T | Promise<T> => storage.run(ctx, fn);
 
-export const runWithTenantAsync = async <T>(
-  ctx: TenantContextValue,
+export const runWithWorkspaceAsync = async <T>(
+  ctx: WorkspaceContextValue,
   fn: () => Promise<T>,
 ): Promise<T> => storage.run(ctx, fn);
 
-export const currentTenant = (): TenantContextValue | undefined => storage.getStore();
+export const currentWorkspace = (): WorkspaceContextValue | undefined => storage.getStore();
 
-export const requireTenant = (): TenantContextValue => {
+export const requireWorkspace = (): WorkspaceContextValue => {
   const ctx = storage.getStore();
   if (!ctx) throw new AuthorizationError('no tenant context bound');
   return ctx;
@@ -48,12 +48,12 @@ export const requireTenant = (): TenantContextValue => {
  * decoded the JWT.
  */
 export const tenantContext = (input: {
-  tenantId: TenantId;
+  workspaceId: WorkspaceId;
   userId: UserId | null;
   isAdmin: boolean;
   sessionId?: string | null;
-}): TenantContextValue => ({
-  tenantId: input.tenantId,
+}): WorkspaceContextValue => ({
+  workspaceId: input.workspaceId,
   userId: input.userId,
   isAdmin: input.isAdmin,
   sessionId: input.sessionId ?? null,

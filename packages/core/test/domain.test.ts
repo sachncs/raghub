@@ -5,8 +5,8 @@ import {
   ChunkModality,
   Document,
   DocumentLifecycleStatus,
-  Tenant,
-  TenantPlan,
+  Workspace,
+  WorkspacePlan,
   Turn,
   TurnRole,
   User,
@@ -16,37 +16,37 @@ import {
 import type {
   CollectionId,
   DocumentId,
-  TenantId,
+  WorkspaceId,
   UserId,
 } from '../src/domain/index.js';
 
-const tenantId = brandId<TenantId>('tnt_1');
+const workspaceId = brandId<WorkspaceId>('tnt_1');
 const userId = brandId<UserId>('usr_1');
 const docId = brandId<DocumentId>('doc_1');
 const collectionId = brandId<CollectionId>('col_1');
 
 describe('domain', () => {
-  it('Tenant is immutable and round-trips through toJSON', () => {
-    const t = new Tenant({
-      id: tenantId,
+  it('Workspace is immutable and round-trips through toJSON', () => {
+    const t = new Workspace({
+      id: workspaceId,
       name: 'Acme',
-      plan: TenantPlan.Pro,
+      plan: WorkspacePlan.Pro,
       createdAt: new Date('2025-01-01T00:00:00Z'),
       isAdmin: false,
     });
-    expect(t.id).toBe(tenantId);
+    expect(t.id).toBe(workspaceId);
     expect(t.plan).toBe('pro');
     expect(t.isAdmin).toBe(false);
     expect(Object.isFrozen((t as unknown as { props: object }).props)).toBe(true);
     const json = t.toJSON();
-    expect(json.id).toBe(tenantId);
+    expect(json.id).toBe(workspaceId);
     expect(json.createdAt).toBeInstanceOf(Date);
   });
 
   it('User exposes isAdmin derived from role', () => {
     const admin = new User({
       id: userId,
-      tenantId,
+      workspaceId,
       email: 'a@b',
       role: UserRole.Admin,
       allowedCompanies: ['acme'],
@@ -64,7 +64,7 @@ describe('domain', () => {
   it('Document status defaults freeze metadata', () => {
     const d = new Document({
       id: docId,
-      tenantId,
+      workspaceId,
       ownerId: userId,
       filename: 'r.pdf',
       mimeType: 'application/pdf',
@@ -82,7 +82,7 @@ describe('domain', () => {
   it('Chunk freezes embedding and metadata', () => {
     const c = new Chunk({
       id: brandId('chk_1'),
-      tenantId,
+      workspaceId,
       ownerId: userId,
       collectionId,
       documentId: docId,
@@ -101,7 +101,7 @@ describe('domain', () => {
   it('Turn records role and content', () => {
     const t = new Turn({
       sessionId: brandId('ses_1'),
-      tenantId,
+      workspaceId,
       userId,
       role: TurnRole.User,
       content: 'hi',

@@ -23,10 +23,10 @@ import {
 } from '../domain/index.js';
 import type { Embedder } from '../embedder/index.js';
 import type { Llm } from '../llm/index.js';
-import type { TenantId, UserId } from '../domain/index.js';
+import type { WorkspaceId, UserId } from '../domain/index.js';
 
 export interface SummaryInput {
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly ownerId: UserId;
   readonly collectionId: CollectionId;
   readonly documentId: DocumentId;
@@ -84,7 +84,7 @@ export const createExtractiveSummaryIndex = (): SummaryIndex => ({
     const text = extractiveSummary(input.sourceTexts);
     return new ChunkClass({
       id: brandId<ChunkId>(`sum_${input.documentId}_${input.depth}_${input.parentIds[0] ?? 'root'}`),
-      tenantId: input.tenantId,
+      workspaceId: input.workspaceId,
       ownerId: input.ownerId,
       collectionId: input.collectionId,
       documentId: input.documentId,
@@ -135,7 +135,7 @@ export const createLlmSummaryIndex = (deps: {
     }
     return new ChunkClass({
       id: summaryId,
-      tenantId: input.tenantId,
+      workspaceId: input.workspaceId,
       ownerId: input.ownerId,
       collectionId: input.collectionId,
       documentId: input.documentId,

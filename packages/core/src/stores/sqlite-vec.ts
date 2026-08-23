@@ -9,7 +9,7 @@
  * tables reference it by `rowid`/`id`.
  *
  * All read paths require a `StoreFilter` that names a tenant. The
- * filter is enforced in SQL (`WHERE tenant_id = ?`); userId is
+ * filter is enforced in SQL (`WHERE workspace_id = ?`); userId is
  * optional and treated as "any user in tenant" when `null` (admin
  * only). RBAC on `metadata.company` is enforced via a `json_extract`
  * predicate.
@@ -20,7 +20,7 @@ import type {
   ChunkId,
   CollectionId,
   DocumentId,
-  TenantId,
+  WorkspaceId,
   UserId,
 } from '../domain/index.js';
 import { brandId, Chunk as ChunkClass } from '../domain/index.js';
@@ -90,7 +90,7 @@ const loadSqliteVec = async (): Promise<SqliteVecModule> => {
 
 const rowToChunk = (row: Record<string, unknown>): Chunk => {
   const id = brandId<ChunkId>(String(row['id']));
-  const tenantId = brandId<TenantId>(String(row['tenant_id']));
+  const workspaceId = brandId<WorkspaceId>(String(row['workspace_id']));
   const ownerId = brandId<UserId>(String(row['owner_id']));
   const collectionId = brandId<CollectionId>(String(row['collection_id']));
   const documentId = brandId<DocumentId>(String(row['document_id']));
@@ -99,7 +99,7 @@ const rowToChunk = (row: Record<string, unknown>): Chunk => {
   const metadata = JSON.parse(metadataJson) as Record<string, string>;
   return new ChunkClass({
     id,
-    tenantId,
+    workspaceId,
     ownerId,
     collectionId,
     documentId,
@@ -151,7 +151,7 @@ export class SqliteVecStore implements VectorStore {
     db.exec(`
       CREATE TABLE IF NOT EXISTS ${CHUNKS_TABLE} (
         id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL,
+        workspace_id TEXT NOT NULL,
         owner_id TEXT NOT NULL,
         collection_id TEXT NOT NULL,
         document_id TEXT NOT NULL,
@@ -161,8 +161,8 @@ export class SqliteVecStore implements VectorStore {
         metadata_json TEXT NOT NULL DEFAULT '{}',
         created_at INTEGER NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_chunks_tenant ON ${CHUNKS_TABLE}(tenant_id);
-      CREATE INDEX IF NOT EXISTS idx_chunks_owner ON ${CHUNKS_TABLE}(tenant_id, owner_id);
+      CREATE INDEX IF NOT EXISTS idx_chunks_tenant ON ${CHUNKS_TABLE}(workspace_id);
+      CREATE INDEX IF NOT EXISTS idx_chunks_owner ON ${CHUNKS_TABLE}(workspace_id, owner_id);
       CREATE INDEX IF NOT EXISTS idx_chunks_document ON ${CHUNKS_TABLE}(document_id);
 
       CREATE VIRTUAL TABLE IF NOT EXISTS ${VEC_TABLE} USING vec0(
@@ -186,11 +186,11 @@ export class SqliteVecStore implements VectorStore {
       const metadataJson = JSON.stringify(c.metadata);
       db.prepare(
         `INSERT OR REPLACE INTO ${CHUNKS_TABLE}
-         (id, tenant_id, owner_id, collection_id, document_id, modality, text, token_count, metadata_json, created_at)
+         (id, workspace_id, owner_id, collection_id, document_id, modality, text, token_count, metadata_json, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         c.id,
-        c.tenantId,
+        c.workspaceId,
         c.ownerId,
         c.collectionId,
         c.documentId,
@@ -234,14 +234,14 @@ export class SqliteVecStore implements VectorStore {
       SELECT v.id AS id, v.distance AS distance, c.*
       FROM ${VEC_TABLE} v
       JOIN ${CHUNKS_TABLE} c ON c.id = v.id
-      WHERE c.tenant_id = ?
+      WHERE c.workspace_id = ?
         ${userClause}
         ${collClause}
         ${rbacClause}
       ORDER BY v.distance ASC
       LIMIT ?
     `;
-    const params: unknown[] = [f.tenantId];
+    const params: unknown[] = [f.workspaceId];
     if (f.userId) params.push(f.userId);
     if (f.collectionId) params.push(f.collectionId);
     if (f.allowedCompanies.length) params.push(...f.allowedCompanies);
@@ -274,14 +274,14 @@ export class SqliteVecStore implements VectorStore {
       FROM ${FTS_TABLE}
       JOIN ${CHUNKS_TABLE} c ON c.rowid = ${FTS_TABLE}.rowid
       WHERE ${FTS_TABLE} MATCH ?
-        AND c.tenant_id = ?
+        AND c.workspace_id = ?
         ${userClause}
         ${collClause}
         ${rbacClause}
       ORDER BY rank ASC
       LIMIT ?
     `.trim();
-    const params: unknown[] = [opts.query, f.tenantId];
+    const params: unknown[] = [opts.query, f.workspaceId];
     if (f.userId) params.push(f.userId);
     if (f.collectionId) params.push(f.collectionId);
     if (f.allowedCompanies.length) params.push(...f.allowedCompanies);
@@ -296,25 +296,25 @@ export class SqliteVecStore implements VectorStore {
   }
 
   public async getById(
-    tenantId: TenantId,
+    workspaceId: WorkspaceId,
     id: ChunkId,
   ): Promise<Chunk | null> {
     const db = await this.ensureInit();
     const row = db
-      .prepare(`SELECT * FROM ${CHUNKS_TABLE} WHERE tenant_id = ? AND id = ?`)
-      .get(tenantId, id) as Record<string, unknown> | undefined;
+      .prepare(`SELECT * FROM ${CHUNKS_TABLE} WHERE workspace_id = ? AND id = ?`)
+      .get(workspaceId, id) as Record<string, unknown> | undefined;
     return row ? rowToChunk(row) : null;
   }
 
   public async deleteByDocument(
     documentId: DocumentId,
-    tenantId: TenantId,
+    workspaceId: WorkspaceId,
   ): Promise<number> {
     const db = await this.ensureInit();
     const tx = db.transaction(() => {
       const chunks = db
-        .prepare(`SELECT id FROM ${CHUNKS_TABLE} WHERE document_id = ? AND tenant_id = ?`)
-        .all(documentId, tenantId) as Record<string, unknown>[];
+        .prepare(`SELECT id FROM ${CHUNKS_TABLE} WHERE document_id = ? AND workspace_id = ?`)
+        .all(documentId, workspaceId) as Record<string, unknown>[];
       let n = 0;
       for (const row of chunks) {
         const cid = String(row['id']);

@@ -6,7 +6,7 @@
  * because the store path filters on the joined `userId`.
  */
 
-import type { SessionId, TenantId, UserId } from './ids.js';
+import type { SessionId, WorkspaceId, UserId } from './ids.js';
 
 export const TurnRole = {
   User: 'user',
@@ -19,7 +19,7 @@ export type TurnRoleValue = (typeof TurnRole)[keyof typeof TurnRole];
 
 export interface TurnProps {
   readonly sessionId: SessionId;
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly userId: UserId;
   readonly role: TurnRoleValue;
   readonly content: string;
@@ -37,8 +37,8 @@ export class Turn {
     return this.props.sessionId;
   }
 
-  public get tenantId(): TenantId {
-    return this.props.tenantId;
+  public get workspaceId(): WorkspaceId {
+    return this.props.workspaceId;
   }
 
   public get userId(): UserId {

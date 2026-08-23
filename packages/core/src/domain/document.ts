@@ -7,7 +7,7 @@
  * tenant-scoped annotations (company tag, source URL, retention).
  */
 
-import type { DocumentId, TenantId, UserId } from './ids.js';
+import type { DocumentId, WorkspaceId, UserId } from './ids.js';
 
 export const DocumentLifecycleStatus = {
   Pending: 'pending',
@@ -21,7 +21,7 @@ export type DocumentLifecycleStatusValue =
 
 export interface DocumentProps {
   readonly id: DocumentId;
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly ownerId: UserId;
   readonly filename: string;
   readonly mimeType: string;
@@ -47,8 +47,8 @@ export class Document {
     return this.props.id;
   }
 
-  public get tenantId(): TenantId {
-    return this.props.tenantId;
+  public get workspaceId(): WorkspaceId {
+    return this.props.workspaceId;
   }
 
   public get ownerId(): UserId {

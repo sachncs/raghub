@@ -12,12 +12,12 @@ import { judgeCare, careMetrics } from '../src/care.js';
 import { lostInMiddleProbe } from '../src/lost-in-middle.js';
 import { aggregate, loadJsonl } from '../src/harness.js';
 import { Chunk, ChunkModality, type Hit, brandId } from '@raghub/core';
-import type { ChunkId, CollectionId, DocumentId, TenantId, UserId } from '@raghub/core';
+import type { ChunkId, CollectionId, DocumentId, WorkspaceId, UserId } from '@raghub/core';
 
 const makeHit = (id: string, text: string): Hit => {
   const chunk = new Chunk({
     id: brandId<ChunkId>(id),
-    tenantId: brandId<TenantId>('t'),
+    workspaceId: brandId<WorkspaceId>('t'),
     ownerId: brandId<UserId>('u'),
     collectionId: brandId<CollectionId>('c'),
     documentId: brandId<DocumentId>('d'),

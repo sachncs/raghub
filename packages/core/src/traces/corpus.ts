@@ -7,7 +7,7 @@
  * store the @raghub/orchestrator's `trace_search` tool reads
  * from.
  *
- * Schema: trace_corpus(trace_id, tenant_id, user_id, source_problem,
+ * Schema: trace_corpus(trace_id, workspace_id, user_id, source_problem,
  * raw, struct, semantic, reflect, embedding, created_at).
  *
  * Phase 1 ships the storage + similarity search; populating the
@@ -15,7 +15,7 @@
  * supplied problem JSONL only.
  */
 
-import type { ChunkId, TenantId, TraceId, UserId } from '../domain/ids.js';
+import type { ChunkId, WorkspaceId, TraceId, UserId } from '../domain/ids.js';
 import { brandId } from '../domain/ids.js';
 import { VectorStoreError } from '../errors/index.js';
 
@@ -23,7 +23,7 @@ export type TraceRepresentation = 'struct' | 'semantic' | 'reflect';
 
 export interface TraceRecord {
   readonly id: TraceId;
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly userId: UserId | null;
   readonly sourceProblem: string;
   readonly raw: string;
@@ -36,7 +36,7 @@ export interface TraceRecord {
 
 export interface TraceInsert {
   readonly id: TraceId;
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly userId: UserId | null;
   readonly sourceProblem: string;
   readonly raw: string;
@@ -47,7 +47,7 @@ export interface TraceInsert {
 }
 
 export interface TraceQuery {
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly vector: readonly number[];
   readonly representation: TraceRepresentation;
   readonly topK: number;
@@ -64,7 +64,7 @@ export interface TraceCorpus {
   insert(record: TraceInsert): Promise<void>;
   insertBatch(records: readonly TraceInsert[]): Promise<void>;
   search(query: TraceQuery): Promise<readonly TraceHit[]>;
-  count(tenantId: TenantId): Promise<number>;
+  count(workspaceId: WorkspaceId): Promise<number>;
   close(): Promise<void>;
 }
 
@@ -115,7 +115,7 @@ export class SqliteTraceCorpus implements TraceCorpus {
     db.exec(`
       CREATE TABLE IF NOT EXISTS trace_corpus (
         trace_id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL,
+        workspace_id TEXT NOT NULL,
         user_id TEXT,
         source_problem TEXT NOT NULL,
         raw TEXT NOT NULL,
@@ -125,7 +125,7 @@ export class SqliteTraceCorpus implements TraceCorpus {
         embedding TEXT NOT NULL,
         created_at INTEGER NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_traces_tenant ON trace_corpus(tenant_id);
+      CREATE INDEX IF NOT EXISTS idx_traces_tenant ON trace_corpus(workspace_id);
     `);
     this.db = db;
     return db;
@@ -135,11 +135,11 @@ export class SqliteTraceCorpus implements TraceCorpus {
     const db = await this.ensure();
     db.prepare(
       `INSERT OR REPLACE INTO trace_corpus
-       (trace_id, tenant_id, user_id, source_problem, raw, struct, semantic, reflect, embedding, created_at)
+       (trace_id, workspace_id, user_id, source_problem, raw, struct, semantic, reflect, embedding, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       record.id,
-      record.tenantId,
+      record.workspaceId,
       record.userId,
       record.sourceProblem,
       record.raw,
@@ -165,9 +165,9 @@ export class SqliteTraceCorpus implements TraceCorpus {
       .prepare(
         `SELECT trace_id, ${col} AS text, source_problem, embedding
          FROM trace_corpus
-         WHERE tenant_id = ? AND ${col} IS NOT NULL`,
+         WHERE workspace_id = ? AND ${col} IS NOT NULL`,
       )
-      .all(query.tenantId) as Record<string, unknown>[];
+      .all(query.workspaceId) as Record<string, unknown>[];
     const qvec = new Float32Array(query.vector);
     const scored: TraceHit[] = [];
     for (const row of rows) {
@@ -193,11 +193,11 @@ export class SqliteTraceCorpus implements TraceCorpus {
     return scored.slice(0, query.topK);
   }
 
-  public async count(tenantId: TenantId): Promise<number> {
+  public async count(workspaceId: WorkspaceId): Promise<number> {
     const db = await this.ensure();
     const row = db
-      .prepare('SELECT COUNT(*) AS n FROM trace_corpus WHERE tenant_id = ?')
-      .get(tenantId) as Record<string, unknown>;
+      .prepare('SELECT COUNT(*) AS n FROM trace_corpus WHERE workspace_id = ?')
+      .get(workspaceId) as Record<string, unknown>;
     return Number(row['n'] ?? 0);
   }
 

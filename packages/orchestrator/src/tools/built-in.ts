@@ -59,17 +59,17 @@ const wrap = async (
 const requireUser = (
   state: {
     user_id: unknown;
-    tenant_id: unknown;
+    workspace_id: unknown;
     is_admin: boolean;
     rbac_filter: { allowedCompanies: readonly string[] };
   },
 ): User => {
-  if (!state.user_id || !state.tenant_id) {
+  if (!state.user_id || !state.workspace_id) {
     throw new RaghubError('authorization_error', 'tool requires an authenticated user');
   }
   return new User({
     id: state.user_id as never,
-    tenantId: state.tenant_id as never,
+    workspaceId: state.workspace_id as never,
     email: '',
     role: state.is_admin ? 'admin' : 'member',
     allowedCompanies: state.rbac_filter.allowedCompanies,
@@ -211,7 +211,7 @@ export const createTraceSearchTool = (
       const topK = Number(args['top_k'] ?? ctx.invocationState.strategy.traceCorpus.topK);
       const vec = await embedder.embedQuery(q);
       const hits = await corpus.search({
-        tenantId: user.tenantId,
+        workspaceId: user.workspaceId,
         vector: vec,
         representation,
         topK,
@@ -268,9 +268,9 @@ export const createGraphSearchTool = (graph: SqliteGraphStore): Tool => ({
       const user = requireUser(ctx.invocationState);
       const q = String(args['question'] ?? '');
       const hop = Math.min(3, Math.max(1, Number(args['hop'] ?? 2)));
-      const seeds = await graph.searchEntities(user.tenantId, q, 10);
+      const seeds = await graph.searchEntities(user.workspaceId, q, 10);
       const expanded = await graph.expandNeighborhood(
-        user.tenantId,
+        user.workspaceId,
         seeds.map((s) => s.name),
         hop,
         20,

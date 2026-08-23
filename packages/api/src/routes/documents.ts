@@ -18,7 +18,7 @@ import {
   type Embedder,
   type SessionStore,
   type SqliteJobQueue,
-  type TenantId,
+  type WorkspaceId,
   type User,
   type UserId,
   type VectorStore,
@@ -30,7 +30,7 @@ import {
 import { getClaims } from '../middleware/auth.js';
 
 export interface DocumentsRouteDeps {
-  readonly userStore: { getById(tenantId: TenantId, id: UserId): Promise<User | null> };
+  readonly userStore: { getById(workspaceId: WorkspaceId, id: UserId): Promise<User | null> };
   readonly documentStore: DocumentStore;
   readonly sessionStore: SessionStore;
   readonly jobQueue: SqliteJobQueue;
@@ -63,9 +63,9 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
 
   app.post('/v1/documents', async (c) => {
     const claims = getClaims(c);
-    const tenantId = brandId<TenantId>(claims.tenant_id);
+    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
     const userId = brandId<UserId>(claims.sub);
-    const user = await deps.userStore.getById(tenantId, userId);
+    const user = await deps.userStore.getById(workspaceId, userId);
     if (!user) {
       return c.json({ error: { code: 'auth_error', message: 'user not found' } }, 401);
     }
@@ -88,7 +88,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
     const hash = hashDocument(buffer);
 
     const document = await deps.documentStore.upsert({
-      tenantId,
+      workspaceId,
       ownerId: userId,
       filename: file.name || 'upload',
       mimeType: file.type || 'application/octet-stream',
@@ -97,7 +97,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
       metadata,
     });
 
-    const seen = await deps.documentStore.getByHash(tenantId, hash);
+    const seen = await deps.documentStore.getByHash(workspaceId, hash);
     if (seen && seen.id !== document.id) {
       const response: UploadResponse = {
         documentId: seen.id,
@@ -109,7 +109,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
     }
 
     await deps.jobQueue.enqueue({
-      tenantId,
+      workspaceId,
       ownerId: userId,
       kind: 'document.ingest',
       payload: { documentId: document.id, hash, byteSize: buffer.byteLength },
@@ -117,7 +117,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
 
     const result = await ingest(
       {
-        tenantId,
+        workspaceId,
         ownerId: userId,
         collectionId,
         filename: file.name || 'upload',
@@ -128,7 +128,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
       { embedder: deps.embedder, store: deps.vectorStore },
     );
 
-    await deps.documentStore.setStatus(document.id, tenantId, DocumentLifecycleStatus.Ready);
+    await deps.documentStore.setStatus(document.id, workspaceId, DocumentLifecycleStatus.Ready);
 
     const response: UploadResponse = {
       documentId: document.id,
@@ -141,25 +141,25 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
 
   app.get('/v1/documents', async (c) => {
     const claims = getClaims(c);
-    const tenantId = brandId<TenantId>(claims.tenant_id);
+    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
     const userId = brandId<UserId>(claims.sub);
-    const docs = await deps.documentStore.listForUser(tenantId, userId);
+    const docs = await deps.documentStore.listForUser(workspaceId, userId);
     return c.json({ documents: docs.map((d: Document) => d.toJSON()) });
   });
 
   app.delete('/v1/documents/:id', async (c) => {
     const claims = getClaims(c);
-    const tenantId = brandId<TenantId>(claims.tenant_id);
+    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
     const userId = brandId<UserId>(claims.sub);
     const id = brandId<DocumentId>(c.req.param('id'));
-    const doc = await deps.documentStore.getById(tenantId, id);
+    const doc = await deps.documentStore.getById(workspaceId, id);
     if (!doc) {
       return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);
     }
     if (doc.ownerId !== userId) {
       return c.json({ error: { code: 'authorization_error', message: 'not the owner' } }, 403);
     }
-    await deps.vectorStore.deleteByDocument(id, tenantId);
+    await deps.vectorStore.deleteByDocument(id, workspaceId);
     return c.json({ ok: true });
   });
 

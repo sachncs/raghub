@@ -2,35 +2,35 @@
  * SQLite-backed user store.
  *
  * Schema: tenants(id, name, plan, created_at, is_admin),
- * users(id, tenant_id, email, password_hash, role,
+ * users(id, workspace_id, email, password_hash, role,
  * allowed_companies_json, created_at).
  *
  * Single-writer (better-sqlite3 is synchronous; wrap in p-queue if
- * multi-writer is needed). All reads filter on tenant_id.
+ * multi-writer is needed). All reads filter on workspace_id.
  */
 
-import type { Tenant, TenantId, User, UserId } from '../domain/index.js';
+import type { Workspace, WorkspaceId, User, UserId } from '../domain/index.js';
 import {
   brandId,
-  Tenant as TenantClass,
+  Workspace as TenantClass,
   User as UserClass,
   UserRole,
 } from '../domain/index.js';
-import type { TenantId as TenantIdType, UserId as UserIdType } from '../domain/index.js';
+import type { WorkspaceId as TenantIdType, UserId as UserIdType } from '../domain/index.js';
 import { AuthError, ConfigurationError, VectorStoreError } from '../errors/index.js';
 
 export interface UserStore {
   getByEmail(email: string): Promise<{ user: User; passwordHash: string } | null>;
-  getById(tenantId: TenantId, id: UserId): Promise<User | null>;
+  getById(workspaceId: WorkspaceId, id: UserId): Promise<User | null>;
   create(input: {
-    tenantId: TenantId;
+    workspaceId: WorkspaceId;
     email: string;
     passwordHash: string;
     role: keyof typeof UserRole;
     allowedCompanies: readonly string[];
   }): Promise<User>;
-  upsertTenant(input: { id: TenantId; name: string; plan: 'Free' | 'Pro' | 'Enterprise' }): Promise<Tenant>;
-  getTenant(id: TenantId): Promise<Tenant | null>;
+  upsertWorkspace(input: { id: WorkspaceId; name: string; plan: 'Free' | 'Pro' | 'Enterprise' }): Promise<Workspace>;
+  getWorkspace(id: WorkspaceId): Promise<Workspace | null>;
   close(): Promise<void>;
 }
 
@@ -90,24 +90,24 @@ export class SqliteUserStore implements UserStore {
       );
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL,
+        workspace_id TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
         role TEXT NOT NULL,
         allowed_companies_json TEXT NOT NULL DEFAULT '[]',
         created_at INTEGER NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
+      CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(workspace_id);
     `);
     this.db = db;
     return db;
   }
 
-  public async upsertTenant(input: {
-    id: TenantId;
+  public async upsertWorkspace(input: {
+    id: WorkspaceId;
     name: string;
     plan: 'Free' | 'Pro' | 'Enterprise';
-  }): Promise<Tenant> {
+  }): Promise<Workspace> {
     const db = await this.ensure();
     const now = Date.now();
     const planLower = input.plan.toLowerCase() as 'free' | 'pro' | 'enterprise';
@@ -125,7 +125,7 @@ export class SqliteUserStore implements UserStore {
     });
   }
 
-  public async getTenant(id: TenantId): Promise<Tenant | null> {
+  public async getWorkspace(id: WorkspaceId): Promise<Workspace | null> {
     const db = await this.ensure();
     const row = db.prepare('SELECT * FROM tenants WHERE id = ?').get(id) as
       | Record<string, unknown>
@@ -151,16 +151,16 @@ export class SqliteUserStore implements UserStore {
     return { user, passwordHash: String(row['password_hash']) };
   }
 
-  public async getById(tenantId: TenantId, id: UserId): Promise<User | null> {
+  public async getById(workspaceId: WorkspaceId, id: UserId): Promise<User | null> {
     const db = await this.ensure();
     const row = db
-      .prepare('SELECT * FROM users WHERE tenant_id = ? AND id = ?')
-      .get(tenantId, id) as Record<string, unknown> | undefined;
+      .prepare('SELECT * FROM users WHERE workspace_id = ? AND id = ?')
+      .get(workspaceId, id) as Record<string, unknown> | undefined;
     return row ? rowToUser(row) : null;
   }
 
   public async create(input: {
-    tenantId: TenantId;
+    workspaceId: WorkspaceId;
     email: string;
     passwordHash: string;
     role: keyof typeof UserRole;
@@ -172,11 +172,11 @@ export class SqliteUserStore implements UserStore {
     const now = Date.now();
     try {
       db.prepare(
-        `INSERT INTO users (id, tenant_id, email, password_hash, role, allowed_companies_json, created_at)
+        `INSERT INTO users (id, workspace_id, email, password_hash, role, allowed_companies_json, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         id,
-        input.tenantId,
+        input.workspaceId,
         input.email,
         input.passwordHash,
         input.role,
@@ -190,7 +190,7 @@ export class SqliteUserStore implements UserStore {
     }
     return new UserClass({
       id,
-      tenantId: input.tenantId,
+      workspaceId: input.workspaceId,
       email: input.email,
       role: UserRole[input.role],
       allowedCompanies: input.allowedCompanies,
@@ -208,12 +208,12 @@ export class SqliteUserStore implements UserStore {
 
 const rowToUser = (row: Record<string, unknown>): User => {
   const id = brandId<UserIdType>(String(row['id']));
-  const tenantId = brandId<TenantIdType>(String(row['tenant_id']));
+  const workspaceId = brandId<TenantIdType>(String(row['workspace_id']));
   const roleKey = String(row['role']) as keyof typeof UserRole;
   const allowedJson = String(row['allowed_companies_json'] ?? '[]');
   return new UserClass({
     id,
-    tenantId,
+    workspaceId,
     email: String(row['email']),
     role: UserRole[roleKey] ?? UserRole.Member,
     allowedCompanies: JSON.parse(allowedJson) as string[],

@@ -13,7 +13,7 @@ export * from './embedder/index.js';
 export * from './stores/index.js';
 export * from './retrieval/index.js';
 export * from './auth/index.js';
-export * from './tenants/index.js';
+export * from './workspaces/index.js';
 export * from './telemetry/index.js';
 export * from './storage/index.js';
 export * from './llm/index.js';

@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import { User, UserRole, brandId } from '../../src/domain/index.js';
-import type { TenantId, UserId } from '../../src/domain/index.js';
+import type { WorkspaceId, UserId } from '../../src/domain/index.js';
 import { allowedCompanyFilter } from '../../src/retrieval/rbac.js';
 
-const tenantId = brandId<TenantId>('tnt_1');
+const workspaceId = brandId<WorkspaceId>('tnt_1');
 const userId = brandId<UserId>('usr_1');
 
 const makeUser = (role: keyof typeof UserRole, companies: string[]) =>
   new User({
     id: userId,
-    tenantId,
+    workspaceId,
     email: 'u@x',
     role: UserRole[role],
     allowedCompanies: companies,
@@ -21,7 +21,7 @@ describe('allowedCompanyFilter', () => {
   it('admin sees all users in the tenant', () => {
     const u = makeUser('Admin', []);
     const f = allowedCompanyFilter(u);
-    expect(f.tenantId).toBe(tenantId);
+    expect(f.workspaceId).toBe(workspaceId);
     expect(f.userId).toBeNull();
   });
 

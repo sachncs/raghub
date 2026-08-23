@@ -9,9 +9,9 @@
  * lands failed jobs that exceeded `maxAttempts`.
  */
 
-import type { JobId, TenantId, UserId } from '../domain/index.js';
+import type { JobId, WorkspaceId, UserId } from '../domain/index.js';
 import { brandId } from '../domain/index.js';
-import type { JobId as JobIdT, TenantId as TenantIdT, UserId as UserIdT } from '../domain/index.js';
+import type { JobId as JobIdT, WorkspaceId as TenantIdT, UserId as UserIdT } from '../domain/index.js';
 import { VectorStoreError } from '../errors/index.js';
 
 export const JobStatus = {
@@ -25,7 +25,7 @@ export type JobStatusValue = (typeof JobStatus)[keyof typeof JobStatus];
 
 export interface JobRecord {
   readonly id: JobId;
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly ownerId: UserId;
   readonly kind: string;
   readonly payload: Readonly<Record<string, unknown>>;
@@ -39,7 +39,7 @@ export interface JobRecord {
 
 export interface JobQueue {
   enqueue(input: {
-    tenantId: TenantId;
+    workspaceId: WorkspaceId;
     ownerId: UserId;
     kind: string;
     payload: Readonly<Record<string, unknown>>;
@@ -48,7 +48,7 @@ export interface JobQueue {
   next(workerId: string): Promise<JobRecord | null>;
   complete(id: JobId, workerId: string): Promise<void>;
   fail(id: JobId, workerId: string, error: string): Promise<void>;
-  list(tenantId: TenantId): Promise<readonly JobRecord[]>;
+  list(workspaceId: WorkspaceId): Promise<readonly JobRecord[]>;
   close(): Promise<void>;
 }
 
@@ -103,7 +103,7 @@ export class SqliteJobQueue implements JobQueue {
     db.exec(`
       CREATE TABLE IF NOT EXISTS jobs (
         id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL,
+        workspace_id TEXT NOT NULL,
         owner_id TEXT NOT NULL,
         kind TEXT NOT NULL,
         payload_json TEXT NOT NULL,
@@ -116,14 +116,14 @@ export class SqliteJobQueue implements JobQueue {
         updated_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, created_at);
-      CREATE INDEX IF NOT EXISTS idx_jobs_tenant ON jobs(tenant_id);
+      CREATE INDEX IF NOT EXISTS idx_jobs_tenant ON jobs(workspace_id);
     `);
     this.db = db;
     return db;
   }
 
   public async enqueue(input: {
-    tenantId: TenantId;
+    workspaceId: WorkspaceId;
     ownerId: UserId;
     kind: string;
     payload: Readonly<Record<string, unknown>>;
@@ -135,12 +135,12 @@ export class SqliteJobQueue implements JobQueue {
     const payloadJson = JSON.stringify({ ...input.payload });
     const max = input.maxAttempts ?? 3;
     db.prepare(
-      `INSERT INTO jobs (id, tenant_id, owner_id, kind, payload_json, status, attempts, max_attempts, created_at, updated_at)
+      `INSERT INTO jobs (id, workspace_id, owner_id, kind, payload_json, status, attempts, max_attempts, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
-    ).run(id, input.tenantId, input.ownerId, input.kind, payloadJson, JobStatus.Pending, max, now, now);
+    ).run(id, input.workspaceId, input.ownerId, input.kind, payloadJson, JobStatus.Pending, max, now, now);
     return {
       id,
-      tenantId: input.tenantId,
+      workspaceId: input.workspaceId,
       ownerId: input.ownerId,
       kind: input.kind,
       payload: input.payload,
@@ -186,11 +186,11 @@ export class SqliteJobQueue implements JobQueue {
     ).run(JobStatus.Failed, error, Date.now(), id);
   }
 
-  public async list(tenantId: TenantId): Promise<readonly JobRecord[]> {
+  public async list(workspaceId: WorkspaceId): Promise<readonly JobRecord[]> {
     const db = await this.ensure();
     const rows = db
-      .prepare('SELECT * FROM jobs WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 100')
-      .all(tenantId) as Record<string, unknown>[];
+      .prepare('SELECT * FROM jobs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 100')
+      .all(workspaceId) as Record<string, unknown>[];
     return rows.map((r) => rowToJob(r, r['status'] as JobStatusValue));
   }
 
@@ -206,7 +206,7 @@ const rowToJob = (row: Record<string, unknown>, overrideStatus?: JobStatusValue)
   const status = (overrideStatus ?? String(row['status'])) as JobStatusValue;
   return {
     id: brandId<JobIdT>(String(row['id'])),
-    tenantId: brandId<TenantIdT>(String(row['tenant_id'])),
+    workspaceId: brandId<TenantIdT>(String(row['workspace_id'])),
     ownerId: brandId<UserIdT>(String(row['owner_id'])),
     kind: String(row['kind']),
     payload: JSON.parse(String(row['payload_json'])) as Record<string, unknown>,

@@ -30,7 +30,7 @@ SqliteJobQueue,
   type SessionStore,
   type ConversationStore,
   type BcryptHasher as BcryptHasherType,
-  type TenantId,
+  type WorkspaceId,
   type UserId,
   brandId,
 } from '@raghub/core';
@@ -48,8 +48,8 @@ export interface StartServerOptions {
   readonly settings: Settings;
 }
 
-const deriveTenantId = (secret: string): TenantId =>
-  brandId<TenantId>(`tnt_${Buffer.from(secret).toString('hex').slice(0, 12)}`);
+const deriveTenantId = (secret: string): WorkspaceId =>
+  brandId<WorkspaceId>(`tnt_${Buffer.from(secret).toString('hex').slice(0, 12)}`);
 
 const deriveOwnerId = (secret: string): UserId =>
   brandId<UserId>(`usr_${Buffer.from(secret).toString('hex').slice(12, 24)}`);
@@ -101,7 +101,7 @@ export const startServer = async (opts: StartServerOptions): Promise<ServerHandl
 
   const orchestrator = new Orchestrator({
     telemetry,
-    tenantId: deriveTenantId(settings.auth.jwtSecret),
+    workspaceId: deriveTenantId(settings.auth.jwtSecret),
     sessionOverrides: {},
     agents,
     tools,
@@ -109,8 +109,7 @@ export const startServer = async (opts: StartServerOptions): Promise<ServerHandl
     retrieval,
     model: settings.llm.model,
   });
-  void deriveOwnerId;
-
+  
   const app = createApp({
     userStore,
     documentStore,

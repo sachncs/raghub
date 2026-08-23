@@ -8,10 +8,10 @@
  */
 
 import type { Chunk, Hit } from '../domain/index.js';
-import type { ChunkId, DocumentId, TenantId, UserId } from '../domain/index.js';
+import type { ChunkId, DocumentId, WorkspaceId, UserId } from '../domain/index.js';
 
 export interface StoreFilter {
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   /** When `null`, the store returns rows owned by any user in the tenant. */
   readonly userId: UserId | null;
   readonly collectionId: string | null;
@@ -56,10 +56,10 @@ export interface VectorStore {
   searchKeyword(opts: KeywordSearchOptions): Promise<KeywordHit[]>;
 
   /** Fetch a chunk by id, scoped by tenant. */
-  getById(tenantId: TenantId, id: ChunkId): Promise<Chunk | null>;
+  getById(workspaceId: WorkspaceId, id: ChunkId): Promise<Chunk | null>;
 
   /** Cascade-delete every chunk belonging to `documentId`. */
-  deleteByDocument(documentId: DocumentId, tenantId: TenantId): Promise<number>;
+  deleteByDocument(documentId: DocumentId, workspaceId: WorkspaceId): Promise<number>;
 
   /** Close the underlying handle. Idempotent. */
   close(): Promise<void>;

@@ -128,10 +128,6 @@ export const crossModalRetrieve = (opts: RetrievalOptions): readonly RetrievalCa
   }
 
   const ranked = [...candidates.values()].sort((a, b) => b.score - a.score);
-  void structuralMatches;
-  void visited;
-  void queue;
-  void nodeById;
   return ranked.slice(0, topK);
 };
 

@@ -9,7 +9,7 @@
 
 import type {
   CollectionId,
-  TenantId,
+  WorkspaceId,
   UserId,
   User,
 } from '@raghub/core';
@@ -18,7 +18,7 @@ import { allowedCompanyFilter, brandId } from '@raghub/core';
 import type { InvocationState, Strategy } from './types.js';
 
 export interface BuildInvocationStateInput {
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly user: User | null;
   readonly sessionId: string | null;
   readonly sessionOverrides?: Readonly<Record<string, unknown>>;
@@ -34,7 +34,7 @@ export const buildInvocationState = (input: BuildInvocationStateInput): Invocati
   const rbacFilter = user
     ? allowedCompanyFilter(user)
     : {
-        tenantId: input.tenantId,
+        workspaceId: input.workspaceId,
         userId: null as UserId | null,
         collectionId: null as CollectionId | null,
         allowedCompanies: [] as readonly string[],
@@ -43,11 +43,11 @@ export const buildInvocationState = (input: BuildInvocationStateInput): Invocati
     ? brandId<CollectionId>(rbacFilter.collectionId)
     : null;
   return Object.freeze({
-    tenant_id: input.tenantId,
+    workspace_id: input.workspaceId,
     user_id: user?.id ?? null,
     is_admin: user?.isAdmin ?? false,
     rbac_filter: Object.freeze({
-      tenantId: rbacFilter.tenantId,
+      workspaceId: rbacFilter.workspaceId,
       userId: rbacFilter.userId,
       collectionId,
       allowedCompanies: rbacFilter.allowedCompanies,

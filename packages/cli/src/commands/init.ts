@@ -63,7 +63,7 @@ export const initCommand: Command = {
       ? prompt('JWT secret (>=32 chars)', generateJwtSecret())
       : Promise.resolve(generateJwtSecret()));
     const tenantSecret = await (interactive
-      ? prompt('Tenant secrets key (hex 64 chars)', generateKey(32))
+      ? prompt('Workspace secrets key (hex 64 chars)', generateKey(32))
       : Promise.resolve(generateKey(32)));
     const openaiKey = await (interactive
       ? prompt('OPENAI_API_KEY (leave empty to use feature-hashing)', '')

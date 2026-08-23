@@ -3,7 +3,7 @@
  *
  * Reads the bearer token from `Authorization: Bearer <jwt>`, verifies
  * it via the bound `JwtService`, and stores the decoded claims on
- * `c.var.claims`. Tenant binding happens downstream in the route
+ * `c.var.claims`. Workspace binding happens downstream in the route
  * handlers (they look up the user from the UserStore).
  */
 

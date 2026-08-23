@@ -143,7 +143,5 @@ export const careMetrics = (labels: readonly CareLabel[]): CareMetrics => {
   const precision = tp / labels.length;
   const recall = tp / labels.length;
   const f1 = tp === 0 ? 0 : (2 * precision * recall) / (precision + recall);
-  void fp;
-  void recall;
   return { labels, precision, recall, f1 };
 };
