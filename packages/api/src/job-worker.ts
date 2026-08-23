@@ -10,7 +10,7 @@
  * single-machine server this is enough.
  */
 
-import type { Database } from '@raghub/core';
+import type { Database } from './db-types.js';
 
 export interface JobRecord {
   readonly id: string;

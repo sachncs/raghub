@@ -147,8 +147,6 @@ describe('end-to-end smoke', () => {
 
     // 2. ingest two docs
     const coll = brandId<CollectionId>('col_1');
-    const docShared = brandId<DocumentId>('doc_shared');
-    const docPrivate = brandId<DocumentId>('doc_private');
     const sharedContent = Buffer.from('shared secret in this document');
     const privateContent = Buffer.from('private secret not for everyone');
 
@@ -175,20 +173,22 @@ describe('end-to-end smoke', () => {
 
     expect(shared.chunks.length).toBeGreaterThan(0);
     expect(priv.chunks.length).toBeGreaterThan(0);
+    const sharedDocId = shared.documentId;
+    const privDocId = priv.documentId;
 
     // 3. ACL: alice owns everything + grant bob read on shared
     await b.principalStore.applyDefaultAcl({
-      documentId: shared.chunks[0]?.documentId ?? docShared,
+      documentId: sharedDocId,
       ownerId: alice,
       adminUserIds: [],
     });
     await b.principalStore.applyDefaultAcl({
-      documentId: priv.chunks[0]?.documentId ?? docPrivate,
+      documentId: privDocId,
       ownerId: alice,
       adminUserIds: [],
     });
-    const realShared = (await b.documentStore.getByHash(wsp, sharedHash))?.id ?? docShared;
-    const realPrivate = (await b.documentStore.getByHash(wsp, privateHash))?.id ?? docPrivate;
+    const realShared = sharedDocId;
+    const realPrivate = privDocId;
     await b.principalStore.grant({
       documentId: realShared,
       principalType: 'user',
