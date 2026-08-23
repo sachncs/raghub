@@ -3,7 +3,7 @@
  *
  * Implements the storage + retrieval half of the T3 pipeline
  * (arXiv 2605.03344). The thinker runner + transformations live
- * in the `@raghub/traces` package; this module is the SQLite
+ * in the `@raghub/traces` namespace; this module is the SQLite
  * store the @raghub/orchestrator's `trace_search` tool reads
  * from.
  *
