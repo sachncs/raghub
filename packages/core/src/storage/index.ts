@@ -38,3 +38,7 @@ export type {
   WorkspaceMemberRoleValue,
   SqliteWorkspaceMemberStoreOptions,
 } from './workspace-member.js';
+
+export type { Role, RoleAssignment, Group, GroupMembership, RoleStore, GroupStore } from './groups.js';
+export { SqliteRoleStore, SqliteGroupStore } from './groups.js';
+export type { SqliteRoleStoreOptions, SqliteGroupStoreOptions } from './groups.js';
