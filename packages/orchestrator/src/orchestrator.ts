@@ -4,11 +4,11 @@
  * Construction wires the Strands adapter, the agent registry, and
  * the tool registry. `run()` and `stream()` dispatch into the
  * pattern chosen by the resolver (request > session > user > tenant
- * > global). Mode overrides (`mode: 'graph' | ...`) take effect
- * immediately.
+ * > global). `stream()` drives the generator through its streaming
+ * variant so SSE proxies surface tokens incrementally.
  */
 
-import type { Telemetry } from '@raghub/core';
+import type { Llm, Retrieval, Telemetry } from '@raghub/core';
 import { runWithTenantAsync, type CollectionId, type TenantId } from '@raghub/core';
 
 import { buildGraph, buildSwarm, buildWorkflow, type PatternBuilder } from './patterns/builders.js';
@@ -38,6 +38,9 @@ export interface OrchestratorOptions {
   readonly adapters?: { readonly graph?: StrandsAdapter; readonly swarm?: StrandsAdapter; readonly workflow?: StrandsAdapter };
   readonly agents: AgentRegistry;
   readonly tools: ToolRegistry;
+  readonly llm?: Llm;
+  readonly retrieval?: Retrieval;
+  readonly model?: string;
 }
 
 export class Orchestrator {
@@ -58,7 +61,17 @@ export class Orchestrator {
     this.sessionOverrides = opts.sessionOverrides ?? {};
     this.agents = opts.agents;
     this.tools = opts.tools;
-    const adapter: StrandsAdapter = new InProcessAdapter({ agents: this.agents, tools: this.tools });
+
+    const adapter: StrandsAdapter = opts.llm && opts.retrieval && opts.model
+      ? new InProcessAdapter({
+          agents: this.agents,
+          tools: this.tools,
+          llm: opts.llm,
+          retrieval: opts.retrieval,
+          model: opts.model,
+        })
+      : (opts.adapters?.graph ?? new InProcessAdapter({ agents: this.agents, tools: this.tools, llm: opts.llm!, retrieval: opts.retrieval!, model: opts.model ?? 'gpt-4.1' }));
+
     this.patterns = {
       graph: buildGraph(opts.adapters?.graph ?? adapter),
       swarm: buildSwarm(opts.adapters?.swarm ?? adapter),
@@ -81,8 +94,65 @@ export class Orchestrator {
   }
 
   public async *stream(req: OrchestratorRequest): AsyncGenerator<PlannerEvent> {
-    const result = await this.run(req);
-    for (const ev of result.events) yield ev;
+    const state = this.makeInvocationState(req);
+    const mode = state.strategy.mode;
+    yield { kind: 'thought', step: 0, payload: { text: `mode=${mode} streaming` } };
+
+    const queue: PlannerEvent[] = [];
+    let resolveNext: (() => void) | null = null;
+    let done = false;
+    let thrownError: Error | null = null;
+    const push = (ev: PlannerEvent): void => {
+      queue.push(ev);
+      if (resolveNext) {
+        const r = resolveNext;
+        resolveNext = null;
+        r();
+      }
+    };
+
+    const task = runWithTenantAsync(
+      {
+        tenantId: state.tenant_id,
+        userId: state.user_id,
+        isAdmin: state.is_admin,
+        sessionId: state.session_id,
+      },
+      async (): Promise<OrchestratorResult> => {
+        try {
+          const builder = this.patterns[mode];
+          return await builder.run(req, state);
+        } catch (e) {
+          thrownError = e instanceof Error ? e : new Error(String(e));
+          push({ kind: 'final', step: 99, payload: { answer: '', citations: [] } });
+          throw thrownError;
+        } finally {
+          done = true;
+          if (resolveNext) {
+            const r = resolveNext;
+            resolveNext = null;
+            r();
+          }
+        }
+      },
+    );
+
+    void task;
+
+    while (true) {
+      if (queue.length > 0) {
+        const ev = queue.shift();
+        if (ev) yield ev;
+        continue;
+      }
+      if (done) {
+        if (thrownError) throw thrownError;
+        return;
+      }
+      await new Promise<void>((r) => {
+        resolveNext = r;
+      });
+    }
   }
 
   public resolveInvocationState(req: OrchestratorRequest): InvocationState {
@@ -135,5 +205,4 @@ const extractUserOverrides = (user: User): StrategyOverrides => {
   return strat as StrategyOverrides;
 };
 
-// Re-export so consumers don't need a second import.
 export type { Citation, PlannerEvent };

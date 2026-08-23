@@ -2,8 +2,8 @@
  * @raghub/core — public surface.
  *
  * Domain types, errors, settings, stores, embedder, retrieval, auth,
- * tenants, telemetry, storage. Ingest, plugins, LLM generator land
- * in subsequent commits.
+ * tenants, telemetry, storage, LLM, chunker, ingest. Plugins,
+ * multimodal, traces, eval land in their dedicated packages.
  */
 
 export * from './errors/index.js';
@@ -16,3 +16,6 @@ export * from './auth/index.js';
 export * from './tenants/index.js';
 export * from './telemetry/index.js';
 export * from './storage/index.js';
+export * from './llm/index.js';
+export * from './chunker/index.js';
+export * from './ingest.js';
