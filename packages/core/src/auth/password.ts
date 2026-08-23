@@ -18,16 +18,14 @@ interface BcryptModule {
   compare: (s: string, hashed: string) => Promise<boolean>;
 }
 
-const dynamicRequire = new Function('spec', 'return import(spec)') as (
-  spec: string,
-) => Promise<unknown>;
+const dynamicImport = (spec: string): Promise<unknown> => import(spec);
 
 let cached: BcryptModule | null = null;
 
 const loadBcrypt = async (): Promise<BcryptModule> => {
   if (cached) return cached;
   try {
-    const mod = (await dynamicRequire('bcryptjs')) as { default: BcryptModule };
+    const mod = (await dynamicImport('bcryptjs')) as { default: BcryptModule };
     cached = mod.default;
     return cached;
   } catch (cause) {

@@ -24,7 +24,7 @@ export const jwtAuthMiddleware = (jwt: JwtService): MiddlewareHandler => async (
   try {
     const claims = await jwt.verify(m[1]);
     c.set('claims', claims);
-    await next();
+    return await next();
   } catch (e) {
     return c.json(
       {

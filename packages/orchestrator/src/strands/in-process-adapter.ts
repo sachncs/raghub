@@ -42,11 +42,11 @@ const emptyResult = (mode: Strategy['mode'], req: OrchestratorRequest): Orchestr
 export class InProcessAdapter implements StrandsAdapter {
   public readonly name = 'in-process';
   private readonly agents: AgentRegistry;
-  private readonly tools: ToolRegistry;
+  private readonly _tools: ToolRegistry;
 
   constructor(deps: InProcessAdapterDeps) {
     this.agents = deps.agents;
-    this.tools = deps.tools;
+    this._tools = deps.tools;
   }
 
   public async runGraph(req: OrchestratorRequest, state: InvocationState): Promise<OrchestratorResult> {

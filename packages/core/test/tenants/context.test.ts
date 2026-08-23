@@ -1,18 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  brandId,
-} from '../src/domain/index.js';
-import type { TenantId, UserId } from '../src/domain/index.js';
-import {
-  AuthorizationError,
-} from '../src/errors/index.js';
+import { brandId } from '../../src/domain/index.js';
+import type { TenantId, UserId } from '../../src/domain/index.js';
+import { AuthorizationError } from '../../src/errors/index.js';
 import {
   currentTenant,
   requireTenant,
   runWithTenantAsync,
   tenantContext,
-} from '../src/tenants/index.js';
+} from '../../src/tenants/index.js';
 
 const tenantId = brandId<TenantId>('tnt_1');
 const userId = brandId<UserId>('usr_1');

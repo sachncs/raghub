@@ -6,18 +6,21 @@
 import type { Telemetry, TelemetrySpan } from './types.js';
 
 class NoOpSpan implements TelemetrySpan {
-  public setAttribute(): void {}
-  public setAttributes(): void {}
-  public recordException(): void {}
+  public setAttribute(_key: string, _value: string | number | boolean): void {}
+  public setAttributes(_attributes: Readonly<Record<string, string | number | boolean>>): void {}
+  public recordException(_err: unknown): void {}
   public end(): void {}
 }
 
 export class NoOpTelemetry implements Telemetry {
   public readonly provider = 'noop';
 
-  public span(): TelemetrySpan {
+  public span(
+    _name: string,
+    _attributes?: Readonly<Record<string, string | number | boolean>>,
+  ): TelemetrySpan {
     return new NoOpSpan();
   }
 
-  public event(): void {}
+  public event(_name: string, _attributes?: Readonly<Record<string, string | number | boolean>>): void {}
 }

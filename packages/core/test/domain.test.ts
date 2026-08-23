@@ -3,19 +3,21 @@ import { describe, expect, it } from 'vitest';
 import {
   Chunk,
   ChunkModality,
-  CollectionId,
   Document,
   DocumentLifecycleStatus,
-  DocumentId,
   Tenant,
-  TenantId,
   TenantPlan,
   Turn,
   TurnRole,
   User,
-  UserId,
   UserRole,
   brandId,
+} from '../src/domain/index.js';
+import type {
+  CollectionId,
+  DocumentId,
+  TenantId,
+  UserId,
 } from '../src/domain/index.js';
 
 const tenantId = brandId<TenantId>('tnt_1');

@@ -16,8 +16,14 @@
  */
 
 import type { Chunk, Hit } from '../domain/index.js';
-import type { ChunkId, DocumentId } from '../domain/ids.js';
-import { brandId } from '../domain/ids.js';
+import type {
+  ChunkId,
+  CollectionId,
+  DocumentId,
+  TenantId,
+  UserId,
+} from '../domain/index.js';
+import { brandId, Chunk as ChunkClass } from '../domain/index.js';
 import { VectorStoreError } from '../errors/index.js';
 import type {
   KeywordHit,
@@ -25,7 +31,6 @@ import type {
   VectorSearchOptions,
   VectorStore,
 } from './types.js';
-import type { StoreFilter } from './types.js';
 
 const EMBEDDING_DIM_DEFAULT = 3072;
 const FTS_TABLE = 'fts_chunks';
@@ -55,13 +60,11 @@ interface SqliteVecModule {
   load(db: BetterSqliteDatabase): void;
 }
 
-const dynamicRequire = new Function('spec', 'return import(spec)') as (
-  spec: string,
-) => Promise<unknown>;
+const dynamicImport = (spec: string): Promise<unknown> => import(spec);
 
 const loadBetterSqlite3 = async (): Promise<BetterSqlite3Module> => {
   try {
-    const mod = (await dynamicRequire('better-sqlite3')) as { default: BetterSqlite3Module };
+    const mod = (await dynamicImport('better-sqlite3')) as { default: BetterSqlite3Module };
     return mod.default;
   } catch (cause) {
     throw new VectorStoreError('better-sqlite3 is not installed', {
@@ -73,7 +76,7 @@ const loadBetterSqlite3 = async (): Promise<BetterSqlite3Module> => {
 
 const loadSqliteVec = async (): Promise<SqliteVecModule> => {
   try {
-    const mod = (await dynamicRequire('@sqlite.org/sqlite-vec')) as {
+    const mod = (await dynamicImport('@sqlite.org/sqlite-vec')) as {
       default: SqliteVecModule;
     };
     return mod.default;
@@ -86,19 +89,15 @@ const loadSqliteVec = async (): Promise<SqliteVecModule> => {
 };
 
 const rowToChunk = (row: Record<string, unknown>): Chunk => {
-  const id = brandId<string & { readonly __brand: 'ChunkId' }>(String(row['id']));
-  const tenantId = brandId<string & { readonly __brand: 'TenantId' }>(String(row['tenant_id']));
-  const ownerId = brandId<string & { readonly __brand: 'UserId' }>(String(row['owner_id']));
-  const collectionId = brandId<string & { readonly __brand: 'CollectionId' }>(
-    String(row['collection_id']),
-  );
-  const documentId = brandId<string & { readonly __brand: 'DocumentId' }>(
-    String(row['document_id']),
-  );
+  const id = brandId<ChunkId>(String(row['id']));
+  const tenantId = brandId<TenantId>(String(row['tenant_id']));
+  const ownerId = brandId<UserId>(String(row['owner_id']));
+  const collectionId = brandId<CollectionId>(String(row['collection_id']));
+  const documentId = brandId<DocumentId>(String(row['document_id']));
   const modality = (String(row['modality']) ?? 'text') as Chunk['modality'];
   const metadataJson = String(row['metadata_json'] ?? '{}');
   const metadata = JSON.parse(metadataJson) as Record<string, string>;
-  return new Chunk({
+  return new ChunkClass({
     id,
     tenantId,
     ownerId,
@@ -226,7 +225,6 @@ export class SqliteVecStore implements VectorStore {
       );
     }
     const f = opts.filter;
-    const blob = new Float32Array(opts.vector);
     const userClause = f.userId ? 'AND c.owner_id = ?' : '';
     const collClause = f.collectionId ? 'AND c.collection_id = ?' : '';
     const rbacClause = f.allowedCompanies.length
@@ -256,7 +254,7 @@ export class SqliteVecStore implements VectorStore {
       if (opts.minScore !== undefined && score < opts.minScore) break;
       const c = rowToChunk(row);
       hits.push({
-        chunk: new Chunk({ ...c.toJSON(), embedding: [...opts.vector] }),
+        chunk: new ChunkClass({ ...c.toJSON(), embedding: [...opts.vector] }),
         score,
       });
     }
@@ -291,14 +289,14 @@ export class SqliteVecStore implements VectorStore {
 
     const rows = db.prepare(sql).all(...params) as Record<string, unknown>[];
     return rows.map((row) => ({
-      chunkId: brandId<string & { readonly __brand: 'ChunkId' }>(String(row['id'])),
+      chunkId: brandId<ChunkId>(String(row['id'])),
       score: 1 / (1 + Number(row['rank'])),
       text: String(row['text']),
     }));
   }
 
   public async getById(
-    tenantId: string & { readonly __brand: 'TenantId' },
+    tenantId: TenantId,
     id: ChunkId,
   ): Promise<Chunk | null> {
     const db = await this.ensureInit();
@@ -310,7 +308,7 @@ export class SqliteVecStore implements VectorStore {
 
   public async deleteByDocument(
     documentId: DocumentId,
-    tenantId: string & { readonly __brand: 'TenantId' },
+    tenantId: TenantId,
   ): Promise<number> {
     const db = await this.ensureInit();
     const tx = db.transaction(() => {
@@ -321,7 +319,9 @@ export class SqliteVecStore implements VectorStore {
       for (const row of chunks) {
         const cid = String(row['id']);
         db.prepare(`DELETE FROM ${VEC_TABLE} WHERE id = ?`).run(cid);
-        db.prepare(`DELETE FROM ${FTS_TABLE} WHERE rowid = (SELECT rowid FROM ${CHUNKS_TABLE} WHERE id = ?)`).run(cid);
+        db.prepare(
+          `DELETE FROM ${FTS_TABLE} WHERE rowid = (SELECT rowid FROM ${CHUNKS_TABLE} WHERE id = ?)`,
+        ).run(cid);
         n += db.prepare(`DELETE FROM ${CHUNKS_TABLE} WHERE id = ?`).run(cid).changes;
       }
       return n;

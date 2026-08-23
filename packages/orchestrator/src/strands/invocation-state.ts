@@ -13,7 +13,7 @@ import type {
   UserId,
   User,
 } from '@raghub/core';
-import { allowedCompanyFilter } from '@raghub/core';
+import { allowedCompanyFilter, brandId } from '@raghub/core';
 
 import type { InvocationState, Strategy } from './types.js';
 
@@ -39,6 +39,9 @@ export const buildInvocationState = (input: BuildInvocationStateInput): Invocati
         collectionId: null as CollectionId | null,
         allowedCompanies: [] as readonly string[],
       };
+  const collectionId: CollectionId | null = rbacFilter.collectionId
+    ? brandId<CollectionId>(rbacFilter.collectionId)
+    : null;
   return Object.freeze({
     tenant_id: input.tenantId,
     user_id: user?.id ?? null,
@@ -46,7 +49,7 @@ export const buildInvocationState = (input: BuildInvocationStateInput): Invocati
     rbac_filter: Object.freeze({
       tenantId: rbacFilter.tenantId,
       userId: rbacFilter.userId,
-      collectionId: rbacFilter.collectionId,
+      collectionId,
       allowedCompanies: rbacFilter.allowedCompanies,
     }),
     session_id: input.sessionId,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { FeatureHashingEmbedder } from '../src/embedder/feature-hashing.js';
-import { ConfigurationError } from '../src/errors/index.js';
+import { FeatureHashingEmbedder } from '../../src/embedder/feature-hashing.js';
+import { ConfigurationError } from '../../src/errors/index.js';
 
 describe('FeatureHashingEmbedder', () => {
   it('produces deterministic vectors for the same input', async () => {

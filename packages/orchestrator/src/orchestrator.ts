@@ -43,7 +43,7 @@ export interface OrchestratorOptions {
 export class Orchestrator {
   private readonly telemetry: Telemetry;
   private readonly tenantId: TenantId;
-  private readonly collectionId: CollectionId | null;
+  private readonly _collectionId: CollectionId | null;
   private readonly defaultStrategy: Strategy;
   private readonly sessionOverrides: Readonly<Record<string, unknown>>;
   private readonly patterns: Record<StrategyShape['mode'], PatternBuilder>;
@@ -53,7 +53,7 @@ export class Orchestrator {
   constructor(opts: OrchestratorOptions) {
     this.telemetry = opts.telemetry;
     this.tenantId = opts.tenantId;
-    this.collectionId = opts.collectionId ?? null;
+    this._collectionId = opts.collectionId ?? null;
     this.defaultStrategy = opts.defaultStrategy ?? resolveStrategy([]);
     this.sessionOverrides = opts.sessionOverrides ?? {};
     this.agents = opts.agents;
@@ -90,7 +90,7 @@ export class Orchestrator {
   }
 
   private makeInvocationState(req: OrchestratorRequest): InvocationState {
-    const userOverrides = req.user ? extractUserOverrides(req.user) : {};
+    const userOverrides: StrategyOverrides = req.user ? extractUserOverrides(req.user) : {};
     const strategy = resolveStrategy([
       this.defaultStrategy,
       this.sessionOverrides['strategy'] as never,
@@ -128,11 +128,11 @@ export class Orchestrator {
   }
 }
 
-const extractUserOverrides = (user: User): { strategy?: StrategyOverrides } => {
+const extractUserOverrides = (user: User): StrategyOverrides => {
   const meta = (user as unknown as { toJSON?: () => Record<string, unknown> }).toJSON?.() ?? {};
   const strat = meta['strategy'];
   if (!strat || typeof strat !== 'object') return {};
-  return { strategy: strat as StrategyOverrides };
+  return strat as StrategyOverrides;
 };
 
 // Re-export so consumers don't need a second import.

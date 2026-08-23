@@ -13,24 +13,22 @@ interface LangfuseModule {
 }
 
 interface LangfuseInstance {
-  span: (input: { name: string; input?: unknown; metadata?: Record<string, unknown> }) => LangfuseSpan;
+  span: (input: { name: string; input?: unknown; metadata?: Record<string, unknown> }) => LangfuseSdkSpan;
   flush: () => Promise<void>;
   shutdown: () => Promise<void>;
 }
 
-interface LangfuseSpan {
+interface LangfuseSdkSpan {
   update: (input: { output?: unknown; metadata?: Record<string, unknown>; level?: string }) => void;
   end: () => void;
   score?: (input: { name: string; value: number; comment?: string }) => void;
 }
 
-const dynamicRequire = new Function('spec', 'return import(spec)') as (
-  spec: string,
-) => Promise<unknown>;
+const dynamicImport = (spec: string): Promise<unknown> => import(spec);
 
 const loadLangfuse = async (): Promise<LangfuseModule | null> => {
   try {
-    const mod = (await dynamicRequire('langfuse')) as { default?: LangfuseModule } & LangfuseModule;
+    const mod = (await dynamicImport('langfuse')) as { default?: LangfuseModule } & LangfuseModule;
     return mod.default ?? mod;
   } catch {
     return null;
@@ -44,23 +42,23 @@ export interface LangfuseTelemetryOptions {
 }
 
 class LangfuseSpan implements TelemetrySpan {
-  constructor(private readonly span: LangfuseSpan) {}
+  constructor(private readonly handle: LangfuseSdkSpan) {}
 
   public setAttribute(key: string, value: string | number | boolean): void {
-    this.span.update({ metadata: { [key]: value } });
+    this.handle.update({ metadata: { [key]: value } });
   }
 
   public setAttributes(attributes: Readonly<Record<string, string | number | boolean>>): void {
-    this.span.update({ metadata: { ...attributes } });
+    this.handle.update({ metadata: { ...attributes } });
   }
 
   public recordException(err: unknown): void {
     const message = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err);
-    this.span.update({ level: 'ERROR', metadata: { exception: message } });
+    this.handle.update({ level: 'ERROR', metadata: { exception: message } });
   }
 
   public end(): void {
-    this.span.end();
+    this.handle.end();
   }
 }
 
@@ -81,7 +79,7 @@ export class LangfuseTelemetry implements Telemetry {
     this.client.span({ name, metadata: { ...attributes } }).end();
   }
 
-  public override score(name: string, value: number, comment?: string): void {
+  public score(name: string, value: number, comment?: string): void {
     // Langfuse requires an entity-bound score; emit a 0-duration span
     // marker so the value lands in metadata (full score API lands in
     // Phase 2 once traceIds are wired through the agent loop).

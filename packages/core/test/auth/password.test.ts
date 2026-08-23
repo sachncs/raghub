@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { BcryptHasher } from '../src/auth/password.js';
-import { ConfigurationError } from '../src/errors/index.js';
+import { BcryptHasher } from '../../src/auth/password.js';
+import { ConfigurationError } from '../../src/errors/index.js';
 
 describe('BcryptHasher', () => {
   it('rejects out-of-range rounds', () => {

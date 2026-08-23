@@ -1,0 +1,14 @@
+{
+  "documents": 2,
+  "words_per_document": 500,
+  "queries": 2,
+  "concurrency": 4,
+  "startup_seconds": 0.0018,
+  "ingestion_seconds": 0.0127,
+  "ingestion_chunks": 56,
+  "ingestion_throughput_chunks_per_sec": 4411.2,
+  "query_latency_ms_p50": 3.66,
+  "query_latency_ms_p95": 3.66,
+  "queries_per_second": 1337.44,
+  "memory_peak_mb": 522.56
+}

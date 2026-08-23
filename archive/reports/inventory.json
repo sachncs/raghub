@@ -1,0 +1,3113 @@
+{
+  "all_exports": {
+    "raghub.__init__": [
+      "RAG",
+      "MissingDep",
+      "RagHubError",
+      "Settings"
+    ],
+    "raghub.agent": [
+      "Agent",
+      "AgentTrace",
+      "PlannerEvent",
+      "build_tool_registry",
+      "resolve"
+    ],
+    "raghub.auth": [
+      "AuthService",
+      "SqliteUsers",
+      "UserRecord"
+    ],
+    "raghub.config": [
+      "AgentConfig",
+      "HybridConfig",
+      "LongContextConfig",
+      "QueryTransformsConfig",
+      "RerankerConfig",
+      "Settings",
+      "WebSearchConfig"
+    ],
+    "raghub.conv": [
+      "Memory"
+    ],
+    "raghub.embedder": [
+      "Embedder",
+      "Hasher",
+      "LiteLLMEmbedder",
+      "build_embedder"
+    ],
+    "raghub.errors": [
+      "AgentBudgetExceeded",
+      "AuthenticationError",
+      "AuthorizationError",
+      "CacheMiss",
+      "ConfigurationError",
+      "ConversionError",
+      "EmbeddingError",
+      "EvaluationError",
+      "GenerationError",
+      "GraphUnavailableError",
+      "IngestionError",
+      "KnowledgeError",
+      "MissingDep",
+      "PipelineError",
+      "PipelineFailed",
+      "RagHubError",
+      "RerankerError",
+      "RetrievalError",
+      "StreamingFormatError",
+      "TelemetryError",
+      "TokenBudgetExceeded",
+      "ToolError",
+      "TransformError",
+      "VectorStoreError",
+      "WebSearchError"
+    ],
+    "raghub.eval.__init__": [
+      "Finance",
+      "Frames",
+      "Gate",
+      "Judge",
+      "Metrics",
+      "Scoring",
+      "average",
+      "compare",
+      "parse",
+      "run"
+    ],
+    "raghub.eval.ragas.__init__": [
+      "RagasAdapter",
+      "import_ragas",
+      "load_metric"
+    ],
+    "raghub.eval.synthetic": [
+      "SyntheticDataset",
+      "chunk_id",
+      "chunk_text",
+      "clean_response"
+    ],
+    "raghub.gen": [
+      "DefaultGenerator",
+      "Instructor"
+    ],
+    "raghub.helper.auth": [
+      "App",
+      "Auth",
+      "Bearer"
+    ],
+    "raghub.helper.cli": [
+      "CliConfig",
+      "IngestCommand",
+      "InitCommand",
+      "QueryCommand",
+      "ServerCommand",
+      "ToolConfig"
+    ],
+    "raghub.helper.rate_limit": [
+      "RateLimiterMiddleware",
+      "TokenBucket"
+    ],
+    "raghub.helper.response": [
+      "Redaction",
+      "ResponseBuilder"
+    ],
+    "raghub.helper.search": [
+      "date",
+      "graph",
+      "hybrid",
+      "keyword",
+      "summary",
+      "vector",
+      "web"
+    ],
+    "raghub.helper.sse": [
+      "Sse"
+    ],
+    "raghub.ingest": [
+      "Batch",
+      "Chonkie",
+      "Ingestor",
+      "Resumable",
+      "WordChunker",
+      "build_chonkie_chunker"
+    ],
+    "raghub.knowledge": [
+      "GraphIndex",
+      "Manifest",
+      "MemoryRepo",
+      "Raptor",
+      "sha256_bytes"
+    ],
+    "raghub.lifecycle.__init__": [
+      "ChunkingPlan",
+      "Lifecycle",
+      "Marker",
+      "PlainTextConverter",
+      "Section",
+      "build_chunk_records",
+      "build_marker_converter",
+      "chunk_words",
+      "convert_path",
+      "datetime_now_utc",
+      "detect_mime_type",
+      "extract_pdf_metadata",
+      "extract_pdf_pages",
+      "extract_pdf_text",
+      "extract_text",
+      "looks_like_pdf",
+      "md_to_blocks",
+      "new_version",
+      "normalise_markdown",
+      "normalize_text",
+      "pick_converter",
+      "validate_upload"
+    ],
+    "raghub.llm": [
+      "LLM_API_KEY_ENV_VARS",
+      "Generator",
+      "HeuristicProvider",
+      "LiteLLM",
+      "any_llm_api_key_present",
+      "build_llm"
+    ],
+    "raghub.models": [
+      "AuthLoginRequest",
+      "AuthLoginResponse",
+      "Bundle",
+      "Chunk",
+      "ChunkRecord",
+      "Citation",
+      "Classification",
+      "ConversationTurn",
+      "Document",
+      "DocumentLifecycleStatus",
+      "DocumentRecord",
+      "DocumentUploadResponse",
+      "Embedding",
+      "Hit",
+      "PipelineCtx",
+      "PipelineResult",
+      "Query",
+      "QueryRequest",
+      "QueryResponse",
+      "RankedItem",
+      "RankedList",
+      "Response",
+      "Result",
+      "SearchRequest",
+      "SearchResponse",
+      "SearchResult",
+      "SessionRecord",
+      "User",
+      "Visibility",
+      "deterministic_id"
+    ],
+    "raghub.parsers": [
+      "HTML",
+      "Catalog",
+      "ChunkingPlan",
+      "Csv",
+      "Image",
+      "Lifecycle",
+      "Marker",
+      "Office",
+      "ParsedSection",
+      "Pdf",
+      "Txt",
+      "chunk_words",
+      "normalize_text",
+      "parse",
+      "validate_upload"
+    ],
+    "raghub.pipeline": [
+      "AgentPipeline",
+      "IngestPipeline",
+      "QueryCache",
+      "QueryPipeline"
+    ],
+    "raghub.rag": [
+      "LLM_API_KEY_ENV_VARS",
+      "RAG",
+      "has_llm_api_key"
+    ],
+    "raghub.repos": [
+      "ChunkStore",
+      "DocStore",
+      "UnitOfWork"
+    ],
+    "raghub.retrieval.__init__": [
+      "Cascade",
+      "Cohere",
+      "Colbert",
+      "Compose",
+      "Context",
+      "Decompose",
+      "Fusion",
+      "Hyde",
+      "Identity",
+      "LlmJudge",
+      "MultiQuery",
+      "Rerank",
+      "RerankerFactory",
+      "Retrieval",
+      "Search",
+      "SearchFilters",
+      "StepBack",
+      "Transformer",
+      "Variant",
+      "areranker",
+      "build_filter",
+      "build_reranker",
+      "context_prompt",
+      "decompose_prompt",
+      "extract_json_array",
+      "extract_json_object",
+      "extract_string_array",
+      "hyde_prompt",
+      "linear_combine",
+      "merge_with_rrf",
+      "multi_query_prompt",
+      "record_context_latency",
+      "reorder_candidates",
+      "rerank_latency",
+      "reranker",
+      "rrf",
+      "step_back_prompt",
+      "transform"
+    ],
+    "raghub.services.__init__": [
+      "Auth",
+      "Document",
+      "Facade",
+      "Facade",
+      "Health",
+      "MemoryQueue",
+      "Mixin",
+      "Preference",
+      "Query",
+      "RagContainer",
+      "Shutdown",
+      "Synchronous",
+      "ThreadPool",
+      "aggregate_status",
+      "build_container",
+      "get_doc",
+      "list_records",
+      "missing_doc",
+      "parse_users",
+      "probe_embedder",
+      "probe_vector_store",
+      "seed_blocked",
+      "seed_demo_users",
+      "upload_record"
+    ],
+    "raghub.store": [
+      "MemoryStore",
+      "SqliteStore",
+      "Store",
+      "build_store"
+    ],
+    "raghub.stores.__init__": [
+      "Database",
+      "Documents",
+      "ImageStore",
+      "JsonSessions",
+      "Sessions",
+      "Snapshot",
+      "migrate_from_json"
+    ],
+    "raghub.telemetry": [
+      "DEFAULT_METRICS_REGISTRY",
+      "LangfuseTelemetryProvider",
+      "LoguruTelemetryProvider",
+      "MetricsRegistry",
+      "NoOpTelemetry",
+      "PrometheusMetrics",
+      "RedactingTelemetry",
+      "build_logger"
+    ],
+    "raghub.tools.__init__": [
+      "DateToday",
+      "GraphSearch",
+      "HybridSearch",
+      "KeywordSearch",
+      "SummarySearch",
+      "Tool",
+      "ToolContext",
+      "ToolProtocol",
+      "ToolRegistry",
+      "ToolResult",
+      "VectorSearch",
+      "WebSearch",
+      "as_admin_user"
+    ]
+  },
+  "classes": {
+    "Agent": [
+      {
+        "file": "raghub/agent.py",
+        "line": "426"
+      }
+    ],
+    "AgentBudgetExceeded": [
+      {
+        "file": "raghub/errors.py",
+        "line": "121"
+      }
+    ],
+    "AgentConfig": [
+      {
+        "file": "raghub/config.py",
+        "line": "172"
+      }
+    ],
+    "AgentPipeline": [
+      {
+        "file": "raghub/pipeline.py",
+        "line": "910"
+      }
+    ],
+    "AgentTrace": [
+      {
+        "file": "raghub/agent.py",
+        "line": "404"
+      }
+    ],
+    "App": [
+      {
+        "file": "raghub/helper/auth.py",
+        "line": "24"
+      }
+    ],
+    "AppFactory": [
+      {
+        "file": "raghub/api.py",
+        "line": "925"
+      }
+    ],
+    "Auth": [
+      {
+        "file": "raghub/helper/auth.py",
+        "line": "66"
+      },
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "618"
+      }
+    ],
+    "AuthLoginRequest": [
+      {
+        "file": "raghub/models.py",
+        "line": "660"
+      }
+    ],
+    "AuthLoginResponse": [
+      {
+        "file": "raghub/models.py",
+        "line": "674"
+      }
+    ],
+    "AuthService": [
+      {
+        "file": "raghub/auth.py",
+        "line": "415"
+      }
+    ],
+    "AuthenticationError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "147"
+      }
+    ],
+    "AuthorizationError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "155"
+      }
+    ],
+    "Authz": [
+      {
+        "file": "raghub/auth.py",
+        "line": "337"
+      }
+    ],
+    "BackgroundWorker": [
+      {
+        "file": "raghub/models.py",
+        "line": "1145"
+      }
+    ],
+    "Batch": [
+      {
+        "file": "raghub/ingest.py",
+        "line": "731"
+      }
+    ],
+    "BatchIngestItem": [
+      {
+        "file": "raghub/models.py",
+        "line": "770"
+      }
+    ],
+    "BatchIngestResponse": [
+      {
+        "file": "raghub/models.py",
+        "line": "786"
+      }
+    ],
+    "Bearer": [
+      {
+        "file": "raghub/helper/auth.py",
+        "line": "39"
+      }
+    ],
+    "BlockKind": [
+      {
+        "file": "raghub/models.py",
+        "line": "374"
+      }
+    ],
+    "Bundle": [
+      {
+        "file": "raghub/models.py",
+        "line": "526"
+      }
+    ],
+    "CacheMiss": [
+      {
+        "file": "raghub/errors.py",
+        "line": "221"
+      }
+    ],
+    "Cascade": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "239"
+      }
+    ],
+    "Catalog": [
+      {
+        "file": "raghub/parsers.py",
+        "line": "380"
+      }
+    ],
+    "Chonkie": [
+      {
+        "file": "raghub/ingest.py",
+        "line": "214"
+      }
+    ],
+    "Chunk": [
+      {
+        "file": "raghub/domain.py",
+        "line": "32"
+      },
+      {
+        "file": "raghub/models.py",
+        "line": "436"
+      }
+    ],
+    "ChunkRecord": [
+      {
+        "file": "raghub/models.py",
+        "line": "270"
+      }
+    ],
+    "ChunkRepository": [
+      {
+        "file": "raghub/domain.py",
+        "line": "255"
+      }
+    ],
+    "ChunkStore": [
+      {
+        "file": "raghub/repos.py",
+        "line": "90"
+      }
+    ],
+    "Chunker": [
+      {
+        "file": "raghub/models.py",
+        "line": "803"
+      }
+    ],
+    "ChunkingPlan": [
+      {
+        "file": "raghub/lifecycle/__init__.py",
+        "line": "270"
+      }
+    ],
+    "Citation": [
+      {
+        "file": "raghub/models.py",
+        "line": "461"
+      }
+    ],
+    "Classification": [
+      {
+        "file": "raghub/models.py",
+        "line": "139"
+      }
+    ],
+    "CliConfig": [
+      {
+        "file": "raghub/helper/cli.py",
+        "line": "38"
+      }
+    ],
+    "Cohere": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "147"
+      }
+    ],
+    "Colbert": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "632"
+      }
+    ],
+    "Compose": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "1051"
+      }
+    ],
+    "ConfigurationError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "72"
+      }
+    ],
+    "Context": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "553"
+      }
+    ],
+    "ConversationManager": [
+      {
+        "file": "raghub/conv.py",
+        "line": "140"
+      }
+    ],
+    "ConversationRouter": [
+      {
+        "file": "raghub/pipeline.py",
+        "line": "266"
+      }
+    ],
+    "ConversationStore": [
+      {
+        "file": "raghub/conv.py",
+        "line": "331"
+      },
+      {
+        "file": "raghub/models.py",
+        "line": "1178"
+      }
+    ],
+    "ConversationTurn": [
+      {
+        "file": "raghub/models.py",
+        "line": "183"
+      }
+    ],
+    "ConversionError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "76"
+      }
+    ],
+    "Csv": [
+      {
+        "file": "raghub/parsers.py",
+        "line": "326"
+      }
+    ],
+    "Database": [
+      {
+        "file": "raghub/stores/__init__.py",
+        "line": "131"
+      }
+    ],
+    "DatabaseManager": [
+      {
+        "file": "raghub/domain.py",
+        "line": "390"
+      }
+    ],
+    "DateToday": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "305"
+      }
+    ],
+    "Decompose": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "966"
+      }
+    ],
+    "DefaultGenerator": [
+      {
+        "file": "raghub/gen.py",
+        "line": "45"
+      }
+    ],
+    "DocStore": [
+      {
+        "file": "raghub/repos.py",
+        "line": "134"
+      }
+    ],
+    "Document": [
+      {
+        "file": "raghub/domain.py",
+        "line": "77"
+      },
+      {
+        "file": "raghub/models.py",
+        "line": "428"
+      },
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "134"
+      }
+    ],
+    "DocumentBlock": [
+      {
+        "file": "raghub/models.py",
+        "line": "392"
+      }
+    ],
+    "DocumentConverter": [
+      {
+        "file": "raghub/models.py",
+        "line": "820"
+      }
+    ],
+    "DocumentLifecycleStatus": [
+      {
+        "file": "raghub/models.py",
+        "line": "104"
+      }
+    ],
+    "DocumentRecord": [
+      {
+        "file": "raghub/models.py",
+        "line": "226"
+      }
+    ],
+    "DocumentRegistry": [
+      {
+        "file": "raghub/models.py",
+        "line": "1161"
+      }
+    ],
+    "DocumentRepository": [
+      {
+        "file": "raghub/domain.py",
+        "line": "211"
+      }
+    ],
+    "DocumentSection": [
+      {
+        "file": "raghub/models.py",
+        "line": "408"
+      }
+    ],
+    "DocumentState": [
+      {
+        "file": "raghub/core.py",
+        "line": "18"
+      }
+    ],
+    "DocumentStateMachine": [
+      {
+        "file": "raghub/core.py",
+        "line": "48"
+      }
+    ],
+    "DocumentUploadResponse": [
+      {
+        "file": "raghub/models.py",
+        "line": "690"
+      }
+    ],
+    "Documents": [
+      {
+        "file": "raghub/stores/__init__.py",
+        "line": "238"
+      }
+    ],
+    "DurationTimer": [
+      {
+        "file": "raghub/pipeline.py",
+        "line": "86"
+      },
+      {
+        "file": "raghub/utils.py",
+        "line": "239"
+      }
+    ],
+    "Embedder": [
+      {
+        "file": "raghub/embedder.py",
+        "line": "39"
+      }
+    ],
+    "Embedding": [
+      {
+        "file": "raghub/models.py",
+        "line": "440"
+      }
+    ],
+    "EmbeddingError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "93"
+      }
+    ],
+    "EmbeddingProvider": [
+      {
+        "file": "raghub/models.py",
+        "line": "836"
+      }
+    ],
+    "EvaluationError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "113"
+      }
+    ],
+    "Evaluator": [
+      {
+        "file": "raghub/models.py",
+        "line": "850"
+      }
+    ],
+    "ExceptionHandlers": [
+      {
+        "file": "raghub/api.py",
+        "line": "240"
+      }
+    ],
+    "Facade": [
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "773"
+      }
+    ],
+    "File": [
+      {
+        "file": "raghub/parsers.py",
+        "line": "68"
+      }
+    ],
+    "Finance": [
+      {
+        "file": "raghub/eval/__init__.py",
+        "line": "516"
+      }
+    ],
+    "Frames": [
+      {
+        "file": "raghub/eval/__init__.py",
+        "line": "683"
+      }
+    ],
+    "Fusion": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "686"
+      }
+    ],
+    "Gate": [
+      {
+        "file": "raghub/eval/__init__.py",
+        "line": "1105"
+      }
+    ],
+    "GenerationError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "105"
+      }
+    ],
+    "Generator": [
+      {
+        "file": "raghub/llm.py",
+        "line": "69"
+      }
+    ],
+    "GeneratorProtocol": [
+      {
+        "file": "raghub/models.py",
+        "line": "865"
+      }
+    ],
+    "GraphIndex": [
+      {
+        "file": "raghub/knowledge.py",
+        "line": "651"
+      }
+    ],
+    "GraphSearch": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "334"
+      }
+    ],
+    "GraphUnavailableError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "137"
+      }
+    ],
+    "HTML": [
+      {
+        "file": "raghub/parsers.py",
+        "line": "134"
+      }
+    ],
+    "Hasher": [
+      {
+        "file": "raghub/embedder.py",
+        "line": "77"
+      }
+    ],
+    "Health": [
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "278"
+      }
+    ],
+    "HeuristicProvider": [
+      {
+        "file": "raghub/llm.py",
+        "line": "155"
+      }
+    ],
+    "Hit": [
+      {
+        "file": "raghub/models.py",
+        "line": "308"
+      }
+    ],
+    "HybridConfig": [
+      {
+        "file": "raghub/config.py",
+        "line": "254"
+      }
+    ],
+    "HybridConfigShim": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "1558"
+      }
+    ],
+    "HybridSearch": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "410"
+      }
+    ],
+    "Hyde": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "852"
+      }
+    ],
+    "Identity": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "120"
+      }
+    ],
+    "Image": [
+      {
+        "file": "raghub/parsers.py",
+        "line": "174"
+      }
+    ],
+    "ImageStore": [
+      {
+        "file": "raghub/stores/__init__.py",
+        "line": "179"
+      }
+    ],
+    "IngestCommand": [
+      {
+        "file": "raghub/helper/cli.py",
+        "line": "200"
+      }
+    ],
+    "IngestPipeline": [
+      {
+        "file": "raghub/pipeline.py",
+        "line": "394"
+      }
+    ],
+    "IngestionError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "89"
+      }
+    ],
+    "IngestionJob": [
+      {
+        "file": "raghub/ingest.py",
+        "line": "713"
+      }
+    ],
+    "IngestionResult": [
+      {
+        "file": "raghub/ingest.py",
+        "line": "515"
+      }
+    ],
+    "Ingestor": [
+      {
+        "file": "raghub/ingest.py",
+        "line": "568"
+      }
+    ],
+    "InitCommand": [
+      {
+        "file": "raghub/helper/cli.py",
+        "line": "250"
+      }
+    ],
+    "Instructor": [
+      {
+        "file": "raghub/gen.py",
+        "line": "212"
+      }
+    ],
+    "JsonSessions": [
+      {
+        "file": "raghub/stores/__init__.py",
+        "line": "392"
+      }
+    ],
+    "Judge": [
+      {
+        "file": "raghub/eval/__init__.py",
+        "line": "952"
+      }
+    ],
+    "KeywordSearch": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "505"
+      }
+    ],
+    "KnowledgeError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "85"
+      }
+    ],
+    "KnowledgeIndex": [
+      {
+        "file": "raghub/knowledge.py",
+        "line": "297"
+      }
+    ],
+    "KnowledgeRepository": [
+      {
+        "file": "raghub/models.py",
+        "line": "889"
+      }
+    ],
+    "LLMProvider": [
+      {
+        "file": "raghub/models.py",
+        "line": "1112"
+      }
+    ],
+    "LLMValueErrorBoundary": [
+      {
+        "file": "raghub/llm.py",
+        "line": "132"
+      }
+    ],
+    "LangfuseSpan": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "632"
+      }
+    ],
+    "LangfuseTelemetryProvider": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "662"
+      }
+    ],
+    "Lifecycle": [
+      {
+        "file": "raghub/lifecycle/__init__.py",
+        "line": "81"
+      }
+    ],
+    "Lifespan": [
+      {
+        "file": "raghub/api.py",
+        "line": "190"
+      }
+    ],
+    "LiteLLM": [
+      {
+        "file": "raghub/llm.py",
+        "line": "208"
+      }
+    ],
+    "LiteLLMEmbedder": [
+      {
+        "file": "raghub/embedder.py",
+        "line": "153"
+      }
+    ],
+    "LlmJudge": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "379"
+      }
+    ],
+    "Logger": [
+      {
+        "file": "raghub/models.py",
+        "line": "909"
+      }
+    ],
+    "LoguruLogger": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "476"
+      }
+    ],
+    "LoguruSpan": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "503"
+      }
+    ],
+    "LoguruTelemetryProvider": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "531"
+      }
+    ],
+    "LongContextConfig": [
+      {
+        "file": "raghub/config.py",
+        "line": "230"
+      }
+    ],
+    "Manifest": [
+      {
+        "file": "raghub/knowledge.py",
+        "line": "235"
+      }
+    ],
+    "Marker": [
+      {
+        "file": "raghub/lifecycle/__init__.py",
+        "line": "759"
+      }
+    ],
+    "Memory": [
+      {
+        "file": "raghub/conv.py",
+        "line": "350"
+      }
+    ],
+    "MemoryQueue": [
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "406"
+      }
+    ],
+    "MemoryRepo": [
+      {
+        "file": "raghub/knowledge.py",
+        "line": "197"
+      }
+    ],
+    "MemoryStore": [
+      {
+        "file": "raghub/store.py",
+        "line": "181"
+      }
+    ],
+    "MemoryVectorRecord": [
+      {
+        "file": "raghub/store.py",
+        "line": "174"
+      }
+    ],
+    "Metrics": [
+      {
+        "file": "raghub/eval/__init__.py",
+        "line": "40"
+      },
+      {
+        "file": "raghub/models.py",
+        "line": "923"
+      }
+    ],
+    "MetricsRegistry": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "93"
+      }
+    ],
+    "MissingDep": [
+      {
+        "file": "raghub/errors.py",
+        "line": "171"
+      }
+    ],
+    "Mixin": [
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "83"
+      }
+    ],
+    "MultiQuery": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "910"
+      }
+    ],
+    "NoOpTelemetry": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "888"
+      }
+    ],
+    "NoopSpan": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "607"
+      }
+    ],
+    "NullMetrics": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "130"
+      }
+    ],
+    "Office": [
+      {
+        "file": "raghub/parsers.py",
+        "line": "224"
+      }
+    ],
+    "ParsedSection": [
+      {
+        "file": "raghub/parsers.py",
+        "line": "49"
+      }
+    ],
+    "Pdf": [
+      {
+        "file": "raghub/parsers.py",
+        "line": "87"
+      }
+    ],
+    "PersistentJobStore": [
+      {
+        "file": "raghub/ingest.py",
+        "line": "799"
+      }
+    ],
+    "Pipeline": [
+      {
+        "file": "raghub/models.py",
+        "line": "1131"
+      }
+    ],
+    "PipelineCtx": [
+      {
+        "file": "raghub/models.py",
+        "line": "557"
+      }
+    ],
+    "PipelineError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "109"
+      }
+    ],
+    "PipelineFailed": [
+      {
+        "file": "raghub/errors.py",
+        "line": "193"
+      }
+    ],
+    "PipelineResult": [
+      {
+        "file": "raghub/models.py",
+        "line": "575"
+      }
+    ],
+    "PipelineResultBuilder": [
+      {
+        "file": "raghub/pipeline.py",
+        "line": "301"
+      }
+    ],
+    "PlainTextConverter": [
+      {
+        "file": "raghub/lifecycle/__init__.py",
+        "line": "721"
+      }
+    ],
+    "PlannerAction": [
+      {
+        "file": "raghub/agent.py",
+        "line": "110"
+      }
+    ],
+    "PlannerEvent": [
+      {
+        "file": "raghub/agent.py",
+        "line": "64"
+      }
+    ],
+    "PlannerFinal": [
+      {
+        "file": "raghub/agent.py",
+        "line": "119"
+      }
+    ],
+    "PlannerParseError": [
+      {
+        "file": "raghub/agent.py",
+        "line": "127"
+      }
+    ],
+    "Plugin": [
+      {
+        "file": "raghub/models.py",
+        "line": "1206"
+      }
+    ],
+    "PluginRegistry": [
+      {
+        "file": "raghub/plugins.py",
+        "line": "34"
+      }
+    ],
+    "Preference": [
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "675"
+      }
+    ],
+    "PreferencesPatch": [
+      {
+        "file": "raghub/api.py",
+        "line": "289"
+      }
+    ],
+    "PreferencesResponse": [
+      {
+        "file": "raghub/api.py",
+        "line": "277"
+      }
+    ],
+    "PrometheusMetrics": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "158"
+      }
+    ],
+    "PromptBuilder": [
+      {
+        "file": "raghub/models.py",
+        "line": "1094"
+      },
+      {
+        "file": "raghub/prompts.py",
+        "line": "117"
+      }
+    ],
+    "PromptConfig": [
+      {
+        "file": "raghub/prompts.py",
+        "line": "34"
+      }
+    ],
+    "Query": [
+      {
+        "file": "raghub/models.py",
+        "line": "492"
+      },
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "308"
+      }
+    ],
+    "QueryCache": [
+      {
+        "file": "raghub/pipeline.py",
+        "line": "128"
+      }
+    ],
+    "QueryCommand": [
+      {
+        "file": "raghub/helper/cli.py",
+        "line": "289"
+      }
+    ],
+    "QueryPipeline": [
+      {
+        "file": "raghub/pipeline.py",
+        "line": "566"
+      }
+    ],
+    "QueryRequest": [
+      {
+        "file": "raghub/models.py",
+        "line": "708"
+      }
+    ],
+    "QueryResponse": [
+      {
+        "file": "raghub/models.py",
+        "line": "745"
+      }
+    ],
+    "QueryTransformsConfig": [
+      {
+        "file": "raghub/config.py",
+        "line": "273"
+      }
+    ],
+    "RAG": [
+      {
+        "file": "raghub/rag.py",
+        "line": "381"
+      }
+    ],
+    "RAGHubGenie": [
+      {
+        "file": "raghub/ingest.py",
+        "line": "92"
+      }
+    ],
+    "RagContainer": [
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "426"
+      }
+    ],
+    "RagHubError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "59"
+      }
+    ],
+    "RagasAdapter": [
+      {
+        "file": "raghub/eval/ragas/__init__.py",
+        "line": "80"
+      }
+    ],
+    "RankedItem": [
+      {
+        "file": "raghub/models.py",
+        "line": "627"
+      }
+    ],
+    "RankedList": [
+      {
+        "file": "raghub/models.py",
+        "line": "643"
+      }
+    ],
+    "Raptor": [
+      {
+        "file": "raghub/knowledge.py",
+        "line": "341"
+      }
+    ],
+    "RateLimiterMiddleware": [
+      {
+        "file": "raghub/helper/rate_limit.py",
+        "line": "66"
+      }
+    ],
+    "RbacGuard": [
+      {
+        "file": "raghub/core.py",
+        "line": "125"
+      }
+    ],
+    "RedactingTelemetry": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "931"
+      }
+    ],
+    "Redaction": [
+      {
+        "file": "raghub/helper/response.py",
+        "line": "15"
+      }
+    ],
+    "Rerank": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "76"
+      }
+    ],
+    "Reranker": [
+      {
+        "file": "raghub/models.py",
+        "line": "1081"
+      }
+    ],
+    "RerankerConfig": [
+      {
+        "file": "raghub/config.py",
+        "line": "213"
+      }
+    ],
+    "RerankerError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "133"
+      }
+    ],
+    "RerankerFactory": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "1478"
+      }
+    ],
+    "ResolvedConfig": [
+      {
+        "file": "raghub/agent.py",
+        "line": "231"
+      }
+    ],
+    "Response": [
+      {
+        "file": "raghub/models.py",
+        "line": "496"
+      }
+    ],
+    "ResponseBuilder": [
+      {
+        "file": "raghub/helper/response.py",
+        "line": "39"
+      }
+    ],
+    "Result": [
+      {
+        "file": "raghub/models.py",
+        "line": "602"
+      }
+    ],
+    "Resumable": [
+      {
+        "file": "raghub/ingest.py",
+        "line": "867"
+      }
+    ],
+    "Retrieval": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "1209"
+      }
+    ],
+    "RetrievalError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "101"
+      }
+    ],
+    "Retriever": [
+      {
+        "file": "raghub/models.py",
+        "line": "1067"
+      }
+    ],
+    "RouteGroup": [
+      {
+        "file": "raghub/api.py",
+        "line": "315"
+      }
+    ],
+    "SafeConsoleSpanExporter": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "981"
+      }
+    ],
+    "Scoring": [
+      {
+        "file": "raghub/eval/__init__.py",
+        "line": "476"
+      }
+    ],
+    "Search": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "1136"
+      }
+    ],
+    "SearchFilters": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "1097"
+      }
+    ],
+    "SearchRequest": [
+      {
+        "file": "raghub/models.py",
+        "line": "332"
+      }
+    ],
+    "SearchResponse": [
+      {
+        "file": "raghub/models.py",
+        "line": "349"
+      }
+    ],
+    "SearchResult": [
+      {
+        "file": "raghub/models.py",
+        "line": "485"
+      }
+    ],
+    "Section": [
+      {
+        "file": "raghub/lifecycle/__init__.py",
+        "line": "520"
+      }
+    ],
+    "ServerCommand": [
+      {
+        "file": "raghub/helper/cli.py",
+        "line": "329"
+      }
+    ],
+    "Session": [
+      {
+        "file": "raghub/domain.py",
+        "line": "147"
+      }
+    ],
+    "SessionRecord": [
+      {
+        "file": "raghub/models.py",
+        "line": "199"
+      }
+    ],
+    "SessionRepository": [
+      {
+        "file": "raghub/domain.py",
+        "line": "295"
+      }
+    ],
+    "SessionStore": [
+      {
+        "file": "raghub/repos.py",
+        "line": "404"
+      }
+    ],
+    "SessionStoreProtocol": [
+      {
+        "file": "raghub/models.py",
+        "line": "1192"
+      }
+    ],
+    "Sessions": [
+      {
+        "file": "raghub/stores/__init__.py",
+        "line": "515"
+      }
+    ],
+    "Settings": [
+      {
+        "file": "raghub/config.py",
+        "line": "34"
+      }
+    ],
+    "Shutdown": [
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "644"
+      }
+    ],
+    "SlidingWindowManager": [
+      {
+        "file": "raghub/conv.py",
+        "line": "54"
+      }
+    ],
+    "Snapshot": [
+      {
+        "file": "raghub/stores/__init__.py",
+        "line": "231"
+      }
+    ],
+    "Span": [
+      {
+        "file": "raghub/models.py",
+        "line": "935"
+      }
+    ],
+    "SqliteStore": [
+      {
+        "file": "raghub/store.py",
+        "line": "407"
+      }
+    ],
+    "SqliteUsers": [
+      {
+        "file": "raghub/auth.py",
+        "line": "70"
+      }
+    ],
+    "Sse": [
+      {
+        "file": "raghub/helper/sse.py",
+        "line": "14"
+      }
+    ],
+    "StepBack": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "1015"
+      }
+    ],
+    "Store": [
+      {
+        "file": "raghub/store.py",
+        "line": "97"
+      }
+    ],
+    "StreamingFormatError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "217"
+      }
+    ],
+    "StructuredOutputProvider": [
+      {
+        "file": "raghub/models.py",
+        "line": "977"
+      }
+    ],
+    "SummarySearch": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "576"
+      }
+    ],
+    "Synchronous": [
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "371"
+      }
+    ],
+    "SyntheticDataset": [
+      {
+        "file": "raghub/eval/synthetic.py",
+        "line": "72"
+      }
+    ],
+    "TaskQueue": [
+      {
+        "file": "raghub/models.py",
+        "line": "1153"
+      }
+    ],
+    "TelemetryError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "163"
+      }
+    ],
+    "TelemetryProvider": [
+      {
+        "file": "raghub/models.py",
+        "line": "948"
+      }
+    ],
+    "ThreadPool": [
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "385"
+      }
+    ],
+    "TokenBucket": [
+      {
+        "file": "raghub/helper/rate_limit.py",
+        "line": "18"
+      }
+    ],
+    "TokenBudgetExceeded": [
+      {
+        "file": "raghub/errors.py",
+        "line": "213"
+      }
+    ],
+    "TokenCounter": [
+      {
+        "file": "raghub/prompts.py",
+        "line": "52"
+      }
+    ],
+    "Tool": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "119"
+      }
+    ],
+    "ToolConfig": [
+      {
+        "file": "raghub/helper/cli.py",
+        "line": "80"
+      }
+    ],
+    "ToolContext": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "98"
+      }
+    ],
+    "ToolError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "117"
+      }
+    ],
+    "ToolProtocol": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "67"
+      }
+    ],
+    "ToolRegistry": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "217"
+      }
+    ],
+    "ToolResult": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "46"
+      }
+    ],
+    "Tracer": [
+      {
+        "file": "raghub/telemetry.py",
+        "line": "1032"
+      }
+    ],
+    "TransformError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "143"
+      }
+    ],
+    "Transformer": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "95"
+      }
+    ],
+    "Txt": [
+      {
+        "file": "raghub/parsers.py",
+        "line": "353"
+      }
+    ],
+    "UnitOfWork": [
+      {
+        "file": "raghub/domain.py",
+        "line": "323"
+      },
+      {
+        "file": "raghub/repos.py",
+        "line": "497"
+      }
+    ],
+    "User": [
+      {
+        "file": "raghub/models.py",
+        "line": "156"
+      }
+    ],
+    "UserRecord": [
+      {
+        "file": "raghub/auth.py",
+        "line": "46"
+      }
+    ],
+    "Variant": [
+      {
+        "file": "raghub/retrieval/__init__.py",
+        "line": "60"
+      }
+    ],
+    "VectorSearch": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "636"
+      }
+    ],
+    "VectorStore": [
+      {
+        "file": "raghub/models.py",
+        "line": "1001"
+      }
+    ],
+    "VectorStoreError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "97"
+      }
+    ],
+    "Visibility": [
+      {
+        "file": "raghub/models.py",
+        "line": "126"
+      }
+    ],
+    "WebSearch": [
+      {
+        "file": "raghub/tools/__init__.py",
+        "line": "700"
+      }
+    ],
+    "WebSearchConfig": [
+      {
+        "file": "raghub/config.py",
+        "line": "197"
+      }
+    ],
+    "WebSearchError": [
+      {
+        "file": "raghub/errors.py",
+        "line": "129"
+      }
+    ],
+    "WordChunker": [
+      {
+        "file": "raghub/ingest.py",
+        "line": "372"
+      }
+    ]
+  },
+  "collisions": {
+    "Auth": [
+      {
+        "file": "raghub/helper/auth.py",
+        "line": "66"
+      },
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "618"
+      }
+    ],
+    "Chunk": [
+      {
+        "file": "raghub/domain.py",
+        "line": "32"
+      },
+      {
+        "file": "raghub/models.py",
+        "line": "436"
+      }
+    ],
+    "ConversationStore": [
+      {
+        "file": "raghub/conv.py",
+        "line": "331"
+      },
+      {
+        "file": "raghub/models.py",
+        "line": "1178"
+      }
+    ],
+    "Document": [
+      {
+        "file": "raghub/domain.py",
+        "line": "77"
+      },
+      {
+        "file": "raghub/models.py",
+        "line": "428"
+      },
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "134"
+      }
+    ],
+    "DurationTimer": [
+      {
+        "file": "raghub/pipeline.py",
+        "line": "86"
+      },
+      {
+        "file": "raghub/utils.py",
+        "line": "239"
+      }
+    ],
+    "Metrics": [
+      {
+        "file": "raghub/eval/__init__.py",
+        "line": "40"
+      },
+      {
+        "file": "raghub/models.py",
+        "line": "923"
+      }
+    ],
+    "PromptBuilder": [
+      {
+        "file": "raghub/models.py",
+        "line": "1094"
+      },
+      {
+        "file": "raghub/prompts.py",
+        "line": "117"
+      }
+    ],
+    "Query": [
+      {
+        "file": "raghub/models.py",
+        "line": "492"
+      },
+      {
+        "file": "raghub/services/__init__.py",
+        "line": "308"
+      }
+    ],
+    "UnitOfWork": [
+      {
+        "file": "raghub/domain.py",
+        "line": "323"
+      },
+      {
+        "file": "raghub/repos.py",
+        "line": "497"
+      }
+    ]
+  },
+  "enum_candidates": [],
+  "functions": [
+    {
+      "file": "raghub/__init__.py",
+      "kind": "function",
+      "line": 23,
+      "name": "__getattr__"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 134,
+      "name": "json_loads_or_none"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 140,
+      "name": "extract_json_object"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 166,
+      "name": "parse_turn"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 192,
+      "name": "render_system_prompt"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 253,
+      "name": "coerce_tools"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 262,
+      "name": "coerce_transforms"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 273,
+      "name": "coerce_reranker"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 280,
+      "name": "coerce_max_steps"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 286,
+      "name": "cast_or_none_int"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 292,
+      "name": "pick_value"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 300,
+      "name": "resolve"
+    },
+    {
+      "file": "raghub/agent.py",
+      "kind": "function",
+      "line": 375,
+      "name": "build_tool_registry"
+    },
+    {
+      "file": "raghub/api.py",
+      "kind": "function",
+      "line": 72,
+      "name": "cors_origins_from_env"
+    },
+    {
+      "file": "raghub/api.py",
+      "kind": "function",
+      "line": 85,
+      "name": "validate_cors"
+    },
+    {
+      "file": "raghub/api.py",
+      "kind": "function",
+      "line": 112,
+      "name": "check_upload_size"
+    },
+    {
+      "file": "raghub/api.py",
+      "kind": "function",
+      "line": 137,
+      "name": "upload_content_length"
+    },
+    {
+      "file": "raghub/api.py",
+      "kind": "function",
+      "line": 154,
+      "name": "enforce_upload_limit"
+    },
+    {
+      "file": "raghub/api.py",
+      "kind": "function",
+      "line": 300,
+      "name": "user_store_or_503"
+    },
+    {
+      "file": "raghub/api.py",
+      "kind": "function",
+      "line": 833,
+      "name": "package_metadata"
+    },
+    {
+      "file": "raghub/api.py",
+      "kind": "function",
+      "line": 859,
+      "name": "root_health_route"
+    },
+    {
+      "file": "raghub/api.py",
+      "kind": "function",
+      "line": 877,
+      "name": "create_app"
+    },
+    {
+      "file": "raghub/cli.py",
+      "kind": "function",
+      "line": 45,
+      "name": "health"
+    },
+    {
+      "file": "raghub/cli.py",
+      "kind": "function",
+      "line": 51,
+      "name": "version"
+    },
+    {
+      "file": "raghub/cli.py",
+      "kind": "function",
+      "line": 59,
+      "name": "main"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 300,
+      "name": "env_bool"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 317,
+      "name": "csv_to_transforms"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 337,
+      "name": "read_toml_file"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 356,
+      "name": "load_profile"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 386,
+      "name": "_resolve_config_dir"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 417,
+      "name": "load_env"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 474,
+      "name": "_env_int"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 501,
+      "name": "_env_float"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 528,
+      "name": "load_agent"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 550,
+      "name": "load_web"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 576,
+      "name": "load_reranker"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 598,
+      "name": "load_longcontext"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 614,
+      "name": "load_hybrid"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 646,
+      "name": "load_transforms"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 668,
+      "name": "production_check"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "function",
+      "line": 687,
+      "name": "load_from_env"
+    },
+    {
+      "file": "raghub/conv.py",
+      "kind": "function",
+      "line": 34,
+      "name": "try_load_gigatoken"
+    },
+    {
+      "file": "raghub/core.py",
+      "kind": "function",
+      "line": 179,
+      "name": "allowed_company_filter"
+    },
+    {
+      "file": "raghub/core.py",
+      "kind": "function",
+      "line": 191,
+      "name": "can_access_company"
+    },
+    {
+      "file": "raghub/embedder.py",
+      "kind": "function",
+      "line": 216,
+      "name": "build_embedder"
+    },
+    {
+      "file": "raghub/eval/__init__.py",
+      "kind": "function",
+      "line": 621,
+      "name": "_evaluate"
+    },
+    {
+      "file": "raghub/eval/__init__.py",
+      "kind": "function",
+      "line": 930,
+      "name": "parse"
+    },
+    {
+      "file": "raghub/eval/__init__.py",
+      "kind": "function",
+      "line": 1074,
+      "name": "run"
+    },
+    {
+      "file": "raghub/eval/__init__.py",
+      "kind": "function",
+      "line": 1221,
+      "name": "compare"
+    },
+    {
+      "file": "raghub/eval/__init__.py",
+      "kind": "function",
+      "line": 1296,
+      "name": "average"
+    },
+    {
+      "file": "raghub/eval/ragas/__init__.py",
+      "kind": "function",
+      "line": 27,
+      "name": "import_ragas"
+    },
+    {
+      "file": "raghub/eval/ragas/__init__.py",
+      "kind": "function",
+      "line": 46,
+      "name": "load_metric"
+    },
+    {
+      "file": "raghub/eval/synthetic.py",
+      "kind": "function",
+      "line": 29,
+      "name": "chunk_text"
+    },
+    {
+      "file": "raghub/eval/synthetic.py",
+      "kind": "function",
+      "line": 52,
+      "name": "chunk_id"
+    },
+    {
+      "file": "raghub/eval/synthetic.py",
+      "kind": "function",
+      "line": 181,
+      "name": "clean_response"
+    },
+    {
+      "file": "raghub/evaluation.py",
+      "kind": "function",
+      "line": 23,
+      "name": "financebench"
+    },
+    {
+      "file": "raghub/evaluation.py",
+      "kind": "function",
+      "line": 60,
+      "name": "frames"
+    },
+    {
+      "file": "raghub/helper/search.py",
+      "kind": "function",
+      "line": 36,
+      "name": "date"
+    },
+    {
+      "file": "raghub/helper/search.py",
+      "kind": "function",
+      "line": 42,
+      "name": "vector"
+    },
+    {
+      "file": "raghub/helper/search.py",
+      "kind": "function",
+      "line": 54,
+      "name": "keyword"
+    },
+    {
+      "file": "raghub/helper/search.py",
+      "kind": "function",
+      "line": 66,
+      "name": "graph"
+    },
+    {
+      "file": "raghub/helper/search.py",
+      "kind": "function",
+      "line": 79,
+      "name": "summary"
+    },
+    {
+      "file": "raghub/helper/search.py",
+      "kind": "function",
+      "line": 91,
+      "name": "web"
+    },
+    {
+      "file": "raghub/helper/search.py",
+      "kind": "function",
+      "line": 97,
+      "name": "hybrid"
+    },
+    {
+      "file": "raghub/ingest.py",
+      "kind": "function",
+      "line": 112,
+      "name": "build_refinery"
+    },
+    {
+      "file": "raghub/ingest.py",
+      "kind": "function",
+      "line": 125,
+      "name": "apply_refinery"
+    },
+    {
+      "file": "raghub/ingest.py",
+      "kind": "function",
+      "line": 133,
+      "name": "build_chonkie_inner"
+    },
+    {
+      "file": "raghub/ingest.py",
+      "kind": "function",
+      "line": 473,
+      "name": "build_chonkie_chunker"
+    },
+    {
+      "file": "raghub/ingest.py",
+      "kind": "function",
+      "line": 528,
+      "name": "record_from_pipeline"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 55,
+      "name": "to_okf"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 95,
+      "name": "from_okf"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 164,
+      "name": "dumps"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 177,
+      "name": "loads"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 287,
+      "name": "sha256_bytes"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 478,
+      "name": "cluster"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 509,
+      "name": "summarise_async"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 530,
+      "name": "summarise"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 560,
+      "name": "summary_id_for"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 565,
+      "name": "cosine"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 577,
+      "name": "chunk_to_record"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 620,
+      "name": "extract_json_object"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 646,
+      "name": "tokenise"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 996,
+      "name": "connected_components"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 1016,
+      "name": "running_loop_present"
+    },
+    {
+      "file": "raghub/knowledge.py",
+      "kind": "function",
+      "line": 1022,
+      "name": "run_in_thread"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 124,
+      "name": "new_version"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 146,
+      "name": "datetime_now_utc"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 200,
+      "name": "detect_mime_type"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 225,
+      "name": "validate_upload"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 283,
+      "name": "extract_pdf_pages"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 306,
+      "name": "normalize_text"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 318,
+      "name": "chunk_words"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 344,
+      "name": "extract_pdf_text"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 360,
+      "name": "extract_text"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 416,
+      "name": "extract_pdf_metadata"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 444,
+      "name": "build_chunk_records"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 636,
+      "name": "md_to_blocks"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 645,
+      "name": "normalise_markdown"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 708,
+      "name": "build_marker_converter"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 847,
+      "name": "looks_like_pdf"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 852,
+      "name": "pick_converter"
+    },
+    {
+      "file": "raghub/lifecycle/__init__.py",
+      "kind": "function",
+      "line": 868,
+      "name": "convert_path"
+    },
+    {
+      "file": "raghub/llm.py",
+      "kind": "function",
+      "line": 58,
+      "name": "any_llm_api_key_present"
+    },
+    {
+      "file": "raghub/llm.py",
+      "kind": "function",
+      "line": 572,
+      "name": "build_llm"
+    },
+    {
+      "file": "raghub/models.py",
+      "kind": "function",
+      "line": 79,
+      "name": "deterministic_id"
+    },
+    {
+      "file": "raghub/parsers.py",
+      "kind": "function",
+      "line": 515,
+      "name": "parse"
+    },
+    {
+      "file": "raghub/pipeline.py",
+      "kind": "function",
+      "line": 114,
+      "name": "canonical_filters"
+    },
+    {
+      "file": "raghub/pipeline.py",
+      "kind": "function",
+      "line": 334,
+      "name": "get_chunks"
+    },
+    {
+      "file": "raghub/pipeline.py",
+      "kind": "function",
+      "line": 377,
+      "name": "sha256_checksum"
+    },
+    {
+      "file": "raghub/pipeline.py",
+      "kind": "function",
+      "line": 382,
+      "name": "primary_company"
+    },
+    {
+      "file": "raghub/pipeline.py",
+      "kind": "function",
+      "line": 1027,
+      "name": "citations_from_trace"
+    },
+    {
+      "file": "raghub/pipeline.py",
+      "kind": "function",
+      "line": 1043,
+      "name": "hits_from_trace"
+    },
+    {
+      "file": "raghub/rag.py",
+      "kind": "function",
+      "line": 145,
+      "name": "has_llm_api_key"
+    },
+    {
+      "file": "raghub/rag.py",
+      "kind": "function",
+      "line": 150,
+      "name": "default_converter"
+    },
+    {
+      "file": "raghub/rag.py",
+      "kind": "function",
+      "line": 179,
+      "name": "default_chunker"
+    },
+    {
+      "file": "raghub/rag.py",
+      "kind": "function",
+      "line": 206,
+      "name": "default_embedder"
+    },
+    {
+      "file": "raghub/rag.py",
+      "kind": "function",
+      "line": 225,
+      "name": "default_llm"
+    },
+    {
+      "file": "raghub/rag.py",
+      "kind": "function",
+      "line": 245,
+      "name": "default_vector_store"
+    },
+    {
+      "file": "raghub/rag.py",
+      "kind": "function",
+      "line": 260,
+      "name": "default_structured"
+    },
+    {
+      "file": "raghub/rag.py",
+      "kind": "function",
+      "line": 274,
+      "name": "default_telemetry"
+    },
+    {
+      "file": "raghub/rag.py",
+      "kind": "function",
+      "line": 293,
+      "name": "default_transforms"
+    },
+    {
+      "file": "raghub/rag.py",
+      "kind": "function",
+      "line": 329,
+      "name": "ingest_one_worker"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 142,
+      "name": "rerank_latency"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 333,
+      "name": "extract_json_array"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 361,
+      "name": "merge_with_rrf"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 486,
+      "name": "context_prompt"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 502,
+      "name": "extract_json_object"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 528,
+      "name": "reorder_candidates"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 548,
+      "name": "record_context_latency"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 752,
+      "name": "rrf"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 773,
+      "name": "linear_combine"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 808,
+      "name": "extract_string_array"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 842,
+      "name": "hyde_prompt"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 901,
+      "name": "multi_query_prompt"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 957,
+      "name": "decompose_prompt"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 1006,
+      "name": "step_back_prompt"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 1119,
+      "name": "build_filter"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 1533,
+      "name": "build_reranker"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 1548,
+      "name": "default_hybrid_config"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 1567,
+      "name": "default_long_context"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 1577,
+      "name": "reranker"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 1604,
+      "name": "areranker"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 1615,
+      "name": "transform"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 1640,
+      "name": "reranker_from_method"
+    },
+    {
+      "file": "raghub/retrieval/__init__.py",
+      "kind": "function",
+      "line": 1661,
+      "name": "transformer_from_method"
+    },
+    {
+      "file": "raghub/services/__init__.py",
+      "kind": "function",
+      "line": 115,
+      "name": "upload_record"
+    },
+    {
+      "file": "raghub/services/__init__.py",
+      "kind": "function",
+      "line": 119,
+      "name": "missing_doc"
+    },
+    {
+      "file": "raghub/services/__init__.py",
+      "kind": "function",
+      "line": 123,
+      "name": "list_records"
+    },
+    {
+      "file": "raghub/services/__init__.py",
+      "kind": "function",
+      "line": 127,
+      "name": "get_doc"
+    },
+    {
+      "file": "raghub/services/__init__.py",
+      "kind": "function",
+      "line": 227,
+      "name": "probe_vector_store"
+    },
+    {
+      "file": "raghub/services/__init__.py",
+      "kind": "function",
+      "line": 246,
+      "name": "probe_embedder"
+    },
+    {
+      "file": "raghub/services/__init__.py",
+      "kind": "function",
+      "line": 269,
+      "name": "aggregate_status"
+    },
+    {
+      "file": "raghub/services/__init__.py",
+      "kind": "function",
+      "line": 468,
+      "name": "seed_blocked"
+    },
+    {
+      "file": "raghub/services/__init__.py",
+      "kind": "function",
+      "line": 474,
+      "name": "parse_users"
+    },
+    {
+      "file": "raghub/services/__init__.py",
+      "kind": "function",
+      "line": 480,
+      "name": "seed_demo_users"
+    },
+    {
+      "file": "raghub/services/__init__.py",
+      "kind": "function",
+      "line": 522,
+      "name": "build_container"
+    },
+    {
+      "file": "raghub/store.py",
+      "kind": "function",
+      "line": 42,
+      "name": "matches_metadata_dict"
+    },
+    {
+      "file": "raghub/store.py",
+      "kind": "function",
+      "line": 63,
+      "name": "matches_metadata_string"
+    },
+    {
+      "file": "raghub/store.py",
+      "kind": "function",
+      "line": 697,
+      "name": "build_store"
+    },
+    {
+      "file": "raghub/stores/__init__.py",
+      "kind": "function",
+      "line": 52,
+      "name": "_is_aiosqlite_row"
+    },
+    {
+      "file": "raghub/stores/__init__.py",
+      "kind": "function",
+      "line": 851,
+      "name": "migrate_from_json"
+    },
+    {
+      "file": "raghub/telemetry.py",
+      "kind": "function",
+      "line": 336,
+      "name": "try_import_submodule"
+    },
+    {
+      "file": "raghub/telemetry.py",
+      "kind": "function",
+      "line": 347,
+      "name": "set_active_metrics"
+    },
+    {
+      "file": "raghub/telemetry.py",
+      "kind": "function",
+      "line": 361,
+      "name": "record_rerank_latency"
+    },
+    {
+      "file": "raghub/telemetry.py",
+      "kind": "function",
+      "line": 380,
+      "name": "record_long_context"
+    },
+    {
+      "file": "raghub/telemetry.py",
+      "kind": "function",
+      "line": 400,
+      "name": "scrub_secrets"
+    },
+    {
+      "file": "raghub/telemetry.py",
+      "kind": "function",
+      "line": 413,
+      "name": "redact_record"
+    },
+    {
+      "file": "raghub/telemetry.py",
+      "kind": "function",
+      "line": 439,
+      "name": "build_logger"
+    },
+    {
+      "file": "raghub/tools/__init__.py",
+      "kind": "function",
+      "line": 278,
+      "name": "as_admin_user"
+    },
+    {
+      "file": "raghub/utils.py",
+      "kind": "function",
+      "line": 34,
+      "name": "write_json"
+    },
+    {
+      "file": "raghub/utils.py",
+      "kind": "function",
+      "line": 45,
+      "name": "atomic_write_json"
+    },
+    {
+      "file": "raghub/utils.py",
+      "kind": "function",
+      "line": 67,
+      "name": "load_json"
+    },
+    {
+      "file": "raghub/utils.py",
+      "kind": "function",
+      "line": 87,
+      "name": "capture"
+    },
+    {
+      "file": "raghub/utils.py",
+      "kind": "function",
+      "line": 97,
+      "name": "retry"
+    },
+    {
+      "file": "raghub/utils.py",
+      "kind": "function",
+      "line": 154,
+      "name": "aretry"
+    },
+    {
+      "file": "raghub/utils.py",
+      "kind": "function",
+      "line": 198,
+      "name": "maybe_await"
+    },
+    {
+      "file": "raghub/utils.py",
+      "kind": "function",
+      "line": 217,
+      "name": "maybe_await_sync"
+    }
+  ],
+  "generated_at": "2026-07-31T07:47:13+00:00",
+  "private_candidates": [
+    {
+      "file": "raghub/config.py",
+      "kind": "FunctionDef",
+      "line": 386,
+      "name": "_resolve_config_dir"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "FunctionDef",
+      "line": 474,
+      "name": "_env_int"
+    },
+    {
+      "file": "raghub/config.py",
+      "kind": "FunctionDef",
+      "line": 501,
+      "name": "_env_float"
+    },
+    {
+      "file": "raghub/eval/__init__.py",
+      "kind": "AsyncFunctionDef",
+      "line": 621,
+      "name": "_evaluate"
+    },
+    {
+      "file": "raghub/stores/__init__.py",
+      "kind": "FunctionDef",
+      "line": 52,
+      "name": "_is_aiosqlite_row"
+    }
+  ],
+  "summary": {
+    "class_count": 264,
+    "collisions": 9,
+    "enum_candidates": 0,
+    "files_scanned": 40,
+    "function_count": 177,
+    "private_candidates": 5
+  }
+}

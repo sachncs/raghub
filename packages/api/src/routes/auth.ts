@@ -11,6 +11,7 @@ import { Hono } from 'hono';
 import {
   type BcryptHasher,
   type JwtService,
+  type TenantId,
   type UserStore,
   brandId,
   AuthError,
@@ -33,7 +34,7 @@ interface LoginInput {
   readonly password: string;
 }
 
-const newTenantId = () => brandId<'TenantId'>(`tnt_${Math.random().toString(36).slice(2, 14)}`);
+const newTenantId = (): TenantId => brandId<TenantId>(`tnt_${Math.random().toString(36).slice(2, 14)}`);
 
 export const authRoutes = (deps: AuthRouteDeps): Hono => {
   const app = new Hono();

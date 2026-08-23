@@ -11,7 +11,7 @@
 
 import { Hono } from 'hono';
 
-import { brandId, type JwtService, type StrategyOverrides, type UserStore } from '@raghub/core';
+import { brandId, type JwtService, type TenantId, type UserId, type UserStore } from '@raghub/core';
 
 import { getClaims } from '../middleware/auth.js';
 
@@ -20,6 +20,7 @@ export interface MeRouteDeps {
   readonly jwt: JwtService;
 }
 
+type StrategyOverrides = Record<string, unknown>;
 const memoryStrategyStore = new Map<string, StrategyOverrides>();
 
 export const meRoutes = (deps: MeRouteDeps): Hono => {
@@ -28,8 +29,8 @@ export const meRoutes = (deps: MeRouteDeps): Hono => {
   app.get('/v1/me', async (c) => {
     const claims = getClaims(c);
     const user = await deps.userStore.getById(
-      brandId<'TenantId'>(claims.tenant_id),
-      brandId<'UserId'>(claims.sub),
+      brandId<TenantId>(claims.tenant_id),
+      brandId<UserId>(claims.sub),
     );
     if (!user) {
       return c.json({ error: { code: 'auth_error', message: 'user not found' } }, 401);

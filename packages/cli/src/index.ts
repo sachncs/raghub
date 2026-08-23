@@ -1,11 +1,10 @@
+#!/usr/bin/env node
 /**
  * @raghub/cli — `raghub` binary entry.
  *
  * Registers every command and dispatches argv[0] to the right
  * runner. `runCommand()` exits with the runner's status code.
  */
-
-#!/usr/bin/env node
 
 import { runCommand } from './runner.js';
 import { initCommand } from './commands/init.js';

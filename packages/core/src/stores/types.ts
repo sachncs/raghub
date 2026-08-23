@@ -8,7 +8,7 @@
  */
 
 import type { Chunk, Hit } from '../domain/index.js';
-import type { ChunkId, DocumentId, TenantId, UserId } from '../domain/ids.js';
+import type { ChunkId, DocumentId, TenantId, UserId } from '../domain/index.js';
 
 export interface StoreFilter {
   readonly tenantId: TenantId;
