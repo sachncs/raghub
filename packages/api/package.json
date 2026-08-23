@@ -27,9 +27,11 @@
     "@hono/node-server": "^2.1.1",
     "@raghub/core": "workspace:*",
     "@raghub/orchestrator": "workspace:*",
+    "better-sqlite3": "^12.11.1",
     "hono": "4.6.10"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.9.0",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",

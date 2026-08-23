@@ -108,6 +108,19 @@ export default function ChatPage() {
           <a className="underline" href="/documents">Documents</a>
           <a className="underline" href="/settings">Settings</a>
           <a className="underline" href="/members">Members</a>
+          <button
+            type="button"
+            className="text-xs underline"
+            onClick={() => void (async () => {
+              await fetch('/api/proxy', {
+                method: 'POST',
+                headers: { 'x-raghub-path': '/v1/auth/logout' },
+              });
+              window.location.href = '/sign-in';
+            })()}
+          >
+            Sign out
+          </button>
         </nav>
       </header>
       <section className="flex-1 space-y-4 overflow-y-auto rounded-lg border bg-card p-4">

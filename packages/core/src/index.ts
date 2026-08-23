@@ -32,3 +32,16 @@ export type {
   WorkspaceWithSettings,
   OpenWorkspaceOptions,
 } from './encryption.js';
+
+export type {
+  WorkspaceRegistry,
+  WorkspaceRegistryEntry,
+  FileWorkspaceRegistryOptions,
+} from './workspace-registry.js';
+export {
+  defaultRegistryPath,
+  openFileWorkspaceRegistry,
+} from './workspace-registry.js';
+
+export { MIGRATIONS, runMigrations, lastAppliedId } from './migrations.js';
+export type { Migration } from './migrations.js';
