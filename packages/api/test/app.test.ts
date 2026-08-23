@@ -13,6 +13,8 @@ describe('createApp (shape only)', () => {
       jwt: undefined as never,
       orchestrator: undefined as never,
       documentStore: undefined as never,
+      documentPrincipalStore: undefined as never,
+      memberStore: undefined as never,
       sessionStore: undefined as never,
       conversationStore: undefined as never,
       jobQueue: undefined as never,

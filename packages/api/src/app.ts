@@ -10,6 +10,7 @@ import { Hono } from 'hono';
 import {
   type BcryptHasher,
   type ConversationStore,
+  type DocumentPrincipalStore,
   type DocumentStore,
   type Embedder,
   type JwtService,
@@ -17,19 +18,24 @@ import {
   type SessionStore,
   type UserStore,
   type VectorStore,
+  type WorkspaceMemberStore,
 } from '@raghub/core';
 import type { Orchestrator } from '@raghub/orchestrator';
 
 import { jwtAuthMiddleware } from './middleware/auth.js';
 import { errorMiddleware } from './middleware/error.js';
 import { authRoutes, type WorkspacePathResolver } from './routes/auth.js';
+import { documentAclRoutes } from './routes/document-acl.js';
 import { documentsRoutes } from './routes/documents.js';
 import { meRoutes } from './routes/me.js';
 import { queryRoutes } from './routes/query.js';
+import { workspaceRoutes } from './routes/workspaces.js';
 
 export interface AppDeps {
   readonly userStore: UserStore;
   readonly documentStore: DocumentStore;
+  readonly documentPrincipalStore: DocumentPrincipalStore;
+  readonly memberStore: WorkspaceMemberStore;
   readonly sessionStore: SessionStore;
   readonly conversationStore: ConversationStore;
   readonly jobQueue: SqliteJobQueue;
@@ -73,6 +79,18 @@ export const createApp = (deps: AppDeps): Hono => {
       embedder: deps.embedder,
       vectorStore: deps.vectorStore,
     }),
+  );
+  protectedApp.route(
+    '/',
+    documentAclRoutes({
+      principalStore: deps.documentPrincipalStore,
+      memberStore: deps.memberStore,
+      documentStore: deps.documentStore,
+    }),
+  );
+  protectedApp.route(
+    '/',
+    workspaceRoutes({ memberStore: deps.memberStore }),
   );
   app.route('/', protectedApp);
 
