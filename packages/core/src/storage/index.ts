@@ -56,3 +56,17 @@ export {
   SqliteDocumentPrincipalStore,
 } from './document-principal.js';
 export type { SqliteDocumentPrincipalStoreOptions } from './document-principal.js';
+
+export type {
+  MemoryFact,
+  MemorySearchInput,
+  MemorySearchResult,
+  MemoryScopeValue,
+  RememberInput,
+  WorkspaceMemoryStore,
+} from './memory.js';
+export {
+  MemoryScope,
+  SqliteWorkspaceMemoryStore,
+} from './memory.js';
+export type { SqliteWorkspaceMemoryStoreOptions } from './memory.js';

@@ -20,6 +20,7 @@ import {
   type SummaryIndex,
   type VectorStore,
   type WebSearch,
+  type WorkspaceMemoryStore,
   allowedCompanyFilter,
 } from '@raghub/core';
 
@@ -68,6 +69,7 @@ export interface SubAgentDeps {
   readonly graphStore?: SqliteGraphStore;
   readonly summaryIndex?: SummaryIndex;
   readonly traceCorpus?: SqliteTraceCorpus;
+  readonly memory?: WorkspaceMemoryStore;
 }
 
 export const buildVectorSubAgent = (deps: Pick<SubAgentDeps, 'embedder' | 'vectorStore'>): SubAgent => ({
@@ -240,10 +242,38 @@ export const buildWebSubAgent = (deps: Pick<SubAgentDeps, 'webSearch'>): SubAgen
   };
 };
 
-export const buildMemorySubAgent = (_deps: SubAgentDeps): SubAgent | null => {
-  // Memory sub-agent wires in once WorkspaceMemoryStore (C-13) lands.
-  void _deps;
-  return null;
+export const buildMemorySubAgent = (deps: Pick<SubAgentDeps, 'memory'>): SubAgent | null => {
+  const store = deps.memory;
+  if (!store) return null;
+  return {
+    role: 'memory',
+    async retrieve(input: SubAgentInput, state: InvocationState) {
+      const user = userFromState(state);
+      const facts = await store.search({
+        workspaceId: state.workspace_id,
+        userId: state.user_id,
+        query: input.query,
+        topK: state.strategy.k,
+        allowedCompanies: user.allowedCompanies,
+      });
+      return facts.map((f: { id: string; content: string; scope: string; score: number }) => ({
+        chunk: {
+          id: (`mem_${f.id}` as never) as never,
+          workspaceId: state.workspace_id,
+          ownerId: state.user_id ?? ('' as never),
+          collectionId: ('' as never) as never,
+          documentId: f.id as never,
+          modality: 'text' as const,
+          text: f.content,
+          embedding: [],
+          metadata: { source: 'memory', scope: f.scope },
+          tokenCount: f.content.split(/\s+/).length,
+          createdAt: new Date(),
+        } as never,
+        score: f.score,
+      }));
+    },
+  };
 };
 
 export const buildSummarySubAgent = (_deps: Pick<SubAgentDeps, 'summaryIndex'>): SubAgent | null => {
@@ -266,6 +296,8 @@ export const buildDefaultSubAgents = (deps: SubAgentDeps): readonly SubAgent[] =
   if (t) list.push(t);
   const w = buildWebSubAgent(deps);
   if (w) list.push(w);
+  const m = buildMemorySubAgent(deps);
+  if (m) list.push(m);
   return list;
 };
 
