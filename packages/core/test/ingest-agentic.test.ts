@@ -79,7 +79,7 @@ describe('agenticIngest', () => {
     const vec = new FakeVectorStore();
     const graph = new FakeGraphStore();
     const memory = new FakeMemoryStore();
-    const embedder = {
+    const embedder = { model: "test", dimension: 8,
       embedDocuments: async (texts: readonly string[]) => texts.map(() => new Array(8).fill(0.1)),
       embedQuery: async () => new Array(8).fill(0.1),
     };
@@ -108,7 +108,7 @@ describe('agenticIngest', () => {
 
   it('does not crash without extra stores', async () => {
     const vec = new FakeVectorStore();
-    const embedder = {
+    const embedder = { model: "test", dimension: 8,
       embedDocuments: async (texts: readonly string[]) => texts.map(() => new Array(8).fill(0.1)),
       embedQuery: async () => new Array(8).fill(0.1),
     };
@@ -128,7 +128,7 @@ describe('agenticIngest', () => {
 
   it('returns alreadyExisted=true when seenHashes says so', async () => {
     const vec = new FakeVectorStore();
-    const embedder = {
+    const embedder = { model: "test", dimension: 8,
       embedDocuments: async () => [],
       embedQuery: async () => new Array(8).fill(0.1),
     };
