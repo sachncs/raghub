@@ -26,10 +26,16 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "zod": "3.23.8"
+    "zod": "3.23.8",
+    "openai": "4.71.1"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "11.5.0",
+    "@sqlite.org/sqlite-vec": "0.1.7-alpha.2"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
+    "@types/better-sqlite3": "7.6.11",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
     "vitest": "^2.1.5"
