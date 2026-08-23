@@ -10,8 +10,9 @@ import { runCommand } from './runner.js';
 import { initCommand } from './commands/init.js';
 import { pgvectorToSqliteCommand, sqliteImportCommand } from './commands/migrate.js';
 import { devCommand } from './commands/dev.js';
+import { onboardCommand } from './commands/onboard.js';
 
-const commands = [initCommand, pgvectorToSqliteCommand, sqliteImportCommand, devCommand];
+const commands = [initCommand, onboardCommand, pgvectorToSqliteCommand, sqliteImportCommand, devCommand];
 
 const main = async (): Promise<void> => {
   const argv = process.argv.slice(2);

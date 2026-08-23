@@ -25,6 +25,7 @@
     "@raghub/core": "workspace:*",
     "@raghub/orchestrator": "workspace:*",
     "@raghub/api": "workspace:*",
+    "@raghub/eval": "workspace:*",
     "pg": "^8.23.0"
   },
   "devDependencies": {
