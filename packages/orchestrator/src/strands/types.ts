@@ -61,7 +61,11 @@ export interface Strategy {
   readonly k: number;
   readonly reranker: 'identity' | 'bge' | 'cohere' | 'llm_judge';
   readonly multimodal: { readonly enabled: boolean };
-  readonly traceCorpus: { readonly enabled: boolean; readonly representation: 'struct' | 'semantic' | 'reflect' };
+  readonly traceCorpus: {
+    readonly enabled: boolean;
+    readonly representation: 'struct' | 'semantic' | 'reflect';
+    readonly topK: number;
+  };
 }
 
 /** A planner event emitted by the orchestrator (mirrors legacy Python Agent). */

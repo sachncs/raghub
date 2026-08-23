@@ -19,3 +19,7 @@ export * from './storage/index.js';
 export * from './llm/index.js';
 export * from './chunker/index.js';
 export * from './ingest.js';
+export * from './web/search.js';
+export * from './graph/store.js';
+export * from './summary/index.js';
+export * from './traces/corpus.js';

@@ -27,7 +27,7 @@ describe('buildInvocationState', () => {
         k: 10,
         reranker: 'identity',
         multimodal: { enabled: false },
-        traceCorpus: { enabled: false, representation: 'semantic' },
+        traceCorpus: { enabled: false, representation: 'semantic', topK: 5 },
       },
     });
     expect(Object.isFrozen(state)).toBe(true);
@@ -51,7 +51,7 @@ describe('buildInvocationState', () => {
         k: 5,
         reranker: 'identity',
         multimodal: { enabled: false },
-        traceCorpus: { enabled: false, representation: 'semantic' },
+        traceCorpus: { enabled: false, representation: 'semantic', topK: 5 },
       },
     });
     expect(state.user_id).toBeNull();
