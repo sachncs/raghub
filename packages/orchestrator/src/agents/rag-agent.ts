@@ -18,6 +18,7 @@ import type { ChatMessage, Hit } from '@raghub/core';
 
 import type { Agent, AgentRegistry } from '../agents/registry.js';
 import type { InvocationState, OrchestratorRequest, OrchestratorResult } from '../strands/types.js';
+import type { AgentHookBus, AgentHookEvents } from '../hooks/agent-hooks.js';
 
 export type AgentRole =
   | 'vector'
@@ -122,6 +123,8 @@ export interface RagAgentDeps {
   readonly agents: AgentRegistry;
   readonly subAgents: readonly SubAgent[];
   readonly hooks?: RagAgentHooks;
+  /** Optional structured hook bus for telemetry subscribers. */
+  readonly hookBus?: AgentHookBus;
   readonly retry?: RetryStrategy;
   /** Maximum number of conversation turns before triggering summarization. */
   readonly turnLimit?: number;
@@ -159,6 +162,7 @@ export class RagAgent {
   private readonly agents: AgentRegistry;
   private readonly subAgents: readonly SubAgent[];
   private readonly hooks: RagAgentHooks;
+  private readonly hookBus: AgentHookBus | undefined;
   private readonly retry: RetryStrategy;
   private readonly turnLimit: number;
   private readonly summarizerId: string | undefined;
@@ -168,10 +172,23 @@ export class RagAgent {
     this.agents = deps.agents;
     this.subAgents = deps.subAgents;
     this.hooks = deps.hooks ?? {};
+    this.hookBus = deps.hookBus;
     this.retry = deps.retry ?? defaultRetryStrategy();
     this.turnLimit = deps.turnLimit ?? DEFAULT_TURN_LIMIT;
     this.summarizerId = deps.summarizerId;
     this.defaultRoles = deps.defaultRoles ?? ['vector', 'keyword', 'memory', 'web'];
+  }
+
+  private emit<K extends keyof AgentHookEvents>(kind: K, event: AgentHookEvents[K]): void {
+    if (!this.hookBus) return;
+    const list = (this.hookBus[kind] as readonly ((e: AgentHookEvents[K]) => void | Promise<void>)[]);
+    for (const fn of list) {
+      try {
+        void fn(event);
+      } catch {
+        // Hook errors are swallowed.
+      }
+    }
   }
 
   /**
@@ -228,16 +245,19 @@ export class RagAgent {
       .filter((s): s is SubAgent => s !== undefined)
       .map(async (s) => {
         await this.hooks.beforeRetrieve?.(s.role, state);
+        this.emit('beforeRetrieve', { role: s.role, state });
         const start = Date.now();
         try {
           const hits = await this.withRetry(() =>
             s.retrieve({ role: s.role, query: req.question, filter }, state),
           );
           await this.hooks.afterRetrieve?.(s.role, hits, state);
+          this.emit('afterRetrieve', { role: s.role, hits, state });
           return { role: s.role, hits, latencyMs: Date.now() - start };
         } catch (e) {
           const message = e instanceof Error ? e.message : String(e);
           await this.hooks.afterRetrieve?.(s.role, [], state);
+          this.emit('afterRetrieve', { role: s.role, hits: [], state, error: message });
           return {
             role: s.role,
             hits: [],
@@ -270,8 +290,10 @@ export class RagAgent {
 
   private async invokeWithHooks<T>(req: OrchestratorRequest, state: InvocationState, fn: () => Promise<T>): Promise<T> {
     await this.hooks.beforeLLM?.(req, state);
+    this.emit('beforeLLM', { request: req, state });
     const out = await fn();
     await this.hooks.afterLLM?.(req, typeof out === 'string' ? out : JSON.stringify(out), state);
+    this.emit('afterLLM', { request: req, answer: typeof out === 'string' ? out : JSON.stringify(out), state });
     return out;
   }
 

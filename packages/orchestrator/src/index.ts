@@ -33,6 +33,14 @@ export {
   RAG_AGENT_DEFAULT_ROLES,
 } from './agents/rag-agent.js';
 
+export { HookRegistry, createConsoleLoggingHook } from './hooks/agent-hooks.js';
+export type {
+  AgentHook,
+  AgentHookBus,
+  AgentHookEvents,
+  ToolResultLike,
+} from './hooks/agent-hooks.js';
+
 export {
   buildVectorSubAgent,
   buildKeywordSubAgent,
