@@ -73,7 +73,7 @@ describe('loadSettings', () => {
     expect(() => loadSettings(rest)).toThrow(/jwtSecret/);
   });
 
-  it('rejects malformed tenantSecretsKey', () => {
+  it('rejects malformed workspaceSecretsKey', () => {
     expect(() => loadSettings({ ...valid, RAGHUB_TENANT_SECRETS_KEY: 'too-short' })).toThrow();
   });
 

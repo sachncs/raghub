@@ -9,7 +9,7 @@
  */
 
 import type { Llm, Retrieval, Telemetry } from '@raghub/core';
-import { runWithTenantAsync, type CollectionId, type TenantId } from '@raghub/core';
+import { runWithWorkspaceAsync, type CollectionId, type WorkspaceId } from '@raghub/core';
 
 import { buildGraph, buildSwarm, buildWorkflow, type PatternBuilder } from './patterns/builders.js';
 import { resolveStrategy, type StrategyOverrides } from './patterns/strategy.js';
@@ -31,8 +31,7 @@ import type { User } from '@raghub/core';
 
 export interface OrchestratorOptions {
   readonly telemetry: Telemetry;
-  readonly tenantId: TenantId;
-  readonly collectionId?: CollectionId | null;
+  readonly workspaceId: WorkspaceId;
   readonly defaultStrategy?: Strategy;
   readonly sessionOverrides?: Readonly<Record<string, unknown>>;
   readonly adapters?: { readonly graph?: StrandsAdapter; readonly swarm?: StrandsAdapter; readonly workflow?: StrandsAdapter };
@@ -45,8 +44,7 @@ export interface OrchestratorOptions {
 
 export class Orchestrator {
   private readonly telemetry: Telemetry;
-  private readonly tenantId: TenantId;
-  private readonly _collectionId: CollectionId | null;
+  private readonly workspaceId: WorkspaceId;
   private readonly defaultStrategy: Strategy;
   private readonly sessionOverrides: Readonly<Record<string, unknown>>;
   private readonly patterns: Record<StrategyShape['mode'], PatternBuilder>;
@@ -55,8 +53,7 @@ export class Orchestrator {
 
   constructor(opts: OrchestratorOptions) {
     this.telemetry = opts.telemetry;
-    this.tenantId = opts.tenantId;
-    this._collectionId = opts.collectionId ?? null;
+    this.workspaceId = opts.workspaceId;
     this.defaultStrategy = opts.defaultStrategy ?? resolveStrategy([]);
     this.sessionOverrides = opts.sessionOverrides ?? {};
     this.agents = opts.agents;
@@ -82,9 +79,9 @@ export class Orchestrator {
   public async run(req: OrchestratorRequest): Promise<OrchestratorResult> {
     const state = this.makeInvocationState(req);
     const mode = state.strategy.mode;
-    return runWithTenantAsync(
+    return runWithWorkspaceAsync(
       {
-        tenantId: state.tenant_id,
+        workspaceId: state.workspace_id,
         userId: state.user_id,
         isAdmin: state.is_admin,
         sessionId: state.session_id,
@@ -111,9 +108,9 @@ export class Orchestrator {
       }
     };
 
-    const task = runWithTenantAsync(
+    const task = runWithWorkspaceAsync(
       {
-        tenantId: state.tenant_id,
+        workspaceId: state.workspace_id,
         userId: state.user_id,
         isAdmin: state.is_admin,
         sessionId: state.session_id,
@@ -167,7 +164,7 @@ export class Orchestrator {
       userOverrides,
     ]);
     return buildInvocationState({
-      tenantId: this.tenantId,
+      workspaceId: this.workspaceId,
       user: req.user,
       sessionId: req.sessionId,
       sessionOverrides: this.sessionOverrides,

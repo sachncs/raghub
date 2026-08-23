@@ -22,7 +22,7 @@ import {
   type Embedder,
   type Llm,
   type SqliteTraceCorpus,
-  type TenantId,
+  type WorkspaceId,
   type TraceId,
   type UserId,
   type TraceRepresentation,
@@ -38,7 +38,7 @@ export interface ProblemInput {
 }
 
 export interface BuildOptions {
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly userId?: UserId | null;
   readonly corpus: SqliteTraceCorpus;
   readonly embedder: Embedder;
@@ -124,7 +124,7 @@ export const buildTraceCorpus = async (
     const idTyped = id as unknown as TraceId;
     await opts.corpus.insert({
       id: idTyped,
-      tenantId: opts.tenantId,
+      workspaceId: opts.workspaceId,
       userId: opts.userId ?? null,
       sourceProblem: input.problem,
       raw,

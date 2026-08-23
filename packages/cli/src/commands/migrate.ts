@@ -43,7 +43,7 @@ const loadPg = async (): Promise<PgModule | null> => {
 
 interface ExportedChunk {
   id: string;
-  tenant_id: string;
+  workspace_id: string;
   owner_id: string;
   collection_id: string;
   document_id: string;
@@ -75,7 +75,7 @@ export const pgvectorToSqliteCommand: Command = {
     try {
       await client.query('SELECT 1');
       const res = await client.query(
-        `SELECT id, tenant_id, owner_id, collection_id, document_id, modality,
+        `SELECT id, workspace_id, owner_id, collection_id, document_id, modality,
                 text, token_count, metadata_json, embedding, created_at
          FROM chunks`,
       );
@@ -84,7 +84,7 @@ export const pgvectorToSqliteCommand: Command = {
       for (const row of res.rows) {
         const record: ExportedChunk = {
           id: String(row['id']),
-          tenant_id: String(row['tenant_id']),
+          workspace_id: String(row['workspace_id']),
           owner_id: String(row['owner_id']),
           collection_id: String(row['collection_id']),
           document_id: String(row['document_id']),
@@ -141,8 +141,6 @@ const parseEmbedding = (raw: unknown): number[] => {
   return [];
 };
 
-void ChunkModality;
-void writeFile;
 
 /**
  * `raghub migrate-import --in chunks.ndjson --db ./raghub.db`
@@ -163,7 +161,7 @@ import {
   type CollectionId,
   type DocumentId,
   brandId,
-  type TenantId,
+  type WorkspaceId,
   type UserId,
   SqliteVecStore,
 } from '@raghub/core';
@@ -173,7 +171,7 @@ const fromLine = async (line: string): Promise<Chunk | null> => {
   const obj = JSON.parse(line) as ExportedChunk;
   return new Chunk({
     id: brandId<ChunkId>(obj.id),
-    tenantId: brandId<TenantId>(obj.tenant_id),
+    workspaceId: brandId<WorkspaceId>(obj.workspace_id),
     ownerId: brandId<UserId>(obj.owner_id),
     collectionId: brandId<CollectionId>(obj.collection_id),
     documentId: brandId<DocumentId>(obj.document_id),

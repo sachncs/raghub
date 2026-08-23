@@ -8,13 +8,13 @@
  * history.
  */
 
-import type { SessionId, TenantId, UserId } from '../domain/index.js';
+import type { SessionId, WorkspaceId, UserId } from '../domain/index.js';
 import { brandId } from '../domain/index.js';
 import { VectorStoreError } from '../errors/index.js';
 
 export interface SessionRecord {
   readonly id: SessionId;
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly userId: UserId;
   readonly strategyOverrides: Readonly<Record<string, unknown>>;
   readonly createdAt: Date;
@@ -23,7 +23,7 @@ export interface SessionRecord {
 
 export interface SessionStore {
   upsert(input: {
-    tenantId: TenantId;
+    workspaceId: WorkspaceId;
     userId: UserId;
     rawToken: string;
     strategyOverrides?: Readonly<Record<string, unknown>>;
@@ -81,7 +81,7 @@ export class SqliteSessionStore implements SessionStore {
     db.exec(`
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL,
+        workspace_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         raw_token TEXT NOT NULL UNIQUE,
         strategy_overrides_json TEXT NOT NULL DEFAULT '{}',
@@ -94,7 +94,7 @@ export class SqliteSessionStore implements SessionStore {
   }
 
   public async upsert(input: {
-    tenantId: TenantId;
+    workspaceId: WorkspaceId;
     userId: UserId;
     rawToken: string;
     strategyOverrides?: Readonly<Record<string, unknown>>;
@@ -104,15 +104,15 @@ export class SqliteSessionStore implements SessionStore {
     const id = brandId<SessionId>(namespaceId(input.userId, input.rawToken));
     const overridesJson = JSON.stringify({ ...(input.strategyOverrides ?? {}) });
     db.prepare(
-      `INSERT INTO sessions (id, tenant_id, user_id, raw_token, strategy_overrides_json, created_at, updated_at)
+      `INSERT INTO sessions (id, workspace_id, user_id, raw_token, strategy_overrides_json, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(raw_token) DO UPDATE SET
          strategy_overrides_json = excluded.strategy_overrides_json,
          updated_at = excluded.updated_at`,
-    ).run(id, input.tenantId, input.userId, input.rawToken, overridesJson, now, now);
+    ).run(id, input.workspaceId, input.userId, input.rawToken, overridesJson, now, now);
     return {
       id,
-      tenantId: input.tenantId,
+      workspaceId: input.workspaceId,
       userId: input.userId,
       strategyOverrides: input.strategyOverrides ?? {},
       createdAt: new Date(now),
@@ -128,7 +128,7 @@ export class SqliteSessionStore implements SessionStore {
     if (!row) return null;
     return {
       id: brandId<SessionId>(String(row['id'])),
-      tenantId: brandId<TenantId>(String(row['tenant_id'])),
+      workspaceId: brandId<WorkspaceId>(String(row['workspace_id'])),
       userId: brandId<UserId>(String(row['user_id'])),
       strategyOverrides: JSON.parse(String(row['strategy_overrides_json'] ?? '{}')) as Record<string, unknown>,
       createdAt: new Date(Number(row['created_at'])),

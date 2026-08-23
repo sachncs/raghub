@@ -57,14 +57,12 @@ const emptyResult = (mode: Strategy['mode'], req: OrchestratorRequest): Orchestr
 export class InProcessAdapter implements StrandsAdapter {
   public readonly name = 'in-process';
   private readonly agents: AgentRegistry;
-  private readonly _tools: ToolRegistry;
   private readonly llm: Llm;
   private readonly retrieval: Retrieval;
   private readonly model: string;
 
   constructor(deps: InProcessAdapterDeps) {
     this.agents = deps.agents;
-    this._tools = deps.tools;
     this.llm = deps.llm;
     this.retrieval = deps.retrieval;
     this.model = deps.model;

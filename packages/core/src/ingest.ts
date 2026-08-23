@@ -23,17 +23,17 @@ import {
   type ChunkId,
   type CollectionId,
   type DocumentId,
-  type TenantId,
+  type WorkspaceId,
   type UserId,
 } from './domain/index.js';
 import type { Embedder } from './embedder/index.js';
 import type { VectorStore } from './stores/index.js';
 
-import { chunkMarkdown, chunkPdf, chunkStructured, chunkText as _chunkText } from './chunker/index.js';
+import { chunkMarkdown, chunkPdf, chunkStructured, chunkText } from './chunker/index.js';
 import type { TextChunk } from './chunker/index.js';
 
 export interface IngestInput {
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly ownerId: UserId;
   readonly collectionId: CollectionId;
   readonly filename: string;
@@ -77,9 +77,6 @@ const detectKind = (mime: string, filename: string): 'pdf' | 'html' | 'markdown'
   const ext = filename.toLowerCase().split('.').pop() ?? '';
   return EXT_KIND[ext] ?? 'text';
 };
-
-void chunkPdf;
-void chunkMarkdown;
 
 const stripHtml = (html: string): string =>
   html
@@ -141,7 +138,7 @@ export const ingest = async (input: IngestInput, deps: IngestDeps): Promise<Inge
   }
 
   const chunks: readonly TextChunk[] =
-    kind === 'pdf' ? _chunkText(rawText) : chunkStructured(rawText);
+    kind === 'pdf' ? chunkText(rawText) : chunkStructured(rawText);
 
   if (chunks.length === 0) {
     return { documentId, hash, chunks: [], alreadyExisted: false };
@@ -165,7 +162,7 @@ export const ingest = async (input: IngestInput, deps: IngestDeps): Promise<Inge
     };
     const chunk = new Chunk({
       id: chunkId,
-      tenantId: input.tenantId,
+      workspaceId: input.workspaceId,
       ownerId: input.ownerId,
       collectionId: input.collectionId,
       documentId,
@@ -192,4 +189,3 @@ const stringify = (obj: Readonly<Record<string, unknown>>): Record<string, strin
   return out;
 };
 
-void _chunkText;

@@ -7,7 +7,7 @@
  */
 
 export * from './ids.js';
-export * from './tenant.js';
+export * from './workspace.js';
 export * from './user.js';
 export * from './document.js';
 export * from './chunk.js';

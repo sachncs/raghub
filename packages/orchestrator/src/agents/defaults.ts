@@ -43,7 +43,7 @@ const buildMessages = (
 const rebuildUserFromState = (state: InvocationState): User =>
   new User({
     id: state.user_id ?? ('' as never),
-    tenantId: state.tenant_id,
+    workspaceId: state.workspace_id,
     email: '',
     role: state.is_admin ? 'admin' : 'member',
     allowedCompanies: state.rbac_filter.allowedCompanies,
@@ -96,7 +96,7 @@ export const createGeneratorAgent = (deps: GeneratorAgentDeps): Agent => ({
   async retrieve() {
     throw new RaghubError('pipeline_error', 'generator agent cannot retrieve');
   },
-  async generate(req, hits, _state) {
+  async generate(req, hits, state: InvocationState) {
     const history: ChatMessage[] = (req.history ?? []).map((h) => ({
       role: h.role,
       content: h.content,
@@ -126,7 +126,7 @@ export const createStreamingGeneratorAgent = (deps: StreamingGeneratorAgentDeps)
   async retrieve() {
     throw new RaghubError('pipeline_error', 'generator agent cannot retrieve');
   },
-  async generate(req, hits, _state) {
+  async generate(req, hits, state: InvocationState) {
     const history: ChatMessage[] = (req.history ?? []).map((h) => ({
       role: h.role,
       content: h.content,

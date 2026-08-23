@@ -10,7 +10,7 @@ import type { StoreFilter } from '../stores/types.js';
 
 export const allowedCompanyFilter = (user: User): StoreFilter => {
   return {
-    tenantId: user.tenantId,
+    workspaceId: user.workspaceId,
     userId: user.isAdmin ? null : user.id,
     collectionId: null,
     allowedCompanies: user.allowedCompanies,

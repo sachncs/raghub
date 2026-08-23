@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildInvocationState } from '../../src/strands/invocation-state.js';
-import { type TenantId, type UserId, User, UserRole, brandId } from '@raghub/core';
+import { type WorkspaceId, type UserId, User, UserRole, brandId } from '@raghub/core';
 
-const tenantId = brandId<TenantId>('tnt_1');
+const workspaceId = brandId<WorkspaceId>('tnt_1');
 const userId = brandId<UserId>('usr_1');
 const user = new User({
   id: userId,
-  tenantId,
+  workspaceId,
   email: 'a@x',
   role: UserRole.Member,
   allowedCompanies: ['acme'],
@@ -17,7 +17,7 @@ const user = new User({
 describe('buildInvocationState', () => {
   it('freezes the resulting record and exposes RBAC fields', () => {
     const state = buildInvocationState({
-      tenantId,
+      workspaceId,
       user,
       sessionId: 'ses_1',
       strategy: {
@@ -31,7 +31,7 @@ describe('buildInvocationState', () => {
       },
     });
     expect(Object.isFrozen(state)).toBe(true);
-    expect(state.tenant_id).toBe(tenantId);
+    expect(state.workspace_id).toBe(workspaceId);
     expect(state.user_id).toBe(userId);
     expect(state.is_admin).toBe(false);
     expect(state.session_id).toBe('ses_1');
@@ -41,7 +41,7 @@ describe('buildInvocationState', () => {
 
   it('handles anonymous callers with null user_id', () => {
     const state = buildInvocationState({
-      tenantId,
+      workspaceId,
       user: null,
       sessionId: null,
       strategy: {

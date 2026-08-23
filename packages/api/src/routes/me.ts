@@ -21,7 +21,7 @@ import {
   brandId,
   type JwtService,
   type SessionStore,
-  type TenantId,
+  type WorkspaceId,
   type UserId,
   type UserStore,
 } from '@raghub/core';
@@ -47,9 +47,9 @@ export const meRoutes = (deps: MeRouteDeps): Hono => {
 
   app.get('/v1/me', async (c) => {
     const claims = getClaims(c);
-    const tenantId = brandId<TenantId>(claims.tenant_id);
+    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
     const userId = brandId<UserId>(claims.sub);
-    const user = await deps.userStore.getById(tenantId, userId);
+    const user = await deps.userStore.getById(workspaceId, userId);
     if (!user) {
       return c.json({ error: { code: 'auth_error', message: 'user not found' } }, 401);
     }
@@ -62,11 +62,11 @@ export const meRoutes = (deps: MeRouteDeps): Hono => {
     const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
     const rawToken = (c.req.header('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
     if (rawToken) {
-      const tenantId = brandId<TenantId>(claims.tenant_id);
+      const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
       const session = await deps.sessionStore.get(rawToken);
       if (!session) {
         await deps.sessionStore.upsert({
-          tenantId,
+          workspaceId,
           userId,
           rawToken,
           strategyOverrides: { strategy: body },
@@ -79,12 +79,12 @@ export const meRoutes = (deps: MeRouteDeps): Hono => {
 
   app.get('/v1/me/history', async (c) => {
     const claims = getClaims(c);
-    const tenantId = brandId<TenantId>(claims.tenant_id);
+    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
     const userId = brandId<UserId>(claims.sub);
     const rawToken = (c.req.header('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
     void userId;
     void rawToken;
-    void tenantId;
+    void workspaceId;
     const empty: HistoryResponse = { turns: [] };
     return c.json(empty);
   });

@@ -13,10 +13,10 @@ const make = (overrides: Partial<{ secret: string; ttl: number }> = {}) =>
 describe('JwtService', () => {
   it('mints a token with the expected claims', async () => {
     const jwt = make();
-    const tok = await jwt.mint({ subject: 'usr_1', tenantId: 'tnt_1', isAdmin: true });
+    const tok = await jwt.mint({ subject: 'usr_1', workspaceId: 'tnt_1', isAdmin: true });
     const claims = await jwt.verify(tok);
     expect(claims.sub).toBe('usr_1');
-    expect(claims.tenant_id).toBe('tnt_1');
+    expect(claims.workspace_id).toBe('tnt_1');
     expect(claims.is_admin).toBe(true);
     expect(claims.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
   });
@@ -29,13 +29,13 @@ describe('JwtService', () => {
 
   it('throws AuthError on tampered token', async () => {
     const jwt = make();
-    const tok = await jwt.mint({ subject: 'usr_1', tenantId: 'tnt_1', isAdmin: false });
+    const tok = await jwt.mint({ subject: 'usr_1', workspaceId: 'tnt_1', isAdmin: false });
     await expect(jwt.verify(tok.slice(0, -2) + 'aa')).rejects.toBeInstanceOf(AuthError);
   });
 
   it('rejects expired tokens', async () => {
     const jwt = make({ ttl: 1 });
-    const tok = await jwt.mint({ subject: 'usr_1', tenantId: 'tnt_1', isAdmin: false });
+    const tok = await jwt.mint({ subject: 'usr_1', workspaceId: 'tnt_1', isAdmin: false });
     await new Promise((r) => setTimeout(r, 1100));
     await expect(jwt.verify(tok)).rejects.toBeInstanceOf(AuthError);
   });

@@ -12,7 +12,7 @@
  */
 
 import type { Hit, User } from '@raghub/core';
-import type { CollectionId, TenantId, UserId } from '@raghub/core';
+import type { CollectionId, WorkspaceId, UserId } from '@raghub/core';
 
 /**
  * The shared `invocation_state` record Strands propagates to every
@@ -26,11 +26,11 @@ import type { CollectionId, TenantId, UserId } from '@raghub/core';
  * - db / secrets are non-prompt shared handles the tools need.
  */
 export interface InvocationState {
-  readonly tenant_id: TenantId;
+  readonly workspace_id: WorkspaceId;
   readonly user_id: UserId | null;
   readonly is_admin: boolean;
   readonly rbac_filter: Readonly<{
-    tenantId: TenantId;
+    workspaceId: WorkspaceId;
     userId: UserId | null;
     collectionId: CollectionId | null;
     allowedCompanies: readonly string[];

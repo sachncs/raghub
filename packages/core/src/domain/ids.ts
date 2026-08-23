@@ -3,7 +3,7 @@
  *
  * `string`-shaped at runtime (zero-cost) so they pass through JSON
  * unchanged, but nominal at compile time so a `UserId` cannot be
- * silently passed where a `TenantId` is expected.
+ * silently passed where a `WorkspaceId` is expected.
  */
 
 declare const brand: unique symbol;
@@ -12,7 +12,7 @@ export type Brand<TBase, TName extends string> = TBase & {
   readonly [brand]: TName;
 };
 
-export type TenantId = Brand<string, 'TenantId'>;
+export type WorkspaceId = Brand<string, 'WorkspaceId'>;
 export type UserId = Brand<string, 'UserId'>;
 export type CollectionId = Brand<string, 'CollectionId'>;
 export type DocumentId = Brand<string, 'DocumentId'>;

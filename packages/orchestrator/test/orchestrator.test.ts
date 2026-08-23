@@ -5,7 +5,7 @@ import {
   type Llm,
   NoOpTelemetry,
   type Retrieval,
-  type TenantId,
+  type WorkspaceId,
   type UserId,
   User,
   UserRole,
@@ -15,13 +15,13 @@ import { AgentRegistry, type Agent, Orchestrator } from '../src/index.js';
 import { ToolRegistry } from '../src/tools/registry.js';
 import { resolveStrategy } from '../src/patterns/strategy.js';
 
-const tenantId = brandId<TenantId>('tnt_1');
+const workspaceId = brandId<WorkspaceId>('tnt_1');
 const userId = brandId<UserId>('usr_1');
 const collectionId = brandId<CollectionId>('col_1');
 
 const adminUser = new User({
   id: userId,
-  tenantId,
+  workspaceId,
   email: 'a@x',
   role: UserRole.Admin,
   allowedCompanies: [],
@@ -79,8 +79,7 @@ describe('Orchestrator', () => {
     const tools = new ToolRegistry();
     const orch = new Orchestrator({
       telemetry: new NoOpTelemetry(),
-      tenantId,
-      collectionId,
+      workspaceId,
       defaultStrategy: resolveStrategy([{ mode: 'swarm' }]),
       agents,
       tools,
@@ -101,7 +100,7 @@ describe('Orchestrator', () => {
     const tools = new ToolRegistry();
     const orch = new Orchestrator({
       telemetry: new NoOpTelemetry(),
-      tenantId,
+      workspaceId,
       agents,
       tools,
     });
@@ -110,10 +109,10 @@ describe('Orchestrator', () => {
       user: adminUser,
       sessionId: null,
     });
-    expect(state.tenant_id).toBe(tenantId);
+    expect(state.workspace_id).toBe(workspaceId);
     expect(state.user_id).toBe(userId);
     expect(state.is_admin).toBe(true);
-    expect(state.rbac_filter.tenantId).toBe(tenantId);
+    expect(state.rbac_filter.workspaceId).toBe(workspaceId);
   });
 
   it('emits PlannerEvents from stream()', async () => {
@@ -123,7 +122,7 @@ describe('Orchestrator', () => {
     const tools = new ToolRegistry();
     const orch = new Orchestrator({
       telemetry: new NoOpTelemetry(),
-      tenantId,
+      workspaceId,
       agents,
       tools,
     });

@@ -6,7 +6,7 @@
  * exceeds `maxTurns`.
  */
 
-import type { SessionId, TenantId, Turn, UserId } from '../domain/index.js';
+import type { SessionId, WorkspaceId, Turn, UserId } from '../domain/index.js';
 import { brandId, Turn as TurnClass, TurnRole } from '../domain/index.js';
 import { VectorStoreError } from '../errors/index.js';
 
@@ -16,9 +16,9 @@ export interface TurnInput {
 }
 
 export interface ConversationStore {
-  append(sessionId: SessionId, tenantId: TenantId, userId: UserId, turn: TurnInput): Promise<Turn>;
-  history(sessionId: SessionId, tenantId: TenantId, maxTurns: number): Promise<readonly Turn[]>;
-  clear(sessionId: SessionId, tenantId: TenantId): Promise<void>;
+  append(sessionId: SessionId, workspaceId: WorkspaceId, userId: UserId, turn: TurnInput): Promise<Turn>;
+  history(sessionId: SessionId, workspaceId: WorkspaceId, maxTurns: number): Promise<readonly Turn[]>;
+  clear(sessionId: SessionId, workspaceId: WorkspaceId): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -70,13 +70,13 @@ export class SqliteConversationStore implements ConversationStore {
       CREATE TABLE IF NOT EXISTS turns (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id TEXT NOT NULL,
-        tenant_id TEXT NOT NULL,
+        workspace_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
         created_at INTEGER NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_turns_session ON turns(session_id, tenant_id, id DESC);
+      CREATE INDEX IF NOT EXISTS idx_turns_session ON turns(session_id, workspace_id, id DESC);
     `);
     this.db = db;
     return db;
@@ -84,7 +84,7 @@ export class SqliteConversationStore implements ConversationStore {
 
   public async append(
     sessionId: SessionId,
-    tenantId: TenantId,
+    workspaceId: WorkspaceId,
     userId: UserId,
     turn: TurnInput,
   ): Promise<Turn> {
@@ -93,13 +93,13 @@ export class SqliteConversationStore implements ConversationStore {
     const role = TurnRole[turn.role];
     const r = db
       .prepare(
-        `INSERT INTO turns (session_id, tenant_id, user_id, role, content, created_at)
+        `INSERT INTO turns (session_id, workspace_id, user_id, role, content, created_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
       )
-      .run(sessionId, tenantId, userId, role, turn.content, now);
+      .run(sessionId, workspaceId, userId, role, turn.content, now);
     return new TurnClass({
       sessionId,
-      tenantId,
+      workspaceId,
       userId,
       role,
       content: turn.content,
@@ -109,20 +109,20 @@ export class SqliteConversationStore implements ConversationStore {
 
   public async history(
     sessionId: SessionId,
-    tenantId: TenantId,
+    workspaceId: WorkspaceId,
     maxTurns: number,
   ): Promise<readonly Turn[]> {
     const db = await this.ensure();
     const rows = db
       .prepare(
-        `SELECT * FROM turns WHERE session_id = ? AND tenant_id = ? ORDER BY id DESC LIMIT ?`,
+        `SELECT * FROM turns WHERE session_id = ? AND workspace_id = ? ORDER BY id DESC LIMIT ?`,
       )
-      .all(sessionId, tenantId, maxTurns) as Record<string, unknown>[];
+      .all(sessionId, workspaceId, maxTurns) as Record<string, unknown>[];
     return rows.map((r) => {
       const role = String(r['role']) as keyof typeof TurnRole;
       return new TurnClass({
         sessionId: brandId<SessionId>(String(r['session_id'])),
-        tenantId: brandId<TenantId>(String(r['tenant_id'])),
+        workspaceId: brandId<WorkspaceId>(String(r['workspace_id'])),
         userId: brandId<UserId>(String(r['user_id'])),
         role: TurnRole[role] ?? TurnRole.User,
         content: String(r['content']),
@@ -131,9 +131,9 @@ export class SqliteConversationStore implements ConversationStore {
     });
   }
 
-  public async clear(sessionId: SessionId, tenantId: TenantId): Promise<void> {
+  public async clear(sessionId: SessionId, workspaceId: WorkspaceId): Promise<void> {
     const db = await this.ensure();
-    db.prepare('DELETE FROM turns WHERE session_id = ? AND tenant_id = ?').run(sessionId, tenantId);
+    db.prepare('DELETE FROM turns WHERE session_id = ? AND workspace_id = ?').run(sessionId, workspaceId);
   }
 
   public async close(): Promise<void> {

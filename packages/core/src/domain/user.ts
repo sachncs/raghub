@@ -2,10 +2,10 @@
  * User — a principal authenticated against a tenant.
  *
  * `isAdmin` is the only authorisation bit that escapes tenant scoping;
- * everything else is filtered by `(tenantId, userId, collectionId)`.
+ * everything else is filtered by `(workspaceId, userId, collectionId)`.
  */
 
-import type { TenantId, UserId } from './ids.js';
+import type { WorkspaceId, UserId } from './ids.js';
 
 export const UserRole = {
   Admin: 'admin',
@@ -17,7 +17,7 @@ export type UserRoleValue = (typeof UserRole)[keyof typeof UserRole];
 
 export interface UserProps {
   readonly id: UserId;
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly email: string;
   readonly role: UserRoleValue;
   readonly allowedCompanies: readonly string[];
@@ -35,8 +35,8 @@ export class User {
     return this.props.id;
   }
 
-  public get tenantId(): TenantId {
-    return this.props.tenantId;
+  public get workspaceId(): WorkspaceId {
+    return this.props.workspaceId;
   }
 
   public get email(): string {

@@ -11,7 +11,7 @@
  * walks the graph to depth `hop` from a starting set.
  */
 
-import type { TenantId } from '../domain/ids.js';
+import type { WorkspaceId } from '../domain/ids.js';
 import { brandId } from '../domain/ids.js';
 import type { ChunkId } from '../domain/ids.js';
 import { VectorStoreError } from '../errors/index.js';
@@ -46,7 +46,7 @@ const loadBetterSqlite3 = async (): Promise<(filename: string) => Database> => {
 
 export interface GraphEntity {
   readonly name: string;
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly chunkCount: number;
 }
 
@@ -57,9 +57,9 @@ export interface GraphEdge {
 }
 
 export interface GraphStore {
-  addMentions(tenantId: TenantId, chunkId: ChunkId, entities: readonly string[]): Promise<void>;
-  searchEntities(tenantId: TenantId, query: string, limit?: number): Promise<readonly GraphEntity[]>;
-  expandNeighborhood(tenantId: TenantId, seeds: readonly string[], hop: number, limit?: number): Promise<readonly GraphEntity[]>;
+  addMentions(workspaceId: WorkspaceId, chunkId: ChunkId, entities: readonly string[]): Promise<void>;
+  searchEntities(workspaceId: WorkspaceId, query: string, limit?: number): Promise<readonly GraphEntity[]>;
+  expandNeighborhood(workspaceId: WorkspaceId, seeds: readonly string[], hop: number, limit?: number): Promise<readonly GraphEntity[]>;
   close(): Promise<void>;
 }
 
@@ -102,17 +102,17 @@ export class SqliteGraphStore implements GraphStore {
     db.exec(`
       CREATE TABLE IF NOT EXISTS graph_entities (
         name TEXT NOT NULL,
-        tenant_id TEXT NOT NULL,
+        workspace_id TEXT NOT NULL,
         chunk_id TEXT NOT NULL,
-        PRIMARY KEY (name, tenant_id, chunk_id)
+        PRIMARY KEY (name, workspace_id, chunk_id)
       );
-      CREATE INDEX IF NOT EXISTS idx_graph_entities_tenant ON graph_entities(tenant_id);
+      CREATE INDEX IF NOT EXISTS idx_graph_entities_tenant ON graph_entities(workspace_id);
       CREATE TABLE IF NOT EXISTS graph_edges (
-        tenant_id TEXT NOT NULL,
+        workspace_id TEXT NOT NULL,
         from_name TEXT NOT NULL,
         to_name TEXT NOT NULL,
         weight INTEGER NOT NULL DEFAULT 1,
-        PRIMARY KEY (tenant_id, from_name, to_name)
+        PRIMARY KEY (workspace_id, from_name, to_name)
       );
     `);
     this.db = db;
@@ -120,17 +120,17 @@ export class SqliteGraphStore implements GraphStore {
   }
 
   public async addMentions(
-    tenantId: TenantId,
+    workspaceId: WorkspaceId,
     chunkId: ChunkId,
     entities: readonly string[],
   ): Promise<void> {
     if (entities.length === 0) return;
     const db = await this.ensure();
     const stmt = db.prepare(
-      `INSERT OR IGNORE INTO graph_entities (name, tenant_id, chunk_id) VALUES (?, ?, ?)`,
+      `INSERT OR IGNORE INTO graph_entities (name, workspace_id, chunk_id) VALUES (?, ?, ?)`,
     );
     for (const name of entities) {
-      stmt.run(name, tenantId, chunkId);
+      stmt.run(name, workspaceId, chunkId);
     }
     for (let i = 0; i < entities.length; i++) {
       for (let j = i + 1; j < entities.length; j++) {
@@ -138,16 +138,16 @@ export class SqliteGraphStore implements GraphStore {
         const b = entities[j];
         if (!a || !b) continue;
         db.prepare(
-          `INSERT INTO graph_edges (tenant_id, from_name, to_name, weight)
+          `INSERT INTO graph_edges (workspace_id, from_name, to_name, weight)
            VALUES (?, ?, ?, 1)
-           ON CONFLICT(tenant_id, from_name, to_name) DO UPDATE SET weight = weight + 1`,
-        ).run(tenantId, a, b);
+           ON CONFLICT(workspace_id, from_name, to_name) DO UPDATE SET weight = weight + 1`,
+        ).run(workspaceId, a, b);
       }
     }
   }
 
   public async searchEntities(
-    tenantId: TenantId,
+    workspaceId: WorkspaceId,
     query: string,
     limit: number = 10,
   ): Promise<readonly GraphEntity[]> {
@@ -156,19 +156,19 @@ export class SqliteGraphStore implements GraphStore {
     const rows = db
       .prepare(
         `SELECT name, COUNT(chunk_id) AS cnt FROM graph_entities
-         WHERE tenant_id = ? AND name LIKE ? ESCAPE '\\'
+         WHERE workspace_id = ? AND name LIKE ? ESCAPE '\\'
          GROUP BY name ORDER BY cnt DESC LIMIT ?`,
       )
-      .all(tenantId, like, limit) as Record<string, unknown>[];
+      .all(workspaceId, like, limit) as Record<string, unknown>[];
     return rows.map((r) => ({
       name: String(r['name']),
-      tenantId,
+      workspaceId,
       chunkCount: Number(r['cnt'] ?? 0),
     }));
   }
 
   public async expandNeighborhood(
-    tenantId: TenantId,
+    workspaceId: WorkspaceId,
     seeds: readonly string[],
     hop: number,
     limit: number = 20,
@@ -183,10 +183,10 @@ export class SqliteGraphStore implements GraphStore {
       const rows = db
         .prepare(
           `SELECT to_name AS name, COUNT(*) AS w FROM graph_edges
-           WHERE tenant_id = ? AND from_name IN (${placeholders})
+           WHERE workspace_id = ? AND from_name IN (${placeholders})
            GROUP BY to_name ORDER BY w DESC LIMIT 100`,
         )
-        .all(tenantId, ...frontier) as Record<string, unknown>[];
+        .all(workspaceId, ...frontier) as Record<string, unknown>[];
       const next: string[] = [];
       for (const r of rows) {
         const n = String(r['name']);
@@ -197,7 +197,7 @@ export class SqliteGraphStore implements GraphStore {
       }
       frontier = next;
     }
-    return [...visited].slice(0, limit).map((name) => ({ name, tenantId, chunkCount: 0 }));
+    return [...visited].slice(0, limit).map((name) => ({ name, workspaceId, chunkCount: 0 }));
   }
 
   public async close(): Promise<void> {

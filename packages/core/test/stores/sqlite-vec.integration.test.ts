@@ -11,14 +11,14 @@ import type {
   ChunkId,
   CollectionId,
   DocumentId,
-  TenantId,
+  WorkspaceId,
   UserId,
 } from '../../src/domain/index.js';
 import { FeatureHashingEmbedder } from '../../src/embedder/feature-hashing.js';
 import { Retrieval } from '../../src/retrieval/pipeline.js';
 import { SqliteVecStore } from '../../src/stores/sqlite-vec.js';
 
-const tenant = brandId<TenantId>('tnt_1');
+const tenant = brandId<WorkspaceId>('tnt_1');
 const user = brandId<UserId>('usr_1');
 const coll = brandId<CollectionId>('col_1');
 const doc = brandId<DocumentId>('doc_1');
@@ -26,7 +26,7 @@ const doc = brandId<DocumentId>('doc_1');
 const mkUser = (role: 'admin' | 'member' | 'viewer') =>
   new User({
     id: user,
-    tenantId: tenant,
+    workspaceId: tenant,
     email: 'u@x',
     role: role === 'admin' ? UserRole.Admin : role === 'member' ? UserRole.Member : UserRole.Viewer,
     allowedCompanies: role === 'admin' ? [] : ['acme'],
@@ -44,7 +44,7 @@ const seed = async (store: SqliteVecStore, embedder: FeatureHashingEmbedder) => 
     const v = await embedder.embedQuery(text);
     const c = new Chunk({
       id: brandId<ChunkId>(`chk_${Math.random().toString(36).slice(2, 10)}`),
-      tenantId: tenant,
+      workspaceId: tenant,
       ownerId: user,
       collectionId: coll,
       documentId: doc,
@@ -88,19 +88,19 @@ describe('SqliteVecStore + Retrieval (integration)', () => {
     const hits = await store.searchKeyword({
       query: 'raghub framework',
       topK: 3,
-      filter: { tenantId: tenant, userId: null, collectionId: null, allowedCompanies: [] },
+      filter: { workspaceId: tenant, userId: null, collectionId: null, allowedCompanies: [] },
     });
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0]?.text.toLowerCase()).toContain('raghub');
   });
 
   itg('vector search respects tenant isolation', async () => {
-    const otherTenant = brandId<TenantId>('tnt_2');
+    const otherWorkspace = brandId<WorkspaceId>('tnt_2');
     const hits = await store.searchVector({
       vector: new Array(128).fill(0),
       topK: 10,
       filter: {
-        tenantId: otherTenant,
+        workspaceId: otherWorkspace,
         userId: null,
         collectionId: null,
         allowedCompanies: [],

@@ -18,7 +18,7 @@ export type JwtAlgorithmValue = (typeof JwtAlgorithm)[keyof typeof JwtAlgorithm]
 
 export interface JwtClaims {
   readonly sub: string;
-  readonly tenant_id: string;
+  readonly workspace_id: string;
   readonly is_admin: boolean;
   readonly exp: number;
   readonly iat?: number;
@@ -34,7 +34,7 @@ export interface JwtConfig {
 
 export interface MintOptions {
   readonly subject: string;
-  readonly tenantId: string;
+  readonly workspaceId: string;
   readonly isAdmin: boolean;
 }
 
@@ -61,7 +61,7 @@ export class JwtService {
   public async mint(opts: MintOptions): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
     let builder = new SignJWT({
-      tenant_id: opts.tenantId,
+      workspace_id: opts.workspaceId,
       is_admin: opts.isAdmin,
     }).setProtectedHeader({ alg: ALG_TO_JOSE[this.cfg.algorithm], typ: 'JWT' });
     builder = builder.setSubject(opts.subject).setIssuedAt(now).setExpirationTime(now + this.cfg.ttlSeconds);
@@ -78,12 +78,12 @@ export class JwtService {
       if (this.cfg.issuer) verifyOpts.issuer = this.cfg.issuer;
       if (this.cfg.audience) verifyOpts.audience = this.cfg.audience;
       const { payload } = await jwtVerify(token, this.secret, verifyOpts);
-      if (typeof payload.sub !== 'string' || typeof payload['tenant_id'] !== 'string') {
+      if (typeof payload.sub !== 'string' || typeof payload['workspace_id'] !== 'string') {
         throw new AuthError('jwt missing required claims');
       }
       return {
         sub: payload.sub,
-        tenant_id: String(payload['tenant_id']),
+        workspace_id: String(payload['workspace_id']),
         is_admin: Boolean(payload['is_admin']),
         exp: Number(payload.exp),
         ...(typeof payload.iat === 'number' ? { iat: payload.iat } : {}),

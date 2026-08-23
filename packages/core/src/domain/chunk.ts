@@ -2,14 +2,14 @@
  * Chunk — the unit of retrieval.
  *
  * A chunk is a slice of a document with an associated embedding.
- * Chunks are filtered by `(tenantId, ownerId, collectionId)` at
+ * Chunks are filtered by `(workspaceId, ownerId, collectionId)` at
  * every store path; admins see everything.
  *
  * `modality` defaults to `"text`; the multimodal layer (Phase 3)
  * populates `"image"`, `"table"`, `"equation"`, `"layout"`.
  */
 
-import type { ChunkId, CollectionId, DocumentId, TenantId, UserId } from './ids.js';
+import type { ChunkId, CollectionId, DocumentId, WorkspaceId, UserId } from './ids.js';
 
 export const ChunkModality = {
   Text: 'text',
@@ -24,7 +24,7 @@ export type ChunkModalityValue = (typeof ChunkModality)[keyof typeof ChunkModali
 
 export interface ChunkProps {
   readonly id: ChunkId;
-  readonly tenantId: TenantId;
+  readonly workspaceId: WorkspaceId;
   readonly ownerId: UserId;
   readonly collectionId: CollectionId;
   readonly documentId: DocumentId;
@@ -51,8 +51,8 @@ export class Chunk {
     return this.props.id;
   }
 
-  public get tenantId(): TenantId {
-    return this.props.tenantId;
+  public get workspaceId(): WorkspaceId {
+    return this.props.workspaceId;
   }
 
   public get ownerId(): UserId {

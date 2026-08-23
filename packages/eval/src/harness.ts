@@ -79,7 +79,7 @@ const extractClaims = (text: string): string[] =>
 const makeSystemUser = (): import('@raghub/core').User =>
   new User({
     id: '__system__' as never,
-    tenantId: '__system__' as never,
+    workspaceId: '__system__' as never,
     email: '',
     role: UserRole.Admin,
     allowedCompanies: [],
