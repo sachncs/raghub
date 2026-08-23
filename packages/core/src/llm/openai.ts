@@ -119,6 +119,12 @@ export interface OpenAILlmOptions {
   readonly baseUrl?: string;
   readonly model: string;
   readonly temperature?: number;
+  /**
+   * Some providers (notably MiniMax) require a custom
+   * `Authorization` header prefix (e.g. `Bearer` vs raw API key).
+   * Default is `Bearer`.
+   */
+  readonly authorizationPrefix?: 'Bearer' | 'Raw';
 }
 
 export class OpenAILlm implements Llm {
@@ -127,6 +133,7 @@ export class OpenAILlm implements Llm {
   private readonly apiKey: string;
   private readonly baseUrl: string | undefined;
   private readonly temperature: number;
+  private readonly authorizationPrefix: 'Bearer' | 'Raw';
   private clientPromise: Promise<OpenAIClient> | null = null;
 
   constructor(opts: OpenAILlmOptions) {
@@ -135,6 +142,7 @@ export class OpenAILlm implements Llm {
     this.baseUrl = opts.baseUrl;
     this.model = opts.model;
     this.temperature = opts.temperature ?? 0;
+    this.authorizationPrefix = opts.authorizationPrefix ?? 'Bearer';
   }
 
   public async generate(opts: GenerateOptions): Promise<GenerateResult> {
@@ -247,6 +255,9 @@ export class OpenAILlm implements Llm {
     const mod = await loadOpenAI();
     const client = new mod.default({
       apiKey: this.apiKey,
+      defaultHeaders: {
+        Authorization: this.authorizationPrefix === 'Raw' ? this.apiKey : `Bearer ${this.apiKey}`,
+      },
       ...(this.baseUrl ? { baseURL: this.baseUrl } : {}),
     });
     this.clientPromise = Promise.resolve(client);

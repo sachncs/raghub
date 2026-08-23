@@ -24,3 +24,10 @@ export * from './summary/index.js';
 export * from './traces/corpus.js';
 export type { WorkspaceHandle } from './workspace.js';
 export { openWorkspace } from './workspace.js';
+export { openEncryptedWorkspace } from './encryption.js';
+export type {
+  EncryptedField,
+  WorkspaceSettingsStore,
+  WorkspaceWithSettings,
+  OpenWorkspaceOptions,
+} from './encryption.js';

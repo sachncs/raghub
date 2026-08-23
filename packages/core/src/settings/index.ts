@@ -100,9 +100,12 @@ const EmbedderConfigSchema = z.object({
 });
 
 const LlmConfigSchema = z.object({
-  provider: z.enum(['openai', 'litellm', 'anthropic', 'bedrock']).default('openai'),
+  provider: z
+    .enum(['openai', 'minimax', 'litellm', 'anthropic', 'bedrock'])
+    .default('openai'),
   model: nonEmpty('llm.model').default('gpt-4.1'),
   apiKey: z.string().optional(),
+  baseUrl: z.string().url().optional(),
   temperature: z.number().min(0).max(2).default(0),
 });
 
@@ -172,6 +175,7 @@ export const loadSettings = (env: Readonly<Record<string, string | undefined>>):
       provider: env['RAGHUB_LLM_PROVIDER'],
       model: env['RAGHUB_LLM_MODEL'],
       apiKey: env['RAGHUB_LLM_API_KEY'] ?? env['OPENAI_API_KEY'],
+      baseUrl: env['RAGHUB_LLM_BASE_URL'],
       temperature: num(env['RAGHUB_LLM_TEMPERATURE']),
     },
     hybrid: {

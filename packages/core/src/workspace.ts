@@ -53,7 +53,8 @@ const SCHEMA_SQL = `
     id INTEGER PRIMARY KEY CHECK (id = 1),
     salt BLOB NOT NULL,
     kdf_params TEXT NOT NULL,
-    verifier BLOB NOT NULL,
+    verifier_nonce BLOB NOT NULL,
+    verifier_ciphertext BLOB NOT NULL,
     created_at INTEGER NOT NULL
   );
 
