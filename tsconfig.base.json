@@ -26,9 +26,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "skipLibCheck": true,
-
-    "incremental": true
+    "skipLibCheck": true
   },
   "exclude": ["node_modules", "dist", ".turbo", ".next", "coverage", "archive"]
 }

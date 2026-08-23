@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { JwtService } from '../src/auth/jwt.js';
-import { AuthError, ConfigurationError } from '../src/errors/index.js';
+import { JwtService } from '../../src/auth/jwt.js';
+import { AuthError, ConfigurationError } from '../../src/errors/index.js';
 
 const make = (overrides: Partial<{ secret: string; ttl: number }> = {}) =>
   new JwtService({

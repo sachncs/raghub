@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { reciprocalRankFusion } from '../src/retrieval/rrf.js';
+import { reciprocalRankFusion } from '../../src/retrieval/rrf.js';
 
 describe('reciprocalRankFusion', () => {
   it('merges two ranked lists by RRF score', () => {

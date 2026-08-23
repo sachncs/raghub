@@ -6,16 +6,17 @@ import {
   User,
   UserRole,
   brandId,
-} from '../src/domain/index.js';
+} from '../../src/domain/index.js';
 import type {
+  ChunkId,
   CollectionId,
   DocumentId,
   TenantId,
   UserId,
-} from '../src/domain/index.js';
-import { FeatureHashingEmbedder } from '../src/embedder/feature-hashing.js';
-import { Retrieval } from '../src/retrieval/pipeline.js';
-import { SqliteVecStore } from '../src/stores/sqlite-vec.js';
+} from '../../src/domain/index.js';
+import { FeatureHashingEmbedder } from '../../src/embedder/feature-hashing.js';
+import { Retrieval } from '../../src/retrieval/pipeline.js';
+import { SqliteVecStore } from '../../src/stores/sqlite-vec.js';
 
 const tenant = brandId<TenantId>('tnt_1');
 const user = brandId<UserId>('usr_1');
@@ -42,7 +43,7 @@ const seed = async (store: SqliteVecStore, embedder: FeatureHashingEmbedder) => 
   for (const text of chunks) {
     const v = await embedder.embedQuery(text);
     const c = new Chunk({
-      id: brandId<'ChunkId'>(`chk_${Math.random().toString(36).slice(2, 10)}`),
+      id: brandId<ChunkId>(`chk_${Math.random().toString(36).slice(2, 10)}`),
       tenantId: tenant,
       ownerId: user,
       collectionId: coll,

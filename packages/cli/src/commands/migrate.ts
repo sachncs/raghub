@@ -60,6 +60,7 @@ import { createInterface } from 'node:readline';
 import {
   Chunk,
   ChunkModality,
+  type ChunkId,
   type CollectionId,
   type DocumentId,
   brandId,
@@ -72,7 +73,7 @@ const fromLine = async (line: string): Promise<Chunk | null> => {
   if (!line.trim()) return null;
   const obj = JSON.parse(line) as ExportedChunk;
   return new Chunk({
-    id: brandId<'ChunkId'>(obj.id),
+    id: brandId<ChunkId>(obj.id),
     tenantId: brandId<TenantId>(obj.tenant_id),
     ownerId: brandId<UserId>(obj.owner_id),
     collectionId: brandId<CollectionId>(obj.collection_id),

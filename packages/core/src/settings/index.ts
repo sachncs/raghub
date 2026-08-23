@@ -12,7 +12,7 @@
 
 import { z } from 'zod';
 
-import { RaghubError } from './errors/index.js';
+import { RaghubError } from '../errors/index.js';
 
 const nonEmpty = (label: string) =>
   z
@@ -34,6 +34,7 @@ export type IsolationValue = (typeof Isolation)[keyof typeof Isolation];
 const VectorBackend = {
   SqliteVec: 'sqlite_vec',
 } as const;
+export { VectorBackend };
 export type VectorBackendValue = (typeof VectorBackend)[keyof typeof VectorBackend];
 
 const EmbedderProvider = {
@@ -138,51 +139,61 @@ export type Settings = z.infer<typeof SettingsSchema>;
  * `.env.example` do not see hard failures on every new key.
  */
 export const loadSettings = (env: Readonly<Record<string, string | undefined>>): Settings => {
+  const bool = (v: string | undefined): boolean | undefined => {
+    if (v === undefined) return undefined;
+    return v === 'true' || v === '1';
+  };
+  const num = (v: string | undefined): number | undefined => {
+    if (v === undefined || v === '') return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
   const raw = {
     auth: {
       jwtSecret: env['RAGHUB_JWT_SECRET'],
       jwtAlgorithm: env['RAGHUB_JWT_ALGORITHM'],
-      tokenTtlSeconds: env['RAGHUB_TOKEN_TTL_SECONDS'],
-      bcryptRounds: env['RAGHUB_BCRYPT_ROUNDS'],
+      tokenTtlSeconds: num(env['RAGHUB_TOKEN_TTL_SECONDS']),
+      bcryptRounds: num(env['RAGHUB_BCRYPT_ROUNDS']),
     },
     tenants: { isolation: env['RAGHUB_ISOLATION'] },
     vectorStore: {
       backend: env['RAGHUB_VECTOR_BACKEND'],
       path: env['RAGHUB_VECTOR_PATH'],
-      embeddingDim: env['RAGHUB_VECTOR_EMBEDDING_DIM'],
+      embeddingDim: num(env['RAGHUB_VECTOR_EMBEDDING_DIM']),
     },
     embedder: {
       provider: env['RAGHUB_EMBEDDER_PROVIDER'],
       model: env['RAGHUB_EMBEDDER_MODEL'],
       apiKey: env['RAGHUB_EMBEDDER_API_KEY'] ?? env['OPENAI_API_KEY'],
-      batchSize: env['RAGHUB_EMBEDDER_BATCH_SIZE'],
+      batchSize: num(env['RAGHUB_EMBEDDER_BATCH_SIZE']),
     },
     llm: {
       provider: env['RAGHUB_LLM_PROVIDER'],
       model: env['RAGHUB_LLM_MODEL'],
       apiKey: env['RAGHUB_LLM_API_KEY'] ?? env['OPENAI_API_KEY'],
-      temperature: env['RAGHUB_LLM_TEMPERATURE'],
+      temperature: num(env['RAGHUB_LLM_TEMPERATURE']),
     },
     hybrid: {
-      denseWeight: env['RAGHUB_HYBRID_DENSE_WEIGHT'],
-      sparseWeight: env['RAGHUB_HYBRID_SPARSE_WEIGHT'],
-      rrfK: env['RAGHUB_HYBRID_RRF_K'],
-      colbert: env['RAGHUB_HYBRID_COLBERT'],
+      denseWeight: num(env['RAGHUB_HYBRID_DENSE_WEIGHT']),
+      sparseWeight: num(env['RAGHUB_HYBRID_SPARSE_WEIGHT']),
+      rrfK: num(env['RAGHUB_HYBRID_RRF_K']),
+      colbert: bool(env['RAGHUB_HYBRID_COLBERT']),
     },
     orchestrator: {
       mode: env['RAGHUB_ORCHESTRATOR_MODE'],
       ordering: env['RAGHUB_ORCHESTRATOR_ORDERING'],
-      topK: env['RAGHUB_ORCHESTRATOR_TOP_K'],
+      topK: num(env['RAGHUB_ORCHESTRATOR_TOP_K']),
       reranker: env['RAGHUB_ORCHESTRATOR_RERANKER'],
       multimodal: {
-        enabled: env['RAGHUB_MULTIMODAL_ENABLED'],
+        enabled: bool(env['RAGHUB_MULTIMODAL_ENABLED']),
         embeddingModel: env['RAGHUB_MULTIMODAL_EMBEDDING_MODEL'],
-        embeddingDim: env['RAGHUB_MULTIMODAL_EMBEDDING_DIM'],
+        embeddingDim: num(env['RAGHUB_MULTIMODAL_EMBEDDING_DIM']),
       },
       traceCorpus: {
-        enabled: env['RAGHUB_TRACE_CORPUS_ENABLED'],
+        enabled: bool(env['RAGHUB_TRACE_CORPUS_ENABLED']),
         representation: env['RAGHUB_TRACE_CORPUS_REPRESENTATION'],
-        topK: env['RAGHUB_TRACE_CORPUS_TOP_K'],
+        topK: num(env['RAGHUB_TRACE_CORPUS_TOP_K']),
       },
     },
     telemetry: {

@@ -10,8 +10,13 @@
  */
 
 import type { Tenant, TenantId, User, UserId } from '../domain/index.js';
-import { brandId } from '../domain/index.js';
-import { TenantPlan, UserRole } from '../domain/index.js';
+import {
+  brandId,
+  Tenant as TenantClass,
+  User as UserClass,
+  UserRole,
+} from '../domain/index.js';
+import type { TenantId as TenantIdType, UserId as UserIdType } from '../domain/index.js';
 import { AuthError, ConfigurationError, VectorStoreError } from '../errors/index.js';
 
 export interface UserStore {
@@ -24,7 +29,7 @@ export interface UserStore {
     role: keyof typeof UserRole;
     allowedCompanies: readonly string[];
   }): Promise<User>;
-  upsertTenant(input: { id: TenantId; name: string; plan: keyof typeof TenantPlan }): Promise<Tenant>;
+  upsertTenant(input: { id: TenantId; name: string; plan: 'Free' | 'Pro' | 'Enterprise' }): Promise<Tenant>;
   getTenant(id: TenantId): Promise<Tenant | null>;
   close(): Promise<void>;
 }
@@ -33,6 +38,7 @@ interface Database {
   prepare(sql: string): Statement;
   exec(sql: string): void;
   close(): void;
+  pragma?(source: string): unknown;
 }
 
 interface Statement {
@@ -41,13 +47,11 @@ interface Statement {
   run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
 }
 
-const dynamicRequire = new Function('spec', 'return import(spec)') as (
-  spec: string,
-) => Promise<unknown>;
+const dynamicImport = (spec: string): Promise<unknown> => import(spec);
 
 const loadBetterSqlite3 = async (): Promise<(filename: string) => Database> => {
   try {
-    const mod = (await dynamicRequire('better-sqlite3')) as {
+    const mod = (await dynamicImport('better-sqlite3')) as {
       default: (filename: string) => Database;
     };
     return mod.default;
@@ -75,7 +79,7 @@ export class SqliteUserStore implements UserStore {
     if (this.db) return this.db;
     const sqlite = await loadBetterSqlite3();
     const db = sqlite(this.path);
-    db.pragma('journal_mode = WAL');
+    if (db.pragma) db.pragma('journal_mode = WAL');
     db.exec(`
       CREATE TABLE IF NOT EXISTS tenants (
         id TEXT PRIMARY KEY,
@@ -102,19 +106,20 @@ export class SqliteUserStore implements UserStore {
   public async upsertTenant(input: {
     id: TenantId;
     name: string;
-    plan: keyof typeof TenantPlan;
+    plan: 'Free' | 'Pro' | 'Enterprise';
   }): Promise<Tenant> {
     const db = await this.ensure();
     const now = Date.now();
+    const planLower = input.plan.toLowerCase() as 'free' | 'pro' | 'enterprise';
     db.prepare(
       `INSERT INTO tenants (id, name, plan, is_admin, created_at)
        VALUES (?, ?, ?, 0, ?)
        ON CONFLICT(id) DO UPDATE SET name=excluded.name, plan=excluded.plan`,
-    ).run(input.id, input.name, input.plan, now);
-    return new Tenant({
+    ).run(input.id, input.name, planLower, now);
+    return new TenantClass({
       id: input.id,
       name: input.name,
-      plan: TenantPlan[input.plan],
+      plan: planLower,
       createdAt: new Date(now),
       isAdmin: false,
     });
@@ -126,10 +131,11 @@ export class SqliteUserStore implements UserStore {
       | Record<string, unknown>
       | undefined;
     if (!row) return null;
-    return new Tenant({
-      id: brandId<string & { readonly __brand: 'TenantId' }>(String(row['id'])),
+    const planKey = String(row['plan']) as 'free' | 'pro' | 'enterprise';
+    return new TenantClass({
+      id: brandId<TenantIdType>(String(row['id'])),
       name: String(row['name']),
-      plan: TenantPlan[String(row['plan']) as keyof typeof TenantPlan] ?? TenantPlan.Free,
+      plan: planKey,
       createdAt: new Date(Number(row['created_at'])),
       isAdmin: Number(row['is_admin']) === 1,
     });
@@ -162,9 +168,7 @@ export class SqliteUserStore implements UserStore {
   }): Promise<User> {
     if (!input.email.includes('@')) throw new AuthError('invalid email');
     const db = await this.ensure();
-    const id = brandId<string & { readonly __brand: 'UserId' }>(
-      `usr_${Math.random().toString(36).slice(2, 14)}`,
-    );
+    const id = brandId<UserIdType>(`usr_${Math.random().toString(36).slice(2, 14)}`);
     const now = Date.now();
     try {
       db.prepare(
@@ -184,7 +188,7 @@ export class SqliteUserStore implements UserStore {
         details: { email: input.email },
       });
     }
-    return new User({
+    return new UserClass({
       id,
       tenantId: input.tenantId,
       email: input.email,
@@ -203,11 +207,11 @@ export class SqliteUserStore implements UserStore {
 }
 
 const rowToUser = (row: Record<string, unknown>): User => {
-  const id = brandId<string & { readonly __brand: 'UserId' }>(String(row['id']));
-  const tenantId = brandId<string & { readonly __brand: 'TenantId' }>(String(row['tenant_id']));
+  const id = brandId<UserIdType>(String(row['id']));
+  const tenantId = brandId<TenantIdType>(String(row['tenant_id']));
   const roleKey = String(row['role']) as keyof typeof UserRole;
   const allowedJson = String(row['allowed_companies_json'] ?? '[]');
-  return new User({
+  return new UserClass({
     id,
     tenantId,
     email: String(row['email']),

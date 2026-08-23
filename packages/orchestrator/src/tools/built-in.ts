@@ -11,13 +11,17 @@ import type { Embedder } from '@raghub/core';
 
 import type { Tool, ToolContext, ToolRegistry, ToolResult } from './registry.js';
 import type { InvocationState } from '../strands/types.js';
+void (null as unknown as ToolContext);
 
-const okResult = (content: string, data?: Record<string, unknown>): ToolResult => ({
-  ok: true,
-  content,
-  data,
-  latencyMs: 0,
-});
+const okResult = (content: string, data?: Record<string, unknown>): ToolResult => {
+  const r: { ok: true; content: string; latencyMs: number; data?: Readonly<Record<string, unknown>> } = {
+    ok: true,
+    content,
+    latencyMs: 0,
+  };
+  if (data !== undefined) r.data = data;
+  return r;
+};
 
 const errResult = (error: string, latencyMs: number): ToolResult => ({
   ok: false,

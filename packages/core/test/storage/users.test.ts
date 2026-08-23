@@ -5,9 +5,9 @@ import {
   TenantPlan,
   UserRole,
   type TenantId,
-} from '../src/domain/index.js';
-import { BcryptHasher } from '../src/auth/password.js';
-import { SqliteUserStore } from '../src/storage/users.js';
+} from '../../src/domain/index.js';
+import { BcryptHasher } from '../../src/auth/password.js';
+import { SqliteUserStore } from '../../src/storage/users.js';
 
 const tenantId = brandId<TenantId>('tnt_1');
 const otherTenantId = brandId<TenantId>('tnt_2');

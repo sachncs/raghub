@@ -6,7 +6,7 @@
  * T3 trace-reasoner, multimodal-synthesizer, and the CARE judge.
  */
 
-import { RaghubError, Retrieval, type Hit } from '@raghub/core';
+import { RaghubError, Retrieval, type Hit, User } from '@raghub/core';
 
 import type { Agent } from './registry.js';
 import type { InvocationState, OrchestratorRequest } from '../strands/types.js';

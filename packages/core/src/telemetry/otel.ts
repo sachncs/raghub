@@ -25,13 +25,11 @@ interface OtelSpan {
   end: () => void;
 }
 
-const dynamicRequire = new Function('spec', 'return import(spec)') as (
-  spec: string,
-) => Promise<unknown>;
+const dynamicImport = (spec: string): Promise<unknown> => import(spec);
 
 const loadOtel = async (): Promise<OtelApi | null> => {
   try {
-    const mod = (await dynamicRequire('@opentelemetry/api')) as { default?: OtelApi } & OtelApi;
+    const mod = (await dynamicImport('@opentelemetry/api')) as { default?: OtelApi } & OtelApi;
     return mod.default ?? mod;
   } catch {
     return null;

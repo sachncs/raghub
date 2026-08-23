@@ -12,3 +12,22 @@ coverage/
 .raghub/
 .idea/
 .vscode/
+.hypothesis/
+.coverage
+*.egg-info/
+
+# Archive (legacy Python) — never track runtime/build artifacts there
+archive/**/__pycache__/
+archive/**/.mypy_cache/
+archive/**/.pytest_cache/
+archive/**/.ruff_cache/
+archive/**/.hypothesis/
+archive/**/.coverage
+archive/**/.benchmarks/
+archive/**/htmlcov/
+archive/**/*.egg-info/
+archive/**/*.pyc
+archive/**/*.db
+archive/**/*.sqlite
+archive/**/*.sqlite-shm
+archive/**/*.sqlite-wal

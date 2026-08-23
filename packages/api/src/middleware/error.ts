@@ -34,7 +34,7 @@ const codeToStatus: Record<string, number> = {
 
 export const errorMiddleware = (): MiddlewareHandler => async (c, next) => {
   try {
-    await next();
+    return await next();
   } catch (e) {
     if (e instanceof RaghubError) {
       const body: ErrorBody = {

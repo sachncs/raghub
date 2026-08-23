@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildInvocationState } from '../src/strands/invocation-state.js';
+import { buildInvocationState } from '../../src/strands/invocation-state.js';
 import { type TenantId, type UserId, User, UserRole, brandId } from '@raghub/core';
 
 const tenantId = brandId<TenantId>('tnt_1');
