@@ -4,6 +4,10 @@
  * Picks an LLM based on `Settings.llm.provider`. The fallback to the
  * FeatureHashingLlm fires when no API key is present so the rest of
  * the stack keeps running.
+ *
+ * `minimax` (https://platform.minimax.io/docs/guides/models-intro)
+ * is OpenAI-compatible and routed via `OpenAILlm` with a configurable
+ * `baseUrl` (defaults to `https://api.minimax.chat/v1`).
  */
 
 import { ConfigurationError } from '../errors/index.js';
@@ -24,6 +28,8 @@ export type {
 export { OpenAILlm } from './openai.js';
 export { FeatureHashingLlm } from './feature-hashing.js';
 
+const MINIMAX_BASE_URL = 'https://api.minimax.chat/v1';
+
 export const createLlm = (settings: Settings): Llm => {
   switch (settings.llm.provider) {
     case 'openai': {
@@ -32,6 +38,16 @@ export const createLlm = (settings: Settings): Llm => {
         apiKey: settings.llm.apiKey,
         model: settings.llm.model,
         temperature: settings.llm.temperature,
+        ...(settings.llm.baseUrl !== undefined ? { baseUrl: settings.llm.baseUrl } : {}),
+      });
+    }
+    case 'minimax': {
+      if (!settings.llm.apiKey) return new FeatureHashingLlm(settings.llm.model);
+      return new OpenAILlm({
+        apiKey: settings.llm.apiKey,
+        model: settings.llm.model,
+        temperature: settings.llm.temperature,
+        baseUrl: settings.llm.baseUrl ?? MINIMAX_BASE_URL,
       });
     }
     case 'litellm': {
@@ -40,7 +56,7 @@ export const createLlm = (settings: Settings): Llm => {
         apiKey: settings.llm.apiKey,
         model: settings.llm.model,
         temperature: settings.llm.temperature,
-        baseUrl: 'http://localhost:4000/v1',
+        baseUrl: settings.llm.baseUrl ?? 'http://localhost:4000/v1',
       });
     }
     case 'anthropic':
