@@ -17,6 +17,7 @@ export const ChunkModality = {
   Table: 'table',
   Equation: 'equation',
   Layout: 'layout',
+  Summary: 'summary',
 } as const;
 
 export type ChunkModalityValue = (typeof ChunkModality)[keyof typeof ChunkModality];

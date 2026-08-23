@@ -1,33 +1,47 @@
 /**
  * Built-in tools — the eight that mirror the legacy Python tool
- * surface. Each is a thin wrapper around @raghub/core capabilities
- * with the same JSON schema contract the Strands `@tool`
- * decorator produces.
+ * surface. Every tool reads the active `invocation_state` to
+ * honour RBAC + per-user strategy and wraps failures as
+ * `{ ok: false, error }` rather than throwing.
+ *
+ * The storage-backed tools (`graph_search`, `summary_search`,
+ * `trace_search`, `web_search`) take their backend collaborators
+ * as a single `toolDeps` bag; the registry wires them up via
+ * `registerBuiltInTools(registry, deps)`.
  */
 
-import type { Hit, Retrieval, VectorStore } from '@raghub/core';
-import { allowedCompanyFilter, RaghubError, User } from '@raghub/core';
-import type { Embedder } from '@raghub/core';
+import {
+  allowedCompanyFilter,
+  type Embedder,
+  type Hit,
+  type Retrieval,
+  type SqliteGraphStore,
+  type SqliteTraceCorpus,
+  type SummaryIndex,
+  type VectorStore,
+  type WebSearch,
+  RaghubError,
+  User,
+} from '@raghub/core';
 
-import type { Tool, ToolContext, ToolRegistry, ToolResult } from './registry.js';
-import type { InvocationState } from '../strands/types.js';
-void (null as unknown as ToolContext);
+import type { Tool, ToolContext, ToolResult } from './registry.js';
 
 const okResult = (content: string, data?: Record<string, unknown>): ToolResult => {
-  const r: { ok: true; content: string; latencyMs: number; data?: Readonly<Record<string, unknown>> } = {
-    ok: true,
-    content,
-    latencyMs: 0,
-  };
+  const r: {
+    ok: true;
+    content: string;
+    latencyMs: number;
+    data?: Readonly<Record<string, unknown>>;
+  } = { ok: true, content, latencyMs: 0 };
   if (data !== undefined) r.data = data;
   return r;
 };
 
-const errResult = (error: string, latencyMs: number): ToolResult => ({
+const errResult = (error: string, start: number): ToolResult => ({
   ok: false,
   content: '',
   error,
-  latencyMs,
+  latencyMs: Date.now() - start,
 });
 
 const wrap = async (
@@ -42,24 +56,38 @@ const wrap = async (
   }
 };
 
-const requireUser = (state: InvocationState): User => {
-  if (!state.user_id) throw new RaghubError('authorization_error', 'tool requires an authenticated user');
-  const tenantId = state.tenant_id;
-  const userId = state.user_id;
+const requireUser = (
+  state: {
+    user_id: unknown;
+    tenant_id: unknown;
+    is_admin: boolean;
+    rbac_filter: { allowedCompanies: readonly string[] };
+  },
+): User => {
+  if (!state.user_id || !state.tenant_id) {
+    throw new RaghubError('authorization_error', 'tool requires an authenticated user');
+  }
   return new User({
-    id: userId,
-    tenantId,
+    id: state.user_id as never,
+    tenantId: state.tenant_id as never,
     email: '',
-    role: state.is_admin ? ('admin' as never) : ('member' as never),
+    role: state.is_admin ? 'admin' : 'member',
     allowedCompanies: state.rbac_filter.allowedCompanies,
     createdAt: new Date(),
   });
 };
 
-export const createHybridSearchTool = (
-  retrieval: Retrieval,
-  store: VectorStore,
-): Tool => ({
+export interface ToolDeps {
+  readonly retrieval: Retrieval;
+  readonly embedder: Embedder;
+  readonly store: VectorStore;
+  readonly webSearch?: WebSearch;
+  readonly graphStore?: SqliteGraphStore;
+  readonly summaryIndex?: SummaryIndex;
+  readonly traceCorpus?: SqliteTraceCorpus;
+}
+
+export const createHybridSearchTool = (retrieval: Retrieval): Tool => ({
   name: 'hybrid_search',
   description: 'Dense + BM25 fused hybrid retrieval scoped to the active tenant and user.',
   jsonSchema: {
@@ -72,7 +100,10 @@ export const createHybridSearchTool = (
       const user = requireUser(ctx.invocationState);
       const q = String(args['question'] ?? '');
       const hits = await retrieval.retrieve(user, q, ctx.invocationState.strategy.k);
-      return okResult(JSON.stringify(hits.map((h: Hit) => ({ id: h.chunk.id, score: h.score, text: h.chunk.text }))), { hits });
+      return okResult(
+        JSON.stringify(hits.map((h: Hit) => ({ id: h.chunk.id, score: h.score, text: h.chunk.text }))),
+        { hits },
+      );
     });
   },
 });
@@ -93,7 +124,10 @@ export const createVectorSearchTool = (embedder: Embedder, store: VectorStore): 
       const filter = allowedCompanyFilter(user);
       const vec = await embedder.embedQuery(q);
       const hits = await store.searchVector({ vector: vec, topK, filter });
-      return okResult(JSON.stringify(hits.map((h: Hit) => ({ id: h.chunk.id, score: h.score }))), { hits });
+      return okResult(
+        JSON.stringify(hits.map((h: Hit) => ({ id: h.chunk.id, score: h.score }))),
+        { hits },
+      );
     });
   },
 });
@@ -127,74 +161,139 @@ export const createTodayTool = (): Tool => ({
   },
 });
 
-export const createWebSearchTool = (): Tool => ({
+export const createWebSearchTool = (search: WebSearch): Tool => ({
   name: 'web_search',
-  description: 'Web search (stub — Phase 2 wires a real provider).',
+  description: 'Web search via the configured provider (DuckDuckGo by default).',
   jsonSchema: {
     type: 'object',
-    properties: { query: { type: 'string' } },
+    properties: { query: { type: 'string' }, max_results: { type: 'number' } },
     required: ['query'],
   },
-  async execute() {
-    return wrap(Date.now(), async () => okResult('[]'));
-  },
-});
-
-export const createTraceSearchTool = (): Tool => ({
-  name: 'trace_search',
-  description: 'Retrieve transformed thinking traces for a query (Phase 2 wires the corpus).',
-  jsonSchema: {
-    type: 'object',
-    properties: { query: { type: 'string' }, representation: { type: 'string' } },
-    required: ['query'],
-  },
-  async execute(args) {
+  async execute(args, ctx) {
     return wrap(Date.now(), async () => {
       const q = String(args['query'] ?? '');
-      return okResult(`[] /* trace search not enabled; question="${q.slice(0, 80)}" */`);
+      const max = Number(args['max_results'] ?? 5);
+      const result = await search.search({
+        query: q,
+        maxResults: max,
+        ...(ctx.signal ? { signal: ctx.signal } : {}),
+      });
+      return okResult(JSON.stringify(result.hits), { took: result.took, hits: result.hits });
     });
   },
 });
 
-export const createSummarySearchTool = (): Tool => ({
-  name: 'summary_search',
-  description: 'RAPTOR summary search (Phase 2 wires the tree index).',
+export const createTraceSearchTool = (
+  corpus: SqliteTraceCorpus,
+  embedder: Embedder,
+): Tool => ({
+  name: 'trace_search',
+  description:
+    'Retrieve transformed thinking traces from the active tenant\'s trace corpus.',
   jsonSchema: {
     type: 'object',
-    properties: { question: { type: 'string' } },
+    properties: {
+      question: { type: 'string' },
+      representation: { type: 'string' },
+      top_k: { type: 'number' },
+    },
     required: ['question'],
   },
-  async execute() {
-    return wrap(Date.now(), async () => okResult('[]'));
+  async execute(args, ctx) {
+    return wrap(Date.now(), async () => {
+      const user = requireUser(ctx.invocationState);
+      const q = String(args['question'] ?? '');
+      const repRaw = String(
+        args['representation'] ?? ctx.invocationState.strategy.traceCorpus.representation,
+      );
+      const representation: 'struct' | 'semantic' | 'reflect' =
+        repRaw === 'struct' || repRaw === 'reflect' ? repRaw : 'semantic';
+      const topK = Number(args['top_k'] ?? ctx.invocationState.strategy.traceCorpus.topK);
+      const vec = await embedder.embedQuery(q);
+      const hits = await corpus.search({
+        tenantId: user.tenantId,
+        vector: vec,
+        representation,
+        topK,
+      });
+      return okResult(JSON.stringify(hits), { hits });
+    });
   },
 });
 
-export const createGraphSearchTool = (): Tool => ({
-  name: 'graph_search',
-  description: 'GraphRAG entity/community search (Phase 3 wires the graph store).',
+export const createSummarySearchTool = (
+  store: VectorStore,
+  embedder: Embedder,
+): Tool => ({
+  name: 'summary_search',
+  description: 'Search the RAPTOR-style summary index (summaries stored as chunks with modality=summary).',
   jsonSchema: {
     type: 'object',
-    properties: { question: { type: 'string' } },
+    properties: { question: { type: 'string' }, top_k: { type: 'number' } },
     required: ['question'],
   },
-  async execute() {
-    return wrap(Date.now(), async () => okResult('[]'));
+  async execute(args, ctx) {
+    return wrap(Date.now(), async () => {
+      const user = requireUser(ctx.invocationState);
+      const q = String(args['question'] ?? '');
+      const topK = Number(args['top_k'] ?? ctx.invocationState.strategy.k);
+      const filter = allowedCompanyFilter(user);
+      const vec = await embedder.embedQuery(q);
+      const hits = await store.searchVector({ vector: vec, topK, filter });
+      const summaryHits = hits.filter((h) => h.chunk.modality === 'summary');
+      return okResult(
+        JSON.stringify(
+          summaryHits.map((h: Hit) => ({
+            id: h.chunk.id,
+            score: h.score,
+            depth: h.chunk.metadata['depth'] ?? '',
+          })),
+        ),
+        { hits: summaryHits },
+      );
+    });
+  },
+});
+
+export const createGraphSearchTool = (graph: SqliteGraphStore): Tool => ({
+  name: 'graph_search',
+  description: 'GraphRAG entity search with hop-bounded neighborhood expansion.',
+  jsonSchema: {
+    type: 'object',
+    properties: { question: { type: 'string' }, hop: { type: 'number' } },
+    required: ['question'],
+  },
+  async execute(args, ctx) {
+    return wrap(Date.now(), async () => {
+      const user = requireUser(ctx.invocationState);
+      const q = String(args['question'] ?? '');
+      const hop = Math.min(3, Math.max(1, Number(args['hop'] ?? 2)));
+      const seeds = await graph.searchEntities(user.tenantId, q, 10);
+      const expanded = await graph.expandNeighborhood(
+        user.tenantId,
+        seeds.map((s) => s.name),
+        hop,
+        20,
+      );
+      return okResult(JSON.stringify({ seeds, expanded }), { seeds, expanded });
+    });
   },
 });
 
 export const registerBuiltInTools = (
-  registry: ToolRegistry,
-  deps: { retrieval: Retrieval; embedder: Embedder; store: VectorStore },
+  registry: { register: (tool: Tool) => void },
+  deps: ToolDeps,
 ): void => {
   const tools: Tool[] = [
-    createHybridSearchTool(deps.retrieval, deps.store),
+    createHybridSearchTool(deps.retrieval),
     createVectorSearchTool(deps.embedder, deps.store),
     createKeywordSearchTool(deps.store),
     createTodayTool(),
-    createWebSearchTool(),
-    createTraceSearchTool(),
-    createSummarySearchTool(),
-    createGraphSearchTool(),
   ];
+  if (deps.webSearch) tools.push(createWebSearchTool(deps.webSearch));
+  if (deps.traceCorpus && deps.embedder) tools.push(createTraceSearchTool(deps.traceCorpus, deps.embedder));
+  if (deps.store && deps.embedder) tools.push(createSummarySearchTool(deps.store, deps.embedder));
+  if (deps.graphStore) tools.push(createGraphSearchTool(deps.graphStore));
+
   for (const t of tools) registry.register(t);
 };

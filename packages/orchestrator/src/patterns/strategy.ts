@@ -17,15 +17,15 @@ export type StrategyOverrides = Partial<Strategy>;
 export const resolveStrategy = (
   layers: readonly StrategyOverrides[],
 ): Strategy => {
-  const defaults: Strategy = {
-    mode: 'graph',
-    hybrid: { denseWeight: 0.6, sparseWeight: 0.4, rrfK: 60, colbert: false },
-    ordering: 'standard',
-    k: 10,
-    reranker: 'identity',
-    multimodal: { enabled: false },
-    traceCorpus: { enabled: false, representation: 'semantic' },
-  };
+const defaults: Strategy = {
+  mode: 'graph',
+  hybrid: { denseWeight: 0.6, sparseWeight: 0.4, rrfK: 60, colbert: false },
+  ordering: 'standard',
+  k: 10,
+  reranker: 'identity',
+  multimodal: { enabled: false },
+  traceCorpus: { enabled: false, representation: 'semantic', topK: 5 },
+};
   let acc: Strategy = defaults;
   for (const layer of layers) {
     if (!layer) continue;
@@ -52,6 +52,7 @@ const mergeStrategy = (base: Strategy, over: StrategyOverrides): Strategy => ({
     ? {
         enabled: over.traceCorpus.enabled ?? base.traceCorpus.enabled,
         representation: over.traceCorpus.representation ?? base.traceCorpus.representation,
+        topK: over.traceCorpus.topK ?? base.traceCorpus.topK,
       }
     : base.traceCorpus,
 });
