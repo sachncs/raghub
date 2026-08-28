@@ -66,6 +66,8 @@ import { serve } from '@hono/node-server';
 import Database from 'better-sqlite3';
 
 import { createApp } from './app.js';
+import { JobWorker } from './job-worker.js';
+import { documentIngestHandler } from './handlers/document-ingest.js';
 import { WorkspacePool } from './workspace-pool.js';
 
 const HOME = process.env['RAGHUB_WORKSPACE_HOME'] ?? `${process.env['HOME'] ?? '/tmp'}/.raghub`;
@@ -117,13 +119,14 @@ export interface BootResult {
     readonly documentStore: DocumentStore;
     readonly documentPrincipalStore: DocumentPrincipalStore;
     readonly memberStore: SqliteWorkspaceMemberStoreType;
-readonly sessionStore: SessionStore;
-  readonly conversationStore: ConversationStore;
-  readonly jobQueue: SqliteJobQueueType;
-  readonly audit: SqliteAuditEventStore;
-  readonly vectorStore: VectorStore;
-} | null;
+    readonly sessionStore: SessionStore;
+    readonly conversationStore: ConversationStore;
+    readonly jobQueue: SqliteJobQueueType;
+    readonly audit: SqliteAuditEventStore;
+    readonly vectorStore: VectorStore;
+  } | null;
   readonly fileStorage: LocalFileStorage;
+  worker: JobWorker | null;
 }
 
 const wireFirstWorkspaceStores = async (
@@ -216,16 +219,39 @@ export const boot = async (opts: BootOptions = {}): Promise<BootResult> => {
     version: VERSION,
   });
 
-  return { app, registry, pool, embedder, jwt, hasher, defaultWorkspace, fileStorage };
+  return { app, registry, pool, embedder, jwt, hasher, defaultWorkspace, fileStorage, worker: null };
 };
 
 export const start = async (): Promise<void> => {
-  const { app, pool } = await boot();
+  const { app, pool, defaultWorkspace, fileStorage, embedder } = await boot();
+  let worker: JobWorker | null = null;
+  if (defaultWorkspace) {
+    const handler = documentIngestHandler({
+      workspaceId: defaultWorkspace.workspaceId as never,
+      db: defaultWorkspace.userStore,
+      documentStore: defaultWorkspace.documentStore as never,
+      audit: defaultWorkspace.audit,
+      fileStorage,
+      embedder,
+      vectorStore: defaultWorkspace.vectorStore,
+    });
+    /* The JobWorker expects a Database handle that matches its
+     * internal contract. We pass it the same underlying connection
+     * the SqliteDocumentStore is built on. */
+    worker = new JobWorker({
+      db: (defaultWorkspace.documentStore as unknown as { __db?: unknown }).__db as never,
+      handler,
+    });
+    worker.start();
+    // eslint-disable-next-line no-console
+    console.log(`raghub-api: JobWorker started for ${defaultWorkspace.workspaceId}`);
+  }
   serve({ fetch: app.fetch, port: PORT }, (info) => {
     // eslint-disable-next-line no-console
     console.log(`raghub-api listening on http://localhost:${info.port}`);
   });
   const close = (): void => {
+    void worker?.stop();
     pool.closeAll();
     process.exit(0);
   };
