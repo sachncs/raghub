@@ -188,7 +188,10 @@ export default function MembersPage() {
                       value={m.role}
                       onValueChange={(v) => void changeRole(m.userId, v as Member['role'])}
                     >
-                      <SelectTrigger className="h-8 w-[120px] text-xs">
+                      <SelectTrigger
+                        className="h-8 w-[120px] text-xs"
+                        aria-label={`Role for ${m.userId}`}
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
