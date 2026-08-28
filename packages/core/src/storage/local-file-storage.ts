@@ -1,8 +1,9 @@
 /**
  * LocalFileStorage — a tiny key-value store backed by the local
  * filesystem, used for session snapshots, conversation history that
- * has spilled out of the prompt window, and any other large blob
- * that doesn't belong in `workspace.db`.
+ * has spilled out of the prompt window, document bytes that the
+ * background ingest worker reads, and any other large blob that
+ * doesn't belong in `workspace.db`.
  *
  * Keys map to relative file paths under `root`; values are stored
  * verbatim (Buffer for binary, UTF-8 string for text). The store is
@@ -11,6 +12,8 @@
 
 import { existsSync, mkdirSync, promises as fs, renameSync, rmSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+
+import type { DocumentId, WorkspaceId } from '../domain/index.js';
 
 export interface LocalFileStorageOptions {
   readonly root: string;
@@ -126,3 +129,21 @@ export class InMemoryLocalFileStorage implements LocalFileStorage {
     this.files.clear();
   }
 }
+
+/**
+ * Stable path layout under the file storage root. Callers (api
+ * server, ingest worker) use these helpers instead of hand-rolling
+ * paths so the layout is auditable.
+ *
+ *   documents/<workspaceId>/<documentId>.bin    raw upload bytes
+ *   snapshots/<workspaceId>/<sessionId>.json    session snapshots
+ *   spillover/<workspaceId>/<conversationId>/  conversation spillover
+ */
+export const documentBytesKey = (workspaceId: WorkspaceId, documentId: DocumentId): string =>
+  `documents/${workspaceId}/${documentId}.bin`;
+
+export const sessionSnapshotKey = (workspaceId: WorkspaceId, sessionId: string): string =>
+  `snapshots/${workspaceId}/${sessionId}.json`;
+
+export const conversationSpilloverPrefix = (workspaceId: WorkspaceId): string =>
+  `spillover/${workspaceId}/`;
