@@ -21,6 +21,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:watch": "turbo run test -- --watch",
+    "e2e": "bash scripts/e2e-smoke.sh",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {
