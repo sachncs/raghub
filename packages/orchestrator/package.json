@@ -1,6 +1,6 @@
 {
   "name": "@raghub/orchestrator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Strands-backed orchestrator: Graph / Swarm / Workflow behind one façade.",
   "type": "module",
   "main": "./dist/index.js",
