@@ -162,6 +162,7 @@ export default function OnboardingPage() {
       <div
         className="mb-6 h-1 w-full overflow-hidden rounded-full bg-secondary"
         role="progressbar"
+        aria-label={`Step ${stepIndex + 1} of ${STEPS.length}`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={progressPct}
