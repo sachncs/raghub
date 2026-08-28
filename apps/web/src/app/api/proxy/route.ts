@@ -11,6 +11,11 @@
  * The passphrase cookie is server-only (httpOnly would be ideal;
  * Next.js does not expose this for plain `Response.cookie` yet —
  * left as a non-httpOnly document cookie for now and marked TODO).
+ *
+ * Note: when streaming a request body (Next 16 fetch requires
+ * `duplex: 'half'` for non-null bodies), the upstream fetch is
+ * launched with `duplex: 'half'`. SSE responses stream back via
+ * `upstream.body` unchanged.
  */
 
 import { cookies } from 'next/headers';
@@ -37,17 +42,24 @@ const forwardedHeaders = async (
   if (cookie) headers['cookie'] = cookie;
   if (token) headers['authorization'] = `Bearer ${token}`;
   if (method !== 'GET') {
-    headers['content-type'] = req.headers.get('content-type') ?? 'application/json';
+    const contentType = req.headers.get('content-type');
+    if (contentType) headers['content-type'] = contentType;
   }
   return headers;
 };
 
-const proxy = async (req: Request, method: 'GET' | 'POST' | 'PATCH' | 'DELETE'): Promise<Response> => {
+const proxy = async (
+  req: Request,
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+): Promise<Response> => {
   const path = req.headers.get('x-raghub-path') ?? '/';
+  const hasBody = method !== 'GET' && req.body !== null;
   const init: RequestInit = {
     method,
     headers: await forwardedHeaders(req, method),
-    ...(method === 'GET' ? {} : { body: req.body }),
+    ...(hasBody
+      ? { body: req.body, duplex: 'half' as const }
+      : {}),
   };
   const upstream = await fetch(`${API_BASE}${path}`, init);
   return new Response(upstream.body, {

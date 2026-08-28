@@ -11,6 +11,8 @@
  */
 
 import { Hono } from 'hono';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 import {
   type BcryptHasher,
@@ -23,6 +25,7 @@ import {
   AuthError,
   WorkspaceMemberRole,
   SqliteAuditEventStore,
+  SqliteUserStore,
   SqliteWorkspaceMemberStore,
   brandId,
   openEncryptedWorkspace,
@@ -61,8 +64,13 @@ interface LoginInput {
 const newWorkspaceId = (): WorkspaceId =>
   brandId<WorkspaceId>(`wsp_${Math.random().toString(36).slice(2, 14)}`);
 
-const workspaceDir = (workspaceId: WorkspaceId): string =>
-  `${process.env['RAGHUB_WORKSPACE_DIR'] ?? `${process.env['HOME'] ?? '/tmp'}/.raghub/workspaces`}/${workspaceId}/workspace.db`;
+const workspaceHome = (): string =>
+  process.env['RAGHUB_WORKSPACE_DIR'] ??
+  (process.env['RAGHUB_WORKSPACE_HOME']
+    ? `${process.env['RAGHUB_WORKSPACE_HOME']}/workspaces`
+    : `${process.env['HOME'] ?? '/tmp'}/.raghub/workspaces`);
+
+const workspaceDir = (workspaceId: WorkspaceId): string => `${workspaceHome()}/${workspaceId}/workspace.db`;
 
 const writeLlmSettings = async (
   settings: WorkspaceSettingsStore,
@@ -109,11 +117,16 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
 
     const workspaceId = newWorkspaceId();
     const path = workspaceDir(workspaceId);
+    mkdirSync(dirname(path), { recursive: true });
 
     const handle = await openEncryptedWorkspace({ path, passphrase: body.passphrase });
     await deps.registry.register({ workspaceId, path, encryption: 'passphrase-aes-256-gcm' });
     try {
-      const userStore = requireStore('userStore', deps.userStore);
+      /* Register creates a brand-new workspace, so the boot-bound
+       * userStore (which is per-first-registered-workspace) is
+       * intentionally absent here. Build a fresh userStore off
+       * the new handle's db. */
+      const userStore = new SqliteUserStore({ db: handle.db as never });
       const passwordHash = await deps.hasher.hash(body.password);
       const user = await userStore.create({
         workspaceId,
