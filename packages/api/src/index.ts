@@ -74,6 +74,18 @@ const HOME = process.env['RAGHUB_WORKSPACE_HOME'] ?? `${process.env['HOME'] ?? '
 const PORT = Number(process.env['RAGHUB_API_PORT'] ?? 3000);
 const VERSION = process.env['RAGHUB_VERSION'] ?? '0.1.0';
 
+const DEV_JWT_SECRET = 'dev-secret-change-me-please-32-bytes-min';
+const resolveJwtSecret = (): string => {
+  const secret = process.env['RAGHUB_JWT_SECRET'];
+  if (secret && secret.length > 0) return secret;
+  if (process.env['NODE_ENV'] === 'production') {
+    throw new Error(
+      'RAGHUB_JWT_SECRET is required when NODE_ENV=production; refusing to start with a dev fallback.',
+    );
+  }
+  return DEV_JWT_SECRET;
+};
+
 const openRegistry = async (path: string): Promise<WorkspaceRegistry> => {
   return openFileWorkspaceRegistry({ registryPath: path }, (p: string) => {
     const db = new Database(p);
@@ -178,9 +190,8 @@ export const boot = async (opts: BootOptions = {}): Promise<BootResult> => {
   const pool = new WorkspacePool({ registry });
 
   const hasher = new BcryptHasherImpl(10);
-  const jwtSecret = process.env['RAGHUB_JWT_SECRET'] ?? 'dev-secret-change-me-please-32-bytes-min';
   const jwt = new JwtServiceImpl({
-    secret: jwtSecret,
+    secret: resolveJwtSecret(),
     algorithm: 'HS256',
     ttlSeconds: 86_400,
   });
