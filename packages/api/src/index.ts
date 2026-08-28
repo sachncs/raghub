@@ -73,6 +73,7 @@ import { documentIngestHandler } from './handlers/document-ingest.js';
 import { buildStubOrchestrator } from './orchestrator-stub.js';
 import { WorkspacePool } from './workspace-pool.js';
 import { WorkspaceWorkerSupervisor } from './workspace-supervisor.js';
+import { JobWorker } from './job-worker.js';
 
 const HOME = process.env['RAGHUB_WORKSPACE_HOME'] ?? `${process.env['HOME'] ?? '/tmp'}/.raghub`;
 const PORT = Number(process.env['RAGHUB_API_PORT'] ?? 3000);
@@ -262,13 +263,76 @@ export const start = async (): Promise<void> => {
     // eslint-disable-next-line no-console
     console.log(`raghub-api listening on http://localhost:${info.port}`);
   });
-  const close = (): void => {
-    void supervisor.stop();
+
+  /* Leader-election for the worker pool.
+   *
+   * RAGHUB_WORKER_ROLE controls which process is allowed to
+   * drain the ingestion_jobs queues:
+   *   - 'leader'  (default)        — runs the supervisor.
+   *   - 'follower'                 — serves HTTP only; supervisor
+   *                                   is disabled. Multi-replica
+   *                                   deployments set exactly one
+   *                                   replica to 'leader' (the
+   *                                   rest 'follower').
+   *   - 'disabled'                 — no worker at all (good for
+   *                                   read-only API deployments).
+   */
+  const workerRole = (process.env['RAGHUB_WORKER_ROLE'] ?? 'leader').toLowerCase();
+  if (workerRole === 'follower' || workerRole === 'disabled') {
+    supervisor.stop();
+    // eslint-disable-next-line no-console
+    console.log(`raghub-api: worker role=${workerRole}; supervisor stopped`);
+  } else if (process.env['RAGHUB_RESET_STUCK_JOBS'] === '1') {
+    /* On boot, mark any 'running' rows as 'pending' so a fresh
+     * process can resume them. Safe to call multiple times. */
+    void (async () => {
+      for (const wid of workspaceRegistry.value) {
+        const wdb = await (async () => {
+          const entry = await reg.resolve(wid as never);
+          if (!entry) return null;
+          const passphrase = await vault.get(wid);
+          if (passphrase === null) return null;
+          try {
+            const handle = await openEncryptedWorkspace({
+              path: entry.path,
+              passphrase,
+            });
+            return handle.db as never;
+          } catch {
+            return null;
+          }
+        })();
+        if (wdb) {
+          try {
+            new JobWorker({
+              db: wdb as never,
+              handler: async () => undefined,
+              pollIntervalMs: 60_000,
+              batchSize: 1,
+            }).resetStuckJobs();
+          } catch {
+            /* ignore — best effort */
+          }
+        }
+      }
+    })();
+  }
+
+  /* Graceful shutdown — drain workers before the SQLite handles
+   * are closed so in-flight jobs reach the 'done' state and the
+   * next process doesn't see them as 'running'. */
+  let shuttingDown = false;
+  const close = async (): Promise<void> => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    // eslint-disable-next-line no-console
+    console.log('raghub-api: SIGTERM/SIGINT received, draining workers…');
+    await supervisor.stop();
     pool.closeAll();
     process.exit(0);
   };
-  process.on('SIGINT', close);
-  process.on('SIGTERM', close);
+  process.on('SIGINT', () => void close());
+  process.on('SIGTERM', () => void close());
 };
 
 const entry = process.argv[1] ?? '';
