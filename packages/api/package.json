@@ -1,6 +1,6 @@
 {
   "name": "@raghub/api",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "raghub HTTP API — Hono server with auth, query, streaming, onboarding.",
   "type": "module",
   "main": "./dist/index.js",
