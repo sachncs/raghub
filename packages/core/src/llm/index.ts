@@ -8,12 +8,17 @@
  * `minimax` (https://platform.minimax.io/docs/guides/models-intro)
  * is OpenAI-compatible and routed via `OpenAILlm` with a configurable
  * `baseUrl` (defaults to `https://api.minimax.chat/v1`).
+ *
+ * When `RAGHUB_LLM_STUB=1`, `createLlm` returns a `StubLlm`
+ * regardless of provider — used by the web smoke suite and by
+ * local runs that don't have an API key handy.
  */
 
 import { ConfigurationError } from '../errors/index.js';
 import type { Settings } from '../settings/index.js';
 import { FeatureHashingLlm } from './feature-hashing.js';
 import { OpenAILlm } from './openai.js';
+import { StubLlm } from './stub.js';
 import type { Llm } from './types.js';
 
 export type {
@@ -27,10 +32,15 @@ export type {
 } from './types.js';
 export { OpenAILlm } from './openai.js';
 export { FeatureHashingLlm } from './feature-hashing.js';
+export { StubLlm } from './stub.js';
+export type { StubLlmOptions } from './stub.js';
 
 const MINIMAX_BASE_URL = 'https://api.minimax.chat/v1';
 
 export const createLlm = (settings: Settings): Llm => {
+  if (process.env['RAGHUB_LLM_STUB'] === '1') {
+    return new StubLlm({ model: settings.llm.model });
+  }
   switch (settings.llm.provider) {
     case 'openai': {
       if (!settings.llm.apiKey) return new FeatureHashingLlm(settings.llm.model);
