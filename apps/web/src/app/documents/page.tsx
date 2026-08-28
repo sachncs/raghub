@@ -51,6 +51,21 @@ export default function DocumentsPage() {
     void refresh();
   }, []);
 
+  /* Poll while any document is still 'pending' or 'indexing' — the
+   * background ingest worker (started from the API server) flips the
+   * row to ready/failed. The 2s cadence keeps the UX snappy without
+   * hammering the server; we stop as soon as the queue is drained. */
+  useEffect(() => {
+    const stillWorking = rows.some(
+      (r) => r.status === 'pending' || r.status === 'indexing',
+    );
+    if (!stillWorking) return;
+    const handle = setInterval(() => {
+      void refresh();
+    }, 2_000);
+    return () => clearInterval(handle);
+  }, [rows]);
+
   const refresh = async (): Promise<void> => {
     const res = await proxy('/v1/documents');
     if (!res.ok) return;
