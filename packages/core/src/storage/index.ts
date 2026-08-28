@@ -23,6 +23,13 @@ export { SqliteSessionStore } from './sessions.js';
 export type { SqliteSessionStoreOptions } from './sessions.js';
 
 export type { ConversationStore, TurnInput } from './conversations.js';
+
+export type { PassphraseVault } from './passphrase-vault.js';
+export {
+  InMemoryPassphraseVault,
+  KmsPassphraseVault,
+  buildVault,
+} from './passphrase-vault.js';
 export { SqliteConversationStore } from './conversations.js';
 export type { SqliteConversationStoreOptions } from './conversations.js';
 

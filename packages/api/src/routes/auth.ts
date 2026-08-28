@@ -156,18 +156,16 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
     const path = workspaceDir(workspaceId);
     mkdirSync(dirname(path), { recursive: true });
 
-    const handle = await openEncryptedWorkspace({ path, passphrase: body.passphrase });
+const handle = await openEncryptedWorkspace({ path, passphrase: body.passphrase });
     await deps.registry.register({ workspaceId, path, encryption: 'passphrase-aes-256-gcm' });
-    /* Dev/e2e: stash the passphrase in the in-memory vault and
-     * add the workspace to the supervisor's set so it spins up
-     * a worker. Production should drop both lines and rely on a
-     * KMS-backed worker supervisor. */
+    /* Deposit the passphrase via the configured vault (memory
+     * by default; KMS-backed when RAGHUB_PASSPHRASE_VAULT=kms) and
+     * register the workspace with the supervisor so it spins up
+     * a worker. Production deployments should pick 'kms' and
+     * wire a real KMS decrypt. */
     {
-      const vaultMod = await import('../workspace-vault.js');
-      if (vaultMod.passVaultRef.value) {
-        vaultMod.passVaultRef.value.set(workspaceId, body.passphrase);
-        vaultMod.workspaceRegistry.value.add(workspaceId);
-      }
+      const boot = await import('../workspace-bootstrap.js');
+      await boot.registerWorkspace(workspaceId, body.passphrase);
     }
     try {
       /* Register creates a brand-new workspace, so the boot-bound

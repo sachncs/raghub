@@ -65,7 +65,8 @@ import { serve } from '@hono/node-server';
 import Database from 'better-sqlite3';
 import { openEncryptedWorkspace } from '@raghub/core';
 
-import { passVaultRef, workspaceRegistry } from './workspace-vault.js';
+import { passVaultRef, workspaceRegistry, registerWorkspace } from './workspace-bootstrap.js';
+import { buildVault } from '@raghub/core';
 
 import { createApp } from './app.js';
 import { documentIngestHandler } from './handlers/document-ingest.js';
@@ -235,25 +236,13 @@ export const start = async (): Promise<void> => {
   const { app, pool, registry: reg, defaultWorkspace, fileStorage, embedder } = await boot();
   /* Dev/e2e workspace supervisor — scans the registry every
    * pollMs and starts a JobWorker for any new registered
-   * workspace. The passphrase vault is in-memory only; for
-   * production this should be replaced with a KMS-backed
-   * mechanism. */
-  const vault = new Map<string, string>();
+   * workspace. The passphrase vault is pluggable via
+   * RAGHUB_PASSPHRASE_VAULT ('memory' | 'kms'). Production
+   * should pick 'kms' and wire a real KMS decrypt. */
+  const vault = buildVault(process.env as Record<string, string | undefined>);
+  passVaultRef.value = vault;
   const supervisor = new WorkspaceWorkerSupervisor({
-    resolveDb: (workspaceId) => {
-      const entryPromise = reg.resolve(workspaceId as never);
-      const passphrase = vault.get(workspaceId);
-      if (!passphrase) return null;
-      return entryPromise.then(async (entry) => {
-        if (!entry) return null;
-        try {
-          const handle = await openEncryptedWorkspace({ path: entry.path, passphrase });
-          return handle.db as never;
-        } catch {
-          return null;
-        }
-      });
-    },
+    registry: reg,
     resolveHandler: (workspaceId) =>
       documentIngestHandler({
         pool,
@@ -263,13 +252,11 @@ export const start = async (): Promise<void> => {
     pollMs: 2_000,
   });
   if (defaultWorkspace) {
-    vault.set(defaultWorkspace.workspaceId, '');
-    workspaceRegistry.value.add(defaultWorkspace.workspaceId);
+    await registerWorkspace(defaultWorkspace.workspaceId, '');
   }
-  passVaultRef.value = vault;
   supervisor.start();
   // eslint-disable-next-line no-console
-  console.log('raghub-api: WorkspaceWorkerSupervisor started');
+  console.log(`raghub-api: WorkspaceWorkerSupervisor started (vault=${vault.constructor.name})`);
 
   serve({ fetch: app.fetch, port: PORT }, (info: { port: number }) => {
     // eslint-disable-next-line no-console

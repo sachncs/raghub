@@ -37,7 +37,7 @@ import {
 } from '@raghub/core';
 
 import { WorkspacePool } from '../workspace-pool.js';
-import { passVaultRef } from '../workspace-vault.js';
+import { passVaultRef } from '../workspace-bootstrap.js';
 import type { JobHandler } from '../job-worker.js';
 
 export interface DocumentIngestHandlerDeps {
@@ -60,7 +60,7 @@ export const documentIngestHandler =
     const ownerId = brandId<UserId>(job.ownerId);
     const workspaceId = brandId<WorkspaceId>(workspaceIdStr);
 
-    const passphrase = passVaultRef.value?.get(workspaceIdStr) ?? '';
+    const passphrase = (await passVaultRef.value?.get(workspaceIdStr)) ?? '';
     const handle = await deps.pool.get({
       workspaceId,
       userId: ownerId,
