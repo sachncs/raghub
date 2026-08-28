@@ -158,6 +158,17 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
 
     const handle = await openEncryptedWorkspace({ path, passphrase: body.passphrase });
     await deps.registry.register({ workspaceId, path, encryption: 'passphrase-aes-256-gcm' });
+    /* Dev/e2e: stash the passphrase in the in-memory vault and
+     * add the workspace to the supervisor's set so it spins up
+     * a worker. Production should drop both lines and rely on a
+     * KMS-backed worker supervisor. */
+    {
+      const vaultMod = await import('../workspace-vault.js');
+      if (vaultMod.passVaultRef.value) {
+        vaultMod.passVaultRef.value.set(workspaceId, body.passphrase);
+        vaultMod.workspaceRegistry.value.add(workspaceId);
+      }
+    }
     try {
       /* Register creates a brand-new workspace, so the boot-bound
        * userStore (which is per-first-registered-workspace) is

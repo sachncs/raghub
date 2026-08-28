@@ -85,6 +85,43 @@ export const MIGRATIONS: readonly Migration[] = [
     description: 'Add status column to documents.',
     sql: [],
   },
+  {
+    id: '0009_jobs_table_columns',
+    description:
+      'Align ingestion_jobs schema with SqliteJobQueue: add kind, attempts, max_attempts; relax document_id NOT NULL.',
+    sql: [
+      /* SQLite doesn't support dropping a NOT NULL constraint
+       * via ALTER, so we recreate the table. For an existing
+       * workspace this only matters when the queue is used by
+       * callers that don't know the document id; the SqliteJobQueue
+       * falls in this bucket. */
+      `CREATE TABLE IF NOT EXISTS ingestion_jobs_new (
+         id TEXT PRIMARY KEY,
+         workspace_id INTEGER NOT NULL DEFAULT 1,
+         owner_id TEXT NOT NULL,
+         document_id TEXT,
+         status TEXT NOT NULL,
+         error TEXT,
+         payload_json TEXT NOT NULL DEFAULT '{}',
+         created_at INTEGER NOT NULL,
+         updated_at INTEGER NOT NULL,
+         kind TEXT NOT NULL DEFAULT 'document.ingest',
+         attempts INTEGER NOT NULL DEFAULT 0,
+         max_attempts INTEGER NOT NULL DEFAULT 3
+       );`,
+      `INSERT OR IGNORE INTO ingestion_jobs_new
+         (id, workspace_id, owner_id, document_id, status, error, payload_json, created_at, updated_at, kind, attempts, max_attempts)
+         SELECT id, workspace_id, owner_id, document_id, status, error, payload_json, created_at, updated_at,
+                COALESCE(kind, 'document.ingest'),
+                COALESCE(attempts, 0),
+                COALESCE(max_attempts, 3)
+         FROM ingestion_jobs;`,
+      `DROP TABLE IF EXISTS ingestion_jobs;`,
+      `ALTER TABLE ingestion_jobs_new RENAME TO ingestion_jobs;`,
+      `CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_status
+         ON ingestion_jobs (status, created_at);`,
+    ],
+  },
 ];
 
 const MIGRATIONS_TABLE_SQL = `

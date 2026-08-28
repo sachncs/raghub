@@ -193,12 +193,15 @@ const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     workspace_id INTEGER NOT NULL DEFAULT 1,
     owner_id TEXT NOT NULL,
-    document_id TEXT NOT NULL,
+    document_id TEXT,
     status TEXT NOT NULL,
     error TEXT,
     payload_json TEXT NOT NULL DEFAULT '{}',
     created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
+    updated_at INTEGER NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'document.ingest',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3
   );
   CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_status
     ON ingestion_jobs (status, created_at);

@@ -5,6 +5,7 @@
     "rootDir": ".",
     "composite": false,
     "noEmit": true,
+    "exactOptionalPropertyTypes": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "types": ["node", "vitest/globals"]

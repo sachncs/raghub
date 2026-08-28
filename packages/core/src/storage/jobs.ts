@@ -69,7 +69,7 @@ export class SqliteJobQueue implements JobQueue {
     const max = input.maxAttempts ?? 3;
     this.db
       .prepare(
-        `INSERT INTO jobs (id, workspace_id, owner_id, kind, payload_json, status, attempts, max_attempts, created_at, updated_at)
+        `INSERT INTO ingestion_jobs (id, workspace_id, owner_id, kind, payload_json, status, attempts, max_attempts, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
       )
       .run(id, input.workspaceId, input.ownerId, input.kind, payloadJson, JobStatus.Pending, max, now, now);
@@ -98,13 +98,13 @@ export class SqliteJobQueue implements JobQueue {
 
   private claim(workerId: string, now: number): JobRecord | null {
     const row = this.db
-      .prepare(`SELECT * FROM jobs WHERE status = ? ORDER BY created_at ASC LIMIT 1`)
+      .prepare(`SELECT * FROM ingestion_jobs WHERE status = ? ORDER BY created_at ASC LIMIT 1`)
       .get(JobStatus.Pending) as Record<string, unknown> | undefined;
     if (!row) return null;
     const id = String(row['id']);
     this.db
       .prepare(
-        `UPDATE jobs SET status = ?, attempts = attempts + 1, updated_at = ?, owner_id = COALESCE(owner_id, ?) WHERE id = ?`,
+        `UPDATE ingestion_jobs SET status = ?, attempts = attempts + 1, updated_at = ?, owner_id = COALESCE(owner_id, ?) WHERE id = ?`,
       )
       .run(JobStatus.Running, now, workerId, id);
     return rowToJob(row, JobStatus.Running);
@@ -112,19 +112,19 @@ export class SqliteJobQueue implements JobQueue {
 
   public async complete(id: JobId, _workerId: string): Promise<void> {
     this.db
-      .prepare('UPDATE jobs SET status = ?, error = NULL, updated_at = ? WHERE id = ?')
+      .prepare('UPDATE ingestion_jobs SET status = ?, error = NULL, updated_at = ? WHERE id = ?')
       .run(JobStatus.Completed, Date.now(), id);
   }
 
   public async fail(id: JobId, _workerId: string, error: string): Promise<void> {
     this.db
-      .prepare('UPDATE jobs SET status = ?, error = ?, updated_at = ? WHERE id = ?')
+      .prepare('UPDATE ingestion_jobs SET status = ?, error = ?, updated_at = ? WHERE id = ?')
       .run(JobStatus.Failed, error, Date.now(), id);
   }
 
   public async list(workspaceId: WorkspaceId): Promise<readonly JobRecord[]> {
     const rows = this.db
-      .prepare('SELECT * FROM jobs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 100')
+      .prepare('SELECT * FROM ingestion_jobs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 100')
       .all(workspaceId) as Record<string, unknown>[];
     return rows.map((r) => rowToJob(r, r['status'] as JobStatusValue));
   }

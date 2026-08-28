@@ -98,12 +98,14 @@ export const createApp = (deps: AppDeps): Hono => {
   protectedApp.route(
     '/',
     documentsRoutes({
+      pool: deps.pool,
       userStore: deps.userStore,
       documentStore: deps.documentStore,
       sessionStore: deps.sessionStore,
       jobQueue: deps.jobQueue,
       fileStorage: deps.fileStorage,
       vectorStore: deps.vectorStore,
+      embedder: deps.embedder,
     }),
   );
   protectedApp.route(

@@ -68,6 +68,10 @@ export class WorkspacePool {
     passphrase: string;
   }): Promise<WorkspaceWithSettings> {
     const key = `${input.workspaceId}::${input.userId}`;
+    if (process.env['RAGHUB_DEBUG_POOL']) {
+      // eslint-disable-next-line no-console
+      console.log(`[pool] get key=${key} cached=${this.entries.has(key)}`);
+    }
     const cached = this.entries.get(key);
     if (cached) {
       cached.handle.close.length;

@@ -22,6 +22,7 @@ import {
   type Document,
   type DocumentId,
   type DocumentStore,
+  type Embedder,
   type LocalFileStorage,
   type SessionStore,
   type SqliteJobQueue,
@@ -34,15 +35,18 @@ import {
 } from '@raghub/core';
 
 import { getClaims } from '../middleware/auth.js';
-import { requireStore } from '../guards.js';
+import { workspaceContextFrom } from '../workspace-context.js';
+import type { WorkspacePool } from '../workspace-pool.js';
 
 export interface DocumentsRouteDeps {
+  readonly pool: WorkspacePool;
   readonly userStore: { getById(workspaceId: WorkspaceId, id: UserId): Promise<User | null> } | null;
   readonly documentStore: DocumentStore | null;
   readonly sessionStore: SessionStore | null;
   readonly jobQueue: SqliteJobQueue | null;
   readonly fileStorage: LocalFileStorage | null;
-  readonly vectorStore: VectorStore | null;
+  readonly vectorStore?: VectorStore | null;
+  readonly embedder: Embedder;
 }
 
 interface UploadResponse {
@@ -71,13 +75,20 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
 
   app.post('/v1/documents', async (c) => {
     const claims = getClaims(c);
-    const userStore = requireStore('userStore', deps.userStore);
-    const documentStore = requireStore('documentStore', deps.documentStore);
-    const jobQueue = requireStore('jobQueue', deps.jobQueue);
-    const fileStorage = requireStore('fileStorage', deps.fileStorage);
-    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const userId = brandId<UserId>(claims.sub);
-    const user = await userStore.getById(workspaceId, userId);
+    const ctx = await workspaceContextFrom(c, {
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore ?? (await import('@raghub/core')).SqliteVecStore as never,
+    });
+    const documentStore = ctx.documentStore;
+    const jobQueue = ctx.jobQueue;
+    const fileStorage = deps.fileStorage;
+    if (!fileStorage) throw new Error('fileStorage missing');
+    const embedder = deps.embedder;
+    const vectorStore = ctx.vectorStore;
+    const workspaceId = ctx.workspaceId;
+    const userId = ctx.userId;
+    const user = await ctx.userStore.getById(workspaceId, userId);
     if (!user) {
       return c.json({ error: { code: 'auth_error', message: 'user not found' } }, 401);
     }
@@ -148,20 +159,38 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
   });
 
   app.get('/v1/documents', async (c) => {
-    const claims = getClaims(c);
-    const documentStore = requireStore('documentStore', deps.documentStore);
-    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const userId = brandId<UserId>(claims.sub);
-    const docs = await documentStore.listForUser(workspaceId, userId);
+    const ctx = await workspaceContextFrom(c, {
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore ?? null,
+    });
+    const docs = await ctx.documentStore.listForUser(ctx.workspaceId, ctx.userId);
+    if (process.env['RAGHUB_DEBUG_DOCS']) {
+      // eslint-disable-next-line no-console
+      console.log(`[docs.get] dbPath=${ctx.handle.path} wsId=${ctx.workspaceId} userId=${ctx.userId} count=${docs.length} statuses=${docs.map((d) => d.status).join(',')}`);
+      /* Raw row inspection: what does better-sqlite3 actually see? */
+      const rawRows = ctx.handle.db
+        .prepare('SELECT id, status FROM documents WHERE workspace_id = ? AND owner_id = ?')
+        .all(ctx.workspaceId, ctx.userId) as Array<{ id: string; status: string }>;
+      // eslint-disable-next-line no-console
+      console.log(`[docs.get] raw rows: ${JSON.stringify(rawRows)}`);
+    }
     return c.json({ documents: docs.map((d: Document) => d.toJSON()) });
   });
 
   app.delete('/v1/documents/:id', async (c) => {
-    const claims = getClaims(c);
-    const documentStore = requireStore('documentStore', deps.documentStore);
-    const vectorStore = requireStore('vectorStore', deps.vectorStore);
-    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const userId = brandId<UserId>(claims.sub);
+    const ctx = await workspaceContextFrom(c, {
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+    });
+    const documentStore = ctx.documentStore;
+    const vectorStore = ctx.vectorStore;
+    if (!vectorStore) {
+      return c.json({ error: { code: 'configuration_error', message: 'vector store unavailable' } }, 503);
+    }
+    const workspaceId = ctx.workspaceId;
+    const userId = ctx.userId;
     const id = brandId<DocumentId>(c.req.param('id'));
     const doc = await documentStore.getById(workspaceId, id);
     if (!doc) {
@@ -169,6 +198,9 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
     }
     if (doc.ownerId !== userId) {
       return c.json({ error: { code: 'authorization_error', message: 'not the owner' } }, 403);
+    }
+    if (!vectorStore) {
+      return c.json({ error: { code: 'configuration_error', message: 'vector store unavailable' } }, 503);
     }
     await vectorStore.deleteByDocument(id, workspaceId);
     return c.json({ ok: true });

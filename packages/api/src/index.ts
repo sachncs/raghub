@@ -63,12 +63,15 @@ import {
 } from '@raghub/core';
 import { serve } from '@hono/node-server';
 import Database from 'better-sqlite3';
+import { openEncryptedWorkspace } from '@raghub/core';
+
+import { passVaultRef, workspaceRegistry } from './workspace-vault.js';
 
 import { createApp } from './app.js';
-import { JobWorker } from './job-worker.js';
 import { documentIngestHandler } from './handlers/document-ingest.js';
 import { buildStubOrchestrator } from './orchestrator-stub.js';
 import { WorkspacePool } from './workspace-pool.js';
+import { WorkspaceWorkerSupervisor } from './workspace-supervisor.js';
 
 const HOME = process.env['RAGHUB_WORKSPACE_HOME'] ?? `${process.env['HOME'] ?? '/tmp'}/.raghub`;
 const PORT = Number(process.env['RAGHUB_API_PORT'] ?? 3000);
@@ -138,7 +141,7 @@ export interface BootResult {
     readonly vectorStore: VectorStore;
   } | null;
   readonly fileStorage: LocalFileStorage;
-  worker: JobWorker | null;
+  worker: undefined;
 }
 
 const wireFirstWorkspaceStores = async (
@@ -225,39 +228,55 @@ export const boot = async (opts: BootOptions = {}): Promise<BootResult> => {
     version: VERSION,
   });
 
-  return { app, registry, pool, embedder, jwt, hasher, defaultWorkspace, fileStorage, worker: null };
+  return { app, registry, pool, embedder, jwt, hasher, defaultWorkspace, fileStorage, worker: undefined };
 };
 
 export const start = async (): Promise<void> => {
-  const { app, pool, defaultWorkspace, fileStorage, embedder } = await boot();
-  let worker: JobWorker | null = null;
+  const { app, pool, registry: reg, defaultWorkspace, fileStorage, embedder } = await boot();
+  /* Dev/e2e workspace supervisor — scans the registry every
+   * pollMs and starts a JobWorker for any new registered
+   * workspace. The passphrase vault is in-memory only; for
+   * production this should be replaced with a KMS-backed
+   * mechanism. */
+  const vault = new Map<string, string>();
+  const supervisor = new WorkspaceWorkerSupervisor({
+    resolveDb: (workspaceId) => {
+      const entryPromise = reg.resolve(workspaceId as never);
+      const passphrase = vault.get(workspaceId);
+      if (!passphrase) return null;
+      return entryPromise.then(async (entry) => {
+        if (!entry) return null;
+        try {
+          const handle = await openEncryptedWorkspace({ path: entry.path, passphrase });
+          return handle.db as never;
+        } catch {
+          return null;
+        }
+      });
+    },
+    resolveHandler: (workspaceId) =>
+      documentIngestHandler({
+        pool,
+        fileStorage,
+        embedder,
+      }),
+    pollMs: 2_000,
+  });
   if (defaultWorkspace) {
-    const handler = documentIngestHandler({
-      workspaceId: defaultWorkspace.workspaceId as never,
-      db: defaultWorkspace.userStore,
-      documentStore: defaultWorkspace.documentStore as never,
-      audit: defaultWorkspace.audit,
-      fileStorage,
-      embedder,
-      vectorStore: defaultWorkspace.vectorStore,
-    });
-    /* The JobWorker expects a Database handle that matches its
-     * internal contract. We pass it the same underlying connection
-     * the SqliteDocumentStore is built on. */
-    worker = new JobWorker({
-      db: (defaultWorkspace.documentStore as unknown as { __db?: unknown }).__db as never,
-      handler,
-    });
-    worker.start();
-    // eslint-disable-next-line no-console
-    console.log(`raghub-api: JobWorker started for ${defaultWorkspace.workspaceId}`);
+    vault.set(defaultWorkspace.workspaceId, '');
+    workspaceRegistry.value.add(defaultWorkspace.workspaceId);
   }
+  passVaultRef.value = vault;
+  supervisor.start();
+  // eslint-disable-next-line no-console
+  console.log('raghub-api: WorkspaceWorkerSupervisor started');
+
   serve({ fetch: app.fetch, port: PORT }, (info: { port: number }) => {
     // eslint-disable-next-line no-console
     console.log(`raghub-api listening on http://localhost:${info.port}`);
   });
   const close = (): void => {
-    void worker?.stop();
+    void supervisor.stop();
     pool.closeAll();
     process.exit(0);
   };

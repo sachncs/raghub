@@ -140,7 +140,7 @@ const rowToDocument = (row: Record<string, unknown>): Document => {
     mimeType: String(row['mime_type']),
     hash: String(row['hash']),
     byteSize: Number(row['byte_size']),
-    status: DocumentLifecycleStatus[status as keyof typeof DocumentLifecycleStatus] ?? DocumentLifecycleStatus.Pending,
+    status: status as DocumentLifecycleStatusValue,
     metadata,
     createdAt: new Date(Number(row['created_at'])),
     updatedAt: new Date(Number(row['updated_at'])),

@@ -57,7 +57,7 @@ import type { WorkspacePool } from './workspace-pool.js';
 export interface WorkspaceContextDeps {
   readonly pool: WorkspacePool;
   readonly embedder: Embedder;
-  readonly vectorStore: VectorStore;
+  readonly vectorStore?: VectorStore | null;
 }
 
 export interface WorkspaceContext {
@@ -74,7 +74,7 @@ export interface WorkspaceContext {
   readonly audit: SqliteAuditEventStore;
   readonly memory: SqliteWorkspaceMemoryStore;
   readonly embedder: Embedder;
-  readonly vectorStore: VectorStore;
+  readonly vectorStore: VectorStore | null;
   close(): Promise<void>;
 }
 
@@ -110,7 +110,7 @@ export class WorkspaceContextImpl implements WorkspaceContext {
     public readonly userId: UserId,
     public readonly handle: WorkspaceWithSettings,
     public readonly embedder: Embedder,
-    public readonly vectorStore: VectorStore,
+    public readonly vectorStore: VectorStore | null,
   ) {
     const db = handle.db;
     this.userStore = new SqliteUserStoreImpl({ db });
@@ -143,7 +143,7 @@ export const workspaceContextFrom = async (
     userId,
     handle,
     deps.embedder,
-    deps.vectorStore,
+    deps.vectorStore ?? null,
   );
 };
 
