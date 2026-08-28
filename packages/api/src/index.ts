@@ -61,13 +61,13 @@ import {
   openWorkspace,
   brandId,
 } from '@raghub/core';
-import { Orchestrator } from '@raghub/orchestrator';
 import { serve } from '@hono/node-server';
 import Database from 'better-sqlite3';
 
 import { createApp } from './app.js';
 import { JobWorker } from './job-worker.js';
 import { documentIngestHandler } from './handlers/document-ingest.js';
+import { buildStubOrchestrator } from './orchestrator-stub.js';
 import { WorkspacePool } from './workspace-pool.js';
 
 const HOME = process.env['RAGHUB_WORKSPACE_HOME'] ?? `${process.env['HOME'] ?? '/tmp'}/.raghub`;
@@ -200,15 +200,10 @@ export const boot = async (opts: BootOptions = {}): Promise<BootResult> => {
   const defaultWorkspace = await wireFirstWorkspaceStores(registry);
   const fileStorage = new FsLocalFileStorage({ root: `${home}/files` });
 
-  /* Orchestrator remains a placeholder until commit 10 (JobWorker +
-   * orchestrator per-workspace wiring). Routes that touch it are
-   * gated by the presence of a registered workspace. */
-  const orchestrator = new Orchestrator({
-    telemetry: {} as never,
-    workspaceId: brandId('wsp_local'),
-    agents: {} as never,
-    tools: {} as never,
-  });
+  /* Orchestrator — see ./orchestrator-stub.ts for the dev-mode
+   * wiring (NoOpTelemetry + stub AgentRegistry + StubLlm).
+   * Multi-tenant builds swap this for a real RagAgent. */
+  const orchestrator = await buildStubOrchestrator();
 
   const app = createApp({
     userStore: defaultWorkspace?.userStore ?? null,
@@ -257,7 +252,7 @@ export const start = async (): Promise<void> => {
     // eslint-disable-next-line no-console
     console.log(`raghub-api: JobWorker started for ${defaultWorkspace.workspaceId}`);
   }
-  serve({ fetch: app.fetch, port: PORT }, (info) => {
+  serve({ fetch: app.fetch, port: PORT }, (info: { port: number }) => {
     // eslint-disable-next-line no-console
     console.log(`raghub-api listening on http://localhost:${info.port}`);
   });

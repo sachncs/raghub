@@ -48,6 +48,7 @@ export class Orchestrator {
   private readonly defaultStrategy: Strategy;
   private readonly sessionOverrides: Readonly<Record<string, unknown>>;
   private readonly patterns: Record<StrategyShape['mode'], PatternBuilder>;
+  private readonly adapter: StrandsAdapter;
   private readonly agents: AgentRegistry;
   private readonly tools: ToolRegistry;
 
@@ -74,6 +75,18 @@ export class Orchestrator {
       swarm: buildSwarm(opts.adapters?.swarm ?? adapter),
       workflow: buildWorkflow(opts.adapters?.workflow ?? adapter),
     };
+    this.adapter = adapter;
+  }
+
+  /**
+   * Wire the InProcessAdapter's streaming generator hook to the
+   * supplied callback so the orchestrator can push incremental
+   * 'answer_chunk' events as the LLM emits them. No-op for
+   * adapters that don't expose the hook (e.g. the Strands SDK
+   * before streaming support ships).
+   */
+  private installStreamingHook(onDelta: (delta: string) => void): void {
+    this.adapter.useStreamingGenerator?.(onDelta);
   }
 
   public async run(req: OrchestratorRequest): Promise<OrchestratorResult> {
@@ -107,6 +120,14 @@ export class Orchestrator {
         r();
       }
     };
+
+    /* Stream incremental deltas through the adapter's streaming
+     * generator hook (when available) so the chat UI sees tokens
+     * appear as the LLM emits them. */
+    let stepCounter = 1;
+    this.installStreamingHook((delta) => {
+      push({ kind: 'answer_chunk', step: stepCounter++, payload: { delta } });
+    });
 
     const task = runWithWorkspaceAsync(
       {

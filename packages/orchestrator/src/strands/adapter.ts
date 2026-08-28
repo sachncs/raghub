@@ -21,4 +21,12 @@ export interface StrandsAdapter {
   runGraph(req: OrchestratorRequest, state: InvocationState): Promise<OrchestratorResult>;
   runSwarm(req: OrchestratorRequest, state: InvocationState): Promise<OrchestratorResult>;
   runWorkflow(req: OrchestratorRequest, state: InvocationState): Promise<OrchestratorResult>;
+  /**
+   * Optional hook: register a callback that the adapter should
+   * invoke for every token delta it streams. The orchestrator
+   * wires this up before each stream() call so the chat UI sees
+   * incremental chunks. Adapters that don't stream (synchronous
+   * / Strands SDK without streaming) may leave this as a no-op.
+   */
+  useStreamingGenerator?(onDelta: (delta: string) => void): void;
 }

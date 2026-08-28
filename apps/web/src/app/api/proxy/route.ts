@@ -41,6 +41,10 @@ const forwardedHeaders = async (
   };
   if (cookie) headers['cookie'] = cookie;
   if (token) headers['authorization'] = `Bearer ${token}`;
+  /* Server-to-server callers (e.g. curl, tests) may pass an
+   * Authorization header directly; prefer it over the cookie. */
+  const incomingAuth = req.headers.get('authorization');
+  if (incomingAuth) headers['authorization'] = incomingAuth;
   if (method !== 'GET') {
     const contentType = req.headers.get('content-type');
     if (contentType) headers['content-type'] = contentType;

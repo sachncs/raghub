@@ -22,6 +22,7 @@ import {
   type WorkspaceId,
   type WorkspaceRegistry,
   type WorkspaceSettingsStore,
+  type WorkspaceWithSettings,
   AuthError,
   WorkspaceMemberRole,
   SqliteAuditEventStore,
@@ -71,6 +72,42 @@ const workspaceHome = (): string =>
     : `${process.env['HOME'] ?? '/tmp'}/.raghub/workspaces`);
 
 const workspaceDir = (workspaceId: WorkspaceId): string => `${workspaceHome()}/${workspaceId}/workspace.db`;
+
+interface FoundUser {
+  readonly user: { readonly id: string; readonly workspaceId: WorkspaceId; readonly isAdmin: boolean };
+  readonly passwordHash: string;
+}
+
+const findUserByEmail = async (
+  registry: WorkspaceRegistry,
+  email: string,
+  passphrase: string,
+): Promise<FoundUser | null> => {
+  const list = await registry.list();
+  for (const entry of list) {
+    let handle: WorkspaceWithSettings | null = null;
+    try {
+      handle = await openEncryptedWorkspace({ path: entry.path, passphrase });
+      const userStore = new SqliteUserStore({ db: handle.db as never });
+      const found = await userStore.getByEmail(email);
+      if (found) {
+        return {
+          user: {
+            id: found.user.id,
+            workspaceId: found.user.workspaceId,
+            isAdmin: found.user.isAdmin,
+          },
+          passwordHash: found.passwordHash,
+        };
+      }
+    } catch {
+      /* Wrong passphrase for this workspace — keep trying others. */
+    } finally {
+      handle?.close();
+    }
+  }
+  return null;
+};
 
 const writeLlmSettings = async (
   settings: WorkspaceSettingsStore,
@@ -171,8 +208,13 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
     if (!body.email || !body.password || !body.passphrase) {
       return c.json({ error: { code: 'auth_error', message: 'email, password, passphrase required' } }, 400);
     }
-    const userStore = requireStore('userStore', deps.userStore);
-    const found = await userStore.getByEmail(body.email);
+    /* Login needs a userStore bound to the workspace that owns
+     * this user. The boot-bound userStore is only attached to the
+     * first registered workspace, so for any other workspace we
+     * open the registry entries one by one and try to find the
+     * user. The passphrase always unlocks the user's own
+     * workspace. */
+    const found = await findUserByEmail(deps.registry, body.email, body.passphrase);
     if (!found) {
       return c.json({ error: { code: 'auth_error', message: 'invalid credentials' } }, 401);
     }
@@ -194,10 +236,19 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
     }
     const token = await deps.jwt.mint({
       subject: found.user.id,
-      workspaceId: found.user.workspaceId,
+      workspaceId: found.user.workspaceId as never,
       isAdmin: found.user.isAdmin,
     });
-    return c.json({ token, user: found.user.toJSON() });
+    return c.json({
+      token,
+      user: {
+        id: found.user.id,
+        workspaceId: found.user.workspaceId,
+        email: body.email,
+        isAdmin: found.user.isAdmin,
+        role: 'admin',
+      },
+    });
   });
 
   return app;

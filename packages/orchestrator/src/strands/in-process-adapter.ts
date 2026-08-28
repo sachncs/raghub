@@ -131,10 +131,20 @@ export class InProcessAdapter implements StrandsAdapter {
   }
 
   public useStreamingGenerator(onDelta: (delta: string) => void): void {
-    this.agents.register(
-      'generator',
-      createStreamingGeneratorAgent({ llm: this.llm, model: this.model, onDelta }),
-    );
+    /* No-op when the adapter has no LLM bound (e.g. the test that
+     * exercises the orchestrator's event stream with stub agents).
+     * The orchestrator's generator fallback still emits the final
+     * PlannerEvent; we just lose per-chunk answer_chunks. */
+    if (!this.llm) return;
+    const agent = createStreamingGeneratorAgent({ llm: this.llm, model: this.model, onDelta });
+    if (this.agents.get('generator')) {
+      /* Override — useStreamingGenerator is called per stream()
+       * and the orchestrator's test loop re-runs the pipeline;
+       * re-registering with the same id would throw. */
+      (this.agents as unknown as { agents: Map<string, unknown> }).agents.set('generator', agent);
+    } else {
+      this.agents.register('generator', agent);
+    }
   }
 
   private ensureAgents(): void {

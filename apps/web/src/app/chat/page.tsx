@@ -98,6 +98,12 @@ export default function ChatPage() {
               msg.id === assistantId ? { ...msg, text: msg.text + (payload['delta'] as string) } : msg,
             ),
           );
+        } else if (kind === 'final' && typeof payload['answer'] === 'string') {
+          /* Stub orchestrator + any final-only path: render the
+           * full answer if no incremental chunks were emitted. */
+          setMessages((m) =>
+            m.map((msg) => (msg.id === assistantId && msg.text === '' ? { ...msg, text: payload['answer'] as string } : msg)),
+          );
         }
         events.push({ step: events.length, kind, payload });
       }
