@@ -28,8 +28,10 @@ import {
   openEncryptedWorkspace,
 } from '@raghub/core';
 
+import { requireStore } from '../guards.js';
+
 export interface AuthRouteDeps {
-  readonly userStore: UserStore;
+  readonly userStore: UserStore | null;
   readonly hasher: BcryptHasher;
   readonly jwt: JwtService;
   readonly registry: WorkspaceRegistry;
@@ -111,8 +113,9 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
     const handle = await openEncryptedWorkspace({ path, passphrase: body.passphrase });
     await deps.registry.register({ workspaceId, path, encryption: 'passphrase-aes-256-gcm' });
     try {
+      const userStore = requireStore('userStore', deps.userStore);
       const passwordHash = await deps.hasher.hash(body.password);
-      const user = await deps.userStore.create({
+      const user = await userStore.create({
         workspaceId,
         email: body.email,
         passwordHash,
@@ -155,7 +158,8 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
     if (!body.email || !body.password || !body.passphrase) {
       return c.json({ error: { code: 'auth_error', message: 'email, password, passphrase required' } }, 400);
     }
-    const found = await deps.userStore.getByEmail(body.email);
+    const userStore = requireStore('userStore', deps.userStore);
+    const found = await userStore.getByEmail(body.email);
     if (!found) {
       return c.json({ error: { code: 'auth_error', message: 'invalid credentials' } }, 401);
     }
