@@ -32,7 +32,7 @@ const cookieHeader = async (): Promise<string> => {
 
 const forwardedHeaders = async (
   req: Request,
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
 ): Promise<HeadersInit> => {
   const token = (await cookies()).get('raghub_token')?.value;
   const cookie = await cookieHeader();
@@ -54,7 +54,7 @@ const forwardedHeaders = async (
 
 const proxy = async (
   req: Request,
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
 ): Promise<Response> => {
   const path = req.headers.get('x-raghub-path') ?? '/';
   const hasBody = method !== 'GET' && req.body !== null;
@@ -75,4 +75,5 @@ const proxy = async (
 export const POST = (req: Request): Promise<Response> => proxy(req, 'POST');
 export const GET = (req: Request): Promise<Response> => proxy(req, 'GET');
 export const PATCH = (req: Request): Promise<Response> => proxy(req, 'PATCH');
+export const PUT = (req: Request): Promise<Response> => proxy(req, 'PUT');
 export const DELETE = (req: Request): Promise<Response> => proxy(req, 'DELETE');

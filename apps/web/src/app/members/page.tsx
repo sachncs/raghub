@@ -12,6 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -118,10 +119,13 @@ export default function MembersPage() {
 
   return (
     <main className="container max-w-3xl py-8">
-      <h1 className="mb-6 text-2xl font-semibold">Members</h1>
-
-      <Dialog>
-        <DialogContent>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Members</h1>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button size="sm">Invite</Button>
+          </DialogTrigger>
+          <DialogContent>
           <DialogHeader>
             <DialogTitle>Invite a member</DialogTitle>
             <DialogDescription>
@@ -159,8 +163,9 @@ export default function MembersPage() {
               {error}
             </p>
           )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {members.length === 0 ? (
         <p className="text-sm text-muted-foreground">No members yet.</p>

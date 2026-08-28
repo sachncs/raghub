@@ -54,6 +54,8 @@ export function Header(_props: HeaderProps) {
               method: 'POST',
               headers: { 'x-raghub-path': '/v1/auth/logout' },
             });
+            document.cookie =
+              'raghub_token=; path=/; max-age=0; samesite=lax';
             window.location.href = '/sign-in';
           })()}
         >

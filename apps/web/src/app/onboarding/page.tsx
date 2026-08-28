@@ -127,6 +127,12 @@ export default function OnboardingPage() {
       if (token) {
         document.cookie = `raghub_token=${token}; path=/; max-age=86400; samesite=lax`;
       }
+      /* Persist the workspace passphrase so per-request routes can
+       * open the encrypted workspace via the passphrase vault.
+       * Sign-in does the same — both entry points need it. */
+      if (state.passphrase.length > 0) {
+        document.cookie = `raghub_passphrase=${encodeURIComponent(state.passphrase)}; path=/; max-age=86400; samesite=lax`;
+      }
       toast.success('Workspace created');
       window.location.href = '/chat';
     } finally {
