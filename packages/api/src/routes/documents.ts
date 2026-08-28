@@ -28,14 +28,15 @@ import {
 } from '@raghub/core';
 
 import { getClaims } from '../middleware/auth.js';
+import { requireStore } from '../guards.js';
 
 export interface DocumentsRouteDeps {
-  readonly userStore: { getById(workspaceId: WorkspaceId, id: UserId): Promise<User | null> };
-  readonly documentStore: DocumentStore;
-  readonly sessionStore: SessionStore;
-  readonly jobQueue: SqliteJobQueue;
+  readonly userStore: { getById(workspaceId: WorkspaceId, id: UserId): Promise<User | null> } | null;
+  readonly documentStore: DocumentStore | null;
+  readonly sessionStore: SessionStore | null;
+  readonly jobQueue: SqliteJobQueue | null;
   readonly embedder: Embedder;
-  readonly vectorStore: VectorStore;
+  readonly vectorStore: VectorStore | null;
 }
 
 interface UploadResponse {
@@ -63,9 +64,14 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
 
   app.post('/v1/documents', async (c) => {
     const claims = getClaims(c);
+    const userStore = requireStore('userStore', deps.userStore);
+    const documentStore = requireStore('documentStore', deps.documentStore);
+    const jobQueue = requireStore('jobQueue', deps.jobQueue);
+    const embedder = requireStore('embedder', deps.embedder);
+    const vectorStore = requireStore('vectorStore', deps.vectorStore);
     const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
     const userId = brandId<UserId>(claims.sub);
-    const user = await deps.userStore.getById(workspaceId, userId);
+    const user = await userStore.getById(workspaceId, userId);
     if (!user) {
       return c.json({ error: { code: 'auth_error', message: 'user not found' } }, 401);
     }
@@ -87,7 +93,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
     const buffer = Buffer.from(arrayBuf);
     const hash = hashDocument(buffer);
 
-    const document = await deps.documentStore.upsert({
+    const document = await documentStore.upsert({
       workspaceId,
       ownerId: userId,
       filename: file.name || 'upload',
@@ -97,7 +103,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
       metadata,
     });
 
-    const seen = await deps.documentStore.getByHash(workspaceId, hash);
+    const seen = await documentStore.getByHash(workspaceId, hash);
     if (seen && seen.id !== document.id) {
       const response: UploadResponse = {
         documentId: seen.id,
@@ -108,7 +114,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
       return c.json(response, 200);
     }
 
-    await deps.jobQueue.enqueue({
+    await jobQueue.enqueue({
       workspaceId,
       ownerId: userId,
       kind: 'document.ingest',
@@ -125,10 +131,10 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
         content: buffer,
         metadata,
       },
-      { embedder: deps.embedder, store: deps.vectorStore },
+      { embedder, store: vectorStore },
     );
 
-    await deps.documentStore.setStatus(document.id, workspaceId, DocumentLifecycleStatus.Ready);
+    await documentStore.setStatus(document.id, workspaceId, DocumentLifecycleStatus.Ready);
 
     const response: UploadResponse = {
       documentId: document.id,
@@ -141,25 +147,28 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
 
   app.get('/v1/documents', async (c) => {
     const claims = getClaims(c);
+    const documentStore = requireStore('documentStore', deps.documentStore);
     const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
     const userId = brandId<UserId>(claims.sub);
-    const docs = await deps.documentStore.listForUser(workspaceId, userId);
+    const docs = await documentStore.listForUser(workspaceId, userId);
     return c.json({ documents: docs.map((d: Document) => d.toJSON()) });
   });
 
   app.delete('/v1/documents/:id', async (c) => {
     const claims = getClaims(c);
+    const documentStore = requireStore('documentStore', deps.documentStore);
+    const vectorStore = requireStore('vectorStore', deps.vectorStore);
     const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
     const userId = brandId<UserId>(claims.sub);
     const id = brandId<DocumentId>(c.req.param('id'));
-    const doc = await deps.documentStore.getById(workspaceId, id);
+    const doc = await documentStore.getById(workspaceId, id);
     if (!doc) {
       return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);
     }
     if (doc.ownerId !== userId) {
       return c.json({ error: { code: 'authorization_error', message: 'not the owner' } }, 403);
     }
-    await deps.vectorStore.deleteByDocument(id, workspaceId);
+    await vectorStore.deleteByDocument(id, workspaceId);
     return c.json({ ok: true });
   });
 

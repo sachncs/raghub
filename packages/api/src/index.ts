@@ -6,6 +6,12 @@
  *     $RAGHUB_WORKSPACE_HOME/registry.db
  *   - provisions one WorkspaceWithSettings per authenticated request
  *     via the WorkspacePool
+ *   - binds a real Embedder (FeatureHashing by default, OpenAI when
+ *     RAGHUB_EMBEDDER_API_KEY is set) and a BcryptHasher + JwtService
+ *   - resolves per-workspace stores (users, documents, members, ...)
+ *     from the FIRST registered workspace for single-tenant mode;
+ *     multi-workspace mode uses WorkspaceContext (see
+ *     workspace-context.ts) on a per-request basis
  *   - listens on $RAGHUB_API_PORT (default 3000)
  *
  * Usage:
@@ -17,23 +23,41 @@
  */
 
 import {
-  type BcryptHasher,
-  type JwtService,
-  type SessionStore,
-  type UserStore,
   BcryptHasher as BcryptHasherImpl,
-  JwtService as JwtServiceImpl,
-  type VectorStore,
-  type Embedder,
-  type DocumentStore,
+  type BcryptHasher,
   type ConversationStore,
-  type SqliteJobQueue,
+  type DocumentPrincipalStore,
+  type DocumentStore,
+  type Embedder,
+  FeatureHashingEmbedder,
+  type JwtService,
+  JwtService as JwtServiceImpl,
+  type SessionStore,
+  SqliteAuditEventStore,
+  SqliteConversationStore,
+  type SqliteDocumentPrincipalStoreOptions,
+  SqliteDocumentPrincipalStore,
+  type SqliteDocumentStoreOptions,
+  SqliteDocumentStore,
+  type SqliteJobQueueOptions,
+  SqliteJobQueue,
+  type SqliteJobQueue as SqliteJobQueueType,
+  type SqliteSessionStoreOptions,
+  SqliteSessionStore,
+  type SqliteUserStoreOptions,
+  SqliteUserStore,
+  SqliteVecStore,
+  type SqliteVecStoreOptions,
+  SqliteWorkspaceMemberStore,
+  type SqliteWorkspaceMemberStore as SqliteWorkspaceMemberStoreType,
+  type UserStore,
+  type VectorStore,
   type WorkspaceMemberStore,
   type WorkspaceRegistry,
-  type DocumentPrincipalStore,
-  brandId,
   defaultRegistryPath,
   openFileWorkspaceRegistry,
+  openWorkspace,
+  brandId,
 } from '@raghub/core';
 import { Orchestrator } from '@raghub/orchestrator';
 import { serve } from '@hono/node-server';
@@ -46,56 +70,87 @@ const HOME = process.env['RAGHUB_WORKSPACE_HOME'] ?? `${process.env['HOME'] ?? '
 const PORT = Number(process.env['RAGHUB_API_PORT'] ?? 3000);
 const VERSION = process.env['RAGHUB_VERSION'] ?? '0.1.0';
 
-const openRegistry = async (path: string): Promise<WorkspaceRegistry> =>
-  openFileWorkspaceRegistry({ registryPath: path }, (p: string) => {
+const openRegistry = async (path: string): Promise<WorkspaceRegistry> => {
+  return openFileWorkspaceRegistry({ registryPath: path }, (p: string) => {
     const db = new Database(p);
     return db as never;
   });
+};
 
-const ensureSingleton = async <T>(label: string, factory: () => T): Promise<T> => factory();
+const buildEmbedder = (): Embedder => {
+  const apiKey = process.env['RAGHUB_EMBEDDER_API_KEY'] ?? process.env['OPENAI_API_KEY'];
+  const model = process.env['RAGHUB_EMBEDDER_MODEL'] ?? 'text-embedding-3-large';
+  const dim = Number(process.env['RAGHUB_VECTOR_EMBEDDING_DIM'] ?? 3072);
+  if (!apiKey) {
+    return new FeatureHashingEmbedder(model, dim);
+  }
+  /* Lazy import so the package builds without the SDK. */
+  return new (require('@raghub/core').OpenAIEmbedder)(
+    { model, apiKey, batchSize: 64 },
+    dim,
+  ) as Embedder;
+};
 
 export interface BootOptions {
   readonly home?: string;
   readonly port?: number;
 }
 
-export const boot = async (opts: BootOptions = {}): Promise<{
+export interface BootResult {
   app: ReturnType<typeof createApp>;
   registry: WorkspaceRegistry;
   pool: WorkspacePool;
-}> => {
-  const home = opts.home ?? HOME;
-  const port = opts.port ?? PORT;
-  void port;
+  embedder: Embedder;
+  jwt: JwtService;
+  hasher: BcryptHasher;
+  /**
+   * Stores bound to the first registered workspace, when one exists.
+   * For multi-workspace production, routes should resolve these via
+   * WorkspaceContext.from(c) instead.
+   */
+  defaultWorkspace: {
+    readonly workspaceId: string;
+    readonly path: string;
+    readonly userStore: UserStore;
+    readonly documentStore: DocumentStore;
+    readonly documentPrincipalStore: DocumentPrincipalStore;
+    readonly memberStore: SqliteWorkspaceMemberStoreType;
+    readonly sessionStore: SessionStore;
+    readonly conversationStore: ConversationStore;
+    readonly jobQueue: SqliteJobQueueType;
+    readonly audit: SqliteAuditEventStore;
+    readonly vectorStore: VectorStore;
+  } | null;
+}
 
-  const registry = await openRegistry(defaultRegistryPath(home));
-
-  const pool = new WorkspacePool({ registry });
-
-  const hasher: BcryptHasher = new BcryptHasherImpl(10);
-  const jwtSecret = process.env['RAGHUB_JWT_SECRET'] ?? 'dev-secret-change-me-please-32-bytes-min';
-  const jwt: JwtService = new JwtServiceImpl({ secret: jwtSecret, algorithm: 'HS256', ttlSeconds: 86_400 });
-
-  const userStore: UserStore = {} as never;
-  const documentStore: DocumentStore = {} as never;
-  const documentPrincipalStore: DocumentPrincipalStore = {} as never;
-  const memberStore: WorkspaceMemberStore = {} as never;
-  const sessionStore: SessionStore = {} as never;
-  const conversationStore: ConversationStore = {} as never;
-  const jobQueue: SqliteJobQueue = {} as never;
-  const embedder: Embedder = {} as never;
-  const vectorStore: VectorStore = {} as never;
-
-  const orchestrator = new Orchestrator({
-    telemetry: {} as never,
-    workspaceId: brandId('wsp_local'),
-    agents: {} as never,
-    tools: {} as never,
+const wireFirstWorkspaceStores = async (
+  registry: WorkspaceRegistry,
+): Promise<BootResult['defaultWorkspace']> => {
+  const list = await registry.list();
+  const first = list[0];
+  if (!first) return null;
+  /* The first workspace is opened in plaintext mode here so the
+   * server has at least one set of stores to bind to legacy routes.
+   * The WorkspacePool + passphrase cookie are still the source of
+   * truth for per-user decryption; this is a dev/single-tenant
+   * fallback. */
+  const handle = await openWorkspace({ path: first.path });
+  const db = handle.db as unknown as SqliteUserStoreOptions['db'];
+  const userStore = new SqliteUserStore({ db });
+  const documentStore = new SqliteDocumentStore({ db });
+  const documentPrincipalStore = new SqliteDocumentPrincipalStore({ db });
+  const memberStore = new SqliteWorkspaceMemberStore({ db });
+  const sessionStore = new SqliteSessionStore({ db });
+  const conversationStore = new SqliteConversationStore({ db });
+  const jobQueue = new SqliteJobQueue({ db });
+  const audit = new SqliteAuditEventStore({ db });
+  const vectorStore = new SqliteVecStore({
+    db,
+    embeddingDim: Number(process.env['RAGHUB_VECTOR_EMBEDDING_DIM'] ?? 3072),
   });
-
-  void ensureSingleton;
-
-  const app = createApp({
+  return {
+    workspaceId: first.workspaceId,
+    path: first.path,
     userStore,
     documentStore,
     documentPrincipalStore,
@@ -103,8 +158,51 @@ export const boot = async (opts: BootOptions = {}): Promise<{
     sessionStore,
     conversationStore,
     jobQueue,
-    embedder,
+    audit,
     vectorStore,
+  };
+};
+
+export const boot = async (opts: BootOptions = {}): Promise<BootResult> => {
+  const home = opts.home ?? HOME;
+  const port = opts.port ?? PORT;
+  void port;
+
+  const registry = await openRegistry(defaultRegistryPath(home));
+  const pool = new WorkspacePool({ registry });
+
+  const hasher = new BcryptHasherImpl(10);
+  const jwtSecret = process.env['RAGHUB_JWT_SECRET'] ?? 'dev-secret-change-me-please-32-bytes-min';
+  const jwt = new JwtServiceImpl({
+    secret: jwtSecret,
+    algorithm: 'HS256',
+    ttlSeconds: 86_400,
+  });
+
+  const embedder = buildEmbedder();
+  const defaultWorkspace = await wireFirstWorkspaceStores(registry);
+
+  /* Orchestrator remains a placeholder until commit 10 (JobWorker +
+   * orchestrator per-workspace wiring). Routes that touch it are
+   * gated by the presence of a registered workspace. */
+  const orchestrator = new Orchestrator({
+    telemetry: {} as never,
+    workspaceId: brandId('wsp_local'),
+    agents: {} as never,
+    tools: {} as never,
+  });
+
+  const app = createApp({
+    userStore: defaultWorkspace?.userStore ?? null,
+    documentStore: defaultWorkspace?.documentStore ?? null,
+    documentPrincipalStore: defaultWorkspace?.documentPrincipalStore ?? null,
+    memberStore: defaultWorkspace?.memberStore ?? null,
+    sessionStore: defaultWorkspace?.sessionStore ?? null,
+    conversationStore: defaultWorkspace?.conversationStore ?? null,
+    jobQueue: defaultWorkspace?.jobQueue ?? null,
+    audit: defaultWorkspace?.audit ?? null,
+    embedder,
+    vectorStore: defaultWorkspace?.vectorStore ?? null,
     hasher,
     jwt,
     orchestrator,
@@ -113,7 +211,7 @@ export const boot = async (opts: BootOptions = {}): Promise<{
     version: VERSION,
   });
 
-  return { app, registry, pool };
+  return { app, registry, pool, embedder, jwt, hasher, defaultWorkspace };
 };
 
 export const start = async (): Promise<void> => {

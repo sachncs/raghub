@@ -21,6 +21,7 @@ import {
   type DocumentStore,
   type Embedder,
   type JwtService,
+  type SqliteAuditEventStore,
   type SqliteJobQueue,
   type SessionStore,
   type UserStore,
@@ -46,15 +47,16 @@ import { workspaceRoutes } from './routes/workspaces.js';
 import type { WorkspacePool } from './workspace-pool.js';
 
 export interface AppDeps {
-  readonly userStore: UserStore;
-  readonly documentStore: DocumentStore;
-  readonly documentPrincipalStore: DocumentPrincipalStore;
-  readonly memberStore: WorkspaceMemberStore;
-  readonly sessionStore: SessionStore;
-  readonly conversationStore: ConversationStore;
-  readonly jobQueue: SqliteJobQueue;
+  readonly userStore: UserStore | null;
+  readonly documentStore: DocumentStore | null;
+  readonly documentPrincipalStore: DocumentPrincipalStore | null;
+  readonly memberStore: WorkspaceMemberStore | null;
+  readonly sessionStore: SessionStore | null;
+  readonly conversationStore: ConversationStore | null;
+  readonly jobQueue: SqliteJobQueue | null;
+  readonly audit?: SqliteAuditEventStore | null;
   readonly embedder: Embedder;
-  readonly vectorStore: VectorStore;
+  readonly vectorStore: VectorStore | null;
   readonly hasher: BcryptHasher;
   readonly jwt: JwtService;
   readonly orchestrator: Orchestrator;
