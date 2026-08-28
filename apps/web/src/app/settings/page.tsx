@@ -43,14 +43,6 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    if (!document.cookie.includes('raghub_token=')) {
-      window.location.href = '/sign-in';
-      return;
-    }
-    void refresh();
-  }, []);
-
   const refresh = async (): Promise<void> => {
     const res = await proxy('/v1/settings/llm');
     if (!res.ok) {
@@ -62,6 +54,14 @@ export default function SettingsPage() {
     setLlm(body.llm);
     setApiKey('');
   };
+
+  useEffect(() => {
+    if (!document.cookie.includes('raghub_token=')) {
+      window.location.href = '/sign-in';
+      return;
+    }
+    void refresh();
+  }, []);
 
   const save = async (): Promise<void> => {
     if (!llm) return;

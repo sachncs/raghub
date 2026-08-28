@@ -27,6 +27,13 @@ export default function MembersPage() {
   const [role, setRole] = useState<'admin' | 'member' | 'viewer'>('member');
   const [error, setError] = useState<string | null>(null);
 
+  const refresh = async (): Promise<void> => {
+    const res = await proxy('/v1/workspaces/members');
+    if (!res.ok) return;
+    const body = (await res.json()) as { members: Member[] };
+    setMembers(body.members);
+  };
+
   useEffect(() => {
     if (!document.cookie.includes('raghub_token=')) {
       window.location.href = '/sign-in';
@@ -34,13 +41,6 @@ export default function MembersPage() {
     }
     void refresh();
   }, []);
-
-  const refresh = async (): Promise<void> => {
-    const res = await proxy('/v1/workspaces/members');
-    if (!res.ok) return;
-    const body = (await res.json()) as { members: Member[] };
-    setMembers(body.members);
-  };
 
   const invite = async (): Promise<void> => {
     setError(null);
