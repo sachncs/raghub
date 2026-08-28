@@ -1,5 +1,6 @@
 'use client';
 
+import type { JSX } from 'react';
 import { useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
