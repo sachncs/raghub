@@ -37,7 +37,7 @@ describe('workspaceRoutes', () => {
       remove: async () => undefined,
       close: async () => undefined,
     };
-    const app = workspaceRoutes({ memberStore });
+    const app = workspaceRoutes({ memberStore, audit: null });
     const authed = authedHono(buildClaims('wsp_1', 'usr_x'));
     authed.route('/', app);
     const res = await authed.request('/v1/workspaces/members');
@@ -53,7 +53,7 @@ describe('workspaceRoutes', () => {
       remove: async () => undefined,
       close: async () => undefined,
     };
-    const app = workspaceRoutes({ memberStore });
+    const app = workspaceRoutes({ memberStore, audit: null });
     const authed = authedHono(buildClaims('wsp_1', 'usr_x'));
     authed.route('/', app);
     const res = await authed.request('/v1/workspaces/members', {
@@ -97,7 +97,7 @@ describe('documentAclRoutes', () => {
         createdAt: new Date(),
       }),
     } as never;
-    const app = documentAclRoutes({ principalStore, memberStore, documentStore });
+    const app = documentAclRoutes({ principalStore, memberStore, documentStore, audit: null });
     const authed = authedHono(buildClaims('wsp_1', 'usr_admin'));
     authed.route('/', app);
     const grantRes = await authed.request('/v1/documents/doc_1/principals', {

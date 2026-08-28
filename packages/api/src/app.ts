@@ -112,11 +112,12 @@ export const createApp = (deps: AppDeps): Hono => {
       principalStore: deps.documentPrincipalStore,
       memberStore: deps.memberStore,
       documentStore: deps.documentStore,
+      audit: deps.audit ?? null,
     }),
   );
   protectedApp.route(
     '/',
-    workspaceRoutes({ memberStore: deps.memberStore }),
+    workspaceRoutes({ memberStore: deps.memberStore, audit: deps.audit ?? null }),
   );
   protectedApp.route(
     '/',
@@ -124,7 +125,7 @@ export const createApp = (deps: AppDeps): Hono => {
   );
   protectedApp.route(
     '/',
-    settingsRoutes({ pool: deps.pool }),
+    settingsRoutes({ pool: deps.pool, audit: deps.audit ?? null }),
   );
   protectedApp.route(
     '/',

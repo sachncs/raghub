@@ -10,15 +10,18 @@ import { Hono } from 'hono';
 
 import {
   type Settings,
+  type SqliteAuditEventStore,
   type WorkspaceId,
   brandId,
 } from '@raghub/core';
 
 import { getClaims, getPassphrase } from '../middleware/auth.js';
+import { requireStore } from '../guards.js';
 import type { WorkspacePool } from '../workspace-pool.js';
 
 export interface SettingsRouteDeps {
   readonly pool: WorkspacePool;
+  readonly audit: SqliteAuditEventStore | null;
 }
 
 const validProviders = ['openai', 'minimax', 'litellm', 'anthropic', 'bedrock'] as const;
@@ -74,6 +77,15 @@ export const settingsRoutes = (deps: SettingsRouteDeps): Hono => {
       ...(body.baseUrl !== undefined ? { baseUrl: body.baseUrl } : {}),
     };
     await handle.settings.set('llm', value);
+    if (deps.audit) {
+      await deps.audit.record({
+        kind: 'settings.update',
+        workspaceId: handle.id as WorkspaceId,
+        actorId: claims.sub as never,
+        resourceId: null,
+        detail: { key: 'llm', provider: value.provider, model: value.model },
+      });
+    }
     return c.json({ ok: true });
   });
 
