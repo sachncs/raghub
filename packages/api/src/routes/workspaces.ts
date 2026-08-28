@@ -15,6 +15,7 @@ import { Hono } from 'hono';
 import {
   brandId,
   canManageWorkspace,
+  type SqliteAuditEventStore,
   type UserId,
   type WorkspaceId,
   type WorkspaceMemberStore,
@@ -26,6 +27,7 @@ import { requireStore } from '../guards.js';
 
 export interface WorkspaceRouteDeps {
   readonly memberStore: WorkspaceMemberStore | null;
+  readonly audit: SqliteAuditEventStore | null;
 }
 
 const allRoles: readonly WorkspaceMemberRoleValue[] = ['owner', 'admin', 'member', 'viewer'];
@@ -68,6 +70,15 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
       userId: newUserId,
       role: body.role,
     });
+    if (deps.audit) {
+      await deps.audit.record({
+        kind: 'workspace.member.add',
+        workspaceId,
+        actorId: brandId<UserId>(claims.sub),
+        resourceId: newUserId,
+        detail: { email: body.email, role: body.role },
+      });
+    }
     return c.json({ member }, 201);
   });
 
@@ -89,6 +100,15 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
       userId: target,
       role: body.role,
     });
+    if (deps.audit) {
+      await deps.audit.record({
+        kind: 'workspace.member.role_change',
+        workspaceId,
+        actorId: brandId<UserId>(claims.sub),
+        resourceId: target,
+        detail: { role: body.role },
+      });
+    }
     return c.json({ member: updated });
   });
 
@@ -102,6 +122,15 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
     }
     const target = brandId<UserId>(c.req.param('userId'));
     await memberStore.remove(workspaceId, target);
+    if (deps.audit) {
+      await deps.audit.record({
+        kind: 'workspace.member.remove',
+        workspaceId,
+        actorId: brandId<UserId>(claims.sub),
+        resourceId: target,
+        detail: {},
+      });
+    }
     return c.json({ ok: true });
   });
 

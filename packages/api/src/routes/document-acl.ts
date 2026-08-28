@@ -16,6 +16,7 @@ import {
   type DocumentPrincipalStore,
   type DocumentPrincipalType,
   type DocumentStore,
+  type SqliteAuditEventStore,
   type UserId,
   type WorkspaceId,
   canManageWorkspace,
@@ -29,6 +30,7 @@ export interface DocumentAclRouteDeps {
   readonly principalStore: DocumentPrincipalStore | null;
   readonly memberStore: WorkspaceMemberStore | null;
   readonly documentStore: DocumentStore | null;
+  readonly audit: SqliteAuditEventStore | null;
 }
 
 const validTypes: readonly DocumentPrincipalType[] = ['user', 'role', 'group'];
@@ -104,6 +106,19 @@ export const documentAclRoutes = (deps: DocumentAclRouteDeps): Hono => {
       permission: body.permission,
       grantedBy: userId,
     });
+    if (deps.audit) {
+      await deps.audit.record({
+        kind: 'document.acl.grant',
+        workspaceId,
+        actorId: userId,
+        resourceId: doc.id,
+        detail: {
+          principalType: body.principalType,
+          principalId: body.principalId,
+          permission: body.permission,
+        },
+      });
+    }
     return c.json({ ok: true });
   });
 
@@ -138,6 +153,19 @@ export const documentAclRoutes = (deps: DocumentAclRouteDeps): Hono => {
       principalId: body.principalId,
       permission: body.permission,
     });
+    if (deps.audit) {
+      await deps.audit.record({
+        kind: 'document.acl.revoke',
+        workspaceId,
+        actorId: userId,
+        resourceId: doc.id,
+        detail: {
+          principalType: body.principalType,
+          principalId: body.principalId,
+          permission: body.permission,
+        },
+      });
+    }
     return c.json({ ok: true });
   });
 
