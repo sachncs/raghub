@@ -12,10 +12,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   BcryptHasher,
-  type Database,
   FeatureHashingEmbedder,
   type JwtService,
-  JwtService,
+  JwtService as JwtServiceImpl,
   type Llm,
   openEncryptedWorkspace,
   type Settings,
@@ -84,9 +83,9 @@ describe('workspaceContextFrom', () => {
   let handle: WorkspaceWithSettings;
   let registry: Awaited<ReturnType<typeof openFileWorkspaceRegistry>>;
 
-  const dbFactory = (p: string): Database => {
-    const Database = require('better-sqlite3') as new (path: string) => Database;
-    return new Database(p) as unknown as Database;
+  const dbFactory = (p: string): never => {
+    const BetterSqlite = require('better-sqlite3') as new (path: string) => never;
+    return new BetterSqlite(p);
   };
 
   beforeEach(async () => {
@@ -118,8 +117,8 @@ describe('workspaceContextFrom', () => {
     const vectorStore = new SqliteVecStore({ db: handle.db, embeddingDim: 64 });
     const app = new Hono();
     app.use('*', async (c, next) => {
-      c.set('claims', fakeClaims(brandId<WorkspaceId>('wsp_1'), 'usr_test'));
-      c.set('passphrase', PASSPHRASE);
+      c.set('claims' as never, fakeClaims(brandId<WorkspaceId>('wsp_1'), 'usr_test'));
+      c.set('passphrase' as never, PASSPHRASE);
       await next();
     });
     let captured: unknown = null;
@@ -152,7 +151,7 @@ describe('workspaceContextFrom', () => {
     const vectorStore = new SqliteVecStore({ db: handle.db, embeddingDim: 64 });
     const app = new Hono();
     app.use('*', async (c, next) => {
-      c.set('claims', fakeClaims(brandId<WorkspaceId>('wsp_1'), 'usr_test'));
+      c.set('claims' as never, fakeClaims(brandId<WorkspaceId>('wsp_1'), 'usr_test'));
       /* passphrase NOT set */
       await next();
     });
