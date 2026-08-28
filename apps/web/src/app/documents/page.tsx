@@ -43,6 +43,13 @@ export default function DocumentsPage() {
   const [sharePerm, setSharePerm] = useState<'read' | 'admin'>('read');
   const [error, setError] = useState<string | null>(null);
 
+  const refresh = async (): Promise<void> => {
+    const res = await proxy('/v1/documents');
+    if (!res.ok) return;
+    const body = (await res.json()) as { documents: DocumentRow[] };
+    setRows(body.documents);
+  };
+
   useEffect(() => {
     if (!document.cookie.includes('raghub_token=')) {
       window.location.href = '/sign-in';
@@ -65,13 +72,6 @@ export default function DocumentsPage() {
     }, 2_000);
     return () => clearInterval(handle);
   }, [rows]);
-
-  const refresh = async (): Promise<void> => {
-    const res = await proxy('/v1/documents');
-    if (!res.ok) return;
-    const body = (await res.json()) as { documents: DocumentRow[] };
-    setRows(body.documents);
-  };
 
   const upload = async (): Promise<void> => {
     if (!file) return;
