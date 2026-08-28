@@ -13,24 +13,29 @@ import { Hono } from 'hono';
 import {
   brandId,
   type DocumentId,
+  type Embedder,
   type DocumentPrincipalStore,
   type DocumentPrincipalType,
   type DocumentStore,
   type SqliteAuditEventStore,
   type UserId,
+  type VectorStore,
   type WorkspaceId,
   canManageWorkspace,
   type WorkspaceMemberStore,
 } from '@raghub/core';
 
 import { getClaims } from '../middleware/auth.js';
-import { requireStore } from '../guards.js';
+import { workspaceContextFrom } from '../workspace-context.js';
 
 export interface DocumentAclRouteDeps {
+  readonly pool: import('../workspace-pool.js').WorkspacePool;
   readonly principalStore: DocumentPrincipalStore | null;
   readonly memberStore: WorkspaceMemberStore | null;
   readonly documentStore: DocumentStore | null;
   readonly audit: SqliteAuditEventStore | null;
+  readonly embedder: Embedder;
+  readonly vectorStore: VectorStore | null;
 }
 
 const validTypes: readonly DocumentPrincipalType[] = ['user', 'role', 'group'];
@@ -46,11 +51,17 @@ export const documentAclRoutes = (deps: DocumentAclRouteDeps): Hono => {
 
   app.get('/v1/documents/:id/principals', async (c) => {
     const claims = getClaims(c);
-    const documentStore = requireStore('documentStore', deps.documentStore);
-    const memberStore = requireStore('memberStore', deps.memberStore);
-    const principalStore = requireStore('principalStore', deps.principalStore);
-    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const userId = brandId<UserId>(claims.sub);
+    const ctx = await workspaceContextFrom(c, {
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+    });
+    const documentStore = ctx.documentStore;
+    const memberStore = ctx.memberStore;
+    const principalStore = ctx.documentPrincipalStore;
+    const workspaceId = ctx.workspaceId;
+    const userId = ctx.userId;
+    const audit = deps.audit;
     const doc = await documentStore.getById(workspaceId, brandId<DocumentId>(c.req.param('id')));
     if (!doc) {
       return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);
@@ -76,11 +87,17 @@ export const documentAclRoutes = (deps: DocumentAclRouteDeps): Hono => {
 
   app.post('/v1/documents/:id/principals', async (c) => {
     const claims = getClaims(c);
-    const documentStore = requireStore('documentStore', deps.documentStore);
-    const memberStore = requireStore('memberStore', deps.memberStore);
-    const principalStore = requireStore('principalStore', deps.principalStore);
-    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const userId = brandId<UserId>(claims.sub);
+    const ctx = await workspaceContextFrom(c, {
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+    });
+    const documentStore = ctx.documentStore;
+    const memberStore = ctx.memberStore;
+    const principalStore = ctx.documentPrincipalStore;
+    const workspaceId = ctx.workspaceId;
+    const userId = ctx.userId;
+    const audit = deps.audit;
     const doc = await documentStore.getById(workspaceId, brandId<DocumentId>(c.req.param('id')));
     if (!doc) {
       return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);
@@ -124,11 +141,17 @@ export const documentAclRoutes = (deps: DocumentAclRouteDeps): Hono => {
 
   app.delete('/v1/documents/:id/principals', async (c) => {
     const claims = getClaims(c);
-    const documentStore = requireStore('documentStore', deps.documentStore);
-    const memberStore = requireStore('memberStore', deps.memberStore);
-    const principalStore = requireStore('principalStore', deps.principalStore);
-    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const userId = brandId<UserId>(claims.sub);
+    const ctx = await workspaceContextFrom(c, {
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+    });
+    const documentStore = ctx.documentStore;
+    const memberStore = ctx.memberStore;
+    const principalStore = ctx.documentPrincipalStore;
+    const workspaceId = ctx.workspaceId;
+    const userId = ctx.userId;
+    const audit = deps.audit;
     const doc = await documentStore.getById(workspaceId, brandId<DocumentId>(c.req.param('id')));
     if (!doc) {
       return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);

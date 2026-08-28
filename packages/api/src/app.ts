@@ -111,15 +111,18 @@ export const createApp = (deps: AppDeps): Hono => {
   protectedApp.route(
     '/',
     documentAclRoutes({
+      pool: deps.pool,
       principalStore: deps.documentPrincipalStore,
       memberStore: deps.memberStore,
       documentStore: deps.documentStore,
       audit: deps.audit ?? null,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
     }),
   );
   protectedApp.route(
     '/',
-    workspaceRoutes({ memberStore: deps.memberStore, audit: deps.audit ?? null }),
+    workspaceRoutes({ pool: deps.pool, memberStore: deps.memberStore, audit: deps.audit ?? null, embedder: deps.embedder, vectorStore: deps.vectorStore }),
   );
   protectedApp.route(
     '/',

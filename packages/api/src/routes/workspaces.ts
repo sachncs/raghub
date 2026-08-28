@@ -15,19 +15,24 @@ import { Hono } from 'hono';
 import {
   brandId,
   canManageWorkspace,
+  type Embedder,
   type SqliteAuditEventStore,
   type UserId,
+  type VectorStore,
   type WorkspaceId,
   type WorkspaceMemberStore,
   type WorkspaceMemberRoleValue,
 } from '@raghub/core';
 
 import { getClaims } from '../middleware/auth.js';
-import { requireStore } from '../guards.js';
+import { workspaceContextFrom } from '../workspace-context.js';
 
 export interface WorkspaceRouteDeps {
+  readonly pool: import('../workspace-pool.js').WorkspacePool;
   readonly memberStore: WorkspaceMemberStore | null;
   readonly audit: SqliteAuditEventStore | null;
+  readonly embedder: Embedder;
+  readonly vectorStore: VectorStore | null;
 }
 
 const allRoles: readonly WorkspaceMemberRoleValue[] = ['owner', 'admin', 'member', 'viewer'];
@@ -39,9 +44,13 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
   const app = new Hono();
 
   app.get('/v1/workspaces/members', async (c) => {
-    const claims = getClaims(c);
-    const memberStore = requireStore('memberStore', deps.memberStore);
-    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
+    const ctx = await workspaceContextFrom(c, {
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+    });
+    const memberStore = ctx.memberStore;
+    const workspaceId = ctx.workspaceId;
     const list = await memberStore.list(workspaceId);
     return c.json({
       members: list.map((m) => ({
@@ -53,10 +62,16 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
   });
 
   app.post('/v1/workspaces/members', async (c) => {
-    const claims = getClaims(c);
-    const memberStore = requireStore('memberStore', deps.memberStore);
-    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const me = await memberStore.get(workspaceId, brandId<UserId>(claims.sub));
+    const ctx = await workspaceContextFrom(c, {
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+    });
+    const memberStore = ctx.memberStore;
+    const workspaceId = ctx.workspaceId;
+    const userId = ctx.userId;
+    const audit = deps.audit;
+    const me = await memberStore.get(workspaceId, userId);
     if (!me || !canManageWorkspace(me.role)) {
       return c.json({ error: { code: 'authorization_error', message: 'only admins can invite' } }, 403);
     }
@@ -74,7 +89,7 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
       await deps.audit.record({
         kind: 'workspace.member.add',
         workspaceId,
-        actorId: brandId<UserId>(claims.sub),
+        actorId: brandId<UserId>(userId),
         resourceId: newUserId,
         detail: { email: body.email, role: body.role },
       });
@@ -83,10 +98,16 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
   });
 
   app.patch('/v1/workspaces/members/:userId', async (c) => {
-    const claims = getClaims(c);
-    const memberStore = requireStore('memberStore', deps.memberStore);
-    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const me = await memberStore.get(workspaceId, brandId<UserId>(claims.sub));
+    const ctx = await workspaceContextFrom(c, {
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+    });
+    const memberStore = ctx.memberStore;
+    const workspaceId = ctx.workspaceId;
+    const userId = ctx.userId;
+    const audit = deps.audit;
+    const me = await memberStore.get(workspaceId, userId);
     if (!me || !canManageWorkspace(me.role)) {
       return c.json({ error: { code: 'authorization_error', message: 'only admins can change roles' } }, 403);
     }
@@ -104,7 +125,7 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
       await deps.audit.record({
         kind: 'workspace.member.role_change',
         workspaceId,
-        actorId: brandId<UserId>(claims.sub),
+        actorId: brandId<UserId>(userId),
         resourceId: target,
         detail: { role: body.role },
       });
@@ -113,10 +134,16 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
   });
 
   app.delete('/v1/workspaces/members/:userId', async (c) => {
-    const claims = getClaims(c);
-    const memberStore = requireStore('memberStore', deps.memberStore);
-    const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const me = await memberStore.get(workspaceId, brandId<UserId>(claims.sub));
+    const ctx = await workspaceContextFrom(c, {
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+    });
+    const memberStore = ctx.memberStore;
+    const workspaceId = ctx.workspaceId;
+    const userId = ctx.userId;
+    const audit = deps.audit;
+    const me = await memberStore.get(workspaceId, userId);
     if (!me || !canManageWorkspace(me.role)) {
       return c.json({ error: { code: 'authorization_error', message: 'only admins can remove' } }, 403);
     }
@@ -126,7 +153,7 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
       await deps.audit.record({
         kind: 'workspace.member.remove',
         workspaceId,
-        actorId: brandId<UserId>(claims.sub),
+        actorId: brandId<UserId>(userId),
         resourceId: target,
         detail: {},
       });
