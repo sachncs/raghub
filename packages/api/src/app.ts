@@ -21,6 +21,7 @@ import {
   type DocumentStore,
   type Embedder,
   type JwtService,
+  type LocalFileStorage,
   type SqliteAuditEventStore,
   type SqliteJobQueue,
   type SessionStore,
@@ -54,6 +55,7 @@ export interface AppDeps {
   readonly sessionStore: SessionStore | null;
   readonly conversationStore: ConversationStore | null;
   readonly jobQueue: SqliteJobQueue | null;
+  readonly fileStorage: LocalFileStorage | null;
   readonly audit?: SqliteAuditEventStore | null;
   readonly embedder: Embedder;
   readonly vectorStore: VectorStore | null;
@@ -100,7 +102,7 @@ export const createApp = (deps: AppDeps): Hono => {
       documentStore: deps.documentStore,
       sessionStore: deps.sessionStore,
       jobQueue: deps.jobQueue,
-      embedder: deps.embedder,
+      fileStorage: deps.fileStorage,
       vectorStore: deps.vectorStore,
     }),
   );

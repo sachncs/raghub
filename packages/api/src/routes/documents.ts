@@ -3,8 +3,15 @@
  *
  * POST /v1/documents is multipart/form-data: a `file` part plus
  * optional `collection_id` + metadata form fields. The handler
- * runs `ingest()` synchronously (Phase 1 keeps the API simple;
- * Phase 2 will wire `SqliteJobQueue.enqueue()` and a worker).
+ * persists the bytes to LocalFileStorage and enqueues a
+ * `document.ingest` job on the per-workspace SqliteJobQueue. The
+ * background JobWorker (started from `start()`) picks the job up,
+ * loads the bytes back, runs ingest(), and flips the row's status
+ * to ready/failed.
+ *
+ * The endpoint returns 202 with `{ documentId, status: 'pending' }`
+ * — the chat UI polls /v1/documents until rows leave the pending
+ * state.
  */
 
 import { Hono } from 'hono';
@@ -15,16 +22,15 @@ import {
   type Document,
   type DocumentId,
   type DocumentStore,
-  type Embedder,
+  type LocalFileStorage,
   type SessionStore,
   type SqliteJobQueue,
   type WorkspaceId,
   type User,
   type UserId,
   type VectorStore,
-  ingest,
+  documentBytesKey,
   hashDocument,
-  DocumentLifecycleStatus,
 } from '@raghub/core';
 
 import { getClaims } from '../middleware/auth.js';
@@ -35,14 +41,15 @@ export interface DocumentsRouteDeps {
   readonly documentStore: DocumentStore | null;
   readonly sessionStore: SessionStore | null;
   readonly jobQueue: SqliteJobQueue | null;
-  readonly embedder: Embedder;
+  readonly fileStorage: LocalFileStorage | null;
   readonly vectorStore: VectorStore | null;
 }
 
 interface UploadResponse {
   readonly documentId: DocumentId;
   readonly hash: string;
-  readonly chunks: number;
+  readonly status: 'pending' | 'ready' | 'indexing' | 'failed';
+  readonly byteSize: number;
   readonly alreadyExisted: boolean;
 }
 
@@ -67,8 +74,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
     const userStore = requireStore('userStore', deps.userStore);
     const documentStore = requireStore('documentStore', deps.documentStore);
     const jobQueue = requireStore('jobQueue', deps.jobQueue);
-    const embedder = requireStore('embedder', deps.embedder);
-    const vectorStore = requireStore('vectorStore', deps.vectorStore);
+    const fileStorage = requireStore('fileStorage', deps.fileStorage);
     const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
     const userId = brandId<UserId>(claims.sub);
     const user = await userStore.getById(workspaceId, userId);
@@ -88,10 +94,23 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
         metadata[k] = v;
       }
     }
+    metadata['collection_id'] = collectionIdStr;
 
     const arrayBuf = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuf);
     const hash = hashDocument(buffer);
+
+    const seen = await documentStore.getByHash(workspaceId, hash);
+    if (seen) {
+      const response: UploadResponse = {
+        documentId: seen.id,
+        hash,
+        status: seen.status,
+        byteSize: seen.byteSize,
+        alreadyExisted: true,
+      };
+      return c.json(response, 200);
+    }
 
     const document = await documentStore.upsert({
       workspaceId,
@@ -103,46 +122,29 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
       metadata,
     });
 
-    const seen = await documentStore.getByHash(workspaceId, hash);
-    if (seen && seen.id !== document.id) {
-      const response: UploadResponse = {
-        documentId: seen.id,
-        hash,
-        chunks: 0,
-        alreadyExisted: true,
-      };
-      return c.json(response, 200);
-    }
+    await fileStorage.put(documentBytesKey(workspaceId, document.id), buffer);
 
     await jobQueue.enqueue({
       workspaceId,
       ownerId: userId,
       kind: 'document.ingest',
-      payload: { documentId: document.id, hash, byteSize: buffer.byteLength },
-    });
-
-    const result = await ingest(
-      {
-        workspaceId,
-        ownerId: userId,
-        collectionId,
+      payload: {
+        documentId: document.id,
+        hash,
+        byteSize: buffer.byteLength,
         filename: file.name || 'upload',
         mimeType: file.type || 'application/octet-stream',
-        content: buffer,
-        metadata,
       },
-      { embedder, store: vectorStore },
-    );
-
-    await documentStore.setStatus(document.id, workspaceId, DocumentLifecycleStatus.Ready);
+    });
 
     const response: UploadResponse = {
       documentId: document.id,
       hash,
-      chunks: result.chunks.length,
-      alreadyExisted: result.alreadyExisted,
+      status: 'pending',
+      byteSize: buffer.byteLength,
+      alreadyExisted: false,
     };
-    return c.json(response, 200);
+    return c.json(response, 202);
   });
 
   app.get('/v1/documents', async (c) => {

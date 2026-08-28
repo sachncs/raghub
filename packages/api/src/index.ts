@@ -30,8 +30,10 @@ import {
   type DocumentStore,
   type Embedder,
   FeatureHashingEmbedder,
+  FsLocalFileStorage,
   type JwtService,
   JwtService as JwtServiceImpl,
+  type LocalFileStorage,
   type SessionStore,
   SqliteAuditEventStore,
   SqliteConversationStore,
@@ -115,12 +117,13 @@ export interface BootResult {
     readonly documentStore: DocumentStore;
     readonly documentPrincipalStore: DocumentPrincipalStore;
     readonly memberStore: SqliteWorkspaceMemberStoreType;
-    readonly sessionStore: SessionStore;
-    readonly conversationStore: ConversationStore;
-    readonly jobQueue: SqliteJobQueueType;
-    readonly audit: SqliteAuditEventStore;
-    readonly vectorStore: VectorStore;
-  } | null;
+readonly sessionStore: SessionStore;
+  readonly conversationStore: ConversationStore;
+  readonly jobQueue: SqliteJobQueueType;
+  readonly audit: SqliteAuditEventStore;
+  readonly vectorStore: VectorStore;
+} | null;
+  readonly fileStorage: LocalFileStorage;
 }
 
 const wireFirstWorkspaceStores = async (
@@ -181,6 +184,7 @@ export const boot = async (opts: BootOptions = {}): Promise<BootResult> => {
 
   const embedder = buildEmbedder();
   const defaultWorkspace = await wireFirstWorkspaceStores(registry);
+  const fileStorage = new FsLocalFileStorage({ root: `${home}/files` });
 
   /* Orchestrator remains a placeholder until commit 10 (JobWorker +
    * orchestrator per-workspace wiring). Routes that touch it are
@@ -201,6 +205,7 @@ export const boot = async (opts: BootOptions = {}): Promise<BootResult> => {
     conversationStore: defaultWorkspace?.conversationStore ?? null,
     jobQueue: defaultWorkspace?.jobQueue ?? null,
     audit: defaultWorkspace?.audit ?? null,
+    fileStorage,
     embedder,
     vectorStore: defaultWorkspace?.vectorStore ?? null,
     hasher,
@@ -211,7 +216,7 @@ export const boot = async (opts: BootOptions = {}): Promise<BootResult> => {
     version: VERSION,
   });
 
-  return { app, registry, pool, embedder, jwt, hasher, defaultWorkspace };
+  return { app, registry, pool, embedder, jwt, hasher, defaultWorkspace, fileStorage };
 };
 
 export const start = async (): Promise<void> => {
