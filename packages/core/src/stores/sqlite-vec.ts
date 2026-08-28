@@ -18,6 +18,7 @@ import { Chunk as ChunkClass } from '../domain/index.js';
 import { brandId } from '../domain/index.js';
 import { VectorStoreError } from '../errors/index.js';
 import type { Database } from '../workspace.js';
+import { load as loadSqliteVec } from 'sqlite-vec';
 import type {
   KeywordHit,
   KeywordSearchOptions,
@@ -29,6 +30,27 @@ import type {
 const FTS_TABLE = 'fts_chunks';
 const VEC_TABLE = 'vec_chunks';
 const CHUNKS_TABLE = 'chunks';
+
+/**
+ * loadSqliteVecExtension — loads the sqlite-vec extension into the
+ * given better-sqlite3 database handle. better-sqlite3 extensions
+ * are scoped per-connection, so every new handle (every new
+ * workspace open) needs this call. The load is idempotent on
+ * the same handle. Throws if the extension can't be loaded.
+ */
+export const loadSqliteVecExtension = (db: Database): void => {
+  try {
+    loadSqliteVec(db as unknown as { loadExtension: (f: string) => void });
+  } catch (err) {
+    throw new Error(
+      `failed to load sqlite-vec extension: ${err instanceof Error ? err.message : String(err)}. raghub requires sqlite-vec to be installed (run \`pnpm install\`).`,
+    );
+  }
+};
+
+/** VEC_DIM placeholder; the migration runner substitutes the actual
+ * dim from `Settings.vectorStore.embeddingDim`. */
+export const VEC_DIM = 3072;
 
 const rowToChunk = (row: Record<string, unknown>): Chunk => {
   const id = brandId<ChunkId>(String(row['id']));

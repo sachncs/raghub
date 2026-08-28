@@ -94,33 +94,18 @@ export const documentIngestHandler =
     await documentStore.setStatus(documentId, workspaceId, DocumentLifecycleStatus.Indexing);
 
     try {
-      let chunksIndexed = 0;
-      try {
-        const result = await ingest(
-          {
-            workspaceId,
-            ownerId,
-            collectionId,
-            filename: payload.filename ?? doc.filename,
-            mimeType: payload.mimeType ?? doc.mimeType,
-            content: buffer,
-            metadata: doc.metadata,
-          },
-          { embedder: deps.embedder, store: vectorStore },
-        );
-        chunksIndexed = result.chunks.length;
-      } catch (ingestErr) {
-        /* Dev/e2e fallback: if sqlite-vec isn't installed the
-         * embedding index write will fail with 'no such table:
-         * vec_chunks'. Treat that as a non-fatal warning — the
-         * document is still ingested into SQLite, retrieval just
-         * falls back to FTS5. Production should make sqlite-vec
-         * mandatory. */
-        const msg = ingestErr instanceof Error ? ingestErr.message : String(ingestErr);
-        if (!/vec_chunks|no such table/i.test(msg)) throw ingestErr;
-        // eslint-disable-next-line no-console
-        console.warn(`[ingest] vector index unavailable for ${documentId}: ${msg}`);
-      }
+      const result = await ingest(
+        {
+          workspaceId,
+          ownerId,
+          collectionId,
+          filename: payload.filename ?? doc.filename,
+          mimeType: payload.mimeType ?? doc.mimeType,
+          content: buffer,
+          metadata: doc.metadata,
+        },
+        { embedder: deps.embedder, store: vectorStore },
+      );
 
       await documentStore.setStatus(documentId, workspaceId, DocumentLifecycleStatus.Ready);
 
@@ -129,7 +114,7 @@ export const documentIngestHandler =
         workspaceId,
         actorId: ownerId,
         resourceId: documentId,
-        detail: { chunks: chunksIndexed },
+        detail: { chunks: result.chunks.length, alreadyExisted: result.alreadyExisted },
       });
     } catch (err) {
       await documentStore.setStatus(documentId, workspaceId, DocumentLifecycleStatus.Failed);

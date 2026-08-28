@@ -189,6 +189,19 @@ const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_memory_fact_workspace ON memory_fact (workspace_id, scope);
 
+  /* FTS5 keyword index over chunk text — built unconditionally so
+   * the read path always works even when sqlite-vec is absent. */
+  CREATE VIRTUAL TABLE IF NOT EXISTS fts_chunks USING fts5(
+    text,
+    content='chunks',
+    content_rowid='rowid',
+    tokenize='porter unicode61'
+  );
+
+  /* Vec chunks — created on demand in the migration runner once
+   * sqlite-vec is loaded, so the CREATE VIRTUAL TABLE only fires
+   * when the extension is available. */
+
   CREATE TABLE IF NOT EXISTS ingestion_jobs (
     id TEXT PRIMARY KEY,
     workspace_id INTEGER NOT NULL DEFAULT 1,
@@ -266,7 +279,10 @@ export interface WorkspaceHandle {
 
 export type Workspace = WorkspaceHandle;
 
-export const openWorkspace = async (opts: WorkspaceOptions): Promise<WorkspaceHandle> => {
+export const openWorkspace = async (
+  opts: WorkspaceOptions,
+  vecDim = 3072,
+): Promise<WorkspaceHandle> => {
   const sqlite = await loadBetterSqlite3();
   const db = sqlite(opts.path);
   if (db.pragma) db.pragma('journal_mode = WAL');
@@ -276,7 +292,24 @@ export const openWorkspace = async (opts: WorkspaceOptions): Promise<WorkspaceHa
   if (db.pragma) db.pragma('temp_store = MEMORY');
   if (db.pragma) db.pragma('cache_size = -64000');
   db.exec(SCHEMA_SQL);
-  runMigrations({ db: { exec: (s) => db.exec(s), prepare: (s) => db.prepare(s) } });
+  /* sqlite-vec must be loaded AFTER SCHEMA_SQL (which creates the
+   * chunks + fts_chunks tables) and BEFORE runMigrations (which
+   * creates the vec_chunks virtual table on migration 0010).
+   * If the extension isn't available (e.g. minimal CI sandbox),
+   * the migration runner swallows the CREATE VIRTUAL TABLE error
+   * and FTS5 still works. */
+  let vecAvailable = false;
+  try {
+    const { loadSqliteVecExtension } = await import('./stores/sqlite-vec.js');
+    loadSqliteVecExtension(db);
+    vecAvailable = true;
+  } catch {
+    /* sqlite-vec not available; FTS5 only. */
+  }
+  runMigrations({
+    db: { exec: (s) => db.exec(s), prepare: (s) => db.prepare(s) },
+    ...(vecAvailable ? { vars: { VEC_DIM: vecDim } } : {}),
+  });
 
   const id = String((db.prepare('SELECT id FROM workspace WHERE id = 1').get() as { id?: number } | undefined)?.id ?? '');
   if (id === '') {

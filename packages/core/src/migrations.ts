@@ -23,6 +23,13 @@ export interface Migration {
   readonly id: string;
   readonly description: string;
   readonly sql: readonly string[];
+  /**
+   * Optional template substitution map. `sql` entries are run
+   * through a simple `replaceAll('%KEY%', value)` pass before
+   * execution so the same SQL can be reused for different shapes
+   * (e.g. the embedding dim baked into vec0 schemas).
+   */
+  readonly vars?: Readonly<Record<string, string | number>>;
 }
 
 export const MIGRATIONS: readonly Migration[] = [
@@ -122,6 +129,21 @@ export const MIGRATIONS: readonly Migration[] = [
          ON ingestion_jobs (status, created_at);`,
     ],
   },
+  {
+    id: '0010_sqlite_vec_index',
+    description:
+      'Create the vec_chunks virtual table for cosine-similarity search. ' +
+      'Requires sqlite-vec to be loaded; migration runner swallows the error ' +
+      'when the extension is missing so FTS5 still works.',
+    sql: [
+      /* SQLite-vec virtual table. The chunk id is the rowid. */
+      `CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
+         id TEXT PRIMARY KEY,
+         embedding float[%VEC_DIM%]
+       );`,
+    ],
+    vars: { VEC_DIM: 3072 },
+  },
 ];
 
 const MIGRATIONS_TABLE_SQL = `
@@ -134,6 +156,8 @@ const MIGRATIONS_TABLE_SQL = `
 
 export interface MigrationRunnerOptions {
   readonly db: { exec(sql: string): void; prepare(sql: string): { run(...args: unknown[]): unknown; all(...args: unknown[]): unknown[] } };
+  /** Template vars substituted into migration `sql` strings. */
+  readonly vars?: Readonly<Record<string, string | number>>;
 }
 
 export const runMigrations = (opts: MigrationRunnerOptions): void => {
@@ -143,7 +167,24 @@ export const runMigrations = (opts: MigrationRunnerOptions): void => {
   );
   for (const m of MIGRATIONS) {
     if (applied.has(m.id)) continue;
-    for (const stmt of m.sql) opts.db.exec(stmt);
+    const vars = { ...(m.vars ?? {}), ...(opts.vars ?? {}) };
+    for (const stmt of m.sql) {
+      let sql = stmt;
+      for (const [k, v] of Object.entries(vars)) {
+        sql = sql.replaceAll(`%${k}%`, String(v));
+      }
+      try {
+        opts.db.exec(sql);
+      } catch (err) {
+        /* sqlite-vec virtual tables can't be created if the
+         * extension isn't loaded. Swallow and continue so FTS5
+         * still works; downstream stores handle the missing
+         * virtual table by skipping vec operations. */
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/no such module|vec0|sqlite-vec/i.test(msg)) continue;
+        throw err;
+      }
+    }
     opts.db.prepare('INSERT INTO schema_migrations (id, description, applied_at) VALUES (?, ?, ?)').run(m.id, m.description, Date.now());
   }
 };
