@@ -6,194 +6,81 @@ on:
   pull_request:
     branches: [master]
 
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
 jobs:
-  lint-stage:
-    name: Lint
+  install:
+    name: Install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: pnpm/action-setup@v4
         with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-      - name: Ruff check
-        run: ruff check raghub/ tests/
-      - name: Ruff format
-        run: ruff format --check raghub/ tests/
-      - name: Interrogate (docstring coverage 100%)
-        run: interrogate -c pyproject.toml
-      - name: Naming hook (R2 enforcement)
-        run: python lint/naming.py
-
-  migrate-dry-run:
-    name: Migrate dry-run
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+          version: 9.12.3
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
-          cache: pip
+          node-version-file: .nvmrc
+          cache: pnpm
       - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-      - name: Make migrate dry-run
-        run: make migrate
+        run: pnpm install --frozen-lockfile
+      - name: Rebuild native modules
+        run: pnpm rebuild -r better-sqlite3 @sqlite.org/sqlite-vec
 
-  typecheck-stage:
-    name: Typecheck
+  gates:
+    name: ${{ matrix.task }}
+    needs: install
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-      - name: mypy (strict)
-        run: mypy raghub/
-
-  test-core:
-    name: Test (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: raghub
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13"]
+        task: [lint, typecheck, test, build]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: pnpm/action-setup@v4
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
+          version: 9.12.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
       - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-      - name: Test (no coverage)
-        run: pytest tests/ --no-cov -q
-      - name: Test (coverage gate >=85%)
-        run: pytest tests/ --cov=raghub --cov-report=term-missing --cov-fail-under=85 -q
-      - name: Smoke import
-        run: |
-          python -c "from raghub import RAG, Settings; print('public API imports OK')"
-          raghub --help
+        run: pnpm install --frozen-lockfile
+      - name: Rebuild native modules
+        run: pnpm rebuild -r better-sqlite3 @sqlite.org/sqlite-vec
+      - name: ${{ matrix.task }}
+        run: pnpm turbo run ${{ matrix.task }}
 
-  test-pgvector:
-    name: Test pgvector integration
+  web-e2e:
+    name: Web smoke (agent-browser)
+    needs: install
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Rebuild native modules
+        run: pnpm rebuild -r better-sqlite3 @sqlite.org/sqlite-vec
+      - name: Install agent-browser
+        run: |
+          curl -fsSL https://agent-browser.dev/install.sh | sh
+          agent-browser install
+      - name: Build packages
+        run: pnpm turbo run build
+      - name: Boot API + run web smoke
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: raghub
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      RAG_TEST_PGVECTOR_DSN: postgresql://postgres:postgres@localhost:5432/raghub
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install
+          RAGHUB_LLM_STUB: '1'
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]" asyncpg
-      - name: Test pgvector integration
-        run: pytest tests/test_pgvector_integration.py tests/test_tenants_isolation.py --no-cov -q
-
-  test-optional-extras:
-    name: Test (with optional extras)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install with extras
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,structured,auth,docs,otel]"
-      - name: Test
-        run: pytest tests/ --no-cov -q
-
-  audit:
-    name: Dependency audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-      - name: pip-audit
-        run: pip-audit --strict
-
-  security:
-    name: Security scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-      - name: Bandit
-        run: bandit -c pyproject.toml -ll -i -r raghub/
-
-  benchmark-smoke:
-    name: Benchmark smoke (master-only)
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-      - name: Benchmark smoke
-        run: pytest tests/test_benchmark_smoke.py -m benchmark -v
+          pnpm --filter @raghub/api start &
+          API_PID=$!
+          pnpm --filter @raghub/web start --port 3001 &
+          WEB_PID=$!
+          trap "kill $API_PID $WEB_PID" EXIT
+          pnpm e2e

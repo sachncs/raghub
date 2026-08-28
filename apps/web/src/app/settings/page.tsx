@@ -1,10 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type Provider = 'openai' | 'minimax' | 'litellm' | 'anthropic' | 'bedrock';
 
@@ -27,7 +36,7 @@ const defaultModelFor = (p: Provider): string => {
     case 'anthropic':
       return 'claude-3-5-sonnet-latest';
     case 'bedrock':
-      return 'anthropic.claude-3-5-sonnet-20241022-v2:0';
+      return 'anthropic.claude-3-5-sonnet-20241022-v2';
   }
 };
 
@@ -41,7 +50,21 @@ export default function SettingsPage() {
   const [llm, setLlm] = useState<LlmSettings | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const refresh = async (): Promise<void> => {
+    const res = await proxy('/v1/settings/llm');
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+      const message = body?.error?.message ?? 'failed to load';
+      setError(message);
+      toast.error(message);
+      return;
+    }
+    const body = (await res.json()) as { llm: LlmSettings | null };
+    setLlm(body.llm);
+    setApiKey('');
+  };
 
   useEffect(() => {
     if (!document.cookie.includes('raghub_token=')) {
@@ -51,22 +74,10 @@ export default function SettingsPage() {
     void refresh();
   }, []);
 
-  const refresh = async (): Promise<void> => {
-    const res = await proxy('/v1/settings/llm');
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-      setError(body?.error?.message ?? 'failed to load');
-      return;
-    }
-    const body = (await res.json()) as { llm: LlmSettings | null };
-    setLlm(body.llm);
-    setApiKey('');
-  };
-
   const save = async (): Promise<void> => {
     if (!llm) return;
+    setSaving(true);
     setError(null);
-    setSaved(false);
     const body = {
       provider: llm.provider,
       model: llm.model,
@@ -79,12 +90,15 @@ export default function SettingsPage() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
+    setSaving(false);
     if (!res.ok) {
       const errBody = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-      setError(errBody?.error?.message ?? 'save failed');
+      const message = errBody?.error?.message ?? 'save failed';
+      setError(message);
+      toast.error(message);
       return;
     }
-    setSaved(true);
+    toast.success('Saved');
     setApiKey('');
     void refresh();
   };
@@ -101,75 +115,92 @@ export default function SettingsPage() {
   return (
     <main className="container max-w-2xl py-8">
       <h1 className="mb-6 text-2xl font-semibold">Settings</h1>
-      <section className="rounded-lg border bg-card p-6 text-card-foreground">
-        <h2 className="mb-4 text-lg font-semibold">LLM provider</h2>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="prov">Provider</Label>
-            <select
-              id="prov"
-              className="block w-full rounded-md border bg-background px-3 py-2 text-sm"
-              value={llm.provider}
-              onChange={(e) => {
-                const p = e.target.value as Provider;
-                setLlm({ ...llm, provider: p, model: defaultModelFor(p) });
-              }}
-            >
-              <option value="openai">OpenAI</option>
-              <option value="minimax">MiniMax</option>
-              <option value="litellm">LiteLLM</option>
-              <option value="anthropic">Anthropic</option>
-              <option value="bedrock">AWS Bedrock</option>
-            </select>
-          </div>
-          <div>
-            <Label htmlFor="model">Model</Label>
-            <Input id="model" value={llm.model} onChange={(e) => setLlm({ ...llm, model: e.target.value })} />
-          </div>
-          <div>
-            <Label htmlFor="apikey">API key</Label>
-            <Input
-              id="apikey"
-              type="password"
-              placeholder={llm.apiKey ?? 'leave blank to keep current'}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Encrypted with the workspace passphrase before being stored.
+      <Card>
+        <CardHeader>
+          <CardTitle>LLM provider</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="prov">Provider</FieldLabel>
+              <Select
+                value={llm.provider}
+                onValueChange={(v) =>
+                  setLlm({ ...llm, provider: v as Provider, model: defaultModelFor(v as Provider) })
+                }
+              >
+                <SelectTrigger id="prov">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openai">OpenAI</SelectItem>
+                  <SelectItem value="minimax">MiniMax</SelectItem>
+                  <SelectItem value="litellm">LiteLLM</SelectItem>
+                  <SelectItem value="anthropic">Anthropic</SelectItem>
+                  <SelectItem value="bedrock">AWS Bedrock</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="model">Model</FieldLabel>
+              <Input
+                id="model"
+                value={llm.model}
+                onChange={(e) => setLlm({ ...llm, model: e.target.value })}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="apikey">API key</FieldLabel>
+              <Input
+                id="apikey"
+                type="password"
+                placeholder={llm.apiKey ?? 'leave blank to keep current'}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+              />
+              <FieldDescription>
+                Encrypted with the workspace passphrase before being stored.
+              </FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="baseurl">Base URL (optional)</FieldLabel>
+              <Input
+                id="baseurl"
+                value={llm.baseUrl ?? ''}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  const updated: LlmSettings = { ...llm };
+                  if (next) updated.baseUrl = next;
+                  else delete (updated as { baseUrl?: string }).baseUrl;
+                  setLlm(updated);
+                }}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="temp">Temperature</FieldLabel>
+              <Input
+                id="temp"
+                type="number"
+                step={0.1}
+                min={0}
+                max={2}
+                value={llm.temperature ?? 0}
+                onChange={(e) => setLlm({ ...llm, temperature: Number(e.target.value) })}
+              />
+            </Field>
+          </FieldGroup>
+          {error && (
+            <p className="mt-4 text-sm text-destructive" role="alert">
+              {error}
             </p>
+          )}
+          <div className="mt-4 flex justify-end">
+            <Button onClick={save} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
           </div>
-          <div>
-            <Label htmlFor="baseurl">Base URL (optional)</Label>
-            <Input
-              id="baseurl"
-              value={llm.baseUrl ?? ''}
-              onChange={(e) => {
-                const next = e.target.value;
-                const updated: LlmSettings = { ...llm };
-                if (next) updated.baseUrl = next;
-                else delete (updated as { baseUrl?: string }).baseUrl;
-                setLlm(updated);
-              }}
-            />
-          </div>
-          <div>
-            <Label htmlFor="temp">Temperature</Label>
-            <Input
-              id="temp"
-              type="number"
-              step={0.1}
-              min={0}
-              max={2}
-              value={llm.temperature ?? 0}
-              onChange={(e) => setLlm({ ...llm, temperature: Number(e.target.value) })}
-            />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {saved && <p className="text-sm text-emerald-600">Saved.</p>}
-          <Button onClick={save}>Save</Button>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
     </main>
   );
 }

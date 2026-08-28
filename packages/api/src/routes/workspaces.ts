@@ -15,6 +15,7 @@ import { Hono } from 'hono';
 import {
   brandId,
   canManageWorkspace,
+  type SqliteAuditEventStore,
   type UserId,
   type WorkspaceId,
   type WorkspaceMemberStore,
@@ -22,9 +23,11 @@ import {
 } from '@raghub/core';
 
 import { getClaims } from '../middleware/auth.js';
+import { requireStore } from '../guards.js';
 
 export interface WorkspaceRouteDeps {
-  readonly memberStore: WorkspaceMemberStore;
+  readonly memberStore: WorkspaceMemberStore | null;
+  readonly audit: SqliteAuditEventStore | null;
 }
 
 const allRoles: readonly WorkspaceMemberRoleValue[] = ['owner', 'admin', 'member', 'viewer'];
@@ -37,8 +40,9 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
 
   app.get('/v1/workspaces/members', async (c) => {
     const claims = getClaims(c);
+    const memberStore = requireStore('memberStore', deps.memberStore);
     const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const list = await deps.memberStore.list(workspaceId);
+    const list = await memberStore.list(workspaceId);
     return c.json({
       members: list.map((m) => ({
         userId: m.userId,
@@ -50,8 +54,9 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
 
   app.post('/v1/workspaces/members', async (c) => {
     const claims = getClaims(c);
+    const memberStore = requireStore('memberStore', deps.memberStore);
     const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const me = await deps.memberStore.get(workspaceId, brandId<UserId>(claims.sub));
+    const me = await memberStore.get(workspaceId, brandId<UserId>(claims.sub));
     if (!me || !canManageWorkspace(me.role)) {
       return c.json({ error: { code: 'authorization_error', message: 'only admins can invite' } }, 403);
     }
@@ -60,18 +65,28 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
       return c.json({ error: { code: 'raghub_error', message: 'email + role required' } }, 400);
     }
     const newUserId = brandId<UserId>(`usr_${body.email.split('@')[0]}_${Math.random().toString(36).slice(2, 8)}`);
-    const member = await deps.memberStore.upsert({
+    const member = await memberStore.upsert({
       workspaceId,
       userId: newUserId,
       role: body.role,
     });
+    if (deps.audit) {
+      await deps.audit.record({
+        kind: 'workspace.member.add',
+        workspaceId,
+        actorId: brandId<UserId>(claims.sub),
+        resourceId: newUserId,
+        detail: { email: body.email, role: body.role },
+      });
+    }
     return c.json({ member }, 201);
   });
 
   app.patch('/v1/workspaces/members/:userId', async (c) => {
     const claims = getClaims(c);
+    const memberStore = requireStore('memberStore', deps.memberStore);
     const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const me = await deps.memberStore.get(workspaceId, brandId<UserId>(claims.sub));
+    const me = await memberStore.get(workspaceId, brandId<UserId>(claims.sub));
     if (!me || !canManageWorkspace(me.role)) {
       return c.json({ error: { code: 'authorization_error', message: 'only admins can change roles' } }, 403);
     }
@@ -80,23 +95,42 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
       return c.json({ error: { code: 'raghub_error', message: 'role required' } }, 400);
     }
     const target = brandId<UserId>(c.req.param('userId'));
-    const updated = await deps.memberStore.upsert({
+    const updated = await memberStore.upsert({
       workspaceId,
       userId: target,
       role: body.role,
     });
+    if (deps.audit) {
+      await deps.audit.record({
+        kind: 'workspace.member.role_change',
+        workspaceId,
+        actorId: brandId<UserId>(claims.sub),
+        resourceId: target,
+        detail: { role: body.role },
+      });
+    }
     return c.json({ member: updated });
   });
 
   app.delete('/v1/workspaces/members/:userId', async (c) => {
     const claims = getClaims(c);
+    const memberStore = requireStore('memberStore', deps.memberStore);
     const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-    const me = await deps.memberStore.get(workspaceId, brandId<UserId>(claims.sub));
+    const me = await memberStore.get(workspaceId, brandId<UserId>(claims.sub));
     if (!me || !canManageWorkspace(me.role)) {
       return c.json({ error: { code: 'authorization_error', message: 'only admins can remove' } }, 403);
     }
     const target = brandId<UserId>(c.req.param('userId'));
-    await deps.memberStore.remove(workspaceId, target);
+    await memberStore.remove(workspaceId, target);
+    if (deps.audit) {
+      await deps.audit.record({
+        kind: 'workspace.member.remove',
+        workspaceId,
+        actorId: brandId<UserId>(claims.sub),
+        resourceId: target,
+        detail: {},
+      });
+    }
     return c.json({ ok: true });
   });
 

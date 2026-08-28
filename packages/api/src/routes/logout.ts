@@ -12,9 +12,10 @@ import { Hono } from 'hono';
 import { type SessionStore, type WorkspaceId } from '@raghub/core';
 
 import { getClaims } from '../middleware/auth.js';
+import { requireStore } from '../guards.js';
 
 export interface LogoutRouteDeps {
-  readonly sessionStore: SessionStore;
+  readonly sessionStore: SessionStore | null;
 }
 
 export const logoutRoutes = (deps: LogoutRouteDeps): Hono => {
@@ -24,7 +25,8 @@ export const logoutRoutes = (deps: LogoutRouteDeps): Hono => {
     const claims = getClaims(c);
     const token = (c.req.header('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
     if (token) {
-      await deps.sessionStore.remove(token, claims.workspace_id as WorkspaceId);
+      const sessionStore = requireStore('sessionStore', deps.sessionStore);
+      await sessionStore.remove(token, claims.workspace_id as WorkspaceId);
     }
     c.header('Set-Cookie', 'raghub_token=; path=/; max-age=0; samesite=lax');
     c.header('Set-Cookie', 'raghub_passphrase=; path=/; max-age=0; samesite=lax');

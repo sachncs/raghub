@@ -27,10 +27,11 @@ import {
 } from '@raghub/core';
 
 import { getClaims } from '../middleware/auth.js';
+import { requireStore } from '../guards.js';
 
 export interface MeRouteDeps {
-  readonly userStore: UserStore;
-  readonly sessionStore: SessionStore;
+  readonly userStore: UserStore | null;
+  readonly sessionStore: SessionStore | null;
   readonly jwt: JwtService;
 }
 
@@ -47,9 +48,10 @@ export const meRoutes = (deps: MeRouteDeps): Hono => {
 
   app.get('/v1/me', async (c) => {
     const claims = getClaims(c);
+    const userStore = requireStore('userStore', deps.userStore);
     const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
     const userId = brandId<UserId>(claims.sub);
-    const user = await deps.userStore.getById(workspaceId, userId);
+    const user = await userStore.getById(workspaceId, userId);
     if (!user) {
       return c.json({ error: { code: 'auth_error', message: 'user not found' } }, 401);
     }
@@ -62,10 +64,11 @@ export const meRoutes = (deps: MeRouteDeps): Hono => {
     const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
     const rawToken = (c.req.header('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
     if (rawToken) {
+      const sessionStore = requireStore('sessionStore', deps.sessionStore);
       const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
-      const session = await deps.sessionStore.get(rawToken);
+      const session = await sessionStore.get(rawToken);
       if (!session) {
-        await deps.sessionStore.upsert({
+        await sessionStore.upsert({
           workspaceId,
           userId,
           rawToken,

@@ -43,7 +43,7 @@ import {
   type WorkspaceId,
   agenticIngest,
   hashDocument,
-} from '@raghub/core';
+} from '../src/index.js';
 
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -249,7 +249,7 @@ describe('end-to-end smoke', () => {
 
     // 10. Audit log
     const audit = await b.audit.list({ workspaceId: wsp });
-    expect(audit.find((a) => a.kind === 'auth.register')).toBeTruthy();
+    expect(audit.find((a: { kind: string }) => a.kind === 'auth.register')).toBeTruthy();
 
     await close(b);
   }, 30_000);

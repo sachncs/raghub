@@ -1,9 +1,41 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface DocumentRow {
   id: string;
@@ -22,14 +54,20 @@ interface PrincipalRow {
 const proxy = async (
   path: string,
   init: RequestInit = {},
-): Promise<Response> => {
-  return fetch('/api/proxy', {
+): Promise<Response> =>
+  fetch('/api/proxy', {
     ...init,
-    headers: {
-      ...init.headers,
-      'x-raghub-path': path,
-    },
+    headers: { ...init.headers, 'x-raghub-path': path },
   });
+
+const statusBadge = (status: string) => {
+  const variant =
+    status === 'ready'
+      ? 'default'
+      : status === 'failed'
+        ? 'destructive'
+        : 'secondary';
+  return <Badge variant={variant}>{status}</Badge>;
 };
 
 export default function DocumentsPage() {
@@ -43,6 +81,13 @@ export default function DocumentsPage() {
   const [sharePerm, setSharePerm] = useState<'read' | 'admin'>('read');
   const [error, setError] = useState<string | null>(null);
 
+  const refresh = async (): Promise<void> => {
+    const res = await proxy('/v1/documents');
+    if (!res.ok) return;
+    const body = (await res.json()) as { documents: DocumentRow[] };
+    setRows(body.documents);
+  };
+
   useEffect(() => {
     if (!document.cookie.includes('raghub_token=')) {
       window.location.href = '/sign-in';
@@ -51,12 +96,18 @@ export default function DocumentsPage() {
     void refresh();
   }, []);
 
-  const refresh = async (): Promise<void> => {
-    const res = await proxy('/v1/documents');
-    if (!res.ok) return;
-    const body = (await res.json()) as { documents: DocumentRow[] };
-    setRows(body.documents);
-  };
+  /* Poll while any document is still 'pending' or 'indexing' — the
+   * background ingest worker flips the row to ready/failed. */
+  useEffect(() => {
+    const stillWorking = rows.some(
+      (r) => r.status === 'pending' || r.status === 'indexing',
+    );
+    if (!stillWorking) return;
+    const handle = setInterval(() => {
+      void refresh();
+    }, 2_000);
+    return () => clearInterval(handle);
+  }, [rows]);
 
   const upload = async (): Promise<void> => {
     if (!file) return;
@@ -68,9 +119,15 @@ export default function DocumentsPage() {
       const res = await proxy('/v1/documents', { method: 'POST', body: form });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body?.error?.message ?? 'upload failed');
+        const message = (body as { error?: { message?: string } })?.error?.message ?? 'upload failed';
+        setError(message);
+        toast.error(message);
         return;
       }
+      const body = (await res.json()) as { status?: string; alreadyExisted?: boolean };
+      toast.success(
+        body.alreadyExisted ? 'Already indexed; sharing the existing row' : 'Upload accepted; indexing',
+      );
       setFile(null);
       await refresh();
     } finally {
@@ -99,8 +156,11 @@ export default function DocumentsPage() {
       }),
     });
     if (res.ok) {
+      toast.success('Granted');
       setShareId('');
       await loadPrincipals(shareDoc);
+    } else {
+      toast.error('Grant failed');
     }
   };
 
@@ -119,10 +179,13 @@ export default function DocumentsPage() {
   };
 
   return (
-    <main className="container py-8">
-      <h1 className="mb-6 text-2xl font-semibold">Documents</h1>
-      <div className="mb-6 flex items-center gap-2 rounded-lg border bg-card p-4">
+    <main className="py-8">
+      <div className="mb-6 flex items-center justify-between gap-2 rounded-lg border bg-card p-4">
+        <Label htmlFor="file" className="sr-only">
+          Upload a document
+        </Label>
         <input
+          id="file"
           type="file"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           className="flex-1 text-sm"
@@ -131,77 +194,124 @@ export default function DocumentsPage() {
           {uploading ? 'Uploading…' : 'Upload'}
         </Button>
       </div>
-      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
-      <ul className="space-y-1 text-sm">
-        {rows.map((r) => (
-          <li key={r.id} className="flex items-center justify-between rounded border px-3 py-2">
-            <span>
-              {r.filename} — {r.status} ({r.byte_size} bytes)
-            </span>
-            <button
-              type="button"
-              onClick={() => void loadPrincipals(r)}
-              className="text-xs text-primary underline"
-            >
-              share
-            </button>
-          </li>
-        ))}
-      </ul>
+      {error && (
+        <p className="mb-4 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No documents yet.</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Filename</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Size</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-medium">{r.filename}</TableCell>
+                <TableCell>{statusBadge(r.status)}</TableCell>
+                <TableCell className="text-right text-xs text-muted-foreground">
+                  {r.byte_size} B
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        Open
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => void loadPrincipals(r)}>
+                        Share…
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
 
-      {shareDoc && (
-        <section className="mt-8 rounded-lg border bg-card p-4">
-          <h2 className="mb-2 text-lg font-semibold">Share: {shareDoc.filename}</h2>
-          <div className="mb-4 flex items-center gap-2">
-            <select
-              className="rounded border bg-background px-2 py-1 text-sm"
-              value={shareType}
-              onChange={(e) => setShareType(e.target.value as 'user' | 'role' | 'group')}
-            >
-              <option value="user">user</option>
-              <option value="role">role</option>
-              <option value="group">group</option>
-            </select>
+      <Dialog open={shareDoc !== null} onOpenChange={(open) => !open && setShareDoc(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share: {shareDoc?.filename}</DialogTitle>
+            <DialogDescription>
+              Grant a user, role, or group access to this document.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={shareType} onValueChange={(v) => setShareType(v as typeof shareType)}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">user</SelectItem>
+                <SelectItem value="role">role</SelectItem>
+                <SelectItem value="group">group</SelectItem>
+              </SelectContent>
+            </Select>
             <Input
               placeholder={shareType === 'user' ? 'usr_xxx' : `${shareType}_xxx`}
               value={shareId}
               onChange={(e) => setShareId(e.target.value)}
               className="flex-1"
             />
-            <select
-              className="rounded border bg-background px-2 py-1 text-sm"
-              value={sharePerm}
-              onChange={(e) => setSharePerm(e.target.value as 'read' | 'admin')}
-            >
-              <option value="read">read</option>
-              <option value="admin">admin</option>
-            </select>
+            <Select value={sharePerm} onValueChange={(v) => setSharePerm(v as typeof sharePerm)}>
+              <SelectTrigger className="w-[110px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="read">read</SelectItem>
+                <SelectItem value="admin">admin</SelectItem>
+              </SelectContent>
+            </Select>
             <Button onClick={addPrincipal}>Grant</Button>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Principal</TableHead>
+                <TableHead>Permission</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {principals.map((p) => (
+                <TableRow key={`${p.principalType}-${p.principalId}-${p.permission}`}>
+                  <TableCell className="font-mono text-xs">
+                    {p.principalType}:{p.principalId}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{p.permission}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void removePrincipal(p)}
+                    >
+                      Revoke
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <DialogFooter>
             <Button variant="outline" onClick={() => setShareDoc(null)}>
               Done
             </Button>
-          </div>
-          <ul className="space-y-1 text-sm">
-            {principals.map((p) => (
-              <li
-                key={`${p.principalType}-${p.principalId}-${p.permission}`}
-                className="flex items-center justify-between rounded border px-3 py-1"
-              >
-                <span>
-                  {p.principalType}:{p.principalId} → {p.permission}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void removePrincipal(p)}
-                  className="text-xs text-destructive underline"
-                >
-                  revoke
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

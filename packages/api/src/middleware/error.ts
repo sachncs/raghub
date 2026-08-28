@@ -46,6 +46,18 @@ export const errorMiddleware = (): MiddlewareHandler => async (c, next) => {
       };
       return c.json(body, (codeToStatus[e.code] ?? 500) as Parameters<typeof c.json>[1]);
     }
+    if (
+      e &&
+      typeof e === 'object' &&
+      'name' in e &&
+      (e as { name?: string }).name === 'StoreUnavailableError'
+    ) {
+      const message = e instanceof Error ? e.message : 'store unavailable';
+      return c.json(
+        { error: { code: 'configuration_error', message } },
+        503,
+      );
+    }
     return c.json(
       {
         error: {

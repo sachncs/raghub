@@ -3,7 +3,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { FsLocalFileStorage, InMemoryLocalFileStorage } from '../../src/storage/local-file-storage.js';
+import {
+  FsLocalFileStorage,
+  InMemoryLocalFileStorage,
+  conversationSpilloverPrefix,
+  documentBytesKey,
+  sessionSnapshotKey,
+} from '../../src/storage/local-file-storage.js';
+import { brandId } from '../../src/domain/index.js';
 
 describe('InMemoryLocalFileStorage', () => {
   it('round-trips a string', async () => {
@@ -74,5 +81,21 @@ describe('FsLocalFileStorage', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('documentBytesKey / sessionSnapshotKey / conversationSpilloverPrefix', () => {
+  it('builds a stable documents/<workspace>/<doc>.bin path', () => {
+    const key = documentBytesKey(brandId('wsp_1'), brandId('doc_abc'));
+    expect(key).toBe('documents/wsp_1/doc_abc.bin');
+  });
+
+  it('builds a stable snapshots/<workspace>/<session>.json path', () => {
+    const key = sessionSnapshotKey(brandId('wsp_1'), 'sess_x');
+    expect(key).toBe('snapshots/wsp_1/sess_x.json');
+  });
+
+  it('returns a stable spillover prefix per workspace', () => {
+    expect(conversationSpilloverPrefix(brandId('wsp_2'))).toBe('spillover/wsp_2/');
   });
 });

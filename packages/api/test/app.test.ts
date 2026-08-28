@@ -18,6 +18,7 @@ describe('createApp (shape only)', () => {
       sessionStore: undefined as never,
       conversationStore: undefined as never,
       jobQueue: undefined as never,
+      fileStorage: undefined as never,
       embedder: undefined as never,
       vectorStore: undefined as never,
       registry: undefined as never,

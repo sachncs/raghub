@@ -1,14 +1,17 @@
 {
   "name": "raghub",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "raghub — multi-user, user-controlled RAG on Strands Agents (TypeScript).",
   "type": "module",
   "engines": {
-    "node": ">=22",
+    "node": ">=26",
     "pnpm": ">=9"
   },
   "packageManager": "pnpm@9.12.3",
+  "volta": {
+    "node": "26.7.0"
+  },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
@@ -18,10 +21,11 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:watch": "turbo run test -- --watch",
+    "e2e": "bash scripts/e2e-smoke.sh",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {
-    "@types/node": "^22.9.0",
+    "@types/node": "^26.0.0",
     "prettier": "^3.3.3",
     "turbo": "^2.3.0",
     "typescript": "^5.6.3"

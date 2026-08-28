@@ -21,6 +21,8 @@ import {
   type DocumentStore,
   type Embedder,
   type JwtService,
+  type LocalFileStorage,
+  type SqliteAuditEventStore,
   type SqliteJobQueue,
   type SessionStore,
   type UserStore,
@@ -46,15 +48,17 @@ import { workspaceRoutes } from './routes/workspaces.js';
 import type { WorkspacePool } from './workspace-pool.js';
 
 export interface AppDeps {
-  readonly userStore: UserStore;
-  readonly documentStore: DocumentStore;
-  readonly documentPrincipalStore: DocumentPrincipalStore;
-  readonly memberStore: WorkspaceMemberStore;
-  readonly sessionStore: SessionStore;
-  readonly conversationStore: ConversationStore;
-  readonly jobQueue: SqliteJobQueue;
+  readonly userStore: UserStore | null;
+  readonly documentStore: DocumentStore | null;
+  readonly documentPrincipalStore: DocumentPrincipalStore | null;
+  readonly memberStore: WorkspaceMemberStore | null;
+  readonly sessionStore: SessionStore | null;
+  readonly conversationStore: ConversationStore | null;
+  readonly jobQueue: SqliteJobQueue | null;
+  readonly fileStorage: LocalFileStorage | null;
+  readonly audit?: SqliteAuditEventStore | null;
   readonly embedder: Embedder;
-  readonly vectorStore: VectorStore;
+  readonly vectorStore: VectorStore | null;
   readonly hasher: BcryptHasher;
   readonly jwt: JwtService;
   readonly orchestrator: Orchestrator;
@@ -98,7 +102,7 @@ export const createApp = (deps: AppDeps): Hono => {
       documentStore: deps.documentStore,
       sessionStore: deps.sessionStore,
       jobQueue: deps.jobQueue,
-      embedder: deps.embedder,
+      fileStorage: deps.fileStorage,
       vectorStore: deps.vectorStore,
     }),
   );
@@ -108,11 +112,12 @@ export const createApp = (deps: AppDeps): Hono => {
       principalStore: deps.documentPrincipalStore,
       memberStore: deps.memberStore,
       documentStore: deps.documentStore,
+      audit: deps.audit ?? null,
     }),
   );
   protectedApp.route(
     '/',
-    workspaceRoutes({ memberStore: deps.memberStore }),
+    workspaceRoutes({ memberStore: deps.memberStore, audit: deps.audit ?? null }),
   );
   protectedApp.route(
     '/',
@@ -120,7 +125,7 @@ export const createApp = (deps: AppDeps): Hono => {
   );
   protectedApp.route(
     '/',
-    settingsRoutes({ pool: deps.pool }),
+    settingsRoutes({ pool: deps.pool, audit: deps.audit ?? null }),
   );
   protectedApp.route(
     '/',

@@ -9,6 +9,64 @@ collects work that has landed on master but is not yet tagged.
 
 ## [Unreleased]
 
+### Added
+
+- `@raghub/core`: `StubLlm` (`createLlm` returns it when
+  `RAGHUB_LLM_STUB=1`) — deterministic, delay-streaming, used
+  by the web smoke suite and any local run without an API key.
+- `@raghub/core`: `documentBytesKey` / `sessionSnapshotKey` /
+  `conversationSpilloverPrefix` — stable path layout for
+  `FsLocalFileStorage`.
+- `@raghub/api`: `workspaceContext` bundle (`workspaceContextFrom`)
+  resolves JWT + passphrase cookie via `WorkspacePool` and
+  exposes fresh `Sqlite*Store` instances per request.
+- `@raghub/api`: documents POST is now async — persists bytes
+  to `LocalFileStorage` and enqueues a `document.ingest` job;
+  returns `202 {status:'pending'}`. The `JobWorker` (started
+  by `start()`) drains the queue, runs `ingest()`, flips the
+  row to `ready`/`failed`, and writes an `ingest.complete` /
+  `ingest.failure` audit event.
+- `@raghub/api`: audit hooks on `document.acl.grant`,
+  `document.acl.revoke`, `settings.update`,
+  `workspace.member.{add,role_change,remove}`.
+- `@raghub/api`: `RAGHUB_JWT_SECRET` is required in production;
+  boot fails fast if missing (dev/test fallback retained).
+- `@raghub/web`: dark-mode toggle (sun/moon) via `next-themes`,
+  neutral OKLCH palette + shadcn `new-york` components.
+- `@raghub/web`: skip-to-main-content link, sonner toaster at
+  root, shared header with Chat/Documents/Members/Settings nav.
+- `@raghub/web`: documents page polls every 2s while any row is
+  `pending`/`indexing`.
+- CI: Node 26 + pnpm + turbo gates (lint, typecheck, test,
+  build, web-e2e via `agent-browser`).
+
+### Changed (BREAKING)
+
+- Node 22 → **Node 26** across every workspace
+  (`engines.node`, `.nvmrc`, Volta pin, `@types/node`).
+- Next 15 → **Next.js 16.3.3**, React 18 → **React 19.2.8**,
+  `@types/react`/`@types/react-dom` 18 → 19.
+- Tailwind 3 → **Tailwind 4.3.3** (CSS-driven `@theme inline`,
+  OKLCH palette), `tailwindcss-animate` →
+  `tw-animate-css`. `apps/web/tailwind.config.ts` deleted.
+- `next lint` removed → `eslint@9.39.1` flat config +
+  `eslint-config-next@16`. The web `lint` script now runs
+  `eslint .`.
+- Documents upload no longer returns 200 with chunks count;
+  returns `202 {documentId, status:'pending'}` and the worker
+  performs the embedding+indexing off-request. Consumers
+  should poll `/v1/documents` until the row leaves
+  `pending`/`indexing`.
+
+### Removed
+
+- `apps/web/postcss.config.js`, `apps/web/tailwind.config.ts`
+  (Tailwind v4 is CSS-driven).
+- `forwardRef` from `button.tsx` / `input.tsx` / `label.tsx`
+  (shadcn radix-nova preset uses `data-slot` props instead).
+
+## [0.10.0] - 2026-08-15
+
 ### Removed
 
 - Drop the `Facade` empty-class alias and the `FacadeDeprecationMeta`
