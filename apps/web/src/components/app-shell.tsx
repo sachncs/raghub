@@ -183,7 +183,7 @@ export function AppShell({ children, user }: AppShellProps) {
             <ThemeToggle />
           </div>
         </header>
-        <div className="flex-1">{children}</div>
+        <div className="flex-1 bg-background/40">{children}</div>
       </SidebarInset>
       <CommandPalette {...palette} />
     </SidebarProvider>
