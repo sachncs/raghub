@@ -13,7 +13,7 @@ const PATH = ':memory:';
 
 let tempCounter = 0;
 const mkTempPath = async (): Promise<string> => {
-  const dir = mkdtempSync(join(tmpdir(), 'raghub-enc-'));
+  const dir = mkdtempSync(join(tmpdir(), 'revex-enc-'));
   return join(dir, `workspace-${++tempCounter}.db`);
 };
 const rmTempPath = async (path: string): Promise<void> => {
