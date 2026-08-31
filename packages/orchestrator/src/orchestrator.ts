@@ -8,8 +8,8 @@
  * variant so SSE proxies surface tokens incrementally.
  */
 
-import type { Llm, Retrieval, Telemetry } from '@raghub/core';
-import { runWithWorkspaceAsync, type CollectionId, type WorkspaceId } from '@raghub/core';
+import type { Llm, Retrieval, Telemetry } from '@revex/core';
+import { runWithWorkspaceAsync, type CollectionId, type WorkspaceId } from '@revex/core';
 
 import { buildGraph, buildSwarm, buildWorkflow, type PatternBuilder } from './patterns/builders.js';
 import { resolveStrategy, type StrategyOverrides } from './patterns/strategy.js';
@@ -27,7 +27,7 @@ import type {
   Strategy,
   Strategy as StrategyShape,
 } from './strands/types.js';
-import type { User } from '@raghub/core';
+import type { User } from '@revex/core';
 
 export interface OrchestratorOptions {
   readonly telemetry: Telemetry;
