@@ -1,3 +1,11 @@
+> ⚠️ **ARCHIVED** — This document describes the **raghub 0.9.x Python
+> release**, preserved for historical reference in
+> [`archive/`](../../archive/). It does **not** describe the active
+> **Revex** TypeScript codebase.
+>
+> For current documentation, see [`README.md`](../../README.md) and the
+> TypeScript source under `packages/`.
+
 # Monitoring & Observability
 
 The `RAG` facade emits telemetry automatically through its
