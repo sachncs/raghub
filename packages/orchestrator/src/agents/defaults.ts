@@ -1,7 +1,7 @@
 /**
  * Default agent implementations.
  *
- * `retriever` runs the real @raghub/core Retrieval pipeline (dense
+ * `retriever` runs the real @revex/core Retrieval pipeline (dense
  * + sparse + RRF) under the active RBAC. `generator` produces a
  * grounded answer using the real LLM, with token-by-token streaming
  * surfaced via the Agent contract.
@@ -11,8 +11,8 @@
  * orchestrator's only callable unit.
  */
 
-import type { ChatMessage, Hit, Llm, Retrieval } from '@raghub/core';
-import { RaghubError, User } from '@raghub/core';
+import type { ChatMessage, Hit, Llm, Retrieval } from '@revex/core';
+import { RevexError, User } from '@revex/core';
 
 import type { Agent, ToolExecution } from './registry.js';
 import type { InvocationState, OrchestratorRequest } from '../strands/types.js';
@@ -82,7 +82,7 @@ export const createRetrieverAgent = (deps: RetrieverAgentDeps): Agent => ({
     }
   },
   async generate() {
-    throw new RaghubError('pipeline_error', 'retriever agent cannot generate');
+    throw new RevexError('pipeline_error', 'retriever agent cannot generate');
   },
 });
 
@@ -94,7 +94,7 @@ export interface GeneratorAgentDeps {
 export const createGeneratorAgent = (deps: GeneratorAgentDeps): Agent => ({
   id: 'generator',
   async retrieve() {
-    throw new RaghubError('pipeline_error', 'generator agent cannot retrieve');
+    throw new RevexError('pipeline_error', 'generator agent cannot retrieve');
   },
   async generate(req, hits, state: InvocationState) {
     const history: ChatMessage[] = (req.history ?? []).map((h) => ({
@@ -124,7 +124,7 @@ export interface StreamingGeneratorAgentDeps extends GeneratorAgentDeps {
 export const createStreamingGeneratorAgent = (deps: StreamingGeneratorAgentDeps): Agent => ({
   id: 'generator',
   async retrieve() {
-    throw new RaghubError('pipeline_error', 'generator agent cannot retrieve');
+    throw new RevexError('pipeline_error', 'generator agent cannot retrieve');
   },
   async generate(req, hits, state: InvocationState) {
     const history: ChatMessage[] = (req.history ?? []).map((h) => ({
