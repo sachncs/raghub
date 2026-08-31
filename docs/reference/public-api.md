@@ -1,3 +1,11 @@
+> ⚠️ **ARCHIVED** — This document describes the **raghub 0.9.x Python
+> release**, preserved for historical reference in
+> [`archive/`](../../archive/). It does **not** describe the active
+> **Revex** TypeScript codebase.
+>
+> For current documentation, see [`README.md`](../../README.md) and the
+> TypeScript source under `packages/`.
+
 # Revex Public API Surface
 
 This document declares every public symbol in `raghub` as of v0.9.5.
