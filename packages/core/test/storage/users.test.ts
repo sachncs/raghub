@@ -60,7 +60,7 @@ describe('SqliteUserStore (integration)', () => {
       allowedCompanies: [],
     });
     const ok = await store.getById(workspaceId, user.id);
-    expect(ok?.id).toBe(user.id);
+    expect(ok?.user.id).toBe(user.id);
     const cross = await store.getById(otherTenantId, user.id);
     expect(cross).toBeNull();
   });
