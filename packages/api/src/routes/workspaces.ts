@@ -75,7 +75,11 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
     if (!me || !canManageWorkspace(me.role)) {
       return c.json({ error: { code: 'authorization_error', message: 'only admins can invite' } }, 403);
     }
-    const body = (await c.req.json().catch(() => ({}))) as { email?: string; role?: string };
+    const body = (await c.req.json().catch(() => ({}))) as {
+      email?: string;
+      role?: string;
+      displayName?: string;
+    };
     if (!body.email || !body.role || !isRole(body.role)) {
       return c.json({ error: { code: 'revex_error', message: 'email + role required' } }, 400);
     }
@@ -84,6 +88,7 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
       workspaceId,
       userId: newUserId,
       role: body.role,
+      ...(body.displayName ? { displayName: body.displayName } : {}),
     });
     if (deps.audit) {
       await deps.audit.record({
