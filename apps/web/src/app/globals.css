@@ -161,6 +161,68 @@
   .mask-fade-b {
     mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
   }
+  .text-display-1 {
+    font-size: clamp(3.5rem, 7vw, 6rem);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    font-weight: 600;
+  }
+  .text-display-2 {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    font-weight: 600;
+  }
+  .text-h1 {
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+  .text-h2 {
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    font-weight: 600;
+  }
+  .text-eyebrow {
+    font-size: 0.75rem;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+  .grid-faint {
+    background-image:
+      linear-gradient(to right, oklch(0 0 0 / 5%) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0 0 0 / 5%) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+  :root .grid-faint {
+    background-image:
+      linear-gradient(to right, oklch(0 0 0 / 5%) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0 0 0 / 5%) 1px, transparent 1px);
+  }
+  .dark .grid-faint {
+    background-image:
+      linear-gradient(to right, oklch(1 0 0 / 4%) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(1 0 0 / 4%) 1px, transparent 1px);
+  }
+  .glow-indigo {
+    box-shadow:
+      0 0 0 1px oklch(0.72 0.16 268 / 0.25),
+      0 8px 32px oklch(0.72 0.16 268 / 0.18);
+  }
+  .glow-amber {
+    box-shadow:
+      0 0 0 1px oklch(0.78 0.14 78 / 0.28),
+      0 8px 32px oklch(0.78 0.14 78 / 0.18);
+  }
+  .glow-emerald {
+    box-shadow:
+      0 0 0 1px oklch(0.72 0.18 152 / 0.28),
+      0 8px 32px oklch(0.72 0.18 152 / 0.18);
+  }
   .gradient-mesh {
     background-image:
       radial-gradient(at 12% 18%, oklch(0.78 0.14 78 / 0.18) 0px, transparent 50%),
