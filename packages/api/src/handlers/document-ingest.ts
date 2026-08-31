@@ -34,7 +34,7 @@ import {
   SqliteAuditEventStore as SqliteAuditEventStoreImpl,
   SqliteDocumentStore as SqliteDocumentStoreImpl,
   SqliteVecStore as SqliteVecStoreImpl,
-} from '@raghub/core';
+} from '@revex/core';
 
 import { WorkspacePool } from '../workspace-pool.js';
 import { passVaultRef } from '../workspace-bootstrap.js';
