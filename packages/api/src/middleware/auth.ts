@@ -3,7 +3,7 @@
  *
  * Reads the bearer token from `Authorization: Bearer <jwt>`, verifies
  * it via the bound `JwtService`, and stores the decoded claims on
- * `c.var.claims`. The cookie `raghub_passphrase` is also extracted
+ * `c.var.claims`. The cookie `revex_workspace_key` is also extracted
  * (the browser sends it on every request so the server can decrypt
  * the workspace's settings table).
  *
@@ -14,7 +14,7 @@
 
 import type { Context, MiddlewareHandler } from 'hono';
 
-import { type JwtClaims, type JwtService } from '@raghub/core';
+import { type JwtClaims, type JwtService } from '@revex/core';
 
 export interface AuthVars {
   readonly claims: JwtClaims;
@@ -39,7 +39,7 @@ export const jwtAuthMiddleware = (jwt: JwtService): MiddlewareHandler => async (
   try {
     const claims = await jwt.verify(m[1]);
     const cookieHeader = c.req.header('cookie');
-    const passphrase = readCookie(cookieHeader, 'raghub_passphrase');
+    const passphrase = readCookie(cookieHeader, 'revex_workspace_key');
     c.set('claims', claims);
     c.set('passphrase', passphrase);
     return await next();
