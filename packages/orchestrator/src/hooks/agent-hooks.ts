@@ -14,7 +14,7 @@
  * Implementations may throw — RagAgent catches and continues.
  */
 
-import type { Hit } from '@raghub/core';
+import type { Hit } from '@revex/core';
 
 import type { InvocationState, OrchestratorRequest } from '../strands/types.js';
 
