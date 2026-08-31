@@ -22,7 +22,7 @@ Key properties of `PgVectorStore`:
 - **Schema**: `CREATE EXTENSION IF NOT EXISTS vector;` followed by a
   `chunks` table with a `vector` column of type `vector(1024)`.
 - **Indexes**: IVFFlat (default) or HNSW, configurable via
-  `RAGHUB_PGV_INDEX_TYPE`.
+  `REVEX_PGV_INDEX_TYPE`.
 - **Hybrid search**: Combines pgvector cosine distance with BM25
   via the `RetrievalPipeline` scorer.
 - **RLS hooks**: Integrates with the multi-tenant isolation model
@@ -47,5 +47,5 @@ Key properties of `PgVectorStore`:
 - **FAISS first-class**: Rejected — FAISS lacks persistence and
   multi-tenancy primitives; better suited for batch processing.
 - **Chroma first-class**: Considered but deferred — Chroma's
-  embedding-focused API does not align with RAGHub's separation of
+  embedding-focused API does not align with Revex's separation of
   concerns.
