@@ -20,7 +20,7 @@
 
 import { cookies } from 'next/headers';
 
-const API_BASE = process.env['REVEX_API_BASE'] ?? 'http://localhost:3000';
+const API_BASE = process.env['REVEX_API_BASE'] ?? 'http://localhost:3002';
 
 const cookieHeader = async (): Promise<string> => {
   const cookieStore = await cookies();

@@ -61,7 +61,22 @@ export default function SignInPage() {
         error?: { message?: string };
       };
       if (!res.ok || !body.token) {
-        toast.error(body?.error?.message ?? "Sign in failed");
+        const message = body?.error?.message ?? "Sign in failed";
+        toast.error(message, {
+          description:
+            res.status === 401
+              ? "No account matches those credentials. Try onboarding to create a workspace."
+              : res.status === 404
+                ? "Workspace not found. Onboard to create one."
+                : undefined,
+          action:
+            res.status === 401 || res.status === 404
+              ? {
+                  label: "Onboard",
+                  onClick: () => router.push("/onboarding"),
+                }
+              : undefined,
+        });
         return;
       }
       document.cookie = `revex_session=${body.token}; path=/; max-age=86400; samesite=lax`;
