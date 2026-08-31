@@ -1,7 +1,7 @@
 /**
  * WorkspaceRegistry — top-level registry of all workspaces on this
- * host. Stored at `~/.raghub/registry.db` (or wherever
- * `RAGHUB_HOME` points). Maps `workspace_id → absolute .db path`.
+ * host. Stored at `~/.revex/registry.db` (or wherever
+ * `REVEX_HOME` points). Maps `workspace_id → absolute .db path`.
  *
  * One process owns one registry. `Workspace.open()` is unaware of
  * the registry — it's a single SQLite file. The API layer keeps a
