@@ -1,7 +1,7 @@
 /**
  * Strands-shaped contracts.
  *
- * The `@raghub/orchestrator` package is built around three primitives
+ * The `@revex/orchestrator` package is built around three primitives
  * that match the Strands Agents SDK semantics: `Agent`, `Graph`,
  * `Swarm`, `Workflow`. The runtime adapter that actually executes
  * these primitives is loaded lazily; Phase 1 ships an in-process
@@ -11,8 +11,8 @@
  * concrete adapter.
  */
 
-import type { Hit, User } from '@raghub/core';
-import type { CollectionId, WorkspaceId, UserId } from '@raghub/core';
+import type { Hit, User } from '@revex/core';
+import type { CollectionId, WorkspaceId, UserId } from '@revex/core';
 
 /**
  * The shared `invocation_state` record Strands propagates to every
