@@ -108,7 +108,7 @@ Uvicorn's `--factory`) continues to expose:
 - `raghub_ingestion_duration_ms` (Histogram) — ingestion duration
 - `raghub_auth_duration_ms` (Histogram) — authentication duration
 - `raghub_auth_total` (Counter, label `success`) — login attempts
-- `raghub_error_total` (Counter, label `error_type`) — error count
+- `revex_error_total` (Counter, label `error_type`) — error count
 
 These are wired through
 `raghub.telemetry.metrics.PrometheusMetrics` (registered via
@@ -124,7 +124,7 @@ The RAG facade emits loguru records by default; configure
 
 ## Process-level observability
 
-When RAGHub runs as a long-lived process (e.g. `raghub run`,
+When Revex runs as a long-lived process (e.g. `raghub run`,
 `uvicorn raghub.api:App.create --factory`, or a
 Kubernetes deployment), configure your process supervisor to
 capture the loguru records emitted from `raghub.telemetry.logging`
