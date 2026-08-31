@@ -43,7 +43,7 @@ export const loadSqliteVecExtension = (db: Database): void => {
     loadSqliteVec(db as unknown as { loadExtension: (f: string) => void });
   } catch (err) {
     throw new Error(
-      `failed to load sqlite-vec extension: ${err instanceof Error ? err.message : String(err)}. raghub requires sqlite-vec to be installed (run \`pnpm install\`).`,
+      `failed to load sqlite-vec extension: ${err instanceof Error ? err.message : String(err)}. revex requires sqlite-vec to be installed (run \`pnpm install\`).`,
     );
   }
 };
