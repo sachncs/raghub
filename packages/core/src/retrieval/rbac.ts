@@ -4,7 +4,7 @@
  * Admins (or users with no principals specified) see everything in
  * the workspace. Members and viewers have `principals` populated
  * from their user_id + group memberships + role memberships by
- * `resolveAccessScope()` in `@raghub/agents`.
+ * `resolveAccessScope()` in `@revex/agents`.
  */
 
 import type { Principal, StoreFilter } from '../stores/types.js';
