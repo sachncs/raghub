@@ -11,8 +11,8 @@ import {
 import { judgeCare, careMetrics } from '../src/care.js';
 import { lostInMiddleProbe } from '../src/lost-in-middle.js';
 import { aggregate, loadJsonl } from '../src/harness.js';
-import { Chunk, ChunkModality, type Hit, brandId } from '@raghub/core';
-import type { ChunkId, CollectionId, DocumentId, WorkspaceId, UserId } from '@raghub/core';
+import { Chunk, ChunkModality, type Hit, brandId } from '@revex/core';
+import type { ChunkId, CollectionId, DocumentId, WorkspaceId, UserId } from '@revex/core';
 
 const makeHit = (id: string, text: string): Hit => {
   const chunk = new Chunk({
