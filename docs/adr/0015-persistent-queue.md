@@ -28,7 +28,7 @@ Key properties of `SqliteQueue`:
   duplicate inserts are silently ignored.
 - **Visibility timeout**: Running jobs that exceed the timeout are
   automatically requeued.
-- **CLI**: `raghub queue list`, `raghub queue retry`, `raghub queue purge`.
+- **CLI**: `revex queue list`, `revex queue retry`, `revex queue purge`.
 
 ## Consequences
 
