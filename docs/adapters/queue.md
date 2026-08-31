@@ -1,6 +1,6 @@
 # Queue adapter
 
-RAGHub ships a built-in persistent queue for durable document ingestion.
+Revex ships a built-in persistent queue for durable document ingestion.
 The default backend is **SQLite**; Celery and Arq adapters are available
 as alternatives.
 
@@ -47,9 +47,9 @@ Enum: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`.
 ## CLI commands
 
 ```bash
-raghub queue list [--state pending|running|completed|failed]
-raghub queue retry <job_id>
-raghub queue purge [--state failed]
+revex queue list [--state pending|running|completed|failed]
+revex queue retry <job_id>
+revex queue purge [--state failed]
 ```
 
 ## Idempotency
