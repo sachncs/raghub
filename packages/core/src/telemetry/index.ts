@@ -16,6 +16,9 @@ export { NoOpTelemetry } from './noop.js';
 export { LangfuseTelemetry } from './langfuse.js';
 export type { LangfuseTelemetryOptions } from './langfuse.js';
 export { OtelTelemetry } from './otel.js';
+export { createLogger, setSink } from './logger.js';
+export type { LogLevel, LogRecord, LogSink, Logger } from './logger.js';
+export { SECRET_KEY_RE, scrubSecrets, RedactingTelemetry } from './redaction.js';
 
 export const createTelemetry = async (settings: Settings): Promise<Telemetry> => {
   switch (settings.telemetry.provider) {
