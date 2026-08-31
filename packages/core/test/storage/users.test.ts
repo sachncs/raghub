@@ -14,7 +14,7 @@ const setupStore = async (): Promise<{ workspace: WorkspaceHandle; store: Sqlite
   return { workspace, store };
 };
 
-const integration = process.env['RAGHUB_RUN_SQLITE_TESTS'] === '1';
+const integration = process.env['REVEX_RUN_SQLITE_TESTS'] === '1';
 const itg = integration ? it : it.skip;
 
 describe('SqliteUserStore (integration)', () => {
