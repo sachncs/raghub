@@ -8,7 +8,7 @@ async function fetchMe(): Promise<{ email?: string | null; displayName?: string 
   if (!token) return null;
   try {
     const res = await fetch(
-      `${process.env['REVEX_API_BASE'] ?? 'http://localhost:3000'}/v1/me`,
+      `${process.env['REVEX_API_BASE'] ?? 'http://localhost:3002'}/v1/me`,
       {
         headers: { authorization: `Bearer ${token}` },
         cache: 'no-store',
