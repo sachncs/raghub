@@ -1,41 +1,115 @@
 # Changelog
 
-All notable changes to RAGHub are documented in this file.
+All notable changes to Revex are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Entries are ordered from newest to oldest. The "Unreleased" section
 collects work that has landed on master but is not yet tagged.
 
+## [2.0.0] — Unreleased
+
+### Rebrand
+
+Revex is a full rebrand and UX overhaul of the previous 1.x "raghub"
+series. This is a **breaking** release.
+
+### Changed
+
+- **Brand**: name is now `Revex` everywhere — packages, cookies,
+  headers, copy, documentation, public assets.
+- **Package names**: `@raghub/*` → `@revex/*` (core, orchestrator,
+  api, eval, web).
+- **Cookies**: `raghub_token` → `revex_session`,
+  `raghub_passphrase` → `revex_workspace_key`.
+- **Headers**: `x-raghub-path` → `x-revex-path`,
+  `x-raghub-forwarded` → `x-revex-forwarded`.
+- **Environment variables**: `RAGHUB_*` → `REVEX_*`
+  (`REVEX_WORKSPACE_HOME`, `REVEX_API_PORT`, `REVEX_JWT_SECRET`,
+  `REVEX_LLM_API_KEY`, `REVEX_EMBEDDER_API_KEY`, etc.).
+- **Storage paths**: `~/.raghub/` → `~/.revex/`.
+- **Workspace home default**: `~/.revex/`.
+- **Error code**: `raghub_error` → `revex_error`. Base class
+  `RaghubError` is now `RevexError`.
+- **Default paths**: `vectorStore.path` default `./.revex/revex.db`.
+
+### UI
+
+- **Theme split**: marketing surface (`/`, `/sign-in`, `/privacy`,
+  `/terms`) defaults to light; app shell (`/chat`, `/documents`,
+  `/members`, `/settings`, `/onboarding`) defaults to dark.
+  Implemented via Next.js route groups, each with its own
+  `ThemeProvider`.
+- **Wordmark**: italic `revex` with the `v` rendered as a chevron
+  glyph (`›`). A simplified glyph-only mark is used at ≤16px.
+- **Layouts**: new `app-shell.tsx` (collapsible left rail + thin
+  topbar) and `marketing-shell.tsx` (centered hero with ambient
+  gradient).
+- **Components**: added `sidebar`, `avatar`, `command`, `popover`,
+  `progress`, `tabs`, `checkbox` shadcn primitives. Refreshed
+  existing `button`, `card`, `field`, `input`, `input-group`.
+- **Chat**: extracted `useRevexStream` hook (with unit and
+  snapshot tests); split UI into `Composer`, `Message` (user /
+  assistant variants), `TracePanel` (slide-over `Sheet`), and
+  `EmptyState`. Streaming cursor + top progress bar.
+- **Documents**: card grid, status pills, share dialog refresh.
+- **Members**: card grid, invite `Sheet`, role chips.
+- **Settings**: tabbed layout (LLM tab polished; Account,
+  Workspace, Security tabs scaffolded for future use).
+- **Command palette**: global `Cmd+K` palette mounted in
+  `app-shell.tsx`. Indexes chats, documents, members, settings.
+- **Motion**: `motion` (formerly Framer Motion) for entrances
+  and micro-interactions. `prefers-reduced-motion` honored.
+- **Pages added**: `/privacy`, `/terms` (static).
+- **Pages updated**: `/`, `/sign-in`, `/onboarding`, `/chat`,
+  `/documents`, `/members`, `/settings`.
+
+### Migration
+
+This is a hard cutover. No dual-cookie, dual-header, or
+dual-package-name support. To migrate:
+
+1. `pnpm install` — workspace deps automatically resolve to the
+   new package names.
+2. Replace any code that imports `@raghub/*` with `@revex/*`.
+3. Replace any references to `raghub_token`, `raghub_passphrase`,
+   `x-raghub-path`, `x-raghub-forwarded` with `revex_session`,
+   `revex_workspace_key`, `x-revex-path`, `x-revex-forwarded`.
+4. Rename any `RAGHUB_*` env vars to `REVEX_*`.
+5. Move any existing workspaces from `~/.raghub/` to `~/.revex/`
+   (or set `REVEX_WORKSPACE_HOME` to the existing location).
+
+Historical entries below describe the previous "raghub" series.
+
 ## [Unreleased]
 
 ### Added
 
-- `@raghub/core`: `StubLlm` (`createLlm` returns it when
-  `RAGHUB_LLM_STUB=1`) — deterministic, delay-streaming, used
+- `@revex/core`: `StubLlm` (`createLlm` returns it when
+  `REVEX_LLM_STUB=1`) — deterministic, delay-streaming, used
   by the web smoke suite and any local run without an API key.
-- `@raghub/core`: `documentBytesKey` / `sessionSnapshotKey` /
+- `@revex/core`: `documentBytesKey` / `sessionSnapshotKey` /
   `conversationSpilloverPrefix` — stable path layout for
   `FsLocalFileStorage`.
-- `@raghub/api`: `workspaceContext` bundle (`workspaceContextFrom`)
+- `@revex/api`: `workspaceContext` bundle (`workspaceContextFrom`)
   resolves JWT + passphrase cookie via `WorkspacePool` and
   exposes fresh `Sqlite*Store` instances per request.
-- `@raghub/api`: documents POST is now async — persists bytes
+- `@revex/api`: documents POST is now async — persists bytes
   to `LocalFileStorage` and enqueues a `document.ingest` job;
   returns `202 {status:'pending'}`. The `JobWorker` (started
   by `start()`) drains the queue, runs `ingest()`, flips the
   row to `ready`/`failed`, and writes an `ingest.complete` /
   `ingest.failure` audit event.
-- `@raghub/api`: audit hooks on `document.acl.grant`,
+- `@revex/api`: audit hooks on `document.acl.grant`,
   `document.acl.revoke`, `settings.update`,
   `workspace.member.{add,role_change,remove}`.
-- `@raghub/api`: `RAGHUB_JWT_SECRET` is required in production;
+- `@revex/api`: `REVEX_JWT_SECRET` is required in production;
   boot fails fast if missing (dev/test fallback retained).
-- `@raghub/web`: dark-mode toggle (sun/moon) via `next-themes`,
+- `@revex/web`: dark-mode toggle (sun/moon) via `next-themes`,
   neutral OKLCH palette + shadcn `new-york` components.
-- `@raghub/web`: skip-to-main-content link, sonner toaster at
+- `@revex/web`: skip-to-main-content link, sonner toaster at
   root, shared header with Chat/Documents/Members/Settings nav.
-- `@raghub/web`: documents page polls every 2s while any row is
+- `@revex/web`: documents page polls every 2s while any row is
   `pending`/`indexing`.
 - CI: Node 26 + pnpm + turbo gates (lint, typecheck, test,
   build, web-e2e via `agent-browser`).
@@ -300,7 +374,7 @@ checkpoint marker; see the commit log for the per-day work between
 ### Security
 
 - Manifests are HMAC-SHA256 signed with
-  `RAGHUB_ARCHIVE_SIGNING_KEY`; key is required in production.
+  `REVEX_ARCHIVE_SIGNING_KEY`; key is required in production.
 - Per-entry SHA-256 verified before any file is restored.
 - Path traversal blocked at extraction.
 
@@ -332,7 +406,7 @@ checkpoint marker; see the commit log for the per-day work between
 ### Security
 
 - Per-tenant secrets are encrypted at rest with Fernet
-  (`RAGHUB_TENANT_SECRETS_KEY`); key rotation is supported.
+  (`REVEX_TENANT_SECRETS_KEY`); key rotation is supported.
 - Missing tenant claim under `SCHEMA_PER_TENANT` /
   `DATABASE_PER_TENANT` raises `AuthorizationError` before any DB
   call.
