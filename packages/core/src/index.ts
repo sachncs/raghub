@@ -1,5 +1,5 @@
 /**
- * @raghub/core — public surface.
+ * @revex/core — public surface.
  *
  * Domain types, errors, settings, stores, embedder, retrieval, auth,
  * workspaces, telemetry, storage, LLM, chunker, ingest, workspace.
