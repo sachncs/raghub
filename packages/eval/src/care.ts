@@ -17,7 +17,7 @@
  * sets.
  */
 
-import type { Hit, Llm } from '@raghub/core';
+import type { Hit, Llm } from '@revex/core';
 
 export interface CareJudgeOptions {
   readonly llm?: Llm;
