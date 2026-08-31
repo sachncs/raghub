@@ -61,13 +61,13 @@ describe('SqliteWorkspaceMemoryStore', () => {
       workspaceId: wsp,
       userId: alice,
       scope: MemoryScope.User,
-      content: 'raghub uses sqlite-vec for vector search',
+      content: 'revex uses sqlite-vec for vector search',
     });
     await mem.remember({
       workspaceId: wsp,
       userId: alice,
       scope: MemoryScope.User,
-      content: 'raghub uses BM25 via FTS5 for keyword',
+      content: 'revex uses BM25 via FTS5 for keyword',
     });
     const results = await mem.search({
       workspaceId: wsp,
