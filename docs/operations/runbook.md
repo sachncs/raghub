@@ -43,7 +43,7 @@ container with an explicit `BACKGROUND_INGEST_WORKERS` env var (see
 
 Symptom: every request to the API fails with `ConnectionError`.
 
-Fix: confirm the frontend has `RAGHUB_API_URL=http://api:8000` set
+Fix: confirm the frontend has `REVEX_API_URL=http://api:8000` set
 in the compose environment. Inside the compose network the API is
 reachable on its service name `api`, not on `127.0.0.1`.
 
