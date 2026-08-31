@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$REPO_DIR"
 
-echo "=== raghub cleanup ==="
+echo "=== revex cleanup ==="
 echo ""
 echo "This will remove:"
 echo "  - .venv/  (virtual environment)"
