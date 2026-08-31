@@ -65,14 +65,67 @@ interface PrincipalRow {
   permission: "read" | "admin";
 }
 
+interface SseEvent {
+  readonly id: string;
+  readonly event: string;
+  readonly data: string;
+}
+
+interface ProxyOptions extends Omit<RequestInit, 'body'> {
+  readonly body?: BodyInit | null;
+  readonly onSseEvent?: (ev: SseEvent) => void;
+}
+
 const proxy = async (
   path: string,
-  init: RequestInit = {}
-): Promise<Response> =>
-  fetch("/api/proxy", {
-    ...init,
-    headers: { ...init.headers, "x-revex-path": path },
-  });
+  init: ProxyOptions = {}
+): Promise<Response> => {
+  const { onSseEvent, ...rest } = init;
+  const headers: Record<string, string> = {
+    ...((rest.headers as Record<string, string> | undefined) ?? {}),
+    'x-revex-path': path,
+  };
+  if (onSseEvent) headers['accept'] = 'text/event-stream';
+  const res = await fetch('/api/proxy', { ...rest, headers });
+  if (!onSseEvent) return res;
+  if (!res.ok || !res.body) return res;
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buffer = '';
+  // Drain the SSE stream while returning the response, so the
+  // caller's `.text()` reads the terminating sentinel.
+  void (async () => {
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += dec.decode(value, { stream: true });
+        let idx: number;
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const block = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          const lines = block.split('\n');
+          const fields: { id?: string; event?: string; data?: string[] } = {};
+          for (const line of lines) {
+            if (line.startsWith('id:')) fields.id = line.slice(3).trim();
+            else if (line.startsWith('event:')) fields.event = line.slice(6).trim();
+            else if (line.startsWith('data:')) fields.data = [...(fields.data ?? []), line.slice(5).trim()];
+          }
+          if (fields.data && fields.data.length > 0) {
+            onSseEvent({
+              id: fields.id ?? '',
+              event: fields.event ?? 'message',
+              data: fields.data.join('\n'),
+            });
+          }
+        }
+      }
+    } catch {
+      /* stream closed */
+    }
+  })();
+  return res;
+};
 
 const STATUS_META: Record<
   string,
@@ -95,6 +148,29 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+const parseFinalEvent = (
+  body: string,
+): { alreadyExisted: boolean; failed: boolean } | null => {
+  let buf = body;
+  const fence = buf.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence?.[1]) buf = fence[1];
+  const start = buf.indexOf('{');
+  const end = buf.lastIndexOf('}');
+  if (start === -1 || end === -1) return null;
+  try {
+    const obj = JSON.parse(buf.slice(start, end + 1)) as {
+      phase?: string;
+      alreadyExisted?: boolean;
+    };
+    return {
+      alreadyExisted: obj.alreadyExisted === true || obj.phase === 'skipped',
+      failed: obj.phase === 'failed',
+    };
+  } catch {
+    return null;
+  }
+};
+
 function fileGradient(filename: string): string {
   let hash = 0;
   for (let i = 0; i < filename.length; i++) {
@@ -113,6 +189,7 @@ export default function DocumentsPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [shareDoc, setShareDoc] = React.useState<DocumentRow | null>(null);
+  const [ingestLog, setIngestLog] = React.useState<readonly { phase: string; data: string }[]>([]);
 
   const refresh = React.useCallback(async (): Promise<void> => {
     const res = await proxy("/v1/documents");
@@ -148,10 +225,18 @@ export default function DocumentsPage() {
     if (!file) return;
     setUploading(true);
     setError(null);
+    setIngestLog([]);
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await proxy("/v1/documents", { method: "POST", body: form });
+      const res = await proxy("/v1/documents/ingest-stream", {
+        method: "POST",
+        body: form,
+        onSseEvent: (ev) => {
+          if (typeof ev.data !== "string") return;
+          setIngestLog((prev) => [...prev, { phase: ev.event, data: ev.data }]);
+        },
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         const message =
@@ -161,12 +246,15 @@ export default function DocumentsPage() {
         toast.error(message);
         return;
       }
-      const body = (await res.json()) as { alreadyExisted?: boolean };
-      toast.success(
-        body.alreadyExisted
-          ? "Already indexed; sharing the existing row"
-          : "Upload accepted; indexing"
-      );
+      const finalEvent = await res.text();
+      const final = parseFinalEvent(finalEvent);
+      if (final?.alreadyExisted) {
+        toast.info("Already indexed; sharing the existing row");
+      } else if (final?.failed) {
+        toast.error("Ingest failed");
+      } else {
+        toast.success("Indexed");
+      }
       setFile(null);
       await refresh();
     } finally {
@@ -200,6 +288,35 @@ export default function DocumentsPage() {
             description={error}
             onRetry={() => void refresh()}
           />
+        </div>
+      )}
+
+      {ingestLog.length > 0 && (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-border/40 bg-background/40 px-4 py-2 text-xs">
+            <span className="font-medium text-foreground">Ingest log</span>
+            <span className="font-mono text-muted-foreground">
+              {ingestLog.length} events
+            </span>
+          </div>
+          <ul className="max-h-64 divide-y divide-border/40 overflow-y-auto">
+            {ingestLog.map((ev, i) => (
+              <li
+                key={i}
+                className="flex items-center gap-3 px-4 py-1.5 text-xs"
+              >
+                <span className="w-8 shrink-0 font-mono text-muted-foreground/70">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="w-24 shrink-0 font-mono text-muted-foreground">
+                  {ev.phase}
+                </span>
+                <span className="truncate font-mono text-foreground/80">
+                  {ev.data}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
