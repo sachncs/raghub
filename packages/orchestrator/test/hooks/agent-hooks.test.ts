@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ChunkId, CollectionId, DocumentId, Hit, UserId, WorkspaceId } from '@raghub/core';
-import { Chunk, brandId } from '@raghub/core';
+import type { ChunkId, CollectionId, DocumentId, Hit, UserId, WorkspaceId } from '@revex/core';
+import { Chunk, brandId } from '@revex/core';
 
 import { HookRegistry } from '../../src/hooks/agent-hooks.js';
 
