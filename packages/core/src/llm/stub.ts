@@ -1,7 +1,7 @@
 /**
  * Stub LLM — deterministic, network-free, delay-streaming.
  *
- * Selected when `RAGHUB_LLM_STUB=1` is set so the chat UI can be
+ * Selected when `REVEX_LLM_STUB=1` is set so the chat UI can be
  * exercised end-to-end (including the SSE streaming path) without
  * burning real tokens. Also useful in CI and for the agent-browser
  * smoke suite.
