@@ -26,8 +26,8 @@ import {
   type LocalFileStorage,
   type SessionStore,
   type SqliteJobQueue,
+  type SqliteUserStore,
   type WorkspaceId,
-  type User,
   type UserId,
   type VectorStore,
   documentBytesKey,
@@ -40,7 +40,7 @@ import type { WorkspacePool } from '../workspace-pool.js';
 
 export interface DocumentsRouteDeps {
   readonly pool: WorkspacePool;
-  readonly userStore: { getById(workspaceId: WorkspaceId, id: UserId): Promise<User | null> } | null;
+  readonly userStore: SqliteUserStore | null;
   readonly documentStore: DocumentStore | null;
   readonly sessionStore: SessionStore | null;
   readonly jobQueue: SqliteJobQueue | null;
@@ -88,10 +88,11 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
     const vectorStore = ctx.vectorStore;
     const workspaceId = ctx.workspaceId;
     const userId = ctx.userId;
-    const user = await ctx.userStore.getById(workspaceId, userId);
-    if (!user) {
+    const userLookup = await ctx.userStore.getById(workspaceId, userId);
+    if (!userLookup) {
       return c.json({ error: { code: 'auth_error', message: 'user not found' } }, 401);
     }
+    const user = userLookup.user;
     const form = await c.req.formData();
     const file = await readFile(form, 'file');
     if (!file) {
