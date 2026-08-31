@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildInvocationState } from '../../src/strands/invocation-state.js';
-import { type WorkspaceId, type UserId, User, UserRole, brandId } from '@raghub/core';
+import { type WorkspaceId, type UserId, User, UserRole, brandId } from '@revex/core';
 
 const workspaceId = brandId<WorkspaceId>('tnt_1');
 const userId = brandId<UserId>('usr_1');
