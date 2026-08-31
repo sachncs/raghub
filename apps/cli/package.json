@@ -1,0 +1,35 @@
+{
+  "name": "@revex/cli",
+  "version": "1.1.0",
+  "description": "Revex CLI — init, server, ingest, query, migrate, tenant, backup, queue, config, eval.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "revex": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "echo \"(lint placeholder)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@revex/api": "workspace:*",
+    "@revex/core": "workspace:*",
+    "@revex/eval": "workspace:*",
+    "@revex/orchestrator": "workspace:*",
+    "commander": "12.1.0",
+    "dotenv": "16.4.7",
+    "chalk": "5.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}
