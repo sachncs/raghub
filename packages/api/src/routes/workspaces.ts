@@ -22,7 +22,7 @@ import {
   type WorkspaceId,
   type WorkspaceMemberStore,
   type WorkspaceMemberRoleValue,
-} from '@raghub/core';
+} from '@revex/core';
 
 import { getClaims } from '../middleware/auth.js';
 import { workspaceContextFrom } from '../workspace-context.js';
@@ -77,7 +77,7 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
     }
     const body = (await c.req.json().catch(() => ({}))) as { email?: string; role?: string };
     if (!body.email || !body.role || !isRole(body.role)) {
-      return c.json({ error: { code: 'raghub_error', message: 'email + role required' } }, 400);
+      return c.json({ error: { code: 'revex_error', message: 'email + role required' } }, 400);
     }
     const newUserId = brandId<UserId>(`usr_${body.email.split('@')[0]}_${Math.random().toString(36).slice(2, 8)}`);
     const member = await memberStore.upsert({
@@ -113,7 +113,7 @@ export const workspaceRoutes = (deps: WorkspaceRouteDeps): Hono => {
     }
     const body = (await c.req.json().catch(() => ({}))) as { role?: string };
     if (!body.role || !isRole(body.role)) {
-      return c.json({ error: { code: 'raghub_error', message: 'role required' } }, 400);
+      return c.json({ error: { code: 'revex_error', message: 'role required' } }, 400);
     }
     const target = brandId<UserId>(c.req.param('userId'));
     const updated = await memberStore.upsert({
