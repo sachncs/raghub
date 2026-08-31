@@ -1,25 +1,25 @@
 /**
- * @raghub/api — server entrypoint.
+ * @revex/api — server entrypoint.
  *
  * Boots a single Hono process that:
  *   - opens (or creates) the top-level workspace registry at
- *     $RAGHUB_WORKSPACE_HOME/registry.db
+ *     $REVEX_WORKSPACE_HOME/registry.db
  *   - provisions one WorkspaceWithSettings per authenticated request
  *     via the WorkspacePool
  *   - binds a real Embedder (FeatureHashing by default, OpenAI when
- *     RAGHUB_EMBEDDER_API_KEY is set) and a BcryptHasher + JwtService
+ *     REVEX_EMBEDDER_API_KEY is set) and a BcryptHasher + JwtService
  *   - resolves per-workspace stores (users, documents, members, ...)
  *     from the FIRST registered workspace for single-tenant mode;
  *     multi-workspace mode uses WorkspaceContext (see
  *     workspace-context.ts) on a per-request basis
- *   - listens on $RAGHUB_API_PORT (default 3000)
+ *   - listens on $REVEX_API_PORT (default 3000)
  *
  * Usage:
- *   $ pnpm --filter @raghub/api start
+ *   $ pnpm --filter @revex/api start
  * or with custom home:
- *   $ RAGHUB_WORKSPACE_HOME=/var/lib/raghub \
- *     RAGHUB_API_PORT=3000 \
- *     pnpm --filter @raghub/api start
+ *   $ REVEX_WORKSPACE_HOME=/var/lib/revex \
+ *     REVEX_API_PORT=3000 \
+ *     pnpm --filter @revex/api start
  */
 
 import {
@@ -60,13 +60,13 @@ import {
   openFileWorkspaceRegistry,
   openWorkspace,
   brandId,
-} from '@raghub/core';
+} from '@revex/core';
 import { serve } from '@hono/node-server';
 import Database from 'better-sqlite3';
-import { openEncryptedWorkspace } from '@raghub/core';
+import { openEncryptedWorkspace } from '@revex/core';
 
 import { passVaultRef, workspaceRegistry, registerWorkspace } from './workspace-bootstrap.js';
-import { buildVault } from '@raghub/core';
+import { buildVault } from '@revex/core';
 
 import { createApp } from './app.js';
 import { documentIngestHandler } from './handlers/document-ingest.js';
@@ -75,17 +75,17 @@ import { WorkspacePool } from './workspace-pool.js';
 import { WorkspaceWorkerSupervisor } from './workspace-supervisor.js';
 import { JobWorker } from './job-worker.js';
 
-const HOME = process.env['RAGHUB_WORKSPACE_HOME'] ?? `${process.env['HOME'] ?? '/tmp'}/.raghub`;
-const PORT = Number(process.env['RAGHUB_API_PORT'] ?? 3000);
-const VERSION = process.env['RAGHUB_VERSION'] ?? '0.1.0';
+const HOME = process.env['REVEX_WORKSPACE_HOME'] ?? `${process.env['HOME'] ?? '/tmp'}/.revex`;
+const PORT = Number(process.env['REVEX_API_PORT'] ?? 3000);
+const VERSION = process.env['REVEX_VERSION'] ?? '0.1.0';
 
 const DEV_JWT_SECRET = 'dev-secret-change-me-please-32-bytes-min';
 const resolveJwtSecret = (): string => {
-  const secret = process.env['RAGHUB_JWT_SECRET'];
+  const secret = process.env['REVEX_JWT_SECRET'];
   if (secret && secret.length > 0) return secret;
   if (process.env['NODE_ENV'] === 'production') {
     throw new Error(
-      'RAGHUB_JWT_SECRET is required when NODE_ENV=production; refusing to start with a dev fallback.',
+      'REVEX_JWT_SECRET is required when NODE_ENV=production; refusing to start with a dev fallback.',
     );
   }
   return DEV_JWT_SECRET;
@@ -99,14 +99,14 @@ const openRegistry = async (path: string): Promise<WorkspaceRegistry> => {
 };
 
 const buildEmbedder = (): Embedder => {
-  const apiKey = process.env['RAGHUB_EMBEDDER_API_KEY'] ?? process.env['OPENAI_API_KEY'];
-  const model = process.env['RAGHUB_EMBEDDER_MODEL'] ?? 'text-embedding-3-large';
-  const dim = Number(process.env['RAGHUB_VECTOR_EMBEDDING_DIM'] ?? 3072);
+  const apiKey = process.env['REVEX_EMBEDDER_API_KEY'] ?? process.env['OPENAI_API_KEY'];
+  const model = process.env['REVEX_EMBEDDER_MODEL'] ?? 'text-embedding-3-large';
+  const dim = Number(process.env['REVEX_VECTOR_EMBEDDING_DIM'] ?? 3072);
   if (!apiKey) {
     return new FeatureHashingEmbedder(model, dim);
   }
   /* Lazy import so the package builds without the SDK. */
-  return new (require('@raghub/core').OpenAIEmbedder)(
+  return new (require('@revex/core').OpenAIEmbedder)(
     { model, apiKey, batchSize: 64 },
     dim,
   ) as Embedder;
@@ -169,7 +169,7 @@ const wireFirstWorkspaceStores = async (
   const audit = new SqliteAuditEventStore({ db });
   const vectorStore = new SqliteVecStore({
     db,
-    embeddingDim: Number(process.env['RAGHUB_VECTOR_EMBEDDING_DIM'] ?? 3072),
+    embeddingDim: Number(process.env['REVEX_VECTOR_EMBEDDING_DIM'] ?? 3072),
   });
   return {
     workspaceId: first.workspaceId,
@@ -238,7 +238,7 @@ export const start = async (): Promise<void> => {
   /* Dev/e2e workspace supervisor — scans the registry every
    * pollMs and starts a JobWorker for any new registered
    * workspace. The passphrase vault is pluggable via
-   * RAGHUB_PASSPHRASE_VAULT ('memory' | 'kms'). Production
+   * REVEX_PASSPHRASE_VAULT ('memory' | 'kms'). Production
    * should pick 'kms' and wire a real KMS decrypt. */
   const vault = buildVault(process.env as Record<string, string | undefined>);
   passVaultRef.value = vault;
@@ -257,16 +257,16 @@ export const start = async (): Promise<void> => {
   }
   supervisor.start();
   // eslint-disable-next-line no-console
-  console.log(`raghub-api: WorkspaceWorkerSupervisor started (vault=${vault.constructor.name})`);
+  console.log(`revex-api: WorkspaceWorkerSupervisor started (vault=${vault.constructor.name})`);
 
   serve({ fetch: app.fetch, port: PORT }, (info: { port: number }) => {
     // eslint-disable-next-line no-console
-    console.log(`raghub-api listening on http://localhost:${info.port}`);
+    console.log(`revex-api listening on http://localhost:${info.port}`);
   });
 
   /* Leader-election for the worker pool.
    *
-   * RAGHUB_WORKER_ROLE controls which process is allowed to
+   * REVEX_WORKER_ROLE controls which process is allowed to
    * drain the ingestion_jobs queues:
    *   - 'leader'  (default)        — runs the supervisor.
    *   - 'follower'                 — serves HTTP only; supervisor
@@ -277,12 +277,12 @@ export const start = async (): Promise<void> => {
    *   - 'disabled'                 — no worker at all (good for
    *                                   read-only API deployments).
    */
-  const workerRole = (process.env['RAGHUB_WORKER_ROLE'] ?? 'leader').toLowerCase();
+  const workerRole = (process.env['REVEX_WORKER_ROLE'] ?? 'leader').toLowerCase();
   if (workerRole === 'follower' || workerRole === 'disabled') {
     supervisor.stop();
     // eslint-disable-next-line no-console
-    console.log(`raghub-api: worker role=${workerRole}; supervisor stopped`);
-  } else if (process.env['RAGHUB_RESET_STUCK_JOBS'] === '1') {
+    console.log(`revex-api: worker role=${workerRole}; supervisor stopped`);
+  } else if (process.env['REVEX_RESET_STUCK_JOBS'] === '1') {
     /* On boot, mark any 'running' rows as 'pending' so a fresh
      * process can resume them. Safe to call multiple times. */
     void (async () => {
@@ -326,7 +326,7 @@ export const start = async (): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
     // eslint-disable-next-line no-console
-    console.log('raghub-api: SIGTERM/SIGINT received, draining workers…');
+    console.log('revex-api: SIGTERM/SIGINT received, draining workers…');
     await supervisor.stop();
     pool.closeAll();
     process.exit(0);
