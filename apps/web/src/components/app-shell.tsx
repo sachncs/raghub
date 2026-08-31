@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ChatCircle,
+  Database,
   FileText,
   Gear,
   Key,
@@ -58,6 +59,7 @@ const NAV_PRIMARY: readonly NavLink[] = [
   { href: "/chat", label: "Chat", icon: ChatCircle },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/members", label: "Members", icon: Users },
+  { href: "/memory", label: "Memory", icon: Database },
 ];
 
 const NAV_SECONDARY: readonly NavLink[] = [
