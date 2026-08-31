@@ -3,7 +3,7 @@
  *
  * Lazy-initialised; throws `ConfigurationError` if no API key is
  * present at the first call. Production deploys typically set
- * `OPENAI_API_KEY`; the embedder also accepts `RAGHUB_EMBEDDER_API_KEY`.
+ * `OPENAI_API_KEY`; the embedder also accepts `REVEX_EMBEDDER_API_KEY`.
  */
 
 import { ConfigurationError, MissingDepError } from '../errors/index.js';
