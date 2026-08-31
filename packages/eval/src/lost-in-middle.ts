@@ -13,7 +13,7 @@
  * callers swap in their preferred judge.
  */
 
-import type { Hit, Llm } from '@raghub/core';
+import type { Hit, Llm } from '@revex/core';
 
 export interface LimOptions {
   readonly llm?: Llm;
