@@ -103,7 +103,7 @@ function fileGradient(filename: string): string {
   }
   const hueA = Math.abs(hash) % 360;
   const hueB = (hueA + 60) % 360;
-  return `linear-gradient(135deg, oklch(0.62 0.18 ${hueA}) 0%, oklch(0.7 0.16 ${hueB}) 100%)`;
+  return `linear-gradient(135deg, oklch(0.28 0.06 ${hueA}) 0%, oklch(0.32 0.06 ${hueB}) 100%)`;
 }
 
 export default function DocumentsPage() {
@@ -248,7 +248,7 @@ function DocumentCard({
         aria-hidden
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-        <FileText className="absolute right-3 top-3 size-5 text-white/80" />
+        <FileText className="absolute right-3 top-3 size-5 text-foreground/70" />
       </div>
       <div className="p-4">
         <div className="flex items-start justify-between gap-2">
