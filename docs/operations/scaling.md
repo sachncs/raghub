@@ -1,7 +1,7 @@
 # Scaling
 
 This page covers vertical and horizontal scaling of the
-RAGHub process. The current default runs one uvicorn worker per
+Revex process. The current default runs one uvicorn worker per
 data directory; the guidance below covers the next two steps up.
 
 ## Vertical scaling
@@ -29,7 +29,7 @@ files (`registry.db`, `sessions.db`).
 Two options:
 
 1. **Move the vector store to PostgreSQL.** Run
-   `raghub migrate pgvector --dsn <dsn>` against the target
+   `revex migrate pgvector --dsn <dsn>` against the target
    database, point the API at it through `RAG_VECTORSTORE_DSN`, and
    run the API behind a load balancer. The document registry and
    session store still ride on the SQLite files in
@@ -58,7 +58,7 @@ production deployments, a hot-standby replica for read scaling.
 For sharded deployments, switch to a managed PostgreSQL cluster
 (Patroni, Aurora, Cloud SQL HA, etc.) and point `RAG_VECTORSTORE_DSN`
 at the cluster endpoint. Provision `vector_dim` matching your
-embedder; `raghub migrate pgvector` creates the schema and indexes
+embedder; `revex migrate pgvector` creates the schema and indexes
 on first run.
 
 ## Autoscaling signals
@@ -72,7 +72,7 @@ Key signals:
 | `raghub_query_duration_ms` (Histogram) | p95 latency, the canonical SLO signal |
 | `raghub_ingestion_duration_ms` (Histogram) | Detects ingest contention |
 | `raghub_auth_total{success}` (Counter) | Spike in failures ⇒ auth issue |
-| `raghub_error_total{error_type}` (Counter) | Tracks exceptions by category |
+| `revex_error_total{error_type}` (Counter) | Tracks exceptions by category |
 
 The `RAG` facade emits Langfuse spans (when configured) for every
 ingest and query call. Span attributes are documented in
