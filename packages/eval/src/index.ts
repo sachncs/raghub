@@ -1,5 +1,5 @@
 /**
- * @raghub/eval — public surface.
+ * @revex/eval — public surface.
  *
  * RAG metrics, CARE judge (arXiv 2604.18234), lost-in-middle
  * probe (arXiv 2605.27105), and the Finance / Frames harness
