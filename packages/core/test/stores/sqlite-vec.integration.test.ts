@@ -36,7 +36,7 @@ const mkUser = (role: 'admin' | 'member' | 'viewer') =>
 
 const seed = async (store: SqliteVecStore, embedder: FeatureHashingEmbedder) => {
   const chunks = [
-    'raghub is a retrieval-augmented generation framework',
+    'revex is a retrieval-augmented generation framework',
     'Strands Agents is an SDK for multi-agent orchestration',
     'bm25 is a sparse retrieval algorithm',
     'sqlite-vec is a vector search extension for SQLite',
@@ -60,7 +60,7 @@ const seed = async (store: SqliteVecStore, embedder: FeatureHashingEmbedder) => 
   }
 };
 
-const integration = process.env['RAGHUB_RUN_SQLITE_TESTS'] === '1';
+const integration = process.env['REVEX_RUN_SQLITE_TESTS'] === '1';
 const itg = integration ? it : it.skip;
 
 describe('SqliteVecStore + Retrieval (integration)', () => {
@@ -83,14 +83,14 @@ describe('SqliteVecStore + Retrieval (integration)', () => {
   itg('vector search returns the most semantically similar chunk', async () => {
     const u = mkUser('admin');
     const r = new Retrieval(embedder, store, { topK: 2 });
-    const hits = await r.retrieve(u, 'what is raghub?');
+    const hits = await r.retrieve(u, 'what is revex?');
     expect(hits.length).toBeGreaterThan(0);
-    expect(hits[0]?.chunk.text.toLowerCase()).toContain('raghub');
+    expect(hits[0]?.chunk.text.toLowerCase()).toContain('revex');
   });
 
   itg('keyword search returns BM25-ranked hits', async () => {
     const hits = await store.searchKeyword({
-      query: 'raghub framework',
+      query: 'revex framework',
       topK: 3,
       filter: {
         workspaceId: workspace,
@@ -101,7 +101,7 @@ describe('SqliteVecStore + Retrieval (integration)', () => {
       },
     });
     expect(hits.length).toBeGreaterThan(0);
-    expect(hits[0]?.text.toLowerCase()).toContain('raghub');
+    expect(hits[0]?.text.toLowerCase()).toContain('revex');
   });
 
   itg('vector search respects workspace isolation', async () => {
