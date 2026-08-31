@@ -32,7 +32,7 @@ import {
   type VectorStore,
   documentBytesKey,
   hashDocument,
-} from '@raghub/core';
+} from '@revex/core';
 
 import { getClaims } from '../middleware/auth.js';
 import { workspaceContextFrom } from '../workspace-context.js';
@@ -78,7 +78,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
     const ctx = await workspaceContextFrom(c, {
       pool: deps.pool,
       embedder: deps.embedder,
-      vectorStore: deps.vectorStore ?? (await import('@raghub/core')).SqliteVecStore as never,
+      vectorStore: deps.vectorStore ?? (await import('@revex/core')).SqliteVecStore as never,
     });
     const documentStore = ctx.documentStore;
     const jobQueue = ctx.jobQueue;
@@ -165,7 +165,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
       vectorStore: deps.vectorStore ?? null,
     });
     const docs = await ctx.documentStore.listForUser(ctx.workspaceId, ctx.userId);
-    if (process.env['RAGHUB_DEBUG_DOCS']) {
+    if (process.env['REVEX_DEBUG_DOCS']) {
       // eslint-disable-next-line no-console
       console.log(`[docs.get] dbPath=${ctx.handle.path} wsId=${ctx.workspaceId} userId=${ctx.userId} count=${docs.length} statuses=${docs.map((d) => d.status).join(',')}`);
       /* Raw row inspection: what does better-sqlite3 actually see? */
@@ -194,7 +194,7 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
     const id = brandId<DocumentId>(c.req.param('id'));
     const doc = await documentStore.getById(workspaceId, id);
     if (!doc) {
-      return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);
+      return c.json({ error: { code: 'revex_error', message: 'document not found' } }, 404);
     }
     if (doc.ownerId !== userId) {
       return c.json({ error: { code: 'authorization_error', message: 'not the owner' } }, 403);
