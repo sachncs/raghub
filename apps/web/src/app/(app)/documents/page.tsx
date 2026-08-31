@@ -55,7 +55,7 @@ interface DocumentRow {
   id: string;
   filename: string;
   status: string;
-  byte_size: number;
+  byteSize: number;
 }
 
 interface PrincipalRow {
@@ -255,7 +255,7 @@ function DocumentCard({
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold">{row.filename}</h3>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {formatBytes(row.byte_size)}
+              {formatBytes(row.byteSize)}
             </p>
           </div>
           <DropdownMenu>
