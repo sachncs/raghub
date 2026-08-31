@@ -18,7 +18,7 @@ import {
   type BcryptHasher,
   type JwtService,
   type Settings,
-  type UserStore,
+  
   type WorkspaceId,
   type WorkspaceRegistry,
   type WorkspaceSettingsStore,
@@ -35,7 +35,7 @@ import {
 import { requireStore } from '../guards.js';
 
 export interface AuthRouteDeps {
-  readonly userStore: UserStore | null;
+  readonly userStore: SqliteUserStore | null;
   readonly hasher: BcryptHasher;
   readonly jwt: JwtService;
   readonly registry: WorkspaceRegistry;
