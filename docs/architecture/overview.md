@@ -1,3 +1,11 @@
+> ⚠️ **ARCHIVED** — This document describes the **raghub 0.9.x Python
+> release**, preserved for historical reference in
+> [`archive/`](../../archive/). It does **not** describe the active
+> **Revex** TypeScript codebase.
+>
+> For current documentation, see [`README.md`](../../README.md) and the
+> TypeScript source under `packages/`.
+
 # Architecture Overview
 
 Revex is a layered platform. The spec-mandated entry point is
