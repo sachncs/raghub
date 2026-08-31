@@ -15,8 +15,11 @@
  */
 
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 
 import {
+  IngestEmitter,
+  type IngestEvent,
   brandId,
   type CollectionId,
   type Document,
@@ -32,6 +35,7 @@ import {
   type VectorStore,
   documentBytesKey,
   hashDocument,
+  ingestVerbose,
 } from '@revex/core';
 
 import { getClaims } from '../middleware/auth.js';
@@ -157,6 +161,106 @@ export const documentsRoutes = (deps: DocumentsRouteDeps): Hono => {
       alreadyExisted: false,
     };
     return c.json(response, 202);
+  });
+
+  app.post('/v1/documents/ingest-stream', async (c) => {
+    const claims = getClaims(c);
+    const ctx = await workspaceContextFrom(c, {
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore ?? null,
+    });
+    const documentStore = ctx.documentStore;
+    const userStore = ctx.userStore;
+    void documentStore;
+    void userStore;
+
+    const form = await c.req.formData();
+    const file = await readFile(form, 'file');
+    if (!file) {
+      return c.json({ error: { code: 'ingestion_error', message: 'file part required' } }, 400);
+    }
+    const collectionIdStr = readString(form, 'collection_id') ?? defaultCollectionId(ctx.userId);
+    const collectionId = brandId<CollectionId>(collectionIdStr);
+
+    const metadata: Record<string, string> = {};
+    for (const [k, v] of form.entries()) {
+      if (k !== 'file' && k !== 'collection_id' && typeof v === 'string') {
+        metadata[k] = v;
+      }
+    }
+    metadata['collection_id'] = collectionIdStr;
+
+    const arrayBuf = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuf);
+    const embedder = deps.embedder;
+    const vectorStore = ctx.vectorStore;
+    if (!vectorStore) {
+      return c.json({ error: { code: 'revex_error', message: 'vector store not available' } }, 503);
+    }
+
+    const emitter = new IngestEmitter();
+    let eventId = 0;
+    const queue: IngestEvent[] = [];
+    let resolveNext: (() => void) | null = null;
+    let done = false;
+
+    const listener = (ev: IngestEvent): void => {
+      queue.push(ev);
+      if (resolveNext) {
+        const r = resolveNext;
+        resolveNext = null;
+        r();
+      }
+    };
+    emitter.on(listener);
+
+    const ingestTask = ingestVerbose(
+      {
+        workspaceId: ctx.workspaceId,
+        ownerId: ctx.userId,
+        collectionId,
+        filename: file.name || 'upload',
+        mimeType: file.type || 'application/octet-stream',
+        content: buffer,
+        metadata,
+      },
+      { embedder, store: vectorStore },
+      { emitter, batchSize: 16 },
+    ).catch((err: unknown) => {
+      emitter.emit({
+        phase: 'failed',
+        error: err instanceof Error ? err.message : 'ingest failed',
+        documentId: 'unknown',
+      });
+    }).finally(() => {
+      done = true;
+      if (resolveNext) {
+        const r = resolveNext;
+        resolveNext = null;
+        r();
+      }
+    });
+
+    void claims;
+    void ingestTask;
+
+    return streamSSE(c, async (stream) => {
+      while (true) {
+        while (queue.length > 0) {
+          const ev = queue.shift() as IngestEvent;
+          await stream.writeSSE({
+            id: String(eventId++),
+            event: ev.phase,
+            data: JSON.stringify(ev),
+          });
+        }
+        if (done) return;
+        await new Promise<void>((resolve) => {
+          resolveNext = resolve;
+        });
+      }
+    });
   });
 
   app.get('/v1/documents', async (c) => {
