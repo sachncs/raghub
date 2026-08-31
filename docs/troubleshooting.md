@@ -151,7 +151,7 @@ rag.evaluate(benchmark="financebench", examples=examples)
 ```
 
 …or place a JSONL file at
-`${RAGHUB_FINANCEBENCH_CACHE:-~/.cache/raghub/financebench}/financebench.jsonl`.
+`${REVEX_FINANCEBENCH_CACHE:-~/.cache/revex/financebench}/financebench.jsonl`.
 
 ## `RAG.query` returns no chunks for a user
 
