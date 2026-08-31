@@ -3,7 +3,7 @@
  *
  * Single read site for the tenant + user + session tuple. Tools and
  * hooks read this through the Strands `context.invocationState`
- * accessor; the orchestrator stores it under `__raghub_invocation`
+ * accessor; the orchestrator stores it under `__revex_invocation`
  * on its `MultiAgentState` so it survives node-to-node hand-offs.
  */
 
@@ -12,8 +12,8 @@ import type {
   WorkspaceId,
   UserId,
   User,
-} from '@raghub/core';
-import { allowedCompanyFilter, brandId } from '@raghub/core';
+} from '@revex/core';
+import { allowedCompanyFilter, brandId } from '@revex/core';
 
 import type { InvocationState, Strategy } from './types.js';
 
