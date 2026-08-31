@@ -6,7 +6,7 @@
  *   - A stub AgentRegistry exposing `retriever` (returns 0 hits)
  *     and `generator` (returns the StubLlm's canned answer)
  *   - An empty ToolRegistry
- *   - StubLlm when RAGHUB_LLM_STUB=1, or a real OpenAILlm when
+ *   - StubLlm when REVEX_LLM_STUB=1, or a real OpenAILlm when
  *     OPENAI_API_KEY is set
  *
  * Multi-tenant builds replace this with a real RagAgent +
@@ -19,15 +19,15 @@ import {
   NoOpTelemetry,
   StubLlm,
   brandId,
-} from '@raghub/core';
+} from '@revex/core';
 import {
   AgentRegistry,
   type Agent,
   Orchestrator,
   ToolRegistry,
-} from '@raghub/orchestrator';
+} from '@revex/orchestrator';
 
-const stubLlm: Llm = new StubLlm({ model: 'raghub-stub' });
+const stubLlm: Llm = new StubLlm({ model: 'revex-stub' });
 
 const stubRetriever: Agent = {
   id: 'retriever',
@@ -48,7 +48,7 @@ const stubGenerator: Agent = {
     /* Drain the stub chunk-by-chunk to simulate streaming */
     const chunks: string[] = [];
     for await (const c of stubLlm.stream({
-      model: 'raghub-stub',
+      model: 'revex-stub',
       messages: [{ role: 'user', content: req.question }],
     })) {
       if (c.delta.length > 0) chunks.push(c.delta);
@@ -72,7 +72,7 @@ export const buildStubOrchestrator = async (): Promise<Orchestrator> => {
       vector: async () => [],
       keyword: async () => [],
     } as never,
-    model: 'raghub-stub',
+    model: 'revex-stub',
     tools,
   });
 };
