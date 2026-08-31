@@ -6,7 +6,7 @@ Accepted (v0.7.8)
 
 ## Context
 
-RAGHub stores documents, chunks, vectors, and metadata in Postgres (or
+Revex stores documents, chunks, vectors, and metadata in Postgres (or
 SQLite). Operators need a portable, verifiable backup format that can be
 restored across versions and environments.
 
@@ -45,17 +45,17 @@ backup_<timestamp>_<version>.tar.zst
 ### Compression
 
 - **zstd** (default, level 3) for speed/ratio balance.
-- `RAGHUB_ARCHIVE_COMPRESSION` env var selects `zstd` | `gzip` | `none`.
+- `REVEX_ARCHIVE_COMPRESSION` env var selects `zstd` | `gzip` | `none`.
 
 ### Signing
 
-- When `RAGHUB_ARCHIVE_SIGNING_KEY` is set, the `hmac` field contains
+- When `REVEX_ARCHIVE_SIGNING_KEY` is set, the `hmac` field contains
   an HMAC-SHA256 over the lexicographically sorted `checksums` dict.
 - Verification: `raghub archive verify <path>`.
 
 ## Consequences
 
-- **Rotation required**: `RAGHUB_ARCHIVE_SIGNING_KEY` must be rotated
+- **Rotation required**: `REVEX_ARCHIVE_SIGNING_KEY` must be rotated
   periodically; old keys should be kept for verification only.
 - **Deterministic layout**: Same data always produces the same tar
   structure, enabling diff-based backup comparison.
