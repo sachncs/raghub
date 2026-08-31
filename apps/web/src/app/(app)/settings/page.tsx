@@ -108,7 +108,6 @@ export default function SettingsPage() {
   if (!llm) {
     return (
       <div className="container max-w-3xl px-6 py-8">
-        <h1 className="mb-6 text-2xl font-semibold tracking-tight">Settings</h1>
         <div className="space-y-3">
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-48 w-full" />
@@ -119,7 +118,6 @@ export default function SettingsPage() {
 
   return (
     <div className="container max-w-3xl px-6 py-8">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Settings</h1>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-6">
           <TabsTrigger value="llm">
