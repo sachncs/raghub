@@ -1,7 +1,7 @@
 # Architecture Overview
 
-RAGHub is a layered platform. The spec-mandated entry point is
-[`raghub.RAG`](https://github.com/sachncs/raghub/blob/main/raghub/api/rag.py); below it sit ingestion and
+Revex is a layered platform. The spec-mandated entry point is
+[`raghub.RAG`](https://github.com/sachncs/revex/blob/main/revex/api/rag.py); below it sit ingestion and
 query pipelines, a knowledge layer in OKF, plugin-replaceable
 adapters, and the legacy multi-tenant service stack retained for
 backward compatibility.
@@ -158,7 +158,7 @@ restored = from_okf(okf)
 | `ZVecVectorStore`     | `raghub.store.zvec`   | Retained for the legacy surface when `require_zvec` is `True` (production profile) |
 
 All backends share the `VectorStore` interface defined in
-[`raghub.interfaces.vectorstore`](https://github.com/sachncs/raghub/blob/main/raghub/interfaces/vectorstore.py):
+[`raghub.interfaces.vectorstore`](https://github.com/sachncs/revex/blob/main/revex/interfaces/vectorstore.py):
 `upsert`, `search`, `delete_document`, optional `create_collection`.
 
 ## LLM providers
@@ -205,7 +205,7 @@ Both expose `generate`, `astream`, and `last_usage`; the
 The new surface lives under:
 
 ```
-raghub/
+revex/
   api.py              FastAPI app (App.create)
   cli.py              Console scripts
   config.py           AppSettings + load_settings
