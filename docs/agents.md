@@ -59,7 +59,7 @@ import {
   buildDefaultSubAgents,
   createGeneratorAgent,
   HookRegistry,
-} from '@raghub/orchestrator';
+} from '@revex/orchestrator';
 
 const subAgents = buildDefaultSubAgents({
   retrieval, embedder, vectorStore,
