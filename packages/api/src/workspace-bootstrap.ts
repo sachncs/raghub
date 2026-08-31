@@ -3,13 +3,13 @@
  * WorkspaceWorkerSupervisor.
  *
  * Holds the PassphraseVault (in-memory by default; KMS-backed
- * when RAGHUB_PASSPHRASE_VAULT=kms) and the set of registered
+ * when REVEX_PASSPHRASE_VAULT=kms) and the set of registered
  * workspaces the supervisor should poll. The auth/register
  * route calls `registerWorkspace(workspaceId, passphrase)` to
  * add a new entry; the supervisor drains the queue.
  */
 
-import type { PassphraseVault } from '@raghub/core';
+import type { PassphraseVault } from '@revex/core';
 
 export const workspaceRegistry: { value: Set<string> } = { value: new Set() };
 export const passVaultRef: { value: PassphraseVault | null } = { value: null };
