@@ -1,7 +1,7 @@
 # Plugin Development
 
 A **plugin** is a self-describing unit that registers one or more
-RAGHub components on a
+Revex components on a
 :class:`raghub.plugins.registry.PluginRegistry`. Plugins are the
 supported way to swap implementations. The
 :class:`raghub.RAG` facade accepts a `registry=` argument; the
@@ -113,7 +113,7 @@ loaded = PluginRegistry().discover_entrypoints(group="raghub.plugins")
 print(f"loaded {loaded} plugins")
 ```
 
-The RAGHub project itself ships with an empty entry-point group
+The Revex project itself ships with an empty entry-point group
 by default; see `pyproject.toml`.
 
 ## Runtime registration
