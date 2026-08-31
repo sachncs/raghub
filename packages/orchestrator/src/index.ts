@@ -83,3 +83,21 @@ export type {
 export { buildInvocationState } from './strands/invocation-state.js';
 export type { StrandsAdapter } from './strands/adapter.js';
 export { InProcessAdapter } from './strands/in-process-adapter.js';
+
+export {
+  SYSTEM_PROMPT,
+  OBSERVATION_PROMPT,
+  PlannerEventKind,
+  parseTurn,
+  renderSystemPrompt,
+  plannerEvent,
+} from './agents/planner.js';
+export type {
+  PlannerAction,
+  PlannerFinal,
+  PlannerParseError,
+  PlannerEventKindValue,
+} from './agents/planner.js';
+
+export { createReActAgent } from './agents/react.js';
+export type { ReActAgentDeps, ReActRunInput } from './agents/react.js';
