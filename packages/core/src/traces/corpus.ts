@@ -2,7 +2,7 @@
  * T3 trace corpus — sqlite-backed, shared Database handle.
  *
  * C-03: takes the shared `Database` handle. Schema lives in
- * `Workspace.open()`. Population is a separate `@raghub/traces`
+ * `Workspace.open()`. Population is a separate `@revex/traces`
  * builder step (commit 12).
  */
 
