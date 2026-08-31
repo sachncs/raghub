@@ -7,8 +7,8 @@
  * lookup semantics.
  */
 
-import { ConfigurationError } from '@raghub/core';
-import type { Hit } from '@raghub/core';
+import { ConfigurationError } from '@revex/core';
+import type { Hit } from '@revex/core';
 
 import type { InvocationState, OrchestratorRequest } from '../strands/types.js';
 
