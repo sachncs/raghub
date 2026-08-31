@@ -1,8 +1,8 @@
 {
-  "name": "raghub",
+  "name": "revex",
   "version": "1.1.0",
   "private": true,
-  "description": "raghub — multi-user, user-controlled RAG on Strands Agents (TypeScript).",
+  "description": "Revex — hybrid retrieval for teams. Vector, keyword, graph, memory, web — one engine.",
   "type": "module",
   "engines": {
     "node": ">=26",
