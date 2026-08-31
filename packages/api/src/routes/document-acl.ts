@@ -23,7 +23,7 @@ import {
   type WorkspaceId,
   canManageWorkspace,
   type WorkspaceMemberStore,
-} from '@raghub/core';
+} from '@revex/core';
 
 import { getClaims } from '../middleware/auth.js';
 import { workspaceContextFrom } from '../workspace-context.js';
@@ -64,7 +64,7 @@ export const documentAclRoutes = (deps: DocumentAclRouteDeps): Hono => {
     const audit = deps.audit;
     const doc = await documentStore.getById(workspaceId, brandId<DocumentId>(c.req.param('id')));
     if (!doc) {
-      return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);
+      return c.json({ error: { code: 'revex_error', message: 'document not found' } }, 404);
     }
     const me = await memberStore.get(workspaceId, userId);
     const isOwner = doc.ownerId === userId;
@@ -100,7 +100,7 @@ export const documentAclRoutes = (deps: DocumentAclRouteDeps): Hono => {
     const audit = deps.audit;
     const doc = await documentStore.getById(workspaceId, brandId<DocumentId>(c.req.param('id')));
     if (!doc) {
-      return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);
+      return c.json({ error: { code: 'revex_error', message: 'document not found' } }, 404);
     }
     const me = await memberStore.get(workspaceId, userId);
     const isOwner = doc.ownerId === userId;
@@ -114,7 +114,7 @@ export const documentAclRoutes = (deps: DocumentAclRouteDeps): Hono => {
       permission?: string;
     };
     if (!body.principalType || !isType(body.principalType) || !body.principalId || !body.permission || !isPerm(body.permission)) {
-      return c.json({ error: { code: 'raghub_error', message: 'principalType, principalId, permission required' } }, 400);
+      return c.json({ error: { code: 'revex_error', message: 'principalType, principalId, permission required' } }, 400);
     }
     await principalStore.grant({
       documentId: doc.id,
@@ -154,7 +154,7 @@ export const documentAclRoutes = (deps: DocumentAclRouteDeps): Hono => {
     const audit = deps.audit;
     const doc = await documentStore.getById(workspaceId, brandId<DocumentId>(c.req.param('id')));
     if (!doc) {
-      return c.json({ error: { code: 'raghub_error', message: 'document not found' } }, 404);
+      return c.json({ error: { code: 'revex_error', message: 'document not found' } }, 404);
     }
     const me = await memberStore.get(workspaceId, userId);
     const isOwner = doc.ownerId === userId;
@@ -168,7 +168,7 @@ export const documentAclRoutes = (deps: DocumentAclRouteDeps): Hono => {
       permission?: string;
     };
     if (!body.principalType || !isType(body.principalType) || !body.principalId || !body.permission || !isPerm(body.permission)) {
-      return c.json({ error: { code: 'raghub_error', message: 'principalType, principalId, permission required' } }, 400);
+      return c.json({ error: { code: 'revex_error', message: 'principalType, principalId, permission required' } }, 400);
     }
     await principalStore.revoke({
       documentId: doc.id,
