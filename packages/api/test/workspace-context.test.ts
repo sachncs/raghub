@@ -25,7 +25,7 @@ import {
   defaultRegistryPath,
   openFileWorkspaceRegistry,
   type WorkspaceId,
-} from '@raghub/core';
+} from '@revex/core';
 
 import { Hono } from 'hono';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -89,7 +89,7 @@ describe('workspaceContextFrom', () => {
   };
 
   beforeEach(async () => {
-    home = mkdtempSync(join(tmpdir(), 'raghub-wctx-'));
+    home = mkdtempSync(join(tmpdir(), 'revex-wctx-'));
     registry = await openFileWorkspaceRegistry(
       { registryPath: defaultRegistryPath(home) },
       dbFactory,
