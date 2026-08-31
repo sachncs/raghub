@@ -63,17 +63,17 @@ export class InMemoryPassphraseVault implements PassphraseVault {
 /**
  * KmsPassphraseVault — production stub.
  *
- * Reads ciphertext from RAGHUB_KMS_VAULT_TABLE (an env-var-
+ * Reads ciphertext from REVEX_KMS_VAULT_TABLE (an env-var-
  * delimited table of `workspaceId:ciphertext` pairs) and
- * decrypts with RAGHUB_KMS_KEY. In a real deployment the
+ * decrypts with REVEX_KMS_KEY. In a real deployment the
  * ciphertext is fetched from AWS KMS Decrypt / GCP KMS
  * Decrypt / HashiCorp Vault Transit, and the key never lives
  * in the process.
  *
- * The dev fallback: if RAGHUB_KMS_VAULT_TABLE is not set AND
+ * The dev fallback: if REVEX_KMS_VAULT_TABLE is not set AND
  * the in-memory vault has entries, fall back to the in-memory
  * backend. Production deployments must set
- * RAGHUB_KMS_VAULT_TABLE and RAGHUB_KMS_KEY.
+ * REVEX_KMS_VAULT_TABLE and REVEX_KMS_KEY.
  */
 export class KmsPassphraseVault implements PassphraseVault {
   private readonly fallback: InMemoryPassphraseVault;
@@ -99,7 +99,7 @@ export class KmsPassphraseVault implements PassphraseVault {
       // Decrypt here. Until the KMS SDK is wired, surface a
       // helpful error.
       throw new Error(
-        'KMS decrypt is not wired in this build. Set RAGHUB_PASSPHRASE_VAULT=memory ' +
+        'KMS decrypt is not wired in this build. Set REVEX_PASSPHRASE_VAULT=memory ' +
           'or implement packages/core/src/storage/kms-passphrase-vault.ts.',
       );
     }
@@ -115,25 +115,25 @@ export class KmsPassphraseVault implements PassphraseVault {
 
 /**
  * buildVault — chooses the vault implementation based on
- * RAGHUB_PASSPHRASE_VAULT.
+ * REVEX_PASSPHRASE_VAULT.
  *
  *  - 'memory' (default in dev/test): InMemoryPassphraseVault.
  *  - 'kms':                  KmsPassphraseVault with a
- *                              RAGHUB_KMS_VAULT_TABLE-driven
+ *                              REVEX_KMS_VAULT_TABLE-driven
  *                              ciphertext map.
  *
  * In dev the in-memory vault is always used regardless of
- * RAGHUB_KMS_VAULT_TABLE; production deployments must set
+ * REVEX_KMS_VAULT_TABLE; production deployments must set
  * the table for the 'kms' backend to work.
  */
 export const buildVault = (
   env: Readonly<Record<string, string | undefined>>,
 ): PassphraseVault => {
-  const mode = env['RAGHUB_PASSPHRASE_VAULT'] ?? 'memory';
+  const mode = env['REVEX_PASSPHRASE_VAULT'] ?? 'memory';
   const memory = new InMemoryPassphraseVault();
   if (mode === 'kms') {
-    const table = env['RAGHUB_KMS_VAULT_TABLE'] ?? '';
-    const key = env['RAGHUB_KMS_KEY'] ?? '';
+    const table = env['REVEX_KMS_VAULT_TABLE'] ?? '';
+    const key = env['REVEX_KMS_KEY'] ?? '';
     const ciphertext = new Map<string, string>();
     for (const pair of table.split(',').filter(Boolean)) {
       const [wsId, ct] = pair.split(':');
