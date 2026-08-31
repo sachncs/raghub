@@ -1,6 +1,6 @@
 # Evaluation Guide
 
-This guide covers how to evaluate a RAGHub deployment end-to-end —
+This guide covers how to evaluate a Revex deployment end-to-end —
 from building a golden dataset, through running benchmarks, to
 setting quality gates that fail CI when metrics drop.
 
@@ -71,7 +71,7 @@ synthetic generation with a small hand-curated validation set.
 
 ## 2. Running a benchmark
 
-RAGHub ships with two datasets built in:
+Revex ships with two datasets built in:
 
 - **Finance** — finance-domain Q&A from PatronusAI.
 - **Frames** — multi-hop reasoning from Google.
