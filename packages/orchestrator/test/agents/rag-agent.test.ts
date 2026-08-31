@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ChunkId, CollectionId, DocumentId, Hit, UserId, WorkspaceId } from '@raghub/core';
-import { Chunk, brandId } from '@raghub/core';
+import type { ChunkId, CollectionId, DocumentId, Hit, UserId, WorkspaceId } from '@revex/core';
+import { Chunk, brandId } from '@revex/core';
 
 import { AgentRegistry } from '../../src/agents/registry.js';
 import { RagAgent, createSessionState, defaultRetryStrategy } from '../../src/agents/rag-agent.js';
@@ -33,7 +33,7 @@ const fakeLlm = () =>
   }) as never;
 
 const baseReq = (): OrchestratorRequest => ({
-  question: 'What is raghub?',
+  question: 'what is revex?',
   user: null,
   sessionId: null,
 });
