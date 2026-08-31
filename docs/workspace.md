@@ -8,7 +8,7 @@ configuration live in that single SQLite file.
 ## Storage layout
 
 ```
-~/raghub/
+~/revex/
   wsp_<id>/
     workspace.db          # single SQLite file (better-sqlite3 v12)
     snapshots/            # LocalFileStorage root for session snapshots
@@ -17,7 +17,7 @@ configuration live in that single SQLite file.
 ## Opening a workspace
 
 ```ts
-import { openEncryptedWorkspace } from '@raghub/core';
+import { openEncryptedWorkspace } from '@revex/core';
 
 const handle = await openEncryptedWorkspace({
   path: `${dir}/workspace.db`,
