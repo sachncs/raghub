@@ -29,6 +29,7 @@ import {
   type SqliteConversationStore,
   type SqliteDocumentPrincipalStore,
   type SqliteDocumentStore,
+  type SqliteFeedbackStore,
   type SqliteJobQueue,
   type SqliteSessionStore,
   type SqliteUserStore,
@@ -44,6 +45,7 @@ import {
   SqliteConversationStore as SqliteConversationStoreImpl,
   SqliteDocumentPrincipalStore as SqliteDocumentPrincipalStoreImpl,
   SqliteDocumentStore as SqliteDocumentStoreImpl,
+  SqliteFeedbackStore as SqliteFeedbackStoreImpl,
   SqliteJobQueue as SqliteJobQueueImpl,
   SqliteSessionStore as SqliteSessionStoreImpl,
   SqliteUserStore as SqliteUserStoreImpl,
@@ -73,6 +75,7 @@ export interface WorkspaceContext {
   readonly jobQueue: SqliteJobQueue;
   readonly audit: SqliteAuditEventStore;
   readonly memory: SqliteWorkspaceMemoryStore;
+  readonly feedback: SqliteFeedbackStore;
   readonly embedder: Embedder;
   readonly vectorStore: VectorStore | null;
   close(): Promise<void>;
@@ -104,6 +107,7 @@ export class WorkspaceContextImpl implements WorkspaceContext {
   public readonly jobQueue: SqliteJobQueue;
   public readonly audit: SqliteAuditEventStore;
   public readonly memory: SqliteWorkspaceMemoryStore;
+  public readonly feedback: SqliteFeedbackStore;
 
   constructor(
     public readonly workspaceId: WorkspaceId,
@@ -122,6 +126,7 @@ export class WorkspaceContextImpl implements WorkspaceContext {
     this.jobQueue = new SqliteJobQueueImpl({ db });
     this.audit = new SqliteAuditEventStoreImpl({ db });
     this.memory = new SqliteWorkspaceMemoryStoreImpl({ db });
+    this.feedback = new SqliteFeedbackStoreImpl({ db: db as never });
   }
 
   public async close(): Promise<void> {
