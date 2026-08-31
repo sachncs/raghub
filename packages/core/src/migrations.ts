@@ -144,6 +144,28 @@ export const MIGRATIONS: readonly Migration[] = [
     ],
     vars: { VEC_DIM: 3072 },
   },
+  {
+    id: '0011_member_display_name',
+    description: 'Add displayName to workspace_member for the web member cards.',
+    sql: ['ALTER TABLE workspace_member ADD COLUMN display_name TEXT;'],
+  },
+  {
+    id: '0012_feedback_table',
+    description: 'Create the feedback table for per-turn ratings.',
+    sql: [
+      `CREATE TABLE IF NOT EXISTS feedback (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        owner_id TEXT NOT NULL,
+        turn_id TEXT NOT NULL,
+        rating TEXT NOT NULL CHECK (rating IN ('up','down','neutral')),
+        comment TEXT,
+        created_at INTEGER NOT NULL
+      );`,
+      'CREATE INDEX IF NOT EXISTS feedback_ws_created ON feedback (workspace_id, created_at DESC);',
+      'CREATE INDEX IF NOT EXISTS feedback_ws_turn ON feedback (workspace_id, turn_id);',
+    ],
+  },
 ];
 
 const MIGRATIONS_TABLE_SQL = `
