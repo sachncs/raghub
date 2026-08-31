@@ -1,5 +1,5 @@
 /**
- * @raghub/api — public surface.
+ * @revex/api — public surface.
  *
  * Wires the Hono server with every middleware + route group, the
  * SSE streaming helpers, the workspace pool, and the auth/error
@@ -29,8 +29,8 @@ import {
   type VectorStore,
   type WorkspaceMemberStore,
   type WorkspaceRegistry,
-} from '@raghub/core';
-import type { Orchestrator } from '@raghub/orchestrator';
+} from '@revex/core';
+import type { Orchestrator } from '@revex/orchestrator';
 
 import { jwtAuthMiddleware } from './middleware/auth.js';
 import { errorMiddleware } from './middleware/error.js';
