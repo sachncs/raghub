@@ -59,6 +59,15 @@ export default function ChatPage({ seedQuestion }: ChatPageProps) {
     if (stream.error) toast.error(stream.error);
   }, [stream.error]);
 
+  const assistantMessageIdRef = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    const id = assistantMessageIdRef.current;
+    if (id === null || !stream.text) return;
+    setMessages((m) =>
+      m.map((msg) => (msg.id === id ? { ...msg, text: String(stream.text) } : msg))
+    );
+  }, [stream.text]);
+
   const submit = async (override?: string): Promise<void> => {
     const question = (override ?? input).trim();
     if (!question || stream.streaming) return;
@@ -72,10 +81,11 @@ export default function ChatPage({ seedQuestion }: ChatPageProps) {
     const assistantId = nextId.current++;
     setMessages((m) => [...m, { id: assistantId, role: "assistant", text: "" }]);
 
-    await stream.start({ question, sessionId });
+    assistantMessageIdRef.current = assistantId;
+    const text = await stream.start({ question, sessionId });
     setMessages((m) =>
       m.map((msg) =>
-        msg.id === assistantId ? { ...msg, text: stream.text } : msg
+        msg.id === assistantId ? { ...msg, text: text || stream.text } : msg
       )
     );
 
