@@ -7,7 +7,7 @@
  * surface errors as `{ ok: false, content, error }`.
  */
 
-import { ConfigurationError } from '@raghub/core';
+import { ConfigurationError } from '@revex/core';
 
 import type { InvocationState } from '../strands/types.js';
 
