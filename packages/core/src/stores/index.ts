@@ -6,6 +6,7 @@ export type {
   KeywordHit,
   KeywordSearchOptions,
   StoreFilter,
+  StoreStats,
   VectorSearchOptions,
   VectorStore,
 } from './types.js';

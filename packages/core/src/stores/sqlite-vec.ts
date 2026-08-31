@@ -23,6 +23,7 @@ import type {
   KeywordHit,
   KeywordSearchOptions,
   Principal,
+  StoreStats,
   VectorSearchOptions,
   VectorStore,
 } from './types.js';
@@ -236,6 +237,65 @@ export class SqliteVecStore implements VectorStore {
 
   public async close(): Promise<void> {
     // No-op.
+  }
+
+  public async stats(workspaceId: WorkspaceId): Promise<StoreStats> {
+    type Row = { n: number };
+    const chunkRow = this.db
+      .prepare(
+        `SELECT COUNT(*) AS n, COALESCE(SUM(token_count), 0) AS tokens
+         FROM ${CHUNKS_TABLE} WHERE workspace_id = ?`,
+      )
+      .get(workspaceId) as (Row & { tokens: number }) | undefined;
+    const docRow = this.db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM documents WHERE workspace_id = ?`,
+      )
+      .get(workspaceId) as Row | undefined;
+    const statusRows = this.db
+      .prepare(
+        `SELECT status, COUNT(*) AS n FROM documents WHERE workspace_id = ? GROUP BY status`,
+      )
+      .all(workspaceId) as ({ status: string; n: number })[];
+    const lastRow = this.db
+      .prepare(
+        `SELECT MAX(created_at) AS ms FROM documents WHERE workspace_id = ?`,
+      )
+      .get(workspaceId) as { ms: number | null } | undefined;
+
+    const statusCounts: Record<string, number> = {};
+    for (const r of statusRows) statusCounts[r.status] = r.n;
+
+    const sampleRow = this.db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM ${CHUNKS_TABLE} WHERE workspace_id = ?`,
+      )
+      .get(workspaceId) as Row | undefined;
+
+    let embeddingBytes = 0;
+    if ((sampleRow?.n ?? 0) > 0) {
+      try {
+        const total = this.db
+          .prepare(
+            `SELECT COALESCE(SUM(LENGTH(embedding)), 0) AS bytes
+             FROM ${VEC_TABLE} v JOIN ${CHUNKS_TABLE} c ON c.id = v.id AND c.workspace_id = ?`,
+          )
+          .get(workspaceId) as { bytes: number } | undefined;
+        embeddingBytes = Number(total?.bytes ?? 0);
+      } catch {
+        embeddingBytes = 0;
+      }
+    }
+
+    return {
+      documentCount: docRow?.n ?? 0,
+      chunkCount: chunkRow?.n ?? 0,
+      embeddingBytes,
+      totalTokenEstimate: Number(chunkRow?.tokens ?? 0),
+      bytesOnDisk: 0,
+      lastIngestedAt: lastRow?.ms ? Number(lastRow.ms) : null,
+      statusCounts,
+    };
   }
 }
 

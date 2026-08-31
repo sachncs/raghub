@@ -68,6 +68,24 @@ export interface VectorStore {
   /** Cascade-delete every chunk belonging to `documentId`. */
   deleteByDocument(documentId: DocumentId, workspaceId: WorkspaceId): Promise<number>;
 
+  /**
+   * Aggregate statistics for a workspace. Used by the memory
+   * dashboard. Concrete stores compute this however they like;
+   * the default impl returns zeros so non-SQLite stores stay
+   * compatible.
+   */
+  stats(workspaceId: WorkspaceId): Promise<StoreStats>;
+
   /** Close the underlying handle. Idempotent. */
   close(): Promise<void>;
+}
+
+export interface StoreStats {
+  readonly documentCount: number;
+  readonly chunkCount: number;
+  readonly embeddingBytes: number;
+  readonly totalTokenEstimate: number;
+  readonly bytesOnDisk: number;
+  readonly lastIngestedAt: number | null;
+  readonly statusCounts: Readonly<Record<string, number>>;
 }

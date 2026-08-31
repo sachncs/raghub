@@ -52,6 +52,7 @@ import { agentRunRoutes } from './routes/agent-run.js';
 import { webhooksRoutes } from './routes/webhooks.js';
 import { passwordRoutes } from './routes/password.js';
 import { tenantRoutes } from './routes/tenants.js';
+import { memoryRoutes } from './routes/memory.js';
 import type { WorkspacePool } from './workspace-pool.js';
 
 export interface AppDeps {
@@ -160,6 +161,13 @@ export const createApp = (deps: AppDeps): Hono => {
       embedder: deps.embedder,
       vectorStore: deps.vectorStore,
       memberStore: deps.memberStore,
+    }),
+  );
+  protectedApp.route(
+    '/',
+    memoryRoutes({
+      pool: deps.pool,
+      vectorStore: deps.vectorStore,
     }),
   );
   protectedApp.route(
