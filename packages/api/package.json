@@ -1,7 +1,7 @@
 {
-  "name": "@raghub/api",
+  "name": "@revex/api",
   "version": "1.1.0",
-  "description": "raghub HTTP API — Hono server with auth, query, streaming, onboarding.",
+  "description": "Revex HTTP API — Hono server with auth, query, streaming, onboarding.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -25,8 +25,8 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
-    "@raghub/core": "workspace:*",
-    "@raghub/orchestrator": "workspace:*",
+    "@revex/core": "workspace:*",
+    "@revex/orchestrator": "workspace:*",
     "better-sqlite3": "^12.11.1",
     "hono": "4.6.10"
   },
