@@ -22,6 +22,7 @@ export interface WorkspaceMember {
   readonly userId: UserId;
   readonly role: WorkspaceMemberRoleValue;
   readonly joinedAt: Date;
+  readonly displayName: string | null;
 }
 
 export interface WorkspaceMemberStore {
@@ -29,6 +30,7 @@ export interface WorkspaceMemberStore {
     workspaceId: WorkspaceId;
     userId: UserId;
     role: WorkspaceMemberRoleValue;
+    displayName?: string | null;
   }): Promise<WorkspaceMember>;
   get(workspaceId: WorkspaceId, userId: UserId): Promise<WorkspaceMember | null>;
   list(workspaceId: WorkspaceId): Promise<readonly WorkspaceMember[]>;
@@ -44,6 +46,9 @@ const rowToMember = (row: Record<string, unknown>): WorkspaceMember => ({
   userId: String(row['user_id']) as UserId,
   role: (row['role'] as WorkspaceMemberRoleValue) ?? WorkspaceMemberRole.Member,
   joinedAt: new Date(Number(row['joined_at'])),
+  displayName: row['display_name'] === null || row['display_name'] === undefined
+    ? null
+    : String(row['display_name']),
 });
 
 export class SqliteWorkspaceMemberStore implements WorkspaceMemberStore {
@@ -57,16 +62,31 @@ export class SqliteWorkspaceMemberStore implements WorkspaceMemberStore {
     workspaceId: WorkspaceId;
     userId: UserId;
     role: WorkspaceMemberRoleValue;
+    displayName?: string | null;
   }): Promise<WorkspaceMember> {
     const now = Date.now();
+    const existing = this.db
+      .prepare('SELECT display_name FROM workspace_member WHERE user_id = ?')
+      .get(input.userId) as { display_name: string | null } | undefined;
+    const nextDisplayName =
+      input.displayName === undefined
+        ? (existing?.display_name ?? null)
+        : input.displayName;
     this.db
       .prepare(
-        `INSERT INTO workspace_member (user_id, role, joined_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(user_id) DO UPDATE SET role = excluded.role`,
+        `INSERT INTO workspace_member (user_id, role, joined_at, display_name)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET
+           role = excluded.role,
+           display_name = COALESCE(excluded.display_name, workspace_member.display_name)`,
       )
-      .run(input.userId, input.role, now);
-    return { userId: input.userId, role: input.role, joinedAt: new Date(now) };
+      .run(input.userId, input.role, now, nextDisplayName);
+    return {
+      userId: input.userId,
+      role: input.role,
+      joinedAt: new Date(now),
+      displayName: nextDisplayName,
+    };
   }
 
   public async get(workspaceId: WorkspaceId, userId: UserId): Promise<WorkspaceMember | null> {
