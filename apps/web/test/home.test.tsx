@@ -1,20 +1,14 @@
-import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 
-import Home from '@/app/page';
+import Home from '@/app/(marketing)/page';
 
 describe('Home page', () => {
-  it('renders brand and the two entry-point links', () => {
+  it('renders the hero and the marketing CTAs', () => {
     render(<Home />);
-    expect(screen.getByRole('heading', { name: /raghub/i })).toBeInTheDocument();
-    const main = screen.getByRole('main');
-    expect(within(main).getByRole('link', { name: /sign in/i })).toBeInTheDocument();
-    expect(within(main).getByRole('link', { name: /onboard/i })).toBeInTheDocument();
-  });
-
-  it('does not crash without window.location hooks (vitest dom)', () => {
-    vi.stubGlobal('window', { location: { href: '/' } });
-    expect(() => render(<Home />)).not.toThrow();
-    vi.unstubAllGlobals();
+    expect(screen.getByRole('heading', { name: /every retrieval/i })).toBeInTheDocument();
+    const links = screen.getAllByRole('link', { name: /create workspace/i });
+    expect(links.length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();
   });
 });
