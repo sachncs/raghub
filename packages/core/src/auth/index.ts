@@ -3,7 +3,7 @@
  *
  * BcryptHasher + JwtService are the only public auth surfaces; the
  * rest of the package composes them. The legacy Python `AuthService`
- * class is rewritten in @raghub/api where it can talk to the user
+ * class is rewritten in @revex/api where it can talk to the user
  * store; core only provides the primitives.
  */
 
