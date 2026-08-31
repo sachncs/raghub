@@ -15,8 +15,8 @@ import { SqliteVecStore } from '../../src/stores/sqlite-vec.js';
 
 const PATH = ':memory:';
 const vecEnabled =
-  process.env['RAGHUB_RUN_SQLITE_TESTS'] === '1' &&
-  process.env['RAGHUB_LOAD_SQLITE_VEC'] === '1';
+  process.env['REVEX_RUN_SQLITE_TESTS'] === '1' &&
+  process.env['REVEX_LOAD_SQLITE_VEC'] === '1';
 const itg = vecEnabled ? it : it.skip;
 
 const newChunk = (id: string, text: string, documentId: DocumentId, ownerId: UserId): Chunk =>
