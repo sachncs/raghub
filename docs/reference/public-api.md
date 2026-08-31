@@ -1,4 +1,4 @@
-# RAGHub Public API Surface
+# Revex Public API Surface
 
 This document declares every public symbol in `raghub` as of v0.9.5.
 Additive changes in later releases extend the list; breaking changes
