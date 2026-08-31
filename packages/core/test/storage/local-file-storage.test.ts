@@ -48,7 +48,7 @@ describe('InMemoryLocalFileStorage', () => {
 
 describe('FsLocalFileStorage', () => {
   it('round-trips a string on disk', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'raghub-lfs-'));
+    const dir = mkdtempSync(join(tmpdir(), 'revex-lfs-'));
     try {
       const fs_ = new FsLocalFileStorage({ root: dir });
       await fs_.put('session_1/state.json', '{"turn":1}');
@@ -61,7 +61,7 @@ describe('FsLocalFileStorage', () => {
   });
 
   it('rejects path traversal', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'raghub-lfs-'));
+    const dir = mkdtempSync(join(tmpdir(), 'revex-lfs-'));
     try {
       const fs_ = new FsLocalFileStorage({ root: dir });
       await expect(fs_.put('../escape', 'x')).rejects.toThrow(/unsafe key/);
@@ -71,7 +71,7 @@ describe('FsLocalFileStorage', () => {
   });
 
   it('list enumerates files recursively', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'raghub-lfs-'));
+    const dir = mkdtempSync(join(tmpdir(), 'revex-lfs-'));
     try {
       const fs_ = new FsLocalFileStorage({ root: dir });
       await fs_.put('a/b/x.txt', 'x');
