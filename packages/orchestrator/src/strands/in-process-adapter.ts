@@ -7,7 +7,7 @@
  * the SSE proxy can surface tokens without buffering.
  */
 
-import type { Hit, Llm, Retrieval } from '@raghub/core';
+import type { Hit, Llm, Retrieval } from '@revex/core';
 
 import type {
   Citation,
