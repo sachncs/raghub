@@ -49,7 +49,7 @@ import {
   SqliteUserStore as SqliteUserStoreImpl,
   SqliteWorkspaceMemberStore as SqliteWorkspaceMemberStoreImpl,
   SqliteWorkspaceMemoryStore as SqliteWorkspaceMemoryStoreImpl,
-} from '@raghub/core';
+} from '@revex/core';
 
 import { getClaims, getPassphrase } from './middleware/auth.js';
 import type { WorkspacePool } from './workspace-pool.js';
