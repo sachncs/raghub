@@ -1,13 +1,13 @@
 <p align="center">
-  <h1 align="center">raghub</h1>
-  <p align="center">Multi-user, user-controlled RAG on Strands Agents.</p>
+  <h1 align="center">Revex</h1>
+  <p align="center">Hybrid retrieval for teams. Vector, keyword, graph, memory, web — one engine.</p>
   <p align="center">
     <a href="#installation"><img src="https://img.shields.io/badge/node-%E2%89%A522-green" alt="Node"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
   </p>
 </p>
 
-Multi-user RAG on [Strands Agents](https://strandsagents.com). One
+Revex is hybrid retrieval for teams on [Strands Agents](https://strandsagents.com). One
 orchestrator façade, three patterns (Graph / Swarm / Workflow), one
 configurable per-user strategy. Local-first; no cloud required.
 
@@ -25,10 +25,10 @@ configurable per-user strategy. Local-first; no cloud required.
 
 ```text
 packages/
-├── core/           @raghub/core — domain, stores, retrieval, auth, telemetry
-├── orchestrator/   @raghub/orchestrator — Strands-shaped Orchestrator + tools + RagAgent
-├── api/            @raghub/api — Hono HTTP server
-└── eval/           @raghub/eval — Finance + Frames + CARE (Phase 2)
+├── core/           @revex/core — domain, stores, retrieval, auth, telemetry
+├── orchestrator/   @revex/orchestrator — Strands-shaped Orchestrator + tools + RagAgent
+├── api/            @revex/api — Hono HTTP server
+└── eval/           @revex/eval — Finance + Frames + CARE (Phase 2)
 
 apps/
 └── web/            Next.js 15 + shadcn/ui (onboarding wizard + chat + docs + ACL)
@@ -43,8 +43,8 @@ archive/            final raghub 0.9.x Python release (deprecated, read-only)
 pnpm install
 
 # 2. start the API + web together.
-pnpm --filter @raghub/api dev    # http://localhost:3000
-pnpm --filter @raghub/web dev    # http://localhost:3001
+pnpm --filter @revex/api dev    # http://localhost:3000
+pnpm --filter @revex/web dev    # http://localhost:3001
 
 # 3. open http://localhost:3001/onboarding in a browser and
 #    walk the 5-step wizard (workspace name, admin email/password,
