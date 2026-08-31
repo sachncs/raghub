@@ -2,7 +2,7 @@
  * Reciprocal Rank Fusion.
  *
  * Combines ranked lists into a single ranking. Default k = 60
- * matches the original RRF paper and the legacy raghub hybrid
+ * matches the original RRF paper and the legacy revex hybrid
  * default. Returns the merged list of chunk ids in fused order.
  */
 
