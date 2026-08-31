@@ -6,7 +6,7 @@ and encrypted-on-disk workspaces.
 ## Layout
 
 ```
-$RAGHUB_HOME/                         # default: ~/.raghub
+$REVEX_HOME/                         # default: ~/.raghub
 ├── registry.db                       # top-level WorkspaceRegistry
 └── workspaces/
     └── wsp_<id>/
@@ -20,10 +20,10 @@ $RAGHUB_HOME/                         # default: ~/.raghub
 
 | variable | default | purpose |
 | --- | --- | --- |
-| `RAGHUB_WORKSPACE_HOME` | `~/.raghub` | registry + workspace root |
-| `RAGHUB_API_PORT` | `3000` | Hono listener |
-| `RAGHUB_API_BASE` | `http://localhost:3000` | web proxy target |
-| `RAGHUB_JWT_SECRET` | dev-only fallback | HS256 signing key (≥32 bytes) |
+| `REVEX_WORKSPACE_HOME` | `~/.raghub` | registry + workspace root |
+| `REVEX_API_PORT` | `3000` | Hono listener |
+| `REVEX_API_BASE` | `http://localhost:3000` | web proxy target |
+| `REVEX_JWT_SECRET` | dev-only fallback | HS256 signing key (≥32 bytes) |
 
 The **only** place an LLM API key lives is `workspace_settings.llm`
 inside the encrypted `workspace.db`. The browser never receives the
@@ -34,18 +34,18 @@ pool.
 
 ```bash
 pnpm install
-pnpm --filter @raghub/core build
-pnpm --filter @raghub/api build
-RAGHUB_JWT_SECRET="$(openssl rand -hex 32)" \
-  RAGHUB_WORKSPACE_HOME=/var/lib/raghub \
-  pnpm --filter @raghub/api start
+pnpm --filter @revex/core build
+pnpm --filter @revex/api build
+REVEX_JWT_SECRET="$(openssl rand -hex 32)" \
+  REVEX_WORKSPACE_HOME=/var/lib/raghub \
+  pnpm --filter @revex/api start
 ```
 
 In a second terminal:
 
 ```bash
-RAGHUB_API_BASE=http://localhost:3000 \
-  pnpm --filter @raghub/web dev
+REVEX_API_BASE=http://localhost:3000 \
+  pnpm --filter @revex/web dev
 ```
 
 Open `http://localhost:3001/onboarding`. Five steps:
@@ -79,7 +79,7 @@ The encrypted workspace.db is the only state worth backing up.
 SQLite is happy to back up while running (WAL mode):
 
 ```bash
-sqlite3 /var/lib/raghub/workspaces/wsp_xxx/workspace.db ".backup /backup/wsp_xxx.db"
+sqlite3 /var/lib/revex/workspaces/wsp_xxx/workspace.db ".backup /backup/wsp_xxx.db"
 ```
 
 The backup is **still encrypted** — the passphrase is required to
@@ -91,12 +91,12 @@ manager, separate from the .db backup.
 Drop the backup in place:
 
 ```bash
-systemctl stop raghub-api
-cp /backup/wsp_xxx.db /var/lib/raghub/workspaces/wsp_xxx/workspace.db
-systemctl start raghub-api
+systemctl stop revex-api
+cp /backup/wsp_xxx.db /var/lib/revex/workspaces/wsp_xxx/workspace.db
+systemctl start revex-api
 ```
 
-The registry at `$RAGHUB_HOME/registry.db` also stores the
+The registry at `$REVEX_HOME/registry.db` also stores the
 workspace's on-disk path; if you move the .db file, re-register:
 
 ```sql
@@ -176,7 +176,7 @@ required mid-session (rotation), restart the daemon.
 
 ## Security checklist
 
-- [ ] `RAGHUB_JWT_SECRET` is a fresh 32+ byte secret per deployment
+- [ ] `REVEX_JWT_SECRET` is a fresh 32+ byte secret per deployment
 - [ ] `workspace.db` files are stored on a filesystem with `chmod 600` permissions
 - [ ] TLS terminated at the reverse proxy (nginx, Caddy, ALB)
 - [ ] `Set-Cookie: ...; HttpOnly; Secure; SameSite=Strict` at the proxy (TODO P-07 harden)
@@ -188,7 +188,7 @@ required mid-session (rotation), restart the daemon.
 The default daemon is single-process. SQLite WAL allows multiple
 readers + one writer per database, so horizontal scaling means
 deploying **multiple stateless API replicas** behind a load
-balancer, each pointing at the same shared `$RAGHUB_HOME`. The
+balancer, each pointing at the same shared `$REVEX_HOME`. The
 in-memory rate-limit bucket and workspace pool become per-replica
 state — that's fine for a single-workspace deployment but degrades
 in a multi-tenant SaaS scenario (out of scope per the local-first
