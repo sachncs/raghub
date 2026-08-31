@@ -12,7 +12,7 @@
  * commit that points at public eval-set mirrors.
  */
 
-import { type Hit, type Llm, type Retrieval, User, UserRole } from '@raghub/core';
+import { type Hit, type Llm, type Retrieval, User, UserRole } from '@revex/core';
 
 import { computeMetrics, type Metrics } from './metrics.js';
 
@@ -76,7 +76,7 @@ const extractClaims = (text: string): string[] =>
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 
-const makeSystemUser = (): import('@raghub/core').User =>
+const makeSystemUser = (): import('@revex/core').User =>
   new User({
     id: '__system__' as never,
     workspaceId: '__system__' as never,
