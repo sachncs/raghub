@@ -120,6 +120,11 @@ export class LlmManager implements Llm {
         return result;
       } catch (err) {
         lastError = err;
+        this.recordAttempt(llm.provider);
+        const llmErr = err instanceof LlmError ? err : classifyError(llm.provider, err);
+        if (!llmErr.retryable && llm === this.primary) {
+          throw llmErr;
+        }
         if (llm === this.primary) {
           this.totals.fallbacksUsed += 1;
           if (this.onAttempt) {
@@ -127,8 +132,7 @@ export class LlmManager implements Llm {
               provider: llm.provider,
               attempt: this.maxAttempts,
               outcome: 'fallback',
-              errorKind:
-                err instanceof LlmError ? err.kind : 'unknown',
+              errorKind: llmErr.kind,
               latencyMs: 0,
             });
           }
@@ -149,6 +153,11 @@ export class LlmManager implements Llm {
         return;
       } catch (err) {
         lastError = err;
+        this.recordAttempt(llm.provider);
+        const llmErr = err instanceof LlmError ? err : classifyError(llm.provider, err);
+        if (!llmErr.retryable && llm === this.primary) {
+          throw llmErr;
+        }
         if (llm === this.primary) {
           this.totals.fallbacksUsed += 1;
         }
@@ -302,6 +311,10 @@ export class LlmManager implements Llm {
         usage,
       });
     }
+  }
+
+  private recordAttempt(provider: string): void {
+    this.attempts.set(provider, (this.attempts.get(provider) ?? 0) + 1);
   }
 }
 
