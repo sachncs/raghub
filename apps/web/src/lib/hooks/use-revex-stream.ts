@@ -27,7 +27,7 @@ export interface UseRevexStreamResult {
   readonly text: string;
   readonly streaming: boolean;
   readonly error: string | null;
-  readonly start: (body: { question: string; sessionId: string }) => Promise<void>;
+  readonly start: (body: { question: string; sessionId: string }) => Promise<string>;
   readonly reset: () => void;
   readonly stop: () => void;
 }
@@ -58,7 +58,7 @@ export function useRevexStream(options: Options = {}): UseRevexStreamResult {
   }, []);
 
   const start = React.useCallback(
-    async (body: { question: string; sessionId: string }): Promise<void> => {
+    async (body: { question: string; sessionId: string }): Promise<string> => {
       if (controllerRef.current) {
         controllerRef.current.abort();
       }
@@ -69,6 +69,7 @@ export function useRevexStream(options: Options = {}): UseRevexStreamResult {
       setEvents([]);
       setText("");
 
+      let accumulated = "";
       try {
         const res = await fetch("/api/proxy", {
           method: "POST",
@@ -111,9 +112,13 @@ export function useRevexStream(options: Options = {}): UseRevexStreamResult {
             setEvents([...collected]);
 
             if (kind === "answer_chunk" && typeof payload["delta"] === "string") {
-              setText((t) => t + (payload["delta"] as string));
+              accumulated += payload["delta"] as string;
+              setText(accumulated);
             } else if (kind === "final" && typeof payload["answer"] === "string") {
-              setText((t) => (t === "" ? (payload["answer"] as string) : t));
+              if (accumulated === "") {
+                accumulated = payload["answer"] as string;
+                setText(accumulated);
+              }
             }
           }
         }
@@ -127,6 +132,7 @@ export function useRevexStream(options: Options = {}): UseRevexStreamResult {
         setStreaming(false);
         controllerRef.current = null;
       }
+      return accumulated;
     },
     [path]
   );
