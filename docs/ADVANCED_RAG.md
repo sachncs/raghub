@@ -289,7 +289,7 @@ Three layers of override:
 2. **Per-session** — `conversation_store.set_overrides(scoped_session_id, {"agent_enabled": True})`.
 3. **Per-user** — persisted in the `user_preferences` table:
    - API: `PATCH /v1/users/me/preferences` with `{"prefs": {"tool_settings": {"agent_enabled": true}}}`.
-   - CLI: `raghub config tools set --email alice@acme.com --json '{"agent_enabled": true}'`.
+   - CLI: `revex config tools set --email alice@acme.com --json '{"agent_enabled": true}'`.
    - Streamlit sidebar: the "Tools" panel.
 
 Resolution order: **request > session > user > global default**.
@@ -349,9 +349,9 @@ status = rag.job_status(job_id)  # "pending" | "running" | "succeeded" | "failed
 The CLI manages the worker pool:
 
 ```bash
-raghub queue run --workers 4
-raghub queue stats --json
-raghub queue purge --status dead
+revex queue run --workers 4
+revex queue stats --json
+revex queue purge --status dead
 ```
 
 The library also wires a `Worker` automatically when `RAG.ingest_async` is used; call `RAG.start_worker()` to start the background loop and `RAG.stop_worker()` to drain. Idempotency is enforced by content hash — duplicate submissions return the existing job id instead of re-running.
@@ -362,7 +362,7 @@ Cross-reference: see [docs/operations/runbook.md](operations/runbook.md) for pro
 
 ## Vector store backends
 
-RAGHub ships two vector store backends:
+Revex ships two vector store backends:
 
 ### `SqliteStore` (in-process, default)
 
@@ -379,7 +379,7 @@ store = SqliteStore(path="./data/vectors.db", embedding_dim=384)
 PostgreSQL + pgvector for production deployments. Supports row-level isolation, HNSW indexes, and scales horizontally.
 
 ```bash
-raghub migrate pgvector --dsn "postgresql://user:pass@host:5432/raghub"
+revex migrate pgvector --dsn "postgresql://user:pass@host:5432/raghub"
 ```
 
 ```python
@@ -393,7 +393,7 @@ Cross-reference: see [docs/operations/scaling.md](operations/scaling.md) for mig
 
 ## Tenant isolation tiers
 
-RAGHub supports three isolation tiers for multi-tenant deployments:
+Revex supports three isolation tiers for multi-tenant deployments:
 
 ### Row-level (default)
 
@@ -455,20 +455,20 @@ Cross-reference: see `docs/architecture/decisions/0007-feedback-scorers.md` (if 
 
 ## Archive store and CLI
 
-The `ArchiveStore` captures the full state of a RAGHub deployment (data, vectors, configuration) into a single signed archive that can be restored to a new deployment.
+The `ArchiveStore` captures the full state of a Revex deployment (data, vectors, configuration) into a single signed archive that can be restored to a new deployment.
 
 ```bash
 # Create an archive
-raghub backup create -o backup-2024-01-01.tar.gz
+revex backup create -o backup-2024-01-01.tar.gz
 
 # Verify the archive signature
-raghub backup verify --input backup-2024-01-01.tar.gz
+revex backup verify --input backup-2024-01-01.tar.gz
 
 # Restore to a new deployment
-raghub backup restore --input backup-2024-01-01.tar.gz --target-dir /var/lib/raghub
+revex backup restore --input backup-2024-01-01.tar.gz --target-dir /var/lib/raghub
 ```
 
-Archives are signed with a per-tenant cipher key (see `RAGHUB_ARCHIVE_SIGNING_KEY`). The restore command is safe to run while the server is up — it writes to a staging directory, verifies the checksum, then atomically swaps.
+Archives are signed with a per-tenant cipher key (see `REVEX_ARCHIVE_SIGNING_KEY`). The restore command is safe to run while the server is up — it writes to a staging directory, verifies the checksum, then atomically swaps.
 
 Cross-reference: see [docs/operations/backup.md](operations/backup.md) for the full operational workflow.
 
@@ -540,4 +540,4 @@ AppSettings(
 )
 ```
 
-All fields are environment-variable-overridable (see `RAG_*` names in `raghub/config/settings.py`).
+All fields are environment-variable-overridable (see `RAG_*` names in `revex/config/settings.py`).
