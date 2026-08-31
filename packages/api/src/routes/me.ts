@@ -21,16 +21,16 @@ import {
   brandId,
   type JwtService,
   type SessionStore,
+  type SqliteUserStore,
   type WorkspaceId,
   type UserId,
-  type UserStore,
 } from '@revex/core';
 
 import { getClaims } from '../middleware/auth.js';
 import { requireStore } from '../guards.js';
 
 export interface MeRouteDeps {
-  readonly userStore: UserStore | null;
+  readonly userStore: SqliteUserStore | null;
   readonly sessionStore: SessionStore | null;
   readonly jwt: JwtService;
 }
@@ -51,11 +51,11 @@ export const meRoutes = (deps: MeRouteDeps): Hono => {
     const userStore = requireStore('userStore', deps.userStore);
     const workspaceId = brandId<WorkspaceId>(claims.workspace_id);
     const userId = brandId<UserId>(claims.sub);
-    const user = await userStore.getById(workspaceId, userId);
-    if (!user) {
+    const lookup = await userStore.getById(workspaceId, userId);
+    if (!lookup) {
       return c.json({ error: { code: 'auth_error', message: 'user not found' } }, 401);
     }
-    return c.json({ user: user.toJSON() });
+    return c.json({ user: lookup.user.toJSON() });
   });
 
   app.patch('/v1/me/strategy', async (c) => {
