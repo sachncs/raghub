@@ -13,14 +13,14 @@ import {
   brandId,
   openEncryptedWorkspace,
   type WorkspaceId,
-} from '@raghub/core';
+} from '@revex/core';
 
 import { workspaceRoutes } from '../../src/routes/workspaces.js';
 import { documentAclRoutes } from '../../src/routes/document-acl.js';
 import { WorkspacePool } from '../../src/workspace-pool.js';
-import { openFileWorkspaceRegistry } from '@raghub/core';
+import { openFileWorkspaceRegistry } from '@revex/core';
 import Database from 'better-sqlite3';
-import { openEncryptedWorkspace as _oe } from '@raghub/core';
+import { openEncryptedWorkspace as _oe } from '@revex/core';
 
 const PASSPHRASE = 'test-passphrase-1234';
 const buildClaims = (workspaceId: string, sub: string, isAdmin = false): JwtClaims => ({
@@ -52,7 +52,7 @@ interface TestWorkspace {
 }
 
 const setupWorkspace = async (): Promise<TestWorkspace> => {
-  const home = mkdtempSync(join(tmpdir(), 'raghub-acl-'));
+  const home = mkdtempSync(join(tmpdir(), 'revex-acl-'));
   const { mkdirSync } = await import('node:fs');
   mkdirSync(join(home, 'workspaces', 'wsp_test'), { recursive: true });
   const registry = await openFileWorkspaceRegistry(
