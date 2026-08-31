@@ -1,7 +1,7 @@
 /**
  * Retrieval pipeline — dense + sparse + RRF + RBAC.
  *
- * Mirrors the legacy `raghub/retrieval/pipeline.py` with the
+ * Mirrors the legacy `revex/retrieval/pipeline.py` with the
  * post-redesign invariant: every read is filtered by a `StoreFilter`
  * built from the active user, and hybrid fusion happens via RRF on
  * the chunk-id axis.
