@@ -11,8 +11,8 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
-import { type Orchestrator } from '@raghub/orchestrator';
-import { brandId, type SessionId } from '@raghub/core';
+import { type Orchestrator } from '@revex/orchestrator';
+import { brandId, type SessionId } from '@revex/core';
 
 import { getClaims } from '../middleware/auth.js';
 
@@ -33,7 +33,7 @@ export const queryRoutes = (deps: QueryRouteDeps): Hono => {
     void claims;
     const body = (await c.req.json().catch(() => ({}))) as Partial<QueryInput>;
     if (!body.question) {
-      return c.json({ error: { code: 'raghub_error', message: 'question required' } }, 400);
+      return c.json({ error: { code: 'revex_error', message: 'question required' } }, 400);
     }
     const sessionId = body.session_id ? brandId<SessionId>(body.session_id) : null;
     const result = await deps.orchestrator.run({
@@ -54,7 +54,7 @@ export const queryRoutes = (deps: QueryRouteDeps): Hono => {
     void claims;
     const body = (await c.req.json().catch(() => ({}))) as Partial<QueryInput>;
     if (!body.question) {
-      return c.json({ error: { code: 'raghub_error', message: 'question required' } }, 400);
+      return c.json({ error: { code: 'revex_error', message: 'question required' } }, 400);
     }
     const sessionId = body.session_id ? brandId<SessionId>(body.session_id) : null;
 
