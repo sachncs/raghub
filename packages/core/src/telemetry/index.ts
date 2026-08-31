@@ -23,7 +23,7 @@ export const createTelemetry = async (settings: Settings): Promise<Telemetry> =>
       return new NoOpTelemetry();
     case 'langfuse': {
       if (!settings.telemetry.langfusePublicKey || !settings.telemetry.langfuseSecretKey) {
-        console.warn('[raghub] telemetry=langfuse but credentials missing; falling back to noop');
+        console.warn('[revex] telemetry=langfuse but credentials missing; falling back to noop');
         return new NoOpTelemetry();
       }
       const { LangfuseTelemetry } = await import('./langfuse.js');
@@ -35,23 +35,23 @@ export const createTelemetry = async (settings: Settings): Promise<Telemetry> =>
           : {}),
       });
       if (!t) {
-        console.warn('[raghub] langfuse package not installed; falling back to noop');
+        console.warn('[revex] langfuse package not installed; falling back to noop');
         return new NoOpTelemetry();
       }
       return t;
     }
     case 'otel': {
       const { OtelTelemetry } = await import('./otel.js');
-      const t = await OtelTelemetry.create('raghub');
+      const t = await OtelTelemetry.create('revex');
       if (!t) {
-        console.warn('[raghub] @opentelemetry/api not installed; falling back to noop');
+        console.warn('[revex] @opentelemetry/api not installed; falling back to noop');
         return new NoOpTelemetry();
       }
       return t;
     }
     default: {
       const _exhaustive: never = settings.telemetry.provider;
-      console.warn(`[raghub] unknown telemetry provider ${String(_exhaustive)}; falling back to noop`);
+      console.warn(`[revex] unknown telemetry provider ${String(_exhaustive)}; falling back to noop`);
       return new NoOpTelemetry();
     }
   }
