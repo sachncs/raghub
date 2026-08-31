@@ -22,7 +22,7 @@ import {
   type WebSearch,
   type WorkspaceMemoryStore,
   allowedCompanyFilter,
-} from '@raghub/core';
+} from '@revex/core';
 
 import type { SubAgent, SubAgentInput } from '../agents/rag-agent.js';
 import type { InvocationState } from '../strands/types.js';
