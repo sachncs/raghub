@@ -1,6 +1,6 @@
 # API Reference
 
-RAGHub exposes two parallel surfaces:
+Revex exposes two parallel surfaces:
 
 1. **`raghub.RAG`** — the recommended Python facade. Typed Pydantic
    models in, typed Pydantic models out.
@@ -17,7 +17,7 @@ from raghub import RAG
 
 rag = RAG()                   # default components
 # or
-rag = RAG.from_config("raghub.yaml")
+rag = RAG.from_config("revex.yaml")
 # or
 rag = RAG(
     settings=...,
@@ -261,8 +261,8 @@ Aggregate feedback for the calling tenant. Returns:
 ## Rate limiting
 
 The HTTP surface applies a token-bucket rate limit per bearer token.
-The limiter is configured via `RAGHUB_RATELIMIT_PER_MINUTE` (default
-120) and `RAGHUB_RATELIMIT_BURST` (default 20).
+The limiter is configured via `REVEX_RATELIMIT_PER_MINUTE` (default
+120) and `REVEX_RATELIMIT_BURST` (default 20).
 
 Every response includes:
 
@@ -288,17 +288,17 @@ persistent queue as a standalone sub-app:
 
 ```bash
 # Submit a job manually
-raghub queue submit --kind ingest --payload '{"source": "..."}'
+revex queue submit --kind ingest --payload '{"source": "..."}'
 
 # Start workers (foreground)
-raghub queue run --workers 4
+revex queue run --workers 4
 
 # Inspect queue state
-raghub queue stats --json
-raghub queue list --status pending --limit 100
+revex queue stats --json
+revex queue list --status pending --limit 100
 
 # Drain dead-letter queue
-raghub queue purge --status dead
+revex queue purge --status dead
 ```
 
 All sub-commands exit with code 0 on success and a non-zero code on
