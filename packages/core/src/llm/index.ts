@@ -34,6 +34,19 @@ export { OpenAILlm } from './openai.js';
 export { FeatureHashingLlm } from './feature-hashing.js';
 export { StubLlm } from './stub.js';
 export type { StubLlmOptions } from './stub.js';
+export {
+  LlmManager,
+  createManager,
+  messagesFromConversation,
+} from './manager.js';
+export type {
+  LlmManagerOptions,
+  LlmAttemptInfo,
+  LlmUsageTotals,
+} from './manager.js';
+export { LlmError, classifyError } from './errors.js';
+export type { LlmErrorKind } from './errors.js';
+export { estimateTokens, estimateMessagesTokens } from './token-estimate.js';
 
 const MINIMAX_BASE_URL = 'https://api.minimax.chat/v1';
 
