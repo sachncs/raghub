@@ -30,7 +30,7 @@ describe('encryption round-trip', () => {
   });
 
   it('rejects wrong-key decryption at open time', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'raghub-enc-'));
+    const dir = mkdtempSync(join(tmpdir(), 'revex-enc-'));
     const tempPath = join(dir, 'workspace.db');
     try {
       const ws1 = await openEncryptedWorkspace({
