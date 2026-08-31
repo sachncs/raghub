@@ -140,3 +140,37 @@ export const loadJsonl = (raw: string): readonly QASample[] => {
   }
   return out;
 };
+
+export const loadJsonlFile = async (path: string): Promise<readonly QASample[]> => {
+  const { promises: fs } = await import('node:fs');
+  const raw = await fs.readFile(path, 'utf8');
+  return loadJsonl(raw);
+};
+
+export interface FinanceRunResult {
+  readonly benchmark: 'financebench';
+  readonly aggregate: AggregateMetrics;
+  readonly results: readonly SampleResult[];
+}
+
+export const runFinance = async (
+  samples: readonly QASample[],
+  opts: RunOptions,
+): Promise<FinanceRunResult> => {
+  const results = await runSamples(samples, opts);
+  return { benchmark: 'financebench', aggregate: aggregate(results), results };
+};
+
+export interface FramesRunResult {
+  readonly benchmark: 'frames';
+  readonly aggregate: AggregateMetrics;
+  readonly results: readonly SampleResult[];
+}
+
+export const runFrames = async (
+  samples: readonly QASample[],
+  opts: RunOptions,
+): Promise<FramesRunResult> => {
+  const results = await runSamples(samples, opts);
+  return { benchmark: 'frames', aggregate: aggregate(results), results };
+};
