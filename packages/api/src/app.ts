@@ -24,15 +24,16 @@ import {
   type LocalFileStorage,
   type SqliteAuditEventStore,
   type SqliteJobQueue,
+  type SqliteUserStore,
   type SessionStore,
-  type UserStore,
+  
   type VectorStore,
   type WorkspaceMemberStore,
   type WorkspaceRegistry,
 } from '@revex/core';
 import type { Orchestrator } from '@revex/orchestrator';
 
-import { jwtAuthMiddleware } from './middleware/auth.js';
+import { jwtAuthMiddleware, getClaims } from './middleware/auth.js';
 import { errorMiddleware } from './middleware/error.js';
 import { rateLimitMiddleware } from './middleware/rate-limit.js';
 import { securityHeadersMiddleware } from './middleware/security.js';
@@ -45,10 +46,16 @@ import { operationalRoutes } from './routes/operational.js';
 import { queryRoutes } from './routes/query.js';
 import { settingsRoutes } from './routes/settings.js';
 import { workspaceRoutes } from './routes/workspaces.js';
+import { feedbackRoutes } from './routes/feedback.js';
+import { auditRoutes } from './routes/audit.js';
+import { agentRunRoutes } from './routes/agent-run.js';
+import { webhooksRoutes } from './routes/webhooks.js';
+import { passwordRoutes } from './routes/password.js';
+import { tenantRoutes } from './routes/tenants.js';
 import type { WorkspacePool } from './workspace-pool.js';
 
 export interface AppDeps {
-  readonly userStore: UserStore | null;
+  readonly userStore: SqliteUserStore | null;
   readonly documentStore: DocumentStore | null;
   readonly documentPrincipalStore: DocumentPrincipalStore | null;
   readonly memberStore: WorkspaceMemberStore | null;
@@ -131,6 +138,60 @@ export const createApp = (deps: AppDeps): Hono => {
   protectedApp.route(
     '/',
     settingsRoutes({ pool: deps.pool, audit: deps.audit ?? null }),
+  );
+  protectedApp.route(
+    '/',
+    feedbackRoutes({
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+      memberStore: deps.memberStore,
+    }),
+  );
+  protectedApp.route(
+    '/',
+    auditRoutes({
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+      memberStore: deps.memberStore,
+    }),
+  );
+  protectedApp.route(
+    '/',
+    agentRunRoutes({
+      orchestrator: deps.orchestrator,
+      getClaims: (c) => getClaims(c as never) as unknown as { workspaceId: string; userId: string },
+    })
+  );
+  protectedApp.route(
+    '/',
+    webhooksRoutes({
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+      memberStore: deps.memberStore,
+    }),
+  );
+  protectedApp.route(
+    '/',
+    passwordRoutes({
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+      userStore: deps.userStore as never,
+      memberStore: deps.memberStore,
+      hasher: deps.hasher,
+    }),
+  );
+  protectedApp.route(
+    '/',
+    tenantRoutes({
+      pool: deps.pool,
+      embedder: deps.embedder,
+      vectorStore: deps.vectorStore,
+      registry: deps.registry,
+    }),
   );
   protectedApp.route(
     '/',
