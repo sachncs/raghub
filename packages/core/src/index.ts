@@ -18,6 +18,8 @@ export * from './storage/index.js';
 export * from './llm/index.js';
 export * from './chunker/index.js';
 export * from './ingest.js';
+export * from './context/index.js';
+export * from './ingest-verbose.js';
 export * from './ingest-agentic.js';
 export * from './web/search.js';
 export * from './graph/store.js';
