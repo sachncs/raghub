@@ -50,7 +50,7 @@ export interface InvocationState {
  * global.
  */
 export interface Strategy {
-  readonly mode: 'graph' | 'swarm' | 'workflow';
+  readonly mode: 'graph' | 'swarm' | 'workflow' | 'deep_research';
   readonly hybrid: {
     readonly denseWeight: number;
     readonly sparseWeight: number;

@@ -11,7 +11,13 @@
 import type { Llm, Retrieval, Telemetry } from '@revex/core';
 import { runWithWorkspaceAsync, type CollectionId, type WorkspaceId } from '@revex/core';
 
-import { buildGraph, buildSwarm, buildWorkflow, type PatternBuilder } from './patterns/builders.js';
+import {
+  buildDeepResearch,
+  buildGraph,
+  buildSwarm,
+  buildWorkflow,
+  type PatternBuilder,
+} from './patterns/builders.js';
 import { resolveStrategy, type StrategyOverrides } from './patterns/strategy.js';
 import type { AgentRegistry } from './agents/registry.js';
 import type { ToolRegistry } from './tools/registry.js';
@@ -74,6 +80,11 @@ export class Orchestrator {
       graph: buildGraph(opts.adapters?.graph ?? adapter),
       swarm: buildSwarm(opts.adapters?.swarm ?? adapter),
       workflow: buildWorkflow(opts.adapters?.workflow ?? adapter),
+      deep_research: buildDeepResearch({
+        llm: opts.llm ?? null,
+        tools: this.tools,
+        model: opts.model ?? 'gpt-4o',
+      }),
     };
     this.adapter = adapter;
   }
