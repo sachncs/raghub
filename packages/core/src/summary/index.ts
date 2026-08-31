@@ -7,9 +7,9 @@
  * `modality: 'summary'` so the existing retrieval pipeline picks
  * them up alongside the underlying source chunks.
  *
- * Phase 1 ships the extractive path + an LLM summariser the
- * caller wires in. The tree layer (cluster -> summarise) lands
- * alongside T3 in Phase 2.
+ * The full `buildRaptorTree` helper builds a multi-level tree
+ * via greedy clustering + recursive LLM summarisation; the
+ * single-level `SummaryIndex` is the production entry point.
  */
 
 import {
@@ -153,3 +153,11 @@ export const createLlmSummaryIndex = (deps: {
   },
   close: () => undefined,
 });
+
+export {
+  buildRaptorTree,
+  SUMMARY_PROMPT,
+  type RaptorInput,
+  type RaptorLevel,
+  type RaptorOutput,
+} from './raptor.js';
