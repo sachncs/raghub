@@ -12,7 +12,7 @@
 
 import { z } from 'zod';
 
-import { RaghubError } from '../errors/index.js';
+import { RevexError } from '../errors/index.js';
 
 const nonEmpty = (label: string) =>
   z
@@ -88,7 +88,7 @@ const TenantsConfigSchema = z.object({
 
 const VectorStoreConfigSchema = z.object({
   backend: z.literal(VectorBackend.SqliteVec).default(VectorBackend.SqliteVec),
-  path: nonEmpty('vectorStore.path').default('./.raghub/raghub.db'),
+  path: nonEmpty('vectorStore.path').default('./.revex/revex.db'),
   embeddingDim: z.number().int().min(64).max(4096).default(3072),
 });
 
@@ -154,73 +154,73 @@ export const loadSettings = (env: Readonly<Record<string, string | undefined>>):
 
   const raw = {
     auth: {
-      jwtSecret: env['RAGHUB_JWT_SECRET'],
-      jwtAlgorithm: env['RAGHUB_JWT_ALGORITHM'],
-      tokenTtlSeconds: num(env['RAGHUB_TOKEN_TTL_SECONDS']),
-      bcryptRounds: num(env['RAGHUB_BCRYPT_ROUNDS']),
+      jwtSecret: env['REVEX_JWT_SECRET'],
+      jwtAlgorithm: env['REVEX_JWT_ALGORITHM'],
+      tokenTtlSeconds: num(env['REVEX_TOKEN_TTL_SECONDS']),
+      bcryptRounds: num(env['REVEX_BCRYPT_ROUNDS']),
     },
-    tenants: { isolation: env['RAGHUB_ISOLATION'] },
+    tenants: { isolation: env['REVEX_ISOLATION'] },
     vectorStore: {
-      backend: env['RAGHUB_VECTOR_BACKEND'],
-      path: env['RAGHUB_VECTOR_PATH'],
-      embeddingDim: num(env['RAGHUB_VECTOR_EMBEDDING_DIM']),
+      backend: env['REVEX_VECTOR_BACKEND'],
+      path: env['REVEX_VECTOR_PATH'],
+      embeddingDim: num(env['REVEX_VECTOR_EMBEDDING_DIM']),
     },
     embedder: {
-      provider: env['RAGHUB_EMBEDDER_PROVIDER'],
-      model: env['RAGHUB_EMBEDDER_MODEL'],
-      apiKey: env['RAGHUB_EMBEDDER_API_KEY'] ?? env['OPENAI_API_KEY'],
-      batchSize: num(env['RAGHUB_EMBEDDER_BATCH_SIZE']),
+      provider: env['REVEX_EMBEDDER_PROVIDER'],
+      model: env['REVEX_EMBEDDER_MODEL'],
+      apiKey: env['REVEX_EMBEDDER_API_KEY'] ?? env['OPENAI_API_KEY'],
+      batchSize: num(env['REVEX_EMBEDDER_BATCH_SIZE']),
     },
     llm: {
-      provider: env['RAGHUB_LLM_PROVIDER'],
-      model: env['RAGHUB_LLM_MODEL'],
-      apiKey: env['RAGHUB_LLM_API_KEY'] ?? env['OPENAI_API_KEY'],
-      baseUrl: env['RAGHUB_LLM_BASE_URL'],
-      temperature: num(env['RAGHUB_LLM_TEMPERATURE']),
+      provider: env['REVEX_LLM_PROVIDER'],
+      model: env['REVEX_LLM_MODEL'],
+      apiKey: env['REVEX_LLM_API_KEY'] ?? env['OPENAI_API_KEY'],
+      baseUrl: env['REVEX_LLM_BASE_URL'],
+      temperature: num(env['REVEX_LLM_TEMPERATURE']),
     },
     hybrid: {
-      denseWeight: num(env['RAGHUB_HYBRID_DENSE_WEIGHT']),
-      sparseWeight: num(env['RAGHUB_HYBRID_SPARSE_WEIGHT']),
-      rrfK: num(env['RAGHUB_HYBRID_RRF_K']),
-      colbert: bool(env['RAGHUB_HYBRID_COLBERT']),
+      denseWeight: num(env['REVEX_HYBRID_DENSE_WEIGHT']),
+      sparseWeight: num(env['REVEX_HYBRID_SPARSE_WEIGHT']),
+      rrfK: num(env['REVEX_HYBRID_RRF_K']),
+      colbert: bool(env['REVEX_HYBRID_COLBERT']),
     },
     orchestrator: {
-      mode: env['RAGHUB_ORCHESTRATOR_MODE'],
-      ordering: env['RAGHUB_ORCHESTRATOR_ORDERING'],
-      topK: num(env['RAGHUB_ORCHESTRATOR_TOP_K']),
-      reranker: env['RAGHUB_ORCHESTRATOR_RERANKER'],
+      mode: env['REVEX_ORCHESTRATOR_MODE'],
+      ordering: env['REVEX_ORCHESTRATOR_ORDERING'],
+      topK: num(env['REVEX_ORCHESTRATOR_TOP_K']),
+      reranker: env['REVEX_ORCHESTRATOR_RERANKER'],
       multimodal: {
-        enabled: bool(env['RAGHUB_MULTIMODAL_ENABLED']),
-        embeddingModel: env['RAGHUB_MULTIMODAL_EMBEDDING_MODEL'],
-        embeddingDim: num(env['RAGHUB_MULTIMODAL_EMBEDDING_DIM']),
+        enabled: bool(env['REVEX_MULTIMODAL_ENABLED']),
+        embeddingModel: env['REVEX_MULTIMODAL_EMBEDDING_MODEL'],
+        embeddingDim: num(env['REVEX_MULTIMODAL_EMBEDDING_DIM']),
       },
       traceCorpus: {
-        enabled: bool(env['RAGHUB_TRACE_CORPUS_ENABLED']),
-        representation: env['RAGHUB_TRACE_CORPUS_REPRESENTATION'],
-        topK: num(env['RAGHUB_TRACE_CORPUS_TOP_K']),
+        enabled: bool(env['REVEX_TRACE_CORPUS_ENABLED']),
+        representation: env['REVEX_TRACE_CORPUS_REPRESENTATION'],
+        topK: num(env['REVEX_TRACE_CORPUS_TOP_K']),
       },
     },
     telemetry: {
-      provider: env['RAGHUB_TELEMETRY_PROVIDER'],
-      langfusePublicKey: env['RAGHUB_LANGFUSE_PUBLIC_KEY'],
-      langfuseSecretKey: env['RAGHUB_LANGFUSE_SECRET_KEY'],
-      langfuseBaseUrl: env['RAGHUB_LANGFUSE_BASE_URL'],
-      otelEndpoint: env['RAGHUB_OTEL_ENDPOINT'],
+      provider: env['REVEX_TELEMETRY_PROVIDER'],
+      langfusePublicKey: env['REVEX_LANGFUSE_PUBLIC_KEY'],
+      langfuseSecretKey: env['REVEX_LANGFUSE_SECRET_KEY'],
+      langfuseBaseUrl: env['REVEX_LANGFUSE_BASE_URL'],
+      otelEndpoint: env['REVEX_OTEL_ENDPOINT'],
     },
-    secrets: { tenantSecretsKey: env['RAGHUB_TENANT_SECRETS_KEY'] },
+    secrets: { tenantSecretsKey: env['REVEX_TENANT_SECRETS_KEY'] },
   };
 
   const known = new Set(Object.keys(raw));
   for (const k of Object.keys(env)) {
-    if (k.startsWith('RAGHUB_') && !known.has(k)) {
-      console.warn(`[raghub] unknown env var ${k}; ignoring`);
+    if (k.startsWith('REVEX_') && !known.has(k)) {
+      console.warn(`[revex] unknown env var ${k}; ignoring`);
     }
   }
 
   const parsed = SettingsSchema.safeParse(raw);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`).join('\n');
-    throw new RaghubError('configuration_error', `invalid settings:\n${issues}`, {
+    throw new RevexError('configuration_error', `invalid settings:\n${issues}`, {
       details: { issues: parsed.error.issues },
     });
   }
