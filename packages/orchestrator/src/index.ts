@@ -1,5 +1,5 @@
 /**
- * @raghub/orchestrator — public surface.
+ * @revex/orchestrator — public surface.
  *
  * The Orchestrator façade, the agent/tool registries, the three
  * pattern builders, and the strategy resolver.
