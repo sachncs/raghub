@@ -21,6 +21,19 @@ export * from './ingest.js';
 export * from './ingest-agentic.js';
 export * from './web/search.js';
 export * from './graph/store.js';
+export {
+  EXTRACT_PROMPT,
+  COMMUNITY_PROMPT,
+  extractEntities,
+  summariseCommunity,
+  clusterEntities,
+} from './graph/index.js';
+export type {
+  ExtractedEntity,
+  ExtractedTriple,
+  ExtractedGraph,
+} from './graph/index.js';
+export * from './feedback/index.js';
 export * from './summary/index.js';
 export * from './traces/corpus.js';
 export type { WorkspaceHandle } from './workspace.js';
@@ -45,3 +58,5 @@ export {
 
 export { MIGRATIONS, runMigrations, lastAppliedId } from './migrations.js';
 export type { Migration } from './migrations.js';
+
+export * from './plugins/index.js';
