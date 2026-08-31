@@ -33,6 +33,7 @@ interface Member {
   role: "owner" | "admin" | "member" | "viewer";
   joinedAt: string;
   email?: string;
+  displayName?: string | null;
 }
 
 const proxy = async (
@@ -85,7 +86,7 @@ export default function MembersPage() {
       const res = await proxy("/v1/workspaces/members", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, role }),
+        body: JSON.stringify({ email, role, displayName: email.split("@")[0] }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -235,11 +236,11 @@ function MemberCard({
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
       className="flex items-center gap-4 rounded-xl border border-border/60 bg-card p-4 transition-colors hover:border-border"
     >
-      <UserAvatar email={member.email ?? member.userId} className="size-10" />
+      <UserAvatar email={member.email ?? member.userId} name={member.displayName} className="size-10" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium">
-            {member.email ?? member.userId}
+{member.displayName ?? member.email ?? member.userId}
           </p>
           <Badge variant={meta.variant}>{meta.label}</Badge>
         </div>
