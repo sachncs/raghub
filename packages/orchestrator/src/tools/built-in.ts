@@ -20,9 +20,9 @@ import {
   type SummaryIndex,
   type VectorStore,
   type WebSearch,
-  RaghubError,
+  RevexError,
   User,
-} from '@raghub/core';
+} from '@revex/core';
 
 import type { Tool, ToolContext, ToolResult } from './registry.js';
 
@@ -65,7 +65,7 @@ const requireUser = (
   },
 ): User => {
   if (!state.user_id || !state.workspace_id) {
-    throw new RaghubError('authorization_error', 'tool requires an authenticated user');
+    throw new RevexError('authorization_error', 'tool requires an authenticated user');
   }
   return new User({
     id: state.user_id as never,
