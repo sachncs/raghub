@@ -10,7 +10,7 @@ import {
   User,
   UserRole,
   brandId,
-} from '@raghub/core';
+} from '@revex/core';
 import { AgentRegistry, type Agent, Orchestrator } from '../src/index.js';
 import { ToolRegistry } from '../src/tools/registry.js';
 import { resolveStrategy } from '../src/patterns/strategy.js';
