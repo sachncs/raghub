@@ -1,13 +1,13 @@
 # Isolation tiers
 
-RAGHub supports three multi-tenant isolation tiers, ranging from
+Revex supports three multi-tenant isolation tiers, ranging from
 application-level row filtering to full database-per-tenant separation.
 
 See [ADR 0014](../adr/0014-multi-tenant-isolation.md) for the design rationale.
 
 ## Configuration
 
-Set `RAGHUB_ISOLATION_TIER` in your environment:
+Set `REVEX_ISOLATION_TIER` in your environment:
 
 | Value | Description |
 |-------|-------------|
@@ -75,7 +75,7 @@ Each tier supports per-tenant encryption keys managed by
 Use the CLI to promote a tenant:
 
 ```bash
-raghub migrate-tenant --from row_level --to schema_per_tenant --tenant acme
+revex migrate-tenant --from row_level --to schema_per_tenant --tenant acme
 ```
 
 This copies existing rows into a new schema and verifies RLS policies.
