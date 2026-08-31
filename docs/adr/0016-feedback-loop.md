@@ -24,7 +24,7 @@ frequencies are scaled up by a multiplicative boost:
 boosted_tf = tf × (1 + α × feedback_score)
 ```
 
-where `α` (default `0.5`) is the `RAGHUB_BM25_BOOST_ALPHA` tunable.
+where `α` (default `0.5`) is the `REVEX_BM25_BOOST_ALPHA` tunable.
 The feedback score is the rolling average of all user-provided scores
 for that chunk, clamped to `[0, 1]`.
 
@@ -37,7 +37,7 @@ similarity score is damped:
 adjusted_score = similarity × (1 + β × feedback_score)
 ```
 
-where `β` (default `0.3`) is the `RAGHUB_VECTOR_DOWN_WEIGHT_BETA`
+where `β` (default `0.3`) is the `REVEX_VECTOR_DOWN_WEIGHT_BETA`
 tunable and `feedback_score` is in `[-1, 0]`.
 
 Both adjustments are applied **after** the base retrieval step and
