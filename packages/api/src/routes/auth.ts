@@ -30,7 +30,7 @@ import {
   SqliteWorkspaceMemberStore,
   brandId,
   openEncryptedWorkspace,
-} from '@raghub/core';
+} from '@revex/core';
 
 import { requireStore } from '../guards.js';
 
@@ -66,10 +66,10 @@ const newWorkspaceId = (): WorkspaceId =>
   brandId<WorkspaceId>(`wsp_${Math.random().toString(36).slice(2, 14)}`);
 
 const workspaceHome = (): string =>
-  process.env['RAGHUB_WORKSPACE_DIR'] ??
-  (process.env['RAGHUB_WORKSPACE_HOME']
-    ? `${process.env['RAGHUB_WORKSPACE_HOME']}/workspaces`
-    : `${process.env['HOME'] ?? '/tmp'}/.raghub/workspaces`);
+  process.env['REVEX_WORKSPACE_DIR'] ??
+  (process.env['REVEX_WORKSPACE_HOME']
+    ? `${process.env['REVEX_WORKSPACE_HOME']}/workspaces`
+    : `${process.env['HOME'] ?? '/tmp'}/.revex/workspaces`);
 
 const workspaceDir = (workspaceId: WorkspaceId): string => `${workspaceHome()}/${workspaceId}/workspace.db`;
 
@@ -159,7 +159,7 @@ export const authRoutes = (deps: AuthRouteDeps): Hono => {
 const handle = await openEncryptedWorkspace({ path, passphrase: body.passphrase });
     await deps.registry.register({ workspaceId, path, encryption: 'passphrase-aes-256-gcm' });
     /* Deposit the passphrase via the configured vault (memory
-     * by default; KMS-backed when RAGHUB_PASSPHRASE_VAULT=kms) and
+     * by default; KMS-backed when REVEX_PASSPHRASE_VAULT=kms) and
      * register the workspace with the supervisor so it spins up
      * a worker. Production deployments should pick 'kms' and
      * wire a real KMS decrypt. */
