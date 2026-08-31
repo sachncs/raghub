@@ -1,7 +1,7 @@
 /**
- * raghub error hierarchy.
+ * revex error hierarchy.
  *
- * Every domain-specific error in `@raghub/core` extends `RaghubError`.
+ * Every domain-specific error in `@revex/core` extends `RevexError`.
  * Public callers can `catch (err)` and discriminate on `err.code` to
  * drive UI / retry behaviour without inspecting free-form messages.
  *
@@ -11,7 +11,7 @@
 import { z } from 'zod';
 
 export const ErrorCode = {
-  RaghubError: 'raghub_error',
+  RevexError: 'revex_error',
   AuthError: 'auth_error',
   AuthorizationError: 'authorization_error',
   ConfigurationError: 'configuration_error',
@@ -27,7 +27,7 @@ export const ErrorCode = {
 export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 export const errorCodeSchema = z.enum([
-  ErrorCode.RaghubError,
+  ErrorCode.RevexError,
   ErrorCode.AuthError,
   ErrorCode.AuthorizationError,
   ErrorCode.ConfigurationError,
@@ -41,13 +41,13 @@ export const errorCodeSchema = z.enum([
 ]);
 
 /**
- * Base class for every raghub error.
+ * Base class for every revex error.
  *
  * Extends `Error` with a stable string `code`, an optional `cause`
  * (always wrapped, never thrown raw), and an optional `details` bag
  * the caller may inspect for structured context.
  */
-export class RaghubError extends Error {
+export class RevexError extends Error {
   public readonly code: ErrorCodeValue;
   public readonly details: Readonly<Record<string, unknown>>;
 
@@ -60,7 +60,7 @@ export class RaghubError extends Error {
     },
   ) {
     super(message);
-    this.name = 'RaghubError';
+    this.name = 'RevexError';
     this.code = code;
     this.details = Object.freeze({ ...(options?.details ?? {}) });
     if (options?.cause !== undefined) {
@@ -69,70 +69,70 @@ export class RaghubError extends Error {
   }
 }
 
-export class AuthError extends RaghubError {
+export class AuthError extends RevexError {
   constructor(message: string, options?: { cause?: unknown; details?: Record<string, unknown> }) {
     super(ErrorCode.AuthError, message, options);
     this.name = 'AuthError';
   }
 }
 
-export class AuthorizationError extends RaghubError {
+export class AuthorizationError extends RevexError {
   constructor(message: string, options?: { cause?: unknown; details?: Record<string, unknown> }) {
     super(ErrorCode.AuthorizationError, message, options);
     this.name = 'AuthorizationError';
   }
 }
 
-export class ConfigurationError extends RaghubError {
+export class ConfigurationError extends RevexError {
   constructor(message: string, options?: { cause?: unknown; details?: Record<string, unknown> }) {
     super(ErrorCode.ConfigurationError, message, options);
     this.name = 'ConfigurationError';
   }
 }
 
-export class GenerationError extends RaghubError {
+export class GenerationError extends RevexError {
   constructor(message: string, options?: { cause?: unknown; details?: Record<string, unknown> }) {
     super(ErrorCode.GenerationError, message, options);
     this.name = 'GenerationError';
   }
 }
 
-export class IngestionError extends RaghubError {
+export class IngestionError extends RevexError {
   constructor(message: string, options?: { cause?: unknown; details?: Record<string, unknown> }) {
     super(ErrorCode.IngestionError, message, options);
     this.name = 'IngestionError';
   }
 }
 
-export class MissingDepError extends RaghubError {
+export class MissingDepError extends RevexError {
   constructor(message: string, options?: { cause?: unknown; details?: Record<string, unknown> }) {
     super(ErrorCode.MissingDepError, message, options);
     this.name = 'MissingDepError';
   }
 }
 
-export class PipelineError extends RaghubError {
+export class PipelineError extends RevexError {
   constructor(message: string, options?: { cause?: unknown; details?: Record<string, unknown> }) {
     super(ErrorCode.PipelineError, message, options);
     this.name = 'PipelineError';
   }
 }
 
-export class RetrievalError extends RaghubError {
+export class RetrievalError extends RevexError {
   constructor(message: string, options?: { cause?: unknown; details?: Record<string, unknown> }) {
     super(ErrorCode.RetrievalError, message, options);
     this.name = 'RetrievalError';
   }
 }
 
-export class VectorStoreError extends RaghubError {
+export class VectorStoreError extends RevexError {
   constructor(message: string, options?: { cause?: unknown; details?: Record<string, unknown> }) {
     super(ErrorCode.VectorStoreError, message, options);
     this.name = 'VectorStoreError';
   }
 }
 
-export class VerificationError extends RaghubError {
+export class VerificationError extends RevexError {
   constructor(message: string, options?: { cause?: unknown; details?: Record<string, unknown> }) {
     super(ErrorCode.VerificationError, message, options);
     this.name = 'VerificationError';
