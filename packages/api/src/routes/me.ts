@@ -24,6 +24,7 @@ import {
   type SqliteUserStore,
   type WorkspaceId,
   type UserId,
+  type WorkspaceMemberStore,
 } from '@revex/core';
 
 import { getClaims } from '../middleware/auth.js';
@@ -31,6 +32,7 @@ import { requireStore } from '../guards.js';
 
 export interface MeRouteDeps {
   readonly userStore: SqliteUserStore | null;
+  readonly memberStore?: WorkspaceMemberStore | null;
   readonly sessionStore: SessionStore | null;
   readonly jwt: JwtService;
 }
@@ -55,7 +57,16 @@ export const meRoutes = (deps: MeRouteDeps): Hono => {
     if (!lookup) {
       return c.json({ error: { code: 'auth_error', message: 'user not found' } }, 401);
     }
-    return c.json({ user: lookup.user.toJSON() });
+    const member = deps.memberStore
+      ? await deps.memberStore.get(workspaceId, userId)
+      : null;
+    const json = lookup.user.toJSON();
+    return c.json({
+      user: {
+        ...json,
+        ...(member?.displayName ? { displayName: member.displayName } : {}),
+      },
+    });
   });
 
   app.patch('/v1/me/strategy', async (c) => {

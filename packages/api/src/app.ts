@@ -99,7 +99,12 @@ export const createApp = (deps: AppDeps): Hono => {
   protectedApp.use('*', jwtAuthMiddleware(deps.jwt));
   protectedApp.route(
     '/',
-    meRoutes({ userStore: deps.userStore, sessionStore: deps.sessionStore, jwt: deps.jwt }),
+    meRoutes({
+      userStore: deps.userStore,
+      memberStore: deps.memberStore,
+      sessionStore: deps.sessionStore,
+      jwt: deps.jwt,
+    }),
   );
   protectedApp.route('/', queryRoutes({ orchestrator: deps.orchestrator }));
   protectedApp.route(
