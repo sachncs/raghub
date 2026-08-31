@@ -13,6 +13,7 @@
 
 import type { Hit, User } from '@revex/core';
 import type { CollectionId, WorkspaceId, UserId } from '@revex/core';
+import type { StrategyOverrides } from '../patterns/strategy.js';
 
 /**
  * The shared `invocation_state` record Strands propagates to every
@@ -95,6 +96,10 @@ export interface OrchestratorRequest {
   readonly history?: readonly { readonly role: 'user' | 'assistant' | 'system' | 'tool'; readonly content: string }[];
   readonly signal?: AbortSignal;
   readonly roles?: readonly import('../agents/rag-agent.js').AgentRole[];
+  readonly overrides?: {
+    readonly strategy?: StrategyOverrides;
+    readonly sessionOverrides?: Readonly<Record<string, unknown>>;
+  };
 }
 
 export interface OrchestratorResult {

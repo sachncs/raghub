@@ -23,7 +23,10 @@ export interface QueryRouteDeps {
 interface QueryInput {
   readonly question: string;
   readonly session_id?: string;
+  readonly mode?: 'graph' | 'swarm' | 'workflow' | 'deep_research';
 }
+
+const VALID_MODES = new Set(['graph', 'swarm', 'workflow', 'deep_research']);
 
 export const queryRoutes = (deps: QueryRouteDeps): Hono => {
   const app = new Hono();
@@ -36,10 +39,12 @@ export const queryRoutes = (deps: QueryRouteDeps): Hono => {
       return c.json({ error: { code: 'revex_error', message: 'question required' } }, 400);
     }
     const sessionId = body.session_id ? brandId<SessionId>(body.session_id) : null;
+    const mode = body.mode && VALID_MODES.has(body.mode) ? body.mode : undefined;
     const result = await deps.orchestrator.run({
       question: body.question,
       user: null,
       sessionId,
+      ...(mode ? { overrides: { strategy: { mode } } } : {}),
     });
     return c.json({
       answer: result.answer,
@@ -57,12 +62,14 @@ export const queryRoutes = (deps: QueryRouteDeps): Hono => {
       return c.json({ error: { code: 'revex_error', message: 'question required' } }, 400);
     }
     const sessionId = body.session_id ? brandId<SessionId>(body.session_id) : null;
+    const mode = body.mode && VALID_MODES.has(body.mode) ? body.mode : undefined;
 
     return streamSSE(c, async (stream) => {
       for await (const ev of deps.orchestrator.stream({
         question: body.question!,
         user: null,
         sessionId,
+        ...(mode ? { overrides: { strategy: { mode } } } : {}),
       })) {
         await stream.writeSSE({
           id: String(ev.step),

@@ -190,16 +190,18 @@ export class Orchestrator {
 
   private makeInvocationState(req: OrchestratorRequest): InvocationState {
     const userOverrides: StrategyOverrides = req.user ? extractUserOverrides(req.user) : {};
+    const requestOverrides: StrategyOverrides = req.overrides?.strategy ?? {};
     const strategy = resolveStrategy([
       this.defaultStrategy,
       this.sessionOverrides['strategy'] as never,
       userOverrides,
+      requestOverrides,
     ]);
     return buildInvocationState({
       workspaceId: this.workspaceId,
       user: req.user,
       sessionId: req.sessionId,
-      sessionOverrides: this.sessionOverrides,
+      sessionOverrides: req.overrides?.sessionOverrides ?? this.sessionOverrides,
       strategy,
       db: this.sessionOverrides['db'],
       secrets: this.sessionOverrides['secrets'],

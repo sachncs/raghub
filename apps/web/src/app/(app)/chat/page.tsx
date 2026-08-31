@@ -29,6 +29,13 @@ interface ChatMessage {
   readonly text: string;
 }
 
+type RetrievalMode = "graph" | "deep_research";
+
+const MODES: ReadonlyArray<{ value: RetrievalMode; label: string }> = [
+  { value: "graph", label: "Fast" },
+  { value: "deep_research", label: "Deep research" },
+];
+
 const STARTERS: readonly { label: string; query: string }[] = [
   { label: "Find recent mentions of vendor X", query: "Find recent mentions of vendor X." },
   { label: "Summarise the Q3 contract", query: "Summarise the Q3 contract." },
@@ -39,6 +46,7 @@ const STARTERS: readonly { label: string; query: string }[] = [
 export default function ChatPage({ seedQuestion }: ChatPageProps) {
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [input, setInput] = React.useState("");
+  const [mode, setMode] = React.useState<RetrievalMode>("graph");
   const [sessionId] = React.useState(() =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
@@ -90,7 +98,7 @@ export default function ChatPage({ seedQuestion }: ChatPageProps) {
     setMessages((m) => [...m, { id: assistantId, role: "assistant", text: "" }]);
 
     assistantMessageIdRef.current = assistantId;
-    const text = await stream.start({ question, sessionId });
+    const text = await stream.start({ question, sessionId, mode });
     setMessages((m) =>
       m.map((msg) =>
         msg.id === assistantId ? { ...msg, text: text || stream.text } : msg
@@ -136,7 +144,12 @@ export default function ChatPage({ seedQuestion }: ChatPageProps) {
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
-      <ContextStrip sessionId={sessionId} streaming={stream.streaming} />
+      <ContextStrip
+        sessionId={sessionId}
+        streaming={stream.streaming}
+        mode={mode}
+        onModeChange={setMode}
+      />
       {stream.streaming && (
         <div className="sticky top-14 z-10 -mt-px">
           <Progress value={70} className="h-0.5 rounded-none" />
@@ -216,20 +229,43 @@ export default function ChatPage({ seedQuestion }: ChatPageProps) {
 function ContextStrip({
   sessionId,
   streaming,
+  mode,
+  onModeChange,
 }: {
   readonly sessionId: string;
   readonly streaming: boolean;
+  readonly mode: RetrievalMode;
+  readonly onModeChange: (mode: RetrievalMode) => void;
 }) {
   return (
     <div className="border-b bg-background/60 px-4 py-2.5 backdrop-blur-md">
-      <div className="mx-auto flex max-w-3xl items-center justify-between text-xs">
+      <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Sparkles className="size-3.5 text-primary" />
           <span className="font-medium text-foreground">Hybrid retrieval</span>
           <span className="text-muted-foreground/50">·</span>
           <span className="font-mono">{sessionId.slice(0, 8)}</span>
         </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <div className="inline-flex overflow-hidden rounded-md border border-border/60 bg-background/40 text-[11px]">
+            {MODES.map((m, i) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => onModeChange(m.value)}
+                disabled={streaming}
+                className={cn(
+                  "px-2.5 py-1 transition-colors disabled:opacity-50",
+                  i > 0 && "border-l border-border/60",
+                  mode === m.value
+                    ? "bg-primary/15 text-foreground"
+                    : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                )}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
           <Badge variant="outline" className="h-5 gap-1 px-1.5 py-0 text-[10px] uppercase tracking-wider">
             <span
               className={cn(

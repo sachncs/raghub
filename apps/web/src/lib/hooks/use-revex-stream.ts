@@ -27,7 +27,11 @@ export interface UseRevexStreamResult {
   readonly text: string;
   readonly streaming: boolean;
   readonly error: string | null;
-  readonly start: (body: { question: string; sessionId: string }) => Promise<string>;
+  readonly start: (body: {
+    readonly question: string;
+    readonly sessionId: string;
+    readonly mode?: 'graph' | 'deep_research';
+  }) => Promise<string>;
   readonly reset: () => void;
   readonly stop: () => void;
 }
@@ -58,7 +62,11 @@ export function useRevexStream(options: Options = {}): UseRevexStreamResult {
   }, []);
 
   const start = React.useCallback(
-    async (body: { question: string; sessionId: string }): Promise<string> => {
+    async (body: {
+      readonly question: string;
+      readonly sessionId: string;
+      readonly mode?: 'graph' | 'deep_research';
+    }): Promise<string> => {
       if (controllerRef.current) {
         controllerRef.current.abort();
       }
@@ -74,7 +82,11 @@ export function useRevexStream(options: Options = {}): UseRevexStreamResult {
         const res = await fetch("/api/proxy", {
           method: "POST",
           headers: { "content-type": "application/json", "x-revex-path": path },
-          body: JSON.stringify(body),
+          body: JSON.stringify({
+            question: body.question,
+            session_id: body.sessionId,
+            ...(body.mode ? { mode: body.mode } : {}),
+          }),
           signal: controller.signal,
         });
         if (!res.ok || !res.body) {
