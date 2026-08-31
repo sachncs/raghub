@@ -19,7 +19,7 @@ import type { Database } from '../workspace.js';
 
 export interface UserStore {
   getByEmail(email: string): Promise<{ user: User; passwordHash: string } | null>;
-  getById(workspaceId: WorkspaceId, id: UserId): Promise<User | null>;
+  getById(workspaceId: WorkspaceId, id: UserId): Promise<{ user: User; passwordHash: string } | null>;
   create(input: {
     workspaceId: WorkspaceId;
     email: string;
@@ -27,6 +27,7 @@ export interface UserStore {
     role: keyof typeof UserRole;
     allowedCompanies: readonly string[];
   }): Promise<User>;
+  updatePassword(workspaceId: WorkspaceId, id: UserId, passwordHash: string): Promise<boolean>;
   close(): Promise<void>;
 }
 
@@ -50,11 +51,23 @@ export class SqliteUserStore implements UserStore {
     return { user, passwordHash: String(row['password_hash']) };
   }
 
-  public async getById(workspaceId: WorkspaceId, id: UserId): Promise<User | null> {
+  public async getById(workspaceId: WorkspaceId, id: UserId): Promise<{ user: User; passwordHash: string } | null> {
     const row = this.db
       .prepare('SELECT * FROM users WHERE workspace_id = ? AND id = ?')
       .get(workspaceId, id) as Record<string, unknown> | undefined;
-    return row ? rowToUser(row) : null;
+    if (!row) return null;
+    return { user: rowToUser(row), passwordHash: String(row['password_hash']) };
+  }
+
+  public async updatePassword(
+    workspaceId: WorkspaceId,
+    id: UserId,
+    passwordHash: string,
+  ): Promise<boolean> {
+    const info = this.db
+      .prepare('UPDATE users SET password_hash = ? WHERE workspace_id = ? AND id = ?')
+      .run(passwordHash, workspaceId, id);
+    return info.changes > 0;
   }
 
   public async create(input: {
