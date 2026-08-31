@@ -1,9 +1,9 @@
 # Deployment
 
-RAGHub ships as a Python package on PyPI. The deployment model is
+Revex ships as a Python package on PyPI. The deployment model is
 "install the wheel, configure the environment, run the process" —
 no container images, no Compose stack, no orchestration manifests
-are shipped from the RAGHub repository. Operators can run the
+are shipped from the Revex repository. Operators can run the
 process directly, under `systemd`, inside a virtualenv on a bare
 host, or as a workload in any application platform that can host
 a Python entry point.
@@ -20,7 +20,7 @@ openssl rand -base64 48         # generate JWT_SECRET
 pip install "raghub[api,structured,langfuse,pdf]"
 
 # 3. Initialise the data directory and SQLite stores.
-raghub init -o raghub.yaml
+raghub init -o revex.yaml
 
 # 4. Run the FastAPI server.
 raghub run --host 0.0.0.0 --port 8000
@@ -52,17 +52,17 @@ Three files live under `RAG_DATA_DIR` (default `./data`):
 | `sessions.db` | Opaque session tokens (signed with `JWT_SECRET`) |
 | `images/` | Optional content-addressed upload blob cache |
 
-Backups are produced with `raghub backup create -o <archive>` and
-restored with `raghub backup restore --input <archive> --target-dir
+Backups are produced with `revex backup create -o <archive>` and
+restored with `revex backup restore --input <archive> --target-dir
 <dir>`. See [`operations/backup.md`](../operations/backup.md) for
 the full procedure, retention policy, and cross-region guidance.
 
-For PostgreSQL deployments, run `raghub migrate pgvector --dsn
+For PostgreSQL deployments, run `revex migrate pgvector --dsn
 <dsn>` once to create the `PgVectorStore` schema and indexes, then
 point the application at the database with `RAG_VECTORSTORE_DSN`.
 The `pg_dump` / `pg_basebackup` job is the canonical PostgreSQL
 backup; the SQLite files continue to be backed up through
-`raghub backup create`.
+`revex backup create`.
 
 ## Hardening (production defaults)
 
@@ -86,7 +86,7 @@ restrictions, read-only root filesystem, `tmpfs` mounts, PID-1
 process supervision) is the responsibility of the surrounding
 platform — `systemd` unit hardening directives, Kubernetes
 `securityContext`, or whatever the operator's environment
-provides. RAGHub ships only a wheel, so the unit of isolation is
+provides. Revex ships only a wheel, so the unit of isolation is
 the install path and the surrounding process, not an image.
 
 ## Health and readiness
@@ -103,7 +103,7 @@ vector store, embedder, and LLM provider.
 
 ## Configuration profiles
 
-`RAGHub` reads `config/<profile>.yaml` (and the optional matching
+`Revex` reads `config/<profile>.yaml` (and the optional matching
 `.toml`) where `profile` comes from `RAG_PROFILE`. The shipped
 profiles:
 
@@ -160,7 +160,7 @@ process environment.
   alongside `allow_credentials=True`.
 * Demo-user seeding is suppressed automatically in production
   (and whenever `CORS_ORIGINS` is the default `*`). Operators
-  must set `RAGHUB_USERS` or bootstrap accounts before the first
+  must set `REVEX_USERS` or bootstrap accounts before the first
   start.
 * `RAG_ALLOW_PASSWORDLESS=false` is set in `.env`.
 * `RAG_DATA_DIR` lives on durable storage with daily backups
@@ -182,7 +182,7 @@ are:
 | Batch        | `POST /v1/documents/ingest/batch` | One failure does not abort the others |
 | Async        | `POST /v1/ingest/async` | Submits to the background pool, returns `{job_id}` |
 
-The CLI equivalents (`raghub ingest <path>`) wrap the HTTP
+The CLI equivalents (`revex ingest <path>`) wrap the HTTP
 surface. Anything that mutates the document registry must go
 through `RagApplication.upload_document` (the same entry point the
 API exposes).
@@ -196,7 +196,7 @@ deployed instance:
   triage for failing services; covers health, logs, restarts, and
   the canonical reset path.
 - [`operations/backup.md`](../operations/backup.md) — `raghub
-  backup create` / `raghub backup restore`, retention, and
+  backup create` / `revex backup restore`, retention, and
   cross-region storage.
 - [`operations/monitoring.md`](../operations/monitoring.md) —
   Prometheus metrics, Langfuse spans, and structured logging on a
