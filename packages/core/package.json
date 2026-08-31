@@ -1,7 +1,7 @@
 {
-  "name": "@raghub/core",
+  "name": "@revex/core",
   "version": "1.1.0",
-  "description": "raghub core — domain types, stores, retrieval, ingest, auth, tenants, telemetry.",
+  "description": "Revex core — domain types, stores, retrieval, ingest, auth, tenants, telemetry.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
