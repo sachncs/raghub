@@ -13,7 +13,7 @@ import {
   type SqliteAuditEventStore,
   type WorkspaceId,
   brandId,
-} from '@raghub/core';
+} from '@revex/core';
 
 import { getClaims, getPassphrase } from '../middleware/auth.js';
 import { requireStore } from '../guards.js';
@@ -62,7 +62,7 @@ export const settingsRoutes = (deps: SettingsRouteDeps): Hono => {
       temperature?: number;
     };
     if (!body.provider || !isProvider(body.provider) || !body.model) {
-      return c.json({ error: { code: 'raghub_error', message: 'provider + model required' } }, 400);
+      return c.json({ error: { code: 'revex_error', message: 'provider + model required' } }, 400);
     }
     const handle = await deps.pool.get({
       workspaceId: brandId<WorkspaceId>(claims.workspace_id),
