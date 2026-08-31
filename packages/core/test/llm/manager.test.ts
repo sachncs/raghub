@@ -13,6 +13,7 @@ import {
   LlmManager,
   classifyError,
   estimateTokens,
+  estimateMessagesTokens,
 } from '../../src/index.js';
 import type { Llm, GenerateOptions, GenerateResult, StreamChunk } from '../../src/index.js';
 
@@ -247,7 +248,7 @@ describe('estimateTokens', () => {
   });
 
   it('sums message tokens plus a per-message overhead', () => {
-    const total = estimateTokens([
+    const total = estimateMessagesTokens([
       { role: 'system', content: 'sys' },
       { role: 'user', content: 'hi' },
     ]);
