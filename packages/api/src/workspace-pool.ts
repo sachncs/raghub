@@ -23,7 +23,7 @@ import {
   type WorkspaceId,
   type WorkspaceRegistry,
   type WorkspaceWithSettings,
-} from '@raghub/core';
+} from '@revex/core';
 
 export interface WorkspacePoolOptions {
   readonly registry: WorkspaceRegistry;
@@ -68,7 +68,7 @@ export class WorkspacePool {
     passphrase: string;
   }): Promise<WorkspaceWithSettings> {
     const key = `${input.workspaceId}::${input.userId}`;
-    if (process.env['RAGHUB_DEBUG_POOL']) {
+    if (process.env['REVEX_DEBUG_POOL']) {
       // eslint-disable-next-line no-console
       console.log(`[pool] get key=${key} cached=${this.entries.has(key)}`);
     }
