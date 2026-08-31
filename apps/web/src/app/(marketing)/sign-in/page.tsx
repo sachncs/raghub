@@ -4,13 +4,21 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { motion } from "motion/react";
-import { ArrowRight, Eye, EyeOff, Sparkles } from "@/lib/icons";
 
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
+  KeyRound,
+  ScanSearch,
+  ShieldCheck,
+} from "@/lib/icons";
+import { AuthCard } from "@/components/auth/auth-card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Wordmark } from "@/components/wordmark";
+import { LogoMark } from "@/components/marketing/logo-mark";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -29,7 +37,8 @@ export default function SignInPage() {
     const next: typeof errors = {};
     if (!email.includes("@")) next.email = "Enter a valid email address.";
     if (password.length < 1) next.password = "Password is required.";
-    if (passphrase.length < 1) next.passphrase = "Workspace passphrase is required.";
+    if (passphrase.length < 1)
+      next.passphrase = "Workspace passphrase is required.";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -65,169 +74,186 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-8 px-6 py-12 md:grid-cols-2 md:py-20">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="mx-auto w-full max-w-sm"
-      >
-        <div className="mb-6 flex items-center justify-between">
-          <Wordmark size="md" />
-          <span className="rounded-full border border-border/60 bg-card/60 px-2.5 py-0.5 text-xs text-muted-foreground backdrop-blur-sm">
-            Sign in
-          </span>
-        </div>
-        <h1 className="mb-2 text-3xl font-semibold tracking-tight">
-          Welcome back
-        </h1>
-        <p className="mb-6 text-sm text-muted-foreground">
-          Sign in to your Revex workspace.
-        </p>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (errors.email) setErrors((p) => ({ ...p, email: undefined }));
-              }}
-              aria-invalid={!!errors.email}
-              required
-            />
-            {errors.email && (
-              <p className="text-xs text-destructive">{errors.email}</p>
-            )}
+    <AuthCard
+      left={
+        <div className="flex h-full flex-col justify-between gap-10">
+          <div className="flex items-center gap-2.5">
+            <LogoMark size="md" />
+            <span className="text-lg font-semibold italic tracking-tight">
+              re
+              <span className="not-italic text-primary">›</span>
+              ex
+            </span>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (errors.password)
-                  setErrors((p) => ({ ...p, password: undefined }));
-              }}
-              aria-invalid={!!errors.password}
-              required
-            />
-            {errors.password && (
-              <p className="text-xs text-destructive">{errors.password}</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="passphrase">Workspace passphrase</Label>
-            <div className="relative">
-              <Input
-                id="passphrase"
-                type={showPassphrase ? "text" : "password"}
-                autoComplete="off"
-                value={passphrase}
-                onChange={(e) => {
-                  setPassphrase(e.target.value);
-                  if (errors.passphrase)
-                    setErrors((p) => ({ ...p, passphrase: undefined }));
-                }}
-                aria-invalid={!!errors.passphrase}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassphrase(!showPassphrase)}
-                className="absolute right-2 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}
-              >
-                {showPassphrase ? (
-                  <EyeOff className="size-4" />
-                ) : (
-                  <Eye className="size-4" />
-                )}
-              </button>
-            </div>
-            {errors.passphrase && (
-              <p className="text-xs text-destructive">{errors.passphrase}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Required to unlock the encrypted workspace on disk.
-            </p>
-          </div>
-          <Button type="submit" disabled={submitting} className="w-full" size="lg">
-            {submitting ? (
-              <>
-                <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Signing in…
-              </>
-            ) : (
-              <>
-                Sign in
-                <ArrowRight className="size-4" />
-              </>
-            )}
-          </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            New here?{" "}
-            <Link
-              href="/onboarding"
-              className="font-medium text-foreground underline-offset-4 hover:underline"
-            >
-              Create a workspace
-            </Link>
-          </p>
-        </form>
-      </motion.div>
-      <motion.aside
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-        className="hidden md:block"
-      >
-        <div className="relative mx-auto aspect-square max-w-md overflow-hidden rounded-3xl border border-border/60 bg-card/40 p-8 backdrop-blur-sm">
-          <div
-            aria-hidden
-            className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 via-amber-500/10 to-transparent"
-          />
-          <div className="relative flex h-full flex-col">
-            <div className="mb-6 inline-flex items-center gap-2 self-start rounded-full border border-border/60 bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur-sm">
-              <Sparkles className="size-3.5" />
-              Encrypted workspace
-            </div>
-            <h2 className="text-balance text-3xl font-semibold leading-tight tracking-tight">
+
+          <div className="flex flex-col gap-5">
+            <Badge variant="outline" className="w-fit gap-2">
+              <ShieldCheck className="size-3.5 text-emerald-500" />
+              Encrypted workspace · sealed SQLite
+            </Badge>
+            <h2 className="text-balance text-display-2 leading-tight">
               Your team&apos;s knowledge,
               <br />
-              <span className="text-gradient-brand">instantly retrievable.</span>
+              <span className="text-gradient-brand">policy-aware retrieval.</span>
             </h2>
-            <p className="mt-4 text-pretty text-sm text-muted-foreground">
+            <p className="max-w-md text-pretty text-base leading-relaxed text-muted-foreground">
               Revex fuses vector, keyword, graph, memory, and web into one
-              ranked answer — backed by a sealed SQLite workspace that only
-              opens with your passphrase.
+              ranked answer — behind a workspace that only opens with your
+              passphrase.
             </p>
-            <div className="mt-auto space-y-3 rounded-2xl border border-border/60 bg-background/60 p-4 font-mono text-xs">
-              <div className="flex items-center gap-2">
-                <span className="size-2 rounded-full bg-emerald-500" />
-                <span className="text-foreground">workspace.db</span>
-                <span className="ml-auto text-muted-foreground">sealed</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="size-2 rounded-full bg-indigo-500" />
-                <span className="text-foreground">vector index</span>
-                <span className="ml-auto text-muted-foreground">ready</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="size-2 rounded-full bg-amber-500" />
-                <span className="text-foreground">acl graph</span>
-                <span className="ml-auto text-muted-foreground">ready</span>
-              </div>
-            </div>
+            <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
+              <li className="flex items-center gap-2">
+                <ScanSearch className="size-4 text-primary" />
+                9 retrieval sources, fused with RRF
+              </li>
+              <li className="flex items-center gap-2">
+                <ShieldCheck className="size-4 text-emerald-500" />
+                Document-level ACLs enforced at retrieval
+              </li>
+              <li className="flex items-center gap-2">
+                <KeyRound className="size-4 text-amber-500" />
+                Sealed SQLite file · your disk, your control
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-2.5 py-1">
+              <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+              SOC 2 Type II
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-2.5 py-1">
+              <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+              ISO 27001
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-2.5 py-1">
+              <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+              HIPAA-ready
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-2.5 py-1">
+              <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+              MIT core
+            </span>
           </div>
         </div>
-      </motion.aside>
-    </div>
+      }
+      trustPills={["SOC 2 Type II", "ISO 27001", "HIPAA-ready"]}
+    >
+      <div className="flex flex-col gap-2">
+        <Badge variant="outline" className="w-fit gap-2">
+          <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+          Sign in
+        </Badge>
+        <h1 className="text-h1 text-foreground">Welcome back</h1>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Sign in to your Revex workspace. Three fields, no third-party auth,
+          no tracking.
+        </p>
+      </div>
+
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (errors.email) setErrors((p) => ({ ...p, email: undefined }));
+            }}
+            aria-invalid={!!errors.email}
+            required
+          />
+          {errors.email && (
+            <p className="text-xs text-destructive">{errors.email}</p>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (errors.password)
+                setErrors((p) => ({ ...p, password: undefined }));
+            }}
+            aria-invalid={!!errors.password}
+            required
+          />
+          {errors.password && (
+            <p className="text-xs text-destructive">{errors.password}</p>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="passphrase">Workspace passphrase</Label>
+          <div className="relative">
+            <Input
+              id="passphrase"
+              type={showPassphrase ? "text" : "password"}
+              autoComplete="off"
+              value={passphrase}
+              onChange={(e) => {
+                setPassphrase(e.target.value);
+                if (errors.passphrase)
+                  setErrors((p) => ({ ...p, passphrase: undefined }));
+              }}
+              aria-invalid={!!errors.passphrase}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassphrase(!showPassphrase)}
+              className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+              aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}
+            >
+              {showPassphrase ? (
+                <EyeOff className="size-4" />
+              ) : (
+                <Eye className="size-4" />
+              )}
+            </button>
+          </div>
+          {errors.passphrase && (
+            <p className="text-xs text-destructive">{errors.passphrase}</p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Required to unlock the encrypted workspace on disk.
+          </p>
+        </div>
+        <Button
+          type="submit"
+          disabled={submitting}
+          size="lg"
+          className="mt-2 w-full rounded-xl"
+        >
+          {submitting ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Unlocking workspace…
+            </span>
+          ) : (
+            <>
+              Sign in
+              <ArrowRight className="size-4" />
+            </>
+          )}
+        </Button>
+      </form>
+
+      <p className="text-center text-sm text-muted-foreground">
+        New here?{" "}
+        <Link
+          href="/onboarding"
+          className="font-medium text-foreground underline-offset-4 hover:underline"
+        >
+          Create a workspace
+        </Link>
+      </p>
+    </AuthCard>
   );
 }
