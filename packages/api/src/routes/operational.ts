@@ -10,7 +10,7 @@
 
 import { Hono } from 'hono';
 
-import type { WorkspaceRegistry } from '@raghub/core';
+import type { WorkspaceRegistry } from '@revex/core';
 
 import { getClaims } from '../middleware/auth.js';
 import type { WorkspacePool } from '../workspace-pool.js';
