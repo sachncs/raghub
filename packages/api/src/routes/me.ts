@@ -24,7 +24,7 @@ import {
   type WorkspaceId,
   type UserId,
   type UserStore,
-} from '@raghub/core';
+} from '@revex/core';
 
 import { getClaims } from '../middleware/auth.js';
 import { requireStore } from '../guards.js';
