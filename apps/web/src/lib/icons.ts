@@ -3,6 +3,7 @@ import {
   ArrowUpRight as _ArrowUpRight,
   ArrowUp as _ArrowUp,
   ArrowLeft as _ArrowLeft,
+  Badge as _Badge,
   Boxes as _Boxes,
   Brain as _Brain,
   Briefcase as _Briefcase,
@@ -75,6 +76,7 @@ export const ArrowRight = _ArrowRight;
 export const ArrowUpRight = _ArrowUpRight;
 export const ArrowUp = _ArrowUp;
 export const ArrowLeft = _ArrowLeft;
+export const BadgeIcon = _Badge;
 export const Boxes = _Boxes;
 export const Brain = _Brain;
 export const Briefcase = _Briefcase;
