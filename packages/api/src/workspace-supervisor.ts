@@ -11,8 +11,8 @@
 
 import type { Database } from './db-types.js';
 import { JobWorker, type JobHandler } from './job-worker.js';
-import type { WorkspaceRegistry } from '@raghub/core';
-import { openEncryptedWorkspace } from '@raghub/core';
+import type { WorkspaceRegistry } from '@revex/core';
+import { openEncryptedWorkspace } from '@revex/core';
 
 import { workspaceRegistry, passVaultRef } from './workspace-bootstrap.js';
 
