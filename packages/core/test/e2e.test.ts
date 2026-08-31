@@ -119,14 +119,14 @@ describe('end-to-end smoke', () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'raghub-e2e-'));
+    dir = mkdtempSync(join(tmpdir(), 'revex-e2e-'));
   });
 
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  const integration = process.env['RAGHUB_RUN_SQLITE_TESTS'] === '1' && process.env['RAGHUB_LOAD_SQLITE_VEC'] === '1';
+  const integration = process.env['REVEX_RUN_SQLITE_TESTS'] === '1' && process.env['REVEX_LOAD_SQLITE_VEC'] === '1';
   const itg = integration ? it : it.skip;
 
   itg('runs the full workspace flow', async () => {
