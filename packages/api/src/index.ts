@@ -132,7 +132,7 @@ export interface BootResult {
   defaultWorkspace: {
     readonly workspaceId: string;
     readonly path: string;
-    readonly userStore: UserStore;
+    readonly userStore: SqliteUserStore;
     readonly documentStore: DocumentStore;
     readonly documentPrincipalStore: DocumentPrincipalStore;
     readonly memberStore: SqliteWorkspaceMemberStoreType;
