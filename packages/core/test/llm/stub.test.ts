@@ -1,7 +1,7 @@
 /**
  * StubLlm — deterministic, network-free, delay-streaming.
  *
- * Selected when `RAGHUB_LLM_STUB=1`. Verifies the chunked-stream
+ * Selected when `REVEX_LLM_STUB=1`. Verifies the chunked-stream
  * contract so the SSE proxy / chat UI can rely on it.
  */
 
