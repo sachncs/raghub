@@ -5,18 +5,18 @@
  * accepts an optional `passphrase`. When provided:
  *   1. scrypt(passphrase, salt, N=2^15, r=8, p=1) -> 32-byte key
  *   2. Verify: AES-GCM decrypt the row in workspace_keycheck; if it
- *      matches "raghub", proceed; else throw ConfigurationError.
+ *      matches "revex", proceed; else throw ConfigurationError.
  *   3. workspace_settings rows are stored as { nonce, ciphertext }.
  *      Reads decrypt on the fly; writes encrypt transparently.
  *
  * Without a passphrase the workspace runs in plaintext mode
  * (development convenience). The CLI server always passes the
  * passphrase; the Next.js API server reads it from
- * RAGHUB_WORKSPACE_PASSPHRASE.
+ * REVEX_WORKSPACE_PASSPHRASE.
  *
  * The KDF parameters + salt + verifier are stored in plaintext in
  * workspace_keycheck (the salt is not secret; the verifier is
- * AES-GCM("raghub", key) — proving possession of the key without
+ * AES-GCM("revex", key) — proving possession of the key without
  * revealing anything useful).
  */
 
@@ -35,7 +35,7 @@ const SCRYPT_N = 1 << 15;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
 const SCRYPT_KEYLEN = 32;
-const VERIFIER_PLAINTEXT = 'raghub';
+const VERIFIER_PLAINTEXT = 'revex';
 const NONCE_LEN = 12;
 const TAG_LEN = 16;
 
