@@ -1,7 +1,7 @@
 # Backup & Restore
 
-RAGHub production state lives entirely on the local filesystem. The
-`raghub backup` and `raghub backup restore` sub-commands capture and
+Revex production state lives entirely on the local filesystem. The
+`revex backup` and `revex backup restore` sub-commands capture and
 restore that state from a single HMAC-signed archive — no separate
 database server is involved.
 
@@ -13,9 +13,9 @@ database server is involved.
 | Document upload blob cache | `RAG_DATA_DIR/images` | `./data/images` (optional) |
 
 For production deployments that move the vector store to PostgreSQL,
-the `raghub migrate pgvector --dsn <dsn>` command initialises the
+the `revex migrate pgvector --dsn <dsn>` command initialises the
 `PgVectorStore` schema and indexes on the target database; the
-`raghub backup` archive captures SQLite state and document manifests,
+`revex backup` archive captures SQLite state and document manifests,
 and the pgvector store is replicated through standard PostgreSQL
 backup tooling (`pg_dump` / `pg_basebackup`).
 
@@ -27,7 +27,7 @@ fail to restore end-to-end.
 The CLI wraps the snapshot writer in `raghub.archive`:
 
 ```bash
-raghub backup create -o /var/backups/raghub-$(date -u +%Y%m%dT%H%M%SZ).tar.zst
+revex backup create -o /var/backups/raghub-$(date -u +%Y%m%dT%H%M%SZ).tar.zst
 ```
 
 This writes a single `tar.zst` archive containing every component
@@ -39,7 +39,7 @@ from the secrets store).
 Inspect an existing archive without restoring:
 
 ```bash
-raghub backup verify --input /var/backups/raghub-20260805T120000Z.tar.zst
+revex backup verify --input /var/backups/raghub-20260805T120000Z.tar.zst
 ```
 
 `verify` checks both the HMAC signature and every per-file SHA-256;
@@ -58,9 +58,9 @@ For PostgreSQL deployments, pair the schedule with a standard
 raghub run --host 0.0.0.0 --port 8000      # or stop it via systemd / k8s
 
 # 2. Restore the archive into the data directory.
-raghub backup restore \
+revex backup restore \
     --input /var/backups/raghub-20260805T120000Z.tar.zst \
-    --target-dir /srv/raghub/data
+    --target-dir /srv/revex/data
 
 # 3. Restart the API.
 raghub run --host 0.0.0.0 --port 8000
@@ -74,7 +74,7 @@ function; the CLI default omits them so the caller re-derives
 embeddings from the source documents on the next ingest pass.
 
 For PostgreSQL deployments, restore the `pg_dump` against the
-target database *before* running `raghub backup restore` against
+target database *before* running `revex backup restore` against
 the SQLite portion, so the document registry and the vector store
 land at the same point in time.
 
