@@ -35,7 +35,7 @@ export const securityHeadersMiddleware = (
       c.header('Vary', 'Origin');
       c.header('Access-Control-Allow-Credentials', 'true');
       c.header('Access-Control-Allow-Methods', methods.join(', '));
-      c.header('Access-Control-Allow-Headers', 'content-type, authorization, x-raghub-path');
+      c.header('Access-Control-Allow-Headers', 'content-type, authorization, x-revex-path');
     }
     c.header('X-Content-Type-Options', 'nosniff');
     c.header('Referrer-Policy', 'no-referrer');
