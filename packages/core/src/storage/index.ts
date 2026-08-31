@@ -90,3 +90,12 @@ export {
 export type { AuditEvent, AuditEventKind, AuditEventStore } from './audit.js';
 export { SqliteAuditEventStore } from './audit.js';
 export type { SqliteAuditEventStoreOptions } from './audit.js';
+
+export type { FeedbackStore, FeedbackAggregate } from './feedback.js';
+export { SqliteFeedbackStore } from './feedback.js';
+export type { ImageStore, ImageSaveOptions } from './images.js';
+export { FsImageStore, InMemoryImageStore } from './images.js';
+export { DocumentVersionRegistry } from './document-versions.js';
+export type { DocumentVersionRecord, VersionRegistrySnapshot } from './document-versions.js';
+export { SnapshotWriter } from './snapshots.js';
+export type { SnapshotMetadata } from './snapshots.js';
