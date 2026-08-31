@@ -1,6 +1,6 @@
 # Getting Started
 
-The recommended way to use RAGHub is through the
+The recommended way to use Revex is through the
 [`raghub.RAG`](https://github.com/sachncs/raghub) facade. It is a single import,
 works offline by default, and lets you replace any spec component
 through the constructor or the plugin registry.
@@ -49,13 +49,13 @@ The framework ships a `raghub` console script (powered by
 
 ```bash
 # Emit a starter YAML config
-raghub init -o raghub.yaml
+raghub init -o revex.yaml
 
 # Ingest a file or directory
-raghub ingest ./documents
+revex ingest ./documents
 
 # Ask a question
-raghub query "What was the revenue guidance?"
+revex query "What was the revenue guidance?"
 
 # Liveness probe (calls RAG.health())
 raghub health
@@ -190,7 +190,7 @@ Two ways to start a facade from a config file:
 from raghub import RAG
 
 # From a YAML/TOML profile
-rag = RAG.from_config("raghub.yaml")
+rag = RAG.from_config("revex.yaml")
 
 # Programmatically with overrides
 from raghub.config.settings import load_settings
