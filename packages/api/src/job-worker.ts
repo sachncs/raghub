@@ -12,7 +12,7 @@
  * the current drain() pass to finish. Jobs already marked as
  * 'running' are NOT rolled back — the next process to acquire
  * the SQLite write lock will see them as stuck and the supervisor
- * can resume them on next startup. Run 'RAGHUB_RESET_STUCK_JOBS=1'
+ * can resume them on next startup. Run 'REVEX_RESET_STUCK_JOBS=1'
  * on boot to mark any orphaned running rows back to pending.
  */
 
@@ -72,7 +72,7 @@ export class JobWorker {
   /**
    * resetStuckJobs — mark any rows stuck in 'running' back to
    * 'pending' so a fresh process can pick them up. Called on
-   * boot when RAGHUB_RESET_STUCK_JOBS=1. Safe to call repeatedly.
+   * boot when REVEX_RESET_STUCK_JOBS=1. Safe to call repeatedly.
    */
   public resetStuckJobs(): void {
     const now = Date.now();
