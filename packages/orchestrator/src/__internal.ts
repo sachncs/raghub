@@ -1,5 +1,5 @@
 /**
- * Internal-only surface for sibling packages (@raghub/api).
+ * Internal-only surface for sibling packages (@revex/api).
  */
 
 export { InProcessAdapter } from './strands/in-process-adapter.js';
