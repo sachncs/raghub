@@ -1,14 +1,14 @@
 /**
  * Error-mapping middleware.
  *
- * Maps every `RaghubError` (and unknown throwables) to a JSON
+ * Maps every `RevexError` (and unknown throwables) to a JSON
  * response with the stable error code. Domain subclasses map to the
  * appropriate HTTP status.
  */
 
 import type { Context, MiddlewareHandler } from 'hono';
 
-import { AuthError, AuthorizationError, ConfigurationError, GenerationError, IngestionError, MissingDepError, PipelineError, RaghubError, RetrievalError, VectorStoreError, VerificationError } from '@raghub/core';
+import { AuthError, AuthorizationError, ConfigurationError, GenerationError, IngestionError, MissingDepError, PipelineError, RevexError, RetrievalError, VectorStoreError, VerificationError } from '@revex/core';
 
 interface ErrorBody {
   readonly error: {
@@ -29,14 +29,14 @@ const codeToStatus: Record<string, number> = {
   retrieval_error: 502,
   vector_store_error: 500,
   verification_error: 400,
-  raghub_error: 500,
+  revex_error: 500,
 };
 
 export const errorMiddleware = (): MiddlewareHandler => async (c, next) => {
   try {
     return await next();
   } catch (e) {
-    if (e instanceof RaghubError) {
+    if (e instanceof RevexError) {
       const body: ErrorBody = {
         error: {
           code: e.code,
@@ -61,7 +61,7 @@ export const errorMiddleware = (): MiddlewareHandler => async (c, next) => {
     return c.json(
       {
         error: {
-          code: 'raghub_error',
+          code: 'revex_error',
           message: e instanceof Error ? e.message : String(e),
         },
       } satisfies ErrorBody,
