@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 const config: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['@raghub/core', '@raghub/orchestrator'],
+  transpilePackages: ['@revex/core', '@revex/orchestrator'],
 };
 
 export default config;
