@@ -2,12 +2,12 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
-import OnboardingPage from '@/app/onboarding/page';
+import OnboardingPage from '@/app/(app)/onboarding/page';
 
 describe('OnboardingPage', () => {
   it('starts on the workspace-name step', () => {
     render(<OnboardingPage />);
-    expect(screen.getByRole('heading', { name: /welcome to raghub/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /name your workspace/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/workspace name/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /next/i })).toBeDisabled();
   });
