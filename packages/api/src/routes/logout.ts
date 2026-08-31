@@ -9,7 +9,7 @@
 
 import { Hono } from 'hono';
 
-import { type SessionStore, type WorkspaceId } from '@raghub/core';
+import { type SessionStore, type WorkspaceId } from '@revex/core';
 
 import { getClaims } from '../middleware/auth.js';
 import { requireStore } from '../guards.js';
@@ -28,8 +28,8 @@ export const logoutRoutes = (deps: LogoutRouteDeps): Hono => {
       const sessionStore = requireStore('sessionStore', deps.sessionStore);
       await sessionStore.remove(token, claims.workspace_id as WorkspaceId);
     }
-    c.header('Set-Cookie', 'raghub_token=; path=/; max-age=0; samesite=lax');
-    c.header('Set-Cookie', 'raghub_passphrase=; path=/; max-age=0; samesite=lax');
+    c.header('Set-Cookie', 'revex_session=; path=/; max-age=0; samesite=lax');
+    c.header('Set-Cookie', 'revex_workspace_key=; path=/; max-age=0; samesite=lax');
     return c.json({ ok: true });
   });
 
