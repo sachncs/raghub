@@ -1,7 +1,7 @@
 {
-  "name": "@raghub/eval",
+  "name": "@revex/eval",
   "version": "1.1.0",
-  "description": "raghub eval — RAG metrics + CARE + Finance + Frames harnesses.",
+  "description": "Revex eval — RAG metrics + CARE + Finance + Frames harnesses.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,7 +22,7 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@raghub/core": "workspace:*"
+    "@revex/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
