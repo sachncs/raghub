@@ -30,7 +30,7 @@ export interface WebSearch {
   search(opts: WebSearchOptions): Promise<WebSearchResult>;
 }
 
-const DEFAULT_UA = 'raghub/1.0 (+https://github.com/sachncs/raghub)';
+const DEFAULT_UA = 'revex/1.0 (+https://github.com/sachncs/revex)';
 const DEFAULT_MAX = 8;
 
 const decode = (s: string): string =>
