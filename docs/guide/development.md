@@ -1,6 +1,6 @@
 # Development Guide
 
-This is for people hacking on RAGHub itself. App developers should
+This is for people hacking on Revex itself. App developers should
 read [`getting-started.md`](getting-started.md) instead.
 
 ## Environment setup
@@ -78,7 +78,7 @@ exposed as `raghub-benchmark`.
 
 - **Google Python Style Guide** for docstrings.
 - **Type hints** on every public function and method (project is
-  `mypy` clean on `raghub/` proper).
+  `mypy` clean on `revex/` proper).
 - **No `_` prefix** on public names; use the explicit module-level
   `__all__` to declare the public surface.
 - **Active-record domain pattern** for the legacy
@@ -92,14 +92,14 @@ exposed as `raghub-benchmark`.
 ## Linting and type checking
 
 ```bash
-ruff check raghub/ tests/
-mypy raghub/
+ruff check revex/ tests/
+mypy revex/
 interrogate -v \
-    raghub/api/rag.py raghub/api/defaults.py raghub/api/response.py \
-    raghub/evaluation/ raghub/knowledge/ \
-    raghub/conversation/ raghub/cli/ \
+    revex/api/rag.py revex/api/defaults.py revex/api/response.py \
+    revex/evaluation/ revex/knowledge/ \
+    revex/conversation/ revex/cli/ \
     -f 80
-bandit -r raghub/ -q -ll -i
+bandit -r revex/ -q -ll -i
 pip-audit
 ```
 
@@ -109,7 +109,7 @@ ruff, mypy, and pytest configuration lives in `pyproject.toml`;
 root stubs (`ruff.toml`, `mypy.ini`, `pytest.ini`) have been
 removed so there is a single source of truth.
 
-The project is clean: zero ruff errors in `raghub/`. There are
+The project is clean: zero ruff errors in `revex/`. There are
 48 remaining mypy warnings concentrated in the legacy `services/`,
 `repositories/`, and `domain/` modules — these are slated to be
 removed when the legacy code is replaced (see
@@ -163,7 +163,7 @@ Plugins register additional converters with `registry.register_converter(name, c
 
 To support a new file format end-to-end:
 
-1. Add a converter at `raghub/converters/<format>.py`. It must
+1. Add a converter at `revex/converters/<format>.py`. It must
    implement the `DocumentConverter` interface (returns a
    `Bundle`).
 2. If it requires an external tool, add the dependency to
@@ -217,8 +217,8 @@ session store. The next ingest runs as a cold start.
   compatibility.
 - Add tests under `tests/` (group by component, e.g.
   `tests/test_<area>_<feature>.py`).
-- Update [the CHANGELOG](https://github.com/sachncs/raghub/blob/main/CHANGELOG.md) and the related
+- Update [the CHANGELOG](https://github.com/sachncs/revex/blob/main/CHANGELOG.md) and the related
   reference doc under `docs/reference/` or `docs/guide/` in the
   same change.
-- Run `pytest tests/ -x` and `ruff check raghub/ tests/`
+- Run `pytest tests/ -x` and `ruff check revex/ tests/`
   locally before pushing.
