@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import { IngestEmitter, ingestVerbose } from '../../src/index.js';
 import type { Embedder } from '../../src/index.js';
-import type { VectorStore } from '../../src/index.js';
+import type { StoreStats, VectorStore } from '../../src/index.js';
 import { brandId } from '../../src/domain/index.js';
 
 class FakeEmbedder implements Embedder {
@@ -25,19 +25,35 @@ class FakeEmbedder implements Embedder {
 }
 
 class FakeStore implements VectorStore {
-  public addedBatches: readonly { chunkCount: number }[] = [];
+  public addedBatches: { chunkCount: number }[] = [];
+  async add(): Promise<void> {}
   async addBatch(chunks: readonly unknown[]): Promise<void> {
     this.addedBatches.push({ chunkCount: chunks.length });
   }
-  async search() {
+  async searchVector() {
     return [];
   }
-  async delete() {
-    return;
-  }
-  async list(): Promise<readonly never[]> {
+  async searchKeyword() {
     return [];
   }
+  async getById() {
+    return null;
+  }
+  async deleteByDocument() {
+    return 0;
+  }
+  async stats(): Promise<StoreStats> {
+    return {
+      documentCount: 0,
+      chunkCount: 0,
+      embeddingBytes: 0,
+      totalTokenEstimate: 0,
+      bytesOnDisk: 0,
+      lastIngestedAt: null,
+      statusCounts: {},
+    };
+  }
+  async close(): Promise<void> {}
 }
 
 describe('ingestVerbose', () => {
