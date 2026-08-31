@@ -14,7 +14,7 @@
  *   - hook surface (before/after llm, before/after tool, etc.)
  */
 
-import type { ChatMessage, Hit } from '@raghub/core';
+import type { ChatMessage, Hit } from '@revex/core';
 
 import type { Agent, AgentRegistry } from '../agents/registry.js';
 import type { InvocationState, OrchestratorRequest, OrchestratorResult } from '../strands/types.js';
