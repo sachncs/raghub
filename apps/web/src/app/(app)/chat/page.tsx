@@ -1,13 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUp, CircleNotch, Sparkles } from "@/lib/icons";
+import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
+import {
+  ArrowUp,
+  CircleNotch,
+  ScanSearch,
+  ShieldCheck,
+  Sparkles,
+} from "@/lib/icons";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Kbd } from "@/components/ui/kbd";
 import { Progress } from "@/components/ui/progress";
-
 import { useRevexStream } from "@/lib/hooks/use-revex-stream";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +42,7 @@ export default function ChatPage({ seedQuestion }: ChatPageProps) {
   const [sessionId] = React.useState(() =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
-      : `s_${Date.now().toString(36)}`
+      : `s-${Date.now().toString(36)}`
   );
   const nextId = React.useRef(1);
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -89,14 +97,12 @@ export default function ChatPage({ seedQuestion }: ChatPageProps) {
       )
     );
 
-    // Fire-and-forget feedback — captures the turn id for later UI rating.
     const turnId = `${sessionId}:${assistantId}`;
     void fetch("/api/proxy", {
       method: "POST",
       headers: { "content-type": "application/json", "x-revex-path": "/v1/feedback" },
       body: JSON.stringify({ turnId, rating: "neutral" }),
     }).catch(() => undefined);
-    // Persist on the client so the rating widget can find the turnId later.
     try {
       window.localStorage.setItem(`revex:lastTurnId:${assistantId}`, turnId);
     } catch {
@@ -130,29 +136,19 @@ export default function ChatPage({ seedQuestion }: ChatPageProps) {
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
-      <div className="sticky top-14 -mt-px flex h-12 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Sparkles className="size-4" />
-            <span className="font-medium">Hybrid retrieval</span>
-            <span className="text-muted-foreground/50">·</span>
-            <span className="font-mono text-xs">{sessionId.slice(0, 8)}…</span>
-          </div>
-        </div>
-      </div>
-
+      <ContextStrip sessionId={sessionId} streaming={stream.streaming} />
       {stream.streaming && (
-        <div className="sticky top-[6.5rem] z-10 -mt-px">
+        <div className="sticky top-14 z-10 -mt-px">
           <Progress value={70} className="h-0.5 rounded-none" />
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 py-8">
+        <div className="mx-auto w-full max-w-3xl px-4 py-10">
           {messages.length === 0 ? (
             <EmptyChat onPrompt={(q) => void submit(q)} disabled={stream.streaming} />
           ) : (
-            <ol className="flex flex-col gap-8">
+            <ol className="flex flex-col gap-6">
               {messages.map((m) => (
                 <li key={m.id}>
                   <MessageBubble message={m} onRate={rate} />
@@ -164,12 +160,12 @@ export default function ChatPage({ seedQuestion }: ChatPageProps) {
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-10 border-t bg-background/80 backdrop-blur-md">
+      <div className="sticky bottom-0 z-10 border-t bg-background/85 backdrop-blur-md">
         <div className="mx-auto w-full max-w-3xl px-4 py-4">
           <div
             className={cn(
               "flex items-end gap-2 rounded-2xl border border-border bg-card/80 p-2 shadow-sm transition-shadow",
-              "focus-within:border-primary/40 focus-within:shadow-md"
+              "focus-within:border-primary/40 focus-within:shadow-md focus-within:shadow-primary/10"
             )}
           >
             <textarea
@@ -177,7 +173,7 @@ export default function ChatPage({ seedQuestion }: ChatPageProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder={`Ask Revex…`}
+              placeholder="Ask anything about your workspace…"
               rows={1}
               className="min-h-9 max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
             />
@@ -196,17 +192,54 @@ export default function ChatPage({ seedQuestion }: ChatPageProps) {
                 onClick={() => void submit()}
                 disabled={!input.trim()}
                 aria-label="Send"
+                className="size-9 rounded-xl"
               >
                 <ArrowUp className="size-4" />
               </Button>
             )}
           </div>
-          <p className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+          <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
             <span>
               Press <Kbd>Enter</Kbd> to send · <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> for newline
             </span>
-            <span className="font-mono">session {sessionId.slice(0, 8)}…</span>
-          </p>
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck className="size-3" />
+              Policy-scoped
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContextStrip({
+  sessionId,
+  streaming,
+}: {
+  readonly sessionId: string;
+  readonly streaming: boolean;
+}) {
+  return (
+    <div className="border-b bg-background/60 px-4 py-2.5 backdrop-blur-md">
+      <div className="mx-auto flex max-w-3xl items-center justify-between text-xs">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Sparkles className="size-3.5 text-primary" />
+          <span className="font-medium text-foreground">Hybrid retrieval</span>
+          <span className="text-muted-foreground/50">·</span>
+          <span className="font-mono">{sessionId.slice(0, 8)}</span>
+        </div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Badge variant="outline" className="h-5 gap-1 px-1.5 py-0 text-[10px] uppercase tracking-wider">
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                streaming ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
+              )}
+              aria-hidden
+            />
+            {streaming ? "Streaming" : "Ready"}
+          </Badge>
         </div>
       </div>
     </div>
@@ -221,16 +254,16 @@ function EmptyChat({
   disabled: boolean;
 }) {
   return (
-    <div className="flex min-h-[50vh] flex-col items-center justify-center py-12 text-center">
-      <div className="mx-auto mb-6 inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-amber-500/20">
-        <Sparkles className="size-7" />
+    <div className="flex min-h-[40vh] flex-col items-center justify-center py-12 text-center">
+      <div className="mb-6 inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-amber-500/20 ring-1 ring-border/40">
+        <ScanSearch className="size-7 text-primary" />
       </div>
-      <h1 className="mb-2 text-3xl font-semibold tracking-tight">
+      <h1 className="text-h2 mb-2 text-balance text-foreground">
         What can I help you retrieve?
       </h1>
-      <p className="mx-auto max-w-md text-pretty text-muted-foreground">
-        Revex fans out across vector, keyword, graph, memory, and web —
-        then fuses the results into one ranked answer.
+      <p className="mx-auto max-w-md text-pretty text-sm text-muted-foreground">
+        Revex fans out across vector, keyword, graph, memory, and web — then
+        fuses the results into one policy-aware answer.
       </p>
       <div className="mt-8 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
         {STARTERS.map((s) => (
@@ -241,8 +274,12 @@ function EmptyChat({
             onClick={() => onPrompt(s.query)}
             className="group flex items-start gap-3 rounded-xl border border-border/60 bg-card/50 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-border hover:bg-card disabled:opacity-50"
           >
-            <span className="mt-0.5 size-1.5 rounded-full bg-primary/70 transition-all group-hover:bg-primary" />
-            <span className="text-sm font-medium">{s.label}</span>
+            <span className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Sparkles className="size-3" />
+            </span>
+            <span className="text-sm font-medium text-foreground">
+              {s.label}
+            </span>
           </button>
         ))}
       </div>
@@ -259,44 +296,54 @@ function MessageBubble({
 }) {
   const isUser = message.role === "user";
   return (
-    <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
-      <div
-        className={cn(
-          "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-card text-foreground border border-border/60"
-        )}
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}
       >
-        {message.text.length === 0 ? (
-          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-            <span className="size-1.5 animate-pulse rounded-full bg-current" />
-            <span className="size-1.5 animate-pulse rounded-full bg-current [animation-delay:150ms]" />
-            <span className="size-1.5 animate-pulse rounded-full bg-current [animation-delay:300ms]" />
-          </span>
+        {isUser ? (
+          <Card className="max-w-[85%] border-primary/30 bg-primary px-4 py-3 text-primary-foreground shadow-sm">
+            <div className="whitespace-pre-wrap text-sm leading-relaxed">
+              {message.text}
+            </div>
+          </Card>
         ) : (
-          <div className="whitespace-pre-wrap">{message.text}</div>
+          <Card className="max-w-[85%] border-border/60 bg-card/70 px-4 py-3 shadow-sm">
+            {message.text.length === 0 ? (
+              <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                <span className="size-1.5 animate-pulse rounded-full bg-current" />
+                <span className="size-1.5 animate-pulse rounded-full bg-current [animation-delay:150ms]" />
+                <span className="size-1.5 animate-pulse rounded-full bg-current [animation-delay:300ms]" />
+              </span>
+            ) : (
+              <>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                  {message.text}
+                </div>
+                <div className="mt-3 flex items-center gap-1 border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
+                  <button
+                    type="button"
+                    onClick={() => onRate(message.id, "up")}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    Helpful
+                  </button>
+                  <span className="text-muted-foreground/30">·</span>
+                  <button
+                    type="button"
+                    onClick={() => onRate(message.id, "down")}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    Needs work
+                  </button>
+                </div>
+              </>
+            )}
+          </Card>
         )}
-        {!isUser && message.text.length > 0 && (
-          <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-            <button
-              type="button"
-              onClick={() => onRate(message.id, "up")}
-              className="rounded px-2 py-0.5 hover:bg-muted hover:text-foreground"
-            >
-              Helpful
-            </button>
-            <span className="text-muted-foreground/50">·</span>
-            <button
-              type="button"
-              onClick={() => onRate(message.id, "down")}
-              className="rounded px-2 py-0.5 hover:bg-muted hover:text-foreground"
-            >
-              Needs work
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
