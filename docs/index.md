@@ -1,4 +1,4 @@
-# RAGHub
+# Revex
 
 Production-grade multi-user retrieval-augmented generation platform built on
 the spec libraries. The single recommended entry point is
@@ -9,7 +9,7 @@ replaceable.
 ## Package layout
 
 ```text
-raghub/
+revex/
   rag/                 RAG facade, ingest/query/sync mixins
   api.py               FastAPI app (App.create)
   cli.py               Console scripts (``raghub``, ``raghub-financebench``)
@@ -53,9 +53,9 @@ print(rag.query("revenue").answer)
 ```
 
 ```bash
-raghub init -o raghub.yaml
-raghub ingest ./documents
-raghub query "What was the revenue guidance?"
+raghub init -o revex.yaml
+revex ingest ./documents
+revex query "What was the revenue guidance?"
 ```
 
 ## Documentation
