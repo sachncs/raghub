@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="og-bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0e1018" />
+      <stop offset="50%" stop-color="#16181f" />
+      <stop offset="100%" stop-color="#1a1d28" />
+    </linearGradient>
+    <radialGradient id="og-glow" cx="0.2" cy="0.2" r="0.6">
+      <stop offset="0%" stop-color="#5a6cff" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#5a6cff" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="og-glow2" cx="0.85" cy="0.85" r="0.6">
+      <stop offset="0%" stop-color="#f0b86e" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#f0b86e" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="og-mark" x1="0" y1="0" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5a6cff" />
+      <stop offset="100%" stop-color="#f0b86e" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#og-bg)" />
+  <rect width="1200" height="630" fill="url(#og-glow)" />
+  <rect width="1200" height="630" fill="url(#og-glow2)" />
+
+  <g transform="translate(120, 200)">
+    <rect width="80" height="80" rx="20" fill="url(#og-mark)" />
+    <path d="M22 16 L22 64 L32 64 L32 36 L58 64 L58 16 L48 16 L48 44 L22 16 Z" fill="#f4f3ef" fill-opacity="0.96" />
+  </g>
+
+  <text x="120" y="380" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="92" font-weight="600" fill="#f4f3ef" letter-spacing="-2">
+    re<tspan fill="#8e9bff">›</tspan>ex
+  </text>
+
+  <text x="120" y="450" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="32" fill="#9a99a1" font-weight="400">
+    Every retrieval, extracted.
+  </text>
+
+  <text x="120" y="490" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="22" fill="#6f6e78" font-weight="400">
+    Vector · keyword · graph · memory · web — one engine.
+  </text>
+
+  <g transform="translate(820, 220)">
+    <rect x="0" y="0" width="280" height="280" rx="20" fill="#1c1f29" stroke="#2a2d3a" stroke-width="1.5" />
+    <g transform="translate(40, 60)" font-family="ui-monospace, SFMono-Regular, monospace" font-size="14" fill="#9a99a1">
+      <text y="0" fill="#f4f3ef">┌──────────────────┐</text>
+      <text y="22">│   RagAgent        │</text>
+      <text y="44">│   ┌──┐ ┌──┐ ┌──┐  │</text>
+      <text y="66">│   │vec│ │bm25│ │graph│  │</text>
+      <text y="88">│   └──┘ └──┘ └──┘  │</text>
+      <text y="110">│      RRF k=60     │</text>
+      <text y="132">│        │         │</text>
+      <text y="154">│     generator     │</text>
+      <text y="176">└──────────────────┘</text>
+    </g>
+  </g>
+</svg>
