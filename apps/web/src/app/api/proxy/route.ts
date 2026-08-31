@@ -1,9 +1,9 @@
 /**
- * Proxy to the @raghub/api Hono server.
+ * Proxy to the @revex/api Hono server.
  *
  * EventSource cannot send Authorization headers, so the chat page
  * cannot stream SSE directly with a bearer token. This route
- * accepts a `x-raghub-path` header from the client, forwards the
+ * accepts a `x-revex-path` header from the client, forwards the
  * request to the API server, and pipes the response back. Cookies
  * (the JWT and the workspace passphrase) ride along on the
  * server-to-server hop.
@@ -20,7 +20,7 @@
 
 import { cookies } from 'next/headers';
 
-const API_BASE = process.env['RAGHUB_API_BASE'] ?? 'http://localhost:3000';
+const API_BASE = process.env['REVEX_API_BASE'] ?? 'http://localhost:3000';
 
 const cookieHeader = async (): Promise<string> => {
   const cookieStore = await cookies();
@@ -34,10 +34,10 @@ const forwardedHeaders = async (
   req: Request,
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
 ): Promise<HeadersInit> => {
-  const token = (await cookies()).get('raghub_token')?.value;
+  const token = (await cookies()).get('revex_session')?.value;
   const cookie = await cookieHeader();
   const headers: Record<string, string> = {
-    'x-raghub-forwarded': '1',
+    'x-revex-forwarded': '1',
   };
   if (cookie) headers['cookie'] = cookie;
   if (token) headers['authorization'] = `Bearer ${token}`;
@@ -56,7 +56,7 @@ const proxy = async (
   req: Request,
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
 ): Promise<Response> => {
-  const path = req.headers.get('x-raghub-path') ?? '/';
+  const path = req.headers.get('x-revex-path') ?? '/';
   const hasBody = method !== 'GET' && req.body !== null;
   const init: RequestInit = {
     method,
