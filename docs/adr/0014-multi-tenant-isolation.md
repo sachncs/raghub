@@ -6,7 +6,7 @@ Accepted (v0.7.6)
 
 ## Context
 
-RAGHub must serve multiple organisations with data isolation guarantees.
+Revex must serve multiple organisations with data isolation guarantees.
 Early releases stored all tenants in a single SQLite database with a
 `tenant_id` column, which is insufficient for regulated workloads where
 cross-tenant access is unacceptable even at the database-engine level.
@@ -25,7 +25,7 @@ We adopt a three-tier isolation model:
 | **Database-per-tenant** | Separate PostgreSQL databases; connection routing via `TenantRegistry` | Optional |
 
 Row-level isolation is always active. Schema- and database-per-tenant
-tiers are opt-in via `RAGHUB_ISOLATION_TIER` (`row_level` | `schema_per_tenant` |
+tiers are opt-in via `REVEX_ISOLATION_TIER` (`row_level` | `schema_per_tenant` |
 `database_per_tenant`).
 
 Per-tenant secrets are managed by `TenantSecretCipher` and resolved
@@ -40,7 +40,7 @@ at request time by the `TenantResolver` chain (JWT claim → HTTP header
   that stores tenant-scoped data. New tables must be audited.
 - **Migration path**: Tenants can be promoted from row-level to
   schema-per-tenant without downtime by running the
-  `raghub migrate-tenant` CLI.
+  `revex migrate-tenant` CLI.
 - **Testing overhead**: CI must exercise all three tiers to prevent
   isolation regressions.
 
