@@ -9,7 +9,7 @@
  * is OpenAI-compatible and routed via `OpenAILlm` with a configurable
  * `baseUrl` (defaults to `https://api.minimax.chat/v1`).
  *
- * When `RAGHUB_LLM_STUB=1`, `createLlm` returns a `StubLlm`
+ * When `REVEX_LLM_STUB=1`, `createLlm` returns a `StubLlm`
  * regardless of provider — used by the web smoke suite and by
  * local runs that don't have an API key handy.
  */
@@ -38,7 +38,7 @@ export type { StubLlmOptions } from './stub.js';
 const MINIMAX_BASE_URL = 'https://api.minimax.chat/v1';
 
 export const createLlm = (settings: Settings): Llm => {
-  if (process.env['RAGHUB_LLM_STUB'] === '1') {
+  if (process.env['REVEX_LLM_STUB'] === '1') {
     return new StubLlm({ model: settings.llm.model });
   }
   switch (settings.llm.provider) {
