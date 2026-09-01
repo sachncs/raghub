@@ -234,14 +234,19 @@ pnpm --filter @revex/cli dev    # CLI
 
 Guides, architecture notes, and reference live in [`docs/`](./docs):
 
-| Doc                            | Covers                                        |
-| ------------------------------ | --------------------------------------------- |
-| [`docs/quickstart.md`](./docs/quickstart.md)       | First-run setup and onboarding wizard.        |
-| [`docs/workspace.md`](./docs/workspace.md)         | Encryption, storage, snapshots.               |
-| [`docs/acl.md`](./docs/acl.md)                 | Document ACLs, groups, roles.                 |
-| [`docs/agents.md`](./docs/agents.md)             | Orchestrator patterns and agent runtime.      |
-| [`docs/onboarding.md`](./docs/onboarding.md)       | The 5-step onboarding flow.                   |
-| [`docs/operations.md`](./docs/operations.md)       | Deployment and operations.                    |
+| Doc                                            | Covers                                           |
+| ---------------------------------------------- | ------------------------------------------------ |
+| [`docs/index.md`](./docs/index.md)             | Overview, quick start, and layout.               |
+| [`docs/guide/getting-started.md`](./docs/guide/getting-started.md) | First-run setup and onboarding wizard. |
+| [`docs/guide/workspace.md`](./docs/guide/workspace.md) | Encryption, storage, snapshots.            |
+| [`docs/guide/rbac-acl.md`](./docs/guide/rbac-acl.md) | Document ACLs, groups, roles.                 |
+| [`docs/guide/orchestration.md`](./docs/guide/orchestration.md) | Orchestrator patterns and agent runtime. |
+| [`docs/guide/onboarding.md`](./docs/guide/onboarding.md) | The 5-step onboarding flow.                |
+| [`docs/guide/workers-jobs.md`](./docs/guide/workers-jobs.md) | Background workers and the job queue.     |
+| [`docs/guide/telemetry.md`](./docs/guide/telemetry.md) | Telemetry providers and observability.         |
+| [`docs/guide/eval.md`](./docs/guide/eval.md) | Retrieval metrics and evaluation harness.          |
+| [`docs/reference/api.md`](./docs/reference/api.md) | Full HTTP API endpoint reference.             |
+| [`docs/reference/cli.md`](./docs/reference/cli.md) | Full CLI command reference.                    |
 
 ---
 
