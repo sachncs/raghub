@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Entries are ordered from newest to oldest. The "Unreleased" section
 collects work that has landed on master but is not yet tagged.
 
-## [2.0.0] — Unreleased
+## [Unreleased]
 
 ### Rebrand
 
@@ -81,10 +81,15 @@ dual-package-name support. To migrate:
 
 Historical entries below describe the previous "raghub" series.
 
-## [Unreleased]
-
 ### Added
 
+- **Documentation rewrite**: replaced the stale `docs/` tree (which mirrored
+  the removed Python `raghub` references) with a TypeScript-accurate reference
+  covering every API endpoint, CLI command, and package export — see
+  `docs/index.md`.
+- Removed the archived Python `archive/`, `fix.md`, `docs/adr/`,
+  `docs/architecture/decisions.md`, and the separate `todo/` tracking
+  directory.
 - `@revex/core`: `StubLlm` (`createLlm` returns it when
   `REVEX_LLM_STUB=1`) — deterministic, delay-streaming, used
   by the web smoke suite and any local run without an API key.
@@ -147,8 +152,6 @@ Historical entries below describe the previous "raghub" series.
   wrapper from `raghub.services`. `ApplicationFacade` is the canonical
   facade; old imports must migrate to `raghub.services.ApplicationFacade`.
   Tracked separately so the rename is intentionally not an alias.
-
-## [0.10.0] - 2026-08-15
 
 ### Changed (BREAKING)
 
