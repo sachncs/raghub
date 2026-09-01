@@ -1,40 +1,54 @@
-site_name: RAGHub
+site_name: Revex
+site_url: https://github.com/sachncs/revex
+repo_url: https://github.com/sachncs/revex
+edit_uri: blob/master/docs
+docs_dir: docs
+
 nav:
   - Home: index.md
-  - Getting started: guide/getting-started.md
-  - Migration (legacy → facade): migration.md
+  - Guide:
+      - Getting started: guide/getting-started.md
+      - Workspace model: guide/workspace.md
+      - Onboarding: guide/onboarding.md
+      - RBAC & ACL: guide/rbac-acl.md
+      - Ingestion: guide/ingestion.md
+      - Retrieval & reranking: guide/retrieval.md
+      - Orchestrator & agents: guide/orchestration.md
+      - Embedders & LLM: guide/llm-embedding.md
+      - Workers & jobs: guide/workers-jobs.md
+      - Evaluation: guide/eval.md
+      - Telemetry: guide/telemetry.md
+      - Web console: guide/web.md
+      - Development: guide/development.md
   - Architecture:
       - Overview: architecture/overview.md
-      - Decisions: architecture/decisions.md
-  - ADRs:
-      - ADR 0014 — Multi-tenant isolation: adr/0014-multi-tenant-isolation.md
-      - ADR 0015 — Persistent queue: adr/0015-persistent-queue.md
-      - ADR 0016 — Feedback loop: adr/0016-feedback-loop.md
-      - ADR 0017 — Backup format: adr/0017-backup-format.md
-      - ADR 0018 — pgvector as first adapter: adr/0018-pgvector-as-first-adapter.md
-  - Guide:
-      - Development: guide/development.md
-      - Deployment: guide/deployment.md
-      - Evaluation: guide/evaluation.md
-      - Advanced RAG: ADVANCED_RAG.md
   - Reference:
-      - API: reference/api.md
-      - Configuration: reference/configuration.md
-  - Adapters:
-      - Queue: adapters/queue.md
-      - Memory: adapters/memory.md
-      - SQLite: adapters/sqlite.md
-      - PgVector: adapters/pgvector.md
-      - Feedback: adapters/feedback.md
-      - Isolation: adapters/isolation.md
-      - Archive: adapters/archive.md
-  - Plugins: plugins.md
-  - Operations:
-      - Monitoring: operations/monitoring.md
-      - Backup: operations/backup.md
-      - Runbook: operations/runbook.md
-      - Scaling: operations/scaling.md
-      - Troubleshooting: troubleshooting.md
-  - Future: future.md
+      - HTTP API: reference/api.md
+      - CLI: reference/cli.md
+
 theme:
-  name: readthedocs
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: amber
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: amber
+  features:
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets

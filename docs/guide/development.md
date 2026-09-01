@@ -1,232 +1,84 @@
-> ⚠️ **ARCHIVED** — This document describes the **raghub 0.9.x Python
-> release**, preserved for historical reference in
-> [`archive/`](../../archive/). It does **not** describe the active
-> **Revex** TypeScript codebase.
->
-> For current documentation, see [`README.md`](../../README.md) and the
-> TypeScript source under `packages/`.
+# Development
 
-# Development Guide
+Guidelines for working inside the Revex monorepo. Mirrors `AGENTS.md`.
 
-This is for people hacking on Revex itself. App developers should
-read [`getting-started.md`](getting-started.md) instead.
+## Toolchain
 
-## Environment setup
+| Tool | Version / notes |
+|---|---|
+| Node.js | 26+ (LTS line before it), ESM only |
+| pnpm | 9+ (workspace protocol for internal deps) |
+| TypeScript | 5.6+, `strict` |
+| Turbo | task orchestration |
+| Vitest | unit + integration tests |
+| fast-check | property tests |
+| oxc | fast lint path |
+| ESLint | 9.x flat config (slow path) |
+| Prettier | authoritative formatter |
 
-```bash
-git clone https://github.com/sachncs/raghub.git
-cd raghub
-
-./setup.sh                       # creates .venv, installs dev extras
-source .venv/bin/activate
-
-pip install -e ".[api,dev]"   # for a fresh checkout
-```
-
-`setup.sh` requires Python 3.12 — the script refuses anything
-else, with installation hints for both macOS and Linux. It
-provisions a `.venv`, installs the project in editable mode with
-the `api` and `dev` extras, and prints the next steps.
-`./cleanup.sh` removes `.venv`, `data/`, and `__pycache__/` —
-`./setup.sh` rebuilds from scratch.
-
-`setup.sh` no longer runs `pip install -e ".[...,zvec]"`; the
-`zvec` extra is opt-in (it pulls a native extension that is not
-required for the supported production path).
-
-## Running tests
+## Commands (run from repo root)
 
 ```bash
-pytest tests/ -v                 # all tests
-pytest tests/ -x                 # stop on first failure
-pytest tests/ -xvs               # verbose, stop on first failure
-
-# Single test (full traceback on failure)
-pytest tests/test_platform.py::test_ingest_and_query_isolated_access -xvs
+pnpm install
+pnpm typecheck       # tsc --noEmit across packages
+pnpm lint            # oxc fast + eslint slow
+pnpm test            # vitest run
+pnpm build           # turbo build all packages
+pnpm --filter @revex/core test
+pnpm --filter @revex/api dev
 ```
 
-The test suite covers the spec libraries, multi-user RBAC, the
-conversational pipeline, structured output, telemetry scrubbing,
-the resumable ingestion service, retrieval metrics, and the
-performance benchmark. The current collection size is reported
-by `pytest tests/ --collect-only`; the suite shape changes as
-new plugin tests land, so refer to the collector output rather
-than a hard-coded number.
+## Layout
 
-### Finance
+- `packages/core` — `@revex/core`, always installed, no internal deps.
+- `packages/orchestrator` — `@revex/orchestrator`.
+- `packages/api` — `@revex/api` (Hono HTTP).
+- `packages/eval` — `@revex/eval`.
+- `apps/web` — Next.js console.
+- `apps/cli` — `@revex/cli` binary.
 
-```bash
-# pytest path — controlled by env var, kept off by default
-FINANCEBENCH_EVAL=1 pytest tests/test_benchmark_smoke.py -xvs
-```
+Cross-package imports use the workspace protocol (no `**/dist/**` paths).
 
-Or via the bundled CLI / console script:
+## TypeScript style
 
-```bash
-raghub eval financebench --examples 25
-raghub-financebench --examples 25
-```
+- Strict flags: `noImplicitOverride`, `noUncheckedIndexedAccess`,
+  `exactOptionalPropertyTypes`, `noFallthroughCasesInSwitch`,
+  `noImplicitReturns`.
+- **No `any`**: use `unknown` + type guard, or cast at a narrow boundary.
+- **Branded IDs**: `type UserId = string & { readonly __brand: 'UserId' }`.
+- **Frozen value objects**: `Object.freeze(this)` in constructors, `readonly`
+  fields.
+- **No `enum`** — `const X = { A: 'a' } as const`.
+- **Errors are classes** extending `RevexError` with stable string `code`s.
+- Reserved names forbidden: `Object`, `Function`, `Promise`, `String`,
+  `Number`, `Boolean`, `Error`, `Type`, `default`, `next`.
+- Forbidden field shadowing: `id`, `name`, `length`, `value`, `type`,
+  `parent`, `data`, `next`, `prev`, `open`, `close` — rename.
+- Named exports in library code; every package root `index.ts` re-exports the
+  public surface.
 
-The evaluator reports `recall@K`, `precision@K`, MRR, Faithfulness,
-Context Recall, Context Precision, and Answer Correctness in
-addition to the binary pass-rate.
+## Async & concurrency
 
-### Performance benchmark
+- Async-first: anything that can suspend returns `Promise<T>`.
+- Public async functions accept `signal?: AbortSignal`.
+- `for await ... of` for streams.
+- `Promise.all` / `Promise.allSettled` for parallelism.
 
-```bash
-python -m bench.benchmark --documents 100 --queries 200 --concurrency 8
-```
+## Testing
 
-Measures startup time, ingestion throughput, query latency (p50
-and p95), queries-per-second under concurrency, and peak RSS. The
-report is written to `bench/report.json`. The script is also
-exposed as `raghub-benchmark`.
+- Vitest; files under `test/` mirroring `src/`.
+- One concept per test file (e.g. `test/retrieval/hybrid.test.ts`).
+- `describe`/`it`; one assertion concept per `it` (use `toMatchInlineSnapshot`
+  for multi-assertion).
+- Coverage ≥ 80% per package.
 
-## Code style
+## Formatting & lint
 
-- **Google Python Style Guide** for docstrings.
-- **Type hints** on every public function and method (project is
-  `mypy` clean on `revex/` proper).
-- **No `_` prefix** on public names; use the explicit module-level
-  `__all__` to declare the public surface.
-- **Active-record domain pattern** for the legacy
-  `RagApplication`; the new `RAG` facade uses composable
-  pipelines instead.
-- **Spec libraries** are first-class imports; the framework wires
-  Marker, Chonkie, LiteLLM, Instructor, Qdrant, and Langfuse as
-  defaults and falls back to in-process providers when the
-  libraries are missing.
+- Prettier is authoritative (no opinion overrides).
+- Run `pnpm lint` before pushing; CI runs `typecheck`, `lint`, `test`, `build`.
 
-## Linting and type checking
+## Git
 
-```bash
-ruff check revex/ tests/
-mypy revex/
-interrogate -v \
-    revex/api/rag.py revex/api/defaults.py revex/api/response.py \
-    revex/evaluation/ revex/knowledge/ \
-    revex/conversation/ revex/cli/ \
-    -f 80
-bandit -r revex/ -q -ll -i
-pip-audit
-```
-
-`ruff`, `mypy`, `interrogate`, `bandit`, and `pip-audit` are
-declared in the `dev` extra and installed by `setup.sh`. The
-ruff, mypy, and pytest configuration lives in `pyproject.toml`;
-root stubs (`ruff.toml`, `mypy.ini`, `pytest.ini`) have been
-removed so there is a single source of truth.
-
-The project is clean: zero ruff errors in `revex/`. There are
-48 remaining mypy warnings concentrated in the legacy `services/`,
-`repositories/`, and `domain/` modules — these are slated to be
-removed when the legacy code is replaced (see
-[`future.md`](../future.md)).
-
-## Adding a new component
-
-The cleanest way is a **plugin**:
-
-1. Create the implementation under your own package
-   (`my_plugin/`). Implement one or more of the protocols in
-   `raghub.interfaces/`.
-2. Expose a factory in `pyproject.toml`:
-
-   ```toml
-   [project.entry-points."raghub.plugins"]
-   my_plugin = "my_plugin.module:my_plugin_factory"
-   ```
-
-3. In the factory, return an object with `name`, `version`, and
-   `register(registry)`:
-
-   ```python
-   class MyPlugin:
-       name = "my-plugin"
-       version = "0.1.0"
-
-       def register(self, registry):
-           registry.register_chunker("my-chunker", MyChunker())
-   ```
-
-4. Plug the registry into the facade:
-
-   ```python
-   from raghub import RAG
-   from raghub.plugins.registry import PluginRegistry
-
-   rag = RAG(registry=PluginRegistry().discover_entrypoints())
-   # or a single component
-   rag = RAG(chunker=registry.get_chunker("my-chunker"))
-   ```
-
-See [`plugins.md`](../plugins.md) for the full set of extension
-points (converters, chunkers, embedders, vector stores,
-generators, structured-output, telemetry, evaluators).
-
-## Adding a new conversion target
-
-The `RAG` facade's default chain is `MarkerConverter → PlainTextConverter`.
-Plugins register additional converters with `registry.register_converter(name, converter)`.
-
-To support a new file format end-to-end:
-
-1. Add a converter at `revex/converters/<format>.py`. It must
-   implement the `DocumentConverter` interface (returns a
-   `Bundle`).
-2. If it requires an external tool, add the dependency to
-   `pyproject.toml`'s `dependencies` (or as an optional extra).
-3. Either wire it into `default_converter()`'s fallback chain or
-   publish as a plugin.
-
-## Adding a new embedding / LLM provider
-
-Embedding and LLM providers reach the facade through the
-`EmbeddingProvider` and `LLMProvider` interfaces in
-`raghub.interfaces`. The two easiest paths:
-
-1. **Use LiteLLM** — any new provider LiteLLM supports works
-   out of the box. Configure it with
-   `LiteLLM(model="<provider>/<model>")` and pass to the
-   constructor.
-2. **Write an adapter** — implement the interface, optionally
-   register it as a plugin, and pass to the facade constructor.
-
-## Adding a new vector store
-
-Implement `raghub.store.Store`. The
-simplest starter is `raghub.store.memory.MemoryStore`
-— copy that. To activate for the default facade, extend
-`default_vector_store()` or publish as a plugin.
-
-## Resetting the environment
-
-```bash
-./cleanup.sh      # removes .venv, data/, __pycache__/
-./setup.sh        # rebuild from scratch
-```
-
-To blow away just the data directory:
-
-```bash
-rm -rf data/
-```
-
-This drops the manifest, the ingestion job ledger, registry, and
-session store. The next ingest runs as a cold start.
-
-## Contributing
-
-- Match the surrounding code's comment density and naming.
-  When adding a new module, write the public docstring in the
-  style of `raghub.api.rag.RAG`.
-- New public API goes through `RAG(...)` as the integration
-  point; legacy paths remain reachable for backward
-  compatibility.
-- Add tests under `tests/` (group by component, e.g.
-  `tests/test_<area>_<feature>.py`).
-- Update [the CHANGELOG](https://github.com/sachncs/revex/blob/main/CHANGELOG.md) and the related
-  reference doc under `docs/reference/` or `docs/guide/` in the
-  same change.
-- Run `pytest tests/ -x` and `ruff check revex/ tests/`
-  locally before pushing.
+Atomic, one logical change per commit. Conventional prefixes: `feat:`, `fix:`,
+`refactor:`, `test:`, `docs:`, `chore:`, `perf:`.
+Branch names: `feat/<short>`, `fix/<short>`, `refactor/<short>`.

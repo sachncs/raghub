@@ -1,102 +1,68 @@
-> ⚠️ **ARCHIVED** — This document describes the **raghub 0.9.x Python
-> release**, preserved for historical reference in
-> [`archive/`](../../archive/). It does **not** describe the active
-> **Revex** TypeScript codebase.
->
-> For current documentation, see [`README.md`](../../README.md) and the
-> TypeScript source under `packages/`.
+# Revex — Documentation
 
-# Revex
+Revex is hybrid retrieval for teams running on [Strands Agents](https://strandsagents.com).
+It fuses dense vector search, BM25 keyword search, graph search, per-session memory,
+and live web search into one engine behind a single orchestrator façade.
 
-Production-grade multi-user retrieval-augmented generation platform built on
-the spec libraries. The single recommended entry point is
-[`raghub.RAG`](https://github.com/sachncs/raghub); every collaborator
-behind it — Marker, Chonkie, LiteLLM, Langfuse, Instructor — is
-replaceable.
+This documentation describes the **TypeScript monorepo** (v1.1.0). The earlier Python
+`raghub` 0.9.x line and its ADR records have been removed; the TypeScript codebase is
+canonical.
 
-## Package layout
+## What is inside
 
-```text
-revex/
-  rag/                 RAG facade, ingest/query/sync mixins
-  api.py               FastAPI app (App.create)
-  cli.py               Console scripts (``raghub``, ``raghub-financebench``)
-  config.py            Settings dataclass, YAML/TOML loader
-  models.py            Typed Pydantic domain + canonical models
-  errors.py            Typed error hierarchy (RagHubError base)
-  llm.py               LiteLLM, Heuristic (offline) providers
-  embedder.py          LiteLLM, hashing embedders
-  store.py             SQLite + InMemory vector stores
-  parsers.py           Marker, plain-text converters
-  ingest.py            Chunker, Ingestor, Resumable
-  pipeline/            Ingest, Query, Agent, Builder, span_support
-  gen.py               DefaultGenerator (citations, astream, tokens)
-  knowledge.py         Open Knowledge Format (OKF) bundles + repository
-  retrieval/           Rerankers, transformers, fusion
-  stores/              SQLite persistence, image store
-  services/            ApplicationFacade, container wiring, diagnostics
-  tools/               ToolRegistry + built-in tools
-  lifecycle/           Document lifecycle state machines
-  auth_support/        FastAPI auth helpers (App, Auth, Bearer)
-  telemetry/           NoOp, Redacting, Langfuse, Prometheus telemetry
-  evaluation.py        Finance + FRAMES evaluators
-  plugins.py           PluginRegistry + entry-point discovery
-  auth.py              UserStore, UserAuthenticator, Authz
-  repos.py             ChunkStore, DocStore, SessionStore
-  constants.py         Named constants (RRF_K, HTTP_413_PAYLOAD_TOO_LARGE, ...)
-```
+| Area | Doc |
+|---|---|
+| Getting started | [Getting started](guide/getting-started.md) |
+| Architecture | [Architecture overview](architecture/overview.md) |
+| Workspaces | [Workspace model](guide/workspace.md) + [Onboarding](guide/onboarding.md) |
+| Access control | [RBAC & ACL](guide/rbac-acl.md) |
+| Ingestion | [Ingestion pipeline](guide/ingestion.md) |
+| Retrieval | [Retrieval & reranking](guide/retrieval.md) |
+| Orchestration | [Orchestrator & agents](guide/orchestration.md) |
+| Embeddings & LLM | [Embedders & LLM](guide/llm-embedding.md) |
+| Jobs | [Workers & jobs](guide/workers-jobs.md) |
+| HTTP API | [API reference](reference/api.md) |
+| CLI | [CLI reference](reference/cli.md) |
+| Evaluation | [Eval harness](guide/eval.md) |
+| Telemetry | [Telemetry](guide/telemetry.md) |
+| Web app | [Web console](guide/web.md) |
+| Development | [Contributing & dev](guide/development.md) |
 
-The `RAG` facade is the recommended entry point; the FastAPI
-surface in `api.py` is the multi-tenant HTTP wrapper. See
-[migration.md](migration.md) for the path from the legacy API.
-
-## Quick Start
-
-```python
-from raghub import RAG
-
-rag = RAG()
-rag.ingest(b"Revenue grew 12% YoY in Q3 2024.")
-print(rag.query("revenue").answer)
-```
+## Quick start
 
 ```bash
-raghub init -o revex.yaml
-revex ingest ./documents
-revex query "What was the revenue guidance?"
+pnpm install
+pnpm --filter @revex/api dev    # http://localhost:3000
+pnpm --filter @revex/web dev    # http://localhost:3001
 ```
 
-## Documentation
+Then open `http://localhost:3001/onboarding` and walk the 5-step wizard.
 
-- [Getting started](guide/getting-started.md)
-- [Development guide](guide/development.md)
-- [Deployment guide](guide/deployment.md)
-- [API reference](reference/api.md)
-- [Configuration reference](reference/configuration.md)
-- [Architecture overview](architecture/overview.md)
-- [Design decisions](architecture/decisions.md)
-- [Plugin authoring](plugins.md)
-- [Migration guide (legacy → RAG facade)](migration.md)
-- [Monitoring & observability](operations/monitoring.md)
-- [Backup & restore](operations/backup.md)
-- [Runbook](operations/runbook.md)
-- [Scaling](operations/scaling.md)
-- [Troubleshooting](troubleshooting.md)
-- [Future extensions](future.md)
+## Layout
 
-## Library dependencies (defaults)
+```
+revex/
+├── packages/
+│   ├── core/          @revex/core          — domain, stores, retrieval, auth, telemetry, LLM, ingest
+│   ├── api/           @revex/api           — Hono HTTP server
+│   ├── orchestrator/  @revex/orchestrator  — Strands-shaped Orchestrator + agents + tools
+│   └── eval/          @revex/eval          — retrieval metrics + benchmarks
+├── apps/
+│   ├── web/           Next.js 16 console
+│   └── cli/           @revex/cli — `revex` binary
+└── docs/              this documentation
+```
 
-| Concern | Library | Default behaviour |
-|---|---|---|
-| Document conversion | Marker | Falls back to `PlainTextConverter` when Marker is missing |
-| Chunking | Chonkie | Falls back to `WordChunker` when Chonkie is missing |
-| LLM | LiteLLM | Falls back to `HeuristicLLMProvider` (offline, deterministic) |
-| Embeddings | LiteLLM | Falls back to `Hasher` (offline) |
-| Structured output | Instructor | Returns `None` when Instructor is missing or no API key |
-| Vector store | SQLite + InMemory | `MemoryStore` is the in-memory default; `SqliteStore` is the bundled SQL backend |
-| Telemetry | Langfuse v3+ | Falls back to `NoOpTelemetry` when Langfuse is missing or unconfigured |
-| Logging | loguru | Process-wide stdout sink with structured kwargs binding |
-| Knowledge format | OKF (Open Knowledge Format) | Canonical persisted representation |
+## Technology
 
-Every default can be replaced through the `RAG(...)` constructor or via
-the [plugin registry](plugins.md).
+| Layer | Choice |
+|---|---|
+| Language | TypeScript 5.6+ (strict, ESM) |
+| Workspaces | pnpm + Turbo |
+| Vector store | [sqlite-vec](https://github.com/asg017/sqlite-vec) + FTS5 |
+| Embeddings + LLM | [openai](https://github.com/openai/openai-node) + deterministic fallbacks |
+| HTTP | [Hono](https://hono.dev) |
+| Multi-agent | [Strands Agents](https://strandsagents.com) surface |
+| UI | Next.js 16 + shadcn/ui |
+| Auth | bcrypt + JWT (jose) + scrypt/AES-256-GCM |
+| Test | Vitest + fast-check |

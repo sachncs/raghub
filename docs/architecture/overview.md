@@ -1,236 +1,140 @@
-> ⚠️ **ARCHIVED** — This document describes the **raghub 0.9.x Python
-> release**, preserved for historical reference in
-> [`archive/`](../../archive/). It does **not** describe the active
-> **Revex** TypeScript codebase.
->
-> For current documentation, see [`README.md`](../../README.md) and the
-> TypeScript source under `packages/`.
+# Architecture overview
 
-# Architecture Overview
+Revex is a pnpm + Turbo TypeScript monorepo. Four packages live under
+`packages/` and two apps under `apps/`.
 
-Revex is a layered platform. The spec-mandated entry point is
-[`raghub.RAG`](https://github.com/sachncs/revex/blob/main/revex/api/rag.py); below it sit ingestion and
-query pipelines, a knowledge layer in OKF, plugin-replaceable
-adapters, and the legacy multi-tenant service stack retained for
-backward compatibility.
+## Packages
 
-## Two coexisting surfaces
+### `@revex/core`
 
-The package exposes two parallel APIs:
+The engine. Dependencies-free of the framework's own packages; everything else
+imports it.
 
-```text
-                      ┌─────────────────────────────────────────────┐
-                      │                  raghub.RAG                │
-                      │  (single entry point, replaceable parts)   │
-                      └────────┬────────────────────────┬──────────┘
-                               │                        │
-                               ▼                        ▼
-                  ┌───────────────────────┐    ┌─────────────────────────┐
-                  │   IngestPipeline      │    │     QueryPipeline       │
-                  │ convert→chunk→embed   │    │ embed→search→rerank→    │
-                  │ →upsert               │    │ generate→stream         │
-                  └────────────┬──────────┘    └────────────┬────────────┘
-                               │                             │
-                               ▼                             ▼
-        ┌──────────────────────────────────────────────────────────────┐
-        │  Knowledge layer (OKF), embedding provider, vector store,    │
-        │  LLM, structured-output provider, telemetry, conversation   │
-        │  store, reranker                                             │
-        └──────────────────────────────────────────────────────────────┘
+- **Domain** — frozen value objects over an internal `props` bag: `Workspace`,
+  `User`, `Document`, `Chunk`, `Turn`. Branded IDs throughout (`WorkspaceId`,
+  `UserId`, `DocumentId`, `ChunkId`, `SessionId`, `TraceId`, `JobId`,
+  `CollectionId`).
+- **Errors** — `RevexError` base with stable string `code`s and concrete
+  subclasses (`AuthError`, `AuthorizationError`, `ConfigurationError`,
+  `GenerationError`, `IngestionError`, `MissingDepError`, `PipelineError`,
+  `RetrievalError`, `VectorStoreError`, `VerificationError`).
+- **Settings** — a Zod-validated tree, loaded from env via `loadSettings()`.
+- **Embedders** — `OpenAIEmbedder`, `FeatureHashingEmbedder`, `createEmbedder`.
+- **Retrieval** — the `Retrieval` pipeline (dense + sparse + RRF + RBAC),
+  fusion helpers, rerankers, and retrieval transformers.
+- **Stores** — the `Sqlite*Store` surface (users, documents, jobs, sessions,
+  conversations, workspace members, groups, document principals, memory, audit,
+  feedback, local file storage, images, document versions, snapshots).
+- **Vector store** — `SqliteVecStore` (sqlite-vec + FTS5).
+- **LLM** — `OpenAILlm`, `FeatureHashingLlm`, `StubLlm`, `LlmManager`,
+  `createLlm`.
+- **Auth primitives** — `BcryptHasher`, `JwtService`.
+- **Encryption** — `openEncryptedWorkspace`, `EncryptedField`,
+  `WorkspaceSettingsStore`.
+- **Storage** — users, documents, sessions, conversations, file storage.
+- **Workspaces** — `openWorkspace`, `WorkspaceRegistry`,
+  `openFileWorkspaceRegistry`, tenant context helpers.
+- **Chunker** — `chunkText`, `chunkMarkdown`, `chunkStructured`, `chunkPdf`.
+- **Ingest** — `ingest`, `ingestVerbose`, `agenticIngest`.
+- **Context** — `buildContext`, `defaultBudget`.
+- **Jobs** — `JobQueue`, `SqliteJobQueue`, `MemoryQueue`.
+- **Lifecycle** — `assertTransition`, `DocumentState`.
+- **Graph** — `extractEntities`, `summariseCommunity`, `clusterEntities`,
+  `SqliteGraphStore`.
+- **Summary** — `SummaryIndex`, `createLlmSummaryIndex`,
+  `createExtractiveSummaryIndex`, `buildRaptorTree`.
+- **Feedback** — `Feedback`, scorers (`Bm25BoostScorer`,
+  `VectorDownWeightScorer`).
+- **Traces** — `TraceCorpus`, `SqliteTraceCorpus`.
+- **Telemetry** — `NoOpTelemetry`, `LangfuseTelemetry`, `OtelTelemetry`,
+  `createTelemetry`.
+- **Web search** — `WebSearch`, `DuckDuckGoSearch`.
+- **Migrations** — `runMigrations`, `MIGRATIONS`.
+
+### `@revex/api`
+
+The Hono HTTP server. Exposes `boot()` and `start()`.
+
+- **app** — `createApp` wires middleware + routes; `errorMiddleware`,
+  `jwtAuthMiddleware`, `rateLimitMiddleware`, `securityHeadersMiddleware`.
+- **routes/** — one file per resource (`auth`, `documents`, `query`, `me`,
+  `workspaces`, `feedback`, `audit`, `memory`, `tenants`, `webhooks`, ...).
+- **workspace-context** — resolves JWT + passphrase cookie into fresh
+  `Sqlite*Store` instances per request.
+- **workspace-pool** — caches unlocked workspace database handles.
+- **job-worker** — drains `document.ingest` jobs; `WorkspaceWorkerSupervisor`
+  manages one worker per workspace.
+- **services** — `ApplicationFacade`, `probeHealth`, `ShutdownCoordinator`.
+
+### `@revex/orchestrator`
+
+The Strands-shaped execution layer.
+
+- **Orchestrator** — `run()`, `stream()`, `resolveInvocationState()`.
+- **Patterns** — `buildGraph`, `buildSwarm`, `buildWorkflow`, `buildDeepResearch`.
+- **Agents** — `AgentRegistry`, `RagAgent`, sub-agent builders, `createReActAgent`.
+- **Hooks** — `HookRegistry`, `AgentHookBus`.
+- **Tools** — `ToolRegistry` + 8 built-in tool creators.
+- **Pipeline** — `QueryCache`, `PipelineRouter`, `shapeContext`.
+- **Adapters** — `InProcessAdapter` (Phase 1) with `StrandsAdapter` boundary.
+
+### `@revex/eval`
+
+Retrieval benchmarking.
+
+- Metrics: `recallAtK`, `precisionAtK`, `mrr`, contextual + faithfulness +
+  correctness aggregates.
+- `judgeCare` (CARE), `lostInMiddleProbe`, `judge`, `runSamples`,
+  `generateSynthetic`, `evaluateGate`, harnesses for Finance and Frames.
+
+## Apps
+
+### `apps/web`
+
+Next.js 16 App Router console. Marketing pages (`/`, `/sign-in`, `/privacy`,
+`/terms`) and the authenticated app shell (`/chat`, `/documents`, `/members`,
+`/memory`, `/onboarding`, `/settings`). A catch-all `/api/proxy` route forwards
+requests to the Hono API, reusing the `revex_session` / `revex_workspace_key`
+cookies.
+
+### `apps/cli`
+
+Commander-based `revex` binary registering 11 subcommands (see
+[CLI reference](../reference/cli.md)).
+
+## Data flow
+
+```
+upload ─► POST /v1/documents ─► LocalFileStorage ─► JobQueue
+                                              └─► ingest() ─► chunk ─► embed ─► SqliteVecStore
+
+query  ─► POST /v1/query ─► Orchestrator ─► agents/sub-agents ─► Retrieval (dense+BM25+RRF)
+              ▲                                ▲
+              └────────── strategy ────────────┘
 ```
 
-The second surface is the legacy multi-tenant service, still
-mounted at `raghub.api.App.create` (the FastAPI routers):
+## Tenancy & encryption model
 
-```text
-                      ┌─────────────────────────────────────────────┐
-                      │          RagApplication              │
-                      │  (use-case facade: DocumentService,         │
-                      │   QueryService, AuthService, HealthService) │
-                      └────────┬────────────────────────────────────┘
-                               │
-                               ▼
-                  ┌────────────────────────────┐
-                  │   Active-record models     │
-                  │   Document → Chunk → …     │
-                  │   + SQLite repositories    │
-                  └────────────────────────────┘
-```
+Each workspace is one SQLite file. Encryption is per-workspace: the passphrase
+derives a 32-byte AES-256-GCM key via scrypt (N=2¹⁵, r=8, p=1), and
+`workspace_settings` rows are encrypted at rest. See
+[Workspace model](workspace.md).
 
-Both surfaces share **plugin-replaceable adapters** (converters,
-chunkers, embedders, vector stores, LLMs, structured-output
-providers, telemetry providers) wired through the
-[`PluginRegistry`](../plugins.md).
+## Error handling
 
-## The `RAG` facade
+All errors flow through the `RevexError` hierarchy. The API `errorMiddleware`
+maps `error.code` to an HTTP status:
 
-`raghub.api.rag.RAG` is the spec-mandated entry point. It is a thin
-DI container that wires:
-
-| Collaborator | Type | Default |
-|---|---|---|
-| `settings` | `AppSettings` | from `load_settings()` |
-| `registry` | `PluginRegistry` | empty |
-| `converter` | `DocumentConverter` | `MarkerConverter` → `PlainTextConverter` fallback |
-| `chunker` | `Chunker` | `Chonkie` → `WordChunker` fallback |
-| `embedder` | `EmbeddingProvider` | `LiteLLMEmbedder` → `Hasher` fallback |
-| `llm` | `LLMProvider` | `LiteLLM` → `HeuristicLLMProvider` fallback |
-| `vector_store` | `VectorStore` | `SqliteStore` (when `QDRANT_URL` set) → `MemoryStore` fallback |
-| `generator` | `Generator` | `DefaultGenerator` wrapping `llm` |
-| `structured` | `StructuredOutputProvider` | `Instructor` (when key + Instructor present) else `None` |
-| `telemetry` | `TelemetryProvider` | `RedactingTelemetry(LangfuseTelemetryProvider)` → `RedactingTelemetry(NoOpTelemetry)` |
-| `reranker` | `Reranker` | `IdentityReranker` |
-| `knowledge_repo` | `KnowledgeRepository` | `MemoryRepo` |
-| `conversation_store` | `ConversationStore` | `Memory` |
-| `manifest` | `Manifest` | `data/manifest.json` |
-
-Replace any of these through the constructor or via the registry.
-
-## Ingestion
-
-`IngestPipeline.run` performs, in order:
-
-```text
-file_bytes
-  └─► converter.convert()      ── creates Bundle (OKF)
-        └─► knowledge_repo.save(bundle)
-              └─► get_chunks()
-                    └─► embedder.embed_texts(texts)
-                          └─► vector_store.upsert(chunks, vectors)
-```
-
-Incremental indexing is on by default: the pipeline computes
-`sha256(file_bytes)` and asks `knowledge_repo.get(bundle_id)` for a
-prior checksum. If the prior checksum matches, no re-embedding
-happens — the existing chunks are returned with
-`outputs["incremental"] = True`.
-
-Multi-user tenancy: when a `User` is supplied, the chunk
-`owner` is set to the user's email and the primary
-`allowed_companies` entry becomes the document tenant.
-
-## Query
-
-`QueryPipeline.run` performs, in order:
-
-```text
-question
-  └─► embedder.embed_text(question)
-        └─► vector_store.search(top_k=k, metadata_filter=...)
-              └─► metadata_filter_for_user(user)   # RBAC
-                    └─► reranker.rerank() (optional)
-                          └─► conversation_store.load(session_id) (optional)
-                                └─► generator.generate()
-                                      └─► optional structured.generate()
-                                            └─► conversation_store.append()
-```
-
-`QueryPipeline.stream` is the streaming variant. It uses
-`Generator.astream` when available, falls back to word-by-word
-yields from the synchronous generator otherwise.
-
-## RBAC
-
-`QueryPipeline.metadata_filter_for_user`:
-
-- `user=None` → no filter (returns `""`).
-- `user.is_admin == True` → no filter.
-- `user.allowed_companies == ["Apple"]` → `{"company": ["Apple"]}`
-  (Qdrant / in-memory store) or the equivalent SQL fragment.
-- `user.allowed_companies == []` → `{"company": []}` — matches
-  nothing. The LLM never sees unauthorised context.
-
-See [`reference/configuration.md`](../reference/configuration.md) for
-how tenant companies are attached to chunks during ingestion.
-
-## Knowledge layer
-
-The canonical persisted representation is **OKF (Open Knowledge
-Format)**, modelled by `Bundle`. Round-trip:
-
-```python
-from raghub.knowledge.okf import to_okf, from_okf
-okf = to_okf(bundle)   # dict[str, Any]
-restored = from_okf(okf)
-```
-
-`MemoryRepo` keeps bundles keyed by
-`bundle_id = deterministic_id("bundle", source_uri, checksum)`.
-
-## Vector stores
-
-| Store | Where | When it is used |
-|---|---|---|
-| `SqliteStore` | `raghub.store.qdrant` | When `QDRANT_URL` is set and `qdrant-client` is installed |
-| `MemoryStore` | `raghub.store.memory` | When no `QDRANT_URL` (test, local dev) |
-| `ZVecVectorStore`     | `raghub.store.zvec`   | Retained for the legacy surface when `require_zvec` is `True` (production profile) |
-
-All backends share the `VectorStore` interface defined in
-[`raghub.interfaces.vectorstore`](https://github.com/sachncs/revex/blob/main/revex/interfaces/vectorstore.py):
-`upsert`, `search`, `delete_document`, optional `create_collection`.
-
-## LLM providers
-
-| Provider | Where | When |
-|---|---|---|
-| `LiteLLM` | `raghub.llm.litellm` | Any LiteLLM model (OpenAI, Anthropic, NVIDIA, Bedrock, Cohere, Voyage, …) |
-| `HeuristicLLMProvider` | `raghub.llm.heuristic` | Offline / test; deterministic |
-
-Both expose `generate`, `astream`, and `last_usage`; the
-`DefaultGenerator` forwards token counters to telemetry.
-
-## Embedding providers
-
-| Provider | When |
+| Code | Status |
 |---|---|
-| `LiteLLMEmbedder` | API key set (`OPENAI_API_KEY`, `NVIDIA_API_KEY`, etc.) |
-| `Hasher` | No API key (offline; deterministic) |
-| `SentenceTransformerEmbeddingProvider` | Optional explicit choice |
-
-## Telemetry
-
-| Provider | When |
-|---|---|
-| `LangfuseTelemetryProvider` | `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` set, langfuse installed |
-| `NoOpTelemetry` | otherwise |
-| `RedactingTelemetry` | wraps *any* of the above to scrub secret-looking kwargs |
-| `StructlogTelemetryProvider` | combined logger + Prometheus sink + OTel tracer (legacy surface only) |
-
-## Security and multi-tenancy
-
-- `User` carries `allowed_companies` and `is_admin`.
-- The retrieval layer enforces RBAC; `AuthorizationError` is raised
-  only by the legacy FastAPI surface when JWT auth fails.
-- `JWT_SECRET` must be ≥ 32 bytes in production (PyJWT's
-  `InsecureKeyLengthWarning` is treated as fatal in CI).
-- `RedactingTelemetry` removes secret kwargs before forwarding to
-  Langfuse.
-- `allow_passwordless_login: true` is **forbidden in production**
-  (`load_settings` raises `RuntimeError`).
-
-## Package layout
-
-The new surface lives under:
-
-```
-revex/
-  api.py              FastAPI app (App.create)
-  cli.py              Console scripts
-  config.py           AppSettings + load_settings
-  models.py           Pydantic DTOs (User, Chunk, Citation, …)
-  errors.py           Typed error hierarchy
-  rag.py              RAG facade
-  parsers.py          Marker, plaintext converters
-  knowledge.py        OKF bundles, MemoryRepo
-  pipeline.py         IngestPipeline, QueryPipeline
-  embedder.py         LiteLLM, hashing embedders
-  store.py            Qdrant, SQLite, InMemory vector stores
-  llm.py              LiteLLM, Heuristic
-  gen.py              DefaultGenerator
-  retrieval/          Rerankers, transformers, fusion
-  services/           Facade, container wiring
-  stores/             SQLite persistence, JSON registry, image store
-  telemetry.py        NoOp, Redacting, Langfuse, Prometheus providers
-  evaluation.py       Finance + FRAMES evaluators
-  plugins.py          PluginRegistry
-```
+| `auth_error` | 401 |
+| `authorization_error` | 403 |
+| `configuration_error` | 500 (503 for `StoreUnavailableError`) |
+| `generation_error` | 502 |
+| `ingestion_error` | 400 |
+| `missing_dependency` | 500 |
+| `pipeline_error` | 500 |
+| `retrieval_error` | 502 |
+| `vector_store_error` | 500 |
+| `verification_error` | 400 |
+| `revex_error` (default) | 500 |

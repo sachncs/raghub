@@ -1,344 +1,368 @@
-> ⚠️ **ARCHIVED** — This document describes the **raghub 0.9.x Python
-> release**, preserved for historical reference in
-> [`archive/`](../../archive/). It does **not** describe the active
-> **Revex** TypeScript codebase.
->
-> For current documentation, see [`README.md`](../../README.md) and the
-> TypeScript source under `packages/`.
+# API reference
 
-# API Reference
+`@revex/api` is a Hono HTTP server. `boot()` returns a `BootResult` with the
+app, registry, pool, embedder, jwt, hasher, bound stores, and file storage.
+`start()` boots and listens on `REVEX_API_PORT` (default `3000`).
 
-Revex exposes two parallel surfaces:
+## Environment variables
 
-1. **`raghub.RAG`** — the recommended Python facade. Typed Pydantic
-   models in, typed Pydantic models out.
-2. **FastAPI** (`uvicorn raghub.api:App.create --factory` with a
-   `Settings.load()` closure) — the HTTP surface, bound to the RAG
-   facade, with bearer-token auth.
+| Variable | Default | Meaning |
+|---|---|---|
+| `REVEX_WORKSPACE_HOME` | `${HOME}/.revex` | Root for workspace data. |
+| `REVEX_WORKSPACE_DIR` | — | Direct parent of `workspace.db` files (overrides home-derived path). |
+| `REVEX_API_PORT` | `3000` | HTTP listen port. |
+| `REVEX_VERSION` | `0.1.0` | Version surfaced in `/health`. |
+| `REVEX_JWT_SECRET` | dev fallback | HS256 signing secret; **required** when `NODE_ENV=production`. |
+| `REVEX_EMBEDDER_API_KEY` | — | Use `OpenAIEmbedder`; else `FeatureHashingEmbedder`. |
+| `OPENAI_API_KEY` | — | Fallback for `REVEX_EMBEDDER_API_KEY`. |
+| `REVEX_EMBEDDER_MODEL` | `text-embedding-3-large` | Embedding model. |
+| `REVEX_VECTOR_EMBEDDING_DIM` | `3072` | Vector dimension. |
+| `REVEX_PASSPHRASE_VAULT` | `memory` | `memory` (dev) or `kms` (prod). |
+| `REVEX_WORKER_ROLE` | `leader` | `leader` / `follower` / `disabled`. |
+| `REVEX_RESET_STUCK_JOBS` | — | `1` re-queues stale `running` jobs on boot. |
+| `REVEX_QUOTAS_DOC` | — | Advisory document soft limit. |
+| `REVEX_QUOTAS_CHUNK` | — | Advisory chunk soft limit. |
+| `REVEX_LLM_PROVIDER` / `_MODEL` / `_API_KEY` / `_BASE_URL` / `_TEMPERATURE` | — | LLM config (used by core `Settings`). |
+| `REVEX_API_BASE` | `http://localhost:3000` | CLI default base URL. |
 
----
+## Middleware
 
-## Python facade: `raghub.RAG`
+Applied in order by `createApp`.
 
-```python
-from raghub import RAG
+### `securityHeadersMiddleware`
 
-rag = RAG()                   # default components
-# or
-rag = RAG.from_config("revex.yaml")
-# or
-rag = RAG(
-    settings=...,
-    converter=...,
-    chunker=...,
-    embedder=...,
-    llm=...,
-    vector_store=...,
-    generator=...,
-    reranker=...,
-    structured=...,
-    telemetry=...,
-    knowledge_repo=...,
-    registry=...,
-    background_service=...,
-    manifest=...,
-)
+- CORS to `allowOrigins` (default `http://localhost:3001`,
+  `http://127.0.0.1:3001`).
+- Always sends `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
+  `X-Frame-Options: DENY`.
+- `OPTIONS` → 204.
+
+### `errorMiddleware`
+
+Maps `RevexError.code` → HTTP status (see [error table](#error-codes)). All
+errors render:
+
+```json
+{ "error": { "code": "...", "message": "...", "details": { ... } } }
 ```
 
-### Construction
+### `rateLimitMiddleware`
 
-| API | Description |
-|---|---|
-| `RAG(*, settings=None, ...components)` | Build with explicit collaborators. |
-| `RAG.from_config(path: str \| Path)` | Load YAML/TOML profile, then construct. |
+- Per-IP: 60 req/min. Per-workspace: 600 req/min (from JWT `workspace_id`).
+- Exceeded → `429` with `Retry-After`.
+- Bypassed paths: `/health`, `/readyz`.
 
-### Lifecycle
+### `jwtAuthMiddleware`
 
-| API | Description |
-|---|---|
-| `rag.initialize()` | Call `vector_store.create_collection()` and `knowledge_repo.initialize()` when present. Idempotent. |
-| `rag.shutdown()` | Close telemetry, vector store, knowledge repo, embedder, LLM, generator, background service. Errors are swallowed so the rest of the shutdown still completes. |
+Verifies `Authorization: Bearer <jwt>`, reads `revex_workspace_key` cookie.
+Sets `c.var.claims` (`JwtClaims`) and `c.var.passphrase`. Helpers `getClaims(c)`
+and `getPassphrase(c)`.
 
-### Ingestion
+## Routes
 
-| API | Description |
-|---|---|
-| `rag.ingest(source, *, source_uri=None, mime_type="text/plain", metadata=None, force=False, user=None)` | Sync ingest of file / directory / bytes. Directories are walked recursively. |
-| `rag.aingest(...)` | Async equivalent. |
-| `rag.delete(document_id)` | Delete by `bundle_id` or `source_uri`. Removes chunks, knowledge bundle, and source-manifest entry. |
-| `rag.ingest_async(source, ...)` | Submit a background ingestion job. Returns a `job_id`. |
-| `rag.job_status(job_id)` | Returns the job status (or `None` when `background_service` was never used). |
-| `rag.sync_index(directory, *, metadata=None, user=None)` | Reconcile `directory` against the SHA-256 manifest. Returns `{"added": [...], "modified": [...], "unchanged": [...], "removed": [...]}`. |
+> JWT = requires `Authorization: Bearer`. PP = requires `revex_workspace_key`
+> passphrase cookie. Role = additional admin/owner/member gate.
+
+### Open endpoints
+
+#### `GET /health`
+
+```json
+{ "ok": true }
+```
+
+#### `GET /readyz`
+
+```json
+{ "ok": true, "workspaces": 1, "poolSize": 1 }
+```
+
+### Auth
+
+#### `POST /v1/auth/register`
+
+Body: `email`, `password` (≥8), `workspaceName`, `passphrase` (≥8),
+`llm: { provider, model, apiKey?, baseUrl? }`. Creates workspace + admin user,
+returns `{ token, user, workspace }`. Errors: 400 missing / password too short /
+passphrase too short.
+
+#### `POST /v1/auth/login`
+
+Body: `email`, `password`, `passphrase`. Returns `{ token, user }`. Errors:
+400 missing, 401 invalid credentials / invalid passphrase, 404 workspace not
+found.
+
+#### `POST /v1/auth/logout` — JWT
+
+Clears `revex_session` + `revex_workspace_key` cookies, removes the session
+record. Returns `{ ok: true }`.
+
+#### `POST /v1/auth/password` — JWT, PP
+
+Body: `currentPassword`, `newPassword` (≥8). Returns `{ ok: true }`.
+
+#### `POST /v1/auth/reset` — JWT, PP, admin/owner
+
+Body: `userId`, `newPassword` (≥8). Returns `{ ok: true }`.
+
+### Me
+
+#### `GET /v1/me` — JWT
+
+```json
+{ "user": { "id": "...", "workspaceId": "...", "email": "...",
+            "isAdmin": true, "role": "admin", "displayName": "..." } }
+```
+
+#### `PATCH /v1/me/strategy` — JWT
+
+Body: arbitrary strategy override object. Returns `{ ok, strategy }`.
+
+#### `GET /v1/me/history` — JWT
+
+Returns `{ turns: [] }` (placeholder).
 
 ### Query
 
-| API | Description |
+#### `POST /v1/query` — JWT
+
+Body: `question` (required), `session_id?`, `mode?` (`graph | swarm |
+workflow | deep_research`).
+
+```json
+{ "answer": "...", "citations": [], "hits": [ { "id","score","text" } ], "mode": "graph" }
+```
+
+#### `POST /v1/query/stream` — JWT
+
+Same body. SSE stream of `PlannerEvent`s:
+`id: step`, `event: kind`, `data: JSON(payload)`.
+
+#### `POST /v1/agent/run` — JWT
+
+Body: `question`, `sessionId?`, `strategy?`. Returns `{ answer, citations, mode }`.
+
+### Settings
+
+#### `GET /v1/settings/llm` — JWT, PP
+
+```json
+{ "llm": { "provider": "...", "model": "...", "apiKey": "••••••••", "baseUrl": "..." } }
+```
+
+`apiKey` always redacted.
+
+#### `PUT /v1/settings/llm` — JWT, PP
+
+Body: `provider` (`openai | minimax | litellm | anthropic | bedrock`),
+`model`, `apiKey?`, `baseUrl?`, `temperature?`. Returns `{ ok: true }`.
+
+### Documents
+
+#### `GET /v1/documents` — JWT, PP
+
+```json
+{ "documents": [ { "id","workspaceId","ownerId","filename","mimeType",
+                   "hash","byteSize","status","metadata","createdAt" } ] }
+```
+
+#### `POST /v1/documents` — JWT, PP (multipart)
+
+Field `file` (File), optional `collection_id`, other fields become metadata.
+Returns `202 { documentId, hash, status, byteSize, alreadyExisted }` (200 if
+duplicate hash).
+
+#### `POST /v1/documents/ingest-stream` — JWT, PP (multipart)
+
+Same payload; SSE-streams `IngestEvent` phases (`done`, `failed`, ...).
+
+#### `DELETE /v1/documents/:id` — JWT, PP, owner
+
+Returns `{ ok: true }`. Errors: 404 not found, 403 not the owner.
+
+### Document ACL
+
+All JWT + PP, owner or admin.
+
+#### `GET /v1/documents/:id/principals`
+
+```json
+{ "principals": [ { "documentId","principalType","principalId","permission",
+                    "grantedBy","grantedAt" } ] }
+```
+
+#### `POST /v1/documents/:id/principals`
+
+Body: `principalType` (`user | role | group`), `principalId`, `permission`
+(`read | admin`).
+
+#### `DELETE /v1/documents/:id/principals`
+
+Body: `principalType`, `principalId`, `permission`.
+
+### Workspaces
+
+#### `GET /v1/workspaces/members` — JWT, PP
+
+```json
+{ "members": [ { "userId": "...", "role": "...", "joinedAt": "..." } ] }
+```
+
+#### `POST /v1/workspaces/members` — JWT, PP, admin/owner
+
+Body: `email`, `role` (`owner | admin | member | viewer`), `displayName?`.
+Returns `201 { member }`.
+
+#### `PATCH /v1/workspaces/members/:userId` — JWT, PP, admin/owner
+
+Body: `role`. Returns `{ member }`.
+
+#### `DELETE /v1/workspaces/members/:userId` — JWT, PP, admin/owner
+
+Returns `{ ok: true }`.
+
+### Feedback
+
+#### `POST /v1/feedback` — JWT, PP
+
+Body: `turnId`, `rating` (`up | down | neutral`), `comment?`. Returns
+`{ id, status: "recorded" }`.
+
+#### `GET /v1/feedback` — JWT, PP, member
+
+Returns `{ feedback: [] }`.
+
+#### `GET /v1/feedback/aggregate` — JWT, PP, member
+
+Returns `{ up, down, neutral }`.
+
+#### `GET /v1/feedback/:id` — JWT, PP, member
+
+Single feedback record.
+
+#### `DELETE /v1/feedback/:id` — JWT, PP, member
+
+Returns `{ deleted: boolean }`.
+
+### Audit & stats
+
+#### `GET /v1/audit` — JWT, PP, admin/owner
+
+Query: `limit` (clamped 1–500, default 100), `kind`. Returns `{ events: [] }`.
+
+#### `GET /v1/audit/kinds` — JWT, PP, admin/owner
+
+Returns `{ kinds: [] }`.
+
+#### `GET /v1/stats` — JWT, PP
+
+```json
+{ "documents": { "total": 0, "byStatus": {} }, "audit": { "events": 0 },
+  "feedback": {} }
+```
+
+#### `GET /v1/admin/stats` — JWT, PP
+
+Memory stats: `documentCount`, `chunkCount`, `totalTokens`, `embeddingBytes`,
+`bytesOnDisk`, `lastIngestedAt`, `statusCounts`, `sources`, `capacity`.
+
+#### `POST /v1/admin/vacuum` — JWT, PP
+
+```json
+{ "workspaceId": "...", "integrityBefore": "...", "integrityAfter": "...",
+  "vacuumedAt": 0 }
+```
+
+### Tenants
+
+#### `GET /v1/tenants` — JWT, PP
+
+Returns `{ tenants: [] }` (registry entries).
+
+#### `GET /v1/tenants/:id` — JWT, PP
+
+Returns `{ tenant }`. Errors: 404 not found.
+
+### Webhooks
+
+All JWT + PP, admin/owner. (Delivery is not yet implemented; the surface is
+placeholder.)
+
+#### `POST /v1/webhooks`
+
+Body: `url`, `events[]`, `secret?`. Returns `201 { id, url, events, secret, createdAt }`.
+
+#### `GET /v1/webhooks`
+
+Returns `{ webhooks: [] }`.
+
+#### `DELETE /v1/webhooks/:id`
+
+Returns `{ deleted: true }`.
+
+### Operational
+
+#### `GET /v1/diagnostics` — JWT
+
+```json
+{ "ok": true, "workspace": { "id","encryption","registeredAt" } | null,
+  "poolSize": 0, "uptimeSec": 0 }
+```
+
+## Error codes {#error-codes}
+
+| Code | Status |
 |---|---|
-| `rag.query(question, *, user=None, session_id=None, top_k=5, metadata_filter=None, response_model=None)` | Synchronous. Blocks on the async path; safe to call outside an event loop. |
-| `rag.aquery(...)` | Async equivalent. |
-| `rag.astream(question, ...)` | `async for chunk in rag.astream(...): ...` — real token stream through `QueryPipeline.stream` → `DefaultGenerator.astream` → `LiteLLM.astream`. |
-
-### Diagnostics and conversation
-
-| API | Description |
-|---|---|
-| `rag.health()` | Returns a dict summarising every collaborator (see below). |
-| `rag.conversation_history(session_id, *, user=None, limit=50)` | Returns the most recent turns for a session scoped by the user's `user_id`/`email`. |
-| `rag.clear_conversation(session_id, *, user=None)` | Clear the conversation history for a session. |
-
-### Response shape
-
-`RAG.query` / `RAG.aquery` return a `CanonicalResponse` (`Response`):
-
-```python
-print(response)
-# answer:        str
-# citations:     list[Citation]
-# source_chunks: list[SearchResult]
-# structured:    dict[str, Any] | None   (set when response_model=... was used)
-# metadata:      dict
-```
-
-### Health shape
-
-`RAG.health()` returns:
-
-```python
-{
-    "status":       "ok",
-    "vector_store": "<class name>",
-    "embedder":     "<class name>",
-    "llm":          "<class name>",
-    "chunker":      "<class name>",
-    "converter":    "<class name>",
-    "telemetry":    "<class name>",
-    "structured":   "<class name>" | None,
-    "reranker":     "<class name>",
-}
-```
-
----
-
-## FastAPI surface
-
-`uvicorn raghub.api:App.create --factory` mounts the
-following endpoints. All endpoints except `/health` require
-`Authorization: Bearer <session_token>`.
-
-### `GET /health`
-
-Service liveness probe. Delegates to `RagApplication.health()`.
-
-### `POST /auth/login`
-
-```json
-{"email": "alice@acme.com", "password": "password"}
-```
-
-Returns:
-
-```json
-{
-  "session_token": "...",
-  "user_email": "alice@acme.com",
-  "allowed_companies": ["Apple"]
-}
-```
-
-### `POST /auth/logout`
-
-Invalidate the current session. Returns `{"status": "logged_out"}`.
-
-### `POST /documents/upload`
-
-Multipart form with `file` (binary) and optional `company`
-(string override). Returns `202` with the new document metadata:
-
-```json
-{
-  "document_id": "...",
-  "version": "...",
-  "status": "...",
-  "company": "...",
-  "filename": "..."
-}
-```
-
-### `GET /documents`
-
-List documents visible to the calling user. Returns
-`{"documents": [<DocumentRecord>, ...]}`.
-
-### `GET /documents/{document_id}/status`
-
-Return the latest `DocumentRecord` for the given id.
-
-### `DELETE /documents/{document_id}`
-
-Delete a document and all of its chunks. **Admin-only.** Returns `204`.
-
-### `POST /query`
-
-```json
-{"question": "What was the total revenue in 2023?"}
-```
-
-Returns a typed `QueryResponse` (answer, citations, source chunks).
-
-### `GET /session/history`
-
-Returns `{"history": [<ConversationTurn>, ...]}` (oldest first).
-
-### `DELETE /session/history`
-
-Clear conversation history. Returns `204`.
-
-### `POST /ingest/async`
-
-Multipart form with `file`. Returns `{"job_id": "..."}`; the job is
-processed by the `Batch` mounted at
-`app.state.background_ingestion`.
-
-### `/admin/*`
-
-Admin-only routes mounted from `raghub.api.admin` (e.g. user CRUD,
-storage audit).
-
-### `GET /metrics`
-
-Prometheus scrape endpoint (when the optional
-`prometheus_client` instrumentation is enabled).
-
-### `POST /v1/feedback`
-
-Submit user feedback for a specific chunk. Records a positive or
-negative rating with an optional note.
-
-```json
-{
-  "chunk_id": "chunk-123",
-  "rating": "positive",
-  "note": "Highly relevant"
-}
-```
-
-Returns `201` with the feedback id:
-
-```json
-{
-  "feedback_id": "...",
-  "user_id": "alice@acme.com",
-  "chunk_id": "chunk-123",
-  "rating": "positive",
-  "tenant_id": "acme-corp",
-  "created_at": "2024-01-01T00:00:00Z"
-}
-```
-
-The `user_id` and `tenant_id` are resolved from the bearer token; the
-submitted values are ignored.
-
-### `GET /v1/feedback/{feedback_id}`
-
-Retrieve a single feedback record by id. Returns `404` if not found
-or not visible to the calling tenant.
-
-### `DELETE /v1/feedback/{feedback_id}`
-
-Delete a feedback record. The feedback must be owned by the calling
-tenant. Returns `204`.
-
-### `GET /v1/feedback/aggregate`
-
-Aggregate feedback for the calling tenant. Returns:
-
-```json
-{
-  "tenant_id": "acme-corp",
-  "positives": 42,
-  "negatives": 3,
-  "by_chunk": {
-    "chunk-123": {"positive": 5, "negative": 0},
-    "chunk-456": {"positive": 0, "negative": 2}
-  }
-}
-```
-
----
-
-## Rate limiting
-
-The HTTP surface applies a token-bucket rate limit per bearer token.
-The limiter is configured via `REVEX_RATELIMIT_PER_MINUTE` (default
-120) and `REVEX_RATELIMIT_BURST` (default 20).
-
-Every response includes:
-
-| Header | Description |
-|---|---|
-| `X-RateLimit-Limit` | The maximum number of requests permitted per minute. |
-| `X-RateLimit-Remaining` | The number of requests remaining in the current window. |
-| `X-RateLimit-Reset` | Unix timestamp when the window resets. |
-
-When the limit is exceeded, the server returns `429 Too Many Requests`
-with a `Retry-After` header (in seconds) and a JSON body:
-
-```json
-{"error": "rate_limit_exceeded", "retry_after": 5}
-```
-
----
-
-## Queue CLI sub-commands
-
-The CLI surface (under `raghub` / `python -m raghub.cli`) exposes the
-persistent queue as a standalone sub-app:
-
-```bash
-# Submit a job manually
-revex queue submit --kind ingest --payload '{"source": "..."}'
-
-# Start workers (foreground)
-revex queue run --workers 4
-
-# Inspect queue state
-revex queue stats --json
-revex queue list --status pending --limit 100
-
-# Drain dead-letter queue
-revex queue purge --status dead
-```
-
-All sub-commands exit with code 0 on success and a non-zero code on
-failure.
-
----
-
-## Models
-
-All public models live in `raghub.models`:
-
-```python
-from raghub.models import (
-    User,             # the principal carrying allowed_companies
-    Chunk, Document,           # canonical models
-    Bundle,           # OKF representation
-    Citation, SearchResult,
-    PipelineCtx, PipelineResult,
-    Result,
-    ConversationTurn,
-)
-```
-
-`User`:
-
-```python
-User(
-    user_id: str,
-    email: str,
-    allowed_companies: list[str] = [],
-    allowed_groups: list[str] = [],
-    is_admin: bool = False,
-    created_at: datetime | None = None,
-)
-```
+| `auth_error` | 401 |
+| `authorization_error` | 403 |
+| `configuration_error` | 500 (503 for `StoreUnavailableError`) |
+| `generation_error` | 502 |
+| `ingestion_error` | 400 |
+| `missing_dependency` | 500 |
+| `pipeline_error` | 500 |
+| `retrieval_error` | 502 |
+| `vector_store_error` | 500 |
+| `verification_error` | 400 |
+| `revex_error` | 500 |
+| `rate_limit` | 429 |
+
+## Route → auth matrix
+
+| Method | Path | JWT | PP | Role |
+|---|---|---|---|---|
+| GET | `/health` | | | |
+| GET | `/readyz` | | | |
+| POST | `/v1/auth/register` | | | |
+| POST | `/v1/auth/login` | | | |
+| POST | `/v1/auth/logout` | ✓ | | |
+| POST | `/v1/auth/password` | ✓ | ✓ | |
+| POST | `/v1/auth/reset` | ✓ | ✓ | admin/owner |
+| GET | `/v1/me` | ✓ | | |
+| PATCH | `/v1/me/strategy` | ✓ | | |
+| GET | `/v1/me/history` | ✓ | | |
+| POST | `/v1/query` | ✓ | | |
+| POST | `/v1/query/stream` | ✓ | | |
+| POST | `/v1/agent/run` | ✓ | | |
+| GET | `/v1/settings/llm` | ✓ | ✓ | |
+| PUT | `/v1/settings/llm` | ✓ | ✓ | |
+| GET | `/v1/documents` | ✓ | ✓ | |
+| POST | `/v1/documents` | ✓ | ✓ | |
+| POST | `/v1/documents/ingest-stream` | ✓ | ✓ | |
+| DELETE | `/v1/documents/:id` | ✓ | ✓ | owner |
+| GET/POST/DELETE | `/v1/documents/:id/principals` | ✓ | ✓ | owner/admin |
+| GET | `/v1/workspaces/members` | ✓ | ✓ | |
+| POST | `/v1/workspaces/members` | ✓ | ✓ | admin/owner |
+| PATCH/DELETE | `/v1/workspaces/members/:userId` | ✓ | ✓ | admin/owner |
+| POST | `/v1/feedback` | ✓ | ✓ | |
+| GET | `/v1/feedback` | ✓ | ✓ | member |
+| GET | `/v1/feedback/aggregate` | ✓ | ✓ | member |
+| GET/DELETE | `/v1/feedback/:id` | ✓ | ✓ | member |
+| GET | `/v1/audit` | ✓ | ✓ | admin/owner |
+| GET | `/v1/audit/kinds` | ✓ | ✓ | admin/owner |
+| GET | `/v1/stats` | ✓ | ✓ | |
+| GET | `/v1/admin/stats` | ✓ | ✓ | |
+| POST | `/v1/admin/vacuum` | ✓ | ✓ | |
+| GET | `/v1/tenants` | ✓ | ✓ | |
+| GET | `/v1/tenants/:id` | ✓ | ✓ | |
+| POST/GET/DELETE | `/v1/webhooks` | ✓ | ✓ | admin/owner |
+| GET | `/v1/diagnostics` | ✓ | | |
