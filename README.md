@@ -275,9 +275,10 @@ Guides, architecture notes, and reference live in [`docs/`](./docs):
 
 ## Contributing
 
-Want to improve Revex? See the [coding standards](./AGENTS.md) and
-[`CONTRIBUTING.md`](./CONTRIBUTING.md) for how to set up a development
-environment and submit changes.
+Want to improve Revex? See [`CONTRIBUTING.md`](./CONTRIBUTING.md),
+[`docs/guide/development.md`](./docs/guide/development.md), and the [Code of
+Conduct](./CODE_OF_CONDUCT.md) for how to set up a development environment
+and submit changes.
 
 ## Code of Conduct
 

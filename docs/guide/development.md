@@ -1,6 +1,6 @@
 # Development
 
-Guidelines for working inside the Revex monorepo. Mirrors `AGENTS.md`.
+Guidelines for working inside the Revex monorepo.
 
 ## Toolchain
 

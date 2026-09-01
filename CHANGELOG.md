@@ -453,7 +453,7 @@ checkpoint marker; see the commit log for the per-day work between
 
 ### Changed (BREAKING — R4)
 
-Per `AGENTS.md` rule R4, no aliases, shims, or deprecation period.
+Per the project R4 convention, no aliases, shims, or deprecation period.
 
 ### Added
 
@@ -473,7 +473,7 @@ Per `AGENTS.md` rule R4, no aliases, shims, or deprecation period.
 
 ### Changed (BREAKING — R4)
 
-Per `AGENTS.md` rule R4, no aliases, shims, or deprecation period.
+Per the project R4 convention, no aliases, shims, or deprecation period.
 
 ### Added
 
@@ -504,7 +504,7 @@ Per `AGENTS.md` rule R4, no aliases, shims, or deprecation period.
 
 ### Changed (BREAKING — R4)
 
-Per `AGENTS.md` rule R4 and the project policy, no aliases, shims,
+Per the project R4 convention and project policy, no aliases, shims,
 or deprecation period. Old names simply do not exist after this
 release.
 
